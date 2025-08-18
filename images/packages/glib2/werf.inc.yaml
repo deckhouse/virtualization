@@ -98,6 +98,13 @@ shell:
     patch -p1 -b --suffix .xvt < /patches/glib-2.75.4-alt-add-xvt.patch
     patch -p1 < /patches/glib-2.71.3-alt-lfs.patch
 
+    install -p -m644 /src/glib-compat.map glib/compat.map
+    install -p -m644 /src/glib-compat.lds glib/compat.lds
+    install -p -m644 /src/gobject-compat.map gobject/compat.map
+    install -p -m644 /src/gobject-compat.lds gobject/compat.lds
+    install -p -m644 /src/gio-compat.map gio/compat.map
+    install -p -m644 /src/gio-compat-2.57.lds gio/compat.lds
+
     meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
     meson compile -C _build
     meson install -C _build
