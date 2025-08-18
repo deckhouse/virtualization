@@ -111,7 +111,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
