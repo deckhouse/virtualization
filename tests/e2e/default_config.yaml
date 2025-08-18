@@ -34,6 +34,7 @@ testData:
   vmEvacuation: "/tmp/testdata/vm-evacuation"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   vmRestoreForce: "/tmp/testdata/vm-restore-force"
+  vmRestoreSafe: "/tmp/testdata/vm-restore-safe"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   ipam: "/tmp/testdata/ipam"

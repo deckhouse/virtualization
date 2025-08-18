@@ -152,6 +152,7 @@ type TestData struct {
 	VMEvacuation          string `yaml:"vmEvacuation"`
 	VMDiskAttachment      string `yaml:"vmDiskAttachment"`
 	VMRestoreForce        string `yaml:"vmRestoreForce"`
+	VMRestoreSafe         string `yaml:"vmRestoreSafe"`
 	VMVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
 	Sshkey                string `yaml:"sshKey"`
