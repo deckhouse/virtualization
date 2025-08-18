@@ -52,9 +52,7 @@ func (w VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr con
 		source.Kind(
 			mgr.GetCache(),
 			&virtv2.VirtualMachineMACAddressLease{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) []reconcile.Request {
-				var requests []reconcile.Request
-
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (requests []reconcile.Request) {
 				vmmacRef := lease.Spec.VirtualMachineMACAddressRef
 				if vmmacRef != nil {
 					if vmmacRef.Name != "" && vmmacRef.Namespace != "" {
@@ -67,42 +65,9 @@ func (w VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr con
 							},
 						}
 					}
-
-					if vmmacRef.Namespace != "" {
-						var vmmacs virtv2.VirtualMachineMACAddressList
-						if err := w.client.List(ctx, &vmmacs, client.InNamespace(vmmacRef.Namespace)); err != nil {
-							w.logger.Error(fmt.Sprintf("failed to list vmmacs in namespace %s: %s", vmmacRef.Namespace, err))
-							return nil
-						}
-
-						for _, vmmac := range vmmacs.Items {
-							requests = append(requests, reconcile.Request{
-								NamespacedName: types.NamespacedName{
-									Namespace: vmmac.Namespace,
-									Name:      vmmac.Name,
-								},
-							})
-						}
-						return requests
-					}
 				}
 
-				var vmmacs virtv2.VirtualMachineMACAddressList
-				if err := w.client.List(ctx, &vmmacs); err != nil {
-					w.logger.Error(fmt.Sprintf("failed to list vmmacs (cluster-wide): %s", err))
-					return nil
-				}
-
-				for _, vmmac := range vmmacs.Items {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Namespace: vmmac.Namespace,
-							Name:      vmmac.Name,
-						},
-					})
-				}
-
-				return requests
+				return
 			}),
 			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddressLease]{
 				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
