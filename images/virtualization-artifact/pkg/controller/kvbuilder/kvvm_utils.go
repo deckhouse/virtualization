@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -256,6 +257,10 @@ func ApplyVirtualMachineSpec(
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, vmmacs []*virtv2.VirtualMachineMACAddress) {
 	kvvm.ClearNetworkInterfaces()
 	kvvm.SetNetworkInterface(network.NameDefaultInterface, "")
+
+	sort.Slice(vmmacs, func(i, j int) bool {
+		return vmmacs[i].CreationTimestamp.Before(&vmmacs[j].CreationTimestamp)
+	})
 
 	var macAddresses []string
 	for _, vmmac := range vmmacs {

@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -48,25 +49,33 @@ type InterfaceStatus struct {
 type InterfaceSpecList []InterfaceSpec
 
 func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
+	sort.Slice(vmmacs, func(i, j int) bool {
+		return vmmacs[i].CreationTimestamp.Before(&vmmacs[j].CreationTimestamp)
+	})
+
 	var macAddresses []string
 	for _, vmmac := range vmmacs {
 		macAddresses = append(macAddresses, vmmac.Status.Address)
 	}
 
 	var networksSpec InterfaceSpecList
-	for id, network := range vmSpec.Networks {
+	macCounter := 0
+	for _, network := range vmSpec.Networks {
 		if network.Type == virtv2.NetworksTypeMain {
 			continue
 		}
-		if len(macAddresses) == 0 || id > len(macAddresses) {
+
+		if macCounter >= len(macAddresses) {
 			break
 		}
 
 		networksSpec = append(networksSpec, InterfaceSpec{
 			Type:          network.Type,
 			Name:          network.Name,
-			InterfaceName: generateInterfaceName(macAddresses[id-1], network.Type),
+			InterfaceName: generateInterfaceName(macAddresses[macCounter], network.Type),
 		})
+
+		macCounter++
 	}
 
 	return networksSpec
