@@ -88,7 +88,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineM
 
 	allocatedAddresses, err := s.allocator.GetAllocatedAddresses(ctx)
 	if err != nil {
-		err = fmt.Errorf("failed to get allcoated MAC addresses: %w", err)
+		err = fmt.Errorf("failed to get allocated MAC addresses: %w", err)
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
