@@ -156,9 +156,7 @@ func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.Vi
 
 	for _, bdRef := range vm.Status.BlockDeviceRefs {
 		if bdRef.Kind == virtv2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind) && bdRef.Name == vmbda.Spec.BlockDeviceRef.Name {
-			if bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name {
-				return true
-			}
+			return bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name
 		}
 	}
 
