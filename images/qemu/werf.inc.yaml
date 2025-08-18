@@ -127,7 +127,7 @@ libraries:
 - libaio-devel libselinux-devel libqpl-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
-- glib2-devel glib2
+- glib2-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -165,8 +165,6 @@ shell:
       {{ $builderDependencies.libraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
-  - |
-    apt-get remove --purge -y glib2-devel
   - |
     rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
     rpm -qa | sort > /packages.txt
