@@ -44,11 +44,9 @@ func (h *ProtectionHandler) Handle(_ context.Context, vmmac *virtv2.VirtualMachi
 
 	// 2. It is necessary to keep vmmac protected until we can unequivocally ensure that the resource is not in the Attached state.
 	attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
-	if attachedCondition.Status == metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmmac) {
-		return reconcile.Result{}, nil
+	if attachedCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(attachedCondition, vmmac) {
+		controllerutil.RemoveFinalizer(vmmac, virtv2.FinalizerMACAddressCleanup)
 	}
 
-	// 3. All checks have passed, the resource can be deleted.
-	controllerutil.RemoveFinalizer(vmmac, virtv2.FinalizerMACAddressCleanup)
 	return reconcile.Result{}, nil
 }
