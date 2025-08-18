@@ -81,7 +81,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineM
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseLost).
-			Message(fmt.Sprintf("The VirtualMachineMACAddressLease %q doesn't exist.", mac.AddressToLeaseName(vmmac.Status.Address)))
+			Message(fmt.Sprintf("VirtualMachineMACAddress lost its lease: VirtualMachineMACAddressLease %q should exist", mac.AddressToLeaseName(vmmac.Status.Address)))
 		s.recorder.Event(vmmac, corev1.EventTypeWarning, virtv2.ReasonFailed, fmt.Sprintf("The VirtualMachineMACAddressLease %q is lost.", mac.AddressToLeaseName(vmmac.Status.Address)))
 		return &reconcile.Result{}, nil
 	}
