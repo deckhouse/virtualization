@@ -85,6 +85,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		return reconcile.Result{}, err
 	}
 
+	// 'Main' network is always present but not require a MAC address.
 	expectedMACAddresses := len(vm.Spec.Networks) - 1
 
 	kvvm, err := s.KVVM(ctx)
