@@ -42,7 +42,7 @@ spec:
                     Назначенный MAC-адрес.
                 phase:
                   description: |
-                    Представляет текущее состояние ресурса `VirtualMachineMACAddress`.
+                    Представляет текущее состояние ресурса `VirtualMachineMACAddress`. Возможные значения:
 
                     * `Pending` — ресурс создается.
                     * `Bound` — ресурс `VirtualMachineMACAddress` привязан к ресурсу `VirtualMachineMACAddressLease`.
