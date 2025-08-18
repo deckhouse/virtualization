@@ -45,7 +45,6 @@ shell:
   - |
     # Install packages
     PKGS="{{ $images | join " " }}"
-    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
