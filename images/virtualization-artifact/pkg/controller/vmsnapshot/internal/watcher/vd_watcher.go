@@ -55,6 +55,17 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualDisk]) bool { return false },
 				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualDisk]) bool { return false },
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
+					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
+					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+
+					if oldInUseCondition != newInUseCondition {
+						return true
+					}
+
 					oldResized, _ := conditions.GetCondition(vdcondition.ResizingType, e.ObjectOld.Status.Conditions)
 					newResized, _ := conditions.GetCondition(vdcondition.ResizingType, e.ObjectNew.Status.Conditions)
 
