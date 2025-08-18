@@ -16,7 +16,8 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools
-- libblkid-devel libuuid-devel libarchive-devel acl
+- libuuid-devel libarchive-devel acl
+- glib2-devel
 - tree
 {{- end -}}
 
@@ -28,6 +29,9 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+{{- $images := list "libblkid" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -39,6 +43,14 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    PKGS+=" qemu-img"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
