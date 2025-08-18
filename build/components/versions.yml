@@ -14,7 +14,7 @@ package:
   e2fsprogs: v1.47.1
   file: FILE5_45
   gcc: releases/gcc-14.2.0
-  glib2: 2.82.5
+  glib2: 2.84.2
   glibc: glibc-2.38
   libgmp: 6.3.0
   gnutls: 3.8.6
