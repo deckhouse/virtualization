@@ -1,0 +1,19 @@
+--- gio/glib-compile-schemas.c.orig	2017-08-07 18:05:30.046206428 +0000
++++ gio/glib-compile-schemas.c	2017-08-07 18:12:28.494226253 +0000
+@@ -1219,6 +1219,7 @@
+       return;
+     }
+ 
++/*
+   if (path && (g_str_has_prefix (path, "/apps/") ||
+                g_str_has_prefix (path, "/desktop/") ||
+                g_str_has_prefix (path, "/system/")))
+@@ -1231,7 +1232,7 @@
+       g_printerr ("%s\n", message);
+       g_free (message);
+     }
+-
++*/
+   state->schema_state = schema_state_new (path, gettext_domain,
+                                           extends, extends_name, list_of);
+ 
