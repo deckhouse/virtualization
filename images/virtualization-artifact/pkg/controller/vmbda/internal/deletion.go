@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -85,6 +86,10 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 }
 
 func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+	if kvvm == nil {
+		return reconcile.Result{}, errors.New("intvirtvm not found to unplug")
+	}
+
 	var blockDeviceName string
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case virtv2.VMBDAObjectRefKindVirtualDisk:
@@ -96,9 +101,7 @@ func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachin
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
-	if kvvm != nil {
-		log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
-	}
+	log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
 	err := h.unplug.UnplugDisk(ctx, kvvm, blockDeviceName)
 	if err != nil {
 		switch {
