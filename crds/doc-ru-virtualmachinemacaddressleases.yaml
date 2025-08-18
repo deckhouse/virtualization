@@ -35,8 +35,8 @@ spec:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
                       observedGeneration:
                         description: |
-                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
-                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
+                          `observedGeneration` представляет собой `.metadata.generation`, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
