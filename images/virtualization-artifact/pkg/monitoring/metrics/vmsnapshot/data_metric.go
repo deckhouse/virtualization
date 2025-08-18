@@ -17,19 +17,14 @@ limitations under the License.
 package vmsnapshot
 
 import (
-	"strings"
-
-	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
-	Name        string
-	Namespace   string
-	UID         string
-	Phase       virtv2.VirtualMachineSnapshotPhase
-	Labels      map[string]string
-	Annotations map[string]string
+	Name      string
+	Namespace string
+	UID       string
+	Phase     virtv2.VirtualMachineSnapshotPhase
 }
 
 // DO NOT mutate VirtualMachineSnapshot!
@@ -43,12 +38,6 @@ func newDataMetric(vms *virtv2.VirtualMachineSnapshot) *dataMetric {
 		Namespace: vms.Namespace,
 		UID:       string(vms.UID),
 		Phase:     vms.Status.Phase,
-		Labels: promutil.WrapPrometheusLabels(vms.GetLabels(), "label", func(key, value string) bool {
-			return false
-		}),
-		Annotations: promutil.WrapPrometheusLabels(vms.GetAnnotations(), "annotation", func(key, _ string) bool {
-			return strings.HasPrefix(key, "kubectl.kubernetes.io")
-		}),
 	}
 }
 

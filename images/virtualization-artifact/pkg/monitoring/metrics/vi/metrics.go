@@ -24,8 +24,6 @@ import (
 
 const (
 	MetricVirtualImageStatusPhase = "virtualimage_status_phase"
-	MetricVirtualImageLabels      = "virtualimage_labels"
-	MetricVirtualImageAnnotations = "virtualimage_annotations"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
@@ -52,20 +50,6 @@ var viMetrics = map[string]metrics.MetricInfo{
 		"The virtualimage current phase.",
 		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
-		nil,
-	),
-
-	MetricVirtualImageLabels: metrics.NewMetricInfo(MetricVirtualImageLabels,
-		"Kubernetes labels converted to Prometheus labels.",
-		prometheus.GaugeValue,
-		WithBaseLabels(),
-		nil,
-	),
-
-	MetricVirtualImageAnnotations: metrics.NewMetricInfo(MetricVirtualImageAnnotations,
-		"Kubernetes annotations converted to Prometheus labels.",
-		prometheus.GaugeValue,
-		WithBaseLabels(),
 		nil,
 	),
 }

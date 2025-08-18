@@ -17,18 +17,13 @@ limitations under the License.
 package cvi
 
 import (
-	"strings"
-
-	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
-	Name        string
-	UID         string
-	Phase       virtv2.ImagePhase
-	Labels      map[string]string
-	Annotations map[string]string
+	Name  string
+	UID   string
+	Phase virtv2.ImagePhase
 }
 
 // DO NOT mutate ClusterVirtualImage!
@@ -41,12 +36,6 @@ func newDataMetric(cvi *virtv2.ClusterVirtualImage) *dataMetric {
 		Name:  cvi.Name,
 		UID:   string(cvi.UID),
 		Phase: cvi.Status.Phase,
-		Labels: promutil.WrapPrometheusLabels(cvi.GetLabels(), "label", func(key, value string) bool {
-			return false
-		}),
-		Annotations: promutil.WrapPrometheusLabels(cvi.GetAnnotations(), "annotation", func(key, _ string) bool {
-			return strings.HasPrefix(key, "kubectl.kubernetes.io")
-		}),
 	}
 }
 

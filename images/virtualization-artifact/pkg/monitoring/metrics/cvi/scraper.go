@@ -23,7 +23,6 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,8 +37,6 @@ type scraper struct {
 
 func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricClusterVirtualImageStatusPhase(m)
-	s.updateMetricClusterVirtualImageLabels(m)
-	s.updateMetricClusterVirtualImageAnnotations(m)
 }
 
 func (s *scraper) updateMetricClusterVirtualImageStatusPhase(m *dataMetric) {
@@ -65,14 +62,6 @@ func (s *scraper) updateMetricClusterVirtualImageStatusPhase(m *dataMetric) {
 	}
 }
 
-func (s *scraper) updateMetricClusterVirtualImageLabels(m *dataMetric) {
-	s.updateDynamic(MetricClusterVirtualImageLabels, 1, m, nil, m.Labels)
-}
-
-func (s *scraper) updateMetricClusterVirtualImageAnnotations(m *dataMetric) {
-	s.updateDynamic(MetricClusterVirtualImageAnnotations, 1, m, nil, m.Annotations)
-}
-
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
 	info := cviMetrics[descName]
 	metric, err := prometheus.NewConstMetric(
@@ -83,22 +72,6 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 	)
 	if err != nil {
 		s.log.Warn(fmt.Sprintf("Error creating the new const dataMetric for %s: %s", info.Desc, err))
-		return
-	}
-	s.ch <- metric
-}
-
-func (s *scraper) updateDynamic(name string, value float64, m *dataMetric, labelValues []string, extraLabels prometheus.Labels) {
-	info := cviMetrics[name]
-	metric, err := promutil.NewDynamicMetric(
-		info.Desc,
-		info.Type,
-		value,
-		WithBaseLabelsByMetric(m, labelValues...),
-		extraLabels,
-	)
-	if err != nil {
-		s.log.Warn(fmt.Sprintf("Error creating the new dynamic dataMetric for %s: %s", info.Desc, err))
 		return
 	}
 	s.ch <- metric

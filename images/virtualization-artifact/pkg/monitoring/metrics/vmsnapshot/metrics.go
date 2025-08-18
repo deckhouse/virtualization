@@ -24,8 +24,6 @@ import (
 
 const (
 	MetricVMSnapshotStatusPhase = "virtualmachinesnapshot_status_phase"
-	MetricVMSnapshotLabels      = "virtualmachinesnapshot_labels"
-	MetricVMSnapshotAnnotations = "virtualmachinesnapshot_annotations"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
@@ -52,20 +50,6 @@ var vmsnapshotMetrics = map[string]metrics.MetricInfo{
 		"The virtualmachinesnapshot current phase.",
 		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
-		nil,
-	),
-
-	MetricVMSnapshotLabels: metrics.NewMetricInfo(MetricVMSnapshotLabels,
-		"Kubernetes labels converted to Prometheus labels.",
-		prometheus.GaugeValue,
-		WithBaseLabels(),
-		nil,
-	),
-
-	MetricVMSnapshotAnnotations: metrics.NewMetricInfo(MetricVMSnapshotAnnotations,
-		"Kubernetes annotations converted to Prometheus labels.",
-		prometheus.GaugeValue,
-		WithBaseLabels(),
 		nil,
 	),
 }
