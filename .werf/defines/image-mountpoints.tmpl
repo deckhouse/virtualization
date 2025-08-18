@@ -3,7 +3,7 @@
 {{- define "image mount points" }}
   {{- $mountPoints := ($.Files.Get (printf "images/%s/mount-points.yaml" $.ImageName) | fromYaml) }}
   {{- range $v := $mountPoints.dirs }}
-- add: /tools/mounts/mountdir
+- add: {{ .ModuleDir }}/tools/mounts/mountdir
   to: {{ $v }}
   owner: 64535
   group: 64535
