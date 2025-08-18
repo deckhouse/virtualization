@@ -17,10 +17,6 @@ limitations under the License.
 package kubeclient
 
 import (
-	"context"
-	"io"
-	"net"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,7 +27,6 @@ import (
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	coreinstall "github.com/deckhouse/virtualization/api/core/install"
 	subinstall "github.com/deckhouse/virtualization/api/subresources/install"
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 var (
@@ -56,7 +51,7 @@ func init() {
 
 type Client interface {
 	ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface
-	VirtualMachines(namespace string) VirtualMachineInterface
+	VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface
 	VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface
 	VirtualDisks(namespace string) virtualizationv1alpha2.VirtualDiskInterface
 	VirtualMachineBlockDeviceAttachments(namespace string) virtualizationv1alpha2.VirtualMachineBlockDeviceAttachmentInterface
@@ -65,28 +60,6 @@ type Client interface {
 	VirtualMachineOperations(namespace string) virtualizationv1alpha2.VirtualMachineOperationInterface
 	VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface
 }
-type StreamOptions struct {
-	In  io.Reader
-	Out io.Writer
-}
-
-type StreamInterface interface {
-	Stream(options StreamOptions) error
-	AsConn() net.Conn
-}
-
-type VirtualMachineInterface interface {
-	virtualizationv1alpha2.VirtualMachineInterface
-	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
-	VNC(name string) (StreamInterface, error)
-	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
-	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
-	Unfreeze(ctx context.Context, name string) error
-	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
-	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
-	CancelEvacuation(ctx context.Context, name string, dryRun []string) error
-}
-
 type client struct {
 	config      *rest.Config
 	shallowCopy *rest.Config
@@ -94,7 +67,7 @@ type client struct {
 	virtClient  *versioned.Clientset
 }
 
-func (c client) VirtualMachines(namespace string) VirtualMachineInterface {
+func (c client) VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface {
 	return &vm{
 		VirtualMachineInterface: c.virtClient.VirtualizationV1alpha2().VirtualMachines(namespace),
 		restClient:              c.restClient,

@@ -59,5 +59,4 @@ regexpLogFilter:
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io
   - virtualmachineclasses.virtualization.deckhouse.io
-  - replicatedstorageclasses.storage.deckhouse.io
   - virtualmachineipaddressleases.virtualization.deckhouse.io

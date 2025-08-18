@@ -1,3 +1,4 @@
+{{- if eq (include "virtualization-controller.isEnabled" .) "true" }}
 ---
 apiVersion: v1
 kind: Service
@@ -21,3 +22,4 @@ spec:
       targetPort: pprof
   selector:
     app: virtualization-controller
+{{- end }}

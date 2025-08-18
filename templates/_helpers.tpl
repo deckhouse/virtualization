@@ -50,3 +50,19 @@ nodeSelector:
   node-role.kubernetes.io/control-plane: ""
 {{-   end }}
 {{- end }}
+
+{{- /* Return logLevel as a string. */}}
+{{- define "moduleLogLevel" -}}
+{{- dig "logLevel" "" .Values.virtualization -}}
+{{- end }}
+
+{{- /* Return logFormat as a string. */}}
+{{- define "moduleLogFormat" -}}
+{{- dig "logFormat" "" .Values.virtualization -}}
+{{- end }}
+
+{{- define "hasValidModuleConfig" -}}
+{{- if (hasKey .Values.virtualization.internal "moduleConfig" ) -}}
+true
+{{- end }}
+{{- end }}

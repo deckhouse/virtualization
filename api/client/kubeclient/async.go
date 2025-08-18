@@ -30,6 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 )
 
 type AsyncSubresourceError struct {
@@ -69,7 +71,7 @@ func asyncSubresourceHelper(
 	config *rest.Config,
 	resource, namespace, name, subresource string,
 	queryParams url.Values,
-) (StreamInterface, error) {
+) (virtualizationv1alpha2.StreamInterface, error) {
 	done := make(chan struct{})
 
 	aws := &asyncWSRoundTripper{

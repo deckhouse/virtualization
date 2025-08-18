@@ -52,7 +52,7 @@ func TestMigratevirtHandlerKVMLabels(t *testing.T) {
 var _ = Describe("Migrate virtHandler KVM labels", func() {
 	var (
 		snapshots      *mock.SnapshotsMock
-		values         *mock.PatchableValuesCollectorMock
+		values         *mock.OutputPatchableValuesCollectorMock
 		patchCollector *mock.PatchCollectorMock
 		input          *pkg.HookInput
 		buf            *bytes.Buffer

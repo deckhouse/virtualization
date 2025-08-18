@@ -61,31 +61,12 @@ shell:
       ' > /images_digests.json
       cat images_digests.json
 ---
-image: python-dependencies
-fromImage: builder/alt
-git:
-  - add: /lib/python/requirements-release.txt
-    to: /requirements-release.txt
-    stageDependencies:
-      setup:
-        - '*'
-shell:
-  beforeInstall:
-    - apt-get update
-    - apt-get install -y python3 python3-module-pip-run
-  setup:
-    - pip3 install -r /requirements-release.txt -t /dist
----
 image: bundle
 fromImage: builder/scratch
 import:
   - image: images-digests
     add: /images_digests.json
     to: /images_digests.json
-    after: setup
-  - image: python-dependencies
-    add: /dist
-    to: /lib/python/dist
     after: setup
   - image: go-hooks-artifact
     add: /go-hooks
@@ -99,7 +80,6 @@ git:
       - crds
       - build/components
       - docs
-      - hooks
       - openapi
       - monitoring
       - templates
@@ -108,10 +88,6 @@ git:
       - .helmignore
     excludePaths:
       - build/components/README.md
-      - hooks/lib/tests
-      - hooks/test*
-      - hooks/Taskfile*
-      - hooks/**/__pycache__
       - docs/images/*.drawio
       - docs/images/*.sh
       - openapi/openapi-case-tests.yaml

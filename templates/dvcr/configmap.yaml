@@ -1,3 +1,4 @@
+{{- if eq (include "dvcr.isEnabled" . ) "true"}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -27,3 +28,4 @@ data:
         enabled: true
         interval: 10s
         threshold: 3
+{{- end }}

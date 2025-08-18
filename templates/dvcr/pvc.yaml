@@ -1,5 +1,6 @@
-{{- if eq .Values.virtualization.dvcr.storage.type "PersistentVolumeClaim" }}
-{{- $storageClassName := dig "storageClassName" "" .Values.virtualization.dvcr.storage.persistentVolumeClaim }}
+{{- if eq (include "dvcr.isEnabled" . ) "true"}}
+{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- $storageClassName := dig "storageClassName" "" .Values.virtualization.internal.moduleConfig.dvcr.storage.persistentVolumeClaim }}
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
@@ -11,8 +12,9 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.virtualization.dvcr.storage.persistentVolumeClaim.size | quote }}
+      storage: {{ .Values.virtualization.internal.moduleConfig.dvcr.storage.persistentVolumeClaim.size | quote }}
   {{- if ne $storageClassName "" }}
   storageClassName: {{ $storageClassName }}
   {{- end }}
+{{- end }}
 {{- end }}
