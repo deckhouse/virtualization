@@ -127,7 +127,7 @@ libraries:
 - libaio-devel libselinux-devel libqpl-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
-- glib2-devel
+- glib2-devel glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
