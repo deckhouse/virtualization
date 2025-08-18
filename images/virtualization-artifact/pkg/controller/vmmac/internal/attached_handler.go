@@ -108,7 +108,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 	}
 
 	if attachedVM == nil {
-		// If there's no match for the spec either, then try to find the vm by ownerRef.
+		// Try to find the vm by ownerRef if there is no match among vm statuses.
 		var vmName string
 		for _, ownerRef := range vmmac.OwnerReferences {
 			if ownerRef.Kind == virtv2.VirtualMachineKind &&
