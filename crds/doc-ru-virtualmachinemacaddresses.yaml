@@ -44,7 +44,7 @@ spec:
                   description: |
                     Представляет текущее состояние ресурса `VirtualMachineMACAddress`.
 
-                    * Pending — создание ресурса находится в процессе выполнения.
+                    * `Pending` — ресурс создается.
                     * `Bound` — ресурс `VirtualMachineMACAddress` привязан к ресурсу `VirtualMachineMACAddressLease`.
                     * `Attached` — ресурс `VirtualMachineMACAddress` подключен к ресурсу `VirtualMachine`.
                 virtualMachineName:
