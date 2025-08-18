@@ -46,9 +46,9 @@ spec:
                         description: Тип условия.
                 phase:
                   description: |
-                    Представляет текущее состояние ресурса `VirtualMachineMACAddressLease`.
+                    Представляет текущее состояние ресурса `VirtualMachineMACAddressLease`. Возможные значения:
 
-                    * Bound - ресурс `VirtualMachineMACAddressLease` привязан к ресурсу `VirtualMachineMACAddress`.
+                    * `Bound` — ресурс `VirtualMachineMACAddressLease` привязан к ресурсу `VirtualMachineMACAddress`.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.
