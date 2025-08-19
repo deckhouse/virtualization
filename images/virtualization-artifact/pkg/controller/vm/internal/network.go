@@ -121,7 +121,9 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 
 	vmmacNamesByAddress := make(map[string]string)
 	for _, vmmac := range vmmacs {
-		vmmacNamesByAddress[vmmac.Status.Address] = vmmac.Name
+		if mac := vmmac.Status.Address; mac != "" {
+			vmmacNamesByAddress[vmmac.Status.Address] = vmmac.Name
+		}
 	}
 
 	networksStatus := []virtv2.NetworksStatus{
