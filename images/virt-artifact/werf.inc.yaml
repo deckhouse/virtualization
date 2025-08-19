@@ -137,9 +137,13 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/`) | nindent 6 }}
 
     - echo ============== Build virt-handler =====================
+    {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-handler") }}
+    - go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
+    {{- else }}
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-handler" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | nindent 6 }}
+    {{- end }}
 
     - echo ============== Build virt-launcher-monitor ============
     - export CGO_ENABLED=0
