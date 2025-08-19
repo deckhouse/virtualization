@@ -44,7 +44,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	// 2. It is necessary to protect the resource until we can unequivocally ensure that the resource is in not Bound state.
+	// 2. It is necessary to protect the resource until we can unequivocally ensure that the resource is not in the Bound state.
 	boundCondition, _ := conditions.GetCondition(vmmaclcondition.BoundType, lease.Status.Conditions)
 	if boundCondition.Status != metav1.ConditionTrue && conditions.IsLastUpdated(boundCondition, lease) {
 		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
