@@ -105,6 +105,14 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 		if found {
 			break
 		}
+
+		if attachedVM == nil {
+			for _, ns := range vm.Spec.Networks {
+				if ns.VirtualMachineMACAddressName == vmmac.Name {
+					attachedVM = &vm
+				}
+			}
+		}
 	}
 
 	if attachedVM == nil {

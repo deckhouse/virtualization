@@ -558,6 +558,10 @@ spec:
                       name:
                         description: |
                           Имя сетевого интерфейса.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          Имя ресурса `VirtualMachineMACAddress`, связанного с сетевым интерфейсом.
             status:
               properties:
                 blockDeviceRefs:

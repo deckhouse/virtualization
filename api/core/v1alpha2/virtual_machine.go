@@ -261,8 +261,9 @@ const (
 )
 
 type NetworksSpec struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type                         string `json:"type"`
+	Name                         string `json:"name"`
+	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName"`
 }
 
 const (
