@@ -22,13 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -108,58 +104,20 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 	}
 
 	if attachedVM == nil {
-		// Try to find the vm by ownerRef if there is no match among vm statuses.
-		var vmName string
-		for _, ownerRef := range vmmac.OwnerReferences {
-			if ownerRef.Kind == virtv2.VirtualMachineKind &&
-				string(ownerRef.UID) == vmmac.Labels[annotations.LabelVirtualMachineUID] {
-				vmName = ownerRef.Name
+		for _, vm := range vms.Items {
+			if attachedVM == nil {
+				for _, ns := range vm.Spec.Networks {
+					if ns.VirtualMachineMACAddressName == vmmac.Name {
+						attachedVM = &vm
+					}
+				}
+			}
+
+			if found {
 				break
 			}
-		}
-
-		if vmName == "" {
-			return nil, nil
-		}
-
-		vmKey := types.NamespacedName{Name: vmName, Namespace: vmmac.Namespace}
-		attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &virtv2.VirtualMachine{})
-		if err != nil {
-			return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
-		}
-	}
-
-	if attachedVM != nil {
-		isUsed, err := h.checkUsageMACAddressInKVVM(ctx, attachedVM, vmmac.Status.Address)
-		if err != nil {
-			return nil, fmt.Errorf("check usage mac address: %w", err)
-		}
-
-		if !isUsed {
-			attachedVM = nil
 		}
 	}
 
 	return attachedVM, nil
-}
-
-func (h *AttachedHandler) checkUsageMACAddressInKVVM(ctx context.Context, vm *virtv2.VirtualMachine, macAddress string) (bool, error) {
-	// check usage in kvvm
-	kvvmKey := types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}
-	kvvm, err := object.FetchObject(ctx, kvvmKey, h.client, &virtv1.VirtualMachine{})
-	if err != nil {
-		return false, fmt.Errorf("fetch kvvm %s: %w", kvvmKey, err)
-	}
-
-	if kvvm != nil && kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusStopped {
-		for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
-			if iface.MacAddress == macAddress {
-				return true, nil
-			}
-		}
-
-		return false, nil
-	}
-
-	return true, nil
 }

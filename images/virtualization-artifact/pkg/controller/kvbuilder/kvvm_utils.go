@@ -262,13 +262,11 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 }
 
 func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) error {
-	if len(networkSpec) > 1 {
-		networkConfig := networkSpec
-		networkConfigStr, err := networkConfig.ToString()
-		if err != nil {
-			return err
-		}
-		kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
+	networkConfig := networkSpec
+	networkConfigStr, err := networkConfig.ToString()
+	if err != nil {
+		return err
 	}
+	kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
 	return nil
 }

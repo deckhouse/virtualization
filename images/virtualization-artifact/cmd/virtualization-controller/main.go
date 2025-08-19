@@ -133,9 +133,6 @@ func main() {
 	var virtControllerName string
 	pflag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
 
-	var clusterUUID string
-	pflag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
-
 	var leaderElection bool
 	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
 

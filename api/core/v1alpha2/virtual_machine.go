@@ -261,8 +261,9 @@ const (
 )
 
 type NetworksSpec struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
+	Type                         string `json:"type"`
+	Name                         string `json:"name,omitempty"`
+	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
 }
 
 const (
@@ -422,9 +423,9 @@ type Versions struct {
 
 type NetworksStatus struct {
 	Type                         string `json:"type"`
-	Name                         string `json:"name"`
-	MAC                          string `json:"macAddress"`
-	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName"`
+	Name                         string `json:"name,omitempty"`
+	MAC                          string `json:"macAddress,omitempty"`
+	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
 }
 
 // MachinePhase defines current phase of the virtual machine:

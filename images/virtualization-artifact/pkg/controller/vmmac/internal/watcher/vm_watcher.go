@@ -58,6 +58,12 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 				vmmacNames := make(map[string]struct{})
 
 				if len(vm.Status.Networks) > 0 {
+					for _, nc := range vm.Spec.Networks {
+						if nc.VirtualMachineMACAddressName != "" {
+							vmmacNames[nc.VirtualMachineMACAddressName] = struct{}{}
+						}
+					}
+
 					for _, nc := range vm.Status.Networks {
 						if nc.VirtualMachineMACAddressName != "" {
 							vmmacNames[nc.VirtualMachineMACAddressName] = struct{}{}

@@ -92,17 +92,21 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
 	if len(vmmacs) < expectedMACAddresses {
+		createdCount := 0
 		if kvvm != nil && len(vmmacs) == 0 {
 			for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
-				err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
-				if err != nil {
-					return reconcile.Result{}, err
+				if strings.HasPrefix(iface.Name, "veth_") {
+					err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
+					createdCount++
+					if err != nil {
+						return reconcile.Result{}, err
+					}
 				}
 			}
-		} else {
-			macsToCreate := expectedMACAddresses - len(vmmacs)
+		}
+		if createdCount < expectedMACAddresses {
+			macsToCreate := countNetworksWithMACRequest(vm.Spec.Networks, vmmacs) - createdCount
 			for i := 0; i < macsToCreate; i++ {
 				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
 				if err != nil {
@@ -162,4 +166,26 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 
 func (h *MACHandler) Name() string {
 	return nameMACHandler
+}
+
+func countNetworksWithMACRequest(networkSpec []virtv2.NetworksSpec, vmmacs []*virtv2.VirtualMachineMACAddress) int {
+	existingMACNames := make(map[string]bool)
+	for _, vmmac := range vmmacs {
+		existingMACNames[vmmac.Name] = true
+	}
+
+	count := 0
+	for _, ns := range networkSpec {
+		if ns.Type != virtv2.NetworksTypeMain {
+			continue
+		}
+
+		if ns.VirtualMachineMACAddressName == "" {
+			count++
+		} else if !existingMACNames[ns.VirtualMachineMACAddressName] {
+			count++
+		}
+	}
+
+	return count
 }
