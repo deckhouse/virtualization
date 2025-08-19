@@ -136,14 +136,17 @@ shell:
 
   install:
   - |
+    echo /lib64/libblk BEFORE INSTALL
+    ls -la /lib64/libblk*
     # Install packages
     PKGS="{{ $images | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /
+      cp -af /$pkg/. /
       rm -rf /$pkg
     done
-
+    echo /lib64/libblk AFTER INSTALL
+    ls -la /lib64/libblk*
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
