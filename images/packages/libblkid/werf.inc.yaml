@@ -69,6 +69,7 @@ shell:
       --libdir=/usr/lib64 \
       --enable-libblkid \
       --enable-libmount \
+      --disable-all-programs \
       --enable-shared \
       --disable-static \
       --disable-examples
