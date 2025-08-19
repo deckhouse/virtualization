@@ -77,7 +77,6 @@ func (h *BoundHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachineM
 
 	return steptaker.NewStepTakers[*virtv2.VirtualMachineMACAddress](
 		step.NewBindStep(lease, cb),
-		step.NewTakeLeaseStep(lease, h.client, cb, h.recorder),
 		step.NewCreateLeaseStep(lease, h.macService, h.client, cb, h.recorder),
 	).Run(ctx, vmmac)
 }

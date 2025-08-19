@@ -118,72 +118,9 @@ var _ = Describe("BoundHandler", func() {
 		})
 	})
 
-	Context("IP address is already assigned", func() {
+	Context("MAC address is already assigned", func() {
 		BeforeEach(func() {
 			vmmac.Status.Address = macAddress
-		})
-
-		It("takes existing released lease", func() {
-			var leaseUpdated bool
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
-				lease.Spec.VirtualMachineMACAddressRef = nil
-				return lease, nil
-			}
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().
-				WithInterceptorFuncs(interceptor.Funcs{
-					Update: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.UpdateOption) error {
-						updatedLease, ok := obj.(*virtv2.VirtualMachineMACAddressLease)
-						Expect(ok).To(BeTrue())
-						Expect(updatedLease.Spec.VirtualMachineMACAddressRef).NotTo(BeNil())
-						Expect(updatedLease.Spec.VirtualMachineMACAddressRef.Name).To(Equal(vmmac.Name))
-						Expect(updatedLease.Spec.VirtualMachineMACAddressRef.Namespace).To(Equal(vmmac.Namespace))
-						Expect(updatedLease.Labels[annotations.LabelVirtualMachineMACAddressUID]).To(Equal(string(vmmac.UID)))
-						leaseUpdated = true
-						return nil
-					},
-				}).Build()
-
-			h := NewBoundHandler(svc, k8sClient, recorderMock)
-			res, err := h.Handle(ctx, vmmac)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
-
-			ExpectCondition(vmmac, metav1.ConditionFalse, vmmaccondition.VirtualMachineMACAddressLeaseNotReady, true)
-			Expect(vmmac.Status.Address).To(Equal(macAddress))
-			Expect(leaseUpdated).To(BeTrue())
-		})
-
-		It("cannot take existing lease: it's bound to another vmmac", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
-				lease.Spec.VirtualMachineMACAddressRef = &virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
-					Namespace: vmmac.Namespace,
-					Name:      "another-vmmac",
-				}
-				return lease, nil
-			}
-			h := NewBoundHandler(svc, nil, recorderMock)
-			res, err := h.Handle(ctx, vmmac)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
-
-			ExpectCondition(vmmac, metav1.ConditionFalse, vmmaccondition.VirtualMachineMACAddressLeaseNotReady, true)
-			Expect(vmmac.Status.Address).To(Equal(macAddress))
-		})
-
-		It("cannot take existing lease: it belongs to different namespace", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
-				lease.Spec.VirtualMachineMACAddressRef = &virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
-					Namespace: vmmac.Namespace + "-different",
-				}
-				return lease, nil
-			}
-			h := NewBoundHandler(svc, nil, recorderMock)
-			res, err := h.Handle(ctx, vmmac)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
-
-			ExpectCondition(vmmac, metav1.ConditionFalse, vmmaccondition.VirtualMachineMACAddressLeaseNotReady, true)
-			Expect(vmmac.Status.Address).To(Equal(macAddress))
 		})
 
 		It("is lost", func() {

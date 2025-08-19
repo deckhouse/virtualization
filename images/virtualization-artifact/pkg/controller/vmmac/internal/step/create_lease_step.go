@@ -67,15 +67,6 @@ func NewCreateLeaseStep(
 }
 
 func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*reconcile.Result, error) {
-	if s.lease != nil {
-		err := fmt.Errorf("the VirtualMachineMACAddressLease %q already exists, no need to create a new one, please report this as a bug", vmmac.Name)
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
-		return nil, err
-	}
-
 	// 1. Check if MAC address has been already allocated but lost.
 	if vmmac.Status.Address != "" {
 		s.cb.

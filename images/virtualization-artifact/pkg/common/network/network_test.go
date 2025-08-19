@@ -162,7 +162,6 @@ var _ = Describe("Network Config Generation", func() {
 		vmmac4 := newMACAddress("mac4", "00:1A:2B:3C:4D:7F", virtv2.VirtualMachineMACAddressPhaseAttached, "vm1")
 		vmmacs = append(vmmacs, vmmac1, vmmac2, vmmac3, vmmac4)
 
-		// Spec: два name1, потом новый name2, потом ещё один name1
 		vm.Spec.Networks = []virtv2.NetworksSpec{
 			{
 				Type: virtv2.NetworksTypeMain,
@@ -200,5 +199,68 @@ var _ = Describe("Network Config Generation", func() {
 
 		Expect(configs[2].Name).To(Equal("name2"))
 		Expect(configs[2].MAC).To(Equal("00:1A:2B:3C:4D:7F"))
+	})
+
+	It("should preserve MAC order when delete network", func() {
+		vm.Status.Networks = []virtv2.NetworksStatus{
+			{
+				Type: virtv2.NetworksTypeMain,
+			},
+			{
+				Type: virtv2.NetworksTypeNetwork,
+				Name: "name1",
+				MAC:  "00:1A:2B:3C:4D:5E",
+			},
+			{
+				Name: "name1",
+				MAC:  "00:1A:2B:3C:4D:5F",
+			},
+			{
+				Type: virtv2.NetworksTypeNetwork,
+				Name: "name2",
+				MAC:  "00:1A:2B:3C:4D:7F",
+			},
+			{
+				Name: "name1",
+				MAC:  "00:1A:2B:3C:4D:6A",
+			},
+		}
+
+		vmmac1 := newMACAddress("mac1", "00:1A:2B:3C:4D:5E", virtv2.VirtualMachineMACAddressPhaseAttached, "vm1")
+		vmmac2 := newMACAddress("mac2", "00:1A:2B:3C:4D:5F", virtv2.VirtualMachineMACAddressPhaseAttached, "vm1")
+		vmmac3 := newMACAddress("mac3", "00:1A:2B:3C:4D:6A", virtv2.VirtualMachineMACAddressPhaseAttached, "vm1")
+		vmmac4 := newMACAddress("mac4", "00:1A:2B:3C:4D:7F", virtv2.VirtualMachineMACAddressPhaseAttached, "vm1")
+		vmmacs = append(vmmacs, vmmac1, vmmac2, vmmac3, vmmac4)
+
+		vm.Spec.Networks = []virtv2.NetworksSpec{
+			{
+				Type: virtv2.NetworksTypeMain,
+			},
+			{
+				Type: virtv2.NetworksTypeNetwork,
+				Name: "name1",
+			},
+			{
+				Type: virtv2.NetworksTypeNetwork,
+				Name: "name1",
+			},
+			{
+				Type: virtv2.NetworksTypeNetwork,
+				Name: "name1",
+			},
+		}
+
+		configs := CreateNetworkSpec(vm, vmmacs)
+
+		Expect(configs).To(HaveLen(3))
+
+		Expect(configs[0].Name).To(Equal("name1"))
+		Expect(configs[0].MAC).To(Equal("00:1A:2B:3C:4D:5E"))
+
+		Expect(configs[1].Name).To(Equal("name1"))
+		Expect(configs[1].MAC).To(Equal("00:1A:2B:3C:4D:5F"))
+
+		Expect(configs[2].Name).To(Equal("name1"))
+		Expect(configs[2].MAC).To(Equal("00:1A:2B:3C:4D:6A"))
 	})
 })

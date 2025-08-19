@@ -50,6 +50,10 @@ func NewLifecycleHandler(client client.Client, recorder eventrecord.EventRecorde
 }
 
 func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
+	if lease == nil {
+		return reconcile.Result{}, nil
+	}
+
 	cb := conditions.NewConditionBuilder(vmmaclcondition.BoundType).Generation(lease.GetGeneration())
 
 	vmmacKey := types.NamespacedName{Name: lease.Spec.VirtualMachineMACAddressRef.Name, Namespace: lease.Spec.VirtualMachineMACAddressRef.Namespace}
@@ -63,8 +67,8 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 		return reconcile.Result{}, fmt.Errorf("fetch vmmac %s: %w", vmmacKey, err)
 	}
 
-	// Lease is Bound, if there is a vmmac with matched Ref.
-	if isBound(lease, vmmac) {
+	err = isBound(lease, vmmac)
+	if err == nil {
 		annotations.AddLabel(lease, annotations.LabelVirtualMachineMACAddressUID, string(vmmac.UID))
 		if lease.Status.Phase != virtv2.VirtualMachineMACAddressLeasePhaseBound {
 			h.recorder.Eventf(lease, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineMACAddressLease is bound to \"%s/%s\".", vmmac.Namespace, vmmac.Name)
@@ -79,7 +83,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(conditions.ReasonUnknown).
-			Message("VirtualMachineMACAddressLease is not bound to any VirtualMachineMACAddress.")
+			Message(fmt.Sprintf("VirtualMachineMACAddressLease is not bound: %s.", err.Error()))
 		conditions.SetCondition(cb, &lease.Status.Conditions)
 	}
 
@@ -90,19 +94,14 @@ func (h *LifecycleHandler) Name() string {
 	return LifecycleHandlerName
 }
 
-func isBound(lease *virtv2.VirtualMachineMACAddressLease, vmmac *virtv2.VirtualMachineMACAddress) bool {
-	if lease == nil || vmmac == nil {
-		return false
-	}
-
-	vmmacRef := lease.Spec.VirtualMachineMACAddressRef
-	if vmmacRef == nil || vmmac.Name != vmmacRef.Name || vmmac.Namespace != vmmacRef.Namespace {
-		return false
+func isBound(lease *virtv2.VirtualMachineMACAddressLease, vmmac *virtv2.VirtualMachineMACAddress) error {
+	if vmmac == nil {
+		return fmt.Errorf("cannot to bind with empty MAC address")
 	}
 
 	if vmmac.Status.Address != "" && vmmac.Status.Address != mac.LeaseNameToAddress(lease.Name) {
-		return false
+		return fmt.Errorf("vmmac address %q does not match lease name %q", vmmac.Status.Address, lease.Name)
 	}
 
-	return true
+	return nil
 }
