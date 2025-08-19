@@ -30,8 +30,6 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
-{{- $images := list "libblkid" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -43,13 +41,6 @@ shell:
 
   install:
   - |
-    # Install packages
-    PKGS="{{ $images | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
@@ -63,9 +54,9 @@ shell:
       --libdir=/usr/lib64 \
       --enable-nls \
       --enable-elf-shlibs \
-      --enable-libblkid \
-      --enable-libuuid \
-      --enable-fsck \
+      --disable-libblkid \
+      --disable-libuuid \
+      --disable-fsck \
       --with-libarchive \
       --without-manpages
     make -j$(nproc)
