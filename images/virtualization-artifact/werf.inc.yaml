@@ -48,8 +48,10 @@ shell:
     {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virtualization-controller") }}
     {{-   $buildCommand = printf "go build -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
     {{- else }}
-    {{-   $buildCommand = printf "go build -ldflags=\"-s -w\"-tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{-   $buildCommand = printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
     {{- end }}
+
+    echo "{{ $buildCommand }}  ===="
     
     {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 4 }}
   - |

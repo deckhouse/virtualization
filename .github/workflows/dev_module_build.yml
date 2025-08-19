@@ -44,7 +44,7 @@ on:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
       - main
-      - fix/core/hotplug-nfs
+      - chore/ci/delve-debug
   push:
     branches:
       - main

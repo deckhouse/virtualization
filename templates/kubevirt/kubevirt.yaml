@@ -89,12 +89,6 @@ spec:
       resourceName: virt-api
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-api")) }}
-    - resourceType: Deployment
-      resourceName: virt-api
-      patch: {{ include "kubevirt.delve_strategic_patch_json" "virt-api" }}
-      type: strategic
-      {{- end }}
     - resourceType: Deployment
       resourceName: virt-controller
       patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $nodeSelectorSystem }}}]'
@@ -103,22 +97,10 @@ spec:
       resourceName: virt-controller
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsSystem }}}]'
       type: json
-      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-controller")) }}
-    - resourceType: Deployment
-      resourceName: virt-controller
-      patch: {{ include "kubevirt.delve_strategic_patch_json" "virt-controller" }}
-      type: strategic
-      {{- end }}
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-handler")) }}
-    - resourceType: DaemonSet
-      resourceName: virt-handler
-      patch: {{ include "kubevirt.delve_strategic_patch_json" "virt-handler" }}
-      type: strategic
-      {{- end }}
     # Add node affinity for the lowest virtualization level for virt-handler pods
     - resourceType: DaemonSet
       resourceName: virt-handler
