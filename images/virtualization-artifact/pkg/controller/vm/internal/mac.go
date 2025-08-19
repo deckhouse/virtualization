@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,29 +92,28 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
 	if len(vmmacs) < expectedMACAddresses {
-		if needCreateMACAddresses(vm.Spec.Networks) {
-			if kvvm != nil && len(vmmacs) == 0 {
-				for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if kvvm != nil && len(vmmacs) == 0 {
+			for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+				if strings.HasPrefix(iface.Name, "veth_") {
 					err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
 					if err != nil {
 						return reconcile.Result{}, err
 					}
 				}
-			} else {
-				macsToCreate := expectedMACAddresses - len(vmmacs)
-				for i := 0; i < macsToCreate; i++ {
-					err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
-					if err != nil {
-						return reconcile.Result{}, err
-					}
+			}
+		} else {
+			macsToCreate := expectedMACAddresses - len(vmmacs) - countNetworksWithMACRequest(vm.Spec.Networks)
+			for i := 0; i < macsToCreate; i++ {
+				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
+				if err != nil {
+					return reconcile.Result{}, err
 				}
 			}
 		}
 
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d", len(vmmacs), expectedMACAddresses))
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+		return reconcile.Result{}, nil
 	}
 
 	var notReadyMessages []string
@@ -167,12 +165,13 @@ func (h *MACHandler) Name() string {
 	return nameMACHandler
 }
 
-func needCreateMACAddresses(networkSpec []virtv2.NetworksSpec) bool {
+func countNetworksWithMACRequest(networkSpec []virtv2.NetworksSpec) int {
+	count := 0
 	for _, ns := range networkSpec {
 		if ns.VirtualMachineMACAddressName != "" {
-			return false
+			count++
 		}
 	}
 
-	return true
+	return count
 }
