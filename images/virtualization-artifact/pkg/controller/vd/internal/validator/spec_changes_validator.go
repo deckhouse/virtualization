@@ -66,21 +66,7 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 		return nil, nil
 	}
 
-	ready, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
-	switch {
-	case ready.Status == metav1.ConditionTrue, newVD.Status.Phase == virtv2.DiskReady, newVD.Status.Phase == virtv2.DiskLost:
-		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
-			return nil, errors.New("data source cannot be changed if the VirtualDisk has already been provisioned")
-		}
-
-		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
-		}
-	case newVD.Status.Phase == virtv2.DiskTerminating:
-		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {
-			return nil, errors.New("spec cannot be changed if the VirtualDisk is the process of termination")
-		}
-	case newVD.Status.Phase == virtv2.DiskPending:
+	if newVD.Status.Target.PersistentVolumeClaim == "" {
 		if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
 			sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
 			if err != nil {
@@ -93,6 +79,18 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 				)
 			}
 		}
+	} else {
+		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
+			return nil, errors.New("data source cannot be changed if the VirtualDisk has already been provisioned")
+		}
+
+		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
+			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+		}
+	}
+
+	if newVD.Status.Phase == virtv2.DiskTerminating && !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {
+		return nil, errors.New("spec cannot be changed if the VirtualDisk is the process of termination")
 	}
 
 	return nil, nil
