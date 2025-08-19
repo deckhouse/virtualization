@@ -64,6 +64,9 @@ func CreateNetworkSpec(vm *virtv2.VirtualMachine, vmmacs []*virtv2.VirtualMachin
 		}
 	}
 	for _, n := range vm.Status.Networks {
+		if n.Type == virtv2.NetworksTypeMain {
+			continue
+		}
 		status = append(status, struct{ Name, MAC string }{n.Name, n.MAC})
 		taken[n.MAC] = true
 	}
