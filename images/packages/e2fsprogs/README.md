@@ -1,6 +1,5 @@
 # e2fsprogs
 ```
-/out
 └── usr
     ├── bin
     │   ├── chattr
@@ -85,119 +84,9 @@
         │   ├── et_c.awk
         │   └── et_h.awk
         ├── info
-        ├── locale
-        │   ├── ca
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── cs
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── da
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── de
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── eo
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── es
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── fi
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── fr
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── fur
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── hu
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── id
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── it
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── ms
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── nl
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── pl
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── pt
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── ro
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── sr
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── sv
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── tr
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── uk
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   ├── vi
-        │   │   └── LC_MESSAGES
-        │   │       └── e2fsprogs.mo
-        │   └── zh_CN
-        │       └── LC_MESSAGES
-        │           └── e2fsprogs.mo
-        ├── man
-        │   ├── man1
-        │   │   ├── chattr.1
-        │   │   ├── compile_et.1
-        │   │   ├── lsattr.1
-        │   │   └── mk_cmds.1
-        │   ├── man3
-        │   │   └── com_err.3
-        │   ├── man5
-        │   │   ├── e2fsck.conf.5
-        │   │   ├── ext2.5
-        │   │   ├── ext3.5
-        │   │   ├── ext4.5
-        │   │   └── mke2fs.conf.5
-        │   └── man8
-        │       ├── badblocks.8
-        │       ├── debugfs.8
-        │       ├── dumpe2fs.8
-        │       ├── e2freefrag.8
-        │       ├── e2fsck.8
-        │       ├── e2image.8
-        │       ├── e2label.8
-        │       ├── e2mmpstatus.8
-        │       ├── e2scrub.8
-        │       ├── e2scrub_all.8
-        │       ├── e2undo.8
-        │       ├── e4crypt.8
-        │       ├── e4defrag.8
-        │       ├── filefrag.8
-        │       ├── fsck.ext2.8
-        │       ├── fsck.ext3.8
-        │       ├── fsck.ext4.8
-        │       ├── logsave.8
-        │       ├── mke2fs.8
-        │       ├── mkfs.ext2.8
-        │       ├── mkfs.ext3.8
-        │       ├── mkfs.ext4.8
-        │       ├── mklost+found.8
-        │       ├── resize2fs.8
-        │       └── tune2fs.8
         └── ss
             ├── ct_c.awk
             └── ct_c.sed
 
-68 directories, 130 files
+16 directories, 72 files
 ```
