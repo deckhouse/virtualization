@@ -61,5 +61,5 @@ spec:
 
 {{- define "kubevirt.delve_strategic_patch_json" -}}
 {{- $image := index . 0 }}
-  '{{ include "kubevirt.virthandler_dlv_strategic_patch" (list $image) | fromYaml | toJson }}'
+  '{{ include "kubevirt.delve_strategic_patch" (list $image) | fromYaml | toJson }}'
 {{- end }}
