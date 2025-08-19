@@ -43,12 +43,13 @@ spec:
   {{- end -}}
 {{- end -}}
 
-{{- define "kubevirt.virthandler_dlv_strategic_patch" -}}
+{{- define "kubevirt.delve_strategic_patch" -}}
+{{- $image := index . 0 }}
 spec:
   template:
     spec:
       containers:
-      - name: virt-handler
+      - name: {{ $image }}
         command: null
         livenessProbe: null
         readinessProbe: null
@@ -58,6 +59,7 @@ spec:
           protocol: TCP
 {{- end -}}
 
-{{- define "kubevirt.virthandler_dlv_strategic_patch_json" -}}
-  '{{ include "kubevirt.virthandler_dlv_strategic_patch" . | fromYaml | toJson }}'
+{{- define "kubevirt.delve_strategic_patch_json" -}}
+{{- $image := index . 0 }}
+  '{{ include "kubevirt.virthandler_dlv_strategic_patch" (list $image) | fromYaml | toJson }}'
 {{- end }}
