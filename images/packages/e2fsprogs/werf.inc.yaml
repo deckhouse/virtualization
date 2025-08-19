@@ -61,7 +61,6 @@ shell:
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --disable-uuidd \
       --enable-nls \
       --enable-elf-shlibs \
       --enable-libblkid \
@@ -70,8 +69,8 @@ shell:
       --with-libarchive \
       --without-manpages
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install-strip
-    rm -rf $OUTDIR/usr/share/locale
-    rm -rf $OUTDIR/usr/share/man
+    make DESTDIR=$OUTDIR install-libs
+    # rm -rf $OUTDIR/usr/share/locale
+    # rm -rf $OUTDIR/usr/share/man
     tree $OUTDIR
 
