@@ -25,3 +25,4 @@ imageSpec:
     {{- else }}
     entrypoint: ["/app/virtualization-audit"]
     {{- end }}
+{{- end }}
