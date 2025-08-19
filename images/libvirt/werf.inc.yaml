@@ -65,7 +65,7 @@ packages:
 - python3-tools python3-module-pip
 - python3-module-black
 - mdevctl tshark
-- util-linux dmsetup pm-utils
+- dmsetup pm-utils
 libraries:
 - libudev-devel
 - libpciaccess-devel
@@ -83,7 +83,7 @@ libraries:
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
-- libsystemd-devel libuuid-devel
+- libsystemd-devel
 - libjson-c-devel systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
 - libgio-devel libxml2-devel
