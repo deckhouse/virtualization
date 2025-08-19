@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -136,7 +137,7 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 	{
 		var inProgressVmops []*virtv2.VirtualMachineOperation
 		for _, op := range vmops {
-			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhaseInProgress {
+			if commonvmop.IsMigration(op) && isOperationInProgress(op) {
 				inProgressVmops = append(inProgressVmops, op)
 			}
 		}
@@ -167,6 +168,9 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 			cb.Message("Migration is awaiting execution.")
 		case vmopcondition.ReasonMigrationRunning.String():
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonVmIsMigrating)
+		case vmopcondition.ReasonQuotaExceeded.String():
+			cb.Reason(vmcondition.ReasonMigrationIsPending)
+			cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
 		}
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 
@@ -202,4 +206,10 @@ func liveMigrationInProgress(migrationState *virtv2.VirtualMachineMigrationState
 
 func liveMigrationFailed(migrationState *virtv2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultFailed
+}
+
+func isOperationInProgress(vmop *virtv2.VirtualMachineOperation) bool {
+	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }

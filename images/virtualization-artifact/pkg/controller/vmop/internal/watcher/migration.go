@@ -21,10 +21,8 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -45,11 +43,6 @@ func (w MigrationWatcher) Watch(mgr manager.Manager, ctr controller.Controller) 
 				&v1alpha2.VirtualMachineOperation{},
 				handler.OnlyControllerOwner(),
 			),
-			predicate.TypedFuncs[*virtv1.VirtualMachineInstanceMigration]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstanceMigration]) bool {
-					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
-				},
-			},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstanceMigration: %w", err)

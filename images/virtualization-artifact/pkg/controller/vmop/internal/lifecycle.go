@@ -106,6 +106,22 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		return reconcile.Result{}, nil
 	}
 
+	// Pending if quota exceeded.
+	isQuotaExceededDuringMigration, err := service.IsKubeVirtMigrationRejectedDueToQuota(ctx, h.client, vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if isQuotaExceededDuringMigration {
+		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPPending, "Project quota exceeded")
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonQuotaExceeded).
+				Status(metav1.ConditionFalse).
+				Message("Project quota exceeded"),
+			&vmop.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
 	// Get VM for Pending and InProgress checks.
 	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, h.client, &virtv2.VirtualMachine{})
 	if err != nil {
