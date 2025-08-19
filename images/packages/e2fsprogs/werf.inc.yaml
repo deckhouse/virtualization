@@ -58,8 +58,6 @@ shell:
     find -type f -print0 |
     xargs -r0 grep -lZ '^static void usage' -- |
     xargs -r0 sed -i 's/^static void usage/__attribute__ ((noreturn)) &/' --
-    # Remove these header files just in case.
-    rm -r include
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
