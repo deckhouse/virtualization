@@ -36,7 +36,7 @@ const unacceptableCount = -1000
 
 var APIVersion = virtv2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDisAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
