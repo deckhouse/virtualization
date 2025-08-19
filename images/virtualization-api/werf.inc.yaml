@@ -2,12 +2,25 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: {{ .ModuleNamePrefix }}virtualization-artifact
-    add: /out/virtualization-api
-    to: /app/virtualization-api
-    after: install
+- image: {{ .ModuleNamePrefix }}virtualization-artifact
+  add: /out/virtualization-api
+  to: /app/virtualization-api
+  after: install
+{{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virtualization-api") }}
+- image: debuger
+  add: /app/dlv
+  to: /app/dlv
+  after: install
+{{- end }}
 imageSpec:
   config:
     user: 64535
     workingDir: "/app"
+    {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virtualization-api") }}
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
+      XDG_CONFIG_HOME: "/tmp"
+    entrypoint: ["dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "./virtualization-api", "--"]
+    {{- else }}
     entrypoint: ["/app/virtualization-api"]
+    {{- end }}
