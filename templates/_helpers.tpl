@@ -66,3 +66,11 @@ nodeSelector:
 true
 {{- end }}
 {{- end }}
+
+
+{{ define "debugEnvs" }}
+{{-   $filePath := "debug-values.yaml" }}
+{{-   if .Files.Get $filePath }}
+{{-     .Files.Get $filePath }}
+{{-   end }}
+{{- end }}

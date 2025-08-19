@@ -10,6 +10,7 @@
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 {{- $logVerbosity := include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | int }}
+{{ $debugDelve := (include "debugEnvs" . | fromYaml) }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -69,9 +70,11 @@ spec:
       controller:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
+      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-handler")) }}
       handler:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
+      {{- end }}
     patches:
     # Add node placement settings for virt-api, virt-controller, virt-operator, virt-handler.
     - resourceType: Deployment
@@ -94,6 +97,12 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
+      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-handler")) }}
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_dlv_strategic_patch_json" . }}
+      type: strategic
+      {{- end }}
     # Add node affinity for the lowest virtualization level for virt-handler pods
     - resourceType: DaemonSet
       resourceName: virt-handler

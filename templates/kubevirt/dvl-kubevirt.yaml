@@ -10,6 +10,7 @@
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 {{- $logVerbosity := include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | int }}
+{{ $cfgDbg := (include "debugEnvs" . | fromYaml) }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -94,7 +95,12 @@ spec:
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
     # if debug on
-    # {{ .Values.debug }}
+    {{- if not (and ($cfgDbg) (eq $cfgDbg.config.component "virt-handler")) }}
+    # ggg
+    {{- else }}
+    # test: {{ $cfgDbg.config.debug }}
+    # test: {{ $cfgDbg.config.component }}
+    {{- end }}
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: {{ include "kubevirt.virthandler_dlv_strategic_patch_json" . }}

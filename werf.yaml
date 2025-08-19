@@ -64,18 +64,31 @@ shell:
         )
       ' > /images_digests.json
       cat images_digests.json
+{{-  if eq .DELVE_DEBUG "true" }}
+    - |
+      cat <<EOF>> /debug-values.yaml
+      config:
+        debug: true
+        component: {{ printf "%s" (split "/" .COMPONENT_DEBUG)._1 }}
+      EOF
+{{-  end }}
 ---
 image: bundle
 fromImage: builder/scratch
 import:
-  - image: images-digests
-    add: /images_digests.json
-    to: /images_digests.json
-    after: setup
-  - image: go-hooks-artifact
-    add: /go-hooks
-    to: /hooks/go
-    after: setup
+- image: images-digests
+  add: /
+  to: /
+  after: setup
+  includePaths:
+    - images_digests.json
+  {{-  if eq .DELVE_DEBUG "true" }}
+    - debug-values.yaml
+  {{-  end }}
+- image: go-hooks-artifact
+  add: /go-hooks
+  to: /hooks/go
+  after: setup
 git:
   - add: /
     to: /
@@ -97,11 +110,6 @@ git:
       - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
-    {{- end }}
-    {{- if eq .DELVE_DEBUG "true" }}
-      - templates/kubevirt/kubevirt.yaml
-    {{- else }}
-      - templates/*/dlv-*.yaml
     {{- end }}
 ---
 image: release-channel-version
