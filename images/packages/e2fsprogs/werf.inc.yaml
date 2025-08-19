@@ -69,7 +69,7 @@ shell:
       --with-libarchive \
       --without-manpages
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install-libs
+    make DESTDIR=$OUTDIR install-strip
     # rm -rf $OUTDIR/usr/share/locale
     # rm -rf $OUTDIR/usr/share/man
     tree $OUTDIR
