@@ -68,24 +68,28 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 	}
 
 	err = isBound(lease, vmmac)
-	if err == nil {
-		annotations.AddLabel(lease, annotations.LabelVirtualMachineMACAddressUID, string(vmmac.UID))
-		if lease.Status.Phase != virtv2.VirtualMachineMACAddressLeasePhaseBound {
-			h.recorder.Eventf(lease, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineMACAddressLease is bound to \"%s/%s\".", vmmac.Namespace, vmmac.Name)
-		}
-		lease.Status.Phase = virtv2.VirtualMachineMACAddressLeasePhaseBound
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vmmaclcondition.Bound).
-			Message("")
-		conditions.SetCondition(cb, &lease.Status.Conditions)
-	} else {
+	if err != nil {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(conditions.ReasonUnknown).
 			Message(fmt.Sprintf("VirtualMachineMACAddressLease is not bound: %s.", err.Error()))
 		conditions.SetCondition(cb, &lease.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
+	
+	// Valid MAC address was found: it matches both the lease name and the VirtualMachineMACAddressRef.
+	// Now create a "Bound" confirmation: set label with MAC address UID and set condition to True.
+	annotations.AddLabel(lease, annotations.LabelVirtualMachineMACAddressUID, string(vmmac.UID))
+	if lease.Status.Phase != virtv2.VirtualMachineMACAddressLeasePhaseBound {
+		h.recorder.Eventf(lease, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineMACAddressLease is bound to \"%s/%s\".", vmmac.Namespace, vmmac.Name)
+	}
+	lease.Status.Phase = virtv2.VirtualMachineMACAddressLeasePhaseBound
+	cb.
+		Status(metav1.ConditionTrue).
+		Reason(vmmaclcondition.Bound).
+		Message("")
+	conditions.SetCondition(cb, &lease.Status.Conditions)
+
 
 	return reconcile.Result{}, nil
 }
