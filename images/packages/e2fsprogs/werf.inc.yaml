@@ -67,10 +67,14 @@ shell:
       --disable-libuuid \
       --disable-fsck \
       --with-libarchive \
-      --without-manpages
+      --without-manpages \
+      --disable-docs
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-    # rm -rf $OUTDIR/usr/share/locale
-    # rm -rf $OUTDIR/usr/share/man
+    strip $OUTDIR/usr/bin/*
+    strip $OUTDIR/usr/lib64/*.so.*
+    rm -rf $OUTDIR/usr/share/locale
+    rm -rf $OUTDIR/usr/share/man
     tree $OUTDIR
 
