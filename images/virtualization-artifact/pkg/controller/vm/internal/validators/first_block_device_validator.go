@@ -29,10 +29,10 @@ import (
 )
 
 const (
-	viMainErrorMessage    = "A non-CDROM VirtualImage cannot occupy the first position in block devices"
-	cviMainErrorMessage   = "A non-CDROM ClusterVirtualImage cannot occupy the first position in block devices"
-	cannotCheckViMessage  = "Unable to verify if the specified VirtualImage is a CDROM"
-	cannotCheckCviMessage = "Unable to verify if the specified ClusterVirtualImage is a CDROM"
+	viMainErrorMessage    = "a non-CDROM VirtualImage cannot occupy the first position in block devices"
+	cviMainErrorMessage   = "a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices"
+	cannotCheckViMessage  = "unable to verify if the specified VirtualImage is a CDROM"
+	cannotCheckCviMessage = "unable to verify if the specified ClusterVirtualImage is a CDROM"
 )
 
 type FirstBlockDeviceValidator struct {

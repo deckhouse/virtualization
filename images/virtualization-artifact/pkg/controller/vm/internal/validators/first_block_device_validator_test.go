@@ -17,11 +17,10 @@ limitations under the License.
 package validators_test
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-
 	"errors"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
@@ -78,7 +77,7 @@ var _ = DescribeTable("TestFirstBlockDeviceValidator", func(args firstBlockDevic
 		Objects: []client.Object{
 			generateVI("vi1", "ns", v1alpha2.ImageReady, false),
 		},
-		ExpectedError: errors.New("A non-CDROM VirtualImage cannot occupy the first position in block devices: VirtualImage vi1 is not CDROM"),
+		ExpectedError: errors.New("a non-CDROM VirtualImage cannot occupy the first position in block devices: VirtualImage vi1 is not CDROM"),
 	}),
 	Entry("Has not ready VI as first device", firstBlockDeviceValidatorTestArgs{
 		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
@@ -88,14 +87,14 @@ var _ = DescribeTable("TestFirstBlockDeviceValidator", func(args firstBlockDevic
 		Objects: []client.Object{
 			generateVI("vi1", "ns", v1alpha2.ImagePending, false),
 		},
-		ExpectedError: errors.New("A non-CDROM VirtualImage cannot occupy the first position in block devices: Unable to verify if the specified VirtualImage is a CDROM: VirtualImage vi1 is not ready"),
+		ExpectedError: errors.New("a non-CDROM VirtualImage cannot occupy the first position in block devices: unable to verify if the specified VirtualImage is a CDROM: VirtualImage vi1 is not ready"),
 	}),
 	Entry("Has not exists vi as first device", firstBlockDeviceValidatorTestArgs{
 		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.ImageDevice,
 			Name: "vi1",
 		}),
-		ExpectedError: errors.New("A non-CDROM VirtualImage cannot occupy the first position in block devices: Unable to verify if the specified VirtualImage is a CDROM: VirtualImage vi1 does not exist"),
+		ExpectedError: errors.New("a non-CDROM VirtualImage cannot occupy the first position in block devices: unable to verify if the specified VirtualImage is a CDROM: VirtualImage vi1 does not exist"),
 	}),
 	Entry("Has CRDOM CVI as first device", firstBlockDeviceValidatorTestArgs{
 		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
@@ -115,31 +114,31 @@ var _ = DescribeTable("TestFirstBlockDeviceValidator", func(args firstBlockDevic
 		Objects: []client.Object{
 			generateCVI("cvi1", v1alpha2.ImageReady, false),
 		},
-		ExpectedError: errors.New("A non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: ClusterVirtualImage cvi1 is not CDROM"),
+		ExpectedError: errors.New("a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: ClusterVirtualImage cvi1 is not CDROM"),
 	}),
 	Entry("Has not ready CVI as first device", firstBlockDeviceValidatorTestArgs{
-		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
+		VM: generateVM("vm1", "ns1", v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.ClusterImageDevice,
 			Name: "cvi1",
 		}),
 		Objects: []client.Object{
 			generateCVI("cvi1", v1alpha2.ImagePending, false),
 		},
-		ExpectedError: errors.New("A non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: Unable to verify if the specified ClusterVirtualImage is a CDROM: ClusterVirtualImage cvi1 is not ready"),
+		ExpectedError: errors.New("a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: unable to verify if the specified ClusterVirtualImage is a CDROM: ClusterVirtualImage cvi1 is not ready"),
 	}),
 	Entry("Has not exists CVI as first device", firstBlockDeviceValidatorTestArgs{
-		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
+		VM: generateVM("vm", "ns", v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.ClusterImageDevice,
 			Name: "cvi1",
 		}),
-		ExpectedError: errors.New("A non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: Unable to verify if the specified ClusterVirtualImage is a CDROM: ClusterVirtualImage cvi1 does not exist"),
+		ExpectedError: errors.New("a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: unable to verify if the specified ClusterVirtualImage is a CDROM: ClusterVirtualImage cvi1 does not exist"),
 	}),
 )
 
 func setupEnvironment(objs ...client.Object) client.Client {
 	GinkgoHelper()
 
-	var allObjects []client.Object = []client.Object{}
+	var allObjects []client.Object
 	allObjects = append(allObjects, objs...)
 
 	fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)
