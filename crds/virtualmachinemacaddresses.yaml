@@ -23,7 +23,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            The resource that defines MAC address for virtual machine.
+            The requested MAC address to be assigned to the virtual machine's network interface. If the field is empty, a random address from the specified address range is assigned.
           properties:
             apiVersion:
               type: string
@@ -37,7 +37,7 @@ spec:
               properties:
                 address:
                   description: |
-                    The requested MAC address that should be assigned to the virtual machine. Random address is assigned if empty.
+                    The requested MAC address to be assigned to the virtual machine's network interface. If the field is empty, a random address from the specified address range is assigned.
                   type: string
               type: object
             status:

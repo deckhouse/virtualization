@@ -44,7 +44,7 @@ const (
 	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
 	// TypeNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	TypeNeedsEvict Type = "NeedsEvict"
-
+	// TypeNetworkReady indicates the state of additional network interfaces inside the virtual machine pod
 	TypeNetworkReady Type = "NetworkReady"
 )
 
@@ -126,7 +126,10 @@ const (
 	// ReasonNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	ReasonNeedsEvict Reason = "NeedsEvict"
 
-	ReasonNetworkReady     Reason = "NetworkReady"
-	ReasonNetworkNotReady  Reason = "NetworkNotReady"
+	// ReasonNetworkReady indicates that the additional network interfaces in the virtual machine pod are ready.
+	ReasonNetworkReady Reason = "NetworkReady"
+	// ReasonNetworkNotReady indicates that the additional network interfaces in the virtual machine pod are not ready.
+	ReasonNetworkNotReady Reason = "NetworkNotReady"
+	// ReasonSDNModuleDisable indicates that the SDN module is disabled, which may prevent network interfaces from becoming ready.
 	ReasonSDNModuleDisable Reason = "SDNModuleDisable"
 )

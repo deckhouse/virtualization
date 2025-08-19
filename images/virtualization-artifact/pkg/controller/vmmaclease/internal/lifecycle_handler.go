@@ -76,7 +76,6 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 		conditions.SetCondition(cb, &lease.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
-	
 	// Valid MAC address was found: it matches both the lease name and the VirtualMachineMACAddressRef.
 	// Now create a "Bound" confirmation: set label with MAC address UID and set condition to True.
 	annotations.AddLabel(lease, annotations.LabelVirtualMachineMACAddressUID, string(vmmac.UID))
@@ -89,7 +88,6 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 		Reason(vmmaclcondition.Bound).
 		Message("")
 	conditions.SetCondition(cb, &lease.Status.Conditions)
-
 
 	return reconcile.Result{}, nil
 }
