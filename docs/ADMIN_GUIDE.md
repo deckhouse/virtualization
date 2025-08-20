@@ -421,8 +421,7 @@ How to perform the operation in the web interface:
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
-During install, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
-
+During installation, a single VirtualMachineClass `generic` resource is automatically created. It represents a universal CPU type based on the older, but widely supported, Nehalem architecture. This enables running VMs on any nodes in the cluster and allows live migration.
 {{< alert level="info" >}}
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
 
@@ -457,13 +456,13 @@ spec:
 
 ### Default VirtualMachineClass
 
-Для удобства можно назначить VirtualMachineClass по умолчанию. Этот класс будет подставляться в поле spec.virtualMachineClassName, если оно не указано в манифесте виртуальной машины.
+For convenience, you can designate a default VirtualMachineClass. This class will be used in the spec.virtualMachineClassName field if it is not specified in the virtual machine manifest.
 
-VirtualMachineClass по умолчанию задаётся с помощью аннотации `virtualmachineclass.virtualization.deckhouse.io/is-default-class`. В кластере может быть только один класс по умолчанию. Чтобы изменить класс по умолчанию, нужно снять аннотацию с одного класса и поставить аннотацию на другой класс.
+The default VirtualMachineClass is set via the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation. There can be only one default class in the cluster. To change the default class, remove the annotation from one class and add it to another.
 
-Не рекомендуется ставить аннотацию на класс `generic`, т.к. при обновлении аннотация может пропасть. Лучше сделать свой класс и назначить его классом по умолчанию.
+It is not recommended to set the annotation on the `generic` class, since the annotation may be removed during an update. It is recommended to create your own class and designate it as the default.
 
-Пример вывода списка классов без класса по умолчанию:
+Example output of the class list without a default class:
 
 ```shell
 kubectl get vmclass 
@@ -473,14 +472,14 @@ generic                                 Ready               1d
 host-passthrough-custom                 Ready               1d
 ```
 
-Пример вызова команды для указания класса по умолчанию:
+Example command to designate the default class:
 
 ```shell
 kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
 virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
 ```
 
-Пример вывода списка классов с классом по умолчанию:
+After designating the default class, the output will be:
 
 ```shell
 kubectl get vmclass 
@@ -490,7 +489,7 @@ generic                                 Ready               1d
 host-passthrough-custom                 Ready   true        1d
 ```
 
-При создании ВМ без указания поля spec.virtualMachineClassName в него будет подставлено имя `host-passthrough-custom`.
+When creating a VM without specifying the spec.virtualMachineClassName field, it will be set to `host-passthrough-custom`.
 
 ### VirtualMachineClass settings
 
