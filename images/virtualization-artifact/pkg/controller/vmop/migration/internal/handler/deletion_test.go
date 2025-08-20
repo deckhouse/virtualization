@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +28,7 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -49,7 +50,8 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	reconcile := func() {
-		h := NewDeletionHandler(NewSvcOpCreator(fakeClient))
+		migrationService := service.NewMigrationService(fakeClient)
+		h := NewDeletionHandler(migrationService)
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 		err = srv.Update(ctx)
@@ -63,7 +65,9 @@ var _ = Describe("DeletionHandler", func() {
 		return vmop
 	}
 
-	DescribeTable("Should be protected", func(vmop *virtv2.VirtualMachineOperation, protect bool) {
+	DescribeTable("Should be protected", func(phase virtv2.VMOPPhase, protect bool) {
+		vmop := newVmop(phase, vmopbuilder.WithType(virtv2.VMOPTypeEvict))
+
 		fakeClient, srv = setupEnvironment(vmop)
 		reconcile()
 
@@ -79,42 +83,9 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(updated).To(BeTrue())
 		}
 	},
-		Entry("VMOP Start 1",
-			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeStart)),
-			true,
-		),
-		Entry("VMOP Start 2",
-			newVmop(virtv2.VMOPPhasePending, vmopbuilder.WithType(virtv2.VMOPTypeStart)),
-			false,
-		),
-		Entry("VMOP Stop 1",
-			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeStop)),
-			true,
-		),
-		Entry("VMOP Stop 2",
-			newVmop(virtv2.VMOPPhaseCompleted, vmopbuilder.WithType(virtv2.VMOPTypeStop)),
-			false,
-		),
-		Entry("VMOP Restart 1",
-			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeRestart)),
-			true,
-		),
-		Entry("VMOP Restart 2",
-			newVmop(virtv2.VMOPPhaseFailed, vmopbuilder.WithType(virtv2.VMOPTypeRestart)),
-			false,
-		),
-		Entry("VMOP Evict 1",
-			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeEvict)),
-			true,
-		),
-		Entry("VMOP Evict 2",
-			newVmop(virtv2.VMOPPhasePending, vmopbuilder.WithType(virtv2.VMOPTypeEvict)),
-			true,
-		),
-		Entry("VMOP Evict 3",
-			newVmop(virtv2.VMOPPhaseCompleted, vmopbuilder.WithType(virtv2.VMOPTypeEvict)),
-			true,
-		),
+		Entry("VMOP Evict 1", virtv2.VMOPPhasePending, true),
+		Entry("VMOP Evict 2", virtv2.VMOPPhaseInProgress, true),
+		Entry("VMOP Evict 3", virtv2.VMOPPhaseCompleted, true),
 	)
 
 	Context("Migration", func() {

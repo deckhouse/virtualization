@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -33,7 +33,7 @@ import (
 
 func TestVmopHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VMOP handlers Suite")
+	RunSpecs(t, "VMOP Migration handlers Suite")
 }
 
 func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]) {

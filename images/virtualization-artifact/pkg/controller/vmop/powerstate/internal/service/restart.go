@@ -23,11 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func NewRestartOperation(client client.Client, vmop *virtv2.VirtualMachineOperation) *RestartOperation {
+func NewRestartOperation(client client.Client, vmop *v1alpha2.VirtualMachineOperation) *RestartOperation {
 	return &RestartOperation{
 		client: client,
 		vmop:   vmop,
@@ -36,10 +37,10 @@ func NewRestartOperation(client client.Client, vmop *virtv2.VirtualMachineOperat
 
 type RestartOperation struct {
 	client client.Client
-	vmop   *virtv2.VirtualMachineOperation
+	vmop   *v1alpha2.VirtualMachineOperation
 }
 
-func (o RestartOperation) Do(ctx context.Context) error {
+func (o RestartOperation) Execute(ctx context.Context) error {
 	kvvm := &virtv1.VirtualMachine{}
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvm)
 	if err != nil {
@@ -48,29 +49,21 @@ func (o RestartOperation) Do(ctx context.Context) error {
 	return kvvmutil.AddRestartAnnotation(ctx, o.client, kvvm)
 }
 
-func (o RestartOperation) Cancel(_ context.Context) (bool, error) {
-	return false, nil
+func (o RestartOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
+	return phase == v1alpha2.MachineRunning ||
+		phase == v1alpha2.MachineDegraded ||
+		phase == v1alpha2.MachineStarting ||
+		phase == v1alpha2.MachinePause
 }
 
-func (o RestartOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
-	return phase == virtv2.MachineRunning ||
-		phase == virtv2.MachineDegraded ||
-		phase == virtv2.MachineStarting ||
-		phase == virtv2.MachinePause
+func (o RestartOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
+	return runPolicy == v1alpha2.ManualPolicy ||
+		runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually ||
+		runPolicy == v1alpha2.AlwaysOnPolicy
 }
 
-func (o RestartOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
-	return runPolicy == virtv2.ManualPolicy ||
-		runPolicy == virtv2.AlwaysOnUnlessStoppedManually ||
-		runPolicy == virtv2.AlwaysOnPolicy
-}
-
-func (o RestartOperation) GetInProgressReason(_ context.Context) (vmopcondition.ReasonCompleted, error) {
-	return vmopcondition.ReasonRestartInProgress, nil
-}
-
-func (o RestartOperation) IsFinalState() bool {
-	return isFinalState(o.vmop)
+func (o RestartOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
+	return vmopcondition.ReasonRestartInProgress
 }
 
 func (o RestartOperation) IsComplete(ctx context.Context) (bool, string, error) {
@@ -81,11 +74,11 @@ func (o RestartOperation) IsComplete(ctx context.Context) (bool, string, error) 
 		return false, "", client.IgnoreNotFound(err)
 	}
 
-	vm := &virtv2.VirtualMachine{}
+	vm := &v1alpha2.VirtualMachine{}
 	if err := o.client.Get(ctx, key, vm); err != nil {
 		return false, "", err
 	}
 
-	return kvvmi != nil && vm.Status.Phase == virtv2.MachineRunning &&
-		isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, o.vmop), "", nil
+	return kvvmi != nil && vm.Status.Phase == v1alpha2.MachineRunning &&
+		genericservice.IsAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, o.vmop), "", nil
 }

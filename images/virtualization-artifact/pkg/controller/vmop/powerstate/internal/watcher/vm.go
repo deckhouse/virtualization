@@ -50,6 +50,10 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 				}
 				var requests []reconcile.Request
 				for _, vmop := range vmops.Items {
+					if !Match(&vmop) {
+						continue
+					}
+
 					if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 						requests = append(requests, reconcile.Request{
 							NamespacedName: types.NamespacedName{

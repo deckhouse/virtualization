@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -41,46 +40,6 @@ func NewDeletionHandler(svcOpCreator SvcOpCreator) *DeletionHandler {
 }
 
 func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
-	if vmop == nil {
-		return reconcile.Result{}, nil
-	}
-
-	_, ctx = logger.GetHandlerContext(ctx, deletionHandlerName)
-
-	if commonvmop.IsMigration(vmop) {
-		return h.migrateHandle(ctx, vmop)
-	}
-	return h.defaultHandle(ctx, vmop)
-}
-
-func (h DeletionHandler) migrateHandle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	if vmop.DeletionTimestamp.IsZero() {
-		log.Debug("Add cleanup finalizer")
-		controllerutil.AddFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
-		return reconcile.Result{}, nil
-	}
-
-	log.Info("Deletion observed: cleanup VirtualMachineOperation")
-	svcOp, err := h.svcOpCreator(vmop)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	canceled, err := svcOp.Cancel(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if !canceled {
-		return reconcile.Result{}, nil
-	}
-
-	controllerutil.RemoveFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
-	return reconcile.Result{}, nil
-}
-
-func (h DeletionHandler) defaultHandle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
 	if vmop.DeletionTimestamp.IsZero() && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
@@ -96,6 +55,7 @@ func (h DeletionHandler) defaultHandle(ctx context.Context, vmop *virtv2.Virtual
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineOperation", "phase", vmop.Status.Phase)
 	}
 	controllerutil.RemoveFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
+
 	return reconcile.Result{}, nil
 }
 

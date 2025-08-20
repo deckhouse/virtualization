@@ -28,7 +28,7 @@ import (
 
 func NewValidator(log *log.Logger) admission.CustomValidator {
 	return validator.NewValidator[*v1alpha2.VirtualMachineOperation](log.
-		With("controller", ControllerName).
+		With("controller", "vmop-controller").
 		With("webhook", "validation"),
 	).WithCreateValidators(&deprecateMigrateValidator{})
 }
