@@ -65,6 +65,7 @@ shell:
       -DJANSSON_INSTALL_LIB_DIR=/usr/lib64 \
       -DJANSSON_BUILD_SHARED_LIBS=ON \
       -DJANSSON_BUILD_DOCS=OFF
-    cmake --install $OUTDIR
+    cmake --build .
+    DESTDIR=$OUTDIR cmake --install .
     tree $OUTDIR
 
