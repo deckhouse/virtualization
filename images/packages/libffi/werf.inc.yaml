@@ -68,6 +68,3 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-
-    #debug
-    tree -a $OUTDIR
