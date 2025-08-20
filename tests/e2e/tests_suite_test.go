@@ -30,17 +30,14 @@ import (
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -100,33 +97,12 @@ func init() {
 	if mc, err = config.GetModuleConfig("virtualization"); err != nil {
 		log.Fatal(err)
 	}
-	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
-		log.Fatal(err)
-	}
-	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
-		log.Fatal(err)
-	}
-
-	restConfig, err := newRestConfig(conf.ClusterTransport)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if kubeClient, err = kubernetes.NewForConfig(restConfig); err != nil {
-		log.Fatal(err)
-	}
-	if virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig); err != nil {
-		log.Fatal(err)
-	}
-
-	scheme := runtime.NewScheme()
-	err = virtv2.AddToScheme(scheme)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if crClient, err = client.New(restConfig, client.Options{Scheme: scheme}); err != nil {
-		log.Fatal(err)
-	}
+	clients := framework.GetClients()
+	kubectl = clients.Kubectl()
+	d8Virtualization = clients.D8Virtualization()
+	virtClient = clients.VirtClient()
+	kubeClient = clients.KubeClient()
+	crClient = clients.GenericClient()
 
 	if git, err = gt.NewGit(); err != nil {
 		log.Fatal(err)
@@ -144,26 +120,6 @@ func init() {
 	}
 	ChmodFile(conf.TestData.Sshkey, 0o600)
 	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf.StorageClass.DefaultStorageClass)
-}
-
-func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {
-	configFlags := genericclioptions.ConfigFlags{}
-	if transport.KubeConfig != "" {
-		configFlags.KubeConfig = &transport.KubeConfig
-	}
-	if transport.Token != "" {
-		configFlags.BearerToken = &transport.Token
-	}
-	if transport.InsecureTLS {
-		configFlags.Insecure = &transport.InsecureTLS
-	}
-	if transport.CertificateAuthority != "" {
-		configFlags.CAFile = &transport.CertificateAuthority
-	}
-	if transport.Endpoint != "" {
-		configFlags.APIServer = &transport.Endpoint
-	}
-	return configFlags.ToRESTConfig()
 }
 
 func TestTests(t *testing.T) {

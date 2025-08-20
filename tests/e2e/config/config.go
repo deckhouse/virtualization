@@ -29,6 +29,8 @@ import (
 
 	yamlv3 "gopkg.in/yaml.v3"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
 
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -171,6 +173,26 @@ type ClusterTransport struct {
 	Endpoint             string `yaml:"endpoint"`
 	CertificateAuthority string `yaml:"certificateAuthority"`
 	InsecureTLS          bool   `yaml:"insecureTls"`
+}
+
+func (c ClusterTransport) RestConfig() (*rest.Config, error) {
+	configFlags := genericclioptions.ConfigFlags{}
+	if c.KubeConfig != "" {
+		configFlags.KubeConfig = &c.KubeConfig
+	}
+	if c.Token != "" {
+		configFlags.BearerToken = &c.Token
+	}
+	if c.InsecureTLS {
+		configFlags.Insecure = &c.InsecureTLS
+	}
+	if c.CertificateAuthority != "" {
+		configFlags.CAFile = &c.CertificateAuthority
+	}
+	if c.Endpoint != "" {
+		configFlags.APIServer = &c.Endpoint
+	}
+	return configFlags.ToRESTConfig()
 }
 
 type DisksConf struct {
