@@ -35,7 +35,7 @@ packages:
 - libmultipath kpartx
 - dmsetup udev-rules-sgutils sg3_utils
 - libaio-devel libdevmapper-devel libreadline-devel libudev-devel libsystemd-devel libmount-devel
-- libuserspace-rcu-devel libjson-c-dev
+- libuserspace-rcu-devel libjson-c-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
