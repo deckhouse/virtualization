@@ -10,14 +10,14 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libffi/libffi.git" }}
+{{- $gitRepoUrl := "opensvc/multipath-tools.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
   - |
@@ -32,7 +32,10 @@ shell:
 packages:
 - gcc make git autoconf libtool gettext-tools
 - gcc-c++ makeinfo
-- tree
+- libmultipath kpartx
+- dmsetup udev-rules-sgutils sg3_utils
+- libaio-devel libdevmapper-devel libreadline-devel libudev-devel libsystemd-devel libmount-devel
+- libuserspace-rcu-devel libjson-c-dev
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -60,6 +63,6 @@ shell:
 
     cd /src
 
-    make -j$(nproc)
+    make -j$(nproc) all
 
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR prefix=/usr LIB=/lib64 install
