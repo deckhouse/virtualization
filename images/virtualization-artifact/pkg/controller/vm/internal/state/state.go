@@ -357,10 +357,6 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.Virtu
 		return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
 	}
 
-	if len(vmmacList.Items) == 0 {
-		return nil, nil
-	}
-
 	for _, vmmac := range vmmacList.Items {
 		vmmacs = append(vmmacs, &vmmac)
 	}

@@ -65,6 +65,14 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 					}
 				}
 
+				if len(vm.Spec.Networks) > 0 {
+					for _, nc := range vm.Spec.Networks {
+						if nc.VirtualMachineMACAddressName != "" {
+							vmmacNames[nc.VirtualMachineMACAddressName] = struct{}{}
+						}
+					}
+				}
+
 				vmmacs := &virtv2.VirtualMachineMACAddressList{}
 				if err := w.client.List(ctx, vmmacs, client.InNamespace(vm.Namespace), &client.MatchingFields{
 					indexer.IndexFieldVMMACByVM: vm.Name,
