@@ -57,11 +57,8 @@ func (w ResourceQuotaWatcher) Watch(mgr manager.Manager, ctr controller.Controll
 				return w.enqueueRequests(ctx, quota)
 			}),
 			predicate.TypedFuncs[*corev1.ResourceQuota]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.ResourceQuota]) bool {
-					return true
-				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.ResourceQuota]) bool {
-					return true
+				CreateFunc: func(e event.TypedCreateEvent[*corev1.ResourceQuota]) bool {
+					return false
 				},
 			},
 		),
