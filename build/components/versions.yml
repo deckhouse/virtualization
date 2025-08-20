@@ -42,6 +42,7 @@ package:
   libisoburn: release-1.5.6
   libmd: 1.1.0
   libmnl: libmnl-1.0.5
+  libnbd: v1.23.6
   lvm2: v2_03_32
   multipath-tools: 0.11.1
   nbdkit: v1.39.5
