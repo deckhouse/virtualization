@@ -37,5 +37,5 @@ const (
 	ResourceVI           Resource = "virtualimages.virtualization.deckhouse.io"
 	ResourceVMBDA        Resource = "virtualmachineblockdeviceattachments.virtualization.deckhouse.io"
 	ResourceVMOP         Resource = "virtualmachineoperations.virtualization.deckhouse.io"
-	ResourceDescheduler            Resource = "deschedulers.deckhouse.io"
+	ResourceDescheduler  Resource = "deschedulers.deckhouse.io"
 )
