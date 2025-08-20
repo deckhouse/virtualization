@@ -17,7 +17,7 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   install:
   - |
@@ -31,7 +31,7 @@ shell:
 {{- define "$name" -}}
 packages:
 - gcc make git autoconf libtool gettext-tools
-- gcc-c++
+- gcc-c++ makeinfo
 - tree
 {{- end -}}
 
@@ -60,15 +60,14 @@ shell:
 
     cd /src
 
-    ./configure 
-      --prefix=/usr
+    ./autogen.sh
+    ./configure \
+      --prefix=/usr \
       --libdir=/usr/lib64
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-
-    strip $OUTDIR/usr/bin/*
 
     #debug
     tree -a $OUTDIR
