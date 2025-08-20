@@ -103,7 +103,6 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libisofs
   - libffi-devel
 packages:
   - ethtool
@@ -413,7 +412,7 @@ git:
       install:
       - '**/*'
 import:
-{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" -}}
+{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" "libisofs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: GOPROXY
