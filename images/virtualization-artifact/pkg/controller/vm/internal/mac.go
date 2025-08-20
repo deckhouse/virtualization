@@ -179,10 +179,8 @@ func countNetworksWithMACRequest(networkSpec []virtv2.NetworksSpec, vmmacs []*vi
 
 		if ns.VirtualMachineMACAddressName == "" {
 			count++
-		} else {
-			if !existingMACNames[ns.VirtualMachineMACAddressName] {
-				count++
-			}
+		} else if !existingMACNames[ns.VirtualMachineMACAddressName] {
+			count++
 		}
 	}
 
