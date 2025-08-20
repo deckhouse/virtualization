@@ -83,3 +83,15 @@ File created during build in werf.yaml
 {{-     .Files.Get $filePath }}
 {{-   end }}
 {{- end }}
+
+{{- define "debugPorts" -}}
+{{- $delve := index . 0 -}}
+{{- $image := index . 1 -}}
+{{-   if and ($delve) (eq $delve.debug.component $image) -}}
+- containerPort: 2345
+  name: tcp-dlv-2345
+  protocol: TCP
+{{-   end -}}
+{{- end }}
+
+{{/* {{- $delve := (include "debugEnvs" . | fromYaml) -}} */}}

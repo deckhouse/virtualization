@@ -1,4 +1,5 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "debugEnvs" . | fromYaml) -}}
 
 {{- define "virtualization_audit_resources" }}
 cpu: 10m
@@ -88,6 +89,7 @@ spec:
             - containerPort: 8443
               name: audit
               protocol: TCP
+            {{- include "debugPorts" (list $delve "virtualization-audit") | nindent 12 }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

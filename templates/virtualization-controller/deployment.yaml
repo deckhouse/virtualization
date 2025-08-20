@@ -1,4 +1,5 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "debugEnvs" . | fromYaml) -}}
 
 {{- define "virtualization_controller_resources" }}
 cpu: 10m
@@ -98,6 +99,7 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
+            {{- include "debugPorts" (list $delve "virtualization-controller") | nindent 12 }}
             - containerPort: 8083
               name: health
               protocol: TCP
