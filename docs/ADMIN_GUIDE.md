@@ -464,8 +464,8 @@ It is not recommended to set the annotation on the `generic` class, since the an
 
 Example output of the class list without a default class:
 
-```shell
-kubectl get vmclass 
+```console
+$ d8 k get vmclass 
 
 NAME                                    PHASE   ISDEFAULT   AGE
 generic                                 Ready               1d
@@ -475,14 +475,14 @@ host-passthrough-custom                 Ready               1d
 Example command of assigning the default class:
 
 ```shell
-kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+d8 k annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
 virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
 ```
 
 After assigning the default class, the output will be:
 
-```shell
-kubectl get vmclass 
+```console
+$ d8 k get vmclass 
 
 NAME                                    PHASE   ISDEFAULT   AGE
 generic                                 Ready               1d

@@ -472,8 +472,8 @@ VirtualMachineClass по умолчанию задаётся с помощью �
 
 Пример вывода списка классов без класса по умолчанию:
 
-```shell
-kubectl get vmclass 
+```console
+$ d8 k get vmclass 
 
 NAME                                    PHASE   ISDEFAULT   AGE
 generic                                 Ready               1d
@@ -483,14 +483,14 @@ host-passthrough-custom                 Ready               1d
 Пример назначения класса по умолчанию:
 
 ```shell
-kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+d8 k annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
 virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
 ```
 
 После назначения класса по умолчанию вывод будет таким:
 
-```shell
-kubectl get vmclass 
+```console
+$ d8 k get vmclass 
 
 NAME                                    PHASE   ISDEFAULT   AGE
 generic                                 Ready               1d
