@@ -27,3 +27,7 @@ func SIGMigration() Labels {
 func SIGRestoration() Labels {
 	return Label("SIG-Restoration")
 }
+
+func SIGScheduling() Labels {
+	return Label("SIG-Scheduling")
+}
