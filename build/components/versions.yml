@@ -41,6 +41,7 @@ package:
   libidn2: v2.3.8
   libisoburn: release-1.5.6
   libmd: 1.1.0
+  libmnl: libmnl-1.0.5
   lvm2: v2_03_32
   nbdkit: v1.39.5
   nettle: nettle_3.10.1_release_20241230
