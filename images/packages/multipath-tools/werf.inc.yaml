@@ -10,14 +10,14 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libmnl.git" }}
+{{- $gitRepoUrl := "libffi/libffi.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   install:
   - |
@@ -31,7 +31,7 @@ shell:
 {{- define "$name" -}}
 packages:
 - gcc make git autoconf libtool gettext-tools
-- automake pkgconf glibc-devel systemd-devel
+- gcc-c++ makeinfo
 - tree
 {{- end -}}
 
@@ -60,13 +60,6 @@ shell:
 
     cd /src
 
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64
-
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-
-    tree $OUTDIR

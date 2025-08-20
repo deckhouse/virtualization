@@ -43,6 +43,7 @@ package:
   libmd: 1.1.0
   libmnl: libmnl-1.0.5
   lvm2: v2_03_32
+  multipath-tools: 0.11.1
   nbdkit: v1.39.5
   nettle: nettle_3.10.1_release_20241230
   nftables: v1.1.3
