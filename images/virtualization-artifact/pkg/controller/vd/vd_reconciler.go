@@ -115,6 +115,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewStorageClassWatcher(mgrClient),
 		watcher.NewDataVolumeWatcher(),
 		watcher.NewVirtualMachineWatcher(),
+		watcher.NewResourceQuotaWatcher(mgrClient),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

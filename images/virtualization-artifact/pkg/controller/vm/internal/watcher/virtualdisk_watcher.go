@@ -52,6 +52,10 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 						return true
 					}
 
+					if e.ObjectOld.Status.Target.PersistentVolumeClaim != e.ObjectNew.Status.Target.PersistentVolumeClaim {
+						return true
+					}
+
 					return false
 				},
 			},
