@@ -3,8 +3,6 @@
 packages:
 - gcc gcc-c++
 - git pkg-config meson cmake
-- tree
-- patch
 - libunwind-devel libelf-devel libffi-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
 {{- end -}}
 
@@ -29,15 +27,6 @@ import:
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-git:
-- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
-  to: /
-  includePaths:
-  - patches
-  - alt
-  stageDependencies:
-    install:
-      - '**/*'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -75,14 +64,6 @@ import:
   add: /src
   to: /src
   before: install
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
-  add: /patches
-  to: /patches
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
-  add: /alt
-  to: /alt
-  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -98,22 +79,8 @@ shell:
 
     cd /src
 
-    patch -p1 -b --suffix .compat_map < /patches/glib-2.75.4-alt-compat-version-script.patch
-    patch -p0 < /patches/glib-2.53.5-alt-deprecated_paths-nowarning.patch
-    patch -p1 -b --suffix .xvt < /patches/glib-2.75.4-alt-add-xvt.patch
-    patch -p1 < /patches/glib-2.71.3-alt-lfs.patch
-
-    install -p -m644 /alt/glib-compat.map glib/compat.map
-    install -p -m644 /alt/glib-compat.lds glib/compat.lds
-    install -p -m644 /alt/gobject-compat.map gobject/compat.map
-    install -p -m644 /alt/gobject-compat.lds gobject/compat.lds
-    install -p -m644 /alt/gio-compat.map gio/compat.map
-    install -p -m644 /alt/gio-compat-2.57.lds gio/compat.lds
-
     meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
     meson compile -C _build
     meson install -C _build
-
-    tree $OUTDIR
 
 {{- end}}
