@@ -10,7 +10,7 @@
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 {{- $logVerbosity := include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | int }}
-{{ $debugDelve := (include "debugEnvs" . | fromYaml) }}
+{{ $delve := (include "debugEnvs" . | fromYaml) }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -64,17 +64,17 @@ spec:
       disableSerialConsoleLog: {}
   customizeComponents:
     flags:
-      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-api")) }}
+      {{- if not (and ($delve) (eq $delve.debug.component "virt-api")) }}
       api:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
       {{- end }}
-      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-controller")) }}
+      {{- if not (and ($delve) (eq $delve.debug.component "virt-controller")) }}
       controller:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
       {{- end }}
-      {{- if not (and ($debugDelve) (eq $debugDelve.config.component "virt-handler")) }}
+      {{- if not (and ($delve) (eq $delve.debug.component "virt-handler")) }}
       handler:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
@@ -101,6 +101,27 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
+    {{- if and $delve (hasKey $delve "debug") }}
+    # Debug
+      {{- if eq $delve.debug.component "virt-api" }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
+      type: strategic
+      {{- end }}
+      {{- if eq $delve.debug.component "virt-handler" }}
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
+      type: strategic
+      {{- end }}
+      {{- if eq $delve.debug.component "virt-controller" }}
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
+      type: strategic
+      {{- end }}
+    {{- end }}
     # Add node affinity for the lowest virtualization level for virt-handler pods
     - resourceType: DaemonSet
       resourceName: virt-handler

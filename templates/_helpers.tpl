@@ -67,7 +67,16 @@ true
 {{- end }}
 {{- end }}
 
-
+{{/*
+File created during build in werf.yaml
+{{-  if eq .DELVE_DEBUG "true" }}
+    - |
+      cat <<EOF>> /debug-values.yaml
+      debug:
+        component: {{ printf "%s" (split "/" .COMPONENT_DEBUG)._1 }}
+      EOF
+{{-  end }}
+*/}}
 {{ define "debugEnvs" }}
 {{-   $filePath := "debug-values.yaml" }}
 {{-   if .Files.Get $filePath }}

@@ -67,8 +67,7 @@ shell:
 {{-  if eq .DELVE_DEBUG "true" }}
     - |
       cat <<EOF>> /debug-values.yaml
-      config:
-        debug: true
+      debug:
         component: {{ printf "%s" (split "/" .COMPONENT_DEBUG)._1 }}
       EOF
 {{-  end }}

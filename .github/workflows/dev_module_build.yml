@@ -83,7 +83,9 @@ jobs:
               } else if (delveLabels.length === 1) {
                   return delveLabels[0];
               } else {
-                  console.error("Error: Multiple delve labels found - " + delveLabels.join(', '));
+                  const errorMsg = "Error: Multiple delve labels found - " + delveLabels.join(', ');
+                  console.error(errorMsg);
+                  core.setFailed(errorMsg);
                   return null;
               }
             }
