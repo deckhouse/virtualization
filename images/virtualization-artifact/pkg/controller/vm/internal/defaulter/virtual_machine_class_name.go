@@ -1,9 +1,12 @@
 /*
 Copyright 2025 Flant JSC
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
      http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,6 +39,12 @@ func NewVirtualMachineClassNameDefaulter(client client.Client, vmClassService *s
 }
 
 func (v *VirtualMachineClassNameDefaulter) Default(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
+	// Ignore if virtualMachineClassName is set.
+	if vm.Spec.VirtualMachineClassName != "" {
+		return nil
+	}
+
+	// Detect and assign default class name.
 	classes := &v1alpha2.VirtualMachineClassList{}
 	err := v.client.List(ctx, classes)
 	if err != nil {
