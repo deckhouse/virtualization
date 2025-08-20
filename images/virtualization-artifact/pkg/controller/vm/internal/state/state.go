@@ -335,41 +335,37 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.Virtu
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if needListMACAddresses(s.vm.Current().Spec.Networks) {
-		vmmacList := &virtv2.VirtualMachineMACAddressList{}
-		err := s.client.List(ctx, vmmacList, &client.ListOptions{
-			Namespace:     s.vm.Current().GetNamespace(),
-			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
-		})
+
+	var vmmacs []*virtv2.VirtualMachineMACAddress
+	for _, ns := range s.vm.Current().Spec.Networks {
+		vmmacKey := types.NamespacedName{Name: ns.VirtualMachineMACAddressName, Namespace: s.vm.Current().GetNamespace()}
+		vmmac, err := object.FetchObject(ctx, vmmacKey, s.client, &virtv2.VirtualMachineMACAddress{})
 		if err != nil {
-			return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
+			return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
 		}
-
-		if len(vmmacList.Items) == 0 {
-			return nil, nil
+		if vmmac != nil {
+			vmmacs = append(vmmacs, vmmac)
 		}
-
-		var vmmacs []*virtv2.VirtualMachineMACAddress
-		for _, vmmac := range vmmacList.Items {
-			vmmacs = append(vmmacs, &vmmac)
-		}
-
-		s.vmmacs = vmmacs
-	} else {
-		var vmmacs []*virtv2.VirtualMachineMACAddress
-		for _, ns := range s.vm.Current().Spec.Networks {
-			vmmacKey := types.NamespacedName{Name: ns.VirtualMachineMACAddressName, Namespace: s.vm.Current().GetNamespace()}
-			vmmac, err := object.FetchObject(ctx, vmmacKey, s.client, &virtv2.VirtualMachineMACAddress{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
-			}
-			if vmmac != nil {
-				vmmacs = append(vmmacs, vmmac)
-			}
-		}
-		s.vmmacs = vmmacs
 	}
 
+	vmmacList := &virtv2.VirtualMachineMACAddressList{}
+	err := s.client.List(ctx, vmmacList, &client.ListOptions{
+		Namespace:     s.vm.Current().GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
+	}
+
+	if len(vmmacList.Items) == 0 {
+		return nil, nil
+	}
+
+	for _, vmmac := range vmmacList.Items {
+		vmmacs = append(vmmacs, &vmmac)
+	}
+
+	s.vmmacs = vmmacs
 	return s.vmmacs, nil
 }
 
@@ -453,14 +449,4 @@ func (s *state) VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, e
 	}
 
 	return resultVMOPs, nil
-}
-
-func needListMACAddresses(networkSpec []virtv2.NetworksSpec) bool {
-	for _, ns := range networkSpec {
-		if ns.VirtualMachineMACAddressName != "" {
-			return false
-		}
-	}
-
-	return true
 }
