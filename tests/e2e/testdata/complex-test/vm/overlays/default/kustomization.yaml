@@ -7,10 +7,3 @@ labels:
   - includeSelectors: true
     pairs:
       vm: default
-patches:
-  - patch: |-
-      - op: remove
-        path: /spec/virtualMachineClassName
-    target:
-      kind: VirtualMachine
-      name: vm

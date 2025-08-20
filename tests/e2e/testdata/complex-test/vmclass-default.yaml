@@ -1,9 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: complex-discovery-default
-  annotations:
-    virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
-spec:
-  cpu:
-    type: Discovery

@@ -4,8 +4,7 @@ namespace: testcases
 namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
-  - vmclass.yaml
-  - vmclass-default.yaml
+  - vmc.yaml
   - cvi
   - vi
   - vd

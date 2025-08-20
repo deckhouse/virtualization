@@ -38,6 +38,7 @@ func TestDefaulters(t *testing.T) {
 
 var _ = Describe("Set default class in virtualMachineClasName", func() {
 	var (
+		ctx            = testutil.ContextBackgroundWithNoOpLogger()
 		classDefaulter *defaulter.VirtualMachineClassNameDefaulter
 	)
 
@@ -105,7 +106,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 			)
 
 			vm := newVMWithEmptyClass("vm-with-empty-class")
-			err := classDefaulter.Default(nil, vm)
+			err := classDefaulter.Default(ctx, vm)
 			Expect(err).Should(BeNil())
 			Expect(vm.Spec.VirtualMachineClassName).Should(BeEmpty())
 		})
@@ -119,7 +120,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 			)
 
 			vm := newVMWithEmptyClass("vm-with-empty-class")
-			err := classDefaulter.Default(nil, vm)
+			err := classDefaulter.Default(ctx, vm)
 			Expect(err).Should(BeNil())
 			Expect(vm.Spec.VirtualMachineClassName).Should(Equal(className))
 		})
@@ -135,7 +136,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 			)
 
 			vm := newVM("vm-with-empty-class", "generic")
-			err := classDefaulter.Default(nil, vm)
+			err := classDefaulter.Default(ctx, vm)
 			Expect(err).Should(BeNil())
 			Expect(vm.Spec.VirtualMachineClassName).Should(Equal("generic"))
 		})
@@ -149,7 +150,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 			)
 
 			vm := newVM("vm-with-empty-class", "generic")
-			err := classDefaulter.Default(nil, vm)
+			err := classDefaulter.Default(ctx, vm)
 			Expect(err).Should(BeNil())
 			Expect(vm.Spec.VirtualMachineClassName).Should(Equal("generic"))
 		})

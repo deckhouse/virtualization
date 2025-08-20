@@ -114,6 +114,7 @@ var _ = Describe("Spec policies validator", func() {
 
 var _ = Describe("Single default class validator", func() {
 	var (
+		ctx       = testutil.ContextBackgroundWithNoOpLogger()
 		validator *validators.SingleDefaultClassValidator
 	)
 
@@ -125,7 +126,7 @@ var _ = Describe("Single default class validator", func() {
 		validator = validators.NewSingleDefaultClassValidator(fakeClient, vmClassService)
 	}
 
-	var newVMClass = func(name string) *v1alpha2.VirtualMachineClass {
+	newVMClass := func(name string) *v1alpha2.VirtualMachineClass {
 		return &v1alpha2.VirtualMachineClass{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       v1alpha2.VirtualMachineClassKind,
@@ -139,7 +140,7 @@ var _ = Describe("Single default class validator", func() {
 		}
 	}
 
-	var newDefaultVMClass = func(name string) *v1alpha2.VirtualMachineClass {
+	newDefaultVMClass := func(name string) *v1alpha2.VirtualMachineClass {
 		vmClass := newVMClass(name)
 		vmClass.Annotations = map[string]string{
 			annotations.AnnVirtualMachineClassDefault: "true",
@@ -161,7 +162,7 @@ var _ = Describe("Single default class validator", func() {
 
 			// Validate adding is-default-class annotation.
 			updatedClass := newDefaultVMClass(name)
-			warns, err := validator.ValidateUpdate(nil, nil, updatedClass)
+			warns, err := validator.ValidateUpdate(ctx, nil, updatedClass)
 			Expect(err).Should(BeNil())
 			Expect(warns).Should(BeEmpty(), "should not return warnings")
 		})
@@ -176,7 +177,7 @@ var _ = Describe("Single default class validator", func() {
 
 			// Validate adding is-default-class annotation.
 			updatedClass := newDefaultVMClass(name)
-			warns, err := validator.ValidateUpdate(nil, nil, updatedClass)
+			warns, err := validator.ValidateUpdate(ctx, nil, updatedClass)
 			Expect(warns).Should(BeEmpty(), "should not return warnings")
 			Expect(err).ShouldNot(BeNil(), "should fail if default class is already present")
 		})
@@ -187,7 +188,7 @@ var _ = Describe("Single default class validator", func() {
 
 			// Validate creating single default class.
 			defaultClass := newDefaultVMClass("single-default-class")
-			warns, err := validator.ValidateCreate(nil, defaultClass)
+			warns, err := validator.ValidateCreate(ctx, defaultClass)
 			Expect(err).Should(BeNil())
 			Expect(warns).Should(BeEmpty(), "should not return warnings")
 		})
@@ -200,7 +201,7 @@ var _ = Describe("Single default class validator", func() {
 
 			// Validate creating second default class.
 			updatedClass := newDefaultVMClass("second-default-class")
-			warns, err := validator.ValidateCreate(nil, updatedClass)
+			warns, err := validator.ValidateCreate(ctx, updatedClass)
 			Expect(warns).Should(BeEmpty(), "should not return warnings")
 			Expect(err).ShouldNot(BeNil(), "should fail if default class is already present")
 		})
