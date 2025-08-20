@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -31,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	vmsnapshotcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmsnapshot"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -74,6 +76,8 @@ func NewController(
 		Complete(); err != nil {
 		return err
 	}
+
+	vmsnapshotcollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineSnapshot controller")
 
