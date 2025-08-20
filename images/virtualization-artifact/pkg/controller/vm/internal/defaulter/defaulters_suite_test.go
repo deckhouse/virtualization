@@ -86,7 +86,7 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 		}
 	}
 
-	newVM := func(name string, className string) *v1alpha2.VirtualMachine {
+	newVM := func(name, className string) *v1alpha2.VirtualMachine {
 		vm := newVMWithEmptyClass(name)
 		vm.Spec.VirtualMachineClassName = className
 		return vm
