@@ -456,11 +456,11 @@ spec:
 
 ### Default VirtualMachineClass
 
-For convenience, you can designate a default VirtualMachineClass. This class will be used in the spec.virtualMachineClassName field if it is not specified in the virtual machine manifest.
+For convenience, you can assign a default VirtualMachineClass. This class will be used in the `spec.virtualMachineClassName` field if it is not specified in the virtual machine manifest.
 
 The default VirtualMachineClass is set via the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation. There can be only one default class in the cluster. To change the default class, remove the annotation from one class and add it to another.
 
-It is not recommended to set the annotation on the `generic` class, since the annotation may be removed during an update. It is recommended to create your own class and designate it as the default.
+It is not recommended to set the annotation on the `generic` class, since the annotation may be removed during an update. It is recommended to create your own class and assign it as the default.
 
 Example output of the class list without a default class:
 
@@ -472,14 +472,14 @@ generic                                 Ready               1d
 host-passthrough-custom                 Ready               1d
 ```
 
-Example command to designate the default class:
+Example command of assigning the default class:
 
 ```shell
 kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
 virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
 ```
 
-After designating the default class, the output will be:
+After assigning the default class, the output will be:
 
 ```shell
 kubectl get vmclass 
@@ -489,7 +489,7 @@ generic                                 Ready               1d
 host-passthrough-custom                 Ready   true        1d
 ```
 
-When creating a VM without specifying the spec.virtualMachineClassName field, it will be set to `host-passthrough-custom`.
+When creating a VM without specifying the `spec.virtualMachineClassName` field, it will be set to `host-passthrough-custom`.
 
 ### VirtualMachineClass settings
 
