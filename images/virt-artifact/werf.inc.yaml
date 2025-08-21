@@ -140,7 +140,7 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-handler" | join "/") }}
     - |
     {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-handler") }}
-    {{-   include "image-build.build" (set $ "BuildCommand" `go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | nindent 6 }}
+    go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
     {{- else }}
     {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | nindent 6 }}
     {{- end }}
@@ -171,7 +171,7 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-api" | join "/") }}
     - |
     {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-api") }}
-    {{-   include "image-build.build" (set $ "BuildCommand" `go build -o /kubevirt-binaries/virt-api ./cmd/virt-api/`) | nindent 6 }}
+    go build -o /kubevirt-binaries/virt-api ./cmd/virt-api/
     {{- else }}
     {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/`) | nindent 6 }}
     {{- end }}
@@ -196,7 +196,7 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-controller" | join "/") }}
     - |
     {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-controller") }}
-    {{-   include "image-build.build" (set $ "BuildCommand" `go build -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/`) | nindent 6 }}
+    go build -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
     {{- else }}
     {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/`) | nindent 6 }}
     {{- end }}
