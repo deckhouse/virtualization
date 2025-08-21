@@ -29,8 +29,8 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
-# fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
+# fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -48,6 +48,12 @@ import:
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get -qq install -y libxml2-devel \
+      git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
+  {{- include "alt packages clean" . | nindent 2 }}
+{{/*
 {{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get install --yes libxml2-dev
@@ -57,6 +63,7 @@ shell:
   - apt-get -qq install -y libxml2-devel
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
+*/}}
   install:
   - |
     # Install packages
