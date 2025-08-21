@@ -4,7 +4,6 @@
 packages:
 - glibc-utils
 - mount xfsprogs xfstests util-linux
-- libffi-devel
 libraries:
 - libssh-devel libssh2-devel
 {{- end -}}
@@ -18,7 +17,7 @@ git:
   - add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
     to: /relocate_binaries.sh
 import:
-{{- $images := list "e2fsprogs" -}}
+{{- $images := list "libffi" "e2fsprogs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
@@ -35,3 +34,10 @@ shell:
         {{ $builderDependencies.packages | join " " }} \
         {{ $builderDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -af /$pkg/. /
+      rm -rf /$pkg
+    done
