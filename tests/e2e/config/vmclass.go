@@ -72,7 +72,6 @@ func CheckDefaultVMClass(virtClient virtclient.Client) error {
 			DefaultVirtualMachineClassName,
 			cmdCopyGenericAsDefaultClass(),
 		)
-
 	}
 
 	return nil

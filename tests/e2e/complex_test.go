@@ -89,7 +89,6 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 
 			Expect(res.StdOut()).Should(ContainSubstring(config.DefaultVirtualMachineClassName), "should fill empty .spec.virtualMachineClassName value")
 		})
-
 	})
 
 	Context("When virtual images are applied", func() {
