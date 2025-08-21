@@ -39,6 +39,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
@@ -134,6 +135,9 @@ func main() {
 	var clusterUUID string
 	pflag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
 
+	var leaderElection bool
+	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
+
 	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
 	featuregates.AddFlags(pflag.CommandLine)
 
@@ -222,9 +226,13 @@ func main() {
 		}
 	}
 
+	if !leaderElection {
+		log.Warn("Leader election is disabled, use only for development")
+	}
+
 	managerOpts := manager.Options{
 		// This controller watches resources in all namespaces.
-		LeaderElection:             true,
+		LeaderElection:             leaderElection,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
