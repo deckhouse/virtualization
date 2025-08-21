@@ -88,7 +88,7 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-{{- $images := list "libisoburn" "nftables" "acl" -}}
+{{- $images := list "libisoburn" "nftables" "acl" "libmnl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
