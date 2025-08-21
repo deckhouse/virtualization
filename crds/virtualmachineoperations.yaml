@@ -64,6 +64,52 @@ spec:
               type: object
             spec:
               properties:
+                clone:
+                  description: Clone defines the clone operation.
+                  properties:
+                    mode:
+                      description: |-
+                        VMOPRestoreMode defines the kind of the restore operation.
+                        * `DryRun`: DryRun run without any changes. Compatibility shows in status.
+                        * `Strict`: Strict restore as is in the snapshot.
+                        * `BestEffort`: BestEffort restore without deleted external missing dependencies.
+                      enum:
+                        - DryRun
+                        - Strict
+                        - BestEffort
+                      type: string
+                    nameReplacement:
+                      description: |-
+                        NameReplacement defines rules for renaming resources during cloning.
+                        Note: This references the NameReplacement type from virtual_machine_restore.go
+                      items:
+                        description:
+                          NameReplacement represents a rule for redefining
+                          the virtual machine resource names.
+                        properties:
+                          from:
+                            description: Selector to choose resources for name replacement.
+                            properties:
+                              kind:
+                                description: Kind of a resource to rename.
+                                type: string
+                              name:
+                                description: Current name of a resource to rename.
+                                type: string
+                            required:
+                              - name
+                            type: object
+                          to:
+                            description: New resource name.
+                            type: string
+                        required:
+                          - from
+                          - to
+                        type: object
+                      type: array
+                  required:
+                    - mode
+                  type: object
                 force:
                   description: |-
                     Force execution of an operation.
@@ -103,6 +149,7 @@ spec:
                     * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
                     * `Evict`: Migrate the virtual machine to another node where it can be started.
                     * `Restore`: Restore the virtual machine from a snapshot.
+                    * `Clone`: Clone the virtual machine to a new virtual machine.
                   enum:
                     - Restart
                     - Start
@@ -110,6 +157,7 @@ spec:
                     - Migrate
                     - Evict
                     - Restore
+                    - Clone
                   type: string
                 virtualMachineName:
                   description:
@@ -131,6 +179,8 @@ spec:
                     true"
                 - message: Restore requires restore field.
                   rule: "self.type == 'Restore' ? has(self.restore) : true"
+                - message: Clone requires clone field.
+                  rule: "self.type == 'Clone' ? has(self.clone) : true"
             status:
               properties:
                 conditions:

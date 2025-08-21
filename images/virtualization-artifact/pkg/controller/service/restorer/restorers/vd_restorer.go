@@ -93,6 +93,23 @@ func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		vmName := v.getVirtualMachineName()
+		for _, attachment := range existed.Status.AttachedToVirtualMachines {
+			if attachment.Mounted && attachment.Name != vmName {
+				return common.FormatVirtualDiskAttachedError(v.vd.Name, attachment.Name)
+			}
+		}
+
+		return common.FormatVirtualDiskConflictError(v.vd.Name)
+	}
+
 	return nil
 }
 
@@ -152,6 +169,26 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
+	}
+
+	if vdObj != nil {
+		return fmt.Errorf("VirtualDisk with name %s already exists", v.vd.Name)
+	}
+
+	err = v.client.Create(ctx, v.vd)
+	if err != nil {
+		return fmt.Errorf("failed to create the `VirtualDisk`: %w", err)
+	}
+
 	return nil
 }
 

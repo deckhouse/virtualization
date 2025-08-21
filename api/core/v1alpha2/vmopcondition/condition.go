@@ -32,6 +32,9 @@ const (
 	// TypeRestoreCompleted is a type for condition that indicates success of restore.
 	TypeRestoreCompleted Type = "RestoreCompleted"
 
+	// TypeCloneCompleted is a type for condition that indicates success of clone.
+	TypeCloneCompleted Type = "CloneCompleted"
+
 	// TypeMaintenanceMode is a type for condition that indicates VMOP has put VM in maintenance mode.
 	TypeMaintenanceMode Type = "MaintenanceMode"
 )
@@ -70,6 +73,9 @@ const (
 
 	// ReasonRestoreInProgress is a ReasonCompleted indicating that the restore operation is in progress.
 	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
+
+	// ReasonCloneInProgress is a ReasonCompleted indicating that the clone operation is in progress.
+	ReasonCloneInProgress ReasonCompleted = "CloneInProgress"
 
 	// ReasonMigrationPending is a ReasonCompleted indicating that the migration process has been initiated but not yet started.
 	ReasonMigrationPending ReasonCompleted = "MigrationPending"
@@ -115,6 +121,24 @@ const (
 
 	// ReasonRestoreOperationFailed is a ReasonRestoreCompleted indicating that operation has failed.
 	ReasonRestoreOperationFailed ReasonRestoreCompleted = "RestoreFailed"
+)
+
+// ReasonCloneCompleted represents specific reasons for the 'CloneCompleted' condition type.
+type ReasonCloneCompleted string
+
+func (r ReasonCloneCompleted) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonCloneOperationInProgress is a ReasonCloneCompleted indicating that the clone operation is in progress.
+	ReasonCloneOperationInProgress ReasonCloneCompleted = "CloneInProgress"
+
+	// ReasonCloneOperationCompleted is a ReasonCloneCompleted indicating that the clone operation has completed successfully.
+	ReasonCloneOperationCompleted ReasonCloneCompleted = "CloneCompleted"
+
+	// ReasonCloneOperationFailed is a ReasonCloneCompleted indicating that clone operation has failed.
+	ReasonCloneOperationFailed ReasonCloneCompleted = "CloneFailed"
 )
 
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.

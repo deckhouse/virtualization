@@ -93,6 +93,18 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
+	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
+			return common.FormatSecretContentDifferentError(v.secret.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -123,6 +135,24 @@ func (v *ProvisionerHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if existed == nil {
+		err = v.client.Create(ctx, v.secret)
+		if err != nil {
+			return fmt.Errorf("failed to create the `Secret`: %w", err)
+		}
+	}
+
 	return nil
 }
 

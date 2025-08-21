@@ -162,3 +162,47 @@ func (v *VirtualMachineIPHandler) Object() client.Object {
 		Spec: v.vmip.Spec,
 	}
 }
+
+func (v *VirtualMachineIPHandler) ValidateClone(ctx context.Context) error {
+	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
+	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if existed.Status.VirtualMachine != v.vmip.Status.VirtualMachine && existed.Status.VirtualMachine != "" {
+			return common.FormatVMIPAttachedError(v.vmip.Name, existed.Status.VirtualMachine)
+		}
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineIPHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	clonedVMIP := v.vmip.DeepCopy()
+	clonedVMIP.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeAuto
+	clonedVMIP.Spec.StaticIP = ""
+
+	vmipKey := types.NamespacedName{Namespace: clonedVMIP.Namespace, Name: clonedVMIP.Name}
+	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachineIPAddress`: %w", err)
+	}
+
+	if existed != nil {
+		return fmt.Errorf("VirtualMachineIPAddress with name %s already exists", clonedVMIP.Name)
+	}
+
+	err = v.client.Create(ctx, clonedVMIP)
+	if err != nil {
+		return fmt.Errorf("failed to create the `VirtualMachineIPAddress`: %w", err)
+	}
+
+	return nil
+}

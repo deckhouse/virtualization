@@ -22,10 +22,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewRestorePredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineOperation] {
+func NewSnapshotPredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineOperation] {
 	return predicate.NewTypedPredicateFuncs(Match)
 }
 
 func Match(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop.Spec.Type == v1alpha2.VMOPTypeRestore
+	return vmop.Spec.Type == v1alpha2.VMOPTypeRestore || vmop.Spec.Type == v1alpha2.VMOPTypeClone
 }
