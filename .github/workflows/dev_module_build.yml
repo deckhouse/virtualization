@@ -150,13 +150,6 @@ jobs:
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
 
-          # # Delve debug
-          # if echo "${{ steps.get-labels.outputs.debug_component }}" | grep -q "delve/"; then
-          #   echo "DELVE_DEBUG=true" >> "$GITHUB_OUTPUT"
-          # else
-          #   echo "DELVE_DEBUG=false" >> "$GITHUB_OUTPUT"
-          # fi
-
   show_dev_manifest:
     runs-on: ubuntu-latest
     name: Show manifest
@@ -339,7 +332,6 @@ jobs:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
-      DELVE_DEBUG: ${{needs.set_vars.outputs.delve_debug}}
       DEBUG_COMPONENT: ${{needs.set_vars.outputs.component_debug}}
     steps:
       - name: Print vars
@@ -350,7 +342,6 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
-          echo DELVE_DEBUG=$DELVE_DEBUG
           echo DEBUG_COMPONENT=$DEBUG_COMPONENT
 
       - uses: actions/checkout@v4
