@@ -50,21 +50,25 @@ var _ = Describe("DeletionHandler", func() {
 		h := NewDeletionHandler(fakeClient)
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
+		err = fakeClient.Update(ctx, srv.Changed())
+		Expect(err).NotTo(HaveOccurred())
 		err = srv.Update(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
 	newVmop := func(phase v1alpha2.VMOPPhase, opts ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
-		vmop.Status.Phase = phase
-		vmop.Status = v1alpha2.VirtualMachineOperationStatus{Conditions: []metav1.Condition{}}
+		vmop.Status = v1alpha2.VirtualMachineOperationStatus{
+			Phase:      phase,
+			Conditions: []metav1.Condition{},
+		}
 		vmop.Spec.VirtualMachine = "test-vm"
 		vmopbuilder.ApplyOptions(vmop, opts...)
 		return vmop
 	}
 
 	DescribeTable("Should be protected", func(phase v1alpha2.VMOPPhase, protect bool) {
-		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeRestore))
+		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeClone))
 
 		fakeClient, srv = setupEnvironment(vmop)
 		reconcile()
@@ -73,17 +77,15 @@ var _ = Describe("DeletionHandler", func() {
 		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vmop), newVMOP)
 		Expect(err).NotTo(HaveOccurred())
 
-		updated := controllerutil.AddFinalizer(newVMOP, v1alpha2.FinalizerVMOPCleanup)
-
 		if protect {
-			Expect(updated).To(BeFalse())
+			Expect(controllerutil.ContainsFinalizer(newVMOP, v1alpha2.FinalizerVMOPCleanup)).To(BeTrue())
 		} else {
-			Expect(updated).To(BeTrue())
+			Expect(controllerutil.ContainsFinalizer(newVMOP, v1alpha2.FinalizerVMOPCleanup)).To(BeFalse())
 		}
 	},
-		Entry("VMOP Restore 1", v1alpha2.VMOPPhasePending, false),
-		Entry("VMOP Restore 2", v1alpha2.VMOPPhaseInProgress, false),
-		Entry("VMOP Restore 3", v1alpha2.VMOPPhaseCompleted, false),
-		Entry("VMOP Restore 4", v1alpha2.VMOPPhaseFailed, false),
+		Entry("VMOP pending", v1alpha2.VMOPPhasePending, false),
+		Entry("VMOP in progress", v1alpha2.VMOPPhaseInProgress, true),
+		Entry("VMOP completed", v1alpha2.VMOPPhaseCompleted, false),
+		Entry("VMOP failed", v1alpha2.VMOPPhaseFailed, false),
 	)
 })

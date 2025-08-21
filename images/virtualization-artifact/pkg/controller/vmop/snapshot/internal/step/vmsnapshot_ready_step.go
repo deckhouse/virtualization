@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
@@ -48,13 +49,24 @@ func NewVMSnapshotReadyStep(
 }
 
 func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
-		err := fmt.Errorf("the virtual machine snapshot name is empty")
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+	var vmopName string
+	if vmop.Spec.Type == v1alpha2.VMOPTypeRestore {
+		if vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
+			err := fmt.Errorf("the virtual machine snapshot name is empty")
+			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+			return &reconcile.Result{}, err
+		}
+
+		vmopName = vmop.Spec.Restore.VirtualMachineSnapshotName
+	} else {
+		snapshotName, exist := vmop.Annotations[annotations.AnnVMOPSnapshotName]
+		if !exist {
+			return &reconcile.Result{}, nil
+		}
+		vmopName = snapshotName
 	}
 
-	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
+	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmopName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed

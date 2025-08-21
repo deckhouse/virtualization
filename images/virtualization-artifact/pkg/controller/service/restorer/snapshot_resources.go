@@ -112,6 +112,12 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	return nil
 }
 
+func (r *SnapshotResources) Override(rules []v1alpha2.NameReplacement) {
+	for _, ov := range r.objectHandlers {
+		ov.Override(rules)
+	}
+}
+
 func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceStatus, error) {
 	var hasErrors bool
 
@@ -128,12 +134,20 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 			Message:    obj.GetName() + " is valid for restore",
 		}
 
-		if r.kind == common.RestoreKind {
+		switch r.kind {
+		case common.RestoreKind:
 			err := ov.ValidateRestore(ctx)
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
 			default:
+				hasErrors = true
+				status.Status = "Failed"
+				status.Message = err.Error()
+			}
+		case common.CloneKind:
+			err := ov.ValidateClone(ctx)
+			if err != nil {
 				hasErrors = true
 				status.Status = "Failed"
 				status.Message = err.Error()
@@ -169,11 +183,24 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			Message:    "Successfully processed",
 		}
 
-		if r.kind == common.RestoreKind {
+		switch r.kind {
+		case common.RestoreKind:
 			err := ov.ProcessRestore(ctx)
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
+			case isRetryError(err):
+				status.Status = "InProgress"
+				status.Message = err.Error()
+			default:
+				hasErrors = true
+				status.Status = "Failed"
+				status.Message = err.Error()
+			}
+		case common.CloneKind:
+			err := ov.ProcessClone(ctx)
+			switch {
+			case err == nil:
 			case isRetryError(err):
 				status.Status = "InProgress"
 				status.Message = err.Error()
@@ -285,4 +312,8 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 	}
 
 	return vds, nil
+}
+
+func (r *SnapshotResources) GetObjectHandlers() []ObjectHandler {
+	return r.objectHandlers
 }
