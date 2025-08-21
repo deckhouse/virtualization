@@ -85,7 +85,7 @@ libraries:
 - libattr-devel libbsd-devel
 - libsystemd-devel
 - libjson-c-devel systemtap-sdt-devel
-- libacl-devel glib2-devel glibc-utils
+- libacl-devel glibc-utils
 - libgio-devel libxml2-devel
 - libtirpc-devel libsasl2-devel
 - wireshark-devel
@@ -111,7 +111,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "glib2" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img

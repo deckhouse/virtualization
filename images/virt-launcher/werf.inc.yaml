@@ -96,7 +96,6 @@ libs:
   - libsystemd-devel
   - libjson-c-devel
   - systemtap-sdt-devel
-  - glib2-devel
   - libgio-devel
   - libxml2-devel
   - libgcc1
@@ -216,7 +215,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" -}}
+{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" "glib2" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded

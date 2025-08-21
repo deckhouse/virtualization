@@ -30,7 +30,6 @@ shell:
 packages:
 - gcc git make libtool gettext-tools
 - libuuid-devel libarchive-devel acl
-- glib2-devel
 - tree
 {{- end -}}
 
@@ -47,7 +46,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libblkid" -}}
+{{- $images := list "libblkid" "glib2" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
