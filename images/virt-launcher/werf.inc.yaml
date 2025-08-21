@@ -90,7 +90,6 @@ libs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libnbd-devel
   - libp11-kit-devel
   - libreadline-devel
   - libsystemd-devel
@@ -215,7 +214,10 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" -}}
+{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode"
+                "libisoburn" "libburn" "libattr" "libaudit"
+                "gnutls" "acl" "libbsd" "libgcrypt" "libmd"
+                "libblkid" "libfuse3" "nettle" "libgsasl" "libnbd" "libcap-ng" "libcapstone" "libcurl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded

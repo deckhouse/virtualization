@@ -78,7 +78,9 @@ libraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libfuse-devel libnbd-devel
+- libnuma-devel libcap-ng-devel
+- libcurl-devel
+- libfuse-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
@@ -110,7 +112,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libnbd" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img

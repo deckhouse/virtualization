@@ -45,7 +45,6 @@ packages:
 - zstd
 - zlib
 - libblkio
-- libnbd
 - libtorrent-rasterbar-devel
 - libssh
 {{- end -}}
@@ -60,7 +59,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libisoburn" "e2fsprogs" -}}
+{{- $images := list "libisoburn" "libnbd" "e2fsprogs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:

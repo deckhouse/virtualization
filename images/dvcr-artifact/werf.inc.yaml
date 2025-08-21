@@ -14,18 +14,18 @@ git:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+import:
+{{- $images := list "libnbd" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
-  beforeInstall:
-{{- if eq $.SVACE_ENABLED "false" }}
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y --no-install-recommends libnbd-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y libnbd-devel
-  {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
   install:
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -af /$pkg/. /
+      rm -rf /$pkg
+    done
   - cd /src
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - go mod download
@@ -51,8 +51,6 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-libraries:
-- libnbd
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
@@ -84,7 +82,7 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
-{{- $images := list "bzip2" "file" "nbdkit" -}}
+{{- $images := list "bzip2" "file" "nbdkit" "libnbd" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
@@ -93,12 +91,7 @@ import:
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install -y \
-      {{ $dvcrDependencies.libraries | join " " }}
-
   {{- include "alt packages clean" . | nindent 2 }}
-
   install:
   - |
     # Install packages
