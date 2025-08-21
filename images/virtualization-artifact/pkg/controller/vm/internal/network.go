@@ -102,15 +102,15 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
 	}
 
-	kvvmi, err := s.KVVMI(ctx)
+	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	macAddressesByInterfaceName := make(map[string]string)
-	if kvvmi != nil {
-		for _, i := range kvvmi.Status.Interfaces {
-			macAddressesByInterfaceName[i.Name] = i.MAC
+	if kvvm != nil {
+		for _, i := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+			macAddressesByInterfaceName[i.Name] = i.MacAddress
 		}
 	}
 
