@@ -28,6 +28,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -55,6 +56,34 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		newObjs = append(newObjs, obj)
 	}
 	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...)
+	for _, fn := range indexer.IndexGetters {
+		b.WithIndex(fn())
+	}
+
+	return b.Build(), nil
+}
+
+func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs ...client.Object) (client.WithWatch, error) {
+	scheme := apiruntime.NewScheme()
+	for _, f := range []func(*apiruntime.Scheme) error{
+		virtv2.AddToScheme,
+		virtv1.AddToScheme,
+		cdiv1.AddToScheme,
+		clientgoscheme.AddToScheme,
+	} {
+		err := f(scheme)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var newObjs []client.Object
+	for _, obj := range objs {
+		if reflect.ValueOf(obj).IsNil() {
+			continue
+		}
+		newObjs = append(newObjs, obj)
+	}
+	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).WithInterceptorFuncs(interceptor)
 	for _, fn := range indexer.IndexGetters {
 		b.WithIndex(fn())
 	}
