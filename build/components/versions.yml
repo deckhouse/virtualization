@@ -41,3 +41,8 @@ package:
   numactl: v2.0.19
   openssl: openssl-3.4.1
   swtpm: v0.10.0
+  krb5: krb5-1.21.3-final
+  lz4: v1.9.4
+  lzo: v2.10
+  xz: v5.4.5
+  openldap: OPENLDAP_REL_ENG_2_6_9
