@@ -45,6 +45,7 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec is immutable"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !has(self.force) || !self.force : true",message="The `Start` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
+// +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.
@@ -54,7 +55,29 @@ type VirtualMachineOperationSpec struct {
 	// * Effect on `Restart` and `Stop`: operation performs immediately.
 	// * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
 	Force *bool `json:"force,omitempty"`
+	// Restore defines the restore operation.
+	Restore *VirtualMachineOperationRestoreSpec `json:"restore,omitempty"`
 }
+
+// VirtualMachineOperationRestoreSpec defines the restore operation.
+type VirtualMachineOperationRestoreSpec struct {
+	Mode VMOPRestoreMode `json:"mode"`
+	// VirtualMachineSnapshotName defines the source of the restore operation.
+	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
+}
+
+// VMOPRestoreMode defines the kind of the restore operation.
+// * `DryRun`: DryRun run without any changes. Compatibility shows in status.
+// * `Strict`: Strict restore as is in the snapshot.
+// * `BestEffort`: BestEffort restore without deleted external missing dependencies.
+// +kubebuilder:validation:Enum={DryRun,Strict,BestEffort}
+type VMOPRestoreMode string
+
+const (
+	VMOPRestoreModeDryRun     VMOPRestoreMode = "DryRun"
+	VMOPRestoreModeStrict     VMOPRestoreMode = "Strict"
+	VMOPRestoreModeBestEffort VMOPRestoreMode = "BestEffort"
+)
 
 type VirtualMachineOperationStatus struct {
 	Phase VMOPPhase `json:"phase"`
@@ -62,6 +85,47 @@ type VirtualMachineOperationStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	//  Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// Resources contains the list of resources that are affected by the snapshot operation.
+	Resources []VirtualMachineOperationResource `json:"resources,omitempty"`
+}
+
+// VMOPResourceKind defines the kind of the resource affected by the operation.
+// * `VirtualDisk`: VirtualDisk resource.
+// * `VirtualMachine`: VirtualMachine resource.
+// * `VirtualImage`: VirtualImage resource.
+// * `ClusterVirtualImage`: ClusterVirtualImage resource.
+// * `VirtualMachineIPAddress`: VirtualMachineIPAddress resource.
+// * `VirtualMachineIPAddressLease`: VirtualMachineIPAddressLease resource.
+// * `VirtualMachineClass`: VirtualMachineClass resource.
+// * `VirtualMachineOperation`: VirtualMachineOperation resource.
+// +kubebuilder:validation:Enum={VMOPResourceSecret,VMOPResourceNetwork,VMOPResourceVirtualDisk,VMOPResourceVirtualImage,VMOPResourceVirtualMachine,VMOPResourceClusterNetwork,VMOPResourceClusterVirtualImage,VMOPResourceVirtualMachineIPAddress,VMOPResourceVirtualMachineMacAddress,VMOPResourceVirtualMachineBlockDeviceAttachment}
+type VMOPResourceKind string
+
+const (
+	VMOPResourceSecret                              VMOPResourceKind = "Secret"
+	VMOPResourceNetwork                             VMOPResourceKind = "Network"
+	VMOPResourceVirtualDisk                         VMOPResourceKind = "VirtualDisk"
+	VMOPResourceVirtualImage                        VMOPResourceKind = "VirtualImage"
+	VMOPResourceVirtualMachine                      VMOPResourceKind = "VirtualMachine"
+	VMOPResourceClusterNetwork                      VMOPResourceKind = "ClusterNetwork"
+	VMOPResourceClusterVirtualImage                 VMOPResourceKind = "ClusterVirtualImage"
+	VMOPResourceVirtualMachineIPAddress             VMOPResourceKind = "VirtualMachineIPAddress"
+	VMOPResourceVirtualMachineMacAddress            VMOPResourceKind = "VirtualMachineMacAddress"
+	VMOPResourceVirtualMachineBlockDeviceAttachment VMOPResourceKind = "VirtualMachineBlockDeviceAttachment"
+)
+
+// VirtualMachineOperationResource defines the resource affected by the operation.
+type VirtualMachineOperationResource struct {
+	// API version of the resource.
+	APIVersion string `json:"apiVersion"`
+	// Name of the resource.
+	Name string `json:"name"`
+	// Kind of the resource.
+	Kind string `json:"kind"`
+	// Status of the resource.
+	Status string `json:"status"`
+	// Message about the resource.
+	Message string `json:"message"`
 }
 
 // VirtualMachineOperationList contains a list of VirtualMachineOperation resources.
@@ -95,7 +159,8 @@ const (
 // * `Restart`: Restart the virtual machine.
 // * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
 // * `Evict`: Migrate the virtual machine to another node where it can be started.
-// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict}
+// * `Restore`: Restore the virtual machine from a snapshot.
+// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict,Restore}
 type VMOPType string
 
 const (
@@ -104,4 +169,5 @@ const (
 	VMOPTypeStop    VMOPType = "Stop"
 	VMOPTypeMigrate VMOPType = "Migrate"
 	VMOPTypeEvict   VMOPType = "Evict"
+	VMOPTypeRestore VMOPType = "Restore"
 )
