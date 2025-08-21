@@ -61,7 +61,7 @@ concurrency:
 jobs:
   set_vars:
     runs-on: ubuntu-latest
-    name: Get PR info and Set MODULES_MODULE_TAG
+    name: Get PR info and set vars
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
