@@ -18,8 +18,6 @@ package validators
 
 import (
 	"context"
-	"fmt"
-	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -46,9 +44,9 @@ func (v *MaintenanceValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v
 		return nil, nil
 	}
 
-	if !reflect.DeepEqual(oldVM.Spec, newVM.Spec) {
-		return nil, fmt.Errorf("spec changes are not allowed while VirtualMachine is in maintenance mode")
-	}
+	// if !reflect.DeepEqual(oldVM.Spec, newVM.Spec) {
+	// 	return nil, fmt.Errorf("spec changes are not allowed while VirtualMachine is in maintenance mode")
+	// }
 
 	return nil, nil
 }
