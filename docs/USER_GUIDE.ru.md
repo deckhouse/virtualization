@@ -101,7 +101,7 @@ weight: 50
    metadata:
      name: linux-vm
    spec:
-     virtualMachineClassName: host
+     virtualMachineClassName: generic
      cpu:
        cores: 1
      memory:
@@ -894,7 +894,7 @@ metadata:
   name: linux-vm
 spec:
   # Название класса ВМ.
-  virtualMachineClassName: host
+  virtualMachineClassName: generic
   # Блок скриптов первичной инициализации ВМ.
   provisioning:
     type: UserData

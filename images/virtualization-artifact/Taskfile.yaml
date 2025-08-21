@@ -65,7 +65,7 @@ tasks:
       - _ensure:golangci-lint
     cmds:
       - |
-        golangci-lint run --sort-results
+        golangci-lint run
 
   mirrord:run:controller:
     desc: "Run local virtualization-controller in cluster using a mirrord"
