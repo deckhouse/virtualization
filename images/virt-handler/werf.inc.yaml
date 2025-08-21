@@ -39,7 +39,7 @@ import:
   after: install
   includePaths:
   - nsswitch.conf
-{{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-handler") }}
+{{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
 - image: debuger
   add: /app/dlv
   to: /app/dlv
@@ -49,7 +49,7 @@ import:
 imageSpec:
   config:
     user: 0
-    {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-handler") }}
+    {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
     env:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
       XDG_CONFIG_HOME: "/tmp"

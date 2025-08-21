@@ -69,11 +69,11 @@ true
 
 {{/*
 File created during build in werf.yaml
-{{-  if eq .DELVE_DEBUG "true" }}
+{{-  if eq .DEBUG_COMPONENT }}
     - |
       cat <<EOF>> /debug-values.yaml
       debug:
-        component: {{ printf "%s" (split "/" .COMPONENT_DEBUG)._1 }}
+        component: {{ printf "%s" (split "/" .DEBUG_COMPONENT)._1 }}
       EOF
 {{-  end }}
 */}}
@@ -93,5 +93,3 @@ File created during build in werf.yaml
   protocol: TCP
 {{-   end -}}
 {{- end }}
-
-{{/* {{- $delve := (include "debugEnvs" . | fromYaml) -}} */}}

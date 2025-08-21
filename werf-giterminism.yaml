@@ -13,7 +13,7 @@ config:
     - SVACE_ANALYZE_HOST
     - SVACE_ANALYZE_SSH_USER
     - DELVE_DEBUG
-    - COMPONENT_DEBUG
+    - DEBUG_COMPONENT
   stapel:
     mount:
       allowBuildDir: true

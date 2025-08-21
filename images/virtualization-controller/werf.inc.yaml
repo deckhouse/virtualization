@@ -6,7 +6,7 @@ import:
   add: /out/virtualization-controller
   to: /app/virtualization-controller
   after: install
-{{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virtualization-controller") }}
+{{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
 - image: debuger
   add: /app/dlv
   to: /app/dlv
@@ -16,7 +16,7 @@ imageSpec:
   config:
     user: 64535
     workingDir: "/app"
-    {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virtualization-controller") }}
+    {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
     env:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
       XDG_CONFIG_HOME: "/tmp"

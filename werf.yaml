@@ -23,7 +23,7 @@ build:
 
 # Delve debag
 {{- $_ := set . "DELVE_DEBUG" (env "DELVE_DEBUG" "false") }}
-{{- $_ := set . "COMPONENT_DEBUG" (env "COMPONENT_DEBUG" "") }}
+{{- $_ := set . "DEBUG_COMPONENT" (env "DEBUG_COMPONENT" "") }}
 
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
@@ -64,11 +64,11 @@ shell:
         )
       ' > /images_digests.json
       cat images_digests.json
-{{-  if eq .DELVE_DEBUG "true" }}
+{{-  if .DEBUG_COMPONENT }}
     - |
       cat <<EOF>> /debug-values.yaml
       debug:
-        component: {{ printf "%s" (split "/" .COMPONENT_DEBUG)._1 }}
+        component: {{ printf "%s" (split "/" .DEBUG_COMPONENT)._1 }}
       EOF
 {{-  end }}
 ---
@@ -81,7 +81,7 @@ import:
   after: setup
   includePaths:
     - images_digests.json
-  {{-  if eq .DELVE_DEBUG "true" }}
+  {{-  if .DEBUG_COMPONENT }}
     - debug-values.yaml
   {{-  end }}
 - image: go-hooks-artifact

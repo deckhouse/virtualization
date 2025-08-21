@@ -17,7 +17,7 @@ import:
   - .version
   before: setup
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-controller/BUILD.bazel
-{{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-controller") }}
+{{- if eq $.DEBUG_COMPONENT "delve/virt-controller" }}
 - image: debuger
   add: /app/dlv
   to: /app/dlv
@@ -26,7 +26,7 @@ import:
 imageSpec:
   config:
     user: 64535
-  {{- if and (eq $.DELVE_DEBUG "true") (eq $.COMPONENT_DEBUG "delve/virt-controller") }}
+  {{- if eq $.DEBUG_COMPONENT "delve/virt-controller" }}
     env:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
       XDG_CONFIG_HOME: "/tmp"
