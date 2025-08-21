@@ -107,8 +107,8 @@ spec:
             - containerPort: 8443
               name: apiserver
               protocol: TCP
-            {{- include "debugPorts" (list $delve "virtualization-audit") | nindent 12 }}
-            # TODO: rm probs if debug
+            {{- include "debugPorts" (list $delve "virtualization-api") | nindent 12 }}
+          {{- if not (and ($delve) (eq $delve.debug.component "virtualization-api")) }}
           livenessProbe:
             httpGet:
               path: /livez
@@ -121,6 +121,7 @@ spec:
               port: apiserver
               scheme: HTTPS
             initialDelaySeconds: 10
+          {{- end }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

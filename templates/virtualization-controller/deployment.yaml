@@ -112,6 +112,7 @@ spec:
           env:
             {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
             {{- include "virtualization-controller.envs" . | nindent 12 }}
+          {{- if not (and ($delve) (eq $delve.debug.component "virtualization-controller")) }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -124,6 +125,7 @@ spec:
               port: health
               scheme: HTTP
             initialDelaySeconds: 10
+          {{- end }}
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
