@@ -29,8 +29,8 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-# fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+# fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -47,11 +47,6 @@ import:
 {{- $images := list "libnbd" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install -y git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
-  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     # Install packages
@@ -88,6 +83,7 @@ shell:
   setup:
   - |
     export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/lib64/pkgconfig:$PKG_CONFIG_PATH
+    export LD_LIBRARY_PATH=/usr/lib64:/usr/lib:$LD_LIBRARY_PATH
   - mkdir /cdi-binaries
   - cd /containerized-data-importer
 
