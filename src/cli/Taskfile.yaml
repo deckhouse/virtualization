@@ -7,15 +7,39 @@ silent: true
 tasks:
   build:
     cmds:
-      - go build -o out/d8v cmd/main.go
+      - go build -o .out/d8v cmd/main.go
   install:
     deps: [build]
     cmds:
       - echo "Check that ~/.local/bin in your PATH"
       - echo "Installing d8v to ~/.local/bin"
       - mkdir -p ~/.local/bin
-      - cp out/d8v ~/.local/bin/d8v
+      - cp .out/d8v ~/.local/bin/d8v
       - task: clean
   clean:
     cmds:
-      - rm -rf out
+      - rm -rf .out
+
+  lint:
+    desc: "Run linters locally"
+    cmds:
+      - task: lint:go
+
+  lint:go:
+    desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
+    cmds:
+      - |
+        golangci-lint run
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint is available"
+    internal: true
+    cmds:
+      - |
+        echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
+        exit 1
+    status:
+      - |
+        [ -f ./golangci-lint ] || which golangci-lint

@@ -37,8 +37,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/deckhouse/virtualization/src/cli/internal/util"
@@ -185,7 +185,7 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 
 	go func() {
 		// transfer data from/to the VM
-		err := vnc.Stream(kubeclient.StreamOptions{
+		err := vnc.Stream(virtualizationv1alpha2.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})
@@ -213,7 +213,7 @@ func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client
 		defer fd.Close()
 
 		klog.V(2).Infof("VNC Client connected in %v", time.Since(start))
-		templates.PrintWarningForPausedVM(virtCli, vmName, namespace)
+		templates.PrintWarningForPausedVM(ctx, virtCli, vmName, namespace)
 
 		// write to FD <- pipeOutReader
 		go func() {
