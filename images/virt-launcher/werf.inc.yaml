@@ -107,7 +107,6 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libisofs
-  - libffi-devel
 packages:
   - ethtool
   - fdisk
