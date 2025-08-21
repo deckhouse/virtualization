@@ -30,7 +30,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = FDescribe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
@@ -76,6 +76,20 @@ var _ = FDescribe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), f
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 		})
+
+		It("should fill empty virtualMachineClassName with the default class name", func() {
+			defaultVMLabels := testCaseLabel
+			defaultVMLabels["vm"] = "default"
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Output:    "jsonpath='{.items[*].spec.virtualMachineClassName}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+			Expect(res.StdOut()).Should(ContainSubstring(config.DefaultVirtualMachineClassName), "should fill empty .spec.virtualMachineClassName value")
+		})
+
 	})
 
 	Context("When virtual images are applied", func() {
@@ -152,19 +166,6 @@ var _ = FDescribe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), f
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Default VMClass should fill empty virtualMachineClassName", func() {
-				defaultVMLabels := testCaseLabel
-				defaultVMLabels["vm"] = "default"
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Output:    "jsonpath='{.items[*].spec.virtualMachineClassName}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				Expect(res.StdOut()).Should(ContainSubstring(config.DefaultVirtualMachineClassName), "should fill empty .spec.virtualMachineClassName value")
-			})
-
 			By("Virtual machine agents should be ready")
 			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
