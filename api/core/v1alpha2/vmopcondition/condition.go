@@ -28,6 +28,9 @@ const (
 
 	// TypeSignalSent is a type for condition that indicates operation signal has been sent.
 	TypeSignalSent Type = "SignalSent"
+
+	// TypeRestoreCompleted is a type for condition that indicates success of restore.
+	TypeRestoreCompleted Type = "RestoreCompleted"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -38,6 +41,12 @@ func (r ReasonCompleted) String() string {
 }
 
 const (
+	// ReasonRestoreInProgress is a ReasonCompleted indicating that the start signal has been sent and start is in progress.
+	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
+
+	// ReasonRestoreCompleted is a ReasonCompleted indicating that the start signal has been sent and start is in progress.
+	ReasonRestoreCompleted ReasonCompleted = "RestoreCompleted"
+
 	// ReasonVirtualMachineNotFound is a ReasonCompleted indicating that the specified virtual machine is absent.
 	ReasonVirtualMachineNotFound ReasonCompleted = "VirtualMachineNotFound"
 
@@ -85,6 +94,8 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
+
+	ReasonTODO ReasonCompleted = "TODO"
 )
 
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.
