@@ -19,12 +19,12 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -33,7 +33,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	const (
 		viCount    = 2
 		vmCount    = 1
@@ -46,8 +46,8 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 		cancel              context.CancelFunc
 		storageClass        *storagev1.StorageClass
 		namespace           string
-		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
-		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
+		testCaseLabel       = map[string]string{"testcase": "vm-restore-safe"}
+		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-safe"}
 	)
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
@@ -62,20 +62,13 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 	})
 
 	BeforeAll(func() {
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMRestoreForce, "kustomization.yaml")
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMRestoreSafe, "kustomization.yaml")
 		var err error
 		namespace, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
 		storageClass, err = GetDefaultStorageClass()
 		Expect(err).NotTo(HaveOccurred(), "failed to get the `DefaultStorageClass`")
-
-		res := kubectl.Delete(kc.DeleteOptions{
-			IgnoreNotFound: true,
-			Labels:         testCaseLabel,
-			Resource:       kc.ResourceCVI,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred())
 	})
 
 	Context("When the virtualization resources are applied", func() {
@@ -104,7 +97,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VMRestoreForce},
+				Filename:       []string{conf.TestData.VMRestoreSafe},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -118,21 +111,11 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-			By("`VirtualMachineBlockDeviceAttachment` should be attached", func() {
-				WaitPhaseByLabel(
-					virtv2.VirtualMachineBlockDeviceAttachmentKind,
-					string(virtv2.BlockDeviceAttachmentPhaseAttached),
-					kc.WaitOptions{
-						Labels:    testCaseLabel,
-						Namespace: namespace,
-						Timeout:   LongWaitDuration,
-					})
-			})
 		})
 	})
 
 	Context("When the resources are ready to use", func() {
-		It("restore the `VirtualMachines` with `forced` mode", func() {
+		It("restore the `VirtualMachines` with `Safe` mode", func() {
 			vms := &virtv2.VirtualMachineList{}
 			vmBlockDeviceCountBeforeSnapshotting := make(map[string]int, len(vms.Items))
 
@@ -187,13 +170,76 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 				}
 			})
 
+			By("Deleting `VirtualMachines` and their resources for `Safe` restoring", func() {
+				result := kubectl.Delete(kc.DeleteOptions{
+					Labels:    testCaseLabel,
+					Namespace: namespace,
+					Resource:  virtv2.VirtualMachineResource,
+				})
+				Expect(result.Error()).NotTo(HaveOccurred())
+
+				result = kubectl.Delete(kc.DeleteOptions{
+					AllFlag:        true,
+					IgnoreNotFound: true,
+					Namespace:      namespace,
+					Resource:       virtv2.VirtualMachineIPAddressResource,
+				})
+				Expect(result.Error()).NotTo(HaveOccurred())
+
+				result = kubectl.Delete(kc.DeleteOptions{
+					ExcludedLabels: []string{"additionalDisk"},
+					Namespace:      namespace,
+					Resource:       virtv2.VirtualDiskResource,
+				})
+				Expect(result.Error()).NotTo(HaveOccurred())
+
+				result = kubectl.Delete(kc.DeleteOptions{
+					Labels:    testCaseLabel,
+					Namespace: namespace,
+					Resource:  virtv2.VirtualMachineBlockDeviceAttachmentResource,
+				})
+				Expect(result.Error()).NotTo(HaveOccurred())
+
+				vmipls, err := GetVMIPLByNamespace(namespace)
+				Expect(err).NotTo(HaveOccurred())
+				WaitResourcesByPhase(
+					vmipls, virtv2.VirtualMachineIPAddressLeaseResource,
+					string(virtv2.VirtualMachineIPAddressLeasePhaseReleased),
+					kc.WaitOptions{Timeout: ShortTimeout},
+				)
+
+				Eventually(func() error {
+					err := CheckResourceCount(virtv2.VirtualMachineResource, namespace, testCaseLabel, 0)
+					if err != nil {
+						return err
+					}
+
+					err = CheckResourceCount(virtv2.VirtualDiskResource, namespace, testCaseLabel, 0)
+					if err != nil {
+						return err
+					}
+
+					err = CheckResourceCount(virtv2.VirtualMachineIPAddressResource, namespace, map[string]string{}, 0)
+					if err != nil {
+						return err
+					}
+
+					err = CheckResourceCount(virtv2.VirtualMachineBlockDeviceAttachmentResource, namespace, testCaseLabel, 0)
+					if err != nil {
+						return err
+					}
+
+					return nil
+				}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+			})
+
 			By("Creating `VirtualMachineRestores`", func() {
 				vmsnapshots := &virtv2.VirtualMachineSnapshotList{}
 				err := GetObjects(virtv2.VirtualMachineSnapshotResource, vmsnapshots, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, vmsnapshot := range vmsnapshots.Items {
-					vmrestore := NewVirtualMachineRestore(&vmsnapshot, virtv2.RestoreModeForced)
+					vmrestore := NewVirtualMachineRestore(&vmsnapshot, virtv2.RestoreModeSafe)
 					CreateResource(ctx, vmrestore)
 				}
 				WaitPhaseByLabel(
@@ -281,68 +327,42 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 	})
 })
 
-func NewVirtualMachineSnapshot(
-	vmName, vmNamespace, storageClass string,
-	requiredConsistency bool,
-	keepIPaddress virtv2.KeepIPAddress,
-	labels map[string]string,
-) *virtv2.VirtualMachineSnapshot {
-	return &virtv2.VirtualMachineSnapshot{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      vmName,
-			Namespace: vmNamespace,
-			Labels:    labels,
-		},
-		Spec: virtv2.VirtualMachineSnapshotSpec{
-			VirtualMachineName:  vmName,
-			RequiredConsistency: requiredConsistency,
-			KeepIPAddress:       keepIPaddress,
-		},
+func CheckResourceCount(resource, namespace string, labels map[string]string, count int) error {
+	result := kubectl.List(kc.Resource(resource), kc.GetOptions{
+		IgnoreNotFound: true,
+		Labels:         labels,
+		Namespace:      namespace,
+		Output:         "jsonpath='{.items[*].metadata.name}'",
+	})
+	if result.Error() != nil {
+		return fmt.Errorf("failed to list %q: %s", resource, result.StdErr())
 	}
+
+	if result.StdOut() == "" {
+		return nil
+	}
+
+	if len(strings.Split(result.StdOut(), " ")) != count {
+		return fmt.Errorf("there should be %d %q", count, resource)
+	}
+
+	return nil
 }
 
-func NewVirtualMachineRestore(vmsnapshot *virtv2.VirtualMachineSnapshot, restoreMode virtv2.RestoreMode) *virtv2.VirtualMachineRestore {
-	return &virtv2.VirtualMachineRestore{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      vmsnapshot.Spec.VirtualMachineName,
-			Namespace: vmsnapshot.Namespace,
-			Labels:    vmsnapshot.Labels,
-		},
-		Spec: virtv2.VirtualMachineRestoreSpec{
-			RestoreMode:                restoreMode,
-			VirtualMachineSnapshotName: vmsnapshot.Name,
-		},
+func GetVMIPLByNamespace(namespace string) ([]string, error) {
+	vmipls := &virtv2.VirtualMachineIPAddressLeaseList{}
+	err := GetObjects(virtv2.VirtualMachineIPAddressLeaseResource, vmipls, kc.GetOptions{})
+	if err != nil {
+		return nil, err
 	}
-}
 
-func NewVirtualMachineBlockDeviceAttachment(vmName, vmNamespace, bdName string, bdKind virtv2.VMBDAObjectRefKind, labels map[string]string) *virtv2.VirtualMachineBlockDeviceAttachment {
-	return &virtv2.VirtualMachineBlockDeviceAttachment{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      bdName,
-			Namespace: vmNamespace,
-			Labels:    labels,
-		},
-		Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
-			VirtualMachineName: vmName,
-			BlockDeviceRef: virtv2.VMBDAObjectRef{
-				Kind: bdKind,
-				Name: bdName,
-			},
-		},
-	}
-}
+	result := make([]string, 0, len(vmipls.Items))
 
-func NewVirtualDisk(vdName, vdNamespace string, labels map[string]string, size *resource.Quantity) *virtv2.VirtualDisk {
-	return &virtv2.VirtualDisk{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      vdName,
-			Namespace: vdNamespace,
-			Labels:    labels,
-		},
-		Spec: virtv2.VirtualDiskSpec{
-			PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
-				Size: size,
-			},
-		},
+	for _, vmipl := range vmipls.Items {
+		if vmipl.Namespace == namespace {
+			result = append(result, vmipl.Name)
+		}
 	}
+
+	return result, nil
 }

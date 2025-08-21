@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: blank-disk-attachment
+spec:
+  virtualMachineName: vm
+  blockDeviceRef:
+    kind: VirtualDisk
+    name: vd-blank
