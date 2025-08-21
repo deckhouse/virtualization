@@ -139,6 +139,12 @@ func init() {
 			log.Fatal(err)
 		}
 	}
+
+	err = config.CheckDefaultVMClass(virtClient)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if namePrefix, err = config.GetNamePrefix(); err != nil {
 		log.Fatal(err)
 	}
