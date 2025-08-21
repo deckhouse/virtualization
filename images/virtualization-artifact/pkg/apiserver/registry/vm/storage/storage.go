@@ -18,17 +18,11 @@ package storage
 
 import (
 	"context"
-	"sort"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
 	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 
@@ -37,6 +31,7 @@ import (
 	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 type VirtualMachineStorage struct {
@@ -50,7 +45,6 @@ type VirtualMachineStorage struct {
 	freeze           *vmrest.FreezeREST
 	unfreeze         *vmrest.UnfreezeREST
 	cancelEvacuation *vmrest.CancelEvacuationREST
-	convertor        rest.TableConvertor
 	vmClient         versionedv1alpha2.VirtualMachinesGetter
 }
 
@@ -58,10 +52,7 @@ var (
 	_ rest.KindProvider         = &VirtualMachineStorage{}
 	_ rest.Storage              = &VirtualMachineStorage{}
 	_ rest.Scoper               = &VirtualMachineStorage{}
-	_ rest.Lister               = &VirtualMachineStorage{}
 	_ rest.Getter               = &VirtualMachineStorage{}
-	_ rest.GracefulDeleter      = &VirtualMachineStorage{}
-	_ rest.TableConvertor       = &VirtualMachineStorage{}
 	_ rest.SingularNameProvider = &VirtualMachineStorage{}
 )
 
@@ -70,24 +61,8 @@ func NewStorage(
 	vmLister virtlisters.VirtualMachineLister,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) *VirtualMachineStorage {
-	var convertor rest.TableConvertor
-	if crd != nil && len(crd.Spec.Versions) > 0 {
-		newSpec := crd.Spec.DeepCopy()
-		sort.Slice(newSpec.Versions, func(i, j int) bool {
-			return version.CompareKubeAwareVersionStrings(newSpec.Versions[i].Name, newSpec.Versions[j].Name) > 0
-		})
-		for _, ver := range newSpec.Versions {
-			if ver.Served && !ver.Deprecated {
-				if c, err := tableconvertor.New(ver.AdditionalPrinterColumns); err == nil {
-					convertor = c
-					break
-				}
-			}
-		}
-	}
 	return &VirtualMachineStorage{
 		groupResource:    groupResource,
 		vmLister:         vmLister,
@@ -99,7 +74,6 @@ func NewStorage(
 		freeze:           vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
 		unfreeze:         vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
 		cancelEvacuation: vmrest.NewCancelEvacuationREST(vmLister, kubevirt, proxyCertManager),
-		convertor:        convertor,
 		vmClient:         vmClient,
 	}
 }
@@ -147,7 +121,7 @@ func (store VirtualMachineStorage) Destroy() {
 
 // Kind implements rest.KindProvider interface
 func (store VirtualMachineStorage) Kind() string {
-	return "VirtualMachine"
+	return "APIVirtualMachine"
 }
 
 // NamespaceScoped implements rest.Scoper interface
@@ -157,7 +131,7 @@ func (store VirtualMachineStorage) NamespaceScoped() bool {
 
 // GetSingularName implements rest.SingularNameProvider interface
 func (store VirtualMachineStorage) GetSingularName() string {
-	return "virtualmachine"
+	return "apivirtualmachine"
 }
 
 func (store VirtualMachineStorage) Get(ctx context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
@@ -169,63 +143,11 @@ func (store VirtualMachineStorage) Get(ctx context.Context, name string, _ *meta
 		}
 		return nil, k8serrors.NewInternalError(err)
 	}
-	return vm, nil
-}
-
-func (store VirtualMachineStorage) NewList() runtime.Object {
-	return &virtv2.VirtualMachineList{}
-}
-
-func (store VirtualMachineStorage) List(ctx context.Context, options *internalversion.ListOptions) (runtime.Object, error) {
-	namespace := genericreq.NamespaceValue(ctx)
-
-	labelSelector := labels.Everything()
-
-	var opts internalversion.ListOptions
-	if options != nil {
-		opts = *options
-	}
-	if !(opts.LabelSelector == nil || opts.LabelSelector.Empty()) {
-		labelSelector = opts.LabelSelector
-	}
-
-	name, err := nameFor(opts.FieldSelector)
-	if err != nil {
-		return nil, err
-	}
-
-	items, err := store.vmLister.VirtualMachines(namespace).List(labelSelector)
-	if err != nil {
-		return nil, k8serrors.NewInternalError(err)
-	}
-
-	filtered := &virtv2.VirtualMachineList{}
-	filtered.Items = make([]virtv2.VirtualMachine, 0, len(items))
-	for _, vm := range items {
-		if matches(vm, name) {
-			filtered.Items = append(filtered.Items, *vm)
-		}
-	}
-	return filtered, nil
-}
-
-func (store VirtualMachineStorage) ConvertToTable(ctx context.Context, object, tableOptions runtime.Object) (*metav1.Table, error) {
-	if store.convertor != nil {
-		return store.convertor.ConvertToTable(ctx, object, tableOptions)
-	}
-	return rest.NewDefaultTableConvertor(store.groupResource).ConvertToTable(ctx, object, tableOptions)
-}
-
-func (store VirtualMachineStorage) Delete(ctx context.Context, name string, _ rest.ValidateObjectFunc, options *metav1.DeleteOptions) (runtime.Object, bool, error) {
-	var opts metav1.DeleteOptions
-	if options != nil {
-		opts = *options
-	}
-	if err := store.vmClient.VirtualMachines(genericreq.NamespaceValue(ctx)).Delete(ctx, name, opts); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, false, k8serrors.NewNotFound(store.groupResource, name)
-		}
-		return nil, false, k8serrors.NewInternalError(err)
-	}
-	return nil, true, nil
+	return &subresources.APIVirtualMachine{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: subresources.SchemeGroupVersion.String(),
+			Kind:       "APIVirtualMachine",
+		},
+		ObjectMeta: vm.ObjectMeta,
+	}, nil
 }
