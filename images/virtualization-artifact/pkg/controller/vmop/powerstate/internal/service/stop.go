@@ -23,11 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func NewStopOperation(client client.Client, vmop *virtv2.VirtualMachineOperation) *StopOperation {
+func NewStopOperation(client client.Client, vmop *v1alpha2.VirtualMachineOperation) *StopOperation {
 	return &StopOperation{
 		client: client,
 		vmop:   vmop,
@@ -36,10 +36,10 @@ func NewStopOperation(client client.Client, vmop *virtv2.VirtualMachineOperation
 
 type StopOperation struct {
 	client client.Client
-	vmop   *virtv2.VirtualMachineOperation
+	vmop   *v1alpha2.VirtualMachineOperation
 }
 
-func (o StopOperation) Do(ctx context.Context) error {
+func (o StopOperation) Execute(ctx context.Context) error {
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvmi)
 	if err != nil {
@@ -48,36 +48,28 @@ func (o StopOperation) Do(ctx context.Context) error {
 	return powerstate.StopVM(ctx, o.client, kvvmi, o.vmop.Spec.Force)
 }
 
-func (o StopOperation) Cancel(_ context.Context) (bool, error) {
-	return false, nil
+func (o StopOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
+	return phase == v1alpha2.MachineRunning ||
+		phase == v1alpha2.MachineDegraded ||
+		phase == v1alpha2.MachineStarting ||
+		phase == v1alpha2.MachinePause ||
+		phase == v1alpha2.MachinePending
 }
 
-func (o StopOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
-	return phase == virtv2.MachineRunning ||
-		phase == virtv2.MachineDegraded ||
-		phase == virtv2.MachineStarting ||
-		phase == virtv2.MachinePause ||
-		phase == virtv2.MachinePending
+func (o StopOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
+	return runPolicy == v1alpha2.ManualPolicy || runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually
 }
 
-func (o StopOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
-	return runPolicy == virtv2.ManualPolicy || runPolicy == virtv2.AlwaysOnUnlessStoppedManually
-}
-
-func (o StopOperation) GetInProgressReason(_ context.Context) (vmopcondition.ReasonCompleted, error) {
-	return vmopcondition.ReasonStopInProgress, nil
-}
-
-func (o StopOperation) IsFinalState() bool {
-	return isFinalState(o.vmop)
+func (o StopOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
+	return vmopcondition.ReasonStopInProgress
 }
 
 func (o StopOperation) IsComplete(ctx context.Context) (bool, string, error) {
-	vm := &virtv2.VirtualMachine{}
+	vm := &v1alpha2.VirtualMachine{}
 	err := o.client.Get(ctx, client.ObjectKey{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}, vm)
 	if err != nil {
 		return false, "", client.IgnoreNotFound(err)
 	}
 
-	return vm.Status.Phase == virtv2.MachineStopped, "", nil
+	return vm.Status.Phase == v1alpha2.MachineStopped, "", nil
 }

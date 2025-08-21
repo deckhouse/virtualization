@@ -14,19 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package watcher
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SvcOpCreator func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error)
+func NewMigrationPredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineOperation] {
+	return predicate.NewTypedPredicateFuncs(Match)
+}
 
-func NewSvcOpCreator(client client.Client) SvcOpCreator {
-	return func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error) {
-		return service.NewOperationService(client, vmop)
-	}
+func Match(vmop *v1alpha2.VirtualMachineOperation) bool {
+	return vmop.Spec.Type == v1alpha2.VMOPTypeEvict || vmop.Spec.Type == v1alpha2.VMOPTypeMigrate
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package handler
 
 import (
 	"context"
@@ -28,6 +28,8 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
+	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -50,6 +52,9 @@ var _ = Describe("LifecycleHandler", func() {
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:  func(_ client.Object, _, _, _ string) {},
 			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+		recorderMock.WithLoggingFunc = func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
+			return recorderMock
 		}
 	})
 
@@ -79,8 +84,10 @@ var _ = Describe("LifecycleHandler", func() {
 		vm := newVM(vmPolicy)
 
 		fakeClient, srv = setupEnvironment(vmop, vm)
+		migrationService := service.NewMigrationService(fakeClient)
+		base := genericservice.NewBaseVMOPService(fakeClient, recorderMock)
 
-		h := NewLifecycleHandler(fakeClient, NewSvcOpCreator(fakeClient), recorderMock)
+		h := NewLifecycleHandler(fakeClient, migrationService, base, recorderMock)
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 
