@@ -46,7 +46,6 @@ packages:
 - zstd
 - zlib
 - libblkio
-- libnbd
 - libtorrent-rasterbar-devel
 - libssh
 {{- end -}}
@@ -61,7 +60,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libisoburn" -}}
+{{- $images := list "libisoburn" "libnbd" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:

@@ -3,7 +3,6 @@
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $version := get $.Core $gitRepoName }}
 
-
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -34,29 +33,27 @@ fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/containerized-data-importer
-  to: /containerized-data-importer
-  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 - id: GOPROXY
   value: {{ .GOPROXY }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/containerized-data-importer
+  to: /containerized-data-importer
+  before: install
+{{- $images := list "libnbd" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
-  beforeInstall:
-{{- if eq $.SVACE_ENABLED "false" }}
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get install --yes libnbd-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y libnbd-devel
-  {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
-
   install:
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -af /$pkg/. /
+      rm -rf /$pkg
+    done
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
@@ -83,6 +80,8 @@ shell:
     git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
+  - |
+    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/lib64/pkgconfig:$PKG_CONFIG_PATH
   - mkdir /cdi-binaries
   - cd /containerized-data-importer
 
