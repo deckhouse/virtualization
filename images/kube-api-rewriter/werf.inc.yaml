@@ -11,6 +11,7 @@ git:
         - go.sum
       setup:
         - "**/*.go"
+  {{- include "image mount points" . | nindent 2 }}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
