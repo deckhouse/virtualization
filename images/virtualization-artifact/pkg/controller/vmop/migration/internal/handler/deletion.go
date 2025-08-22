@@ -66,7 +66,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachine
 		return reconcile.Result{}, err
 	}
 
-	if mig == nil {
+	if mig != nil {
 		return reconcile.Result{}, nil
 	}
 
