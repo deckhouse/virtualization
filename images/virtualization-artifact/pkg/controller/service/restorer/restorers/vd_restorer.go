@@ -28,17 +28,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskHandler struct {
 	mode         common.OperationMode
-	vd           *virtv2.VirtualDisk
+	vd           *v1alpha2.VirtualDisk
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTmpl virtv2.VirtualDisk, vmRestoreUID string) *VirtualDiskHandler {
+func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTmpl v1alpha2.VirtualDisk, vmRestoreUID string) *VirtualDiskHandler {
 	if vdTmpl.Annotations != nil {
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -46,7 +46,7 @@ func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTm
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
 	return &VirtualDiskHandler{
-		vd: &virtv2.VirtualDisk{
+		vd: &v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vdTmpl.Kind,
 				APIVersion: vdTmpl.APIVersion,
@@ -66,13 +66,13 @@ func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTm
 	}
 }
 
-func (v *VirtualDiskHandler) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualDiskHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vd.Name = common.OverrideName(v.vd.Kind, v.vd.Name, rules)
 }
 
 func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
 	}
@@ -143,7 +143,7 @@ func (v *VirtualDiskHandler) ProcessClone(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) Object() client.Object {
-	return &virtv2.VirtualDisk{
+	return &v1alpha2.VirtualDisk{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v.vd.Kind,
 			APIVersion: v.vd.APIVersion,

@@ -29,19 +29,19 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ReasonPVCNotFound = "PVC not found"
 
 type VirtualMachineHandler struct {
 	kind       common.OperationMode
-	vm         *virtv2.VirtualMachine
+	vm         *v1alpha2.VirtualMachine
 	client     client.Client
 	restoreUID string
 }
 
-func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, vmTmpl virtv2.VirtualMachine, vmopRestoreUID string) *VirtualMachineHandler {
+func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string) *VirtualMachineHandler {
 	if vmTmpl.Annotations != nil {
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	} else {
@@ -49,10 +49,10 @@ func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, v
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	}
 
-	vmTmpl.Spec.RunPolicy = virtv2.AlwaysOffPolicy
+	vmTmpl.Spec.RunPolicy = v1alpha2.AlwaysOffPolicy
 
 	return &VirtualMachineHandler{
-		vm: &virtv2.VirtualMachine{
+		vm: &v1alpha2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmTmpl.Kind,
 				APIVersion: vmTmpl.APIVersion,
@@ -71,15 +71,15 @@ func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, v
 	}
 }
 
-func (v *VirtualMachineHandler) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualMachineHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vm.Name = common.OverrideName(v.vm.Kind, v.vm.Name, rules)
-	v.vm.Spec.VirtualMachineIPAddress = common.OverrideName(virtv2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
+	v.vm.Spec.VirtualMachineIPAddress = common.OverrideName(v1alpha2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
 
 	if v.vm.Spec.Provisioning != nil {
 		if v.vm.Spec.Provisioning.UserDataRef != nil {
-			if v.vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
+			if v.vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
 				v.vm.Spec.Provisioning.UserDataRef.Name = common.OverrideName(
-					string(virtv2.UserDataRefKindSecret),
+					string(v1alpha2.UserDataRefKindSecret),
 					v.vm.Spec.Provisioning.UserDataRef.Name,
 					rules,
 				)
@@ -88,11 +88,11 @@ func (v *VirtualMachineHandler) Override(rules []virtv2.NameReplacement) {
 	}
 
 	for i := range v.vm.Spec.BlockDeviceRefs {
-		if v.vm.Spec.BlockDeviceRefs[i].Kind != virtv2.DiskDevice {
+		if v.vm.Spec.BlockDeviceRefs[i].Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
-		v.vm.Spec.BlockDeviceRefs[i].Name = common.OverrideName(virtv2.VirtualDiskKind, v.vm.Spec.BlockDeviceRefs[i].Name, rules)
+		v.vm.Spec.BlockDeviceRefs[i].Name = common.OverrideName(v1alpha2.VirtualDiskKind, v.vm.Spec.BlockDeviceRefs[i].Name, rules)
 	}
 }
 
@@ -106,7 +106,7 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 
 func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
-	vm, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
+	vm, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
 	}
@@ -155,13 +155,13 @@ func (v *VirtualMachineHandler) Object() client.Object {
 }
 
 func (v *VirtualMachineHandler) deleteCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, vmName, vmNamespace, vmRestoreUID string) error {
-	vmbdas := &virtv2.VirtualMachineBlockDeviceAttachmentList{}
+	vmbdas := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
 	err := v.client.List(ctx, vmbdas, &client.ListOptions{Namespace: vmNamespace})
 	if err != nil {
 		return fmt.Errorf("failed to list the `VirtualMachineBlockDeviceAttachment`: %w", err)
 	}
 
-	vmbdasByVM := make([]*virtv2.VirtualMachineBlockDeviceAttachment, 0, len(vmbdas.Items))
+	vmbdasByVM := make([]*v1alpha2.VirtualMachineBlockDeviceAttachment, 0, len(vmbdas.Items))
 	for _, vmbda := range vmbdas.Items {
 		if vmbda.Spec.VirtualMachineName != vmName {
 			continue
