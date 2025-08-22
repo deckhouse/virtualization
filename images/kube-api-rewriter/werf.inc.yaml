@@ -11,7 +11,6 @@ git:
         - go.sum
       setup:
         - "**/*.go"
-  {{- include "image mount points" . | nindent 2 }}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -36,6 +35,8 @@ shell:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
+git:
+  {{- include "image mount points" . | nindent 2 }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /src/kube-api-rewriter/kube-api-rewriter
