@@ -116,5 +116,5 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install-strip
     rm -rf $OUTDIR/usr/share/man
-    tree $OUTDIR
+    tree -sp $OUTDIR
 

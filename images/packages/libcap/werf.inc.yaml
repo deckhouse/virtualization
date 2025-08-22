@@ -62,4 +62,4 @@ shell:
     cd /src
     make -j$(nproc)
     make DESTDIR=$OUTDIR prefix=/usr install
-
+    tree -sp $OUTDIR

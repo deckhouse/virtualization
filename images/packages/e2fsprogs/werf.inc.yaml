@@ -92,5 +92,5 @@ shell:
     strip $OUTDIR/usr/lib64/*.so.*
     rm -rf $OUTDIR/usr/share/locale
     rm -rf $OUTDIR/usr/share/man
-    tree $OUTDIR
+    tree -sp $OUTDIR
 
