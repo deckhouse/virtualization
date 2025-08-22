@@ -22,9 +22,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -34,7 +34,7 @@ import (
 
 const unacceptableCount = -1000
 
-var APIVersion = virtv2.SchemeGroupVersion.String()
+var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
 var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
@@ -130,7 +130,7 @@ var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), 
 				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtualMachine: %s", vmName)
 			})
 			It("attaches virtual disk", func() {
-				AttachBlockDevice(ns, vmName, vdAttach, virtv2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VMDiskAttachment)
+				AttachBlockDevice(ns, vmName, vdAttach, v1alpha2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VMDiskAttachment)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
@@ -226,7 +226,7 @@ type BlockDevice struct {
 	Type string `json:"type"`
 }
 
-func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
+func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceType v1alpha2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
 	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", testDataPath, blockDeviceName)
 	err := CreateVMBDAManifest(vmbdaFilePath, vmName, blockDeviceName, blockDeviceType, labels)
 	Expect(err).NotTo(HaveOccurred(), "%v", err)
@@ -239,19 +239,19 @@ func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceT
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
 
-func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string) error {
-	vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{
-		TypeMeta: v1.TypeMeta{
+func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType v1alpha2.VMBDAObjectRefKind, labels map[string]string) error {
+	vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: APIVersion,
-			Kind:       virtv2.VirtualMachineBlockDeviceAttachmentKind,
+			Kind:       v1alpha2.VirtualMachineBlockDeviceAttachmentKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   blockDeviceName,
 			Labels: labels,
 		},
-		Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+		Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 			VirtualMachineName: vmName,
-			BlockDeviceRef: virtv2.VMBDAObjectRef{
+			BlockDeviceRef: v1alpha2.VMBDAObjectRef{
 				Kind: blockDeviceType,
 				Name: blockDeviceName,
 			},

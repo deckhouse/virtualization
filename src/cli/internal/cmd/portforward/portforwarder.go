@@ -27,7 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	sub1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type portForwarder struct {
@@ -37,7 +37,7 @@ type portForwarder struct {
 }
 
 type portforwardableResource interface {
-	PortForward(name string, options v1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error)
+	PortForward(name string, options sub1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error)
 }
 
 func (p *portForwarder) startForwarding(address *net.IPAddr, port forwardedPort) error {

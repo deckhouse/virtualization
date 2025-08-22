@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -75,16 +75,16 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
 				err := CheckReusableResources(ReusableResources{
-					virtv2.VirtualMachineResource: &Counter{
+					v1alpha2.VirtualMachineResource: &Counter{
 						Expected: vmCount,
 					},
-					virtv2.VirtualDiskResource: &Counter{
+					v1alpha2.VirtualDiskResource: &Counter{
 						Expected: vdCount,
 					},
-					virtv2.VirtualImageResource: &Counter{
+					v1alpha2.VirtualImageResource: &Counter{
 						Expected: viCount,
 					},
-					virtv2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
+					v1alpha2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
 						Expected: vmbdaCount,
 					},
 				}, kc.GetOptions{
@@ -116,11 +116,11 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 
 	Context("When the resources are ready to use", func() {
 		It("restore the `VirtualMachines` with `Safe` mode", func() {
-			vms := &virtv2.VirtualMachineList{}
+			vms := &v1alpha2.VirtualMachineList{}
 			vmBlockDeviceCountBeforeSnapshotting := make(map[string]int, len(vms.Items))
 
 			By("Getting `VirtualMachines`", func() {
-				err := GetObjects(virtv2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				err := GetObjects(v1alpha2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 				for _, vm := range vms.Items {
 					vmBlockDeviceCountBeforeSnapshotting[vm.Name] = len(vm.Status.BlockDeviceRefs)
@@ -133,14 +133,14 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 						vm.Name, vm.Namespace,
 						storageClass.Name,
 						true,
-						virtv2.KeepIPAddressAlways,
+						v1alpha2.KeepIPAddressAlways,
 						testCaseLabel,
 					)
 					CreateResource(ctx, vmsnapshot)
 				}
 				WaitPhaseByLabel(
-					virtv2.VirtualMachineSnapshotResource,
-					string(virtv2.VirtualMachineSnapshotPhaseReady),
+					v1alpha2.VirtualMachineSnapshotResource,
+					string(v1alpha2.VirtualMachineSnapshotPhaseReady),
 					kc.WaitOptions{
 						Namespace: namespace,
 						Labels:    testCaseLabel,
@@ -153,18 +153,18 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 					vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
 					newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
 					CreateResource(ctx, newDisk)
-					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, virtv2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
+					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, v1alpha2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
 					CreateResource(ctx, newVmbda)
 
 					WaitPhaseByLabel(
-						virtv2.VirtualMachineBlockDeviceAttachmentResource,
-						string(virtv2.BlockDeviceAttachmentPhaseAttached),
+						v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
+						string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
 						kc.WaitOptions{
 							Namespace: vm.Namespace,
 							Labels:    additionalDiskLabel,
 							Timeout:   LongWaitDuration,
 						})
-					err := GetObject(virtv2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
+					err := GetObject(v1alpha2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name] + 1))
 				}
@@ -174,7 +174,7 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				result := kubectl.Delete(kc.DeleteOptions{
 					Labels:    testCaseLabel,
 					Namespace: namespace,
-					Resource:  virtv2.VirtualMachineResource,
+					Resource:  v1alpha2.VirtualMachineResource,
 				})
 				Expect(result.Error()).NotTo(HaveOccurred())
 
@@ -182,49 +182,49 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 					AllFlag:        true,
 					IgnoreNotFound: true,
 					Namespace:      namespace,
-					Resource:       virtv2.VirtualMachineIPAddressResource,
+					Resource:       v1alpha2.VirtualMachineIPAddressResource,
 				})
 				Expect(result.Error()).NotTo(HaveOccurred())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					ExcludedLabels: []string{"additionalDisk"},
 					Namespace:      namespace,
-					Resource:       virtv2.VirtualDiskResource,
+					Resource:       v1alpha2.VirtualDiskResource,
 				})
 				Expect(result.Error()).NotTo(HaveOccurred())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					Labels:    testCaseLabel,
 					Namespace: namespace,
-					Resource:  virtv2.VirtualMachineBlockDeviceAttachmentResource,
+					Resource:  v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
 				})
 				Expect(result.Error()).NotTo(HaveOccurred())
 
 				vmipls, err := GetVMIPLByNamespace(namespace)
 				Expect(err).NotTo(HaveOccurred())
 				WaitResourcesByPhase(
-					vmipls, virtv2.VirtualMachineIPAddressLeaseResource,
-					string(virtv2.VirtualMachineIPAddressLeasePhaseReleased),
+					vmipls, v1alpha2.VirtualMachineIPAddressLeaseResource,
+					string(v1alpha2.VirtualMachineIPAddressLeasePhaseReleased),
 					kc.WaitOptions{Timeout: ShortTimeout},
 				)
 
 				Eventually(func() error {
-					err := CheckResourceCount(virtv2.VirtualMachineResource, namespace, testCaseLabel, 0)
+					err := CheckResourceCount(v1alpha2.VirtualMachineResource, namespace, testCaseLabel, 0)
 					if err != nil {
 						return err
 					}
 
-					err = CheckResourceCount(virtv2.VirtualDiskResource, namespace, testCaseLabel, 0)
+					err = CheckResourceCount(v1alpha2.VirtualDiskResource, namespace, testCaseLabel, 0)
 					if err != nil {
 						return err
 					}
 
-					err = CheckResourceCount(virtv2.VirtualMachineIPAddressResource, namespace, map[string]string{}, 0)
+					err = CheckResourceCount(v1alpha2.VirtualMachineIPAddressResource, namespace, map[string]string{}, 0)
 					if err != nil {
 						return err
 					}
 
-					err = CheckResourceCount(virtv2.VirtualMachineBlockDeviceAttachmentResource, namespace, testCaseLabel, 0)
+					err = CheckResourceCount(v1alpha2.VirtualMachineBlockDeviceAttachmentResource, namespace, testCaseLabel, 0)
 					if err != nil {
 						return err
 					}
@@ -234,17 +234,17 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 			})
 
 			By("Creating `VirtualMachineRestores`", func() {
-				vmsnapshots := &virtv2.VirtualMachineSnapshotList{}
-				err := GetObjects(virtv2.VirtualMachineSnapshotResource, vmsnapshots, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				vmsnapshots := &v1alpha2.VirtualMachineSnapshotList{}
+				err := GetObjects(v1alpha2.VirtualMachineSnapshotResource, vmsnapshots, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, vmsnapshot := range vmsnapshots.Items {
-					vmrestore := NewVirtualMachineRestore(&vmsnapshot, virtv2.RestoreModeSafe)
+					vmrestore := NewVirtualMachineRestore(&vmsnapshot, v1alpha2.RestoreModeSafe)
 					CreateResource(ctx, vmrestore)
 				}
 				WaitPhaseByLabel(
-					virtv2.VirtualMachineRestoreResource,
-					string(virtv2.VirtualMachineRestorePhaseReady),
+					v1alpha2.VirtualMachineRestoreResource,
+					string(v1alpha2.VirtualMachineRestorePhaseReady),
 					kc.WaitOptions{
 						Namespace: namespace,
 						Labels:    testCaseLabel,
@@ -259,33 +259,33 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 			})
 
 			By("Checking the result of restoration", func() {
-				vmrestores := &virtv2.VirtualMachineRestoreList{}
-				err := GetObjects(virtv2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				vmrestores := &v1alpha2.VirtualMachineRestoreList{}
+				err := GetObjects(v1alpha2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, restore := range vmrestores.Items {
-					vmsnapshot := &virtv2.VirtualMachineSnapshot{}
-					err := GetObject(virtv2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
+					vmsnapshot := &v1alpha2.VirtualMachineSnapshot{}
+					err := GetObject(v1alpha2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
 					Expect(err).NotTo(HaveOccurred())
 
-					vm := &virtv2.VirtualMachine{}
-					err = GetObject(virtv2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
+					vm := &v1alpha2.VirtualMachine{}
+					err = GetObject(v1alpha2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(vm.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 					Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name]))
 
 					for _, bd := range vm.Status.BlockDeviceRefs {
-						if bd.Kind == virtv2.DiskDevice {
-							vd := &virtv2.VirtualDisk{}
-							err := GetObject(virtv2.VirtualDiskKind, bd.Name, vd, kc.GetOptions{Namespace: vm.Namespace})
+						if bd.Kind == v1alpha2.DiskDevice {
+							vd := &v1alpha2.VirtualDisk{}
+							err := GetObject(v1alpha2.VirtualDiskKind, bd.Name, vd, kc.GetOptions{Namespace: vm.Namespace})
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vd.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 						}
 
 						if bd.VirtualMachineBlockDeviceAttachmentName != "" {
-							vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{}
-							err := GetObject(virtv2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
+							vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
+							err := GetObject(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vmbda.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 						}
@@ -300,19 +300,19 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 			resourcesToDelete := ResourcesToDelete{
 				AdditionalResources: []AdditionalResource{
 					{
-						Resource: virtv2.VirtualMachineSnapshotResource,
+						Resource: v1alpha2.VirtualMachineSnapshotResource,
 						Labels:   testCaseLabel,
 					},
 					{
-						Resource: virtv2.VirtualMachineRestoreResource,
+						Resource: v1alpha2.VirtualMachineRestoreResource,
 						Labels:   testCaseLabel,
 					},
 					{
-						Resource: virtv2.VirtualDiskResource,
+						Resource: v1alpha2.VirtualDiskResource,
 						Labels:   additionalDiskLabel,
 					},
 					{
-						Resource: virtv2.VirtualMachineBlockDeviceAttachmentResource,
+						Resource: v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
 						Labels:   additionalDiskLabel,
 					},
 				},
@@ -350,8 +350,8 @@ func CheckResourceCount(resource, namespace string, labels map[string]string, co
 }
 
 func GetVMIPLByNamespace(namespace string) ([]string, error) {
-	vmipls := &virtv2.VirtualMachineIPAddressLeaseList{}
-	err := GetObjects(virtv2.VirtualMachineIPAddressLeaseResource, vmipls, kc.GetOptions{})
+	vmipls := &v1alpha2.VirtualMachineIPAddressLeaseList{}
+	err := GetObjects(v1alpha2.VirtualMachineIPAddressLeaseResource, vmipls, kc.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
