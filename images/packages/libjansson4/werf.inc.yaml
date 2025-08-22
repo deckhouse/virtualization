@@ -69,7 +69,8 @@ shell:
       -DLIB_SUFFIX=64 \
       -DJANSSON_BUILD_SHARED_LIBS=ON \
       -DJANSSON_BUILD_DOCS=OFF
-    cmake --build .
-    DESTDIR=$OUTDIR cmake --install .
+
+    make -j$(nproc)
+    DESTDIR=$OUTDIR make install
     tree $OUTDIR
 
