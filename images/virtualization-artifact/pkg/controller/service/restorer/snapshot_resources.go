@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SnapshotResources struct {
@@ -37,7 +37,7 @@ type SnapshotResources struct {
 	client         client.Client
 	restorer       *SecretRestorer
 	restorerSecret *corev1.Secret
-	vmSnapshot     *virtv2.VirtualMachineSnapshot
+	vmSnapshot     *v1alpha2.VirtualMachineSnapshot
 	objectHandlers []ObjectHandler
 	statuses       []SnapshotResourceStatus
 	mode           common.OperationMode
@@ -52,7 +52,7 @@ type SnapshotResourceStatus struct {
 	Message    string
 }
 
-func NewSnapshotResources(client client.Client, kind common.OperationKind, mode common.OperationMode, restorerSecret *corev1.Secret, vmSnapshot *virtv2.VirtualMachineSnapshot, uuid string) SnapshotResources {
+func NewSnapshotResources(client client.Client, kind common.OperationKind, mode common.OperationMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
 	return SnapshotResources{
 		mode:           mode,
 		kind:           kind,
@@ -210,12 +210,12 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 	return r.statuses, nil
 }
 
-func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *virtv2.VirtualMachineSnapshot) ([]*virtv2.VirtualDisk, error) {
-	vds := make([]*virtv2.VirtualDisk, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
+func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot) ([]*v1alpha2.VirtualDisk, error) {
+	vds := make([]*v1alpha2.VirtualDisk, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
 
 	for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 		vdSnapshotKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vdSnapshotName}
-		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, client, &virtv2.VirtualDiskSnapshot{})
+		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch the virtual disk snapshot %q: %w", vdSnapshotKey.Name, err)
 		}
@@ -224,26 +224,26 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *virt
 			return nil, fmt.Errorf("the virtual disk snapshot %q %w", vdSnapshotName, common.ErrVirtualDiskSnapshotNotFound)
 		}
 
-		vd := virtv2.VirtualDisk{
+		vd := v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       virtv2.VirtualDiskKind,
-				APIVersion: virtv2.Version,
+				Kind:       v1alpha2.VirtualDiskKind,
+				APIVersion: v1alpha2.Version,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      vdSnapshot.Spec.VirtualDiskName,
 				Namespace: vdSnapshot.Namespace,
 			},
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
-					Type: virtv2.DataSourceTypeObjectRef,
-					ObjectRef: &virtv2.VirtualDiskObjectRef{
-						Kind: virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeObjectRef,
+					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
+						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
 						Name: vdSnapshot.Name,
 					},
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
-				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+			Status: v1alpha2.VirtualDiskStatus{
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 					{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
 				},
 			},

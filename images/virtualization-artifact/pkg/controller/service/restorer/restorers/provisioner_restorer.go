@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ProvisionerHandler struct {
@@ -71,7 +71,7 @@ func NewProvisionerHandler(client client.Client, mode common.OperationMode, secr
 	}
 }
 
-func (v *ProvisionerHandler) Override(rules []virtv2.NameReplacement) {
+func (v *ProvisionerHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.secret.Name = common.OverrideName(v.secret.Kind, v.secret.Name, rules)
 }
 

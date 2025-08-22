@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMBlockDeviceAttachmentTestArgs struct {
@@ -59,7 +59,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 		vmbdaCreated bool
 
 		objects    []client.Object
-		vmbda      virtv2.VirtualMachineBlockDeviceAttachment
+		vmbda      v1alpha2.VirtualMachineBlockDeviceAttachment
 		handler    *VMBlockDeviceAttachmentHandler
 		fakeClient client.WithWatch
 	)
@@ -74,15 +74,15 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 		vmbdaCreated = false
 
 		objects = []client.Object{}
-		vmbda = virtv2.VirtualMachineBlockDeviceAttachment{
+		vmbda = v1alpha2.VirtualMachineBlockDeviceAttachment{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-			Spec:       virtv2.VirtualMachineBlockDeviceAttachmentSpec{VirtualMachineName: vm},
+			Spec:       v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{VirtualMachineName: vm},
 		}
 
 		intercept = interceptor.Funcs{
 			Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
 				if obj.GetName() == vmbda.Name {
-					_, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+					_, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 					Expect(ok).To(BeTrue())
 					vmbdaDeleted = true
 				}
@@ -90,7 +90,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == vmbda.Name {
-					_, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+					_, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 					Expect(ok).To(BeTrue())
 					vmbdaCreated = true
 				}

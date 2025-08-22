@@ -28,12 +28,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMIPTestArgs struct {
 	mode     common.OperationMode
-	vmipType virtv2.VirtualMachineIPAddressType
+	vmipType v1alpha2.VirtualMachineIPAddressType
 
 	vmipExists           bool
 	vmipUsedByDiffVM     bool
@@ -62,7 +62,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		vmipCreated bool
 
 		objects    []client.Object
-		vmip       virtv2.VirtualMachineIPAddress
+		vmip       v1alpha2.VirtualMachineIPAddress
 		handler    *VirtualMachineIPHandler
 		fakeClient client.WithWatch
 	)
@@ -80,19 +80,19 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 
 		objects = []client.Object{}
 
-		vmip = virtv2.VirtualMachineIPAddress{
+		vmip = v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-			Spec:       virtv2.VirtualMachineIPAddressSpec{},
-			Status: virtv2.VirtualMachineIPAddressStatus{
+			Spec:       v1alpha2.VirtualMachineIPAddressSpec{},
+			Status: v1alpha2.VirtualMachineIPAddressStatus{
 				VirtualMachine: vm,
-				Phase:          virtv2.VirtualMachineIPAddressPhaseAttached,
+				Phase:          v1alpha2.VirtualMachineIPAddressPhaseAttached,
 			},
 		}
 
 		intercept = interceptor.Funcs{
 			Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
 				if obj.GetName() == vmip.Name {
-					_, ok := obj.(*virtv2.VirtualMachineIPAddress)
+					_, ok := obj.(*v1alpha2.VirtualMachineIPAddress)
 					Expect(ok).To(BeTrue())
 					vmipDeleted = true
 				}
@@ -100,7 +100,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == vmip.Name {
-					_, ok := obj.(*virtv2.VirtualMachineIPAddress)
+					_, ok := obj.(*v1alpha2.VirtualMachineIPAddress)
 					Expect(ok).To(BeTrue())
 					vmipCreated = true
 				}
@@ -113,10 +113,10 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 	DescribeTable("Checking VMOP events",
 		func(args VMIPTestArgs) {
 			switch args.vmipType {
-			case virtv2.VirtualMachineIPAddressTypeAuto:
-				vmip.Spec.Type = virtv2.VirtualMachineIPAddressTypeAuto
-			case virtv2.VirtualMachineIPAddressTypeStatic:
-				vmip.Spec.Type = virtv2.VirtualMachineIPAddressTypeStatic
+			case v1alpha2.VirtualMachineIPAddressTypeAuto:
+				vmip.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeAuto
+			case v1alpha2.VirtualMachineIPAddressTypeStatic:
+				vmip.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
 				vmip.Spec.StaticIP = staticIP
 				vmip.Status.Address = staticIP
 			}
@@ -126,14 +126,14 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			}
 
 			if args.staticIPUsedByDiffVM {
-				objects = append(objects, &virtv2.VirtualMachineIPAddress{
+				objects = append(objects, &v1alpha2.VirtualMachineIPAddress{
 					ObjectMeta: metav1.ObjectMeta{Name: name + "-2", Namespace: namespace},
-					Spec: virtv2.VirtualMachineIPAddressSpec{
+					Spec: v1alpha2.VirtualMachineIPAddressSpec{
 						StaticIP: staticIP,
 					},
-					Status: virtv2.VirtualMachineIPAddressStatus{
+					Status: v1alpha2.VirtualMachineIPAddressStatus{
 						VirtualMachine: vm + "-2",
-						Phase:          virtv2.VirtualMachineIPAddressPhaseAttached,
+						Phase:          v1alpha2.VirtualMachineIPAddressPhaseAttached,
 						Address:        staticIP,
 					},
 				})
@@ -171,7 +171,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip exists; vmip has Auto type; vmip used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           true,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeAuto,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeAuto,
 			vmipUsedByDiffVM:     true,
 			staticIPUsedByDiffVM: false,
 
@@ -184,7 +184,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip exists; vmip has Auto type; vmip doesn't used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           true,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeAuto,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeAuto,
 			vmipUsedByDiffVM:     false,
 			staticIPUsedByDiffVM: false,
 
@@ -197,7 +197,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip exists; vmip has StaticIP type; vmip used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           true,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeStatic,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     true,
 			staticIPUsedByDiffVM: false,
 
@@ -210,7 +210,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip exists; vmip has StaticIP type; staticIP used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           true,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeStatic,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
 			staticIPUsedByDiffVM: true,
 
@@ -223,7 +223,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip exists; vmip has StaticIP type; vmip doesn't used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           true,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeStatic,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
 			staticIPUsedByDiffVM: false,
 
@@ -237,7 +237,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip doesn't exist; vmip has Auto type", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           false,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeAuto,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeAuto,
 			vmipUsedByDiffVM:     false,
 			staticIPUsedByDiffVM: false,
 
@@ -250,7 +250,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip doesn't exist; vmip has StaticIP type; staticIP used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           false,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeStatic,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
 			staticIPUsedByDiffVM: true,
 
@@ -263,7 +263,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		Entry("vmip doesn't exist; vmip has StaticIP type; staticIP doesn't used by different VM", VMIPTestArgs{
 			mode:                 common.StrictRestoreMode,
 			vmipExists:           false,
-			vmipType:             virtv2.VirtualMachineIPAddressTypeStatic,
+			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
 			staticIPUsedByDiffVM: false,
 

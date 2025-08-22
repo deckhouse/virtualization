@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskTestArgs struct {
@@ -60,7 +60,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 		diskCreated bool
 
 		objects    []client.Object
-		disk       virtv2.VirtualDisk
+		disk       v1alpha2.VirtualDisk
 		handler    *VirtualDiskHandler
 		fakeClient client.WithWatch
 	)
@@ -76,22 +76,22 @@ var _ = Describe("VirtualDiskRestorer", func() {
 
 		objects = []client.Object{}
 
-		disk = virtv2.VirtualDisk{
+		disk = v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 			},
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
-					Type: virtv2.DataSourceTypeObjectRef,
-					ObjectRef: &virtv2.VirtualDiskObjectRef{
-						Kind: virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeObjectRef,
+					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
+						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
 						Name: "test-vdsnapshot",
 					},
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
-				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+			Status: v1alpha2.VirtualDiskStatus{
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 					{Name: vm, Mounted: true},
 				},
 			},
@@ -100,7 +100,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 		intercept = interceptor.Funcs{
 			Delete: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.DeleteOption) error {
 				if obj.GetName() == disk.Name {
-					_, ok := obj.(*virtv2.VirtualDisk)
+					_, ok := obj.(*v1alpha2.VirtualDisk)
 					Expect(ok).To(BeTrue())
 					diskDeleted = true
 				}
@@ -108,7 +108,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			},
 			Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 				if obj.GetName() == disk.Name {
-					_, ok := obj.(*virtv2.VirtualDisk)
+					_, ok := obj.(*v1alpha2.VirtualDisk)
 					Expect(ok).To(BeTrue())
 					diskCreated = true
 				}
@@ -121,7 +121,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 	DescribeTable("restore",
 		func(args VirtualDiskTestArgs) {
 			if args.diskUsedByDiffVM {
-				disk.Status.AttachedToVirtualMachines = []virtv2.AttachedVirtualMachine{
+				disk.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
 					{Name: vm, Mounted: true},
 					{Name: vm + "-2", Mounted: true},
 				}
@@ -135,7 +135,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fakeClient).ToNot(BeNil())
 
-			disk.Status.AttachedToVirtualMachines = []virtv2.AttachedVirtualMachine{{Name: vm, Mounted: true}}
+			disk.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm, Mounted: true}}
 			handler = NewVirtualDiskHandler(fakeClient, args.mode, disk, uid)
 			Expect(handler).ToNot(BeNil())
 

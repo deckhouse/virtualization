@@ -28,17 +28,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMBlockDeviceAttachmentHandler struct {
 	mode         common.OperationMode
-	vmbda        *virtv2.VirtualMachineBlockDeviceAttachment
+	vmbda        *v1alpha2.VirtualMachineBlockDeviceAttachment
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.OperationMode, vmbdaTmpl virtv2.VirtualMachineBlockDeviceAttachment, vmRestoreUID string) *VMBlockDeviceAttachmentHandler {
+func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.OperationMode, vmbdaTmpl v1alpha2.VirtualMachineBlockDeviceAttachment, vmRestoreUID string) *VMBlockDeviceAttachmentHandler {
 	if vmbdaTmpl.Annotations != nil {
 		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -46,7 +46,7 @@ func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.Operati
 		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
 	return &VMBlockDeviceAttachmentHandler{
-		vmbda: &virtv2.VirtualMachineBlockDeviceAttachment{
+		vmbda: &v1alpha2.VirtualMachineBlockDeviceAttachment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmbdaTmpl.Kind,
 				APIVersion: vmbdaTmpl.APIVersion,
@@ -65,23 +65,23 @@ func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.Operati
 	}
 }
 
-func (v *VMBlockDeviceAttachmentHandler) Override(rules []virtv2.NameReplacement) {
+func (v *VMBlockDeviceAttachmentHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vmbda.Name = common.OverrideName(v.vmbda.Kind, v.vmbda.Name, rules)
-	v.vmbda.Spec.VirtualMachineName = common.OverrideName(virtv2.VirtualMachineKind, v.vmbda.Spec.VirtualMachineName, rules)
+	v.vmbda.Spec.VirtualMachineName = common.OverrideName(v1alpha2.VirtualMachineKind, v.vmbda.Spec.VirtualMachineName, rules)
 
 	switch v.vmbda.Spec.BlockDeviceRef.Kind {
-	case virtv2.VMBDAObjectRefKindVirtualDisk:
-		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(virtv2.VirtualDiskKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
-	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(virtv2.ClusterVirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
-	case virtv2.VMBDAObjectRefKindVirtualImage:
-		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(virtv2.VirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(v1alpha2.VirtualDiskKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(v1alpha2.ClusterVirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(v1alpha2.VirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
 	}
 }
 
 func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) error {
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
-	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 	}
 
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
-	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualMachineBlockDeviceAttachment`: %w", err)
 	}

@@ -30,17 +30,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineIPHandler struct {
 	mode         common.OperationMode
-	vmip         *virtv2.VirtualMachineIPAddress
+	vmip         *v1alpha2.VirtualMachineIPAddress
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualMachineIPAddressHandler(client client.Client, mode common.OperationMode, vmipTmpl *virtv2.VirtualMachineIPAddress, vmRestoreUID string) *VirtualMachineIPHandler {
+func NewVirtualMachineIPAddressHandler(client client.Client, mode common.OperationMode, vmipTmpl *v1alpha2.VirtualMachineIPAddress, vmRestoreUID string) *VirtualMachineIPHandler {
 	if vmipTmpl.Annotations != nil {
 		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -48,7 +48,7 @@ func NewVirtualMachineIPAddressHandler(client client.Client, mode common.Operati
 		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
 	return &VirtualMachineIPHandler{
-		vmip: &virtv2.VirtualMachineIPAddress{
+		vmip: &v1alpha2.VirtualMachineIPAddress{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmipTmpl.Kind,
 				APIVersion: vmipTmpl.APIVersion,
@@ -68,18 +68,18 @@ func NewVirtualMachineIPAddressHandler(client client.Client, mode common.Operati
 	}
 }
 
-func (v *VirtualMachineIPHandler) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualMachineIPHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vmip.Name = common.OverrideName(v.vmip.Kind, v.vmip.Name, rules)
 }
 
 func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
-	existed, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
+	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		return err
 	}
 
-	var vmips virtv2.VirtualMachineIPAddressList
+	var vmips v1alpha2.VirtualMachineIPAddressList
 	err = v.client.List(ctx, &vmips, &client.ListOptions{
 		Namespace:     v.vmip.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMIPByAddress, v.vmip.Spec.StaticIP),
@@ -105,7 +105,7 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 		return nil
 	}
 
-	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine != v.vmip.Status.VirtualMachine {
+	if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine != v.vmip.Status.VirtualMachine {
 		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, common.ErrAlreadyInUse)
 	}
 
@@ -123,7 +123,7 @@ func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
-	existed, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
+	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineIPHandler) Object() client.Object {
-	return &virtv2.VirtualMachineIPAddress{
+	return &v1alpha2.VirtualMachineIPAddress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v.vmip.Kind,
 			APIVersion: v.vmip.APIVersion,
