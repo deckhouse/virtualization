@@ -116,7 +116,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func connect(ctx context.Context, name string, namespace string, virtCli kubeclient.Client, timeout int) error {
+func connect(ctx context.Context, name, namespace string, virtCli kubeclient.Client, timeout int) error {
 	// in -> stdinWriter | stdinReader -> console
 	// out <- stdoutReader | stdoutWriter <- console
 	stdinReader, stdinWriter := io.Pipe()
@@ -148,7 +148,9 @@ func connect(ctx context.Context, name string, namespace string, virtCli kubecli
 		if err != nil {
 			return fmt.Errorf("make raw terminal failed: %w", err)
 		}
-		defer term.Restore(int(os.Stdin.Fd()), state)
+		defer func() {
+			_ = term.Restore(int(os.Stdin.Fd()), state)
+		}()
 	}
 
 	fmt.Fprintf(os.Stderr, "Successfully connected to %s console. The escape sequence is ^]\n", name)
@@ -189,7 +191,7 @@ func connect(ctx context.Context, name string, namespace string, virtCli kubecli
 	go func() {
 		_, err := stdinWriter.Write([]byte("\r"))
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return
 			}
 
@@ -199,7 +201,7 @@ func connect(ctx context.Context, name string, namespace string, virtCli kubecli
 		for b := range stdinCh {
 			_, err = stdinWriter.Write(b)
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return
 				}
 
