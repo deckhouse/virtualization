@@ -75,4 +75,4 @@ shell:
     make -j $(nproc)
     make install_sw -j $(nproc) DESTDIR=$OUTDIR
     strip $OUTDIR/usr/bin/openssl
-    tree $OUTDIR
+    tree -sp $OUTDIR
