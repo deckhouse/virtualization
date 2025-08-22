@@ -35,13 +35,22 @@ shell:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
+git:
+  {{- include "image mount points" . }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
+  # Make containerd compatible directories structure.
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+    add: /var
+    to: /var
+    includePaths:
+      - run
+    after: install
 imageSpec:
   config:
-    user: "65532:65532"
+    user: "64535:64535"
     workingDir: "/app"
     entrypoint: ["/app/kube-api-rewriter"]

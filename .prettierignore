@@ -1,6 +1,7 @@
 **/*.git
 **/.svn
 **/.hg
+images/**/mount-points.yaml
 **/werf*.yaml
 **/werf*.yml
 .werf/**

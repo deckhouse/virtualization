@@ -1,0 +1,17 @@
+# A list of pre-created mount points for containerd strict mode.
+#
+# See https://github.com/deckhouse/3p-containerized-data-importer/blob/d5fa5124b8a645521843814fffecdf385b74b379/pkg/controller/import-controller.go#L962
+#
+# Some volume mounts are ignored:
+# - /extraheaders - Etra headers not implemented in virtualization-controller.
+# - /google - No support for GCS data source in VirtualImage.
+# - /tmp - already in the 'distroless' base image.
+
+dirs:
+  - /certs
+  - /data
+  - /opt
+  - /proxycerts
+  - /scratch
+  - /shared
+
