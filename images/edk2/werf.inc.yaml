@@ -31,49 +31,21 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /
-  includePaths: build.sh
-  stageDependencies:
-    install:
-      - build.sh
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
-  to: /
-  includePaths: Logo.bmp
-  stageDependencies:
-    install:
-      - '**/*'
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
-  to: /FIRMWARE
-  includePaths:
-  - '*.json'
-  stageDependencies:
-    install:
-      - '*.json'
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
-  to: /FIRMWARE
-  includePaths:
-  - '*.bin'
-  stageDependencies:
-    install:
-      - '*.bin'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
+    cd /src
     echo "Git clone Edk2 repository..."
     git clone \
       --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
-      --branch {{ $gitRepoName }}-{{ $version }} /{{ $gitRepoName }}-{{ $version }}
+      --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
     git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
 
-    cd /{{ $gitRepoName }}-{{ $version }}
+    cd {{ $gitRepoName }}-{{ $version }}
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
@@ -93,26 +65,41 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/alt
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
+  includePaths: build.sh
+  stageDependencies:
+    install:
+      - build.sh
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
+  to: /src
+  includePaths: Logo.bmp
+  stageDependencies:
+    install:
+      - '**/*'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
+  to: /src/FIRMWARE
+  includePaths:
+  - '*.json'
+  stageDependencies:
+    install:
+      - '*.json'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
+  to: /src/FIRMWARE
+  includePaths:
+  - '*.bin'
+  stageDependencies:
+    install:
+      - '*.bin'
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /{{ $gitRepoName }}-{{ $version }}
+  add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /edk2-platforms
+  add: /src/edk2-platforms
   to: /edk2-platforms
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /FIRMWARE
-  to: /FIRMWARE
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /Logo.bmp
-  to: /Logo.bmp
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /build.sh
-  to: /build.sh
   before: install
 {{- $images := list "libisoburn" "libburn" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
