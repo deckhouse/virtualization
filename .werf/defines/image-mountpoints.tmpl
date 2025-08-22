@@ -1,11 +1,22 @@
-# add mount points from file mount_points.yaml in the build dir
+{{/*
 
-{{- define "image mount points" }}
+Template to bake mount points in the image. These static mount points
+are required so containerd can start a container with image integrity check.
+
+Problem: each directory specified in volumeMounts items should exist
+in image, containerd is unable to create mount point for us when
+integrity check is enabled.
+
+Solution: define all possible mount points in mount-points.yaml file and
+include this template in git section of the werf.inc.yaml.
+
+*/}}
+{{- define "imageStaticMountPoints" }}
 {{-   $mountPoints := ($.Files.Get (printf "images/%s/mount-points.yaml" $.ImageName) | fromYaml) }}
 {{-   $context := . }}
 {{-   range $v := $mountPoints.dirs }}
 - add: {{ $context.ModuleDir }}/tools/mounts/mountdir
-  to: {{ $v }}
+  to: {{ $v | trimSuffix "/" }}
   owner: 64535
   group: 64535
   stageDependencies:

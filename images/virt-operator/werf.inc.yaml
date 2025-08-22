@@ -1,4 +1,6 @@
 ---
+# DEBUG: {{ .ModuleNamePrefix }}
+# DEBUG: {{ .ModuleDir }}
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 git:
