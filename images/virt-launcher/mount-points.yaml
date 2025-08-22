@@ -1,0 +1,5 @@
+# TODO: should discover all possible mount points
+dirs:
+  - /etc/virt-operator/certificates
+  - /profile-data
+  - /kubeconfig.local

@@ -1,0 +1,4 @@
+dirs:
+  - /etc/virt-operator/certificates
+  - /etc/virt-api/certificates
+  -

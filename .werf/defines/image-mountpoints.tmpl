@@ -11,11 +11,12 @@ Solution: define all possible mount points in mount-points.yaml file and
 include this template in git section of the werf.inc.yaml.
 
 */}}
-{{- define "imageStaticMountPoints" }}
+{{/* NOTE: Keep in sync with version in Deckhouse CSE */}}
+{{- define "image mount points" }}
 {{-   $mountPoints := ($.Files.Get (printf "images/%s/mount-points.yaml" $.ImageName) | fromYaml) }}
 {{-   $context := . }}
 {{-   range $v := $mountPoints.dirs }}
-- add: {{ $context.ModuleDir }}/tools/mounts/mountdir
+- add: /tools/mounts/mountdir
   to: {{ $v | trimSuffix "/" }}
   owner: 64535
   group: 64535
@@ -24,7 +25,7 @@ include this template in git section of the werf.inc.yaml.
     - "**/*"
 {{-   end }}
 {{-   range $v := $mountPoints.files }}
-- add: {{ $context.ModuleDir }}/tools/mounts/mountfile
+- add: /tools/mounts/mountfile
   to: {{ $v }}
   owner: 64535
   group: 64535

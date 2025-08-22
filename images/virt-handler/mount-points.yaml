@@ -1,0 +1,15 @@
+dirs:
+  - /etc/virt-handler/clientcertificates
+  - /etc/virt-handler/servercertificates
+  - /kubeconfig.local
+  - /profile-data
+  - /etc/podinfo
+  - /pods
+  - /var/lib/kubevirt
+  - /var/lib/kubelet/device-plugins
+  - /var/lib/kubelet/pods
+  - /var/run/kubevirt
+  - /var/run/kubevirt-libvirt-runtimes
+  - /var/lib/kubevirt-node-labeller
+  - /var/run/kubevirt-private
+  - /tmp
