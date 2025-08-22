@@ -1,7 +1,7 @@
-diff --git a/6f5a178d373e1a513b2b7876c01611203857ea3c b/95d86cfa2d7f6d55de1ae18de10509982f095493
-index 6f5a178..95d86cf 100644
---- a/6f5a178d373e1a513b2b7876c01611203857ea3c
-+++ b/95d86cfa2d7f6d55de1ae18de10509982f095493
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6f5a178d373e1a513b2b7876c01611203857ea3c..95d86cfa2d7f6d55de1ae18de10509982f095493 100644 (file)
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
 @@ -587,7 +587,7 @@ set(JANSSON_INSTALL_CMAKE_DIR ${DEF_INSTALL_CMAKE_DIR} CACHE PATH "Installation
  #  have to defined the same variables used there).
  set(prefix      ${CMAKE_INSTALL_PREFIX})
