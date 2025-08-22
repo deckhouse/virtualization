@@ -17,7 +17,6 @@ limitations under the License.
 package api
 
 import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -58,15 +57,15 @@ func init() {
 func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resources := map[string]rest.Storage{
-		"virtualmachines":                  store,
-		"virtualmachines/console":          store.ConsoleREST(),
-		"virtualmachines/vnc":              store.VncREST(),
-		"virtualmachines/portforward":      store.PortForwardREST(),
-		"virtualmachines/addvolume":        store.AddVolumeREST(),
-		"virtualmachines/removevolume":     store.RemoveVolumeREST(),
-		"virtualmachines/freeze":           store.FreezeREST(),
-		"virtualmachines/unfreeze":         store.UnfreezeREST(),
-		"virtualmachines/cancelevacuation": store.CancelEvacuationREST(),
+		"apivirtualmachines":                  store,
+		"apivirtualmachines/console":          store.ConsoleREST(),
+		"apivirtualmachines/vnc":              store.VncREST(),
+		"apivirtualmachines/portforward":      store.PortForwardREST(),
+		"apivirtualmachines/addvolume":        store.AddVolumeREST(),
+		"apivirtualmachines/removevolume":     store.RemoveVolumeREST(),
+		"apivirtualmachines/freeze":           store.FreezeREST(),
+		"apivirtualmachines/unfreeze":         store.UnfreezeREST(),
+		"apivirtualmachines/cancelevacuation": store.CancelEvacuationREST(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[v1alpha2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
@@ -77,14 +76,12 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) error {
-	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"),
+	vmStorage := storage.NewStorage(subresources.Resource("apivirtualmachines"),
 		vmLister,
 		kubevirt,
 		proxyCertManager,
-		crd,
 		vmClient,
 	)
 	info := Build(vmStorage)

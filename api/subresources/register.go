@@ -51,6 +51,7 @@ var (
 // TODO: move types virtv2 to pkg/apiserver/api/install
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&APIVirtualMachine{},
 		&VirtualMachineConsole{},
 		&VirtualMachineVNC{},
 		&VirtualMachinePortForward{},

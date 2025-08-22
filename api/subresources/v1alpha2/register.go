@@ -51,6 +51,7 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&APIVirtualMachine{},
 		&VirtualMachineConsole{},
 		&VirtualMachineVNC{},
 		&VirtualMachinePortForward{},
