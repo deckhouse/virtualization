@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type PolicyChangesValidator struct {
@@ -35,13 +35,13 @@ func NewPolicyChangesValidator(recorder eventrecord.EventRecorderLogger) *Policy
 	return &PolicyChangesValidator{recorder: recorder}
 }
 
-func (v *PolicyChangesValidator) ValidateCreate(_ context.Context, _ *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
+func (v *PolicyChangesValidator) ValidateCreate(_ context.Context, _ *virtv2.VirtualMachineClass) (admission.Warnings, error) {
 	return nil, nil
 }
 
-func (v *PolicyChangesValidator) ValidateUpdate(_ context.Context, oldVMClass, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
+func (v *PolicyChangesValidator) ValidateUpdate(_ context.Context, oldVMClass, newVMClass *virtv2.VirtualMachineClass) (admission.Warnings, error) {
 	if !reflect.DeepEqual(oldVMClass.Spec.SizingPolicies, newVMClass.Spec.SizingPolicies) {
-		v.recorder.Event(newVMClass, corev1.EventTypeNormal, v1alpha2.ReasonVMClassSizingPoliciesWereChanged, "Sizing policies were changed")
+		v.recorder.Event(newVMClass, corev1.EventTypeNormal, virtv2.ReasonVMClassSizingPoliciesWereChanged, "Sizing policies were changed")
 	}
 
 	return nil, nil

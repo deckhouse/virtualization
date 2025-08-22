@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/module"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type TTLCache interface {
@@ -51,7 +51,7 @@ func RemoveAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func GetVMFromInformer(cache TTLCache, vmInformer cache.Store, vmName string) (*v1alpha2.VirtualMachine, error) {
+func GetVMFromInformer(cache TTLCache, vmInformer cache.Store, vmName string) (*virtv2.VirtualMachine, error) {
 	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -63,7 +63,7 @@ func GetVMFromInformer(cache TTLCache, vmInformer cache.Store, vmName string) (*
 		}
 	}
 
-	vm, ok := vmObj.(*v1alpha2.VirtualMachine)
+	vm, ok := vmObj.(*virtv2.VirtualMachine)
 	if !ok {
 		return nil, errors.New("fail to convert vmObj to vm")
 	}
@@ -71,7 +71,7 @@ func GetVMFromInformer(cache TTLCache, vmInformer cache.Store, vmName string) (*
 	return vm, nil
 }
 
-func GetVDFromInformer(cache TTLCache, vdInformer cache.Store, vdName string) (*v1alpha2.VirtualDisk, error) {
+func GetVDFromInformer(cache TTLCache, vdInformer cache.Store, vdName string) (*virtv2.VirtualDisk, error) {
 	vdObj, exist, err := vdInformer.GetByKey(vdName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -83,7 +83,7 @@ func GetVDFromInformer(cache TTLCache, vdInformer cache.Store, vdName string) (*
 		}
 	}
 
-	vd, ok := vdObj.(*v1alpha2.VirtualDisk)
+	vd, ok := vdObj.(*virtv2.VirtualDisk)
 	if !ok {
 		return nil, errors.New("fail to convert vdObj to vd")
 	}
@@ -128,7 +128,7 @@ func GetPodFromInformer(cache TTLCache, podInformer cache.Store, podName string)
 	return pod, nil
 }
 
-func GetVMOPFromInformer(vmopInformer cache.Store, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
+func GetVMOPFromInformer(vmopInformer cache.Store, vmopName string) (*virtv2.VirtualMachineOperation, error) {
 	vmopObj, exist, err := vmopInformer.GetByKey(vmopName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
@@ -137,7 +137,7 @@ func GetVMOPFromInformer(vmopInformer cache.Store, vmopName string) (*v1alpha2.V
 		return nil, errors.New("vmopObj not exist")
 	}
 
-	vmop, ok := vmopObj.(*v1alpha2.VirtualMachineOperation)
+	vmop, ok := vmopObj.(*virtv2.VirtualMachineOperation)
 	if !ok {
 		return nil, errors.New("fail to convert vmopObj to vmop")
 	}

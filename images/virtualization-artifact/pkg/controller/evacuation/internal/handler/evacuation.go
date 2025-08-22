@@ -32,7 +32,7 @@ import (
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -55,7 +55,7 @@ type EvacuationHandler struct {
 	evacuateCanceler EvacuateCanceler
 }
 
-func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
+func (h *EvacuationHandler) Handle(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
 	if vm == nil {
 		return reconcile.Result{}, nil
 	}
@@ -101,16 +101,16 @@ func (h *EvacuationHandler) Name() string {
 	return nameEvacuationHandler
 }
 
-func (h *EvacuationHandler) getVMOPsByVM(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*v1alpha2.VirtualMachineOperation, []*v1alpha2.VirtualMachineOperation, error) {
-	vmops := v1alpha2.VirtualMachineOperationList{}
+func (h *EvacuationHandler) getVMOPsByVM(ctx context.Context, vm *virtv2.VirtualMachine) ([]*virtv2.VirtualMachineOperation, []*virtv2.VirtualMachineOperation, error) {
+	vmops := virtv2.VirtualMachineOperationList{}
 	err := h.client.List(ctx, &vmops, client.InNamespace(vm.GetNamespace()))
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var (
-		migrationVMOPs []*v1alpha2.VirtualMachineOperation
-		finishedVMOPs  []*v1alpha2.VirtualMachineOperation
+		migrationVMOPs []*virtv2.VirtualMachineOperation
+		finishedVMOPs  []*virtv2.VirtualMachineOperation
 	)
 
 	for _, vmop := range vmops.Items {
@@ -127,7 +127,7 @@ func (h *EvacuationHandler) getVMOPsByVM(ctx context.Context, vm *v1alpha2.Virtu
 	return migrationVMOPs, finishedVMOPs, nil
 }
 
-func (h *EvacuationHandler) removeFinalizerFromVMOPs(ctx context.Context, vmops []*v1alpha2.VirtualMachineOperation) error {
+func (h *EvacuationHandler) removeFinalizerFromVMOPs(ctx context.Context, vmops []*virtv2.VirtualMachineOperation) error {
 	var errs error
 	for _, vmop := range vmops {
 		if err := h.removeFinalizer(ctx, vmop); err != nil {
@@ -137,14 +137,14 @@ func (h *EvacuationHandler) removeFinalizerFromVMOPs(ctx context.Context, vmops 
 	return errs
 }
 
-func (h *EvacuationHandler) removeFinalizer(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
-	if controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
+func (h *EvacuationHandler) removeFinalizer(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
+	if controllerutil.RemoveFinalizer(vmop, virtv2.FinalizerVMOPProtectionByEvacuationController) {
 		return h.client.Update(ctx, vmop)
 	}
 	return nil
 }
 
-func (h *EvacuationHandler) cancelEvacuationForTerminatingVMOPs(ctx context.Context, vmops []*v1alpha2.VirtualMachineOperation, log *slog.Logger) error {
+func (h *EvacuationHandler) cancelEvacuationForTerminatingVMOPs(ctx context.Context, vmops []*virtv2.VirtualMachineOperation, log *slog.Logger) error {
 	var errs error
 	for _, vmop := range vmops {
 		_, isEvacuation := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]
@@ -165,23 +165,23 @@ func (h *EvacuationHandler) cancelEvacuationForTerminatingVMOPs(ctx context.Cont
 	return errs
 }
 
-func newEvacuationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOperation {
+func newEvacuationVMOP(vmName, namespace string) *virtv2.VirtualMachineOperation {
 	return vmopbuilder.New(
 		vmopbuilder.WithGenerateName("evacuation-"),
 		vmopbuilder.WithNamespace(namespace),
 		vmopbuilder.WithAnnotation(annotations.AnnVMOPEvacuation, "true"),
-		vmopbuilder.WithFinalizer(v1alpha2.FinalizerVMOPProtectionByEvacuationController),
-		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+		vmopbuilder.WithFinalizer(virtv2.FinalizerVMOPProtectionByEvacuationController),
+		vmopbuilder.WithType(virtv2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
 }
 
-func isVMNeedEvict(vm *v1alpha2.VirtualMachine) bool {
+func isVMNeedEvict(vm *virtv2.VirtualMachine) bool {
 	cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, vm.Status.Conditions)
 	return cond.Status == metav1.ConditionTrue
 }
 
-func isVMMigrating(vm *v1alpha2.VirtualMachine) bool {
+func isVMMigrating(vm *virtv2.VirtualMachine) bool {
 	cond, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	return cond.Status == metav1.ConditionTrue
 }

@@ -19,10 +19,10 @@ package vmchange
 import (
 	"reflect"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func compareTopologySpreadConstraints(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareTopologySpreadConstraints(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	currentValue := NewValue(current.TopologySpreadConstraints, len(current.TopologySpreadConstraints) == 0, false)
 	desiredValue := NewValue(desired.TopologySpreadConstraints, len(desired.TopologySpreadConstraints) == 0, false)
 
@@ -35,7 +35,7 @@ func compareTopologySpreadConstraints(current, desired *v1alpha2.VirtualMachineS
 	)
 }
 
-func compareAffinity(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareAffinity(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	currentValue := NewValue(current.Affinity, current.Affinity == nil, false)
 	desiredValue := NewValue(desired.Affinity, desired.Affinity == nil, false)
 
@@ -48,7 +48,7 @@ func compareAffinity(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 	)
 }
 
-func compareNodeSelector(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareNodeSelector(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	currentValue := NewValue(current.NodeSelector, len(current.NodeSelector) == 0, false)
 	desiredValue := NewValue(desired.NodeSelector, len(desired.NodeSelector) == 0, false)
 
@@ -61,7 +61,7 @@ func compareNodeSelector(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 	)
 }
 
-func comparePriorityClassName(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func comparePriorityClassName(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"priorityClassName",
 		current.PriorityClassName,
@@ -71,7 +71,7 @@ func comparePriorityClassName(current, desired *v1alpha2.VirtualMachineSpec) []F
 	)
 }
 
-func compareTolerations(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareTolerations(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	currentValue := NewValue(current.Tolerations, len(current.Tolerations) == 0, false)
 	desiredValue := NewValue(desired.Tolerations, len(desired.Tolerations) == 0, false)
 
@@ -84,7 +84,7 @@ func compareTolerations(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 	)
 }
 
-func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareNetworks(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	currentValue := NewValue(current.Networks, current.Networks == nil, false)
 	desiredValue := NewValue(desired.Networks, desired.Networks == nil, false)
 

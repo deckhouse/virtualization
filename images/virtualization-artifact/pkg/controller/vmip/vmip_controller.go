@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -78,7 +78,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualMachineIPAddress{}).
+		For(&virtv2.VirtualMachineIPAddress{}).
 		WithValidator(NewValidator(log, mgr.GetClient(), ipService)).
 		Complete(); err != nil {
 		return nil, err

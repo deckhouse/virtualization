@@ -27,7 +27,7 @@ import (
 	kubecache "k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type cache interface {
@@ -68,7 +68,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
 	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
-			vm := obj.(*v1alpha2.VirtualMachine)
+			vm := obj.(*virtv2.VirtualMachine)
 			key := fmt.Sprintf("virtualmachines/%s/%s", vm.Namespace, vm.Name)
 			ttlCache.Add(key, vm)
 		},
@@ -82,7 +82,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
 	_, err = vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
-			vd := obj.(*v1alpha2.VirtualDisk)
+			vd := obj.(*virtv2.VirtualDisk)
 			key := fmt.Sprintf("pods/%s/%s", vd.Namespace, vd.Name)
 			ttlCache.Add(key, vd)
 		},

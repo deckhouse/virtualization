@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestCpuCountValidate(t *testing.T) {
@@ -59,7 +59,7 @@ func TestCpuCountValidate(t *testing.T) {
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("TestCase%d", i), func(t *testing.T) {
-			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{CPU: v1alpha2.CPUSpec{Cores: test.desiredCores}}}
+			vm := &virtv2.VirtualMachine{Spec: virtv2.VirtualMachineSpec{CPU: virtv2.CPUSpec{Cores: test.desiredCores}}}
 			cpuCountValidator := NewCPUCountValidator()
 
 			_, err := cpuCountValidator.Validate(vm)

@@ -19,13 +19,13 @@ package watcher
 import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewMigrationPredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineOperation] {
+func NewMigrationPredicate() predicate.TypedPredicate[*virtv2.VirtualMachineOperation] {
 	return predicate.NewTypedPredicateFuncs(Match)
 }
 
-func Match(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop.Spec.Type == v1alpha2.VMOPTypeEvict || vmop.Spec.Type == v1alpha2.VMOPTypeMigrate
+func Match(vmop *virtv2.VirtualMachineOperation) bool {
+	return vmop.Spec.Type == virtv2.VMOPTypeEvict || vmop.Spec.Type == virtv2.VMOPTypeMigrate
 }

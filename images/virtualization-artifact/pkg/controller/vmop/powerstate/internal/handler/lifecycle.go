@@ -31,17 +31,17 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 const lifecycleHandlerName = "LifecycleHandler"
 
 type Base interface {
-	Init(vmop *v1alpha2.VirtualMachineOperation)
-	ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error)
-	FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*v1alpha2.VirtualMachine, error)
-	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool
+	Init(vmop *virtv2.VirtualMachineOperation)
+	ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error)
+	FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (*virtv2.VirtualMachine, error)
+	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool
 }
 
 type LifecycleHandler struct {
@@ -62,12 +62,12 @@ func NewLifecycleHandler(client client.Client, svcOpCreator SvcOpCreator, base B
 
 // Handle sets conditions depending on cluster state.
 // It should set Running condition to start operation on VM.
-func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
+func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
 	log, ctx := logger.GetHandlerContext(ctx, lifecycleHandlerName)
 
 	// Do not update conditions for object in the deletion state.
 	if commonvmop.IsTerminating(vmop) {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseTerminating
+		vmop.Status.Phase = virtv2.VMOPPhaseTerminating
 		return reconcile.Result{}, nil
 	}
 
@@ -123,7 +123,7 @@ func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
 }
 
-func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine, svcOp service.Operation) {
+func (h LifecycleHandler) execute(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine, svcOp service.Operation) {
 	log := logger.FromContext(ctx)
 
 	h.recordEvent(ctx, vmop, vm)
@@ -141,9 +141,9 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 		failMsg := fmt.Sprintf("Sending signal %q to VM", vmop.Spec.Type)
 		log.Debug(failMsg, logger.SlogErr(err))
 		failMsg = fmt.Sprintf("%s: %v", failMsg, err)
-		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
+		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
 
-		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		vmop.Status.Phase = virtv2.VMOPPhaseFailed
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOperationFailed).
@@ -161,9 +161,9 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	// Turn the phase to InProgress and set the send signal condition to true.
 	msg := fmt.Sprintf("Sent signal %q to VM without errors.", vmop.Spec.Type)
 	log.Debug(msg)
-	h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPInProgress, msg)
+	h.recorder.Event(vmop, corev1.EventTypeNormal, virtv2.ReasonVMOPInProgress, msg)
 
-	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
+	vmop.Status.Phase = virtv2.VMOPPhaseInProgress
 
 	reason := svcOp.GetInProgressReason()
 
@@ -181,7 +181,7 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 }
 
 // syncOperationComplete detects if operation is completed and VM has desired phase.
-func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1alpha2.VirtualMachineOperation, svcOp service.Operation) error {
+func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, svcOp service.Operation) error {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(changed.GetGeneration())
 
@@ -192,8 +192,8 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1
 
 	if isComplete {
 		if failureMessage != "" {
-			changed.Status.Phase = v1alpha2.VMOPPhaseFailed
-			h.recorder.Event(changed, corev1.EventTypeNormal, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
+			changed.Status.Phase = virtv2.VMOPPhaseFailed
+			h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 			conditions.SetCondition(
 				completedCond.
 					Reason(vmopcondition.ReasonOperationFailed).
@@ -202,8 +202,8 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1
 				&changed.Status.Conditions)
 			return nil
 		}
-		changed.Status.Phase = v1alpha2.VMOPPhaseCompleted
-		h.recorder.Event(changed, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
+		changed.Status.Phase = virtv2.VMOPPhaseCompleted
+		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOperationCompleted).
@@ -225,35 +225,35 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1
 	return err
 }
 
-func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) {
+func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) {
 	log := logger.FromContext(ctx)
 
 	switch vmop.Spec.Type {
-	case v1alpha2.VMOPTypeStart:
+	case virtv2.VMOPTypeStart:
 		h.recorder.WithLogging(log).Event(
 			vm,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVMStarted,
+			virtv2.ReasonVMStarted,
 			"Start initiated with VirtualMachineOperation",
 		)
-	case v1alpha2.VMOPTypeStop:
+	case virtv2.VMOPTypeStop:
 		h.recorder.WithLogging(log).Event(
 			vm,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVMStopped,
+			virtv2.ReasonVMStopped,
 			"Stop initiated with VirtualMachineOperation",
 		)
-	case v1alpha2.VMOPTypeRestart:
+	case virtv2.VMOPTypeRestart:
 		h.recorder.WithLogging(log).Event(
 			vm,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVMRestarted,
+			virtv2.ReasonVMRestarted,
 			"Restart initiated with VirtualMachineOperation",
 		)
 	}
 }
 
-func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
+func isOperationInProgress(vmop *virtv2.VirtualMachineOperation) bool {
 	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue

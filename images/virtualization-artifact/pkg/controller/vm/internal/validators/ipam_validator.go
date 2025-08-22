@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type IPAMValidator struct {
@@ -36,14 +36,14 @@ func NewIPAMValidator(client client.Client) *IPAMValidator {
 	return &IPAMValidator{client: client}
 }
 
-func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
 	vmipName := vm.Spec.VirtualMachineIPAddress
 	if vmipName == "" {
 		vmipName = vm.Name
 	}
 
 	vmipKey := types.NamespacedName{Name: vmipName, Namespace: vm.Namespace}
-	vmip, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
+	vmip, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get referenced VirtualMachineIPAddress %s: %w", vmipKey, err)
 	}
@@ -61,7 +61,7 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 	return nil, nil
 }
 
-func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
 	if oldVM.Spec.VirtualMachineIPAddress == newVM.Spec.VirtualMachineIPAddress {
 		return nil, nil
 	}
@@ -71,7 +71,7 @@ func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alph
 	}
 
 	vmipKey := types.NamespacedName{Name: newVM.Spec.VirtualMachineIPAddress, Namespace: newVM.Namespace}
-	vmip, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
+	vmip, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get VirtualMachineIPAddress %s: %w", vmipKey, err)
 	}

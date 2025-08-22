@@ -29,7 +29,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("TestNodePlacementHandler", func() {
@@ -48,7 +48,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 		fakeClient = nil
 	})
 
-	newVMAndKVVMI := func(needMigrate bool) (*v1alpha2.VirtualMachine, *virtv1.VirtualMachineInstance) {
+	newVMAndKVVMI := func(needMigrate bool) (*virtv2.VirtualMachine, *virtv1.VirtualMachineInstance) {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		kvvmi := newEmptyKVVMI(name, namespace)
 		status := corev1.ConditionFalse
@@ -70,7 +70,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 			fakeClient = setupEnvironment(vm, kvvmi)
 
 			mockMigration := &OneShotMigrationMock{
-				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				OnceMigrateFunc: func(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
 			}

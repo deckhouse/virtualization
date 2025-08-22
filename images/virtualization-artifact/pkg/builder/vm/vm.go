@@ -19,16 +19,16 @@ package vm
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func New(options ...Option) *v1alpha2.VirtualMachine {
+func New(options ...Option) *virtv2.VirtualMachine {
 	vm := NewEmpty("", "")
 	ApplyOptions(vm, options)
 	return vm
 }
 
-func ApplyOptions(vm *v1alpha2.VirtualMachine, opts []Option) {
+func ApplyOptions(vm *virtv2.VirtualMachine, opts []Option) {
 	if vm == nil {
 		return
 	}
@@ -37,11 +37,11 @@ func ApplyOptions(vm *v1alpha2.VirtualMachine, opts []Option) {
 	}
 }
 
-func NewEmpty(name, namespace string) *v1alpha2.VirtualMachine {
-	return &v1alpha2.VirtualMachine{
+func NewEmpty(name, namespace string) *virtv2.VirtualMachine {
+	return &virtv2.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha2.SchemeGroupVersion.String(),
-			Kind:       v1alpha2.VirtualMachineKind,
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       virtv2.VirtualMachineKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

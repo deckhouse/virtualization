@@ -20,23 +20,23 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Option func(vm *v1alpha2.VirtualMachine)
+type Option func(vm *virtv2.VirtualMachine)
 
 var (
-	WithName         = meta.WithName[*v1alpha2.VirtualMachine]
-	WithGenerateName = meta.WithGenerateName[*v1alpha2.VirtualMachine]
-	WithNamespace    = meta.WithNamespace[*v1alpha2.VirtualMachine]
-	WithLabel        = meta.WithLabel[*v1alpha2.VirtualMachine]
-	WithLabels       = meta.WithLabels[*v1alpha2.VirtualMachine]
-	WithAnnotation   = meta.WithAnnotation[*v1alpha2.VirtualMachine]
-	WithAnnotations  = meta.WithAnnotations[*v1alpha2.VirtualMachine]
+	WithName         = meta.WithName[*virtv2.VirtualMachine]
+	WithGenerateName = meta.WithGenerateName[*virtv2.VirtualMachine]
+	WithNamespace    = meta.WithNamespace[*virtv2.VirtualMachine]
+	WithLabel        = meta.WithLabel[*virtv2.VirtualMachine]
+	WithLabels       = meta.WithLabels[*virtv2.VirtualMachine]
+	WithAnnotation   = meta.WithAnnotation[*virtv2.VirtualMachine]
+	WithAnnotations  = meta.WithAnnotations[*virtv2.VirtualMachine]
 )
 
 func WithCPU(cores int, coreFraction *string) Option {
-	return func(vm *v1alpha2.VirtualMachine) {
+	return func(vm *virtv2.VirtualMachine) {
 		vm.Spec.CPU.Cores = cores
 		if coreFraction != nil {
 			vm.Spec.CPU.CoreFraction = *coreFraction
@@ -45,7 +45,7 @@ func WithCPU(cores int, coreFraction *string) Option {
 }
 
 func WithMemory(size resource.Quantity) Option {
-	return func(vm *v1alpha2.VirtualMachine) {
+	return func(vm *virtv2.VirtualMachine) {
 		vm.Spec.Memory.Size = size
 	}
 }

@@ -19,11 +19,11 @@ package handler
 import (
 	"context"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . OneShotMigration
 
 type OneShotMigration interface {
-	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
+	OnceMigrate(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
 }

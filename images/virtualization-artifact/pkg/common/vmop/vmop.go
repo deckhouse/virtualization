@@ -17,26 +17,26 @@ limitations under the License.
 package vmop
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IsInProgressOrPending(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Status.Phase == "" || vmop.Status.Phase == v1alpha2.VMOPPhasePending || vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress)
+func IsInProgressOrPending(vmop *virtv2.VirtualMachineOperation) bool {
+	return vmop != nil && (vmop.Status.Phase == "" || vmop.Status.Phase == virtv2.VMOPPhasePending || vmop.Status.Phase == virtv2.VMOPPhaseInProgress)
 }
 
-func IsFinished(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted)
+func IsFinished(vmop *virtv2.VirtualMachineOperation) bool {
+	return vmop != nil && (vmop.Status.Phase == virtv2.VMOPPhaseFailed || vmop.Status.Phase == virtv2.VMOPPhaseCompleted)
 }
 
-func IsTerminating(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Status.Phase == v1alpha2.VMOPPhaseTerminating || !vmop.GetDeletionTimestamp().IsZero())
+func IsTerminating(vmop *virtv2.VirtualMachineOperation) bool {
+	return vmop != nil && (vmop.Status.Phase == virtv2.VMOPPhaseTerminating || !vmop.GetDeletionTimestamp().IsZero())
 }
 
-func IsMigration(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Spec.Type == v1alpha2.VMOPTypeMigrate || vmop.Spec.Type == v1alpha2.VMOPTypeEvict)
+func IsMigration(vmop *virtv2.VirtualMachineOperation) bool {
+	return vmop != nil && (vmop.Spec.Type == virtv2.VMOPTypeMigrate || vmop.Spec.Type == virtv2.VMOPTypeEvict)
 }
 
-func InProgressOrPendingExists(vmops []v1alpha2.VirtualMachineOperation) bool {
+func InProgressOrPendingExists(vmops []virtv2.VirtualMachineOperation) bool {
 	for _, vmop := range vmops {
 		if IsInProgressOrPending(&vmop) {
 			return true

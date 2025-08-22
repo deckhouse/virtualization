@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("BlockDeviceSpecRefsValidator", func() {
@@ -34,35 +34,35 @@ var _ = Describe("BlockDeviceSpecRefsValidator", func() {
 		validator = validators.NewBlockDeviceSpecRefsValidator()
 	})
 
-	DescribeTable("ValidateCreate with valid refs", func(refs []v1alpha2.BlockDeviceSpecRef) {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
+	DescribeTable("ValidateCreate with valid refs", func(refs []virtv2.BlockDeviceSpecRef) {
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
 				BlockDeviceRefs: refs,
 			},
 		}
 		_, err := validator.ValidateCreate(context.Background(), vm)
 		Expect(err).NotTo(HaveOccurred())
 	},
-		Entry("Single valid VirtualDisk", []v1alpha2.BlockDeviceSpecRef{
-			{Kind: v1alpha2.DiskDevice, Name: "valid-disk"},
+		Entry("Single valid VirtualDisk", []virtv2.BlockDeviceSpecRef{
+			{Kind: virtv2.DiskDevice, Name: "valid-disk"},
 		}),
-		Entry("Single valid VirtualImage", []v1alpha2.BlockDeviceSpecRef{
-			{Kind: v1alpha2.ImageDevice, Name: "valid-image"},
+		Entry("Single valid VirtualImage", []virtv2.BlockDeviceSpecRef{
+			{Kind: virtv2.ImageDevice, Name: "valid-image"},
 		}),
-		Entry("Single valid ClusterVirtualImage", []v1alpha2.BlockDeviceSpecRef{
-			{Kind: v1alpha2.ClusterImageDevice, Name: "valid-cvi"},
+		Entry("Single valid ClusterVirtualImage", []virtv2.BlockDeviceSpecRef{
+			{Kind: virtv2.ClusterImageDevice, Name: "valid-cvi"},
 		}),
-		Entry("Multiple different kinds", []v1alpha2.BlockDeviceSpecRef{
-			{Kind: v1alpha2.DiskDevice, Name: "disk1"},
-			{Kind: v1alpha2.ImageDevice, Name: "image1"},
-			{Kind: v1alpha2.ClusterImageDevice, Name: "cvi1"},
+		Entry("Multiple different kinds", []virtv2.BlockDeviceSpecRef{
+			{Kind: virtv2.DiskDevice, Name: "disk1"},
+			{Kind: virtv2.ImageDevice, Name: "image1"},
+			{Kind: virtv2.ClusterImageDevice, Name: "cvi1"},
 		}),
 	)
 
-	DescribeTable("ValidateCreate with invalid name length", func(kind v1alpha2.BlockDeviceKind, name string, maxLen int) {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+	DescribeTable("ValidateCreate with invalid name length", func(kind virtv2.BlockDeviceKind, name string, maxLen int) {
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 					{Kind: kind, Name: name},
 				},
 			},
@@ -71,14 +71,14 @@ var _ = Describe("BlockDeviceSpecRefsValidator", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("too long: it must be no more than %d characters", maxLen)))
 	},
-		Entry("VirtualDisk too long", v1alpha2.DiskDevice, string(make([]byte, 61)), 60),
-		Entry("VirtualImage too long", v1alpha2.ImageDevice, string(make([]byte, 50)), 49),
-		Entry("ClusterVirtualImage too long", v1alpha2.ClusterImageDevice, string(make([]byte, 49)), 48),
+		Entry("VirtualDisk too long", virtv2.DiskDevice, string(make([]byte, 61)), 60),
+		Entry("VirtualImage too long", virtv2.ImageDevice, string(make([]byte, 50)), 49),
+		Entry("ClusterVirtualImage too long", virtv2.ClusterImageDevice, string(make([]byte, 49)), 48),
 	)
 
-	DescribeTable("ValidateCreate with duplicates", func(refs []v1alpha2.BlockDeviceSpecRef) {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
+	DescribeTable("ValidateCreate with duplicates", func(refs []virtv2.BlockDeviceSpecRef) {
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
 				BlockDeviceRefs: refs,
 			},
 		}
@@ -86,13 +86,13 @@ var _ = Describe("BlockDeviceSpecRefsValidator", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("duplicate reference"))
 	},
-		Entry("Duplicate VirtualDisk", []v1alpha2.BlockDeviceSpecRef{
-			{Kind: v1alpha2.DiskDevice, Name: "disk1"},
-			{Kind: v1alpha2.DiskDevice, Name: "disk1"},
+		Entry("Duplicate VirtualDisk", []virtv2.BlockDeviceSpecRef{
+			{Kind: virtv2.DiskDevice, Name: "disk1"},
+			{Kind: virtv2.DiskDevice, Name: "disk1"},
 		}),
-		Entry("Duplicate VirtualImage", []v1alpha2.BlockDeviceSpecRef{
-			{Kind: v1alpha2.ImageDevice, Name: "image1"},
-			{Kind: v1alpha2.ImageDevice, Name: "image1"},
+		Entry("Duplicate VirtualImage", []virtv2.BlockDeviceSpecRef{
+			{Kind: virtv2.ImageDevice, Name: "image1"},
+			{Kind: virtv2.ImageDevice, Name: "image1"},
 		}),
 	)
 })

@@ -19,20 +19,20 @@ package vmchange
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
 	DefaultCPUCoreFraction               = "100%"
 	DefaultCPUModelName                  = "generic-v1"
-	DefaultDisruptionsApprovalMode       = v1alpha2.Manual
-	DefaultOSType                        = v1alpha2.GenericOs
-	DefaultBootloader                    = v1alpha2.BIOS
+	DefaultDisruptionsApprovalMode       = virtv2.Manual
+	DefaultOSType                        = virtv2.GenericOs
+	DefaultBootloader                    = virtv2.BIOS
 	DefaultEnableParavirtualization      = true
 	DefaultTerminationGracePeriodSeconds = int64(60)
 )
 
-func compareVirtualMachineClass(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareVirtualMachineClass(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"virtualMachineClassName",
 		current.VirtualMachineClassName,
@@ -42,7 +42,7 @@ func compareVirtualMachineClass(current, desired *v1alpha2.VirtualMachineSpec) [
 }
 
 // compareRunPolicy
-func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareRunPolicy(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"runPolicy",
 		string(current.RunPolicy),
@@ -52,7 +52,7 @@ func compareRunPolicy(current, desired *v1alpha2.VirtualMachineSpec) []FieldChan
 	)
 }
 
-func compareVirtualMachineIPAddress(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareVirtualMachineIPAddress(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"virtualMachineIPAddress",
 		current.VirtualMachineIPAddress,
@@ -63,7 +63,7 @@ func compareVirtualMachineIPAddress(current, desired *v1alpha2.VirtualMachineSpe
 }
 
 // compareDisruptions returns changes in disruptions section.
-func compareDisruptions(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareDisruptions(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	changes := compareEmpty(
 		"disruptions",
 		NewPtrValue(current.Disruptions, current.Disruptions == nil),
@@ -84,7 +84,7 @@ func compareDisruptions(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 	)
 }
 
-func compareTerminationGracePeriodSeconds(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareTerminationGracePeriodSeconds(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return comparePtrInt64(
 		"terminationGracePeriodSeconds",
 		current.TerminationGracePeriodSeconds,
@@ -94,7 +94,7 @@ func compareTerminationGracePeriodSeconds(current, desired *v1alpha2.VirtualMach
 	)
 }
 
-func compareEnableParavirtualization(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareEnableParavirtualization(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareBools(
 		"enableParavirtualization",
 		current.EnableParavirtualization,
@@ -104,7 +104,7 @@ func compareEnableParavirtualization(current, desired *v1alpha2.VirtualMachineSp
 	)
 }
 
-func compareOSType(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareOSType(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"osType",
 		string(current.OsType),
@@ -114,7 +114,7 @@ func compareOSType(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange 
 	)
 }
 
-func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareBootloader(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareStrings(
 		"bootloader",
 		string(current.Bootloader),
@@ -125,7 +125,7 @@ func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldCha
 }
 
 // compareCPU returns changes in the cpu section.
-func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareCPU(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, ActionRestart)
 	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
 
@@ -154,11 +154,11 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 }
 
 // compareMemory returns changes in the memory section.
-func compareMemory(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareMemory(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	return compareQuantity("memory.size", current.Memory.Size, desired.Memory.Size, resource.Quantity{}, ActionRestart)
 }
 
-func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+func compareProvisioning(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
 	changes := compareEmpty(
 		"provisioning",
 		NewPtrValue(current.Provisioning, current.Provisioning == nil),
@@ -182,7 +182,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		}
 	}
 
-	if current.Provisioning.Type == v1alpha2.ProvisioningTypeSysprepRef {
+	if current.Provisioning.Type == virtv2.ProvisioningTypeSysprepRef {
 		currentSecret := current.Provisioning.SysprepRef
 		desiredSecret := desired.Provisioning.SysprepRef
 		changes = compareEmpty(
@@ -217,7 +217,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		)
 	}
 
-	if current.Provisioning.Type == v1alpha2.ProvisioningTypeUserData {
+	if current.Provisioning.Type == virtv2.ProvisioningTypeUserData {
 		return compareStrings(
 			"provisioning.userData",
 			current.Provisioning.UserData,
@@ -227,7 +227,7 @@ func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		)
 	}
 
-	if current.Provisioning.Type == v1alpha2.ProvisioningTypeUserDataRef {
+	if current.Provisioning.Type == virtv2.ProvisioningTypeUserDataRef {
 		currentSecret := current.Provisioning.UserDataRef
 		desiredSecret := desired.Provisioning.UserDataRef
 		changes = compareEmpty(

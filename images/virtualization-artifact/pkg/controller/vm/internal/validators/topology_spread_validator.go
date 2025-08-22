@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	k8sUtils "github.com/deckhouse/virtualization-controller/pkg/controller/k8s-validation"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type TopologySpreadConstraintValidator struct{}
@@ -33,15 +33,15 @@ func NewTopologySpreadConstraintValidator() *TopologySpreadConstraintValidator {
 	return &TopologySpreadConstraintValidator{}
 }
 
-func (v *TopologySpreadConstraintValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *TopologySpreadConstraintValidator) ValidateCreate(_ context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(vm)
 }
 
-func (v *TopologySpreadConstraintValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *TopologySpreadConstraintValidator) ValidateUpdate(_ context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(newVM)
 }
 
-func (v *TopologySpreadConstraintValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *TopologySpreadConstraintValidator) Validate(vm *virtv2.VirtualMachine) (admission.Warnings, error) {
 	errs := k8sUtils.ValidateTopologySpreadConstraints(
 		vm.Spec.TopologySpreadConstraints,
 		k8sfield.NewPath("spec").Child("topologySpreadConstraints"),

@@ -19,16 +19,16 @@ package vmop
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func New(options ...Option) *v1alpha2.VirtualMachineOperation {
+func New(options ...Option) *virtv2.VirtualMachineOperation {
 	vmop := NewEmpty("", "")
 	ApplyOptions(vmop, options...)
 	return vmop
 }
 
-func ApplyOptions(vmop *v1alpha2.VirtualMachineOperation, opts ...Option) {
+func ApplyOptions(vmop *virtv2.VirtualMachineOperation, opts ...Option) {
 	if vmop == nil {
 		return
 	}
@@ -37,11 +37,11 @@ func ApplyOptions(vmop *v1alpha2.VirtualMachineOperation, opts ...Option) {
 	}
 }
 
-func NewEmpty(name, namespace string) *v1alpha2.VirtualMachineOperation {
-	return &v1alpha2.VirtualMachineOperation{
+func NewEmpty(name, namespace string) *virtv2.VirtualMachineOperation {
+	return &virtv2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha2.SchemeGroupVersion.String(),
-			Kind:       v1alpha2.VirtualMachineOperationKind,
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

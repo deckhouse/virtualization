@@ -22,14 +22,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("AffinityValidator", func() {
 	validator := validators.NewAffinityValidator()
 
 	Context("VM with no affinities", func() {
-		vm := &v1alpha2.VirtualMachine{}
+		vm := &virtv2.VirtualMachine{}
 
 		It("Should be no error", func() {
 			warnings, err := validator.Validate(vm)
@@ -39,9 +39,9 @@ var _ = Describe("AffinityValidator", func() {
 	})
 
 	Context("VM with node affinity with nodeselectorterms empty requirement", func() {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				Affinity: &v1alpha2.VMAffinity{
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				Affinity: &virtv2.VMAffinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 							NodeSelectorTerms: []corev1.NodeSelectorTerm{},
@@ -59,9 +59,9 @@ var _ = Describe("AffinityValidator", func() {
 	})
 
 	Context("VM with node affinity with correct nodeselectorterms requirement", func() {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				Affinity: &v1alpha2.VMAffinity{
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				Affinity: &virtv2.VMAffinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 							NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -88,9 +88,9 @@ var _ = Describe("AffinityValidator", func() {
 	})
 
 	Context("VM with node affinity with incorrect nodeselectorterms requirement", func() {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				Affinity: &v1alpha2.VMAffinity{
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				Affinity: &virtv2.VMAffinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 							NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -117,9 +117,9 @@ var _ = Describe("AffinityValidator", func() {
 	})
 
 	Context("VM with node affinity with correct nodeselectorterms requirement", func() {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				Affinity: &v1alpha2.VMAffinity{
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				Affinity: &virtv2.VMAffinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
 							{
@@ -147,9 +147,9 @@ var _ = Describe("AffinityValidator", func() {
 	})
 
 	Context("VM with node affinity with incorrect nodeselectorterms requirement", func() {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				Affinity: &v1alpha2.VMAffinity{
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				Affinity: &virtv2.VMAffinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
 							{
@@ -177,9 +177,9 @@ var _ = Describe("AffinityValidator", func() {
 	})
 
 	Context("VM with node affinity with incorrect nodeselectorterms requirement", func() {
-		vm := &v1alpha2.VirtualMachine{
-			Spec: v1alpha2.VirtualMachineSpec{
-				Affinity: &v1alpha2.VMAffinity{
+		vm := &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				Affinity: &virtv2.VMAffinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
 							{

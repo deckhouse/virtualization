@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewOneShotMigrationService(client client.Client, prefix string) *OneShotMigrationService {
@@ -44,7 +44,7 @@ type OneShotMigrationService struct {
 	prefix string
 }
 
-func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := s.client.Get(ctx, object.NamespacedName(vm), kvvmi); err != nil {
 		return false, client.IgnoreNotFound(err)
@@ -88,14 +88,14 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 	return true, nil
 }
 
-func (s *OneShotMigrationService) listVMOPMigrate(ctx context.Context, vmName, vmNamespace string) ([]v1alpha2.VirtualMachineOperation, []v1alpha2.VirtualMachineOperation, error) {
-	vmopList := &v1alpha2.VirtualMachineOperationList{}
+func (s *OneShotMigrationService) listVMOPMigrate(ctx context.Context, vmName, vmNamespace string) ([]virtv2.VirtualMachineOperation, []virtv2.VirtualMachineOperation, error) {
+	vmopList := &virtv2.VirtualMachineOperationList{}
 	if err := s.client.List(ctx, vmopList, client.InNamespace(vmNamespace)); err != nil {
 		return nil, nil, fmt.Errorf("failed to list virtual machine operations: %w", err)
 	}
 	var (
-		workloadUpdateVMOPs []v1alpha2.VirtualMachineOperation
-		unmanagedVMOPs      []v1alpha2.VirtualMachineOperation
+		workloadUpdateVMOPs []virtv2.VirtualMachineOperation
+		unmanagedVMOPs      []virtv2.VirtualMachineOperation
 	)
 	for _, vmop := range vmopList.Items {
 		if vmop.Spec.VirtualMachine == vmName && commonvmop.IsMigration(&vmop) && !commonvmop.IsFinished(&vmop) {
@@ -113,12 +113,12 @@ func (s *OneShotMigrationService) setAnnoExpectedValueToKVVMI(ctx context.Contex
 	return object.EnsureAnnotation(ctx, s.client, kvvmi, annotationKey, annotationExpectedValue)
 }
 
-func newVMOP(prefix, namespace, vmName string) *v1alpha2.VirtualMachineOperation {
+func newVMOP(prefix, namespace, vmName string) *virtv2.VirtualMachineOperation {
 	return vmopbuilder.New(
 		vmopbuilder.WithGenerateName(prefix),
 		vmopbuilder.WithNamespace(namespace),
 		vmopbuilder.WithAnnotation(annotations.AnnVMOPWorkloadUpdate, "true"),
-		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
+		vmopbuilder.WithType(virtv2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
 }

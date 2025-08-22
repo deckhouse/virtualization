@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestEvacuationHandlers(t *testing.T) {
@@ -32,7 +32,7 @@ func TestEvacuationHandlers(t *testing.T) {
 	RunSpecs(t, "Evacuation Handlers Suite")
 }
 
-func setupEnvironment(vm *v1alpha2.VirtualMachine, objs ...client.Object) client.WithWatch {
+func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) client.WithWatch {
 	GinkgoHelper()
 	Expect(vm).ToNot(BeNil())
 	allObjects := []client.Object{vm}

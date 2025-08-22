@@ -25,7 +25,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMOPControl(options events.EventLoggerOptions) *VMOPControl {
@@ -92,23 +92,23 @@ func (m *VMOPControl) Fill() error {
 	}
 
 	switch vmop.Spec.Type {
-	case v1alpha2.VMOPTypeStart:
+	case virtv2.VMOPTypeStart:
 		m.eventLog.Name = "VM started"
 		m.eventLog.Level = "info"
 		m.eventLog.ActionType = "start"
-	case v1alpha2.VMOPTypeStop:
+	case virtv2.VMOPTypeStop:
 		m.eventLog.Name = "VM stopped"
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "stop"
-	case v1alpha2.VMOPTypeRestart:
+	case virtv2.VMOPTypeRestart:
 		m.eventLog.Name = "VM restarted"
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "restart"
-	case v1alpha2.VMOPTypeMigrate:
+	case virtv2.VMOPTypeMigrate:
 		m.eventLog.Name = "VM migrated"
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "migrate"
-	case v1alpha2.VMOPTypeEvict:
+	case virtv2.VMOPTypeEvict:
 		m.eventLog.Name = "VM evicted"
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "evict"

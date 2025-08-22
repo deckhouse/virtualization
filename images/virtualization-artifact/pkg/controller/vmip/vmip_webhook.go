@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
@@ -53,7 +53,7 @@ type Validator struct {
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmip, ok := obj.(*v1alpha2.VirtualMachineIPAddress)
+	vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddress but got a %T", obj)
 	}
@@ -83,12 +83,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVmip, ok := oldObj.(*v1alpha2.VirtualMachineIPAddress)
+	oldVmip, ok := oldObj.(*virtv2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineIP but got a %T", oldObj)
 	}
 
-	newVmip, ok := newObj.(*v1alpha2.VirtualMachineIPAddress)
+	newVmip, ok := newObj.(*virtv2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIP but got a %T", newObj)
 	}
@@ -105,7 +105,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, oldVmip.Status.Conditions)
 	if boundCondition.Status == metav1.ConditionTrue {
-		if oldVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeAuto && newVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
+		if oldVmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeAuto && newVmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeStatic {
 			v.log.Info("Change the VirtualMachineIP address type to 'Auto' from 'Static'", "ipAddress", newVmip.Spec.StaticIP)
 			if newVmip.Spec.StaticIP != newVmip.Status.Address {
 				return nil, fmt.Errorf("only type change Auto->Static is allowed: can't change current IP %s to the specified %s", newVmip.Status.Address, newVmip.Spec.StaticIP)
@@ -118,7 +118,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 			return nil, errors.New("the VirtualMachineIPAddress is in 'Bound' state -> type cannot be changed")
 		}
 
-		if newVmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic && oldVmip.Spec.StaticIP != newVmip.Spec.StaticIP {
+		if newVmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeStatic && oldVmip.Spec.StaticIP != newVmip.Spec.StaticIP {
 			return nil, errors.New("the VirtualMachineIPAddress is in 'Bound' state -> static IP cannot be changed")
 		}
 	}
@@ -132,9 +132,9 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	return nil, nil
 }
 
-func (v *Validator) validateSpecFields(vmip *v1alpha2.VirtualMachineIPAddress) error {
+func (v *Validator) validateSpecFields(vmip *virtv2.VirtualMachineIPAddress) error {
 	switch vmip.Spec.Type {
-	case v1alpha2.VirtualMachineIPAddressTypeStatic:
+	case virtv2.VirtualMachineIPAddressTypeStatic:
 		if vmip.Spec.StaticIP == "" {
 			return errors.New("the 'Static IP' field should be set for the IP address with the 'Static' type")
 		}
@@ -142,7 +142,7 @@ func (v *Validator) validateSpecFields(vmip *v1alpha2.VirtualMachineIPAddress) e
 		if !isValidAddressFormat(vmip.Spec.StaticIP) {
 			return fmt.Errorf("the specified static IP address %q is not a valid textual representation of an IP address", vmip.Spec.StaticIP)
 		}
-	case v1alpha2.VirtualMachineIPAddressTypeAuto:
+	case virtv2.VirtualMachineIPAddressTypeAuto:
 		if vmip.Spec.StaticIP != "" {
 			return fmt.Errorf("the VirtualMachineIPAddress cannot be created: The 'Static IP' field is set for the %s IP address with the 'Auto' type", vmip.Name)
 		}
@@ -166,8 +166,8 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 
 	_, ok := allocatedIPs[ipAddress]
 	if ok {
-		var lease *v1alpha2.VirtualMachineIPAddressLease
-		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, v.client, &v1alpha2.VirtualMachineIPAddressLease{})
+		var lease *virtv2.VirtualMachineIPAddressLease
+		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, v.client, &virtv2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return fmt.Errorf("failed to fetch allocated IP address: %w", err)
 		}

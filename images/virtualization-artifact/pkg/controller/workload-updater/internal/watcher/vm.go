@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -43,14 +43,14 @@ type VMWatcher struct{}
 // this approach avoids duplicating logic and maintains the contract with the TypeFirmwareUpToDate condition.
 func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
-			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachine]{},
-			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachine]{},
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
 					return predicateVirtualMachine(e.Object)
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
 					return predicateVirtualMachine(e.ObjectNew)
 				},
 			},
@@ -61,7 +61,7 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	return nil
 }
 
-func predicateVirtualMachine(vm *v1alpha2.VirtualMachine) bool {
+func predicateVirtualMachine(vm *virtv2.VirtualMachine) bool {
 	c, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
 	outOfDate := c.Status == metav1.ConditionFalse
 

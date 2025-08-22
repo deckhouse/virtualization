@@ -21,7 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -215,8 +215,8 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 					Status: cdiv1.StorageProfileStatus{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
-								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
-								VolumeMode:  ptr.To(v1.PersistentVolumeFilesystem),
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
 							},
 						},
 					},
@@ -235,16 +235,16 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 					Status: cdiv1.StorageProfileStatus{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
-								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-								VolumeMode:  ptr.To(v1.PersistentVolumeFilesystem),
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
 							},
 							{
-								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
-								VolumeMode:  ptr.To(v1.PersistentVolumeBlock),
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeBlock),
 							},
 							{
-								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-								VolumeMode:  ptr.To(v1.PersistentVolumeBlock),
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeBlock),
 							},
 						},
 					},
@@ -263,12 +263,12 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 					Status: cdiv1.StorageProfileStatus{
 						ClaimPropertySets: []cdiv1.ClaimPropertySet{
 							{
-								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-								VolumeMode:  ptr.To(v1.PersistentVolumeBlock),
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeBlock),
 							},
 							{
-								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
-								VolumeMode:  ptr.To(v1.PersistentVolumeFilesystem),
+								AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+								VolumeMode:  ptr.To(corev1.PersistentVolumeFilesystem),
 							},
 						},
 					},

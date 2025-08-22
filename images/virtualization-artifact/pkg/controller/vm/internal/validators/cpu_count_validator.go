@@ -22,7 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type CPUCountValidator struct{}
@@ -31,15 +31,15 @@ func NewCPUCountValidator() *CPUCountValidator {
 	return &CPUCountValidator{}
 }
 
-func (v *CPUCountValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *CPUCountValidator) ValidateCreate(_ context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(vm)
 }
 
-func (v *CPUCountValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *CPUCountValidator) ValidateUpdate(_ context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(newVM)
 }
 
-func (v *CPUCountValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *CPUCountValidator) Validate(vm *virtv2.VirtualMachine) (admission.Warnings, error) {
 	cores := vm.Spec.CPU.Cores
 
 	switch {

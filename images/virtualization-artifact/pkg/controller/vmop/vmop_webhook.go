@@ -23,11 +23,11 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/validator"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewValidator(log *log.Logger) admission.CustomValidator {
-	return validator.NewValidator[*v1alpha2.VirtualMachineOperation](log.
+	return validator.NewValidator[*virtv2.VirtualMachineOperation](log.
 		With("controller", "vmop-controller").
 		With("webhook", "validation"),
 	).WithCreateValidators(&deprecateMigrateValidator{})
@@ -35,9 +35,9 @@ func NewValidator(log *log.Logger) admission.CustomValidator {
 
 type deprecateMigrateValidator struct{}
 
-func (v *deprecateMigrateValidator) ValidateCreate(_ context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {
+func (v *deprecateMigrateValidator) ValidateCreate(_ context.Context, vmop *virtv2.VirtualMachineOperation) (admission.Warnings, error) {
 	// TODO: Delete me after v0.15
-	if vmop.Spec.Type == v1alpha2.VMOPTypeMigrate {
+	if vmop.Spec.Type == virtv2.VMOPTypeMigrate {
 		return admission.Warnings{"The Migrate type is deprecated, consider using Evict operation"}, nil
 	}
 

@@ -17,10 +17,10 @@ limitations under the License.
 package vmchange
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineSpec) []FieldChange
+type SpecFieldsComparator func(prev, next *virtv2.VirtualMachineSpec) []FieldChange
 
 var specComparators = []SpecFieldsComparator{
 	compareVirtualMachineClass,
@@ -43,21 +43,21 @@ var specComparators = []SpecFieldsComparator{
 	compareNetworks,
 }
 
-type VMClassSpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineClassSpec) []FieldChange
+type VMClassSpecFieldsComparator func(prev, next *virtv2.VirtualMachineClassSpec) []FieldChange
 
 var vmclassSpecComparators = []VMClassSpecFieldsComparator{
 	compareVMClassNodeSelector,
 	compareVMClassTolerations,
 }
 
-func CompareSpecs(prev, next *v1alpha2.VirtualMachineSpec, prevClass, nextClass *v1alpha2.VirtualMachineClassSpec) SpecChanges {
+func CompareSpecs(prev, next *virtv2.VirtualMachineSpec, prevClass, nextClass *virtv2.VirtualMachineClassSpec) SpecChanges {
 	specChanges := CompareVMSpecs(prev, next)
 	specClassChanges := CompareClassSpecs(prevClass, nextClass)
 	specChanges.Add(specClassChanges.GetAll()...)
 	return specChanges
 }
 
-func CompareVMSpecs(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
+func CompareVMSpecs(prev, next *virtv2.VirtualMachineSpec) SpecChanges {
 	specChanges := SpecChanges{}
 
 	for _, comparator := range specComparators {
@@ -70,7 +70,7 @@ func CompareVMSpecs(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
 	return specChanges
 }
 
-func CompareClassSpecs(prevClass, nextClass *v1alpha2.VirtualMachineClassSpec) SpecChanges {
+func CompareClassSpecs(prevClass, nextClass *virtv2.VirtualMachineClassSpec) SpecChanges {
 	var specChanges SpecChanges
 
 	for _, comparator := range vmclassSpecComparators {

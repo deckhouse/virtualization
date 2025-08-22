@@ -24,17 +24,17 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // LoadLastAppliedSpec loads VM spec from JSON in the last-applied-spec annotation.
-func LoadLastAppliedSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineSpec, error) {
+func LoadLastAppliedSpec(kvvm *virtv1.VirtualMachine) (*virtv2.VirtualMachineSpec, error) {
 	lastSpecJSON := kvvm.GetAnnotations()[annotations.AnnVMLastAppliedSpec]
 	if strings.TrimSpace(lastSpecJSON) == "" {
 		return nil, nil
 	}
 
-	var spec v1alpha2.VirtualMachineSpec
+	var spec virtv2.VirtualMachineSpec
 	err := json.Unmarshal([]byte(lastSpecJSON), &spec)
 	if err != nil {
 		return nil, fmt.Errorf("load spec from JSON: %w", err)
@@ -43,7 +43,7 @@ func LoadLastAppliedSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineS
 }
 
 // SetLastAppliedSpec updates the last-applied-spec annotation with VM spec JSON.
-func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine) error {
+func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) error {
 	lastApplied, err := json.Marshal(vm.Spec)
 	if err != nil {
 		return fmt.Errorf("convert spec to JSON: %w", err)
@@ -54,13 +54,13 @@ func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine
 }
 
 // LoadLastAppliedClassSpec loads VMClass spec from JSON in the last-applied-spec annotation.
-func LoadLastAppliedClassSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineClassSpec, error) {
+func LoadLastAppliedClassSpec(kvvm *virtv1.VirtualMachine) (*virtv2.VirtualMachineClassSpec, error) {
 	lastSpecJSON := kvvm.GetAnnotations()[annotations.AnnVMClassLastAppliedSpec]
 	if strings.TrimSpace(lastSpecJSON) == "" {
 		return nil, nil
 	}
 
-	var spec v1alpha2.VirtualMachineClassSpec
+	var spec virtv2.VirtualMachineClassSpec
 	err := json.Unmarshal([]byte(lastSpecJSON), &spec)
 	if err != nil {
 		return nil, fmt.Errorf("load spec from JSON: %w", err)
@@ -69,7 +69,7 @@ func LoadLastAppliedClassSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMac
 }
 
 // SetLastAppliedClassSpec updates the last-applied-spec annotation with VMClass spec JSON.
-func SetLastAppliedClassSpec(kvvm *virtv1.VirtualMachine, class *v1alpha2.VirtualMachineClass) error {
+func SetLastAppliedClassSpec(kvvm *virtv1.VirtualMachine, class *virtv2.VirtualMachineClass) error {
 	lastApplied, err := json.Marshal(class.Spec)
 	if err != nil {
 		return fmt.Errorf("convert spec to JSON: %w", err)

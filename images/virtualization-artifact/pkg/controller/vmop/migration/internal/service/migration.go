@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type MigrationService struct {
@@ -40,17 +40,17 @@ func NewMigrationService(client client.Client) *MigrationService {
 	}
 }
 
-func (s MigrationService) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
-	return phase == v1alpha2.MachineRunning
+func (s MigrationService) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
+	return phase == virtv2.MachineRunning
 }
 
-func (s MigrationService) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
-	return runPolicy == v1alpha2.ManualPolicy ||
-		runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually ||
-		runPolicy == v1alpha2.AlwaysOnPolicy
+func (s MigrationService) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
+	return runPolicy == virtv2.ManualPolicy ||
+		runPolicy == virtv2.AlwaysOnUnlessStoppedManually ||
+		runPolicy == virtv2.AlwaysOnPolicy
 }
 
-func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
+func (s MigrationService) CreateMigration(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, &virtv1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.SchemeGroupVersion.String(),
@@ -61,8 +61,8 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 			Name:      migrationName(vmop),
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion:         v1alpha2.SchemeGroupVersion.String(),
-					Kind:               v1alpha2.VirtualMachineOperationKind,
+					APIVersion:         virtv2.SchemeGroupVersion.String(),
+					Kind:               virtv2.VirtualMachineOperationKind,
 					Name:               vmop.GetName(),
 					UID:                vmop.GetUID(),
 					BlockOwnerDeletion: ptr.To(true),
@@ -76,7 +76,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 	}))
 }
 
-func (s MigrationService) DeleteMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
+func (s MigrationService) DeleteMigration(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
 	mig, err := s.GetMigration(ctx, vmop)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (s MigrationService) DeleteMigration(ctx context.Context, vmop *v1alpha2.Vi
 	return client.IgnoreNotFound(err)
 }
 
-func (s MigrationService) GetMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*virtv1.VirtualMachineInstanceMigration, error) {
+func (s MigrationService) GetMigration(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (*virtv1.VirtualMachineInstanceMigration, error) {
 	return object.FetchObject(ctx, types.NamespacedName{
 		Name:      migrationName(vmop),
 		Namespace: vmop.GetNamespace(),
@@ -97,6 +97,6 @@ func (s MigrationService) GetMigration(ctx context.Context, vmop *v1alpha2.Virtu
 
 const vmopPrefix = "vmop-"
 
-func migrationName(vmop *v1alpha2.VirtualMachineOperation) string {
+func migrationName(vmop *virtv2.VirtualMachineOperation) string {
 	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
 }

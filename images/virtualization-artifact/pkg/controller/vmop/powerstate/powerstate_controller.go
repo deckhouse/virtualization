@@ -25,7 +25,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate/internal/watcher"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -41,7 +41,7 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 			watcher.NewVMWatcher(),
 			watcher.NewVMOPWatcher(),
 		},
-		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
+		handlers: []reconciler.Handler[*virtv2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(svcOpCreator),
 			handler.NewLifecycleHandler(client, svcOpCreator, baseSvc, recorder),
 		},
@@ -50,7 +50,7 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 
 type Controller struct {
 	watchers []reconciler.Watcher
-	handlers []reconciler.Handler[*v1alpha2.VirtualMachineOperation]
+	handlers []reconciler.Handler[*virtv2.VirtualMachineOperation]
 }
 
 func (c *Controller) Name() string {
@@ -61,10 +61,10 @@ func (c *Controller) Watchers() []reconciler.Watcher {
 	return c.watchers
 }
 
-func (c *Controller) Handlers() []reconciler.Handler[*v1alpha2.VirtualMachineOperation] {
+func (c *Controller) Handlers() []reconciler.Handler[*virtv2.VirtualMachineOperation] {
 	return c.handlers
 }
 
-func (c *Controller) ShouldReconcile(vmop *v1alpha2.VirtualMachineOperation) bool {
+func (c *Controller) ShouldReconcile(vmop *virtv2.VirtualMachineOperation) bool {
 	return watcher.Match(vmop)
 }

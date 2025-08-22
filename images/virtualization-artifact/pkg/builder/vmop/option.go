@@ -18,36 +18,36 @@ package vmop
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Option func(vmop *v1alpha2.VirtualMachineOperation)
+type Option func(vmop *virtv2.VirtualMachineOperation)
 
 var (
-	WithName         = meta.WithName[*v1alpha2.VirtualMachineOperation]
-	WithGenerateName = meta.WithGenerateName[*v1alpha2.VirtualMachineOperation]
-	WithNamespace    = meta.WithNamespace[*v1alpha2.VirtualMachineOperation]
-	WithLabel        = meta.WithLabel[*v1alpha2.VirtualMachineOperation]
-	WithLabels       = meta.WithLabels[*v1alpha2.VirtualMachineOperation]
-	WithAnnotation   = meta.WithAnnotation[*v1alpha2.VirtualMachineOperation]
-	WithAnnotations  = meta.WithAnnotations[*v1alpha2.VirtualMachineOperation]
-	WithFinalizer    = meta.WithFinalizer[*v1alpha2.VirtualMachineOperation]
+	WithName         = meta.WithName[*virtv2.VirtualMachineOperation]
+	WithGenerateName = meta.WithGenerateName[*virtv2.VirtualMachineOperation]
+	WithNamespace    = meta.WithNamespace[*virtv2.VirtualMachineOperation]
+	WithLabel        = meta.WithLabel[*virtv2.VirtualMachineOperation]
+	WithLabels       = meta.WithLabels[*virtv2.VirtualMachineOperation]
+	WithAnnotation   = meta.WithAnnotation[*virtv2.VirtualMachineOperation]
+	WithAnnotations  = meta.WithAnnotations[*virtv2.VirtualMachineOperation]
+	WithFinalizer    = meta.WithFinalizer[*virtv2.VirtualMachineOperation]
 )
 
-func WithType(t v1alpha2.VMOPType) Option {
-	return func(vmop *v1alpha2.VirtualMachineOperation) {
+func WithType(t virtv2.VMOPType) Option {
+	return func(vmop *virtv2.VirtualMachineOperation) {
 		vmop.Spec.Type = t
 	}
 }
 
 func WithVirtualMachine(vm string) Option {
-	return func(vmop *v1alpha2.VirtualMachineOperation) {
+	return func(vmop *virtv2.VirtualMachineOperation) {
 		vmop.Spec.VirtualMachine = vm
 	}
 }
 
 func WithForce(force *bool) Option {
-	return func(vmop *v1alpha2.VirtualMachineOperation) {
+	return func(vmop *virtv2.VirtualMachineOperation) {
 		vmop.Spec.Force = force
 	}
 }

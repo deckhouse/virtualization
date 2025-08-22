@@ -26,7 +26,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewValidator(log *log.Logger) *Validator {
@@ -38,7 +38,7 @@ type Validator struct {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	lease, ok := obj.(*v1alpha2.VirtualMachineIPAddressLease)
+	lease, ok := obj.(*virtv2.VirtualMachineIPAddressLease)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineIPAddressLease but got a %T", obj)
 	}

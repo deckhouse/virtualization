@@ -22,14 +22,14 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func AutoConvergeForPolicy(policy v1alpha2.LiveMigrationPolicy) (autoConverge *bool) {
+func AutoConvergeForPolicy(policy virtv2.LiveMigrationPolicy) (autoConverge *bool) {
 	switch policy {
-	case v1alpha2.AlwaysSafeMigrationPolicy, v1alpha2.PreferSafeMigrationPolicy:
+	case virtv2.AlwaysSafeMigrationPolicy, virtv2.PreferSafeMigrationPolicy:
 		return ptr.To(false)
-	case v1alpha2.AlwaysForcedMigrationPolicy, v1alpha2.PreferForcedMigrationPolicy:
+	case virtv2.AlwaysForcedMigrationPolicy, virtv2.PreferForcedMigrationPolicy:
 		return ptr.To(true)
 	}
 	return nil
@@ -37,7 +37,7 @@ func AutoConvergeForPolicy(policy v1alpha2.LiveMigrationPolicy) (autoConverge *b
 
 // CalculateEffectivePolicy merges live migration policy from default value and from VM.
 // Also, autoConverge value may be overridden from VMOP.
-func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation) (effectivePolicy v1alpha2.LiveMigrationPolicy, autoConverge bool, err error) {
+func CalculateEffectivePolicy(vm virtv2.VirtualMachine, vmop *virtv2.VirtualMachineOperation) (effectivePolicy virtv2.LiveMigrationPolicy, autoConverge bool, err error) {
 	effectivePolicy = config.DefaultLiveMigrationPolicy
 
 	if vm.Spec.LiveMigrationPolicy != "" {
@@ -49,16 +49,16 @@ func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.Virtual
 	// Override autoConverge value.
 	if vmop != nil {
 		switch effectivePolicy {
-		case v1alpha2.PreferSafeMigrationPolicy,
-			v1alpha2.PreferForcedMigrationPolicy:
+		case virtv2.PreferSafeMigrationPolicy,
+			virtv2.PreferForcedMigrationPolicy:
 			if vmop.Spec.Force != nil {
 				autoConvergePtr = vmop.Spec.Force
 			}
-		case v1alpha2.AlwaysSafeMigrationPolicy:
+		case virtv2.AlwaysSafeMigrationPolicy:
 			if vmop.Spec.Force != nil && *vmop.Spec.Force {
 				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=true is not applicable for VM liveMigrationPolicy %s", effectivePolicy)
 			}
-		case v1alpha2.AlwaysForcedMigrationPolicy:
+		case virtv2.AlwaysForcedMigrationPolicy:
 			if vmop.Spec.Force != nil && !*vmop.Spec.Force {
 				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=false is not applicable for VM liveMigrationPolicy %s", effectivePolicy)
 			}

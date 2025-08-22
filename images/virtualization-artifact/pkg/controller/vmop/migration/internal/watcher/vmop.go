@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMOPWatcher() *VMOPWatcher {
@@ -37,8 +37,8 @@ func (w VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error
 	err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&v1alpha2.VirtualMachineOperation{},
-			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineOperation]{},
+			&virtv2.VirtualMachineOperation{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineOperation]{},
 			NewMigrationPredicate(),
 		),
 	)

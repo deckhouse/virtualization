@@ -32,7 +32,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	v1alpha "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type vmControlTestArgs struct {
@@ -54,8 +54,8 @@ type vmControlTestArgs struct {
 
 var _ = Describe("VMOP Events", func() {
 	var event *audit.Event
-	var vm *v1alpha.VirtualMachine
-	var vd *v1alpha.VirtualDisk
+	var vm *virtv2.VirtualMachine
+	var vd *virtv2.VirtualDisk
 	var node *corev1.Node
 	var pod *corev1.Pod
 
@@ -103,29 +103,29 @@ var _ = Describe("VMOP Events", func() {
 			},
 		}
 
-		vm = &v1alpha.VirtualMachine{
+		vm = &virtv2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "test", UID: "0000-0000-4567"},
-			Spec: v1alpha.VirtualMachineSpec{
-				BlockDeviceRefs: []v1alpha.BlockDeviceSpecRef{
-					{Kind: v1alpha.VirtualDiskKind, Name: "test-disk"},
-					{Kind: v1alpha.VirtualImageKind, Name: "test-image"},
+			Spec: virtv2.VirtualMachineSpec{
+				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+					{Kind: virtv2.VirtualDiskKind, Name: "test-disk"},
+					{Kind: virtv2.VirtualImageKind, Name: "test-image"},
 				},
 			},
-			Status: v1alpha.VirtualMachineStatus{
+			Status: virtv2.VirtualMachineStatus{
 				Node: "test-node",
 				GuestOSInfo: virtv1.VirtualMachineInstanceGuestOSInfo{
 					Name: "test-os",
 				},
-				Versions: v1alpha.Versions{
+				Versions: virtv2.Versions{
 					Qemu:    "9.9.9",
 					Libvirt: "1.1.1",
 				},
 			},
 		}
 
-		vd = &v1alpha.VirtualDisk{
+		vd = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-disk", Namespace: "test", UID: "0000-0000-4567"},
-			Status: v1alpha.VirtualDiskStatus{
+			Status: virtv2.VirtualDiskStatus{
 				StorageClassName: "test-storageclass",
 			},
 		}

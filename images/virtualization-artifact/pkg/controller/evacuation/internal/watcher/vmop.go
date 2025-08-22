@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMOPWatcher struct{}
@@ -43,8 +43,8 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&v1alpha2.VirtualMachineOperation{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) []reconcile.Request {
+			&virtv2.VirtualMachineOperation{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmop *virtv2.VirtualMachineOperation) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -54,8 +54,8 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 					},
 				}
 			}),
-			predicate.TypedFuncs[*v1alpha2.VirtualMachineOperation]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineOperation]) bool {
+			predicate.TypedFuncs[*virtv2.VirtualMachineOperation]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineOperation]) bool {
 					_, isEvacuation := e.ObjectNew.GetAnnotations()[annotations.AnnVMOPEvacuation]
 					return isEvacuation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
