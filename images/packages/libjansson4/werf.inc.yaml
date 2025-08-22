@@ -17,6 +17,14 @@ fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  stageDependencies:
+    install:
+      - '**/*'
 shell:
   install:
   - |
@@ -46,6 +54,10 @@ import:
   add: /src
   to: /src
   before: install
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /patches
+  to: /patches
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -59,6 +71,10 @@ shell:
   - |
     OUTDIR=/out
     cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
     cmake \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
