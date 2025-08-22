@@ -281,7 +281,7 @@ d8 k describe cvi ubuntu-22-04
 How to create an image from an HTTP server in the web interface:
 
 - Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Download Data via Link (HTTP)" from the drop-down menu.
+- Click "Create Image", then select "Load data from link (HTTP)" from the drop-down menu.
 - Enter the image name in the "Image Name" field.
 - Specify the link to the image in the "URL" field.
 - Click "Create".
@@ -337,7 +337,7 @@ An image stored in a container registry has a certain format. Let's look at an e
 How to create an image from the container registry in the web interface:
 
 - Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Load Data from Container Image" from the drop-down list.
+- Click "Create Image", then select "Load data from container image" from the drop-down list.
 - Enter the image name in the "Image Name" field.
 - Specify the link to the image in the "Image in Container Registry" field.
 - Click "Create".
@@ -412,7 +412,7 @@ How to perform the operation in the web interface:
 - Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
 - Click "Create Image", then select "Upload from Computer" from the drop-down menu.
 - Enter the image name in the "Image Name" field.
-- In the "Upload File" field, click the "Select File on Your Computer" link.
+- In the "Upload File" field, click the "Select a file on your computer" link.
 - Select the file in the file manager that opens.
 - Click the "Create" button.
 - Wait until the image changes to `Ready` status.
@@ -783,8 +783,8 @@ How to configure sizing policies in the web interface in the [VM class creation 
 - Click "Add" in the "Resource allocation rules for virtual machines" block.
 - In the "PU" block, enter `1` in the "Min" field.
 - In the "CPU" block, enter `4` in the "Max" field.
-- In the "CPU" block, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order in the "Allow core shares" field.
-- In the "Memory" block, set the switch to "Volume per core".
+- In the "CPU" block, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order in the "Allow setting core fractions" field.
+- In the "Memory" block, set the switch to "Amount per core".
 - In the "Memory" block, enter `1` in the "Min" field.
 - In the "Memory" block, enter `8` in the "Max" field.
 - In the "Memory" block, enter `1` in the "Sampling step" field.
