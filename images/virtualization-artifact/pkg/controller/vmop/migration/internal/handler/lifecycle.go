@@ -35,17 +35,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 const lifecycleHandlerName = "LifecycleHandler"
 
 type Base interface {
-	Init(vmop *virtv2.VirtualMachineOperation)
-	ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error)
-	FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (*virtv2.VirtualMachine, error)
-	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool
+	Init(vmop *v1alpha2.VirtualMachineOperation)
+	ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error)
+	FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*v1alpha2.VirtualMachine, error)
+	IsApplicableOrSetFailedPhase(checker genericservice.ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool
 }
 type LifecycleHandler struct {
 	client    client.Client
@@ -63,10 +63,10 @@ func NewLifecycleHandler(client client.Client, migration *service.MigrationServi
 	}
 }
 
-func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
+func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	// Do not update conditions for object in the deletion state.
 	if commonvmop.IsTerminating(vmop) {
-		vmop.Status.Phase = virtv2.VMOPPhaseTerminating
+		vmop.Status.Phase = v1alpha2.VMOPPhaseTerminating
 		return reconcile.Result{}, nil
 	}
 
@@ -86,7 +86,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		return reconcile.Result{}, err
 	}
 	if isQuotaExceededDuringMigration {
-		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPPending, "Project quota exceeded")
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPPending, "Project quota exceeded")
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonQuotaExceeded).
@@ -130,8 +130,8 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	// 5.1 Check if force flag is applicable for effective liveMigrationPolicy.
 	msg, isApplicable := h.isApplicableForLiveMigrationPolicy(vmop, vm)
 	if !isApplicable {
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, msg)
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonNotApplicableForLiveMigrationPolicy).
@@ -140,7 +140,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 			&vmop.Status.Conditions)
 		return reconcile.Result{}, nil
 	} else if msg != "" {
-		h.recorder.Event(vmop, corev1.EventTypeNormal, virtv2.ReasonVMOPStarted, msg)
+		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPStarted, msg)
 	}
 
 	// 5.2 Fail if there is at least one other migration in progress.
@@ -149,8 +149,8 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		return reconcile.Result{}, err
 	}
 	if found {
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "Other Migrations are in progress")
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Other Migrations are in progress")
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOtherMigrationInProgress).
@@ -170,7 +170,7 @@ func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
 }
 
-func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
+func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
 
 	mig, err := h.migration.GetMigration(ctx, vmop)
@@ -185,8 +185,8 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *virtv
 			return err
 		}
 
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 
 		completedCond.
 			Status(metav1.ConditionFalse).
@@ -211,8 +211,8 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *virtv
 	// 2. If migration is completed. Set completed phase
 	switch mig.Status.Phase {
 	case virtv1.MigrationFailed:
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
 
 		msg := "Migration failed"
 		if mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
@@ -225,8 +225,8 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *virtv
 		conditions.SetCondition(completedCond, &vmop.Status.Conditions)
 		return nil
 	case virtv1.MigrationSucceeded:
-		vmop.Status.Phase = virtv2.VMOPPhaseCompleted
-		h.recorder.Event(vmop, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
+		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
+		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
 
 		completedCond.
 			Status(metav1.ConditionTrue).
@@ -236,10 +236,10 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *virtv
 	}
 
 	// 3. Migration in progress. Set in progress phase
-	vmop.Status.Phase = virtv2.VMOPPhaseInProgress
+	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 	reason := mapMigrationPhaseToReason[mig.Status.Phase]
 	if reason == vmopcondition.ReasonMigrationPending {
-		vmop.Status.Phase = virtv2.VMOPPhasePending
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 
 	completedCond.
@@ -251,7 +251,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *virtv
 	return nil
 }
 
-func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (string, bool) {
+func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) (string, bool) {
 	// No problems if force flag is not specified.
 	if vmop.Spec.Force == nil {
 		return "", true
@@ -267,7 +267,7 @@ func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *virtv2.Virtua
 	return msg, true
 }
 
-func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	mig, err := h.migration.GetMigration(ctx, vmop)
 	if err != nil {
 		return false, err
@@ -284,7 +284,7 @@ func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Cont
 	return false, nil
 }
 
-func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	migList := &virtv1.VirtualMachineInstanceMigrationList{}
 	err := h.client.List(ctx, migList, client.InNamespace(vmop.GetNamespace()))
 	if err != nil {
@@ -298,7 +298,7 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 	return false, nil
 }
 
-func (h LifecycleHandler) execute(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) error {
+func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) error {
 	log := logger.FromContext(ctx)
 
 	h.recordEvent(ctx, vmop, vm)
@@ -312,17 +312,17 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *virtv2.VirtualMachi
 	// Turn the phase to InProgress and set the send signal condition to true.
 	msg := fmt.Sprintf("Sent signal %q to VM without errors.", vmop.Spec.Type)
 	log.Debug(msg)
-	h.recorder.Event(vmop, corev1.EventTypeNormal, virtv2.ReasonVMOPInProgress, msg)
+	h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPInProgress, msg)
 
 	mig, err := h.migration.GetMigration(ctx, vmop)
 	if mig == nil || err != nil {
 		return err
 	}
 
-	vmop.Status.Phase = virtv2.VMOPPhaseInProgress
+	vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 	reason := mapMigrationPhaseToReason[mig.Status.Phase]
 	if reason == vmopcondition.ReasonMigrationPending {
-		vmop.Status.Phase = virtv2.VMOPPhasePending
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 
 	conditions.SetCondition(
@@ -342,28 +342,28 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *virtv2.VirtualMachi
 	return nil
 }
 
-func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) {
+func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) {
 	log := logger.FromContext(ctx)
 
 	switch vmop.Spec.Type {
-	case virtv2.VMOPTypeEvict:
+	case v1alpha2.VMOPTypeEvict:
 		h.recorder.WithLogging(log).Event(
 			vm,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMEvicted,
+			v1alpha2.ReasonVMEvicted,
 			"Evict initiated with VirtualMachineOperation",
 		)
-	case virtv2.VMOPTypeMigrate:
+	case v1alpha2.VMOPTypeMigrate:
 		h.recorder.WithLogging(log).Event(
 			vm,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMMigrated,
+			v1alpha2.ReasonVMMigrated,
 			"Migrate initiated with VirtualMachineOperation",
 		)
 	}
 }
 
-func isOperationInProgress(vmop *virtv2.VirtualMachineOperation) bool {
+func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
 	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue

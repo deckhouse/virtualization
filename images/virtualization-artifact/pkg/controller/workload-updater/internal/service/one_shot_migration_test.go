@@ -27,7 +27,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("TestOnceShotMigrationService", func() {
@@ -36,7 +36,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		vmNamespace = "default"
 	)
 
-	newVM := func() *virtv2.VirtualMachine {
+	newVM := func() *v1alpha2.VirtualMachine {
 		return vmbuilder.NewEmpty(vmName, vmNamespace)
 	}
 
@@ -67,7 +67,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		migrateCount := 0
 
 		for i := 0; i < 10; i++ {
-			vm := &virtv2.VirtualMachine{}
+			vm := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, vm)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -79,7 +79,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		}
 		Expect(migrateCount).To(Equal(1))
 
-		vmops := virtv2.VirtualMachineOperationList{}
+		vmops := v1alpha2.VirtualMachineOperationList{}
 		err = fakeClient.List(context.Background(), &vmops)
 		Expect(err).ToNot(HaveOccurred())
 

@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -46,7 +46,7 @@ func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, sources Sourc
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	readyCondition, ok := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 
 	if !ok {
@@ -59,25 +59,25 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	if vi.DeletionTimestamp != nil {
-		vi.Status.Phase = virtv2.ImageTerminating
+		vi.Status.Phase = v1alpha2.ImageTerminating
 		return reconcile.Result{}, nil
 	}
 
 	if vi.Status.Phase == "" {
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && h.sources.Changed(ctx, vi) {
 		h.recorder.Event(
 			vi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVISpecHasBeenChanged,
+			v1alpha2.ReasonVISpecHasBeenChanged,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
 		// Reset status and start import again.
-		vi.Status = virtv2.VirtualImageStatus{
-			Phase: virtv2.ImagePending,
+		vi.Status = v1alpha2.VirtualImageStatus{
+			Phase: v1alpha2.ImagePending,
 		}
 
 		_, err := h.sources.CleanUp(ctx, vi)
@@ -102,7 +102,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		return reconcile.Result{}, nil
 	}
 
-	if !source.IsImageProvisioningFinished(readyCondition) && (vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim) {
+	if !source.IsImageProvisioningFinished(readyCondition) && (vi.Spec.Storage == v1alpha2.StorageKubernetes || vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim) {
 		storageClassReady, _ := conditions.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
 		if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vi) {
 			cb.
@@ -125,9 +125,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	switch vi.Spec.Storage {
-	case virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim:
+	case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 		return ds.StoreToPVC(ctx, vi)
-	case virtv2.StorageContainerRegistry:
+	case v1alpha2.StorageContainerRegistry:
 		return ds.StoreToDVCR(ctx, vi)
 	default:
 		return reconcile.Result{}, fmt.Errorf("unknown spec storage: %s", vi.Spec.Storage)

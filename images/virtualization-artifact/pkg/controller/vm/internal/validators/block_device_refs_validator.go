@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type BlockDeviceSpecRefsValidator struct{}
@@ -32,7 +32,7 @@ func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
 	return &BlockDeviceSpecRefsValidator{}
 }
 
-func (v *BlockDeviceSpecRefsValidator) validate(vm *virtv2.VirtualMachine) error {
+func (v *BlockDeviceSpecRefsValidator) validate(vm *v1alpha2.VirtualMachine) error {
 	err := v.noDoubles(vm)
 	if err != nil {
 		return err
@@ -41,11 +41,11 @@ func (v *BlockDeviceSpecRefsValidator) validate(vm *virtv2.VirtualMachine) error
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		var maxLen int
 		switch bdRef.Kind {
-		case virtv2.DiskDevice:
+		case v1alpha2.DiskDevice:
 			maxLen = validate.MaxDiskNameLen
-		case virtv2.ImageDevice:
+		case v1alpha2.ImageDevice:
 			maxLen = validate.MaxVirtualImageNameLen
-		case virtv2.ClusterImageDevice:
+		case v1alpha2.ClusterImageDevice:
 			maxLen = validate.MaxClusterVirtualImageNameLen
 		default:
 			continue
@@ -59,16 +59,16 @@ func (v *BlockDeviceSpecRefsValidator) validate(vm *virtv2.VirtualMachine) error
 	return nil
 }
 
-func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return nil, v.validate(vm)
 }
 
-func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return nil, v.validate(newVM)
 }
 
-func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *virtv2.VirtualMachine) error {
-	blockDevicesByRef := make(map[virtv2.BlockDeviceSpecRef]struct{}, len(vm.Spec.BlockDeviceRefs))
+func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) error {
+	blockDevicesByRef := make(map[v1alpha2.BlockDeviceSpecRef]struct{}, len(vm.Spec.BlockDeviceRefs))
 
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		if _, ok := blockDevicesByRef[bdRef]; ok {

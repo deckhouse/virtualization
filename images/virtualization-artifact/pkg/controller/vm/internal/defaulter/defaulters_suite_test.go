@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestDefaulters(t *testing.T) {
@@ -50,21 +50,21 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 		classDefaulter = defaulter.NewVirtualMachineClassNameDefaulter(fakeClient, vmClassService)
 	}
 
-	newVMClass := func(name string) *virtv2.VirtualMachineClass {
-		return &virtv2.VirtualMachineClass{
+	newVMClass := func(name string) *v1alpha2.VirtualMachineClass {
+		return &v1alpha2.VirtualMachineClass{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       virtv2.VirtualMachineClassKind,
-				APIVersion: virtv2.SchemeGroupVersion.String(),
+				Kind:       v1alpha2.VirtualMachineClassKind,
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec:   virtv2.VirtualMachineClassSpec{},
-			Status: virtv2.VirtualMachineClassStatus{},
+			Spec:   v1alpha2.VirtualMachineClassSpec{},
+			Status: v1alpha2.VirtualMachineClassStatus{},
 		}
 	}
 
-	newDefaultVMClass := func(name string) *virtv2.VirtualMachineClass {
+	newDefaultVMClass := func(name string) *v1alpha2.VirtualMachineClass {
 		vmClass := newVMClass(name)
 		vmClass.Annotations = map[string]string{
 			annotations.AnnVirtualMachineClassDefault: "true",
@@ -72,21 +72,21 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 		return vmClass
 	}
 
-	newVMWithEmptyClass := func(name string) *virtv2.VirtualMachine {
-		return &virtv2.VirtualMachine{
+	newVMWithEmptyClass := func(name string) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       virtv2.VirtualMachineKind,
-				APIVersion: virtv2.SchemeGroupVersion.String(),
+				Kind:       v1alpha2.VirtualMachineKind,
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec:   virtv2.VirtualMachineSpec{},
-			Status: virtv2.VirtualMachineStatus{},
+			Spec:   v1alpha2.VirtualMachineSpec{},
+			Status: v1alpha2.VirtualMachineStatus{},
 		}
 	}
 
-	newVM := func(name, className string) *virtv2.VirtualMachine {
+	newVM := func(name, className string) *v1alpha2.VirtualMachine {
 		vm := newVMWithEmptyClass(name)
 		vm.Spec.VirtualMachineClassName = className
 		return vm

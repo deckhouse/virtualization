@@ -27,18 +27,18 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type VirtualImageRequestEnqueuer struct {
 	enqueueFromObj  client.Object
-	enqueueFromKind virtv2.VirtualImageObjectRefKind
+	enqueueFromKind v1alpha2.VirtualImageObjectRefKind
 	client          client.Client
 	logger          *log.Logger
 }
 
-func NewVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.VirtualImageObjectRefKind) *VirtualImageRequestEnqueuer {
+func NewVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind v1alpha2.VirtualImageObjectRefKind) *VirtualImageRequestEnqueuer {
 	return &VirtualImageRequestEnqueuer{
 		enqueueFromObj:  enqueueFromObj,
 		enqueueFromKind: enqueueFromKind,
@@ -52,7 +52,7 @@ func (w VirtualImageRequestEnqueuer) GetEnqueueFrom() client.Object {
 }
 
 func (w VirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	var vis virtv2.VirtualImageList
+	var vis v1alpha2.VirtualImageList
 	err := w.client.List(ctx, &vis)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vi: %s", err))
@@ -65,7 +65,7 @@ func (w VirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cl
 			continue
 		}
 
-		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		if vi.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 			continue
 		}
 

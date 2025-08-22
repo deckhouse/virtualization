@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SizingPolicyValidator struct {
@@ -42,17 +42,17 @@ func NewSizingPolicyValidator(client client.Client) *SizingPolicyValidator {
 	}
 }
 
-func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.validate(ctx, vm)
 }
 
-func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.validate(ctx, newVM)
 }
 
-func (v *SizingPolicyValidator) validate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var warnings admission.Warnings
-	vmClass := &virtv2.VirtualMachineClass{}
+	vmClass := &v1alpha2.VirtualMachineClass{}
 	err := v.client.Get(ctx, types.NamespacedName{
 		Name: vm.Spec.VirtualMachineClassName,
 	}, vmClass)

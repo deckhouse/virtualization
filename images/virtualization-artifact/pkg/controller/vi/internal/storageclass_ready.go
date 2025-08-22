@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -51,7 +51,7 @@ func NewStorageClassReadyHandler(recorder eventrecord.EventRecorderLogger, svc S
 	}
 }
 
-func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vicondition.StorageClassReadyType).Generation(vi.Generation)
 
 	if vi.DeletionTimestamp != nil {
@@ -59,7 +59,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
+	if vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
 		conditions.RemoveCondition(cb.GetType(), &vi.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
@@ -137,7 +137,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	h.recorder.Event(
 		vi,
 		corev1.EventTypeWarning,
-		virtv2.ReasonVIStorageClassNotFound,
+		v1alpha2.ReasonVIStorageClassNotFound,
 		msg,
 	)
 	cb.
@@ -149,7 +149,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	return reconcile.Result{}, nil
 }
 
-func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *v1alpha2.VirtualImage, cb *conditions.ConditionBuilder) error {
 	vi.Status.StorageClassName = *vi.Spec.PersistentVolumeClaim.StorageClass
 
 	sc, err := h.svc.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
@@ -218,7 +218,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *virtv2.VirtualImage, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *v1alpha2.VirtualImage, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
 	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
 		return fmt.Errorf("pvc does not have storage class")
 	}
@@ -256,7 +256,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromModuleSettings(vi *virtv2.VirtualImage, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+func (h StorageClassReadyHandler) setFromModuleSettings(vi *v1alpha2.VirtualImage, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vi.Status.StorageClassName = moduleStorageClass.Name
 
 	if h.svc.IsStorageClassDeprecated(moduleStorageClass) {
@@ -285,7 +285,7 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vi *virtv2.VirtualImage,
 	}
 }
 
-func (h StorageClassReadyHandler) setFromDefault(vi *virtv2.VirtualImage, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+func (h StorageClassReadyHandler) setFromDefault(vi *v1alpha2.VirtualImage, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vi.Status.StorageClassName = defaultStorageClass.Name
 
 	if h.svc.IsStorageClassDeprecated(defaultStorageClass) {

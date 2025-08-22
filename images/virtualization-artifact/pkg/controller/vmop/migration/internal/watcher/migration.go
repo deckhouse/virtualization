@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewMigrationWatcher() *MigrationWatcher {
@@ -40,7 +40,7 @@ func (w MigrationWatcher) Watch(mgr manager.Manager, ctr controller.Controller) 
 			handler.TypedEnqueueRequestForOwner[*virtv1.VirtualMachineInstanceMigration](
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&virtv2.VirtualMachineOperation{},
+				&v1alpha2.VirtualMachineOperation{},
 				handler.OnlyControllerOwner(),
 			),
 		),

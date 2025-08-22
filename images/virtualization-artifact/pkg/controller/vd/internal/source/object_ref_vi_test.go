@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -44,8 +44,8 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 	var (
 		ctx    context.Context
 		scheme *runtime.Scheme
-		vi     *virtv2.VirtualImage
-		vd     *virtv2.VirtualDisk
+		vi     *v1alpha2.VirtualImage
+		vd     *v1alpha2.VirtualDisk
 		sc     *storagev1.StorageClass
 		pvc    *corev1.PersistentVolumeClaim
 		dv     *cdiv1.DataVolume
@@ -56,7 +56,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 
 		scheme = runtime.NewScheme()
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(cdiv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
@@ -82,35 +82,35 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			},
 		}
 
-		vi = &virtv2.VirtualImage{
+		vi = &v1alpha2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vi",
 				Generation: 1,
 				UID:        "11111111-1111-1111-1111-111111111111",
 			},
-			Status: virtv2.VirtualImageStatus{
-				Size: virtv2.ImageStatusSize{
+			Status: v1alpha2.VirtualImageStatus{
+				Size: v1alpha2.ImageStatusSize{
 					UnpackedBytes: "100Mi",
 				},
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
 				UID:        "22222222-2222-2222-2222-222222222222",
 			},
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
-					Type: virtv2.DataSourceTypeObjectRef,
-					ObjectRef: &virtv2.VirtualDiskObjectRef{
-						Kind: virtv2.VirtualDiskObjectRefKindVirtualImage,
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeObjectRef,
+					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
+						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualImage,
 						Name: vi.Name,
 					},
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
 			},
 		}
@@ -146,7 +146,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create DataVolume", func() {
 			var dvCreated bool
-			vd.Status = virtv2.VirtualDiskStatus{}
+			vd.Status = v1alpha2.VirtualDiskStatus{}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
 			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ service.ObjectKind, _ *supplements.Generator, _ ...service.Option) error {
 				dvCreated = true
@@ -162,7 +162,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			Expect(dvCreated).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
@@ -187,7 +187,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
@@ -204,7 +204,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
@@ -223,7 +223,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskReady))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 			ExpectStats(vd)
 		})
 	})
@@ -251,7 +251,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 
@@ -267,7 +267,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})

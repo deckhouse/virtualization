@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -45,7 +45,7 @@ func NewPVCSizeValidator(client client.Client) *PVCSizeValidator {
 	return &PVCSizeValidator{client: client}
 }
 
-func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if vd.Spec.PersistentVolumeClaim.Size != nil && vd.Spec.PersistentVolumeClaim.Size.IsZero() {
 		return nil, fmt.Errorf("virtual disk size must be greater than 0")
 	}
@@ -54,15 +54,15 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 		return nil, fmt.Errorf("if the data source is not specified, it's necessary to set spec.PersistentVolumeClaim.size to create blank virtual disk")
 	}
 
-	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vd.Spec.DataSource.ObjectRef == nil {
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef || vd.Spec.DataSource.ObjectRef == nil {
 		return nil, nil
 	}
 
 	var unpackedSize resource.Quantity
 
 	switch vd.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualDiskObjectRefKindVirtualImage,
-		virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualImage,
+		v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage:
 		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, vd.Spec.DataSource, vd, v.client)
 		if err != nil {
 			return nil, err
@@ -77,16 +77,16 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 			return nil, fmt.Errorf("failed to parse unpacked bytes %s: %w", unpackedSize.String(), err)
 		}
 
-	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
 		vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      vd.Spec.DataSource.ObjectRef.Name,
 			Namespace: vd.Namespace,
-		}, v.client, &virtv2.VirtualDiskSnapshot{})
+		}, v.client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
 			return nil, err
 		}
 
-		if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
+		if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
 			return nil, nil
 		}
 
@@ -120,7 +120,7 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 	}
 }
 
-func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if oldVD.Spec.PersistentVolumeClaim.Size == newVD.Spec.PersistentVolumeClaim.Size {
 		return nil, nil
 	}
@@ -137,16 +137,16 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 	if s := newVD.Spec.PersistentVolumeClaim.Size; s != nil {
 		newSize = *s
 	} else if ready.Status == metav1.ConditionTrue ||
-		newVD.Status.Phase != virtv2.DiskPending &&
-			newVD.Status.Phase != virtv2.DiskProvisioning &&
-			newVD.Status.Phase != virtv2.DiskWaitForFirstConsumer {
+		newVD.Status.Phase != v1alpha2.DiskPending &&
+			newVD.Status.Phase != v1alpha2.DiskProvisioning &&
+			newVD.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
 		return nil, errors.New("spec.persistentVolumeClaim.size cannot be omitted once set")
 	}
 
 	if ready.Status == metav1.ConditionTrue ||
-		newVD.Status.Phase != virtv2.DiskPending &&
-			newVD.Status.Phase != virtv2.DiskProvisioning &&
-			newVD.Status.Phase != virtv2.DiskWaitForFirstConsumer {
+		newVD.Status.Phase != v1alpha2.DiskPending &&
+			newVD.Status.Phase != v1alpha2.DiskProvisioning &&
+			newVD.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
 		if newSize.Cmp(oldSize) == common.CmpLesser {
 			return nil, fmt.Errorf(
 				"spec.persistentVolumeClaim.size value (%s) should be greater than or equal to the current value (%s)",
@@ -156,15 +156,15 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		}
 	}
 
-	if newVD.Spec.DataSource == nil || newVD.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {
+	if newVD.Spec.DataSource == nil || newVD.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef || newVD.Spec.DataSource.ObjectRef == nil {
 		return nil, nil
 	}
 
 	var unpackedSize resource.Quantity
 
 	switch newVD.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualDiskObjectRefKindVirtualImage,
-		virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualImage,
+		v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage:
 		dvcrDataSource, err := controller.NewDVCRDataSourcesForVMD(ctx, newVD.Spec.DataSource, newVD, v.client)
 		if err != nil {
 			return nil, err
@@ -179,16 +179,16 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 			return nil, fmt.Errorf("failed to parse unpacked bytes %s: %w", unpackedSize.String(), err)
 		}
 
-	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
 		vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      newVD.Spec.DataSource.ObjectRef.Name,
 			Namespace: newVD.Namespace,
-		}, v.client, &virtv2.VirtualDiskSnapshot{})
+		}, v.client, &v1alpha2.VirtualDiskSnapshot{})
 		if err != nil {
 			return nil, err
 		}
 
-		if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
+		if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
 			return nil, nil
 		}
 

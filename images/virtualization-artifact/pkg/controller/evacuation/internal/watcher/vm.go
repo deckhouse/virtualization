@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -42,12 +42,12 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachine{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachine]{},
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool { return false },
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+			&v1alpha2.VirtualMachine{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachine]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool { return false },
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, e.ObjectNew.Status.Conditions)
 					needEvict := cond.Status == metav1.ConditionTrue
 

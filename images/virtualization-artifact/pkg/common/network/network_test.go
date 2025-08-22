@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestHandlers(t *testing.T) {
@@ -31,18 +31,18 @@ func TestHandlers(t *testing.T) {
 }
 
 var _ = Describe("Network Config Generation", func() {
-	var vmSpec virtv2.VirtualMachineSpec
+	var vmSpec v1alpha2.VirtualMachineSpec
 
 	BeforeEach(func() {
-		vmSpec = virtv2.VirtualMachineSpec{
-			Networks: []virtv2.NetworksSpec{},
+		vmSpec = v1alpha2.VirtualMachineSpec{
+			Networks: []v1alpha2.NetworksSpec{},
 		}
 	})
 
 	It("should return empty list interfaces", func() {
-		vmSpec.Networks = []virtv2.NetworksSpec{
+		vmSpec.Networks = []v1alpha2.NetworksSpec{
 			{
-				Type: virtv2.NetworksTypeMain,
+				Type: v1alpha2.NetworksTypeMain,
 			},
 		}
 
@@ -52,9 +52,9 @@ var _ = Describe("Network Config Generation", func() {
 	})
 
 	It("should generate correct interface name for Network type", func() {
-		vmSpec.Networks = []virtv2.NetworksSpec{
+		vmSpec.Networks = []v1alpha2.NetworksSpec{
 			{
-				Type: virtv2.NetworksTypeNetwork,
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "mynet",
 			},
 		}
@@ -62,15 +62,15 @@ var _ = Describe("Network Config Generation", func() {
 		configs := CreateNetworkSpec(vmSpec)
 
 		Expect(configs).To(HaveLen(1))
-		Expect(configs[0].Type).To(Equal(virtv2.NetworksTypeNetwork))
+		Expect(configs[0].Type).To(Equal(v1alpha2.NetworksTypeNetwork))
 		Expect(configs[0].Name).To(Equal("mynet"))
 		Expect(configs[0].InterfaceName).To(HavePrefix("veth_n"))
 	})
 
 	It("should generate correct interface name for ClusterNetwork type", func() {
-		vmSpec.Networks = []virtv2.NetworksSpec{
+		vmSpec.Networks = []v1alpha2.NetworksSpec{
 			{
-				Type: virtv2.NetworksTypeClusterNetwork,
+				Type: v1alpha2.NetworksTypeClusterNetwork,
 				Name: "clusternet",
 			},
 		}
@@ -78,19 +78,19 @@ var _ = Describe("Network Config Generation", func() {
 		configs := CreateNetworkSpec(vmSpec)
 
 		Expect(configs).To(HaveLen(1))
-		Expect(configs[0].Type).To(Equal(virtv2.NetworksTypeClusterNetwork))
+		Expect(configs[0].Type).To(Equal(v1alpha2.NetworksTypeClusterNetwork))
 		Expect(configs[0].Name).To(Equal("clusternet"))
 		Expect(configs[0].InterfaceName).To(HavePrefix("veth_cn"))
 	})
 
 	It("should generate unique names for different networks with same name and id", func() {
-		vmSpec.Networks = []virtv2.NetworksSpec{
+		vmSpec.Networks = []v1alpha2.NetworksSpec{
 			{
-				Type: virtv2.NetworksTypeNetwork,
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "net1",
 			},
 			{
-				Type: virtv2.NetworksTypeNetwork,
+				Type: v1alpha2.NetworksTypeNetwork,
 				Name: "net1",
 			},
 		}

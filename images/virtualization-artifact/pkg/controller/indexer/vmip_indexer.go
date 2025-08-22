@@ -19,12 +19,12 @@ package indexer
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func IndexVMIPByVM() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByVM, func(object client.Object) []string {
-		vmip, ok := object.(*virtv2.VirtualMachineIPAddress)
+	return &v1alpha2.VirtualMachineIPAddress{}, IndexFieldVMIPByVM, func(object client.Object) []string {
+		vmip, ok := object.(*v1alpha2.VirtualMachineIPAddress)
 		if !ok || vmip == nil {
 			return nil
 		}
@@ -35,7 +35,7 @@ func IndexVMIPByVM() (obj client.Object, field string, extractValue client.Index
 		}
 
 		for _, ownerRef := range vmip.OwnerReferences {
-			if ownerRef.Kind != virtv2.VirtualMachineKind {
+			if ownerRef.Kind != v1alpha2.VirtualMachineKind {
 				continue
 			}
 
@@ -51,8 +51,8 @@ func IndexVMIPByVM() (obj client.Object, field string, extractValue client.Index
 }
 
 func IndexVMIPByAddress() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByAddress, func(object client.Object) []string {
-		vmip, ok := object.(*virtv2.VirtualMachineIPAddress)
+	return &v1alpha2.VirtualMachineIPAddress{}, IndexFieldVMIPByAddress, func(object client.Object) []string {
+		vmip, ok := object.(*v1alpha2.VirtualMachineIPAddress)
 		if !ok || vmip == nil {
 			return nil
 		}

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	k8sUtils "github.com/deckhouse/virtualization-controller/pkg/controller/k8s-validation"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type AffinityValidator struct{}
@@ -33,15 +33,15 @@ func NewAffinityValidator() *AffinityValidator {
 	return &AffinityValidator{}
 }
 
-func (v *AffinityValidator) ValidateCreate(_ context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *AffinityValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(vm)
 }
 
-func (v *AffinityValidator) ValidateUpdate(_ context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *AffinityValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(newVM)
 }
 
-func (v *AffinityValidator) Validate(vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *AffinityValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	errs := k8sUtils.ValidateAffinity(vm.Spec.Affinity, k8sfield.NewPath("spec"))
 
 	if len(errs) > 0 {

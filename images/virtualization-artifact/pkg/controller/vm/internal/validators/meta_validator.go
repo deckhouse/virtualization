@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type MetaValidator struct {
@@ -37,7 +37,7 @@ func NewMetaValidator(client client.Client) *MetaValidator {
 	return &MetaValidator{client: client}
 }
 
-func (v *MetaValidator) ValidateCreate(_ context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *MetaValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	if len(vm.Name) > validate.MaxVirtualMachineNameLen {
 		return nil, fmt.Errorf("the VirtualMachine name %q is too long: it must be no more than %d characters", vm.Name, validate.MaxVirtualMachineNameLen)
 	}
@@ -57,7 +57,7 @@ func (v *MetaValidator) ValidateCreate(_ context.Context, vm *virtv2.VirtualMach
 	return nil, nil
 }
 
-func (v *MetaValidator) ValidateUpdate(_ context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *MetaValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	for key := range newVM.Annotations {
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the annotation is prohibited", core.GroupName)

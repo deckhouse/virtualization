@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -49,11 +49,11 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					oldRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, e.ObjectOld.Status.Conditions)
 					newRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, e.ObjectNew.Status.Conditions)
 
@@ -71,8 +71,8 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: vm.GetNamespace(),
 	})
@@ -97,15 +97,15 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 	return
 }
 
-func (w VirtualMachineWatcher) hasBlockDeviceAttachmentChanges(oldVM, newVM *virtv2.VirtualMachine) bool {
-	var oldVMBDA []virtv2.BlockDeviceStatusRef
+func (w VirtualMachineWatcher) hasBlockDeviceAttachmentChanges(oldVM, newVM *v1alpha2.VirtualMachine) bool {
+	var oldVMBDA []v1alpha2.BlockDeviceStatusRef
 	for _, bdRef := range oldVM.Status.BlockDeviceRefs {
 		if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
 			oldVMBDA = append(oldVMBDA, bdRef)
 		}
 	}
 
-	var newVMBDA []virtv2.BlockDeviceStatusRef
+	var newVMBDA []v1alpha2.BlockDeviceStatusRef
 	for _, bdRef := range newVM.Status.BlockDeviceRefs {
 		if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
 			newVMBDA = append(newVMBDA, bdRef)

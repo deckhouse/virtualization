@@ -30,7 +30,7 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -50,7 +50,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 		fakeClient = nil
 	})
 
-	newVM := func(needEvict bool) *virtv2.VirtualMachine {
+	newVM := func(needEvict bool) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(vmName, vmNamespace)
 		vm.Status.Node = nodeName
 		if needEvict {
@@ -62,14 +62,14 @@ var _ = Describe("TestEvacuationHandler", func() {
 		return vm
 	}
 
-	newVMOP := func(phase virtv2.VMOPPhase) *virtv2.VirtualMachineOperation {
+	newVMOP := func(phase v1alpha2.VMOPPhase) *v1alpha2.VirtualMachineOperation {
 		vmop := newEvacuationVMOP(vmName, vmNamespace)
 		vmop.Status.Phase = phase
 		return vmop
 	}
 
 	DescribeTable("Trigger Evacuate vm",
-		func(vm *virtv2.VirtualMachine, vmop *virtv2.VirtualMachineOperation, shouldEvict bool) {
+		func(vm *v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation, shouldEvict bool) {
 			fakeClient = setupEnvironment(vm, vmop)
 
 			h := NewEvacuationHandler(fakeClient, &EvacuateCancelerMock{CancelFunc: func(_ context.Context, _, _ string) error {
@@ -78,11 +78,11 @@ var _ = Describe("TestEvacuationHandler", func() {
 			_, err := h.Handle(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
 
-			vmops := virtv2.VirtualMachineOperationList{}
+			vmops := v1alpha2.VirtualMachineOperationList{}
 			err = fakeClient.List(ctx, &vmops, client.InNamespace(vmNamespace))
 			Expect(err).NotTo(HaveOccurred())
 
-			slices.SortFunc(vmops.Items, func(a, b virtv2.VirtualMachineOperation) int {
+			slices.SortFunc(vmops.Items, func(a, b v1alpha2.VirtualMachineOperation) int {
 				return cmp.Compare(a.CreationTimestamp.UnixNano(), b.CreationTimestamp.UnixNano())
 			})
 
@@ -95,7 +95,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 				Expect(len(vmops.Items)).To(Equal(vmopCount + 1))
 
 				vmop := vmops.Items[len(vmops.Items)-1]
-				Expect(vmop.Spec.Type).To(Equal(virtv2.VMOPTypeEvict))
+				Expect(vmop.Spec.Type).To(Equal(v1alpha2.VMOPTypeEvict))
 				_, exists := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]
 				Expect(exists).To(Equal(true))
 			} else {
@@ -104,8 +104,8 @@ var _ = Describe("TestEvacuationHandler", func() {
 		},
 		Entry("Should create vmop because VM evicted", newVM(true), nil, true),
 		Entry("Should do nothing", newVM(false), nil, false),
-		Entry("Should do nothing because VM already migrating", newVM(true), newVMOP(virtv2.VMOPPhaseInProgress), false),
-		Entry("Should create vmop because VM evicted but old vmop finished", newVM(true), newVMOP(virtv2.VMOPPhaseCompleted), true),
+		Entry("Should do nothing because VM already migrating", newVM(true), newVMOP(v1alpha2.VMOPPhaseInProgress), false),
+		Entry("Should create vmop because VM evicted but old vmop finished", newVM(true), newVMOP(v1alpha2.VMOPPhaseCompleted), true),
 	)
 
 	Context("Cancel Evacuation", func() {
@@ -117,7 +117,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 				},
 			}
 
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress)
+			vmop := newVMOP(v1alpha2.VMOPPhaseInProgress)
 			vmop.Name = "evacuation-12345"
 
 			fakeClient = setupEnvironment(newVM(true), vmop)
@@ -126,7 +126,7 @@ var _ = Describe("TestEvacuationHandler", func() {
 			err := fakeClient.Delete(ctx, vmop)
 			Expect(err).NotTo(HaveOccurred())
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err = fakeClient.Get(ctx, client.ObjectKey{Name: vmName, Namespace: vmNamespace}, newVM)
 			Expect(err).NotTo(HaveOccurred())
 

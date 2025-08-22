@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -72,7 +72,7 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 	p := current.Spec.Provisioning
 	switch p.Type {
-	case virtv2.ProvisioningTypeUserData:
+	case v1alpha2.ProvisioningTypeUserData:
 		if p.UserData != "" {
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonProvisioningReady)
 		} else {
@@ -80,11 +80,11 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Reason(vmcondition.ReasonProvisioningNotReady).
 				Message("Provisioning is defined but it is empty.")
 		}
-	case virtv2.ProvisioningTypeUserDataRef:
-		if p.UserDataRef == nil || p.UserDataRef.Kind != virtv2.UserDataRefKindSecret {
+	case v1alpha2.ProvisioningTypeUserDataRef:
+		if p.UserDataRef == nil || p.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message(fmt.Sprintf("userdataRef must be %q", virtv2.UserDataRefKindSecret))
+				Message(fmt.Sprintf("userdataRef must be %q", v1alpha2.UserDataRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.UserDataRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
@@ -92,11 +92,11 @@ func (h *ProvisioningHandler) Handle(ctx context.Context, s state.VirtualMachine
 			return reconcile.Result{}, err
 		}
 
-	case virtv2.ProvisioningTypeSysprepRef:
-		if p.SysprepRef == nil || p.SysprepRef.Kind != virtv2.SysprepRefKindSecret {
+	case v1alpha2.ProvisioningTypeSysprepRef:
+		if p.SysprepRef == nil || p.SysprepRef.Kind != v1alpha2.SysprepRefKindSecret {
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonProvisioningNotReady).
-				Message(fmt.Sprintf("sysprepRef must be %q", virtv2.SysprepRefKindSecret))
+				Message(fmt.Sprintf("sysprepRef must be %q", v1alpha2.SysprepRefKindSecret))
 		}
 		key := types.NamespacedName{Name: p.SysprepRef.Name, Namespace: current.GetNamespace()}
 		err := h.genConditionFromSecret(ctx, cb, key)
@@ -187,9 +187,9 @@ func (v provisioningValidator) Validate(ctx context.Context, key types.Namespace
 		return err
 	}
 	switch secret.Type {
-	case virtv2.SecretTypeCloudInit:
+	case v1alpha2.SecretTypeCloudInit:
 		return v.validateCloudInitSecret(secret)
-	case virtv2.SecretTypeSysprep:
+	case v1alpha2.SecretTypeSysprep:
 		return v.validateSysprepSecret(secret)
 	default:
 		return unexpectedSecretTypeError(secret.Type)

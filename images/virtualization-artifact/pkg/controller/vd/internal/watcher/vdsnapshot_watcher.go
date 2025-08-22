@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskSnapshotWatcher struct {
@@ -45,17 +45,17 @@ type VirtualDiskSnapshotWatcher struct {
 
 func NewVirtualDiskSnapshotWatcher(client client.Client) *VirtualDiskSnapshotWatcher {
 	return &VirtualDiskSnapshotWatcher{
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskSnapshotKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualDiskSnapshotKind)),
 		client: client,
 	}
 }
 
 func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDiskSnapshot{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDiskSnapshot{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualDiskSnapshot]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDiskSnapshot]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualDiskSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDiskSnapshot]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
@@ -66,12 +66,12 @@ func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	return nil
 }
 
-func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (requests []reconcile.Request) {
+func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (requests []reconcile.Request) {
 	// 1. Need to reconcile the virtual disk from which the snapshot was taken.
 	vd, err := object.FetchObject(ctx, types.NamespacedName{
 		Name:      vdSnapshot.Spec.VirtualDiskName,
 		Namespace: vdSnapshot.Namespace,
-	}, w.client, &virtv2.VirtualDisk{})
+	}, w.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to get virtual disk: %s", err))
 		return
@@ -89,7 +89,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	}
 
 	// Need to reconcile the virtual disk with the snapshot data source.
-	var vds virtv2.VirtualDiskList
+	var vds v1alpha2.VirtualDiskList
 	err = w.client.List(ctx, &vds, &client.ListOptions{
 		Namespace:     vdSnapshot.Namespace,
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByVDSnapshot, vdSnapshot.Name),
@@ -116,12 +116,12 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	return
 }
 
-func isSnapshotDataSource(ds *virtv2.VirtualDiskDataSource, vdSnapshotName string) bool {
-	if ds == nil || ds.Type != virtv2.DataSourceTypeObjectRef {
+func isSnapshotDataSource(ds *v1alpha2.VirtualDiskDataSource, vdSnapshotName string) bool {
+	if ds == nil || ds.Type != v1alpha2.DataSourceTypeObjectRef {
 		return false
 	}
 
-	if ds.ObjectRef == nil || ds.ObjectRef.Kind != virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
+	if ds.ObjectRef == nil || ds.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
 		return false
 	}
 

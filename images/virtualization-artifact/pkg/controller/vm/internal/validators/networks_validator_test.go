@@ -20,26 +20,26 @@ import (
 	"fmt"
 	"testing"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestNetworksValidate(t *testing.T) {
 	tests := []struct {
-		networks []virtv2.NetworksSpec
+		networks []v1alpha2.NetworksSpec
 		valid    bool
 	}{
-		{[]virtv2.NetworksSpec{}, true},
-		{[]virtv2.NetworksSpec{{Type: virtv2.NetworksTypeMain}}, true},
-		{[]virtv2.NetworksSpec{{Type: virtv2.NetworksTypeMain}, {Type: virtv2.NetworksTypeMain}}, false},
-		{[]virtv2.NetworksSpec{{Type: virtv2.NetworksTypeMain, Name: "main"}}, false},
-		{[]virtv2.NetworksSpec{{Type: virtv2.NetworksTypeNetwork, Name: "test"}, {Type: virtv2.NetworksTypeMain}}, false},
-		{[]virtv2.NetworksSpec{{Type: virtv2.NetworksTypeMain}, {Type: virtv2.NetworksTypeNetwork, Name: "test"}}, true},
-		{[]virtv2.NetworksSpec{{Type: virtv2.NetworksTypeMain}, {Type: virtv2.NetworksTypeNetwork}}, false},
+		{[]v1alpha2.NetworksSpec{}, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeMain}}, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeMain}}, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork}}, false},
 	}
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("TestCase%d", i), func(t *testing.T) {
-			vm := &virtv2.VirtualMachine{Spec: virtv2.VirtualMachineSpec{Networks: test.networks}}
+			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: test.networks}}
 			networkValidator := NewNetworksValidator()
 
 			_, err := networkValidator.Validate(vm)

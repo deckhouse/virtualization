@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMWatcher() *VMWatcher {
@@ -42,9 +42,9 @@ type VMWatcher struct{}
 func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	mgrClient := mgr.GetClient()
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
-				vmops := &virtv2.VirtualMachineOperationList{}
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
+				vmops := &v1alpha2.VirtualMachineOperationList{}
 				if err := mgrClient.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
 					return nil
 				}
@@ -54,7 +54,7 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 						continue
 					}
 
-					if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+					if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 						requests = append(requests, reconcile.Request{
 							NamespacedName: types.NamespacedName{
 								Namespace: vmop.GetNamespace(),
@@ -66,8 +66,8 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 				}
 				return requests
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || e.ObjectNew.Status.MigrationState != nil
 				},
 			},

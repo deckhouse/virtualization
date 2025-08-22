@@ -34,11 +34,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type vmopTestArgs struct {
-	vmopType               virtv2.VMOPType
+	vmopType               v1alpha2.VMOPType
 	expectedName           string
 	expectedLevel          string
 	expectedActionType     string
@@ -55,9 +55,9 @@ type vmopTestArgs struct {
 
 var _ = Describe("VMOP Events", func() {
 	var event *audit.Event
-	var vmop *virtv2.VirtualMachineOperation
-	var vm *virtv2.VirtualMachine
-	var vd *virtv2.VirtualDisk
+	var vmop *v1alpha2.VirtualMachineOperation
+	var vm *v1alpha2.VirtualMachine
+	var vd *v1alpha2.VirtualDisk
 	var node *corev1.Node
 
 	currentTime := time.Now()
@@ -82,35 +82,35 @@ var _ = Describe("VMOP Events", func() {
 			},
 		}
 
-		vmop = &virtv2.VirtualMachineOperation{
-			Spec: virtv2.VirtualMachineOperationSpec{
+		vmop = &v1alpha2.VirtualMachineOperation{
+			Spec: v1alpha2.VirtualMachineOperationSpec{
 				VirtualMachine: "test-vm",
 			},
 		}
 
-		vm = &virtv2.VirtualMachine{
+		vm = &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-vm", Namespace: "test", UID: "0000-0000-4567"},
-			Spec: virtv2.VirtualMachineSpec{
-				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
-					{Kind: virtv2.VirtualDiskKind, Name: "test-disk"},
-					{Kind: virtv2.VirtualImageKind, Name: "test-image"},
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+					{Kind: v1alpha2.VirtualDiskKind, Name: "test-disk"},
+					{Kind: v1alpha2.VirtualImageKind, Name: "test-image"},
 				},
 			},
-			Status: virtv2.VirtualMachineStatus{
+			Status: v1alpha2.VirtualMachineStatus{
 				Node: "test-node",
 				GuestOSInfo: virtv1.VirtualMachineInstanceGuestOSInfo{
 					Name: "test-os",
 				},
-				Versions: virtv2.Versions{
+				Versions: v1alpha2.Versions{
 					Qemu:    "9.9.9",
 					Libvirt: "1.1.1",
 				},
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-disk", Namespace: "test", UID: "0000-0000-4567"},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				StorageClassName: "test-storageclass",
 			},
 		}
@@ -263,65 +263,65 @@ var _ = Describe("VMOP Events", func() {
 			shouldFailMatch: true,
 		}),
 		Entry("Start VMOP event should filled without errors", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeStart,
+			vmopType:           v1alpha2.VMOPTypeStart,
 			expectedName:       "VM started",
 			expectedLevel:      "info",
 			expectedActionType: "start",
 		}),
 		Entry("Stop VMOP event should filled without errors", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeStop,
+			vmopType:           v1alpha2.VMOPTypeStop,
 			expectedName:       "VM stopped",
 			expectedLevel:      "warn",
 			expectedActionType: "stop",
 		}),
 		Entry("Restart VMOP event should filled without errors", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeRestart,
+			vmopType:           v1alpha2.VMOPTypeRestart,
 			expectedName:       "VM restarted",
 			expectedLevel:      "warn",
 			expectedActionType: "restart",
 		}),
 		Entry("Migrate VMOP event should filled without errors", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeMigrate,
+			vmopType:           v1alpha2.VMOPTypeMigrate,
 			expectedName:       "VM migrated",
 			expectedLevel:      "warn",
 			expectedActionType: "migrate",
 		}),
 		Entry("Evict VMOP event should filled without errors", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeEvict,
+			vmopType:           v1alpha2.VMOPTypeEvict,
 			expectedName:       "VM evicted",
 			expectedLevel:      "warn",
 			expectedActionType: "evict",
 		}),
 		Entry("Evict VMOP event should filled without errors, but with unknown VDs", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeStart,
+			vmopType:           v1alpha2.VMOPTypeStart,
 			expectedName:       "VM started",
 			expectedLevel:      "info",
 			expectedActionType: "start",
 			shouldLostVD:       true,
 		}),
 		Entry("Evict VMOP event should filled without errors, but with unknown Node's IPs", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeStart,
+			vmopType:           v1alpha2.VMOPTypeStart,
 			expectedName:       "VM started",
 			expectedLevel:      "info",
 			expectedActionType: "start",
 			shouldLostNode:     true,
 		}),
 		Entry("VMOP event should filled with VM exist error", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeStart,
+			vmopType:           v1alpha2.VMOPTypeStart,
 			expectedName:       "VM started",
 			expectedLevel:      "info",
 			expectedActionType: "start",
 			shouldLostVM:       true,
 		}),
 		Entry("VMOP event should filled with VMOP exist error", vmopTestArgs{
-			vmopType:           virtv2.VMOPTypeStart,
+			vmopType:           v1alpha2.VMOPTypeStart,
 			expectedName:       "VM started",
 			expectedLevel:      "info",
 			expectedActionType: "start",
 			shouldLostVMOP:     true,
 		}),
 		Entry("VMOP event should filled with JSON encode error", vmopTestArgs{
-			vmopType:               virtv2.VMOPTypeStart,
+			vmopType:               v1alpha2.VMOPTypeStart,
 			expectedName:           "VM started",
 			expectedLevel:          "info",
 			expectedActionType:     "start",

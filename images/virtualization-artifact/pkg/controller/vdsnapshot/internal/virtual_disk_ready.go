@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
@@ -39,7 +39,7 @@ func NewVirtualDiskReadyHandler(snapshotter VirtualDiskReadySnapshotter) *Virtua
 	}
 }
 
-func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
+func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskReadyType).Generation(vdSnapshot.Generation)
 
 	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
@@ -52,7 +52,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 		return reconcile.Result{}, nil
 	}
 
-	if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseReady {
+	if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady {
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdscondition.VirtualDiskReady).
@@ -82,7 +82,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 	}
 
 	switch vd.Status.Phase {
-	case virtv2.DiskReady:
+	case v1alpha2.DiskReady:
 		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(snapshotting, vd) {
 			cb.

@@ -25,7 +25,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("TestDynamicSettingsHandler", func() {
@@ -36,9 +36,9 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 
 	ctx := testutil.ContextBackgroundWithNoOpLogger()
 
-	newVM := func() *virtv2.VirtualMachine {
+	newVM := func() *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(vmName, vmNamespace)
-		vm.Spec.LiveMigrationPolicy = virtv2.PreferSafeMigrationPolicy
+		vm.Spec.LiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
 
 		return vm
 	}
@@ -57,23 +57,23 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 		return vmi
 	}
 
-	newVMOPEvict := func(force *bool) *virtv2.VirtualMachineOperation {
-		vmop := &virtv2.VirtualMachineOperation{
+	newVMOPEvict := func(force *bool) *v1alpha2.VirtualMachineOperation {
+		vmop := &v1alpha2.VirtualMachineOperation{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: virtv2.SchemeGroupVersion.String(),
-				Kind:       virtv2.VirtualMachineOperationKind,
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+				Kind:       v1alpha2.VirtualMachineOperationKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "some-vmop-name",
 				Namespace: vmNamespace,
 			},
-			Spec: virtv2.VirtualMachineOperationSpec{
-				Type:           virtv2.VMOPTypeEvict,
+			Spec: v1alpha2.VirtualMachineOperationSpec{
+				Type:           v1alpha2.VMOPTypeEvict,
 				VirtualMachine: vmName,
 				Force:          force,
 			},
-			Status: virtv2.VirtualMachineOperationStatus{
-				Phase: virtv2.VMOPPhaseInProgress,
+			Status: v1alpha2.VirtualMachineOperationStatus{
+				Phase: v1alpha2.VMOPPhaseInProgress,
 			},
 		}
 		return vmop
@@ -129,7 +129,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 	})
 
 	DescribeTable("When migration started with VMOP and force flag",
-		func(policy virtv2.LiveMigrationPolicy, force *bool) {
+		func(policy v1alpha2.LiveMigrationPolicy, force *bool) {
 			vm := newVM()
 			vm.Spec.LiveMigrationPolicy = policy
 
@@ -146,7 +146,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration).ShouldNot(BeNil(), "Should set migrationConfiguration")
 			Expect(kvvmi.Status.MigrationState.MigrationConfiguration.AllowAutoConverge).Should(Equal(force))
 		},
-		Entry("Should enable autoConverge for PreferSafe policy and force=true", virtv2.PreferSafeMigrationPolicy, ptr.To(true)),
-		Entry("Should disable autoConverge for PreferForced policy and force=false", virtv2.PreferForcedMigrationPolicy, ptr.To(false)),
+		Entry("Should enable autoConverge for PreferSafe policy and force=true", v1alpha2.PreferSafeMigrationPolicy, ptr.To(true)),
+		Entry("Should disable autoConverge for PreferForced policy and force=false", v1alpha2.PreferForcedMigrationPolicy, ptr.To(false)),
 	)
 })

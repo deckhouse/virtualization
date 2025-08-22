@@ -26,18 +26,18 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
 type BindStep struct {
-	lease *virtv2.VirtualMachineIPAddressLease
+	lease *v1alpha2.VirtualMachineIPAddressLease
 	cb    *conditions.ConditionBuilder
 }
 
 func NewBindStep(
-	lease *virtv2.VirtualMachineIPAddressLease,
+	lease *v1alpha2.VirtualMachineIPAddressLease,
 	cb *conditions.ConditionBuilder,
 ) *BindStep {
 	return &BindStep{
@@ -46,7 +46,7 @@ func NewBindStep(
 	}
 }
 
-func (s BindStep) Take(_ context.Context, vmip *virtv2.VirtualMachineIPAddress) (*reconcile.Result, error) {
+func (s BindStep) Take(_ context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*reconcile.Result, error) {
 	// 1. The required Lease already exists; set its address in the vmip status.
 	if s.lease != nil {
 		vmip.Status.Address = ip.LeaseNameToIP(s.lease.Name)

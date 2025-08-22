@@ -25,15 +25,15 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . DiskService Sources StorageClassService
 
 type Sources interface {
-	Changed(ctx context.Context, vi *virtv2.VirtualImage) bool
-	For(dsType virtv2.DataSourceType) (source.Handler, bool)
-	CleanUp(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
+	Changed(ctx context.Context, vi *v1alpha2.VirtualImage) bool
+	For(dsType v1alpha2.DataSourceType) (source.Handler, bool)
+	CleanUp(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error)
 }
 
 type DiskService interface {

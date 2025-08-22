@@ -30,7 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewKVVMWatcher() *KVVMWatcher {
@@ -47,7 +47,7 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 			handler.TypedEnqueueRequestForOwner[*virtv1.VirtualMachine](
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&virtv2.VirtualMachine{},
+				&v1alpha2.VirtualMachine{},
 				handler.OnlyControllerOwner(),
 			),
 			predicate.TypedFuncs[*virtv1.VirtualMachine]{

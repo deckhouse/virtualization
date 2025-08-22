@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -38,8 +38,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			args.ReadyCondition.Type = vicondition.ReadyType.String()
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
-			vi := virtv2.VirtualImage{
-				Status: virtv2.VirtualImageStatus{
+			vi := v1alpha2.VirtualImage{
+				Status: v1alpha2.VirtualImageStatus{
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						{
@@ -54,19 +54,19 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				},
 			}
 
-			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error) {
 				cleanUpCalled = true
 				return false, nil
 			}
 
-			sourcesMock.ChangedFunc = func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+			sourcesMock.ChangedFunc = func(contextMoqParam context.Context, vi *v1alpha2.VirtualImage) bool {
 				return args.SpecChanged
 			}
 
-			sourcesMock.ForFunc = func(_ virtv2.DataSourceType) (source.Handler, bool) {
+			sourcesMock.ForFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
 				var handler source.HandlerMock
 
-				handler.StoreToPVCFunc = func(_ context.Context, _ *virtv2.VirtualImage) (reconcile.Result, error) {
+				handler.StoreToPVCFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
 				}
 
@@ -122,11 +122,11 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			args.StorageClassReadyCondition.Type = vicondition.StorageClassReadyType.String()
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
-			vi := virtv2.VirtualImage{
-				Spec: virtv2.VirtualImageSpec{
+			vi := v1alpha2.VirtualImage{
+				Spec: v1alpha2.VirtualImageSpec{
 					Storage: args.StorageType,
 				},
-				Status: virtv2.VirtualImageStatus{
+				Status: v1alpha2.VirtualImageStatus{
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						args.StorageClassReadyCondition,
@@ -139,19 +139,19 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				},
 			}
 
-			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error) {
 				cleanUpCalled = true
 				return false, nil
 			}
 
-			sourcesMock.ChangedFunc = func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+			sourcesMock.ChangedFunc = func(contextMoqParam context.Context, vi *v1alpha2.VirtualImage) bool {
 				return false
 			}
 
-			sourcesMock.ForFunc = func(_ virtv2.DataSourceType) (source.Handler, bool) {
+			sourcesMock.ForFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
 				var handler source.HandlerMock
 
-				handler.StoreToPVCFunc = func(_ context.Context, _ *virtv2.VirtualImage) (reconcile.Result, error) {
+				handler.StoreToPVCFunc = func(_ context.Context, _ *v1alpha2.VirtualImage) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
 				}
 
@@ -174,7 +174,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					Status: metav1.ConditionFalse,
 				},
 				StorageClassInStatus: "sc",
-				StorageType:          virtv2.StorageContainerRegistry,
+				StorageType:          v1alpha2.StorageContainerRegistry,
 				ExpectCleanup:        false,
 			},
 		),
@@ -188,7 +188,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					Status: metav1.ConditionFalse,
 				},
 				StorageClassInStatus: "",
-				StorageType:          virtv2.StoragePersistentVolumeClaim,
+				StorageType:          v1alpha2.StoragePersistentVolumeClaim,
 				ExpectCleanup:        false,
 			},
 		),
@@ -202,7 +202,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					Status: metav1.ConditionFalse,
 				},
 				StorageClassInStatus: "sc",
-				StorageType:          virtv2.StoragePersistentVolumeClaim,
+				StorageType:          v1alpha2.StoragePersistentVolumeClaim,
 				ExpectCleanup:        false,
 			},
 		),
@@ -216,7 +216,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					Status: metav1.ConditionTrue,
 				},
 				StorageClassInStatus: "sc",
-				StorageType:          virtv2.StoragePersistentVolumeClaim,
+				StorageType:          v1alpha2.StoragePersistentVolumeClaim,
 				ExpectCleanup:        false,
 			},
 		),
@@ -233,6 +233,6 @@ type cleanupAfterScNotReadyTestArgs struct {
 	ReadyCondition             metav1.Condition
 	StorageClassReadyCondition metav1.Condition
 	StorageClassInStatus       string
-	StorageType                virtv2.StorageType
+	StorageType                v1alpha2.StorageType
 	ExpectCleanup              bool
 }

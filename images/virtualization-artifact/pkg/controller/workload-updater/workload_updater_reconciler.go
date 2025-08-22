@@ -27,11 +27,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error)
+	Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error)
 	Name() string
 }
 
@@ -90,10 +90,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachine {
-	return &virtv2.VirtualMachine{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachine {
+	return &v1alpha2.VirtualMachine{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus {
 	return obj.Status
 }

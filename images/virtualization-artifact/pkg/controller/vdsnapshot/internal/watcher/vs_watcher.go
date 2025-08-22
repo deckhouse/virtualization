@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VolumeSnapshotWatcher struct{}
@@ -40,7 +40,7 @@ func (w VolumeSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Control
 			handler.TypedEnqueueRequestForOwner[*vsv1.VolumeSnapshot](
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&virtv2.VirtualDiskSnapshot{},
+				&v1alpha2.VirtualDiskSnapshot{},
 			),
 		),
 	); err != nil {

@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineSnapshotWatcher struct {
@@ -48,10 +48,10 @@ func NewVirtualMachineSnapshotWatcher(client client.Client) *VirtualMachineSnaps
 
 func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineSnapshot{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualMachineSnapshot]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineSnapshot]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
@@ -62,8 +62,8 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 	return nil
 }
 
-func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) (requests []reconcile.Request) {
-	var vmRestores virtv2.VirtualMachineRestoreList
+func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (requests []reconcile.Request) {
+	var vmRestores v1alpha2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
 		Namespace:     vmSnapshot.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMRestoreByVMSnapshot, vmSnapshot.GetName()),

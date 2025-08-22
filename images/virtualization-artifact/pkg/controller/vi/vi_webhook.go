@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -52,7 +52,7 @@ func NewValidator(logger *log.Logger, client client.Client, scService *intsvc.Vi
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vi, ok := obj.(*virtv2.VirtualImage)
+	vi, ok := obj.(*v1alpha2.VirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
@@ -65,15 +65,15 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, validate.MaxVirtualImageNameLen)
 	}
 
-	if vi.Spec.Storage == virtv2.StorageKubernetes {
+	if vi.Spec.Storage == v1alpha2.StorageKubernetes {
 		warnings := admission.Warnings{
 			fmt.Sprintf("Using the `%s` storage type is deprecated. It is recommended to use `%s` instead.",
-				virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim),
+				v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim),
 		}
 		return warnings, nil
 	}
 
-	if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
+	if vi.Spec.Storage == v1alpha2.StorageKubernetes || vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 		if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
 			sc, err := v.scService.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
 			if err != nil {
@@ -111,12 +111,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVI, ok := oldObj.(*virtv2.VirtualImage)
+	oldVI, ok := oldObj.(*v1alpha2.VirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualImage but got a %T", newObj)
 	}
 
-	newVI, ok := newObj.(*virtv2.VirtualImage)
+	newVI, ok := newObj.(*v1alpha2.VirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualImage but got a %T", newObj)
 	}
@@ -131,7 +131,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	ready, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
 	switch {
-	case ready.Status == metav1.ConditionTrue, newVI.Status.Phase == virtv2.ImageReady, newVI.Status.Phase == virtv2.ImageLost:
+	case ready.Status == metav1.ConditionTrue, newVI.Status.Phase == v1alpha2.ImageReady, newVI.Status.Phase == v1alpha2.ImageLost:
 		if !reflect.DeepEqual(oldVI.Spec.DataSource, newVI.Spec.DataSource) {
 			return nil, errors.New("data source cannot be changed if the VirtualImage has already been provisioned")
 		}
@@ -139,12 +139,12 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		if !reflect.DeepEqual(oldVI.Spec.PersistentVolumeClaim.StorageClass, newVI.Spec.PersistentVolumeClaim.StorageClass) {
 			return nil, errors.New("storage class cannot be changed if the VirtualImage has already been provisioned")
 		}
-	case newVI.Status.Phase == virtv2.ImageTerminating:
+	case newVI.Status.Phase == v1alpha2.ImageTerminating:
 		if !reflect.DeepEqual(oldVI.Spec, newVI.Spec) {
 			return nil, errors.New("spec cannot be changed if the VirtualImage is the process of termination")
 		}
-	case newVI.Status.Phase == virtv2.ImagePending:
-		if newVI.Spec.Storage == virtv2.StorageKubernetes || newVI.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
+	case newVI.Status.Phase == v1alpha2.ImagePending:
+		if newVI.Spec.Storage == v1alpha2.StorageKubernetes || newVI.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 			if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
 				sc, err := v.scService.GetStorageClass(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
 				if err != nil {

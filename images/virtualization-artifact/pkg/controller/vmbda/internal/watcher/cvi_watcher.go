@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
@@ -48,11 +48,11 @@ func NewClusterVirtualImageWatcher(client client.Client) *ClusterVirtualImageWat
 
 func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{},
+		source.Kind(mgr.GetCache(), &v1alpha2.ClusterVirtualImage{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.ClusterVirtualImage]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.ClusterVirtualImage]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.ClusterVirtualImage]) bool {
+			predicate.TypedFuncs[*v1alpha2.ClusterVirtualImage]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.ClusterVirtualImage]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.ClusterVirtualImage]) bool {
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 						return true
 					}
@@ -70,8 +70,8 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	return nil
 }
 
-func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (requests []reconcile.Request) {
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (requests []reconcile.Request) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas)
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
@@ -79,7 +79,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *vi
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindClusterVirtualImage && vmbda.Spec.BlockDeviceRef.Name != cvi.GetName() {
+		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindClusterVirtualImage && vmbda.Spec.BlockDeviceRef.Name != cvi.GetName() {
 			continue
 		}
 

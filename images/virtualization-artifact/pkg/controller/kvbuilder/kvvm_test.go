@@ -23,7 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestSetAffinity(t *testing.T) {
@@ -126,7 +126,7 @@ func TestSetOsType(t *testing.T) {
 	t.Run("Change from Windows to Generic should remove TPM", func(t *testing.T) {
 		builder := NewEmptyKVVM(types.NamespacedName{Name: name, Namespace: namespace}, KVVMOptions{})
 
-		err := builder.SetOsType(virtv2.Windows)
+		err := builder.SetOsType(v1alpha2.Windows)
 		if err != nil {
 			t.Fatalf("SetOsType(Windows) failed: %v", err)
 		}
@@ -135,7 +135,7 @@ func TestSetOsType(t *testing.T) {
 			t.Error("TPM should be present after setting Windows OS")
 		}
 
-		err = builder.SetOsType(virtv2.GenericOs)
+		err = builder.SetOsType(v1alpha2.GenericOs)
 		if err != nil {
 			t.Fatalf("SetOsType(GenericOs) failed: %v", err)
 		}

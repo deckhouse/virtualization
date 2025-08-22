@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -69,7 +69,7 @@ func NewCreateBlankPVCStep(
 	}
 }
 
-func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -102,7 +102,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 			Name:      key.Name,
 			Namespace: key.Namespace,
 			Finalizers: []string{
-				virtv2.FinalizerVDProtection,
+				v1alpha2.FinalizerVDProtection,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vd),
@@ -122,7 +122,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 		if strings.Contains(err.Error(), "exceeded quota") {
 			log.Debug("Quota exceeded during PVC creation")
 
-			vd.Status.Phase = virtv2.DiskPending
+			vd.Status.Phase = v1alpha2.DiskPending
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.QuotaExceeded).

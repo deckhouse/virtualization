@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
@@ -39,22 +39,22 @@ func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger) *LifecycleHan
 	}
 }
 
-func (h *LifecycleHandler) Handle(_ context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error) {
+func (h *LifecycleHandler) Handle(_ context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (reconcile.Result, error) {
 	boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
 	if boundCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmip) {
-		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhasePending
+		vmip.Status.Phase = v1alpha2.VirtualMachineIPAddressPhasePending
 		return reconcile.Result{}, nil
 	}
 
 	attachedCondition, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
 	if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmip) {
-		if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
-			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddress is bound.")
+		if vmip.Status.Phase != v1alpha2.VirtualMachineIPAddressPhaseBound {
+			h.recorder.Eventf(vmip, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineIPAddress is bound.")
 		}
-		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhaseBound
+		vmip.Status.Phase = v1alpha2.VirtualMachineIPAddressPhaseBound
 		return reconcile.Result{}, nil
 	}
 
-	vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
+	vmip.Status.Phase = v1alpha2.VirtualMachineIPAddressPhaseAttached
 	return reconcile.Result{}, nil
 }

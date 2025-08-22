@@ -26,12 +26,12 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/validators"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineBlockDeviceAttachmentValidator interface {
-	ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error)
-	ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error)
+	ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error)
 }
 
 type Validator struct {
@@ -51,7 +51,7 @@ func NewValidator(attachmentService *service.AttachmentService, service *service
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmbda, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+	vmbda, ok := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineBlockDeviceAttachment but got a %T", obj)
 	}
@@ -70,12 +70,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVMBDA, ok := oldObj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+	oldVMBDA, ok := oldObj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineBlockDeviceAttachment but got a %T", oldObj)
 	}
 
-	newVMBDA, ok := newObj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+	newVMBDA, ok := newObj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineBlockDeviceAttachment but got a %T", newObj)
 	}

@@ -20,13 +20,13 @@ import (
 	"fmt"
 	"sort"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const BlockDevicesPath = "blockDeviceRefs"
 
 // compareBlockDevices returns changes between current and desired blockDevices lists.
-func compareBlockDevices(current, desired *virtv2.VirtualMachineSpec) []FieldChange {
+func compareBlockDevices(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	if len(current.BlockDeviceRefs) == 0 && len(desired.BlockDeviceRefs) == 0 {
 		return nil
 	}
@@ -46,7 +46,7 @@ func compareBlockDevices(current, desired *virtv2.VirtualMachineSpec) []FieldCha
 	added := make(map[int]struct{})
 	removed := make(map[int]struct{})
 
-	deviceAccessors := []func(vm *virtv2.VirtualMachineSpec) map[string]int{
+	deviceAccessors := []func(vm *v1alpha2.VirtualMachineSpec) map[string]int{
 		cvmiIndexedNames,
 		vmiIndexedNames,
 		vmdIndexedNames,
@@ -116,30 +116,30 @@ func compareBlockDevices(current, desired *virtv2.VirtualMachineSpec) []FieldCha
 	return changes
 }
 
-func cvmiIndexedNames(vm *virtv2.VirtualMachineSpec) map[string]int {
+func cvmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
 	for idx, dev := range vm.BlockDeviceRefs {
-		if dev.Kind == virtv2.ClusterImageDevice {
+		if dev.Kind == v1alpha2.ClusterImageDevice {
 			res[dev.Name] = idx
 		}
 	}
 	return res
 }
 
-func vmiIndexedNames(vm *virtv2.VirtualMachineSpec) map[string]int {
+func vmiIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
 	for idx, dev := range vm.BlockDeviceRefs {
-		if dev.Kind == virtv2.VirtualImageKind {
+		if dev.Kind == v1alpha2.VirtualImageKind {
 			res[dev.Name] = idx
 		}
 	}
 	return res
 }
 
-func vmdIndexedNames(vm *virtv2.VirtualMachineSpec) map[string]int {
+func vmdIndexedNames(vm *v1alpha2.VirtualMachineSpec) map[string]int {
 	res := make(map[string]int)
 	for idx, dev := range vm.BlockDeviceRefs {
-		if dev.Kind == virtv2.VirtualDiskKind {
+		if dev.Kind == v1alpha2.VirtualDiskKind {
 			res[dev.Name] = idx
 		}
 	}

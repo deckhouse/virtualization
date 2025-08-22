@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMEventLog struct {
@@ -93,11 +93,11 @@ func (e VMEventLog) Log() error {
 	return nil
 }
 
-func (e *VMEventLog) fillVDInfo(ttlCache events.TTLCache, vdInformer cache.Store, vm *virtv2.VirtualMachine) error {
+func (e *VMEventLog) fillVDInfo(ttlCache events.TTLCache, vdInformer cache.Store, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
-		if bd.Kind != virtv2.VirtualDiskKind {
+		if bd.Kind != v1alpha2.VirtualDiskKind {
 			continue
 		}
 
@@ -116,7 +116,7 @@ func (e *VMEventLog) fillVDInfo(ttlCache events.TTLCache, vdInformer cache.Store
 	return nil
 }
 
-func (e *VMEventLog) fillNodeInfo(nodeInformer cache.Store, vm *virtv2.VirtualMachine) error {
+func (e *VMEventLog) fillNodeInfo(nodeInformer cache.Store, vm *v1alpha2.VirtualMachine) error {
 	node, err := util.GetNodeFromInformer(nodeInformer, vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)

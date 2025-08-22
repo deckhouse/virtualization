@@ -27,18 +27,18 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type ClusterVirtualImageRequestEnqueuer struct {
 	enqueueFromObj  client.Object
-	enqueueFromKind virtv2.ClusterVirtualImageObjectRefKind
+	enqueueFromKind v1alpha2.ClusterVirtualImageObjectRefKind
 	client          client.Client
 	logger          *log.Logger
 }
 
-func NewClusterVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.ClusterVirtualImageObjectRefKind) *ClusterVirtualImageRequestEnqueuer {
+func NewClusterVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind v1alpha2.ClusterVirtualImageObjectRefKind) *ClusterVirtualImageRequestEnqueuer {
 	return &ClusterVirtualImageRequestEnqueuer{
 		enqueueFromObj:  enqueueFromObj,
 		enqueueFromKind: enqueueFromKind,
@@ -52,7 +52,7 @@ func (w ClusterVirtualImageRequestEnqueuer) GetEnqueueFrom() client.Object {
 }
 
 func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	var cvis virtv2.ClusterVirtualImageList
+	var cvis v1alpha2.ClusterVirtualImageList
 	err := w.client.List(ctx, &cvis)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list cvi: %s", err))
@@ -65,7 +65,7 @@ func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context,
 			continue
 		}
 
-		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		if cvi.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 			continue
 		}
 

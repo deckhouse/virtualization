@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -37,13 +37,13 @@ var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHand
 	diskService := service.NewDiskService(fakeClient, nil, nil, "test")
 	snapshottingHandler := NewSnapshottingHandler(diskService)
 
-	vd := virtv2.VirtualDisk{
+	vd := v1alpha2.VirtualDisk{
 		ObjectMeta: metav1.ObjectMeta{
 			DeletionTimestamp: args.DeletionTimestamp,
 			Name:              "test-vd",
 			Namespace:         "test-namespace",
 		},
-		Status: virtv2.VirtualDiskStatus{
+		Status: v1alpha2.VirtualDiskStatus{
 			Conditions: []metav1.Condition{
 				args.ReadyCondition,
 				args.ResizingCondition,
@@ -91,12 +91,12 @@ var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHand
 			Type:   vdcondition.ReadyType.String(),
 			Status: metav1.ConditionTrue,
 		},
-		Snapshot: virtv2.VirtualDiskSnapshot{
+		Snapshot: v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-snapshot",
 				Namespace: "test-namespace",
 			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{
 				VirtualDiskName: "test-vdd",
 			},
 		},
@@ -112,12 +112,12 @@ var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHand
 			Type:   vdcondition.ResizingType.String(),
 			Status: metav1.ConditionTrue,
 		},
-		Snapshot: virtv2.VirtualDiskSnapshot{
+		Snapshot: v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-snapshot",
 				Namespace: "test-namespace",
 			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{
 				VirtualDiskName: "test-vd",
 			},
 		},
@@ -130,12 +130,12 @@ var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHand
 			Type:   vdcondition.ReadyType.String(),
 			Status: metav1.ConditionTrue,
 		},
-		Snapshot: virtv2.VirtualDiskSnapshot{
+		Snapshot: v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-snapshot",
 				Namespace: "test-namespace",
 			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{
 				VirtualDiskName: "test-vd",
 			},
 		},
@@ -154,7 +154,7 @@ type snapshottingHandlerTestHandlerArgs struct {
 	DeletionTimestamp     *metav1.Time
 	ReadyCondition        metav1.Condition
 	ResizingCondition     metav1.Condition
-	Snapshot              virtv2.VirtualDiskSnapshot
+	Snapshot              v1alpha2.VirtualDiskSnapshot
 	IsExpectCondition     bool
 	ExpectConditionStatus metav1.ConditionStatus
 }

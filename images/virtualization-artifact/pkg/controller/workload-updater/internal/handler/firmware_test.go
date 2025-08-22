@@ -29,7 +29,7 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -54,7 +54,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 		fakeClient = nil
 	})
 
-	newVM := func(needMigrate bool) *virtv2.VirtualMachine {
+	newVM := func(needMigrate bool) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		status := metav1.ConditionTrue
 		if needMigrate {
@@ -99,11 +99,11 @@ var _ = Describe("TestFirmwareHandler", func() {
 	}
 
 	DescribeTable("FirmwareHandler should return serviceCompleteErr if migration executed",
-		func(vm *virtv2.VirtualMachine, deploy *appsv1.Deployment, needMigrate bool) {
+		func(vm *v1alpha2.VirtualMachine, deploy *appsv1.Deployment, needMigrate bool) {
 			fakeClient = setupEnvironment(vm, deploy)
 
 			mockMigration := &OneShotMigrationMock{
-				OnceMigrateFunc: func(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
 			}

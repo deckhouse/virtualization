@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -40,11 +40,11 @@ func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
 	}
 }
 
-func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if vd.DeletionTimestamp != nil {
-		if controllerutil.ContainsFinalizer(vd, virtv2.FinalizerVDProtection) {
+		if controllerutil.ContainsFinalizer(vd, v1alpha2.FinalizerVDProtection) {
 			return reconcile.Result{}, nil
 		}
 
@@ -58,10 +58,10 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		}
 
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDisk")
-		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDCleanup)
+		controllerutil.RemoveFinalizer(vd, v1alpha2.FinalizerVDCleanup)
 		return reconcile.Result{}, nil
 	}
 
-	controllerutil.AddFinalizer(vd, virtv2.FinalizerVDCleanup)
+	controllerutil.AddFinalizer(vd, v1alpha2.FinalizerVDCleanup)
 	return reconcile.Result{}, nil
 }

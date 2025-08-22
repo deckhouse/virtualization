@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -60,9 +60,9 @@ func NewWaitForPodStep(
 	}
 }
 
-func (s WaitForPodStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s WaitForPodStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	if s.pod == nil {
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -76,7 +76,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*recon
 		switch {
 		case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 			if strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
-				vi.Status.Phase = virtv2.ImageProvisioning
+				vi.Status.Phase = v1alpha2.ImageProvisioning
 				s.cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.Provisioning).
@@ -85,21 +85,21 @@ func (s WaitForPodStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*recon
 				return &reconcile.Result{Requeue: true}, nil
 			}
 
-			vi.Status.Phase = virtv2.ImageFailed
+			vi.Status.Phase = v1alpha2.ImageFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningNotStarted).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			return &reconcile.Result{}, nil
 		case errors.Is(err, service.ErrProvisioningFailed):
-			vi.Status.Phase = virtv2.ImageFailed
+			vi.Status.Phase = v1alpha2.ImageFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
 				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			return &reconcile.Result{}, nil
 		default:
-			vi.Status.Phase = virtv2.ImageFailed
+			vi.Status.Phase = v1alpha2.ImageFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.ProvisioningFailed).
@@ -114,7 +114,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*recon
 			Reason(vicondition.Provisioning).
 			Message("Preparing to start import to DVCR.")
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Target.RegistryURL = s.stat.GetDVCRImageName(s.pod)
 
 		return &reconcile.Result{}, nil
@@ -125,7 +125,7 @@ func (s WaitForPodStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*recon
 		Reason(vicondition.Provisioning).
 		Message("Import is in the process of provisioning to DVCR.")
 
-	vi.Status.Phase = virtv2.ImageProvisioning
+	vi.Status.Phase = v1alpha2.ImageProvisioning
 	vi.Status.Progress = s.stat.GetProgress(vi.GetUID(), s.pod, vi.Status.Progress)
 	vi.Status.Target.RegistryURL = s.stat.GetDVCRImageName(s.pod)
 

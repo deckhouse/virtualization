@@ -50,7 +50,9 @@ linters-settings:
     # Default: []
     alias:
       - pkg: github.com/deckhouse/virtualization/api/core/v1alpha2
-        alias: "virtv2"
+        alias: ""
+      - pkg: github.com/deckhouse/virtualization/api/subresources/v1alpha2
+        alias: "sub1alpha2"
       - pkg: kubevirt.io/api/core/v1
         alias: virtv1
       - pkg: k8s.io/api/core/v1

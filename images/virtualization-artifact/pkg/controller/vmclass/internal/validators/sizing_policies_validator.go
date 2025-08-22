@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SizingPoliciesValidator struct {
@@ -34,7 +34,7 @@ func NewSizingPoliciesValidator(client client.Client) *SizingPoliciesValidator {
 	return &SizingPoliciesValidator{client: client}
 }
 
-func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *virtv2.VirtualMachineClass) (admission.Warnings, error) {
+func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
 	if HasCPUSizePoliciesCrosses(&vmclass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has size policy cpu crosses", vmclass.Name)
 	}
@@ -42,7 +42,7 @@ func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *vir
 	return nil, nil
 }
 
-func (v *SizingPoliciesValidator) ValidateUpdate(_ context.Context, _, newVMClass *virtv2.VirtualMachineClass) (admission.Warnings, error) {
+func (v *SizingPoliciesValidator) ValidateUpdate(_ context.Context, _, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
 	if HasCPUSizePoliciesCrosses(&newVMClass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has size policy cpu crosses", newVMClass.Name)
 	}
@@ -50,7 +50,7 @@ func (v *SizingPoliciesValidator) ValidateUpdate(_ context.Context, _, newVMClas
 	return nil, nil
 }
 
-func HasCPUSizePoliciesCrosses(vmclass *virtv2.VirtualMachineClassSpec) bool {
+func HasCPUSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 	usedPairs := make(map[[2]int]struct{})
 
 	for i, policy1 := range vmclass.SizingPolicies {

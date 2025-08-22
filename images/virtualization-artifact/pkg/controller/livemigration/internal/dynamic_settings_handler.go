@@ -26,7 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const dynamicSettingsHandlerName = "DynamicSettingsHandler"
@@ -48,7 +48,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, nil
 	}
 
-	var vm virtv2.VirtualMachine
+	var vm v1alpha2.VirtualMachine
 	vmKey := client.ObjectKeyFromObject(kvvmi)
 	err := h.client.Get(ctx, vmKey, &vm)
 	if err != nil {
@@ -106,8 +106,8 @@ func (h *DynamicSettingsHandler) shouldUpdateMigrationConfiguration(kvvmi *virtv
 }
 
 // getVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
-func (h *DynamicSettingsHandler) getVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*virtv2.VirtualMachineOperation, error) {
-	var vmopList virtv2.VirtualMachineOperationList
+func (h *DynamicSettingsHandler) getVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*v1alpha2.VirtualMachineOperation, error) {
+	var vmopList v1alpha2.VirtualMachineOperationList
 	err := h.client.List(ctx, &vmopList, client.InNamespace(vmKey.Namespace))
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (h *DynamicSettingsHandler) getVMOPInProgressForVM(ctx context.Context, vmK
 		}
 
 		// Return if VMOP has phase InProgress.
-		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+		if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 			return &vmop, nil
 		}
 	}

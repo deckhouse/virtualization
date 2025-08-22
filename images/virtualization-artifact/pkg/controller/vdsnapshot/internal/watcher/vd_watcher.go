@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -48,9 +48,9 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 
 func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualDisk]{
+			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
 				UpdateFunc: w.filterUpdateEvents,
 			},
 		),
@@ -60,8 +60,8 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	return nil
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
-	var vdSnapshots virtv2.VirtualDiskSnapshotList
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
+	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
 	err := w.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -86,7 +86,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.Virt
 	return
 }
 
-func (w VirtualDiskWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+func (w VirtualDiskWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
 	if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 		return true
 	}

@@ -25,24 +25,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 	var clientMock *ClientMock
-	var vmbdaAlpha *virtv2.VirtualMachineBlockDeviceAttachment
-	var vmbdaBeta *virtv2.VirtualMachineBlockDeviceAttachment
+	var vmbdaAlpha *v1alpha2.VirtualMachineBlockDeviceAttachment
+	var vmbdaBeta *v1alpha2.VirtualMachineBlockDeviceAttachment
 
-	spec := virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+	spec := v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 		VirtualMachineName: "vm",
-		BlockDeviceRef: virtv2.VMBDAObjectRef{
-			Kind: virtv2.VMBDAObjectRefKindVirtualDisk,
+		BlockDeviceRef: v1alpha2.VMBDAObjectRef{
+			Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk,
 			Name: "vd",
 		},
 	}
 
 	BeforeEach(func() {
-		vmbdaAlpha = &virtv2.VirtualMachineBlockDeviceAttachment{
+		vmbdaAlpha = &v1alpha2.VirtualMachineBlockDeviceAttachment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "vmbda-a",
 				CreationTimestamp: metav1.Time{
@@ -52,7 +52,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			Spec: spec,
 		}
 
-		vmbdaBeta = &virtv2.VirtualMachineBlockDeviceAttachment{
+		vmbdaBeta = &v1alpha2.VirtualMachineBlockDeviceAttachment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "vmbda-b",
 				CreationTimestamp: vmbdaAlpha.CreationTimestamp,
@@ -66,9 +66,9 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 	// T1: -->VMBDA A Should be Conflicted
 	// T1:    VMBDA B Phase: "Attached"
 	It("Should be Conflicted: there is another vmbda that is not Failed", func() {
-		vmbdaBeta.Status.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
+		vmbdaBeta.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseAttached
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
@@ -85,9 +85,9 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 	// T1: -->VMBDA A Should be Non-Conflicted
 	// T1:    VMBDA B Phase: "Failed"
 	It("Should be Non-Conflicted: there is another vmbda that is Failed", func() {
-		vmbdaBeta.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
+		vmbdaBeta.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
@@ -106,7 +106,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 	It("Should be Conflicted: there is another vmbda that created earlier", func() {
 		vmbdaBeta.CreationTimestamp = metav1.Time{Time: vmbdaBeta.CreationTimestamp.Add(-time.Hour)}
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
@@ -125,7 +125,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 	It("Should be Non-Conflicted: there is another vmbda that created later", func() {
 		vmbdaBeta.CreationTimestamp = metav1.Time{Time: vmbdaBeta.CreationTimestamp.Add(time.Hour)}
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
@@ -143,7 +143,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 	// T1:    VMBDA B Phase: ""
 	It("Should be Non-Conflicted lexicographically", func() {
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 				*vmbdaBeta,
 			}
@@ -159,7 +159,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 
 	It("Only one vmbda", func() {
 		clientMock.ListFunc = func(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-			list.(*virtv2.VirtualMachineBlockDeviceAttachmentList).Items = []virtv2.VirtualMachineBlockDeviceAttachment{
+			list.(*v1alpha2.VirtualMachineBlockDeviceAttachmentList).Items = []v1alpha2.VirtualMachineBlockDeviceAttachment{
 				*vmbdaAlpha,
 			}
 			return nil

@@ -34,14 +34,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SubController interface {
 	Name() string
 	Watchers() []reconciler.Watcher
-	Handlers() []reconciler.Handler[*virtv2.VirtualMachineOperation]
-	ShouldReconcile(vmop *virtv2.VirtualMachineOperation) bool
+	Handlers() []reconciler.Handler[*v1alpha2.VirtualMachineOperation]
+	ShouldReconcile(vmop *v1alpha2.VirtualMachineOperation) bool
 }
 
 const ControllerName = "vmop-controller"
@@ -78,7 +78,7 @@ func SetupController(
 	}
 
 	if err := builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualMachineOperation{}).
+		For(&v1alpha2.VirtualMachineOperation{}).
 		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return err

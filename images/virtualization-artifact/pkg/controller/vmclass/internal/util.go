@@ -20,15 +20,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
-func isDeletion(class *virtv2.VirtualMachineClass) bool {
+func isDeletion(class *v1alpha2.VirtualMachineClass) bool {
 	return class == nil || !class.GetDeletionTimestamp().IsZero()
 }
 
-func addAllUnknown(class *virtv2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
+func addAllUnknown(class *v1alpha2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
 	//nolint:staticcheck // it's deprecated.
 	mgr := conditions.NewManager(class.Status.Conditions)
 	for _, c := range conds {

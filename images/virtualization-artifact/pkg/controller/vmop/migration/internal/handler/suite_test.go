@@ -28,7 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestVmopHandlers(t *testing.T) {
@@ -36,7 +36,7 @@ func TestVmopHandlers(t *testing.T) {
 	RunSpecs(t, "VMOP Migration handlers Suite")
 }
 
-func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]) {
+func setupEnvironment(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus]) {
 	GinkgoHelper()
 	Expect(vmop).ToNot(BeNil())
 
@@ -50,10 +50,10 @@ func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Objec
 	Expect(err).NotTo(HaveOccurred())
 
 	srv := reconciler.NewResource(client.ObjectKeyFromObject(vmop), fakeClient,
-		func() *virtv2.VirtualMachineOperation {
-			return &virtv2.VirtualMachineOperation{}
+		func() *v1alpha2.VirtualMachineOperation {
+			return &v1alpha2.VirtualMachineOperation{}
 		},
-		func(obj *virtv2.VirtualMachineOperation) virtv2.VirtualMachineOperationStatus {
+		func(obj *v1alpha2.VirtualMachineOperation) v1alpha2.VirtualMachineOperationStatus {
 			return obj.Status
 		})
 	err = srv.Fetch(context.Background())

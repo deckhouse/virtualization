@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -75,7 +75,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		cb.Message(fmt.Sprintf("VirtualMachineClass %q not found.", changed.Spec.VirtualMachineClassName)).
 			Reason(vmcondition.ReasonVirtualMachineClassNotExists).
 			Status(metav1.ConditionFalse)
-	case vmClass.Status.Phase == virtv2.ClassPhaseTerminating:
+	case vmClass.Status.Phase == v1alpha2.ClassPhaseTerminating:
 		cb.Message(fmt.Sprintf("Virtual machine class %q is terminating.", vmClass.Name)).
 			Reason(vmcondition.ReasonVirtualMachineClassTerminating).
 			Status(metav1.ConditionFalse)

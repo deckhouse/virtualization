@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
@@ -50,7 +50,7 @@ func NewBoundHandler(ipService IPAddressService, client client.Client, recorder 
 	}
 }
 
-func (h *BoundHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error) {
+func (h *BoundHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmipcondition.BoundType).Generation(vmip.Generation)
 	defer func() { conditions.SetCondition(cb, &vmip.Status.Conditions) }()
 
@@ -75,7 +75,7 @@ func (h *BoundHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachineIP
 		ctx = logger.ToContext(ctx, log)
 	}
 
-	return steptaker.NewStepTakers[*virtv2.VirtualMachineIPAddress](
+	return steptaker.NewStepTakers[*v1alpha2.VirtualMachineIPAddress](
 		step.NewBindStep(lease, cb),
 		step.NewTakeLeaseStep(lease, h.client, cb, h.recorder),
 		step.NewCreateLeaseStep(lease, h.ipService, h.client, cb, h.recorder),

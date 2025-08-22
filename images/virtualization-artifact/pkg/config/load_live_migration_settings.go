@@ -17,11 +17,11 @@ limitations under the License.
 package config
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // TODO(future) live migration settings will be here. Now just a place for the default policy.
 
 const (
-	DefaultLiveMigrationPolicy = virtv2.PreferSafeMigrationPolicy
+	DefaultLiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
 )

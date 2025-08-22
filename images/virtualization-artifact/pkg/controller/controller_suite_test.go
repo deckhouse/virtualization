@@ -28,7 +28,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = BeforeSuite(func() {
@@ -48,14 +48,14 @@ type TestReconcilerOptions struct {
 // TODO add auto generated mock.
 type MockIPAM struct{}
 
-func (m *MockIPAM) IsBound(_ string, _ *virtv2.VirtualMachineIPAddress) bool {
+func (m *MockIPAM) IsBound(_ string, _ *v1alpha2.VirtualMachineIPAddress) bool {
 	return true
 }
 
-func (m *MockIPAM) CheckIPAddressAvailableForBinding(_ string, _ *virtv2.VirtualMachineIPAddress) error {
+func (m *MockIPAM) CheckIPAddressAvailableForBinding(_ string, _ *v1alpha2.VirtualMachineIPAddress) error {
 	return nil
 }
 
-func (m *MockIPAM) CreateIPAddress(_ context.Context, _ *virtv2.VirtualMachine, _ client.Client) error {
+func (m *MockIPAM) CreateIPAddress(_ context.Context, _ *v1alpha2.VirtualMachine, _ client.Client) error {
 	return nil
 }

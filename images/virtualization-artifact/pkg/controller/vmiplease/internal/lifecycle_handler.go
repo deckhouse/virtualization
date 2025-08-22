@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
@@ -47,11 +47,11 @@ func NewLifecycleHandler(client client.Client, recorder eventrecord.EventRecorde
 	}
 }
 
-func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
+func (h *LifecycleHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmiplcondition.BoundType).Generation(lease.GetGeneration())
 
 	vmipKey := types.NamespacedName{Name: lease.Spec.VirtualMachineIPAddressRef.Name, Namespace: lease.Spec.VirtualMachineIPAddressRef.Namespace}
-	vmip, err := object.FetchObject(ctx, vmipKey, h.client, &virtv2.VirtualMachineIPAddress{})
+	vmip, err := object.FetchObject(ctx, vmipKey, h.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		cb.
 			Status(metav1.ConditionUnknown).
@@ -64,10 +64,10 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 	// Lease is Bound, if there is a vmip with matched Ref.
 	if isBound(lease, vmip) {
 		annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, string(vmip.UID))
-		if lease.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
-			h.recorder.Eventf(lease, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddressLease is bound to \"%s/%s\".", vmip.Namespace, vmip.Name)
+		if lease.Status.Phase != v1alpha2.VirtualMachineIPAddressLeasePhaseBound {
+			h.recorder.Eventf(lease, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineIPAddressLease is bound to \"%s/%s\".", vmip.Namespace, vmip.Name)
 		}
-		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
+		lease.Status.Phase = v1alpha2.VirtualMachineIPAddressLeasePhaseBound
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmiplcondition.Bound).
@@ -79,10 +79,10 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
 		}
 
-		if lease.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseReleased {
-			h.recorder.Eventf(lease, corev1.EventTypeWarning, virtv2.ReasonReleased, "VirtualMachineIPAddressLease is released.")
+		if lease.Status.Phase != v1alpha2.VirtualMachineIPAddressLeasePhaseReleased {
+			h.recorder.Eventf(lease, corev1.EventTypeWarning, v1alpha2.ReasonReleased, "VirtualMachineIPAddressLease is released.")
 		}
-		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
+		lease.Status.Phase = v1alpha2.VirtualMachineIPAddressLeasePhaseReleased
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmiplcondition.Released).
@@ -93,7 +93,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 	return reconcile.Result{}, nil
 }
 
-func isBound(lease *virtv2.VirtualMachineIPAddressLease, vmip *virtv2.VirtualMachineIPAddress) bool {
+func isBound(lease *v1alpha2.VirtualMachineIPAddressLease, vmip *v1alpha2.VirtualMachineIPAddress) bool {
 	if lease == nil || vmip == nil {
 		return false
 	}

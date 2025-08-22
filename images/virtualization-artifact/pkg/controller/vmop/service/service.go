@@ -32,7 +32,7 @@ import (
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -48,7 +48,7 @@ func NewBaseVMOPService(client client.Client, recorder eventrecord.EventRecorder
 	}
 }
 
-func (s *BaseVMOPService) ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+func (s *BaseVMOPService) ShouldExecuteOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	should, err := s.ShouldExecute(ctx, vmop)
 	if err != nil {
 		return false, err
@@ -57,7 +57,7 @@ func (s *BaseVMOPService) ShouldExecuteOrSetFailedPhase(ctx context.Context, vmo
 		return true, nil
 	}
 
-	vmop.Status.Phase = virtv2.VMOPPhaseFailed
+	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 			Generation(vmop.GetGeneration()).
@@ -68,8 +68,8 @@ func (s *BaseVMOPService) ShouldExecuteOrSetFailedPhase(ctx context.Context, vmo
 	return false, nil
 }
 
-func (s *BaseVMOPService) ShouldExecute(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
-	var vmopList virtv2.VirtualMachineOperationList
+func (s *BaseVMOPService) ShouldExecute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
+	var vmopList v1alpha2.VirtualMachineOperationList
 	err := s.client.List(ctx, &vmopList, client.InNamespace(vmop.GetNamespace()))
 	if err != nil {
 		return false, err
@@ -93,10 +93,10 @@ func (s *BaseVMOPService) ShouldExecute(ctx context.Context, vmop *virtv2.Virtua
 	return true, nil
 }
 
-func (s *BaseVMOPService) Init(vmop *virtv2.VirtualMachineOperation) {
+func (s *BaseVMOPService) Init(vmop *v1alpha2.VirtualMachineOperation) {
 	if vmop.Status.Phase == "" {
-		s.recorder.Event(vmop, corev1.EventTypeNormal, virtv2.ReasonVMOPStarted, "VirtualMachineOperation started")
-		vmop.Status.Phase = virtv2.VMOPPhasePending
+		s.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPStarted, "VirtualMachineOperation started")
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 		// Add all conditions in unknown state.
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
@@ -117,17 +117,17 @@ func (s *BaseVMOPService) Init(vmop *virtv2.VirtualMachineOperation) {
 	}
 }
 
-func (s *BaseVMOPService) FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (*virtv2.VirtualMachine, error) {
+func (s *BaseVMOPService) FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*v1alpha2.VirtualMachine, error) {
 	// 1. Get VirtualMachine for validation vmop.
-	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, s.client, &virtv2.VirtualMachine{})
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("get VirtualMachine for VMOP: %w", err)
 	}
 
 	// 2. If VirtualMachine is not found, set vmop to failed
 	if vm == nil {
-		s.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "VirtualMachine not found")
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
+		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "VirtualMachine not found")
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -143,17 +143,17 @@ func (s *BaseVMOPService) FetchVirtualMachineOrSetFailedPhase(ctx context.Contex
 }
 
 type ApplicableChecker interface {
-	IsApplicableForVMPhase(phase virtv2.MachinePhase) bool
-	IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool
+	IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool
+	IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool
 }
 
-func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool {
+func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool {
 	// 1. Fail if VirtualMachineOperation is not applicable for run policy.
 	if !checker.IsApplicableForRunPolicy(vm.Spec.RunPolicy) {
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 
 		failMsg := fmt.Sprintf("Operation type %s is not applicable for VirtualMachine with runPolicy %s", vmop.Spec.Type, vm.Spec.RunPolicy)
-		s.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
+		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -166,10 +166,10 @@ func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker
 
 	// 2. Fail if VirtualMachineOperation is not applicable for VM phase.
 	if !checker.IsApplicableForVMPhase(vm.Status.Phase) {
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 
 		failMsg := fmt.Sprintf("Operation type %s is not applicable for VirtualMachine in phase %s", vmop.Spec.Type, vm.Status.Phase)
-		s.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
+		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 				Generation(vmop.GetGeneration()).
@@ -183,7 +183,7 @@ func (s *BaseVMOPService) IsApplicableOrSetFailedPhase(checker ApplicableChecker
 	return true
 }
 
-func IsAfterSignalSentOrCreation(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
+func IsAfterSignalSentOrCreation(timestamp time.Time, vmop *v1alpha2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
 	signalSendCond, found := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)

@@ -23,32 +23,32 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type Operation interface {
 	Execute(ctx context.Context) error
-	IsApplicableForVMPhase(phase virtv2.MachinePhase) bool
-	IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool
+	IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool
+	IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool
 	GetInProgressReason() vmopcondition.ReasonCompleted
 	IsComplete(ctx context.Context) (bool, string, error)
 }
 
-func NewOperationService(client client.Client, vmop *virtv2.VirtualMachineOperation) (Operation, error) {
+func NewOperationService(client client.Client, vmop *v1alpha2.VirtualMachineOperation) (Operation, error) {
 	switch vmop.Spec.Type {
-	case virtv2.VMOPTypeStart:
+	case v1alpha2.VMOPTypeStart:
 		return NewStartOperation(client, vmop), nil
-	case virtv2.VMOPTypeStop:
+	case v1alpha2.VMOPTypeStop:
 		return NewStopOperation(client, vmop), nil
-	case virtv2.VMOPTypeRestart:
+	case v1alpha2.VMOPTypeRestart:
 		return NewRestartOperation(client, vmop), nil
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
 	}
 }
 
-func virtualMachineKeyByVmop(vmop *virtv2.VirtualMachineOperation) types.NamespacedName {
+func virtualMachineKeyByVmop(vmop *v1alpha2.VirtualMachineOperation) types.NamespacedName {
 	return types.NamespacedName{
 		Name:      vmop.Spec.VirtualMachine,
 		Namespace: vmop.Namespace,

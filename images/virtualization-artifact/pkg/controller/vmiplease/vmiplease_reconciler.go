@@ -29,11 +29,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/watcher"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error)
+	Handle(ctx context.Context, lease *v1alpha2.VirtualMachineIPAddressLease) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -83,7 +83,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, lease.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		var specToUpdate *virtv2.VirtualMachineIPAddressLeaseSpec
+		var specToUpdate *v1alpha2.VirtualMachineIPAddressLeaseSpec
 		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
 			specToUpdate = lease.Changed().Spec.DeepCopy()
 		}
@@ -109,10 +109,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddressLease {
-	return &virtv2.VirtualMachineIPAddressLease{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachineIPAddressLease {
+	return &v1alpha2.VirtualMachineIPAddressLease{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineIPAddressLease) virtv2.VirtualMachineIPAddressLeaseStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineIPAddressLease) v1alpha2.VirtualMachineIPAddressLeaseStatus {
 	return obj.Status
 }

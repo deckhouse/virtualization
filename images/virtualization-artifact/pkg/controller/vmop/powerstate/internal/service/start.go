@@ -23,11 +23,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func NewStartOperation(client client.Client, vmop *virtv2.VirtualMachineOperation) *StartOperation {
+func NewStartOperation(client client.Client, vmop *v1alpha2.VirtualMachineOperation) *StartOperation {
 	return &StartOperation{
 		client: client,
 		vmop:   vmop,
@@ -36,7 +36,7 @@ func NewStartOperation(client client.Client, vmop *virtv2.VirtualMachineOperatio
 
 type StartOperation struct {
 	client client.Client
-	vmop   *virtv2.VirtualMachineOperation
+	vmop   *v1alpha2.VirtualMachineOperation
 }
 
 func (o StartOperation) Execute(ctx context.Context) error {
@@ -48,12 +48,12 @@ func (o StartOperation) Execute(ctx context.Context) error {
 	return kvvmutil.AddStartAnnotation(ctx, o.client, kvvm)
 }
 
-func (o StartOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
-	return phase == virtv2.MachineStopped || phase == virtv2.MachineStopping
+func (o StartOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
+	return phase == v1alpha2.MachineStopped || phase == v1alpha2.MachineStopping
 }
 
-func (o StartOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
-	return runPolicy == virtv2.ManualPolicy || runPolicy == virtv2.AlwaysOnUnlessStoppedManually
+func (o StartOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
+	return runPolicy == v1alpha2.ManualPolicy || runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually
 }
 
 func (o StartOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
@@ -61,11 +61,11 @@ func (o StartOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 }
 
 func (o StartOperation) IsComplete(ctx context.Context) (bool, string, error) {
-	vm := &virtv2.VirtualMachine{}
+	vm := &v1alpha2.VirtualMachine{}
 	err := o.client.Get(ctx, client.ObjectKey{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}, vm)
 	if err != nil {
 		return false, "", client.IgnoreNotFound(err)
 	}
 
-	return vm.Status.Phase == virtv2.MachineRunning, "", nil
+	return vm.Status.Phase == v1alpha2.MachineRunning, "", nil
 }

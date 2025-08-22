@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
@@ -85,17 +85,17 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 		featuresNotEnabled []string
 	)
 	switch cpuType {
-	case virtv2.CPUTypeDiscovery:
+	case v1alpha2.CPUTypeDiscovery:
 		if fs := current.Status.CpuFeatures.Enabled; len(fs) > 0 {
 			featuresEnabled = fs
 			break
 		}
 		featuresEnabled = h.discoveryCommonFeatures(nodes)
-	case virtv2.CPUTypeFeatures:
+	case v1alpha2.CPUTypeFeatures:
 		featuresEnabled = current.Spec.CPU.Features
 	}
 
-	if cpuType == virtv2.CPUTypeDiscovery || cpuType == virtv2.CPUTypeFeatures {
+	if cpuType == v1alpha2.CPUTypeDiscovery || cpuType == v1alpha2.CPUTypeFeatures {
 		commonFeatures := h.discoveryCommonFeatures(availableNodes)
 		for _, cf := range commonFeatures {
 			if !slices.Contains(featuresEnabled, cf) {
@@ -106,7 +106,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeDiscovered).Generation(current.GetGeneration())
 	switch cpuType {
-	case virtv2.CPUTypeDiscovery:
+	case v1alpha2.CPUTypeDiscovery:
 		if len(featuresEnabled) > 0 {
 			cb.Message("").Reason(vmclasscondition.ReasonDiscoverySucceeded).Status(metav1.ConditionTrue)
 			break
@@ -131,7 +131,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			h.recorder.Eventf(
 				changed,
 				corev1.EventTypeNormal,
-				virtv2.ReasonVMClassNodesWereUpdated,
+				v1alpha2.ReasonVMClassNodesWereUpdated,
 				"List of available nodes was updated, added nodes: %q, removed nodes: %q",
 				addedNodes,
 				removedNodes,
@@ -140,7 +140,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			h.recorder.Eventf(
 				changed,
 				corev1.EventTypeWarning,
-				virtv2.ReasonVMClassAvailableNodesListEmpty,
+				v1alpha2.ReasonVMClassAvailableNodesListEmpty,
 				"List of available nodes was updated, now it's empty, removed nodes: %q",
 				removedNodes,
 			)
@@ -149,7 +149,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 	changed.Status.AvailableNodes = availableNodeNames
 	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
-	changed.Status.CpuFeatures = virtv2.CpuFeatures{
+	changed.Status.CpuFeatures = v1alpha2.CpuFeatures{
 		Enabled:          featuresEnabled,
 		NotEnabledCommon: featuresNotEnabled,
 	}

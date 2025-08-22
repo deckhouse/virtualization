@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
@@ -61,8 +61,8 @@ type Reconciler struct {
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(),
-			&virtv2.VirtualMachineClass{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineClass]{},
+			&v1alpha2.VirtualMachineClass{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineClass]{},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VMClass: %w", err)
@@ -111,10 +111,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineClass {
-	return &virtv2.VirtualMachineClass{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachineClass {
+	return &v1alpha2.VirtualMachineClass{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineClass) virtv2.VirtualMachineClassStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineClass) v1alpha2.VirtualMachineClassStatus {
 	return obj.Status
 }

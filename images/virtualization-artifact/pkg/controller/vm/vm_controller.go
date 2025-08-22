@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -93,7 +93,7 @@ func SetupController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualMachine{}).
+		For(&v1alpha2.VirtualMachine{}).
 		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {

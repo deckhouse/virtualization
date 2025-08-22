@@ -39,7 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const isNotPositiveErrorMsg string = `must be greater than zero`
@@ -59,7 +59,7 @@ var nodeFieldSelectorValidators = map[string]func(string, bool) []string{
 }
 
 // ValidateAffinity checks if given affinities are valid
-func ValidateAffinity(affinity *virtv2.VMAffinity, fldPath *field.Path) field.ErrorList {
+func ValidateAffinity(affinity *v1alpha2.VMAffinity, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	if affinity != nil {
@@ -108,7 +108,7 @@ func ValidatePreferredSchedulingTerms(terms []corev1.PreferredSchedulingTerm, fl
 }
 
 // validatePodAffinity tests that the specified podAffinity fields have valid data
-func validatePodAffinity(virtualMachineAndPodAffinity *virtv2.VirtualMachineAndPodAffinity, fldPath *field.Path) field.ErrorList {
+func validatePodAffinity(virtualMachineAndPodAffinity *v1alpha2.VirtualMachineAndPodAffinity, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	// TODO:Uncomment below code once RequiredDuringSchedulingRequiredDuringExecution is implemented.
 	// if podAffinity.RequiredDuringSchedulingRequiredDuringExecution != nil {
@@ -127,7 +127,7 @@ func validatePodAffinity(virtualMachineAndPodAffinity *virtv2.VirtualMachineAndP
 }
 
 // validateWeightedPodAffinityTerms tests that the specified weightedPodAffinityTerms fields have valid data
-func validateWeightedPodAffinityTerms(weightedPodAffinityTerms []virtv2.WeightedVirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
+func validateWeightedPodAffinityTerms(weightedPodAffinityTerms []v1alpha2.WeightedVirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	for j, weightedTerm := range weightedPodAffinityTerms {
 		if weightedTerm.Weight <= 0 || weightedTerm.Weight > 100 {
@@ -139,7 +139,7 @@ func validateWeightedPodAffinityTerms(weightedPodAffinityTerms []virtv2.Weighted
 }
 
 // validatePodAffinityTerm tests that the specified podAffinityTerm fields have valid data
-func validatePodAffinityTerm(podAffinityTerm virtv2.VirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
+func validatePodAffinityTerm(podAffinityTerm v1alpha2.VirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
 	allErrs = append(allErrs, unversionedvalidation.ValidateLabelSelector(podAffinityTerm.LabelSelector, unversionedvalidation.LabelSelectorValidationOptions{}, fldPath.Child("labelSelector"))...)
@@ -157,7 +157,7 @@ func validatePodAffinityTerm(podAffinityTerm virtv2.VirtualMachineAndPodAffinity
 }
 
 // validatePodAntiAffinity tests that the specified podAntiAffinity fields have valid data
-func validatePodAntiAffinity(podAntiAffinity *virtv2.VirtualMachineAndPodAntiAffinity, fldPath *field.Path) field.ErrorList {
+func validatePodAntiAffinity(podAntiAffinity *v1alpha2.VirtualMachineAndPodAntiAffinity, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	// TODO:Uncomment below code once RequiredDuringSchedulingRequiredDuringExecution is implemented.
 	// if podAntiAffinity.RequiredDuringSchedulingRequiredDuringExecution != nil {
@@ -192,7 +192,7 @@ func ValidateNodeSelector(nodeSelector *corev1.NodeSelector, fldPath *field.Path
 }
 
 // validatePodAffinityTerms tests that the specified podAffinityTerms fields have valid data
-func validatePodAffinityTerms(podAffinityTerms []virtv2.VirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
+func validatePodAffinityTerms(podAffinityTerms []v1alpha2.VirtualMachineAndPodAffinityTerm, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 	for i, podAffinityTerm := range podAffinityTerms {
 		allErrs = append(allErrs, validatePodAffinityTerm(podAffinityTerm, fldPath.Index(i))...)

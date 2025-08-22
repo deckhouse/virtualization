@@ -17,18 +17,18 @@ limitations under the License.
 package vi
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
 	Name      string
 	Namespace string
 	UID       string
-	Phase     virtv2.ImagePhase
+	Phase     v1alpha2.ImagePhase
 }
 
 // DO NOT mutate VirtualImage!
-func newDataMetric(vi *virtv2.VirtualImage) *dataMetric {
+func newDataMetric(vi *v1alpha2.VirtualImage) *dataMetric {
 	if vi == nil {
 		return nil
 	}

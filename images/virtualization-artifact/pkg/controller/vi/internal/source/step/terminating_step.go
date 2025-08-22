@@ -24,7 +24,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type TerminatingStep struct {
@@ -37,7 +37,7 @@ func NewTerminatingStep(pvc *corev1.PersistentVolumeClaim) *TerminatingStep {
 	}
 }
 
-func (s TerminatingStep) Take(ctx context.Context, _ *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s TerminatingStep) Take(ctx context.Context, _ *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	if s.pvc == nil {
 		return nil, nil
 	}

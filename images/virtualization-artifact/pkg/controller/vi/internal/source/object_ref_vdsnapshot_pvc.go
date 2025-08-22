@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -64,8 +64,8 @@ func NewObjectRefVirtualDiskSnapshotPVC(
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
+	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
@@ -79,7 +79,7 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.V
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	return steptaker.NewStepTakers[*virtv2.VirtualImage](
+	return steptaker.NewStepTakers[*v1alpha2.VirtualImage](
 		step.NewReadyPersistentVolumeClaimStep(pvc, ds.bounder, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
@@ -88,6 +88,6 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.V
 	).Run(ctx, vi)
 }
 
-func (ds ObjectRefVirtualDiskSnapshotPVC) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
+func (ds ObjectRefVirtualDiskSnapshotPVC) Validate(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	return validateVirtualDiskSnapshot(ctx, vi, ds.client)
 }

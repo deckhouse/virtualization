@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -68,7 +68,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualMachineClass{}).
+		For(&v1alpha2.VirtualMachineClass{}).
 		WithValidator(NewValidator(mgr.GetClient(), log, recorder, vmClassService)).
 		Complete(); err != nil {
 		return nil, err

@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("Test power actions with VMs", func() {
@@ -42,7 +42,7 @@ var _ = Describe("Test power actions with VMs", func() {
 		recorderMock             *eventrecord.EventRecorderLoggerMock
 		fakeClient               client.Client
 		vmState                  state.VirtualMachineState
-		vm                       *virtv2.VirtualMachine
+		vm                       *v1alpha2.VirtualMachine
 		kvvm                     *virtv1.VirtualMachine
 		kvvmi                    *virtv1.VirtualMachineInstance
 		vmPod                    *corev1.Pod
@@ -129,7 +129,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		recorderMock             *eventrecord.EventRecorderLoggerMock
 		fakeClient               client.Client
 		vmState                  state.VirtualMachineState
-		vm                       *virtv2.VirtualMachine
+		vm                       *v1alpha2.VirtualMachine
 		kvvm                     *virtv1.VirtualMachine
 		kvvmi                    *virtv1.VirtualMachineInstance
 		vmPod                    *corev1.Pod
@@ -360,18 +360,18 @@ var _ = Describe("Test action getters for different run policy", func() {
 	})
 })
 
-func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
+func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedName) (*v1alpha2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
 	const (
 		podName            = "test-pod"
 		nodeName           = "test-node"
 		podUID   types.UID = "test-pod-uid"
 	)
-	vm := &virtv2.VirtualMachine{
+	vm := &v1alpha2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedVirtualMachine.Name,
 			Namespace: namespacedVirtualMachine.Namespace,
 		},
-		Status: virtv2.VirtualMachineStatus{},
+		Status: v1alpha2.VirtualMachineStatus{},
 	}
 	kvvm := &virtv1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
