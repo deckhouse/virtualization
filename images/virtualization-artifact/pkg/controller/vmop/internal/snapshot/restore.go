@@ -38,9 +38,8 @@ type VMSnapshotRestore struct {
 
 func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *VMSnapshotRestore {
 	return &VMSnapshotRestore{
-		client:   client,
-		recorder: recorder,
-		vmop:     vmop,
+		client: client,
+		vmop:   vmop,
 	}
 }
 

@@ -19,32 +19,34 @@ package service
 import (
 	"context"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 func NewRestoreOperation(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
 	return &RestoreOperation{
-		client:  client,
-		vmop:    vmop,
-		restore: snapshot.NewVMSnapshotRestore(client, recorder, vmop),
+		client:   client,
+		vmop:     vmop,
+		recorder: recorder,
+		restore:  snapshot.NewVMSnapshotRestore(client, recorder, vmop),
 	}
 }
 
 type RestoreOperation struct {
-	client  client.Client
-	vmop    *virtv2.VirtualMachineOperation
-	restore *snapshot.VMSnapshotRestore
+	client   client.Client
+	vmop     *virtv2.VirtualMachineOperation
+	restore  *snapshot.VMSnapshotRestore
+	recorder eventrecord.EventRecorderLogger
 }
 
-func (o RestoreOperation) Do(ctx context.Context) (reconcile.Result, error) {
+func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	vm := &virtv2.VirtualMachine{}
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), vm)
 	if err != nil {
@@ -66,12 +68,13 @@ func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) b
 	return runPolicy == virtv2.ManualPolicy || runPolicy == virtv2.AlwaysOnUnlessStoppedManually || runPolicy == virtv2.AlwaysOffPolicy
 }
 
-func (o RestoreOperation) GetInProgressReason(_ context.Context) (vmopcondition.ReasonCompleted, error) {
-	return vmopcondition.ReasonRestoreInProgress, nil
+func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
+	return vmopcondition.ReasonRestoreInProgress
 }
 
 func (o RestoreOperation) IsFinalState() bool {
-	return isFinalState(o.vmop)
+	// return isFinalState(o.vmop)
+	return false
 }
 
 func (o RestoreOperation) IsComplete(ctx context.Context) (bool, string, error) {
