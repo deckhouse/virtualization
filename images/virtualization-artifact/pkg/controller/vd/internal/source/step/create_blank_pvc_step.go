@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -45,7 +45,7 @@ import (
 const createStep = "create"
 
 type VolumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 type CreateBlankPVCStep struct {
@@ -82,7 +82,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 		return nil, errors.New("spec.persistentVolumeClaim.size should be set for blank virtual disk")
 	}
 
-	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storev1.StorageClass{})
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return nil, fmt.Errorf("get storage class: %w", err)
 	}

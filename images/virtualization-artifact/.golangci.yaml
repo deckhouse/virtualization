@@ -59,6 +59,12 @@ linters-settings:
         alias: corev1
       - pkg: k8s.io/api/authentication/v1
         alias: authnv1
+      - pkg: k8s.io/api/storage/v1
+        alias: storagev1
+      - pkg: k8s.io/api/networking/v1
+        alias: netv1
+      - pkg: k8s.io/api/policy/v1
+        alias: policyv1
       - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
         alias: metav1
 
