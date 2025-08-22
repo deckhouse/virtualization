@@ -50,7 +50,6 @@ imageSpec:
 {{- define "$name" -}}
 packages:
 - libnftnl
-- libjansson4
 binaries:
 - /usr/bin/getfacl
 - /usr/bin/setfacl
@@ -75,7 +74,7 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-{{- $images := list "libisoburn" "nftables" "acl" -}}
+{{- $images := list "libisoburn" "nftables" "acl" "libjansson4" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
