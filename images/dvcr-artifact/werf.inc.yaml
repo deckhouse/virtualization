@@ -60,6 +60,8 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
+packages:
+- libxml2-devel
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
@@ -74,7 +76,7 @@ binaries:
 - /usr/lib64/libnbd.s*
 {{- end -}}
 
-{{ $dvcrDependencies := include "$name" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
@@ -100,6 +102,9 @@ import:
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
@@ -113,4 +118,4 @@ shell:
 
   setup:
   - |
-    /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
