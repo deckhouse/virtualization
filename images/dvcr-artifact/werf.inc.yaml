@@ -36,9 +36,6 @@ shell:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - go mod download
   setup:
-  - |
-    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/lib64/pkgconfig:$PKG_CONFIG_PATH
-    export LD_LIBRARY_PATH=/usr/lib64:/usr/lib:$LD_LIBRARY_PATH
   - mkdir /out
   - cd /src
   - |

@@ -3,6 +3,16 @@
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $version := get $.Core $gitRepoName }}
 
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+binaries:
+- /cdi-binaries/cdi-importer
+- /cdi-binaries/cdi-source-update-poller
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -30,9 +40,12 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
+git:
+- add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
+  to: /relocate_binaries.sh
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -86,9 +99,6 @@ shell:
     git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
-  - |
-    export PKG_CONFIG_PATH=/usr/lib64/pkgconfig:/lib64/pkgconfig:$PKG_CONFIG_PATH
-    export LD_LIBRARY_PATH=/usr/lib64:/usr/lib:$LD_LIBRARY_PATH
   - mkdir /cdi-binaries
   - cd /containerized-data-importer
 
@@ -139,6 +149,8 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "cdi-source-update-poller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller`) | nindent 6 }}
 
+  - |
+    ./relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /cdi-binaries
 
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries
