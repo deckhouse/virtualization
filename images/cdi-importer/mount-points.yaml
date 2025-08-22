@@ -1,0 +1,23 @@
+# See https://github.com/deckhouse/3p-containerized-data-importer/blob/d5fa5124b8a645521843814fffecdf385b74b379/pkg/controller/import-controller.go#L962
+dirs:
+  - /data
+  - /certs
+  - /opt
+  - /proxycerts
+  - /scratch
+  - /shared
+  # Uncomment to support GCS data source.
+  # - /google
+  # CDI create dynamic paths in volumeMounts, pre-create some for compatibility.
+  - /extraheaders/cdi-secret-extra-headers-vol-0
+  - /extraheaders/cdi-secret-extra-headers-vol-1
+  - /extraheaders/cdi-secret-extra-headers-vol-2
+  - /extraheaders/cdi-secret-extra-headers-vol-3
+  - /extraheaders/cdi-secret-extra-headers-vol-4
+  - /extraheaders/cdi-secret-extra-headers-vol-5
+  - /extraheaders/cdi-secret-extra-headers-vol-6
+  - /extraheaders/cdi-secret-extra-headers-vol-7
+  - /extraheaders/cdi-secret-extra-headers-vol-8
+  - /extraheaders/cdi-secret-extra-headers-vol-9
+  # TODO Is it needed?
+  - /tmp

@@ -1,0 +1,3 @@
+# See https://github.com/deckhouse/3p-containerized-data-importer/blob/80d763d788e06b3decaf22e4762076cec64582b3/pkg/controller/clone-controller.go#L699
+dirs:
+  - /var/run/cdi/clone/source
