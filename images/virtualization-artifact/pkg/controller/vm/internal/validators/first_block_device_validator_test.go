@@ -87,14 +87,14 @@ var _ = DescribeTable("TestFirstBlockDeviceValidator", func(args firstBlockDevic
 		Objects: []client.Object{
 			generateVI("vi1", "ns", v1alpha2.ImagePending, false),
 		},
-		ExpectedError: errors.New("a non-CDROM VirtualImage cannot occupy the first position in block devices: unable to verify if the specified VirtualImage is a CDROM: VirtualImage vi1 is not ready"),
+		ExpectedError: nil,
 	}),
 	Entry("Has not exists vi as first device", firstBlockDeviceValidatorTestArgs{
 		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.ImageDevice,
 			Name: "vi1",
 		}),
-		ExpectedError: errors.New("a non-CDROM VirtualImage cannot occupy the first position in block devices: unable to verify if the specified VirtualImage is a CDROM: VirtualImage vi1 does not exist"),
+		ExpectedError: nil,
 	}),
 	Entry("Has CRDOM CVI as first device", firstBlockDeviceValidatorTestArgs{
 		VM: generateVM("vm1", "ns", v1alpha2.BlockDeviceSpecRef{
@@ -124,14 +124,14 @@ var _ = DescribeTable("TestFirstBlockDeviceValidator", func(args firstBlockDevic
 		Objects: []client.Object{
 			generateCVI("cvi1", v1alpha2.ImagePending, false),
 		},
-		ExpectedError: errors.New("a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: unable to verify if the specified ClusterVirtualImage is a CDROM: ClusterVirtualImage cvi1 is not ready"),
+		ExpectedError: nil,
 	}),
 	Entry("Has not exists CVI as first device", firstBlockDeviceValidatorTestArgs{
 		VM: generateVM("vm", "ns", v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.ClusterImageDevice,
 			Name: "cvi1",
 		}),
-		ExpectedError: errors.New("a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices: unable to verify if the specified ClusterVirtualImage is a CDROM: ClusterVirtualImage cvi1 does not exist"),
+		ExpectedError: nil,
 	}),
 )
 

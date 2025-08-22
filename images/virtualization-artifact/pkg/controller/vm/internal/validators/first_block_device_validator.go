@@ -19,6 +19,7 @@ package validators
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,10 +30,8 @@ import (
 )
 
 const (
-	viMainErrorMessage    = "a non-CDROM VirtualImage cannot occupy the first position in block devices"
-	cviMainErrorMessage   = "a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices"
-	cannotCheckViMessage  = "unable to verify if the specified VirtualImage is a CDROM"
-	cannotCheckCviMessage = "unable to verify if the specified ClusterVirtualImage is a CDROM"
+	viMainErrorMessage  = "a non-CDROM VirtualImage cannot occupy the first position in block devices"
+	cviMainErrorMessage = "a non-CDROM ClusterVirtualImage cannot occupy the first position in block devices"
 )
 
 type FirstBlockDeviceValidator struct {
@@ -47,7 +46,11 @@ func (v *FirstBlockDeviceValidator) ValidateCreate(ctx context.Context, vm *v1al
 	return v.Validate(ctx, vm)
 }
 
-func (v *FirstBlockDeviceValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *FirstBlockDeviceValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if reflect.DeepEqual(oldVM.Spec.BlockDeviceRefs, newVM.Spec.BlockDeviceRefs) {
+		return nil, nil
+	}
+
 	return v.Validate(ctx, newVM)
 }
 
@@ -72,29 +75,15 @@ func (v *FirstBlockDeviceValidator) ValidateCVI(ctx context.Context, name string
 		return err
 	}
 	if cvi == nil {
-		return fmt.Errorf(
-			"%s: %s: ClusterVirtualImage %s does not exist",
-			cviMainErrorMessage,
-			cannotCheckCviMessage,
-			name,
-		)
+		return nil
 	}
 
-	if !cvi.Status.CDROM {
-		if cvi.Status.Phase == v1alpha2.ImageReady {
-			return fmt.Errorf(
-				"%s: ClusterVirtualImage %s is not CDROM",
-				cviMainErrorMessage,
-				name,
-			)
-		} else {
-			return fmt.Errorf(
-				"%s: %s: ClusterVirtualImage %s is not ready",
-				cviMainErrorMessage,
-				cannotCheckCviMessage,
-				name,
-			)
-		}
+	if !cvi.Status.CDROM && cvi.Status.Phase == v1alpha2.ImageReady {
+		return fmt.Errorf(
+			"%s: ClusterVirtualImage %s is not CDROM",
+			cviMainErrorMessage,
+			name,
+		)
 	}
 
 	return nil
@@ -106,29 +95,15 @@ func (v *FirstBlockDeviceValidator) ValidateVI(ctx context.Context, name, namesp
 		return err
 	}
 	if vi == nil {
-		return fmt.Errorf(
-			"%s: %s: VirtualImage %s does not exist",
-			viMainErrorMessage,
-			cannotCheckViMessage,
-			name,
-		)
+		return nil
 	}
 
-	if !vi.Status.CDROM {
-		if vi.Status.Phase == v1alpha2.ImageReady {
-			return fmt.Errorf(
-				"%s: VirtualImage %s is not CDROM",
-				viMainErrorMessage,
-				name,
-			)
-		} else {
-			return fmt.Errorf(
-				"%s: %s: VirtualImage %s is not ready",
-				viMainErrorMessage,
-				cannotCheckViMessage,
-				name,
-			)
-		}
+	if !vi.Status.CDROM && vi.Status.Phase == v1alpha2.ImageReady {
+		return fmt.Errorf(
+			"%s: VirtualImage %s is not CDROM",
+			viMainErrorMessage,
+			name,
+		)
 	}
 
 	return nil
