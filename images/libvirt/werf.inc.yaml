@@ -90,7 +90,7 @@ libraries:
 - libtirpc-devel libsasl2-devel
 - wireshark-devel
 - zlib-devel libclocale
-- libnuma libslirp-devel
+- libslirp-devel
 - libyajl-devel libselinux-devel
 {{- end -}}
 
@@ -111,7 +111,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
