@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get $.PackageVersion $.ImageName }}
-# {{- $gitRepoUrl := "gcc.git" }}
+{{- $gitRepoUrl := "krb5/krb5.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -23,8 +23,7 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    git clone https://github.com/krb5/krb5 --branch {{ $version }} --depth=1 /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
