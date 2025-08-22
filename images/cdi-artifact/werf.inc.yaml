@@ -40,9 +40,6 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
-git:
-- add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
-  to: /relocate_binaries.sh
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
@@ -148,9 +145,6 @@ shell:
   - |
     {{- $_ := set $ "ProjectName" (list $.ImageName "cdi-source-update-poller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller`) | nindent 6 }}
-
-  - |
-    ./relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /cdi-binaries
 
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries

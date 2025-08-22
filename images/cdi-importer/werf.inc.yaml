@@ -16,6 +16,7 @@ imageSpec:
 {{- define "cdi-importer-deps" -}}
 libraries:
 - libsqlite3
+- libxml2-devel
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
