@@ -89,5 +89,5 @@ shell:
     make -j$(nproc)
     DESTDIR=$OUTDIR make install
     rm -rf $OUTDIR/usr/lib64/cmake
-    tree $OUTDIR
+    tree -sp $OUTDIR
 
