@@ -32,6 +32,7 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make libtool
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -50,7 +51,7 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
-  
+
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
@@ -70,7 +71,7 @@ shell:
     strip $OUTDIR/usr/bin/*
 
     # We don't need man, test and samples files
-    rm -rf $OUTDIR/usr/include
     rm -rf $OUTDIR/usr/share
-    rm -rf $OUTDIR/usr/lib64/pkgconfig
     rm -rf $OUTDIR/usr/bin/numademo
+
+    tree -sp $OUTDIR
