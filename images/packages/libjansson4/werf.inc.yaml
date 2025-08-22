@@ -18,7 +18,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
   to: /
   includePaths:
   - patches
