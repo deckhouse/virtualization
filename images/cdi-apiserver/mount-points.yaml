@@ -1,0 +1,4 @@
+dirs:
+  - /var/run/certs/cdi-apiserver-signer-bundle
+  - /var/run/certs/cdi-apiserver-server-cert
+  - /kubeconfig.local

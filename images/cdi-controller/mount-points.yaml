@@ -1,0 +1,8 @@
+dirs:
+  - /var/run/cdi/token/keys
+  - /var/run/certs/cdi-uploadserver-signer
+  - /var/run/certs/cdi-uploadserver-client-signer
+  - /var/run/ca-bundle/cdi-uploadserver-signer-bundle
+  - /var/run/ca-bundle/cdi-uploadserver-client-signer-bundle
+  - /kubeconfig.local
+  - /tmp
