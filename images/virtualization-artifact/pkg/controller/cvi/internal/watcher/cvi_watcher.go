@@ -30,43 +30,57 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type ClusterVirtualImageWatcher struct {
 	client client.Client
+	logger *log.Logger
 }
 
 func NewClusterVirtualImageWatcher(client client.Client) *ClusterVirtualImageWatcher {
 	return &ClusterVirtualImageWatcher{
 		client: client,
+		logger: log.Default().With("watcher", "cvi"),
 	}
 }
 
 func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(),
+			&virtv2.ClusterVirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.ClusterVirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.ClusterVirtualImage]) bool {
+					if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+						return true
+					}
+
+					oldReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
+						return true
+					}
+
+					return false
+				},
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
-			},
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on CVIs: %w", err)
+	}
+	return nil
 }
 
-func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj *virtv2.ClusterVirtualImage) (requests []reconcile.Request) {
 	var cviList virtv2.ClusterVirtualImageList
 	err := w.client.List(ctx, &cviList)
 	if err != nil {
-		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list cvi: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list cvi: %s", err))
 		return
 	}
 
@@ -87,38 +101,22 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 		})
 	}
 
-	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
-	if ok && cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
-		if cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
+	if obj.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if obj.Spec.DataSource.ObjectRef != nil && obj.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
 			// Need to trigger reconcile for update InUse condition.
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Name: cvi.Spec.DataSource.ObjectRef.Name,
+					Name: obj.Spec.DataSource.ObjectRef.Name,
 				},
 			})
 		}
 	}
 
+	requests = append(requests, reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name: obj.Name,
+		},
+	})
+
 	return
-}
-
-func (w ClusterVirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldCVI, ok := e.ObjectOld.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		return false
-	}
-
-	newCVI, ok := e.ObjectNew.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		return false
-	}
-
-	oldReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, oldCVI.Status.Conditions)
-	newReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, newCVI.Status.Conditions)
-
-	if oldCVI.Status.Phase != newCVI.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
-		return true
-	}
-
-	return false
 }

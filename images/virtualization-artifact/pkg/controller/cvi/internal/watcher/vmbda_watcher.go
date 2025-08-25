@@ -47,30 +47,23 @@ func NewVirtualMachineBlockDeviceAttachmentWatcher(client client.Client) *Virtua
 }
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return w.isClusterVirtualImageRef(e.Object)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(),
+			&virtv2.VirtualMachineBlockDeviceAttachment{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachineBlockDeviceAttachment]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineBlockDeviceAttachment]) bool {
+					return w.isClusterVirtualImageRef(e.ObjectOld) || w.isClusterVirtualImageRef(e.ObjectNew)
+				},
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return w.isClusterVirtualImageRef(e.Object)
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return w.isClusterVirtualImageRef(e.ObjectOld) || w.isClusterVirtualImageRef(e.ObjectNew)
-			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VIs: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vmbda, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualMachineBlockDeviceAttachment but got a %T", obj))
-		return
-	}
-
+func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (requests []reconcile.Request) {
 	requests = append(requests, reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name: vmbda.Spec.BlockDeviceRef.Name,
@@ -80,12 +73,6 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 	return
 }
 
-func (w VirtualMachineBlockDeviceAttachmentWatcher) isClusterVirtualImageRef(obj client.Object) bool {
-	vmbda, ok := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualMachineBlockDeviceAttachment but got a %T", obj))
-		return false
-	}
-
+func (w VirtualMachineBlockDeviceAttachmentWatcher) isClusterVirtualImageRef(vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
 	return vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind
 }

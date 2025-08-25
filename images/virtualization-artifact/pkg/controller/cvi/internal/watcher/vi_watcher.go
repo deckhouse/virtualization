@@ -30,43 +30,53 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type VirtualImageWatcher struct {
 	client client.Client
+	logger *log.Logger
 }
 
 func NewVirtualImageWatcher(client client.Client) *VirtualImageWatcher {
 	return &VirtualImageWatcher{
 		client: client,
+		logger: log.Default().With("watcher", "vi"),
 	}
 }
 
 func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(),
+			&virtv2.VirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+					oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
+						return true
+					}
+
+					return false
+				},
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
-			},
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VIs: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *virtv2.VirtualImage) (requests []reconcile.Request) {
 	var cviList virtv2.ClusterVirtualImageList
 	err := w.client.List(ctx, &cviList)
 	if err != nil {
-		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list cvi: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list cvi: %s", err))
 		return
 	}
 
@@ -76,7 +86,7 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 			continue
 		}
 
-		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind || cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
+		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind || cvi.Spec.DataSource.ObjectRef.Name != vi.GetName() {
 			continue
 		}
 
@@ -87,8 +97,7 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 		})
 	}
 
-	vi, ok := obj.(*virtv2.VirtualImage)
-	if ok && vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+	if vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
 		if vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
 			// Need to trigger reconcile for update InUse condition.
 			requests = append(requests, reconcile.Request{
@@ -100,25 +109,4 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 	}
 
 	return
-}
-
-func (w VirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVI, ok := e.ObjectOld.(*virtv2.VirtualImage)
-	if !ok {
-		return false
-	}
-
-	newVI, ok := e.ObjectNew.(*virtv2.VirtualImage)
-	if !ok {
-		return false
-	}
-
-	oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, oldVI.Status.Conditions)
-	newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
-
-	if oldVI.Status.Phase != newVI.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
-		return true
-	}
-
-	return false
 }

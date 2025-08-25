@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,17 +30,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type VirtualDiskWatcher struct {
+	logger *log.Logger
 	client client.Client
 }
 
 func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 	return &VirtualDiskWatcher{
+		logger: log.Default().With("watcher", "vd"),
 		client: client,
 	}
 }
@@ -55,7 +57,13 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
 					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
 
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || len(e.ObjectOld.Status.AttachedToVirtualMachines) != len(e.ObjectNew.Status.AttachedToVirtualMachines) || oldInUseCondition != newInUseCondition {
+					oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
+						len(e.ObjectOld.Status.AttachedToVirtualMachines) != len(e.ObjectNew.Status.AttachedToVirtualMachines) ||
+						oldInUseCondition != newInUseCondition ||
+						oldReadyCondition.Status != newReadyCondition.Status {
 						return true
 					}
 
@@ -75,7 +83,7 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list vi: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list vi: %s", err))
 		return
 	}
 

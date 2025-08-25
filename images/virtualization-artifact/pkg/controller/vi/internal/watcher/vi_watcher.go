@@ -30,45 +30,55 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type VirtualImageWatcher struct {
+	logger *log.Logger
 	client client.Client
 }
 
 func NewVirtualImageWatcher(client client.Client) *VirtualImageWatcher {
 	return &VirtualImageWatcher{
+		logger: log.Default().With("watcher", "vi"),
 		client: client,
 	}
 }
 
 func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return true
+		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+					if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+						return true
+					}
+
+					oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
+						return true
+					}
+
+					return false
+				},
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
-			},
-			UpdateFunc: w.filterUpdateEvents,
-		},
+		),
 	)
 }
 
-func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj *virtv2.VirtualImage) (requests []reconcile.Request) {
 	var viList virtv2.VirtualImageList
 	err := w.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list vi: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list vi: %s", err))
 		return
 	}
 
@@ -78,7 +88,7 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 			continue
 		}
 
-		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind || vi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
+		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind || vi.Spec.DataSource.ObjectRef.Name != vi.GetName() {
 			continue
 		}
 
@@ -90,39 +100,24 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 		})
 	}
 
-	vi, ok := obj.(*virtv2.VirtualImage)
-	if ok && vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
-		if vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+	if obj.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if obj.Spec.DataSource.ObjectRef != nil && obj.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 			// Need to trigger reconcile for update InUse condition.
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Name:      vi.Spec.DataSource.ObjectRef.Name,
-					Namespace: vi.Namespace,
+					Name:      obj.Spec.DataSource.ObjectRef.Name,
+					Namespace: obj.Namespace,
 				},
 			})
 		}
 	}
 
+	requests = append(requests, reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: obj.Namespace,
+			Name:      obj.Name,
+		},
+	})
+
 	return
-}
-
-func (w VirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVI, ok := e.ObjectOld.(*virtv2.VirtualImage)
-	if !ok {
-		return false
-	}
-
-	newVI, ok := e.ObjectNew.(*virtv2.VirtualImage)
-	if !ok {
-		return false
-	}
-
-	oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, oldVI.Status.Conditions)
-	newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
-
-	if oldVI.Status.Phase != newVI.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
-		return true
-	}
-
-	return false
 }
