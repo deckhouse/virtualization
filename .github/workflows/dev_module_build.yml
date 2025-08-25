@@ -134,7 +134,7 @@ jobs:
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
-          # Slect edition for build, default EE
+          # Select edition for build, default EE
           if echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "edition/ce"; then
             echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
