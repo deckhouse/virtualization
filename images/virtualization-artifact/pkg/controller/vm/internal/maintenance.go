@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -51,6 +52,28 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, nil
 	}
 	changed := s.VirtualMachine().Changed()
+
+	// DELETE ME
+	current := s.VirtualMachine().Current()
+	switch changed.Annotations[annotations.AnnVMMaintenance] {
+	case "true":
+		// Set maintenance condition if annotation is present
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM is in maintenance mode")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	case "false":
+		// Explicitly set maintenance to false if annotation is "false"
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM maintenance mode disabled")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	}
+
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
 
 	if maintenance.Status == metav1.ConditionFalse {
