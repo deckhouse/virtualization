@@ -116,11 +116,17 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *virtv2.VirtualDisk)
 	}
 
 	if migrationInProgress(vd) {
+		vdStart := vd.Status.MigrationInfo.StartTimestamp
+
+		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+		if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() && vdStart.Time.Before(migrating.LastTransitionTime.Time) {
+			return revert, nil
+		}
+
 		state := vm.Status.MigrationState
 		if state == nil {
 			return none, nil
 		}
-		vdStart := vd.Status.MigrationInfo.StartTimestamp
 		matchWindow := state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time) && !state.EndTimestamp.IsZero()
 
 		if matchWindow {
@@ -374,7 +380,7 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 	if len(indexes) == 0 {
 		return nil
 	}
-	
+
 	slices.SortFunc(indexes, func(i, j int) int {
 		return cmp.Compare(indexes[j], indexes[i])
 	})

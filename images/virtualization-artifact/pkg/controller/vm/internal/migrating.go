@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -31,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -151,6 +149,10 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 			}
 		case vmopcondition.ReasonMigrationRunning.String():
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
+		case vmopcondition.ReasonOperationFailed.String():
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonLastMigrationFinishedWithError).
+				Message("")
 		}
 
 		conditions.SetCondition(cb, &vm.Status.Conditions)
@@ -216,27 +218,21 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 		return nil, err
 	}
 
-	var vmop *virtv2.VirtualMachineOperation
-	{
-		var vmopCandidates []*virtv2.VirtualMachineOperation
-		for _, op := range vmops {
-			if operationIsCandidate(op) {
-				vmopCandidates = append(vmopCandidates, op)
-			}
-		}
+	var candidate *virtv2.VirtualMachineOperation
+	if len(vmops) > 0 {
+		candidate = vmops[0]
 
-		switch length := len(vmopCandidates); length {
-		case 0:
-		case 1:
-			vmop = vmopCandidates[0]
-		default:
-			logger.FromContext(ctx).
-				With(logger.SlogHandler(nameLifeCycleHandler)).
-				Error("Found several vmops candidates. This is unexpected. Please report a bug.", slog.Int("VMOPCount", length))
+		for _, vmop := range vmops {
+			if !commonvmop.IsMigration(vmop) {
+				continue
+			}
+			if vmop.GetCreationTimestamp().Time.Before(candidate.GetCreationTimestamp().Time) {
+				candidate = vmop
+			}
 		}
 	}
 
-	return vmop, nil
+	return candidate, nil
 }
 
 func (h *MigratingHandler) syncMigratable(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
@@ -270,14 +266,4 @@ func liveMigrationInProgress(migrationState *virtv2.VirtualMachineMigrationState
 
 func liveMigrationFailed(migrationState *virtv2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultFailed
-}
-
-func operationIsCandidate(vmop *virtv2.VirtualMachineOperation) bool {
-	if !commonvmop.IsMigration(vmop) {
-		return false
-	}
-
-	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
-	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return (sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue) || completed.Reason == vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String()
 }
