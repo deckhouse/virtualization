@@ -94,13 +94,13 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// If VM is not stopped yet, wait for it to stop (SyncPowerStateHandler will handle stopping)
-	if kvvmi != nil || changed.Status.Phase != virtv2.MachineStopped {
+	if kvvmi != nil {
 		log.Info("VM is still running, waiting for shutdown in maintenance mode")
 		return reconcile.Result{}, nil
 	}
 
 	// Hide all other conditions when in maintenance mode
-	if changed.Status.Conditions != nil {
+	if changed.Status.Conditions != nil && changed.Status.Phase == virtv2.MachineStopped {
 		var newConditions []metav1.Condition
 		for _, cond := range changed.Status.Conditions {
 			if vmcondition.Type(cond.Type) == vmcondition.TypeMaintenance {
