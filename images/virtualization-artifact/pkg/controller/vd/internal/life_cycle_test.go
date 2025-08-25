@@ -267,7 +267,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					return reconcile.Result{}, nil
 				}}, true
 			}
-			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil, nil)
 			_, _ = handler.Handle(ctx, &vd)
 			readyCond, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			Expect(readyCond.Reason).Should(Equal(expectedReadyReason))
