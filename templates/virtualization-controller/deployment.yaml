@@ -99,7 +99,7 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
-            {{- include "delvePorts" (list $delve "virtualization-controller") | nindent 12 }}
+            {{- include "delvePorts" (list $delve "delve/virtualization-controller") | nindent 12 }}
             - containerPort: 8083
               name: health
               protocol: TCP

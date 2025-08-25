@@ -49,7 +49,7 @@ spec:
   template:
     spec:
       containers:
-      - name: {{ $image }}
+      - name: {{ printf "%s" ( split "/" $image)._1 }}
         command: null
         livenessProbe: null
         readinessProbe: null

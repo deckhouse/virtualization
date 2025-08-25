@@ -67,7 +67,7 @@ shell:
     - |
       cat <<EOF>> /delve.yaml
       debug:
-        component: {{ printf "%s" (split "/" .DEBUG_COMPONENT)._1 }}
+        component: "{{ .DEBUG_COMPONENT }}"
       EOF
 {{-  end }}
 ---

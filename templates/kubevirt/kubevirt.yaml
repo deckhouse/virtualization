@@ -64,17 +64,17 @@ spec:
       disableSerialConsoleLog: {}
   customizeComponents:
     flags:
-      {{- if ne "virt-api" ($delve | dig "debug" "component" "<missing>") }}
+      {{- if ne "delve/virt-api" ($delve | dig "debug" "component" "<missing>") }}
       api:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
       {{- end }}
-      {{- if ne "virt-controller" ($delve | dig "debug" "component" "<missing>") }}
+      {{- if ne "delve/virt-controller" ($delve | dig "debug" "component" "<missing>") }}
       controller:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
       {{- end }}
-      {{- if ne "virt-handler" ($delve | dig "debug" "component" "<missing>") }}
+      {{- if ne "delve/virt-handler" ($delve | dig "debug" "component" "<missing>") }}
       handler:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
@@ -103,19 +103,19 @@ spec:
       type: json
     {{- if and $delve (hasKey $delve "debug") }}
     # Debug
-      {{- if eq $delve.debug.component "virt-api" }}
+      {{- if eq $delve.debug.component "delve/virt-api" }}
     - resourceType: Deployment
       resourceName: virt-api
       patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
       type: strategic
       {{- end }}
-      {{- if eq $delve.debug.component "virt-handler" }}
+      {{- if eq $delve.debug.component "delve/virt-handler" }}
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
       type: strategic
       {{- end }}
-      {{- if eq $delve.debug.component "virt-controller" }}
+      {{- if eq $delve.debug.component "delve/virt-controller" }}
     - resourceType: Deployment
       resourceName: virt-controller
       patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}

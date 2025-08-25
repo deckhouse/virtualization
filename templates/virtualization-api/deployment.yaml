@@ -107,7 +107,7 @@ spec:
             - containerPort: 8443
               name: apiserver
               protocol: TCP
-            {{- include "delvePorts" (list $delve "virtualization-api") | nindent 12 }}
+            {{- include "delvePorts" (list $delve "delve/virtualization-api") | nindent 12 }}
           {{- if not (and ($delve) (eq $delve.debug.component "virtualization-api")) }}
           livenessProbe:
             httpGet:
