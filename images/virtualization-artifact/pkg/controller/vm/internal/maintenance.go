@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -93,7 +94,7 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// If VM is not stopped yet, wait for it to stop (SyncPowerStateHandler will handle stopping)
-	if kvvmi != nil {
+	if kvvmi != nil || changed.Status.Phase != virtv2.MachineStopped {
 		log.Info("VM is still running, waiting for shutdown in maintenance mode")
 		return reconcile.Result{}, nil
 	}
