@@ -1,0 +1,73 @@
+api:
+  fixes:
+    - summary: Enqueue stucked by quota entities when resource quota updated.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1323
+ci:
+  fixes:
+    - summary: fix helm_templates action
+      pull_request: https://github.com/deckhouse/virtualization/pull/1391
+    - summary: Add liveness and readiness probes
+      pull_request: https://github.com/deckhouse/virtualization/pull/1301
+core:
+  fixes:
+    - summary: bump kubevirt to v1.3.1-v12n.10
+      pull_request: https://github.com/deckhouse/virtualization/pull/1386
+    - summary: Add SELinux type spc_t to InternalVirtualizationKubeVirt
+      pull_request: https://github.com/deckhouse/virtualization/pull/1321
+module:
+  features:
+    - summary: fix helm templates after PR#1324
+      pull_request: https://github.com/deckhouse/virtualization/pull/1346
+observability:
+  features:
+    - summary: >-
+        Add phase metrics for VirtualMachineSnapshot, VirtualDiskSnapshot, VirtualImage and
+        ClusterVirtualImage resources.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1356
+vdsnapshot:
+  fixes:
+    - summary: >-
+        The VirtualDiskSnapshot retains its Ready status even if the VirtualDisk is simultaneously
+        attached to another VirtualMachine after a successful snapshotting process.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1370
+vm:
+  features:
+    - summary: >-
+        auto recreate pod with virtual machine if resource requirements updated. Watch project quota
+        update and delete to enqueue VMI
+      pull_request: https://github.com/deckhouse/virtualization/pull/1296
+  fixes:
+    - summary: Make provisioning type spec field required.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1365
+    - summary: Fixed TPM device cleanup when changing osType from Windows to Generic
+      pull_request: https://github.com/deckhouse/virtualization/pull/1358
+    - summary: A VMBDA should be correctly deleted when a VM is in the stopped phase.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1351
+    - summary: Prevent "Starting" hang when quota is exceeded.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1314
+vmbda:
+  fixes:
+    - summary: Fix "failed to unplug" error while deletion unplug.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1355
+vmclass:
+  features:
+    - summary: >-
+        VirtualMachinesClass can be assigned as default to automatically fill empty
+        spec.virtualMachineClassName field in VirtualMachines.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1305
+vmop:
+  features:
+    - summary: Surface "quota exceeded" error during migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1310
+  fixes:
+    - summary: remove finalaizer if migration does not exists
+      pull_request: https://github.com/deckhouse/virtualization/pull/1385
+vmrestore:
+  fixes:
+    - summary: Resource validation works properly when a virtual machine is restored in Safe mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1357
+vmsnapshot:
+  fixes:
+    - summary: The Virtual Machine Snapshot controller correctly watches for the phase of virtual disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1331
+
