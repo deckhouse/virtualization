@@ -38,7 +38,7 @@ packages:
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
 - glib2-devel libgnutls-openssl-devel libssl-devel
 - libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
-- libtasn1 libtasn1-devel libjson-glib-devel
+- libtasn1 libtasn1-devel
 - libseccomp-devel libseccomp
 - perl-podlators
 {{- end -}}
@@ -53,7 +53,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" "libtpms" "openssl" -}}
+{{- $images := list "libgmp" "libtpms" "openssl" "libjson-c5" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
