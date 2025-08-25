@@ -19,7 +19,6 @@ package restorer
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 
@@ -35,13 +34,12 @@ import (
 )
 
 type ProvisionerHandler struct {
-	mode       common.OperationMode
 	secret     *corev1.Secret
 	client     client.Client
 	restoreUID string
 }
 
-func NewProvisionerHandler(client client.Client, mode common.OperationMode, secretTmpl corev1.Secret, vmRestoreUID string) *ProvisionerHandler {
+func NewProvisionerHandler(client client.Client, secretTmpl corev1.Secret, vmRestoreUID string) *ProvisionerHandler {
 	if secretTmpl.Annotations != nil {
 		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -65,7 +63,6 @@ func NewProvisionerHandler(client client.Client, mode common.OperationMode, secr
 			StringData: secretTmpl.StringData,
 			Type:       secretTmpl.Type,
 		},
-		mode:       mode,
 		client:     client,
 		restoreUID: vmRestoreUID,
 	}
@@ -90,8 +87,7 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 		return nil
 	}
 
-	// If kind is BestEffort, we don't care about the data, in this case, we just need to skip creating the secret
-	if v.mode != common.BestEffortRestorerMode && !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
+	if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
 		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, common.ErrAlreadyExistsAndHasDiff)
 	}
 
@@ -103,10 +99,6 @@ func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ProcessRestore(ctx context.Context) error {
-	if v.mode == common.DryRunMode {
-		return errors.New("cannot Process with DryRun operation")
-	}
-
 	err := v.ValidateRestore(ctx)
 	if err != nil {
 		return err

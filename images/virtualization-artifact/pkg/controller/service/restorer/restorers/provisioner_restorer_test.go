@@ -28,12 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 )
 
 type ProvisionerTestArgs struct {
-	mode common.OperationMode
-
 	secretExists   bool
 	secretDiffData bool
 
@@ -108,7 +105,7 @@ var _ = Describe("ProvisionerRestorer", func() {
 			Expect(fakeClient).ToNot(BeNil())
 
 			secret.Data = map[string][]byte{"data": []byte("data")}
-			handler = NewProvisionerHandler(fakeClient, args.mode, secret, uid)
+			handler = NewProvisionerHandler(fakeClient, secret, uid)
 			Expect(handler).ToNot(BeNil())
 
 			err = handler.ValidateRestore(ctx)
@@ -128,8 +125,6 @@ var _ = Describe("ProvisionerRestorer", func() {
 			Expect(secretCreated).To(Equal(args.shouldBeCreated))
 		},
 		Entry("secret exists; different data", ProvisionerTestArgs{
-			mode: common.StrictRestoreMode,
-
 			secretExists:   true,
 			secretDiffData: true,
 
@@ -139,8 +134,6 @@ var _ = Describe("ProvisionerRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("secret exists; same data", ProvisionerTestArgs{
-			mode: common.StrictRestoreMode,
-
 			secretExists:   true,
 			secretDiffData: false,
 
@@ -150,8 +143,6 @@ var _ = Describe("ProvisionerRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("secret doesn't exist", ProvisionerTestArgs{
-			mode: common.StrictRestoreMode,
-
 			secretExists:   false,
 			secretDiffData: false,
 

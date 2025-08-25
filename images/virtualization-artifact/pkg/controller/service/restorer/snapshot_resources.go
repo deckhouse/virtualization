@@ -95,18 +95,18 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	}
 
 	for _, vd := range vds {
-		r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualDiskHandler(r.client, r.mode, *vd, r.uuid))
+		r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualDiskHandler(r.client, *vd, r.uuid))
 	}
 
 	for _, vmbda := range vmbdas {
-		r.objectHandlers = append(r.objectHandlers, restorer.NewVMBlockDeviceAttachmentHandler(r.client, r.mode, *vmbda, r.uuid))
+		r.objectHandlers = append(r.objectHandlers, restorer.NewVMBlockDeviceAttachmentHandler(r.client, *vmbda, r.uuid))
 	}
 
 	if provisioner != nil {
-		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(r.client, r.mode, *provisioner, r.uuid))
+		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(r.client, *provisioner, r.uuid))
 	}
 
-	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, r.mode, *vm, string(r.vmSnapshot.UID)))
+	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, string(r.vmSnapshot.UID)))
 
 	return nil
 }

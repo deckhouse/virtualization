@@ -114,7 +114,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			Expect(fakeClient).ToNot(BeNil())
 
 			vmbda.Spec.VirtualMachineName = vm
-			handler = NewVMBlockDeviceAttachmentHandler(fakeClient, args.mode, vmbda, uid)
+			handler = NewVMBlockDeviceAttachmentHandler(fakeClient, vmbda, uid)
 			Expect(handler).ToNot(BeNil())
 
 			err = handler.ValidateRestore(ctx)
