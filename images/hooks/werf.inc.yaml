@@ -4,7 +4,7 @@ final: false
 fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /app/images/hooks
+  to: /src
   stageDependencies:
     install:
     - go.mod
@@ -16,7 +16,7 @@ final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-    add: /app/images/hooks
+    add: /src
     to: /app/images/hooks
     before: install
 mount:

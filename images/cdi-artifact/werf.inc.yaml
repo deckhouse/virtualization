@@ -21,7 +21,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     echo "Git clone CDI repository..."
     git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 

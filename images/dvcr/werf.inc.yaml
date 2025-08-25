@@ -11,10 +11,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    echo "Git clone CDI repository..."
-    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /distribution
+  - git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
@@ -43,7 +40,7 @@ mount:
     to: /go/pkg
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /distribution
+  add: /src
   to: /distribution
   before: install
 secrets:
