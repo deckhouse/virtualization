@@ -1,0 +1,6 @@
+dirs:
+  - /etc/virt-api/certificates
+  - /etc/virt-handler/clientcertificates
+  - /profile-data
+  - /kubeconfig.local
+  - /tmp

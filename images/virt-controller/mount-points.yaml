@@ -1,0 +1,5 @@
+dirs:
+  - /etc/virt-controller/certificates
+  - /etc/virt-controller/exportca
+  - /profile-data
+  - /kubeconfig.local

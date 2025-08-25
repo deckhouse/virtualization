@@ -1,6 +1,8 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
 - image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/

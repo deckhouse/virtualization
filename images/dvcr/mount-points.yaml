@@ -1,0 +1,5 @@
+dirs:
+  - /etc/docker/registry
+  - /etc/ssl/docker
+  - /var/lib/registry
+  - /auth

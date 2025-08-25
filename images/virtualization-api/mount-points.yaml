@@ -1,0 +1,4 @@
+dirs:
+  - /etc/virtualization-api/certificates
+  - /etc/virtualization-api-proxy/certificates
+  - /etc/virt-api/certificates
