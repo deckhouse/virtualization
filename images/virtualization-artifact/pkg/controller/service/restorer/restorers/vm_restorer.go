@@ -49,8 +49,6 @@ func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, v
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	}
 
-	vmTmpl.Spec.RunPolicy = v1alpha2.AlwaysOffPolicy
-
 	return &VirtualMachineHandler{
 		vm: &v1alpha2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
@@ -123,21 +121,25 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
 	}
 
-	err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx, vm.Name, vm.Namespace, v.restoreUID)
-	if err != nil {
-		return err
-	}
-
 	if vm != nil {
 		var (
-			vmHasCorrectVMRestoreUID bool
-			vmHasVMSnapshotSpec      bool
+			vmHasCorrectVMRestoreUID = true
+			vmHasVMSnapshotSpec      = true
 		)
 
 		if value, ok := vm.Annotations[annotations.AnnVMRestore]; !ok || value != v.restoreUID {
 			vmHasCorrectVMRestoreUID = false
-			vm.SetAnnotations(map[string]string{annotations.AnnVMRestore: v.restoreUID})
+			if vm.Annotations == nil {
+				vm.Annotations = make(map[string]string)
+			}
+			vm.Annotations[annotations.AnnVMRestore] = v.restoreUID
 		}
+
+		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx, vm.Name, vm.Namespace, v.restoreUID)
+		if err != nil {
+			return err
+		}
+
 		if !equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
 			vmHasVMSnapshotSpec = false
 			vm.Spec = v.vm.Spec
@@ -152,6 +154,11 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 				}
 			}
+		}
+	} else {
+		err := v.client.Create(ctx, v.vm)
+		if err != nil {
+			return fmt.Errorf("failed to create the `VirtualMachine`: %w", err)
 		}
 	}
 
