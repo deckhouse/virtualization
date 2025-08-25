@@ -133,10 +133,12 @@ weight: 50
    - В разделе «Диски и образы» в подразделе «Загрузочные диски» нажмите «Добавить».
 
      Если вы уже создали диск:
+
      - В открывшейся форме нажмите «Выбрать из существующих».
      - В списке выберите диск `linux-disk`.
 
      Если вы не создавали диск:
+
      - В открывшейся форме нажмите «Создать новый диск».
      - В поле «Имя» введите `linux-disk`.
      - В поле «Источник» нажмите на стрелку, чтобы развернуть список и убедитесь, что установлен чек-бокс «Проектные».
@@ -153,11 +155,11 @@ weight: 50
      #cloud-config
      ssh_pwauth: True
      users:
-     - name: cloud
-       passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-       shell: /bin/bash
-       sudo: ALL=(ALL) NOPASSWD:ALL
-       lock_passwd: False
+       - name: cloud
+         passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+         shell: /bin/bash
+         sudo: ALL=(ALL) NOPASSWD:ALL
+         lock_passwd: False
      ```
 
    - Нажмите кнопку «Создать».
@@ -619,7 +621,7 @@ EOF
 
 Режим доступа AccessMode:
 
-- `ReadWriteOnce (RWO)` - доступ к диску предоставляется только одному экземпляру виртуальной машины. Живая миграция виртуальных машин с такими дисками невозможна.
+- `ReadWriteOnce (RWO)` - доступ к диску предоставляется только одному экземпляру виртуальной машины. Живая миграция виртуальных машин с такими дисками возможна только для платных редаций платформы.
 - `ReadWriteMany (RWX)` - множественный доступ к диску. Живая миграция виртуальных машин с такими дисками возможна.
 
 При создании диска контроллер самостоятельно определит наиболее оптимальные параметры поддерживаемые хранилищем.
@@ -996,11 +998,11 @@ linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
     - systemctl enable --now qemu-guest-agent.service
   ssh_pwauth: True
   users:
-  - name: cloud
-    passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-    shell: /bin/bash
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock_passwd: False
+    - name: cloud
+      passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+      shell: /bin/bash
+      sudo: ALL=(ALL) NOPASSWD:ALL
+      lock_passwd: False
   final_message: "The system is finally up, after $UPTIME seconds"
   ```
 
@@ -2492,26 +2494,27 @@ EOF
 {{< /alert >}}
 
 Условия работы и ограничения:
+
 - Модуль `d8-sdn` обязателен для работы с дополнительными сетями.
 - Порядок сетей в `.spec.networks` определяет последовательность подключения интерфейсов к шине ВМ.
 - Настройка сетевых параметров (IP-адреса, шлюзы, DNS и т.д.) в дополнительных сетях выполняется вручную внутри гостевой ОС (например, через cloud-init).
-
 
 Пример подключения ВМ к проектной сети `user-net`:
 
 ```yaml
 spec:
   networks:
-    - type: Main     # Обязательно указывать первым
-    - type: Network  # Тип ести (Network \ ClusterNetwork)
+    - type: Main # Обязательно указывать первым
+    - type: Network # Тип ести (Network \ ClusterNetwork)
       name: user-net # Название сети
 ```
+
 Допускается подключать одну ВМ к одной и той же сети несколько раз. Пример:
 
 ```yaml
 spec:
   networks:
-    - type: Main  # Обязательно указывать первым
+    - type: Main # Обязательно указывать первым
     - type: Network
       name: user-net # <--
     - type: Network
@@ -2523,13 +2526,13 @@ spec:
 ```yaml
 spec:
   networks:
-    - type: Main  # Обязательно указывать первым
+    - type: Main # Обязательно указывать первым
     - type: Network
       name: user-net
     - type: Network
       name: user-net
     - type: ClusterNetwork
-      name: corp-net  # <--
+      name: corp-net # <--
 ```
 
 Информацию о подключённых сетях и их MAC-адресах можно посмотреть в статусе ВМ:
@@ -2552,6 +2555,7 @@ status:
 Для каждого дополнительного сетевого интерфейса автоматически создается и резервируется уникальный MAC-адрес, что обеспечивает отсутствие коллизий MAC-адресов. Для этоих целей используются ресурсы: `VirtualMachineMACAddress` (vmmac) и `VirtualMachineMACAddressLease` (vmmacl).
 
 MAC-адрес генерируется случайным образом из пула разрешённых диапазонов.
+
 - Диапазоны: `x2-xx-xx-xx-xx-xx`, `x6-xx-xx-xx-xx-xx`, `xA-xx-xx-xx-xx-xx`, `xE-xx-xx-xx-xx-xx`.
 - Первые три октета (OUI) формируются на основе UUID кластера, последние три (NIC) — выбираются случайно из 16 миллионов возможных комбинаций.
 
@@ -2572,6 +2576,7 @@ mac-5e-e6-19-29-89-cf   {"name":"vm-01-99qj6","namespace":"pr-sdn"}   Bound    4
 mac-5e-e6-19-54-f9-be   {"name":"vm-01-5jqxg","namespace":"pr-sdn"}   Bound    45s
 
 ```
+
 Ресурс `VirtualMachineMACAddress` (`vmmac`): проектный ресурс, который отвечает за резервирование арендованных MAC-адресов и их привязку к виртуальным машинам.
 
 MAC-адреса виртуальной машине назначается автоматически на каждый дополнительный интерфейс из общего пула адресов и закрепляется за ней до её удаления.
@@ -2591,6 +2596,7 @@ vm-01-fz9cr   5e:e6:19:22:0f:d8   Attached   vm-01   5m42s
 ```
 
 При удалении сети из конфигурации ВМ:
+
 - MAC-адрес интерфейса освобождается.
 - Автоматически удаляются связанные ресурсы `VirtualMachineMACAddress` и `VirtualMachineMACAddressLease`.
 
@@ -2843,10 +2849,12 @@ status:
 #### Восстановление ВМ
 
 Для восстановления виртуальной машины используются два режима. Они определяются параметром `restoreMode` ресурса `VirtualMachineRestore`:
+
 ```yaml
 spec:
   restoreMode: Safe | Forced
 ```
+
 `Safe` используется по умолчанию.
 
 {{< alert level="warning" >}}
