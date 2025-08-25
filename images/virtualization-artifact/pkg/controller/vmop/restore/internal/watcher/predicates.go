@@ -22,7 +22,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewPowerStatePredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineOperation] {
+func NewRestorePredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineOperation] {
 	return predicate.NewTypedPredicateFuncs(Match)
 }
 
