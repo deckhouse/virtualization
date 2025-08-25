@@ -73,5 +73,6 @@ shell:
     cmake --build . --parallel $(nproc)
     DESTDIR=$OUTDIR cmake --install .
     rm -rf $OUTDIR/usr/share/man
+    rm -rf $OUTDIR/usr/lib64/cmake
     tree -hp $OUTDIR
 
