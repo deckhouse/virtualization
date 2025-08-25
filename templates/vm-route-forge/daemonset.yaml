@@ -96,7 +96,8 @@ spec:
             - containerPort: 8118
               name: health
               protocol: TCP
-            {{- include "delvePorts" (list $delve "delve/virtualization-api") | nindent 12 }}
+            {{- include "delvePorts" (list $delve "delve/vm-route-forge") | nindent 12 }}
+          {{- if ne "delve/vm-route-forge" ($delve | dig "debug" "component" "<missing>") }}
           readinessProbe:
             httpGet:
               path: /readyz
@@ -112,5 +113,6 @@ spec:
               scheme: HTTP
             periodSeconds: 1
             failureThreshold: 3
+          {{- end }}
 
 {{- end }}
