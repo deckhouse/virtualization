@@ -42,3 +42,4 @@ package:
   numactl: v2.0.19
   openssl: openssl-3.4.1
   swtpm: v0.10.0
+  zlib: v1.3.1
