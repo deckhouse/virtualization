@@ -17,8 +17,10 @@ limitations under the License.
 package internal
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
@@ -372,6 +374,10 @@ func deletePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolu
 	if len(indexes) == 0 {
 		return nil
 	}
+	
+	slices.SortFunc(indexes, func(i, j int) int {
+		return cmp.Compare(indexes[j], indexes[i])
+	})
 
 	jsonPatch := patch.NewJSONPatch()
 	for _, index := range indexes {
