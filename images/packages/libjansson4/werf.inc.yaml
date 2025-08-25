@@ -5,19 +5,26 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /openssl
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "openssl/openssl.git" }}
-
+{{- $gitRepoUrl := "akheron/jansson.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  stageDependencies:
+    install:
+      - '**/*'
 shell:
   install:
   - |
@@ -29,23 +36,27 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make glibc-devel-static musl-devel-static
-- autoconf automake libtool makeinfo
-- perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
-- autoconf libtool makeinfo gettext-devel po4a
-- zlib-devel
+- gcc git make libtool gettext-tools cmake
 - tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
+  before: install
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /patches
+  to: /patches
   before: install
 shell:
   beforeInstall:
@@ -59,20 +70,24 @@ shell:
   install:
   - |
     OUTDIR=/out
-
     cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+    cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
+      -DLIB_INSTALL_DIR:PATH=/usr/lib64 \
+      -DJANSSON_INSTALL_LIB_DIR=/usr/lib64 \
+      -DLIB_DESTINATION=lib64 \
+      -DLIB_SUFFIX=64 \
+      -DJANSSON_BUILD_SHARED_LIBS=ON \
+      -DJANSSON_BUILD_DOCS=OFF
 
-    ./Configure shared \
-      --prefix=/usr \
-      --libdir=lib64 \
-      --openssldir=/var/lib/ssl \
-      enable-egd \
-      enable-md2 \
-      enable-rfc3779 \
-      enable-ssl3 \
-      zlib
+    make -j$(nproc)
+    DESTDIR=$OUTDIR make install
+    rm -rf $OUTDIR/usr/lib64/cmake
+    tree -sp $OUTDIR
 
-    make -j $(nproc)
-    make install_sw -j $(nproc) DESTDIR=$OUTDIR
-    strip $OUTDIR/usr/bin/openssl
-    tree $OUTDIR

@@ -34,7 +34,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
+
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
@@ -68,6 +68,7 @@ shell:
       --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --enable-libblkid \
+      --enable-libmount \
       --disable-all-programs \
       --enable-shared \
       --disable-static \

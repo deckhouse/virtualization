@@ -5,13 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /openssl
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "openssl/openssl.git" }}
-
+{{- $gitRepoUrl := "gnome/json-glib.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -29,19 +28,19 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make glibc-devel-static musl-devel-static
-- autoconf automake libtool makeinfo
-- perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
-- autoconf libtool makeinfo gettext-devel po4a
-- zlib-devel
+- gcc git make libtool gettext-tools meson ninja-build
 - tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
@@ -59,20 +58,13 @@ shell:
   install:
   - |
     OUTDIR=/out
-
     cd /src
+    /usr/bin/meson setup .  \
+      --prefix=$OUTDIR/usr \
+      --libdir=$OUTDIR/usr/lib64 \
+      -Dman=false \
 
-    ./Configure shared \
-      --prefix=/usr \
-      --libdir=lib64 \
-      --openssldir=/var/lib/ssl \
-      enable-egd \
-      enable-md2 \
-      enable-rfc3779 \
-      enable-ssl3 \
-      zlib
+    ninja-build -j$(nproc)
+    DESTDIR=$OUTDIR ninja-build install .
+    tree -hp $OUTDIR
 
-    make -j $(nproc)
-    make install_sw -j $(nproc) DESTDIR=$OUTDIR
-    strip $OUTDIR/usr/bin/openssl
-    tree $OUTDIR

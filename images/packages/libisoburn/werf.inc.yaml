@@ -32,7 +32,6 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
-- libisofs-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -45,7 +44,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libburn" -}}
+{{- $images := list "libburn" "libisofs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
