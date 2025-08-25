@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ProvisionerTestArgs struct {
@@ -73,6 +74,10 @@ var _ = Describe("ProvisionerRestorer", func() {
 		objects = []client.Object{}
 
 		secret = corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 			Data:       map[string][]byte{"data": []byte("data")},
 		}
@@ -152,4 +157,46 @@ var _ = Describe("ProvisionerRestorer", func() {
 			shouldBeCreated: true,
 		}),
 	)
+
+	Describe("Override", func() {
+		var rules []v1alpha2.NameReplacement
+
+		BeforeEach(func() {
+			rules = []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "Secret",
+						Name: name,
+					},
+					To: "new-secret-name",
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewProvisionerHandler(fakeClient, secret, uid)
+		})
+
+		It("should override secret name", func() {
+			handler.Override(rules)
+			Expect(handler.secret.Name).To(Equal("new-secret-name"))
+		})
+
+		It("should not override non-matching names", func() {
+			nonMatchingRules := []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "Secret",
+						Name: "different-secret",
+					},
+					To: "should-not-apply",
+				},
+			}
+
+			originalName := handler.secret.Name
+			handler.Override(nonMatchingRules)
+			Expect(handler.secret.Name).To(Equal(originalName))
+		})
+	})
 })

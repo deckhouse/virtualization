@@ -80,6 +80,10 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		objects = []client.Object{}
 
 		vmip = v1alpha2.VirtualMachineIPAddress{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineIPAddress",
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			},
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 			Spec:       v1alpha2.VirtualMachineIPAddressSpec{},
 			Status: v1alpha2.VirtualMachineIPAddressStatus{
@@ -273,4 +277,46 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: true,
 		}),
 	)
+
+	Describe("Override", func() {
+		var rules []v1alpha2.NameReplacement
+
+		BeforeEach(func() {
+			rules = []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualMachineIPAddress",
+						Name: name,
+					},
+					To: "new-vmip-name",
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualMachineIPAddressHandler(fakeClient, &vmip, uid)
+		})
+
+		It("should override VMIP name", func() {
+			handler.Override(rules)
+			Expect(handler.vmip.Name).To(Equal("new-vmip-name"))
+		})
+
+		It("should not override non-matching names", func() {
+			nonMatchingRules := []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualMachineIPAddress",
+						Name: "different-vmip",
+					},
+					To: "should-not-apply",
+				},
+			}
+
+			originalName := handler.vmip.Name
+			handler.Override(nonMatchingRules)
+			Expect(handler.vmip.Name).To(Equal(originalName))
+		})
+	})
 })

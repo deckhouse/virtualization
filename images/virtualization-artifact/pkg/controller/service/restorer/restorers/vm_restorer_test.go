@@ -110,6 +110,15 @@ var _ = Describe("VirtualMachineRestorer", func() {
 					},
 				},
 			},
+			Status: v1alpha2.VirtualMachineStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   "Maintenance",
+						Status: metav1.ConditionTrue,
+						Reason: "InMaintenance",
+					},
+				},
+			},
 		}
 
 		vmbda1 = v1alpha2.VirtualMachineBlockDeviceAttachment{
@@ -252,7 +261,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			failValidation: false,
 			failProcess:    false,
 
-			shouldCreateVM:     false,
+			shouldCreateVM:     true,
 			shouldUpdateVM:     false,
 			shouldDeleteVMBDAs: true,
 		}),
