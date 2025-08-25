@@ -34,7 +34,6 @@ packages:
 - bash-completion
 - curl
 - qemu
-- e2fsprogs
 - expect
 - libgnutls30
 - filesystem
@@ -61,7 +60,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libisoburn" -}}
+{{- $images := list "libisoburn" "e2fsprogs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
@@ -92,6 +91,7 @@ shell:
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --without-bash-completions \
+      --with-ext2 \
       --disable-torrent
 
     make -j$(nproc)

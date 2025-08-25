@@ -5,13 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /swtpm
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "stefanberger/swtpm.git" }}
-
+{{- $gitRepoUrl := "ext2/e2fsprogs.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -24,36 +23,31 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
 ---
-
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- expect socat twisted-core-tools gcc
-- git pkg-config trousers
-- automake autoconf make libtool
-- openssl cryptote
-- net-tools softhsm
-- tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
-- glib2-devel libgnutls-openssl-devel libssl-devel
-- libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
-- libtasn1 libtasn1-devel libjson-glib-devel
-- libseccomp-devel libseccomp
-- perl-podlators
+- gcc git make libtool gettext-tools
+- libuuid-devel libarchive-devel acl
+- glib2-devel
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" "libtpms" "openssl" -}}
+{{- $images := list "libblkid" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
@@ -74,26 +68,29 @@ shell:
     done
 
     OUTDIR=/out
-
     cd /src
-
-    ./autogen.sh \
-      --disable-tests \
-      --with-openssl \
-      --with-gnutls \
-      --with-cuse \
+    find -type f -print0 |
+    xargs -r0 grep -lZ '^static void usage' -- |
+    xargs -r0 sed -i 's/^static void usage/__attribute__ ((noreturn)) &/' --
+    ./configure \
       --prefix=/usr \
-      --with-tss-user=root \
-      --with-tss-group=root \
-      --libdir=/usr/lib64
+      --libdir=/usr/lib64 \
+      --enable-nls \
+      --enable-elf-shlibs \
+      --disable-libblkid \
+      --disable-libuuid \
+      --disable-fsck \
+      --with-libarchive \
+      --without-manpages \
+      --disable-docs
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "swtpm" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
-
+    make -j$(nproc)
     make DESTDIR=$OUTDIR install
-    strip $OUTDIR/usr/bin/*
+    strip $OUTDIR/usr/bin/chattr
+    strip $OUTDIR/usr/bin/lsattr
+    strip $OUTDIR/usr/sbin/{badblocks,debugfs,dumpe2fs,e2freefrag,e2fsck,e2image,e2label,e2mmpstatus,e2undo,e4crypt,e4defrag,filefrag,fsck.ext2,fsck.ext3,fsck.ext4,logsave,mke2fs,mkfs.ext2,mkfs.ext3,mkfs.ext4,mklost+found,resize2fs,tune2fs}
+    strip $OUTDIR/usr/lib64/*.so.*
+    rm -rf $OUTDIR/usr/share/locale
+    rm -rf $OUTDIR/usr/share/man
+    tree -sp $OUTDIR
 
-    # We don't need man, test and samples files
-    rm -rf $OUTDIR/usr/include
-    rm -rf $OUTDIR/usr/share
-    rm -rf $OUTDIR/usr/libexec/installed-tests
