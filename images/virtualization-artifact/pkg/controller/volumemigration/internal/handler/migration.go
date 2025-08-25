@@ -46,6 +46,7 @@ type MigrationHandler struct {
 func NewMigrationHandler(client client.Client) *MigrationHandler {
 	return &MigrationHandler{
 		client: client,
+		delay:  make(map[types.UID]time.Time),
 	}
 }
 
