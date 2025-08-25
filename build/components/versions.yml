@@ -31,7 +31,6 @@ package:
   libffi: v3.5.2
   libgcrypt: libgcrypt-1.10.2
   libxcrypt: v4.4.36
-  libtpms: v0.10.0
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
   rdma-core: v57.0
@@ -52,4 +51,5 @@ package:
   numactl: v2.0.19
   openssl: openssl-3.4.1
   swtpm: v0.10.0
+  zlib: v1.3.1
   util-linux: v2.41.1
