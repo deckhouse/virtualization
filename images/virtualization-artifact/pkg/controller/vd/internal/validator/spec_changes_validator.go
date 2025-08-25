@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -74,8 +75,13 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 			return nil, errors.New("data source cannot be changed if the VirtualDisk has already been provisioned")
 		}
 
-		if !featuregates.Default().Enabled(featuregates.VolumeMigration) {
-			if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
+		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
+			if featuregates.Default().Enabled(featuregates.VolumeMigration) {
+				vmName := commonvd.CurrentlyMountedVM(newVD)
+				if vmName == "" {
+					return nil, errors.New("storage class cannot be changed if the VirtualDisk not mounted to virtual machine")
+				}
+			} else {
 				return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
 			}
 		}

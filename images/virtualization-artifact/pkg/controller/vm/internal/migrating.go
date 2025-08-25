@@ -145,8 +145,8 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 		if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
 			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
-			return nil
 		}
+		return nil
 	}
 
 	// 5. Cannot sync migration request if the KVVMI is not exists

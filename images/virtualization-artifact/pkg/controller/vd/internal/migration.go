@@ -119,7 +119,7 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *virtv2.VirtualDisk)
 		vdStart := vd.Status.MigrationInfo.StartTimestamp
 
 		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-		if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() && vdStart.Time.Before(migrating.LastTransitionTime.Time) {
+		if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() && migrating.LastTransitionTime.Time.After(vdStart.Time) {
 			return revert, nil
 		}
 
