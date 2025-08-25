@@ -111,6 +111,22 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
 	}
 
+	// 3.1 Check migration, if exists, that means previous reconcile finished with error and SignalSent condition is not synced.
+	// Do it now.
+	mig, err := h.migration.GetMigration(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if mig != nil {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
+				Generation(vmop.GetGeneration()).
+				Reason(vmopcondition.ReasonSignalSentSuccess).
+				Status(metav1.ConditionTrue),
+			&vmop.Status.Conditions)
+		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
+	}
+
 	// 4. VMOP is not in progress.
 	// All operations must be performed in course, check it and set phase if operation cannot be executed now.
 	should, err := h.base.ShouldExecuteOrSetFailedPhase(ctx, vmop)
@@ -291,7 +307,9 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 		return false, err
 	}
 	for _, mig := range migList.Items {
-		if !mig.IsFinal() && mig.Spec.VMIName == vmop.Spec.VirtualMachine {
+		if mig.Spec.VMIName == vmop.Spec.VirtualMachine &&
+			!mig.IsFinal() &&
+			!metav1.IsControlledBy(&mig, vmop) {
 			return true, nil
 		}
 	}
