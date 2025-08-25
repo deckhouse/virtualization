@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -51,6 +52,27 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, nil
 	}
 	changed := s.VirtualMachine().Changed()
+
+	// DELETE ME
+	current := s.VirtualMachine().Current()
+	switch changed.Annotations[annotations.AnnVMMaintenance] {
+	case "true":
+		// Set maintenance condition if annotation is present
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM is in maintenance mode")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	case "false":
+		// Explicitly set maintenance to false if annotation is "false"
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM maintenance mode disabled")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	}
 
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
 
@@ -91,26 +113,26 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("%w: get KVVM: %v", reconciler.ErrStopHandlerChain, err.Error())
+		return reconcile.Result{}, fmt.Errorf("%w: get KVVM: %w", reconciler.ErrStopHandlerChain, err)
 	}
 	if kvvm != nil {
 		log.Info("Deleting KVVM for maintenance mode")
 		err = object.CleanupObject(ctx, h.client, kvvm)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("%w: delete KVVM: %v", reconciler.ErrStopHandlerChain, err.Error())
+			return reconcile.Result{}, fmt.Errorf("%w: delete KVVM: %w", reconciler.ErrStopHandlerChain, err)
 		}
 	}
 
 	pods, err := s.Pods(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("%w: get pods: %v", reconciler.ErrStopHandlerChain, err.Error())
+		return reconcile.Result{}, fmt.Errorf("%w: get pods: %w", reconciler.ErrStopHandlerChain, err)
 	}
 	if pods != nil && len(pods.Items) > 0 {
 		log.Info("Deleting pods for maintenance mode")
 		for i := range pods.Items {
 			err = object.CleanupObject(ctx, h.client, &pods.Items[i])
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("%w: delete pod: %v", reconciler.ErrStopHandlerChain, err.Error())
+				return reconcile.Result{}, fmt.Errorf("%w: delete pod: %w", reconciler.ErrStopHandlerChain, err)
 			}
 		}
 	}
