@@ -91,6 +91,10 @@ func (l *LogStream) ParseStderr() {
 	defer l.LogStreamWaitGroup.Done()
 
 	scanner := bufio.NewScanner(l.Stderr)
+	const maxCapacity = 1024 << 10
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
 	for scanner.Scan() {
 		_, writeErr := GinkgoWriter.Write([]byte(fmt.Sprintf("%s%s%s\n", Red, scanner.Text(), Reset)))
 		Expect(writeErr).NotTo(HaveOccurred())
@@ -105,6 +109,11 @@ func (l *LogStream) ParseStdout(excludedPatterns []string, excludedRegexpPattens
 
 	errFlag := false
 	scanner := bufio.NewScanner(l.Stdout)
+
+	const maxCapacity = 1024 << 10
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
 	for scanner.Scan() {
 		var entry LogEntry
 		rawEntry := strings.TrimPrefix(scanner.Text(), "0")

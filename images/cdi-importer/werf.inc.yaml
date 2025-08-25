@@ -16,8 +16,7 @@ imageSpec:
 {{- define "cdi-importer-deps" -}}
 libraries:
 - libsqlite3
-packages:
-  - libnbd
+- libxml2-devel
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
@@ -55,14 +54,13 @@ import:
   add: /qemu-img
   to: /relocate
   before: setup
-{{- $images := list "nbdkit" -}}
+{{- $images := list "nbdkit" "libnbd" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes \
-      {{ $cdiImporterDependencies.packages | join " " }} \
       {{ $cdiImporterDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   - |
