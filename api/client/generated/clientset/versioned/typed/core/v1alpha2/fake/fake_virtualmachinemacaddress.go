@@ -19,123 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeVirtualMachineMACAddresses implements VirtualMachineMACAddressInterface
-type FakeVirtualMachineMACAddresses struct {
+// fakeVirtualMachineMACAddresses implements VirtualMachineMACAddressInterface
+type fakeVirtualMachineMACAddresses struct {
+	*gentype.FakeClientWithList[*v1alpha2.VirtualMachineMACAddress, *v1alpha2.VirtualMachineMACAddressList]
 	Fake *FakeVirtualizationV1alpha2
-	ns   string
 }
 
-var virtualmachinemacaddressesResource = v1alpha2.SchemeGroupVersion.WithResource("virtualmachinemacaddresses")
-
-var virtualmachinemacaddressesKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualMachineMACAddress")
-
-// Get takes name of the virtualMachineMACAddress, and returns the corresponding virtualMachineMACAddress object, and an error if there is any.
-func (c *FakeVirtualMachineMACAddresses) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineMACAddress, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualmachinemacaddressesResource, c.ns, name), &v1alpha2.VirtualMachineMACAddress{})
-
-	if obj == nil {
-		return nil, err
+func newFakeVirtualMachineMACAddresses(fake *FakeVirtualizationV1alpha2, namespace string) corev1alpha2.VirtualMachineMACAddressInterface {
+	return &fakeVirtualMachineMACAddresses{
+		gentype.NewFakeClientWithList[*v1alpha2.VirtualMachineMACAddress, *v1alpha2.VirtualMachineMACAddressList](
+			fake.Fake,
+			namespace,
+			v1alpha2.SchemeGroupVersion.WithResource("virtualmachinemacaddresses"),
+			v1alpha2.SchemeGroupVersion.WithKind("VirtualMachineMACAddress"),
+			func() *v1alpha2.VirtualMachineMACAddress { return &v1alpha2.VirtualMachineMACAddress{} },
+			func() *v1alpha2.VirtualMachineMACAddressList { return &v1alpha2.VirtualMachineMACAddressList{} },
+			func(dst, src *v1alpha2.VirtualMachineMACAddressList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.VirtualMachineMACAddressList) []*v1alpha2.VirtualMachineMACAddress {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.VirtualMachineMACAddressList, items []*v1alpha2.VirtualMachineMACAddress) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.VirtualMachineMACAddress), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineMACAddresses that match those selectors.
-func (c *FakeVirtualMachineMACAddresses) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineMACAddressList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualmachinemacaddressesResource, virtualmachinemacaddressesKind, c.ns, opts), &v1alpha2.VirtualMachineMACAddressList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.VirtualMachineMACAddressList{ListMeta: obj.(*v1alpha2.VirtualMachineMACAddressList).ListMeta}
-	for _, item := range obj.(*v1alpha2.VirtualMachineMACAddressList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineMACAddresses.
-func (c *FakeVirtualMachineMACAddresses) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualmachinemacaddressesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualMachineMACAddress and creates it.  Returns the server's representation of the virtualMachineMACAddress, and an error, if there is any.
-func (c *FakeVirtualMachineMACAddresses) Create(ctx context.Context, virtualMachineMACAddress *v1alpha2.VirtualMachineMACAddress, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineMACAddress, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualmachinemacaddressesResource, c.ns, virtualMachineMACAddress), &v1alpha2.VirtualMachineMACAddress{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddress), err
-}
-
-// Update takes the representation of a virtualMachineMACAddress and updates it. Returns the server's representation of the virtualMachineMACAddress, and an error, if there is any.
-func (c *FakeVirtualMachineMACAddresses) Update(ctx context.Context, virtualMachineMACAddress *v1alpha2.VirtualMachineMACAddress, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineMACAddress, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualmachinemacaddressesResource, c.ns, virtualMachineMACAddress), &v1alpha2.VirtualMachineMACAddress{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddress), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineMACAddresses) UpdateStatus(ctx context.Context, virtualMachineMACAddress *v1alpha2.VirtualMachineMACAddress, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineMACAddress, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(virtualmachinemacaddressesResource, "status", c.ns, virtualMachineMACAddress), &v1alpha2.VirtualMachineMACAddress{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddress), err
-}
-
-// Delete takes name of the virtualMachineMACAddress and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineMACAddresses) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachinemacaddressesResource, c.ns, name, opts), &v1alpha2.VirtualMachineMACAddress{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineMACAddresses) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualmachinemacaddressesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualMachineMACAddressList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachineMACAddress.
-func (c *FakeVirtualMachineMACAddresses) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineMACAddress, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualmachinemacaddressesResource, c.ns, name, pt, data, subresources...), &v1alpha2.VirtualMachineMACAddress{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddress), err
 }

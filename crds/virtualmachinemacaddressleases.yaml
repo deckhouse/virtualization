@@ -24,7 +24,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            The resource reserves a MAC address for a virtual machine's network interface, recording its allocation in the `VirtualMachineMACAddress` object and preventing it from being assigned again.
+            The resource reserves a MAC address for a virtual machine's network interface. It prevents multiple allocations for one address in the cluster scope.
           properties:
             apiVersion:
               type: string

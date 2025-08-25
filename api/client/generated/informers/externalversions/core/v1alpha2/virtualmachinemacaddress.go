@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	versioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	internalinterfaces "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
+	apicorev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // VirtualMachineMACAddresses.
 type VirtualMachineMACAddressInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.VirtualMachineMACAddressLister
+	Lister() corev1alpha2.VirtualMachineMACAddressLister
 }
 
 type virtualMachineMACAddressInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredVirtualMachineMACAddressInformer(client versioned.Interface, nam
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace).List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace).Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace).Watch(ctx, options)
 			},
 		},
-		&corev1alpha2.VirtualMachineMACAddress{},
+		&apicorev1alpha2.VirtualMachineMACAddress{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *virtualMachineMACAddressInformer) defaultInformer(client versioned.Inte
 }
 
 func (f *virtualMachineMACAddressInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.VirtualMachineMACAddress{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1alpha2.VirtualMachineMACAddress{}, f.defaultInformer)
 }
 
-func (f *virtualMachineMACAddressInformer) Lister() v1alpha2.VirtualMachineMACAddressLister {
-	return v1alpha2.NewVirtualMachineMACAddressLister(f.Informer().GetIndexer())
+func (f *virtualMachineMACAddressInformer) Lister() corev1alpha2.VirtualMachineMACAddressLister {
+	return corev1alpha2.NewVirtualMachineMACAddressLister(f.Informer().GetIndexer())
 }

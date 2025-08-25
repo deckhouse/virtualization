@@ -23,7 +23,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            The requested MAC address to be assigned to the virtual machine's network interface. If the field is empty, a random address from the specified address range is assigned.
+            The requested MAC address to be assigned to the virtual machine's network interface. If the field is empty, the MAC address is generated automatically according to the following principle: the first three octets (OUI) are formed based on the cluster UID, and the last three octets are randomly selected from the range 00:00:00 to FF:FF:FF.
           properties:
             apiVersion:
               type: string

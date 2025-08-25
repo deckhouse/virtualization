@@ -19,114 +19,36 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeVirtualMachineMACAddressLeases implements VirtualMachineMACAddressLeaseInterface
-type FakeVirtualMachineMACAddressLeases struct {
+// fakeVirtualMachineMACAddressLeases implements VirtualMachineMACAddressLeaseInterface
+type fakeVirtualMachineMACAddressLeases struct {
+	*gentype.FakeClientWithList[*v1alpha2.VirtualMachineMACAddressLease, *v1alpha2.VirtualMachineMACAddressLeaseList]
 	Fake *FakeVirtualizationV1alpha2
 }
 
-var virtualmachinemacaddressleasesResource = v1alpha2.SchemeGroupVersion.WithResource("virtualmachinemacaddressleases")
-
-var virtualmachinemacaddressleasesKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualMachineMACAddressLease")
-
-// Get takes name of the virtualMachineMACAddressLease, and returns the corresponding virtualMachineMACAddressLease object, and an error if there is any.
-func (c *FakeVirtualMachineMACAddressLeases) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineMACAddressLease, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(virtualmachinemacaddressleasesResource, name), &v1alpha2.VirtualMachineMACAddressLease{})
-	if obj == nil {
-		return nil, err
+func newFakeVirtualMachineMACAddressLeases(fake *FakeVirtualizationV1alpha2) corev1alpha2.VirtualMachineMACAddressLeaseInterface {
+	return &fakeVirtualMachineMACAddressLeases{
+		gentype.NewFakeClientWithList[*v1alpha2.VirtualMachineMACAddressLease, *v1alpha2.VirtualMachineMACAddressLeaseList](
+			fake.Fake,
+			"",
+			v1alpha2.SchemeGroupVersion.WithResource("virtualmachinemacaddressleases"),
+			v1alpha2.SchemeGroupVersion.WithKind("VirtualMachineMACAddressLease"),
+			func() *v1alpha2.VirtualMachineMACAddressLease { return &v1alpha2.VirtualMachineMACAddressLease{} },
+			func() *v1alpha2.VirtualMachineMACAddressLeaseList {
+				return &v1alpha2.VirtualMachineMACAddressLeaseList{}
+			},
+			func(dst, src *v1alpha2.VirtualMachineMACAddressLeaseList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.VirtualMachineMACAddressLeaseList) []*v1alpha2.VirtualMachineMACAddressLease {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.VirtualMachineMACAddressLeaseList, items []*v1alpha2.VirtualMachineMACAddressLease) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.VirtualMachineMACAddressLease), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineMACAddressLeases that match those selectors.
-func (c *FakeVirtualMachineMACAddressLeases) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineMACAddressLeaseList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(virtualmachinemacaddressleasesResource, virtualmachinemacaddressleasesKind, opts), &v1alpha2.VirtualMachineMACAddressLeaseList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.VirtualMachineMACAddressLeaseList{ListMeta: obj.(*v1alpha2.VirtualMachineMACAddressLeaseList).ListMeta}
-	for _, item := range obj.(*v1alpha2.VirtualMachineMACAddressLeaseList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineMACAddressLeases.
-func (c *FakeVirtualMachineMACAddressLeases) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(virtualmachinemacaddressleasesResource, opts))
-}
-
-// Create takes the representation of a virtualMachineMACAddressLease and creates it.  Returns the server's representation of the virtualMachineMACAddressLease, and an error, if there is any.
-func (c *FakeVirtualMachineMACAddressLeases) Create(ctx context.Context, virtualMachineMACAddressLease *v1alpha2.VirtualMachineMACAddressLease, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineMACAddressLease, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(virtualmachinemacaddressleasesResource, virtualMachineMACAddressLease), &v1alpha2.VirtualMachineMACAddressLease{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddressLease), err
-}
-
-// Update takes the representation of a virtualMachineMACAddressLease and updates it. Returns the server's representation of the virtualMachineMACAddressLease, and an error, if there is any.
-func (c *FakeVirtualMachineMACAddressLeases) Update(ctx context.Context, virtualMachineMACAddressLease *v1alpha2.VirtualMachineMACAddressLease, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineMACAddressLease, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(virtualmachinemacaddressleasesResource, virtualMachineMACAddressLease), &v1alpha2.VirtualMachineMACAddressLease{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddressLease), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineMACAddressLeases) UpdateStatus(ctx context.Context, virtualMachineMACAddressLease *v1alpha2.VirtualMachineMACAddressLease, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineMACAddressLease, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(virtualmachinemacaddressleasesResource, "status", virtualMachineMACAddressLease), &v1alpha2.VirtualMachineMACAddressLease{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddressLease), err
-}
-
-// Delete takes name of the virtualMachineMACAddressLease and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineMACAddressLeases) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(virtualmachinemacaddressleasesResource, name, opts), &v1alpha2.VirtualMachineMACAddressLease{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineMACAddressLeases) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(virtualmachinemacaddressleasesResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualMachineMACAddressLeaseList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachineMACAddressLease.
-func (c *FakeVirtualMachineMACAddressLeases) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineMACAddressLease, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(virtualmachinemacaddressleasesResource, name, pt, data, subresources...), &v1alpha2.VirtualMachineMACAddressLease{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualMachineMACAddressLease), err
 }

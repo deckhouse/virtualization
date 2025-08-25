@@ -65,11 +65,11 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressLeases() v1alpha2.Vi
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineMACAddresses(namespace string) v1alpha2.VirtualMachineMACAddressInterface {
-	return &FakeVirtualMachineMACAddresses{c, namespace}
+	return newFakeVirtualMachineMACAddresses(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineMACAddressLeases() v1alpha2.VirtualMachineMACAddressLeaseInterface {
-	return &FakeVirtualMachineMACAddressLeases{c}
+	return newFakeVirtualMachineMACAddressLeases(c)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineOperations(namespace string) v1alpha2.VirtualMachineOperationInterface {
