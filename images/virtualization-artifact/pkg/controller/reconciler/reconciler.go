@@ -1,5 +1,4 @@
-/*
-Copyright 2025 Flant JSC
+/* Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,6 +26,8 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
+
+var ErrStopHandlerChain = errors.New("stop handler chain execution")
 
 type ResourceUpdater func(ctx context.Context) error
 
@@ -66,12 +67,17 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 	var result reconcile.Result
 	var errs error
 
+handlersLoop:
 	for _, h := range r.handlers {
 		log := logger.FromContext(ctx).With(logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 
 		res, err := r.execute(ctx, h)
 		switch {
 		case err == nil: // OK.
+		case errors.Is(err, ErrStopHandlerChain):
+			log.Debug("Handler chain execution stopped")
+			result = MergeResults(result, res)
+			break handlersLoop
 		case k8serrors.IsConflict(err):
 			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
 			result.RequeueAfter = 100 * time.Microsecond

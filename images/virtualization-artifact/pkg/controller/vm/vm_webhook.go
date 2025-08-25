@@ -44,6 +44,7 @@ type Validator struct {
 func NewValidator(ipam internal.IPAM, client client.Client, service *service.BlockDeviceService, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
+			validators.NewMaintenanceValidator(),
 			validators.NewMetaValidator(client),
 			validators.NewIPAMValidator(client),
 			validators.NewBlockDeviceSpecRefsValidator(),

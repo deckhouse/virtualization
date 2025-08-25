@@ -55,6 +55,7 @@ func SetupController(
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
 	handlers := []Handler{
+		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(ipam.New(), client, recorder),
