@@ -28,7 +28,7 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool gettext-tools meson ninja
+- gcc git make libtool gettext-tools meson ninja-build
 - tree
 {{- end -}}
 
