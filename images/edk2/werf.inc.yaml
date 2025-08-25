@@ -31,6 +31,33 @@ packages:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+git:
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
+  includePaths: build.sh
+  stageDependencies:
+    install:
+      - build.sh
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
+  to: /src
+  includePaths: Logo.bmp
+  stageDependencies:
+    install:
+      - '**/*'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
+  to: /src/FIRMWARE
+  includePaths:
+  - '*.json'
+  stageDependencies:
+    install:
+      - '*.json'
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
+  to: /src/FIRMWARE
+  includePaths:
+  - '*.bin'
+  stageDependencies:
+    install:
+      - '*.bin'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -65,42 +92,17 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/alt
-git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
-  includePaths: build.sh
-  stageDependencies:
-    install:
-      - build.sh
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
-  to: /src
-  includePaths: Logo.bmp
-  stageDependencies:
-    install:
-      - '**/*'
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
-  to: /src/FIRMWARE
-  includePaths:
-  - '*.json'
-  stageDependencies:
-    install:
-      - '*.json'
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
-  to: /src/FIRMWARE
-  includePaths:
-  - '*.bin'
-  stageDependencies:
-    install:
-      - '*.bin'
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/{{ $gitRepoName }}-{{ $version }}
-  to: /{{ $gitRepoName }}-{{ $version }}
+  add: /src
+  to: /
   before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/edk2-platforms
-  to: /edk2-platforms
-  before: install
+  includePaths:
+  - "{{ $gitRepoName }}-{{ $version }}"
+  - edk2-platforms
+  - FIRMWARE
+  - Logo.bmp
+  - build.sh
 {{- $images := list "libisoburn" "libburn" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
@@ -143,4 +145,3 @@ shell:
   setup:
   - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
-
