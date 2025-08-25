@@ -73,7 +73,7 @@ shell:
     cd /src
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
     cmake \
       -DCMAKE_BUILD_TYPE=Release \
