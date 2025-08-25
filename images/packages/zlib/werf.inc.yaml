@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "madler/zlib.git" }}
+{{- $gitRepoUrl := "GNOME/libxml2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -62,33 +62,10 @@ shell:
 
     cd /src
     
-    ./autogen.sh \
-    --prefix=/usr/local \
-    --without-python \
-    --without-debug \
-    --without-legacy \
-    --without-catalog \
-    --without-docbook \
-    --without-ftp \
-    --without-html \
-    --without-http \
-    --without-iconv \
-    --without-iso8859x \
-    --without-modules \
-    --without-output \
-    --without-pattern \
-    --without-push \
-    --without-regexps \
-    --without-sax1 \
-    --without-schemas \
-    --without-schematron \
-    --without-trio \
-    --without-valid \
-    --without-xinclude \
-    --without-xpath \
-    --without-xptr \
-    --without-zlib \
-    --without-lzma
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static
 
     make -j$(nproc)
 
