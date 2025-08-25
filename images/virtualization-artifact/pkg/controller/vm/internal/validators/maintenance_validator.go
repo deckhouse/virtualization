@@ -52,4 +52,3 @@ func (v *MaintenanceValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v
 
 	return nil, nil
 }
-
