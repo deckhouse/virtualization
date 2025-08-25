@@ -126,23 +126,30 @@ func (h *SyncPowerStateHandler) syncPowerState(
 		shutdownInfo = s.ShutdownInfo
 	})
 
-	isConfigurationApplied := checkVirtualMachineConfiguration(s.VirtualMachine().Changed())
+	changed := s.VirtualMachine().Changed()
+	isConfigurationApplied := checkVirtualMachineConfiguration(changed)
+	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
+
 	var vmAction VMAction
-	switch runPolicy {
-	case virtv2.AlwaysOffPolicy:
-		vmAction = h.handleAlwaysOffPolicy(ctx, s, kvvmi)
-	case virtv2.AlwaysOnPolicy:
-		vmAction, err = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
-		if err != nil {
-			return err
+	if maintenance.Status != metav1.ConditionTrue {
+		switch runPolicy {
+		case virtv2.AlwaysOffPolicy:
+			vmAction = h.handleAlwaysOffPolicy(ctx, s, kvvmi)
+		case virtv2.AlwaysOnPolicy:
+			vmAction, err = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+			if err != nil {
+				return err
+			}
+		case virtv2.AlwaysOnUnlessStoppedManually:
+			vmAction, err = h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+			if err != nil {
+				return err
+			}
+		case virtv2.ManualPolicy:
+			vmAction = h.handleManualPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
 		}
-	case virtv2.AlwaysOnUnlessStoppedManually:
-		vmAction, err = h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
-		if err != nil {
-			return err
-		}
-	case virtv2.ManualPolicy:
-		vmAction = h.handleManualPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+	} else {
+		vmAction = Stop
 	}
 
 	switch vmAction {

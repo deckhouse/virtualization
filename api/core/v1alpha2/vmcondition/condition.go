@@ -45,6 +45,10 @@ const (
 	TypeNeedsEvict Type = "NeedsEvict"
 
 	TypeNetworkReady Type = "NetworkReady"
+
+	// TypeMaintenance indicates that the VirtualMachine is in maintenance mode.
+	// During this condition, the VM remains stopped and no changes are allowed.
+	TypeMaintenance Type = "Maintenance"
 )
 
 type Reason string
@@ -123,4 +127,7 @@ const (
 	ReasonNetworkReady     Reason = "NetworkReady"
 	ReasonNetworkNotReady  Reason = "NetworkNotReady"
 	ReasonSDNModuleDisable Reason = "SDNModuleDisable"
+
+	// ReasonMaintenanceRestore indicates that the VirtualMachine is in maintenance mode for restore operation.
+	ReasonMaintenanceRestore Reason = "RestoreInProgress"
 )

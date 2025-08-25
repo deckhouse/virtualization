@@ -31,6 +31,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
+var ErrStopHandlerChain = errors.New("stop handler chain execution")
+
 type Handler[T client.Object] interface {
 	Handle(ctx context.Context, obj T) (reconcile.Result, error)
 	Name() string
@@ -77,12 +79,17 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 	var result reconcile.Result
 	var errs error
 
+handlersLoop:
 	for _, h := range r.handlers {
 		log := logger.FromContext(ctx).With(logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 
 		res, err := r.execute(ctx, h)
 		switch {
 		case err == nil: // OK.
+		case errors.Is(err, ErrStopHandlerChain):
+			log.Debug("Handler chain execution stopped")
+			result = MergeResults(result, res)
+			break handlersLoop
 		case k8serrors.IsConflict(err):
 			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
 			result.RequeueAfter = 100 * time.Microsecond
