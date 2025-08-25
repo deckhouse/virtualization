@@ -108,7 +108,7 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 
 		cond, err := conditions.GetCondition(vmcondition.TypeRunning, existed.Status.Conditions)
 		if err {
-			return fmt.Errorf("failed to get the `VirtualMachine` %s condition: %w", existed.Name, err)
+			return fmt.Errorf("failed to get the `VirtualMachine` %s condition: %s", existed.Name, vmcondition.TypeRunning)
 		}
 
 		if cond.Status != metav1.ConditionTrue {
