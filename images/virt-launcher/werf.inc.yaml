@@ -423,8 +423,13 @@ shell:
   {{- include "debian packages proxy" . | nindent 2 }}
   - |
     echo "install deps libvirt-dev"
+{{- if eq $.SVACE_ENABLED "false" }}
     apt-get install -y libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  - apt-get -qq install -y libvirt-devel
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   - |
     # Install packages
     PKGS="{{ $images | join " " }}"
