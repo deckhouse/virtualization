@@ -97,6 +97,18 @@ func (v *VirtualMachineHandler) Override(rules []v1alpha2.NameReplacement) {
 }
 
 func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
 	return nil
 }
 

@@ -34,10 +34,10 @@ import (
 )
 
 type VirtualMachineIPHandler struct {
-	mode         common.OperationMode
-	vmip         *v1alpha2.VirtualMachineIPAddress
-	client       client.Client
-	vmRestoreUID string
+	mode       common.OperationMode
+	vmip       *v1alpha2.VirtualMachineIPAddress
+	client     client.Client
+	restoreUID string
 }
 
 func NewVirtualMachineIPAddressHandler(client client.Client, mode common.OperationMode, vmipTmpl *v1alpha2.VirtualMachineIPAddress, vmRestoreUID string) *VirtualMachineIPHandler {
@@ -62,9 +62,9 @@ func NewVirtualMachineIPAddressHandler(client client.Client, mode common.Operati
 			Spec:   vmipTmpl.Spec,
 			Status: vmipTmpl.Status,
 		},
-		mode:         mode,
-		client:       client,
-		vmRestoreUID: vmRestoreUID,
+		mode:       mode,
+		client:     client,
+		restoreUID: vmRestoreUID,
 	}
 }
 
@@ -77,6 +77,12 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {
 		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			return nil
+		}
 	}
 
 	var vmips v1alpha2.VirtualMachineIPAddressList

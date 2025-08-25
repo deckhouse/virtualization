@@ -35,10 +35,10 @@ import (
 )
 
 type ProvisionerHandler struct {
-	mode         common.OperationMode
-	secret       *corev1.Secret
-	client       client.Client
-	vmRestoreUID string
+	mode       common.OperationMode
+	secret     *corev1.Secret
+	client     client.Client
+	restoreUID string
 }
 
 func NewProvisionerHandler(client client.Client, mode common.OperationMode, secretTmpl corev1.Secret, vmRestoreUID string) *ProvisionerHandler {
@@ -65,9 +65,9 @@ func NewProvisionerHandler(client client.Client, mode common.OperationMode, secr
 			StringData: secretTmpl.StringData,
 			Type:       secretTmpl.Type,
 		},
-		mode:         mode,
-		client:       client,
-		vmRestoreUID: vmRestoreUID,
+		mode:       mode,
+		client:     client,
+		restoreUID: vmRestoreUID,
 	}
 }
 
@@ -83,6 +83,10 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if existed == nil {
+		return nil
+	}
+
+	if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
 		return nil
 	}
 

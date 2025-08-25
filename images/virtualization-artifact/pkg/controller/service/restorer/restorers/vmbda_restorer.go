@@ -32,10 +32,10 @@ import (
 )
 
 type VMBlockDeviceAttachmentHandler struct {
-	mode         common.OperationMode
-	vmbda        *v1alpha2.VirtualMachineBlockDeviceAttachment
-	client       client.Client
-	vmRestoreUID string
+	mode       common.OperationMode
+	vmbda      *v1alpha2.VirtualMachineBlockDeviceAttachment
+	client     client.Client
+	restoreUID string
 }
 
 func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.OperationMode, vmbdaTmpl v1alpha2.VirtualMachineBlockDeviceAttachment, vmRestoreUID string) *VMBlockDeviceAttachmentHandler {
@@ -59,9 +59,9 @@ func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.Operati
 			},
 			Spec: vmbdaTmpl.Spec,
 		},
-		mode:         mode,
-		client:       client,
-		vmRestoreUID: vmRestoreUID,
+		mode:       mode,
+		client:     client,
+		restoreUID: vmRestoreUID,
 	}
 }
 
@@ -87,6 +87,10 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) er
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
 		if v.vmbda.Spec.VirtualMachineName != existed.Spec.VirtualMachineName {
 			return fmt.Errorf("the virtual machine block device attachment %q %w", vmbdaKey.Name, common.ErrAlreadyInUse)
 		}
@@ -120,7 +124,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 	}
 
 	if vmbdaObj != nil {
-		if value, ok := vmbdaObj.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+		if value, ok := vmbdaObj.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 

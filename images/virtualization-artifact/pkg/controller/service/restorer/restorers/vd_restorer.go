@@ -32,10 +32,10 @@ import (
 )
 
 type VirtualDiskHandler struct {
-	mode         common.OperationMode
-	vd           *v1alpha2.VirtualDisk
-	client       client.Client
-	vmRestoreUID string
+	mode       common.OperationMode
+	vd         *v1alpha2.VirtualDisk
+	client     client.Client
+	restoreUID string
 }
 
 func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTmpl v1alpha2.VirtualDisk, vmRestoreUID string) *VirtualDiskHandler {
@@ -60,9 +60,9 @@ func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTm
 			Spec:   vdTmpl.Spec,
 			Status: vdTmpl.Status,
 		},
-		mode:         mode,
-		client:       client,
-		vmRestoreUID: vmRestoreUID,
+		mode:       mode,
+		client:     client,
+		restoreUID: vmRestoreUID,
 	}
 }
 
@@ -80,6 +80,10 @@ func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 	vmName := v.getVirtualMachineName()
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
 		for _, a := range existed.Status.AttachedToVirtualMachines {
 			if a.Mounted && a.Name != vmName {
 				return fmt.Errorf("the virtual disk %q %w", existed.Name, common.ErrAlreadyInUse)
@@ -115,7 +119,7 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if vdObj != nil {
-		if value, ok := vdObj.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+		if value, ok := vdObj.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 
