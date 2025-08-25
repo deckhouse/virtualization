@@ -13,5 +13,5 @@ spec:
   disruptions:
     restartApprovalMode: Manual
   blockDeviceRefs:
-    - kind: VirtualImage
-      name: vi-alpine-http
+    - kind: VirtualDisk
+      name: vd-root

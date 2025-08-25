@@ -63,10 +63,10 @@ var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(),
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phase", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+	Context("When virtual disks are applied:", func() {
+		It("checks VDs phases", func() {
+			By(fmt.Sprintf("VDs should be in %s phase", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
