@@ -71,6 +71,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
+				UID:       "test-uid",
 			},
 			Spec:   virtv2.VirtualMachineSpec{},
 			Status: virtv2.VirtualMachineStatus{},
@@ -84,6 +85,32 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 		vm = nil
 		vmPod = nil
 	})
+
+	newMACAddress := func(name, address string, phase virtv2.VirtualMachineMACAddressPhase, attachedVM string) *virtv2.VirtualMachineMACAddress {
+		mac := &virtv2.VirtualMachineMACAddress{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineMACAddress",
+				APIVersion: "virtualization.deckhouse.io/v1alpha2",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Labels: map[string]string{
+					annotations.LabelVirtualMachineUID: string(vm.UID),
+				},
+			},
+			Status: virtv2.VirtualMachineMACAddressStatus{
+				Address: address,
+			},
+		}
+		if phase != "" {
+			mac.Status.Phase = phase
+		}
+		if attachedVM != "" {
+			mac.Status.VirtualMachine = attachedVM
+		}
+		return mac
+	}
 
 	reconcile := func() {
 		gate, _, setFromMap, err := featuregates.New()
@@ -140,6 +167,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 
 		Describe("NetworkSpec have many interfaces", func() {
 			It("Network status is not exist; Condition should have status 'False'", func() {
+				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
 				networkSpec := []virtv2.NetworksSpec{
 					{
 						Type: virtv2.NetworksTypeMain,
@@ -150,7 +178,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					},
 				}
 				vm.Spec.Networks = networkSpec
-				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
 				reconcile()
 
 				newVM := &virtv2.VirtualMachine{}
@@ -165,6 +193,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 
 			It("Network status is exist; Condition should have status 'True'", func() {
+				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
 				networkSpec := []virtv2.NetworksSpec{
 					{
 						Type: virtv2.NetworksTypeMain,
@@ -177,29 +206,6 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				vm.Spec.Networks = networkSpec
 				vmPod.Annotations[annotations.AnnNetworksStatus] = `
 				[
-					{
-					  "type": "Main",
-					  "name": "default",
-					  "ifName": "default",
-					  "mac": "aa:bb:cc:dd:ee:ff",
-					  "ipAddress": "10.2.3.4",
-					  "conditions": [
-						{
-						  "message": "",
-						  "reason": "InterfaceConfiguredSuccessfully",
-						  "status": "True",
-						  "type": "Configured",
-						  "lastTransitionTime": "2025-06-02T13:03:13Z"
-						},
-						{
-						  "message": "",
-						  "reason": "Up",
-						  "status": "True",
-						  "type": "Negotiated",
-						  "lastTransitionTime": "2025-06-02T13:03:13Z"
-						}
-					  ]
-					},
 					{
 					  "type": "Network",
 					  "name": "test-network",
@@ -223,7 +229,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					  ]
 					}
 				]`
-				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
 				reconcile()
 
 				newVM := &virtv2.VirtualMachine{}
@@ -238,6 +244,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 
 			It("Network status is exist; Condition should have status 'False'", func() {
+				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
 				networkSpec := []virtv2.NetworksSpec{
 					{
 						Type: virtv2.NetworksTypeMain,
@@ -250,29 +257,6 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				vm.Spec.Networks = networkSpec
 				vmPod.Annotations[annotations.AnnNetworksStatus] = `
 				[
-					{
-					  "type": "Main",
-					  "name": "default",
-					  "ifName": "default",
-					  "mac": "aa:bb:cc:dd:ee:ff",
-					  "ipAddress": "10.2.3.4",
-					  "conditions": [
-						{
-						  "message": "message with configuration error",
-						  "reason": "ConfigurationError",
-						  "status": "False",
-						  "type": "Configured",
-						  "lastTransitionTime": "2025-06-02T13:03:13Z"
-						},
-						{
-						  "message": "message with negotiation error",
-						  "reason": "NoCarrier",
-						  "status": "False",
-						  "type": "Negotiated",
-						  "lastTransitionTime": "2025-06-02T13:03:13Z"
-						}
-					  ]
-					},
 					{
 					  "type": "Network",
 					  "name": "test-network",
@@ -297,7 +281,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					  ]
 					}
 				]`
-				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
+				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
 				reconcile()
 
 				newVM := &virtv2.VirtualMachine{}

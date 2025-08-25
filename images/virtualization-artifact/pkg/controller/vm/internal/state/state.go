@@ -50,6 +50,7 @@ type VirtualMachineState interface {
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
 	VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
+	VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.VirtualMachineMACAddress, error)
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
 	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
@@ -72,6 +73,7 @@ type state struct {
 	cviByName   map[string]*virtv2.ClusterVirtualImage
 	vmbdasByRef map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment
 	ipAddress   *virtv2.VirtualMachineIPAddress
+	vmmacs      []*virtv2.VirtualMachineMACAddress
 	vmClass     *virtv2.VirtualMachineClass
 	shared      Shared
 }
@@ -321,6 +323,46 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	}
 	s.cviByName = cviByName
 	return cviByName, nil
+}
+
+func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.VirtualMachineMACAddress, error) {
+	if s.vm == nil {
+		return nil, nil
+	}
+
+	if s.vmmacs != nil {
+		return s.vmmacs, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var vmmacs []*virtv2.VirtualMachineMACAddress
+	for _, ns := range s.vm.Current().Spec.Networks {
+		vmmacKey := types.NamespacedName{Name: ns.VirtualMachineMACAddressName, Namespace: s.vm.Current().GetNamespace()}
+		vmmac, err := object.FetchObject(ctx, vmmacKey, s.client, &virtv2.VirtualMachineMACAddress{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
+		}
+		if vmmac != nil {
+			vmmacs = append(vmmacs, vmmac)
+		}
+	}
+
+	vmmacList := &virtv2.VirtualMachineMACAddressList{}
+	err := s.client.List(ctx, vmmacList, &client.ListOptions{
+		Namespace:     s.vm.Current().GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
+	}
+
+	for _, vmmac := range vmmacList.Items {
+		vmmacs = append(vmmacs, &vmmac)
+	}
+
+	s.vmmacs = vmmacs
+	return s.vmmacs, nil
 }
 
 func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {

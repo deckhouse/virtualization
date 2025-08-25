@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/component-base/featuregate"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -72,67 +73,86 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	if len(vm.Spec.Networks) == 1 {
-		vm.Status.Networks = []virtv2.NetworksStatus{
-			{
-				Type: virtv2.NetworksTypeMain,
-			},
+	if len(vm.Spec.Networks) > 1 {
+		if !h.featureGate.Enabled(featuregates.SDN) {
+			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisable).Message("For additional network interfaces, please enable SDN module")
+			return reconcile.Result{}, nil
 		}
-		return reconcile.Result{}, nil
+
+		pods, err := s.Pods(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		errMsg, err := extractNetworkStatusFromPods(pods)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		if errMsg != "" {
+			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
+		} else {
+			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
+		}
 	}
 
-	if !h.featureGate.Enabled(featuregates.SDN) {
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisable).Message("For additional network interfaces, please enable SDN module")
-		return reconcile.Result{}, nil
+	return h.UpdateNetworkStatus(ctx, s, vm)
+}
+
+func (h *NetworkInterfaceHandler) Name() string {
+	return nameNetworkHandler
+}
+
+func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+	// check that vmmacName is not removed when deleting a network interface from the spec, as it is still in use
+	if len(vm.Status.Networks) > len(vm.Spec.Networks) {
+		if vm.Status.Phase != virtv2.MachinePending && vm.Status.Phase != virtv2.MachineStopped {
+			return reconcile.Result{}, nil
+		}
 	}
 
-	pods, err := s.Pods(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	errMsg, err := extractNetworkStatusFromPods(pods)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if errMsg != "" {
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonNetworkNotReady).Message(errMsg)
-	} else {
-		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonNetworkReady).Message("")
-	}
-
-	kvvmi, err := s.KVVMI(ctx)
+	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	macAddressesByInterfaceName := make(map[string]string)
-	if kvvmi != nil {
-		for _, i := range kvvmi.Status.Interfaces {
-			macAddressesByInterfaceName[i.Name] = i.MAC
+	if kvvm != nil && kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusUnschedulable {
+		for _, i := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+			macAddressesByInterfaceName[i.Name] = i.MacAddress
+		}
+	}
+
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	vmmacNamesByAddress := make(map[string]string)
+	for _, vmmac := range vmmacs {
+		if mac := vmmac.Status.Address; mac != "" {
+			vmmacNamesByAddress[vmmac.Status.Address] = vmmac.Name
 		}
 	}
 
 	networksStatus := []virtv2.NetworksStatus{
 		{
 			Type: virtv2.NetworksTypeMain,
+			Name: "default",
 		},
 	}
-	for _, i := range network.CreateNetworkSpec(vm.Spec) {
+
+	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
 		networksStatus = append(networksStatus, virtv2.NetworksStatus{
-			Type: i.Type,
-			Name: i.Name,
-			MAC:  macAddressesByInterfaceName[i.InterfaceName],
+			Type:                         interfaceSpec.Type,
+			Name:                         interfaceSpec.Name,
+			MAC:                          macAddressesByInterfaceName[interfaceSpec.InterfaceName],
+			VirtualMachineMACAddressName: vmmacNamesByAddress[interfaceSpec.MAC],
 		})
 	}
 
 	vm.Status.Networks = networksStatus
 	return reconcile.Result{}, nil
-}
-
-func (h *NetworkInterfaceHandler) Name() string {
-	return nameNetworkHandler
 }
 
 func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {

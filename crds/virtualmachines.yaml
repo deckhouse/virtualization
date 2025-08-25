@@ -965,8 +965,8 @@ spec:
 
                           Supported types:
 
-                          * `Main` - primary network interface that is always present (default network).
-                          * `Network` - a subnet at the namespace level.
+                          * `Main` — primary network interface that is always present (default network).
+                          * `Network` — a subnet at the namespace level.
                           * `ClusterNetwork` — a subnet at the cluster level.
                         enum:
                           - "Main"
@@ -976,6 +976,10 @@ spec:
                         type: string
                         description: |
                           The name of the network interface.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
             status:
               type: object
               properties:
@@ -1316,6 +1320,10 @@ spec:
                         type: string
                         description: |
                           The MAC address of the network interface.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase

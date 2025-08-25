@@ -71,6 +71,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineIPAddresses().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineipaddressleases"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineIPAddressLeases().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinemacaddresses"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineMACAddresses().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinemacaddressleases"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineMACAddressLeases().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachineoperations"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineOperations().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinerestores"):

@@ -552,12 +552,16 @@ spec:
                           Тип сетевого интерфейса.
 
                           Возможные типы:
-                          * `Main` - основной сетевой интерфейс, который всегда присутствует (сеть по умолчанию);
-                          * `Network` - подсеть на уровне пространства имен;
+                          * `Main` — основной сетевой интерфейс, который всегда присутствует (сеть по умолчанию);
+                          * `Network` — подсеть на уровне пространства имен;
                           * `ClusterNetwork` — подсеть на уровне кластера.
                       name:
                         description: |
                           Имя сетевого интерфейса.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          Имя ресурса `VirtualMachineMACAddress`, связанного с сетевым интерфейсом.
             status:
               properties:
                 blockDeviceRefs:
@@ -743,5 +747,8 @@ spec:
                         description: |
                           Имя сетевого интерфейса.
                       macAddress:
-                        type: string
+                        description: |
                           MAC-адрес сетевого интерфейса.
+                      virtualMachineMACAddressName:
+                        description: |
+                          Имя ресурса `VirtualMachineMACAddress` связанного с сетевым интерфейсом.

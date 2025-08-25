@@ -59,6 +59,8 @@ type Client interface {
 	VirtualMachineIPAddressLeases() virtualizationv1alpha2.VirtualMachineIPAddressLeaseInterface
 	VirtualMachineOperations(namespace string) virtualizationv1alpha2.VirtualMachineOperationInterface
 	VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface
+	VirtualMachineMACAddresses(namespace string) virtualizationv1alpha2.VirtualMachineMACAddressInterface
+	VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface
 }
 type client struct {
 	config      *rest.Config
@@ -107,4 +109,12 @@ func (c client) VirtualMachineOperations(namespace string) virtualizationv1alpha
 
 func (c client) VirtualMachineClasses() virtualizationv1alpha2.VirtualMachineClassInterface {
 	return c.virtClient.VirtualizationV1alpha2().VirtualMachineClasses()
+}
+
+func (c client) VirtualMachineMACAddresses(namespace string) virtualizationv1alpha2.VirtualMachineMACAddressInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualMachineMACAddresses(namespace)
+}
+
+func (c client) VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface {
+	return c.virtClient.VirtualizationV1alpha2().VirtualMachineMACAddressLeases()
 }
