@@ -27,13 +27,10 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineTestArgs struct {
-	mode common.OperationMode
-
 	vmExists               bool
 	vmHasCorrectRestoreUID bool
 	vmHasCorrectSpec       bool
@@ -214,7 +211,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fakeClient).ToNot(BeNil())
 
-			handler = NewVirtualMachineHandler(fakeClient, args.mode, vm, restoreUID)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID)
 			Expect(handler).ToNot(BeNil())
 
 			// Verify that restore annotation was added
@@ -250,8 +247,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			}
 		},
 		Entry("VM doesn't exist", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists: false,
 
 			failValidation: false,
@@ -262,8 +257,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			shouldDeleteVMBDAs: true,
 		}),
 		Entry("VM exists with correct restore UID and correct spec", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists:               true,
 			vmHasCorrectRestoreUID: true,
 			vmHasCorrectSpec:       true,
@@ -276,8 +269,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			shouldDeleteVMBDAs: true,
 		}),
 		Entry("VM exists with incorrect restore UID", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists:               true,
 			vmHasCorrectRestoreUID: false,
 			vmHasCorrectSpec:       true,
@@ -290,8 +281,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			shouldDeleteVMBDAs: true,
 		}),
 		Entry("VM exists with incorrect spec", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists:               true,
 			vmHasCorrectRestoreUID: true,
 			vmHasCorrectSpec:       false,
@@ -304,8 +293,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			shouldDeleteVMBDAs: true,
 		}),
 		Entry("VM exists with incorrect UID and spec", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists:               true,
 			vmHasCorrectRestoreUID: false,
 			vmHasCorrectSpec:       false,
@@ -318,8 +305,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			shouldDeleteVMBDAs: true,
 		}),
 		Entry("VM exists with VMBDAs that should be deleted", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists:               true,
 			vmHasCorrectRestoreUID: true,
 			vmHasCorrectSpec:       true,
@@ -334,8 +319,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			shouldDeleteVMBDAs: true,
 		}),
 		Entry("VM exists with VMBDAs that should not be deleted", VirtualMachineTestArgs{
-			mode: common.StrictRestoreMode,
-
 			vmExists:               true,
 			vmHasCorrectRestoreUID: true,
 			vmHasCorrectSpec:       true,
@@ -389,7 +372,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = NewVirtualMachineHandler(fakeClient, common.StrictRestoreMode, vm, restoreUID)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID)
 		})
 
 		It("should override VM name", func() {

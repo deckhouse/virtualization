@@ -28,20 +28,21 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const ReasonPVCNotFound = "PVC not found"
 
 type VirtualMachineHandler struct {
-	kind       common.OperationMode
 	vm         *v1alpha2.VirtualMachine
 	client     client.Client
 	restoreUID string
 }
 
-func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string) *VirtualMachineHandler {
+func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string) *VirtualMachineHandler {
 	if vmTmpl.Annotations != nil {
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	} else {
@@ -63,7 +64,6 @@ func NewVirtualMachineHandler(client client.Client, kind common.OperationMode, v
 			},
 			Spec: vmTmpl.Spec,
 		},
-		kind:       kind,
 		client:     client,
 		restoreUID: vmopRestoreUID,
 	}
@@ -102,8 +102,17 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value != v.restoreUID {
 			return nil
+		}
+
+		cond, err := conditions.GetCondition(vmcondition.TypeRunning, existed.Status.Conditions)
+		if err {
+			return fmt.Errorf("failed to get the `VirtualMachine` %s condition: %w", existed.Name, err)
+		}
+
+		if cond.Status != metav1.ConditionTrue {
+			return fmt.Errorf("the `VirtualMachine` %s is not in maintenance mode", existed.Name)
 		}
 	}
 
@@ -115,6 +124,11 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
+	err := v.ValidateRestore(ctx)
+	if err != nil {
+		return err
+	}
+
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
 	vm, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {

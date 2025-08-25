@@ -26,13 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskTestArgs struct {
-	mode common.OperationMode
-
 	diskExists       bool
 	diskUsedByDiffVM bool
 
@@ -134,7 +131,7 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			Expect(fakeClient).ToNot(BeNil())
 
 			disk.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm, Mounted: true}}
-			handler = NewVirtualDiskHandler(fakeClient, args.mode, disk, uid)
+			handler = NewVirtualDiskHandler(fakeClient, disk, uid)
 			Expect(handler).ToNot(BeNil())
 
 			err = handler.ValidateRestore(ctx)
@@ -155,8 +152,6 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			Expect(diskCreated).To(Equal(args.shouldBeCreated))
 		},
 		Entry("disk exists; used by different VM", VirtualDiskTestArgs{
-			mode: common.StrictRestoreMode,
-
 			diskExists:       true,
 			diskUsedByDiffVM: true,
 
@@ -167,8 +162,6 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("disk exists; not used by different VM", VirtualDiskTestArgs{
-			mode: common.StrictRestoreMode,
-
 			diskExists:       true,
 			diskUsedByDiffVM: false,
 
@@ -179,8 +172,6 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			shouldBeCreated: true,
 		}),
 		Entry("disk doesn't exist", VirtualDiskTestArgs{
-			mode: common.StrictRestoreMode,
-
 			diskExists:       false,
 			diskUsedByDiffVM: false,
 

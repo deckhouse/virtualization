@@ -147,7 +147,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			Expect(fakeClient).ToNot(BeNil())
 
 			vmip.Status.VirtualMachine = vm
-			handler = NewVirtualMachineIPAddressHandler(fakeClient, args.mode, &vmip, uid)
+			handler = NewVirtualMachineIPAddressHandler(fakeClient, &vmip, uid)
 			Expect(handler).ToNot(BeNil())
 
 			err = handler.ValidateRestore(ctx)

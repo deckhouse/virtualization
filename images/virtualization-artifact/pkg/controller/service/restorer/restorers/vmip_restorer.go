@@ -18,7 +18,6 @@ package restorer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,13 +33,12 @@ import (
 )
 
 type VirtualMachineIPHandler struct {
-	mode       common.OperationMode
 	vmip       *v1alpha2.VirtualMachineIPAddress
 	client     client.Client
 	restoreUID string
 }
 
-func NewVirtualMachineIPAddressHandler(client client.Client, mode common.OperationMode, vmipTmpl *v1alpha2.VirtualMachineIPAddress, vmRestoreUID string) *VirtualMachineIPHandler {
+func NewVirtualMachineIPAddressHandler(client client.Client, vmipTmpl *v1alpha2.VirtualMachineIPAddress, vmRestoreUID string) *VirtualMachineIPHandler {
 	if vmipTmpl.Annotations != nil {
 		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -62,7 +60,6 @@ func NewVirtualMachineIPAddressHandler(client client.Client, mode common.Operati
 			Spec:   vmipTmpl.Spec,
 			Status: vmipTmpl.Status,
 		},
-		mode:       mode,
 		client:     client,
 		restoreUID: vmRestoreUID,
 	}
@@ -119,10 +116,6 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
-	if v.mode == common.DryRunMode {
-		return errors.New("cannot Process with DryRun operation")
-	}
-
 	err := v.ValidateRestore(ctx)
 	if err != nil {
 		return err

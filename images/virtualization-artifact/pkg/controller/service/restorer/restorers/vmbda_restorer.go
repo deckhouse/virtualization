@@ -18,7 +18,6 @@ package restorer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,13 +31,12 @@ import (
 )
 
 type VMBlockDeviceAttachmentHandler struct {
-	mode       common.OperationMode
 	vmbda      *v1alpha2.VirtualMachineBlockDeviceAttachment
 	client     client.Client
 	restoreUID string
 }
 
-func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.OperationMode, vmbdaTmpl v1alpha2.VirtualMachineBlockDeviceAttachment, vmRestoreUID string) *VMBlockDeviceAttachmentHandler {
+func NewVMBlockDeviceAttachmentHandler(client client.Client, vmbdaTmpl v1alpha2.VirtualMachineBlockDeviceAttachment, vmRestoreUID string) *VMBlockDeviceAttachmentHandler {
 	if vmbdaTmpl.Annotations != nil {
 		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -59,7 +57,6 @@ func NewVMBlockDeviceAttachmentHandler(client client.Client, mode common.Operati
 			},
 			Spec: vmbdaTmpl.Spec,
 		},
-		mode:       mode,
 		client:     client,
 		restoreUID: vmRestoreUID,
 	}
@@ -104,10 +101,6 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateClone(ctx context.Context) erro
 }
 
 func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) error {
-	if v.mode == common.DryRunMode {
-		return errors.New("cannot Process with DryRun operation")
-	}
-
 	err := v.ValidateRestore(ctx)
 	if err != nil {
 		return err

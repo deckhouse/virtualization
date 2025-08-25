@@ -18,7 +18,6 @@ package restorer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,13 +31,12 @@ import (
 )
 
 type VirtualDiskHandler struct {
-	mode       common.OperationMode
 	vd         *v1alpha2.VirtualDisk
 	client     client.Client
 	restoreUID string
 }
 
-func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTmpl v1alpha2.VirtualDisk, vmRestoreUID string) *VirtualDiskHandler {
+func NewVirtualDiskHandler(client client.Client, vdTmpl v1alpha2.VirtualDisk, vmRestoreUID string) *VirtualDiskHandler {
 	if vdTmpl.Annotations != nil {
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -60,7 +58,6 @@ func NewVirtualDiskHandler(client client.Client, mode common.OperationMode, vdTm
 			Spec:   vdTmpl.Spec,
 			Status: vdTmpl.Status,
 		},
-		mode:       mode,
 		client:     client,
 		restoreUID: vmRestoreUID,
 	}
@@ -99,10 +96,6 @@ func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
-	if v.mode == common.DryRunMode {
-		return errors.New("cannot Process with DryRun operation")
-	}
-
 	err := v.ValidateRestore(ctx)
 	if err != nil {
 		return err
