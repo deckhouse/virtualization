@@ -74,6 +74,10 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 
 		objects = []client.Object{}
 		vmbda = v1alpha2.VirtualMachineBlockDeviceAttachment{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineBlockDeviceAttachment",
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			},
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 			Spec:       v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{VirtualMachineName: vm},
 		}
@@ -171,4 +175,111 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			shouldBeCreated: true,
 		}),
 	)
+
+	Describe("Override", func() {
+		var rules []v1alpha2.NameReplacement
+
+		BeforeEach(func() {
+			vmbda.Spec.BlockDeviceRef = v1alpha2.VMBDAObjectRef{
+				Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk,
+				Name: "test-disk",
+			}
+
+			rules = []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualMachineBlockDeviceAttachment",
+						Name: name,
+					},
+					To: "new-vmbda-name",
+				},
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualMachine",
+						Name: vm,
+					},
+					To: "new-vm-name",
+				},
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualDisk",
+						Name: "test-disk",
+					},
+					To: "new-disk-name",
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVMBlockDeviceAttachmentHandler(fakeClient, vmbda, uid)
+		})
+
+		It("should override VMBDA name", func() {
+			handler.Override(rules)
+			Expect(handler.vmbda.Name).To(Equal("new-vmbda-name"))
+		})
+
+		It("should override VirtualMachine name", func() {
+			handler.Override(rules)
+			Expect(handler.vmbda.Spec.VirtualMachineName).To(Equal("new-vm-name"))
+		})
+
+		It("should override VirtualDisk name in BlockDeviceRef", func() {
+			handler.Override(rules)
+			Expect(handler.vmbda.Spec.BlockDeviceRef.Name).To(Equal("new-disk-name"))
+		})
+
+		It("should override ClusterVirtualImage name in BlockDeviceRef", func() {
+			handler.vmbda.Spec.BlockDeviceRef.Kind = v1alpha2.VMBDAObjectRefKindClusterVirtualImage
+			handler.vmbda.Spec.BlockDeviceRef.Name = "test-cvi"
+
+			cviRules := []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "ClusterVirtualImage",
+						Name: "test-cvi",
+					},
+					To: "new-cvi-name",
+				},
+			}
+
+			handler.Override(cviRules)
+			Expect(handler.vmbda.Spec.BlockDeviceRef.Name).To(Equal("new-cvi-name"))
+		})
+
+		It("should override VirtualImage name in BlockDeviceRef", func() {
+			handler.vmbda.Spec.BlockDeviceRef.Kind = v1alpha2.VMBDAObjectRefKindVirtualImage
+			handler.vmbda.Spec.BlockDeviceRef.Name = "test-vi"
+
+			viRules := []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualImage",
+						Name: "test-vi",
+					},
+					To: "new-vi-name",
+				},
+			}
+
+			handler.Override(viRules)
+			Expect(handler.vmbda.Spec.BlockDeviceRef.Name).To(Equal("new-vi-name"))
+		})
+
+		It("should not override non-matching names", func() {
+			nonMatchingRules := []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualMachineBlockDeviceAttachment",
+						Name: "different-vmbda",
+					},
+					To: "should-not-apply",
+				},
+			}
+
+			originalName := handler.vmbda.Name
+			handler.Override(nonMatchingRules)
+			Expect(handler.vmbda.Name).To(Equal(originalName))
+		})
+	})
 })

@@ -72,6 +72,10 @@ var _ = Describe("VirtualDiskRestorer", func() {
 		objects = []client.Object{}
 
 		disk = v1alpha2.VirtualDisk{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualDisk",
+				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -182,4 +186,46 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			shouldBeCreated: true,
 		}),
 	)
+
+	Describe("Override", func() {
+		var rules []v1alpha2.NameReplacement
+
+		BeforeEach(func() {
+			rules = []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualDisk",
+						Name: name,
+					},
+					To: "new-disk-name",
+				},
+			}
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualDiskHandler(fakeClient, disk, uid)
+		})
+
+		It("should override disk name", func() {
+			handler.Override(rules)
+			Expect(handler.vd.Name).To(Equal("new-disk-name"))
+		})
+
+		It("should not override non-matching names", func() {
+			nonMatchingRules := []v1alpha2.NameReplacement{
+				{
+					From: v1alpha2.NameReplacementFrom{
+						Kind: "VirtualDisk",
+						Name: "different-disk",
+					},
+					To: "should-not-apply",
+				},
+			}
+
+			originalName := handler.vd.Name
+			handler.Override(nonMatchingRules)
+			Expect(handler.vd.Name).To(Equal(originalName))
+		})
+	})
 })
