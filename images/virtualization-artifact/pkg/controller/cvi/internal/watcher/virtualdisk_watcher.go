@@ -57,7 +57,13 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
 					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
 
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || len(e.ObjectOld.Status.AttachedToVirtualMachines) != len(e.ObjectNew.Status.AttachedToVirtualMachines) || oldInUseCondition != newInUseCondition {
+					oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
+						len(e.ObjectOld.Status.AttachedToVirtualMachines) != len(e.ObjectNew.Status.AttachedToVirtualMachines) ||
+						oldInUseCondition != newInUseCondition ||
+						oldReadyCondition.Status != newReadyCondition.Status {
 						return true
 					}
 
@@ -93,6 +99,17 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 				Name: cvi.Name,
 			},
 		})
+	}
+
+	if vd.Spec.DataSource != nil && vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if vd.Spec.DataSource.ObjectRef != nil && vd.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
+			// Need to trigger reconcile for update InUse condition.
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: vd.Spec.DataSource.ObjectRef.Name,
+				},
+			})
+		}
 	}
 
 	return
