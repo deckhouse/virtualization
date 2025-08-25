@@ -104,5 +104,17 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 		})
 	}
 
+	if vd.Spec.DataSource != nil && vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if vd.Spec.DataSource.ObjectRef != nil && vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+			// Need to trigger reconcile for update InUse condition.
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      vd.Spec.DataSource.ObjectRef.Name,
+					Namespace: vd.Namespace,
+				},
+			})
+		}
+	}
+
 	return
 }
