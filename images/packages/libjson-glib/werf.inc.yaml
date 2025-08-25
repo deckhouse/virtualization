@@ -62,7 +62,8 @@ shell:
     /usr/bin/meson setup .  \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      -Dman=false
+      -Dman=false \
+      -Dprefix=$OUTDIR/usr
 
     ninja-build -j$(nproc)
     DESTDIR=$OUTDIR ninja-build install .
