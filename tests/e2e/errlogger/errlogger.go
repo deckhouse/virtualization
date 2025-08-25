@@ -91,7 +91,7 @@ func (l *LogStream) ParseStderr() {
 	defer l.LogStreamWaitGroup.Done()
 
 	scanner := bufio.NewScanner(l.Stderr)
-	const maxCapacity = 1024 * 1024
+	const maxCapacity = 1024 << 10
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
@@ -110,7 +110,7 @@ func (l *LogStream) ParseStdout(excludedPatterns []string, excludedRegexpPattens
 	errFlag := false
 	scanner := bufio.NewScanner(l.Stdout)
 
-	const maxCapacity = 1024 * 1024
+	const maxCapacity = 1024 << 10
 	buf := make([]byte, maxCapacity)
 	scanner.Buffer(buf, maxCapacity)
 
