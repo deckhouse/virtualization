@@ -17,6 +17,9 @@
   - "--v={{ $settings.logLevel | default "2" }}"
   - "--logtostderr=true"
   - "--stale-cache-interval={{ $settings.staleCacheInterval | default "1h30m" }}"
+  {{- if hasKey $settings "ignorePaths" }}
+  - "--ignore-paths={{ $settings.ignorePaths }}"
+  {{- end }}
   env:
   - name: KUBE_RBAC_PROXY_LISTEN_ADDRESS
     valueFrom:
@@ -50,6 +53,14 @@
   - containerPort: {{ $settings.listenPort | default "8082" }}
     name: {{ $settings.portName | default "https-metrics" }}
     protocol: TCP
+  livenessProbe:
+    tcpSocket:
+      port: {{ $settings.portName | default "https-metrics" }}
+    initialDelaySeconds: 10
+  readinessProbe:
+    tcpSocket:
+      port: {{ $settings.portName | default "https-metrics" }}
+    initialDelaySeconds: 10
 {{- end -}}
 
 {{- define "kube_rbac_proxy.pod_spec_strategic_patch" -}}

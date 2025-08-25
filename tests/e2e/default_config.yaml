@@ -34,6 +34,7 @@ testData:
   vmEvacuation: "/tmp/testdata/vm-evacuation"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   vmRestoreForce: "/tmp/testdata/vm-restore-force"
+  vmRestoreSafe: "/tmp/testdata/vm-restore-safe"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   ipam: "/tmp/testdata/ipam"
@@ -46,9 +47,7 @@ logFilter:
   - "clean up failed for data source registry" # Err.
   - "the server rejected our request due to an error in our request" # Err.
   - "failed to sync powerstate" # Msg.
-  - "failed to detach: intvirtvm not found to unplug" # "err": "failed to detach: intvirtvm not found to unplug"
   - "does not have a pvc reference" # "err": "kvvm head-345e7b6a-testcases-image-hotplug/head-345e7b6a-vm-image-hotplug spec volume vi-head-345e7b6a-vi-alpine-http does not have a pvc reference"
-  - "get storage class specified in spec: storage class not found" # Err.
   - "lastTransitionTime: Required value" # Err.
   - "virtualmachineipaddressleases.virtualization.deckhouse.io "
 regexpLogFilter:
@@ -59,5 +58,4 @@ regexpLogFilter:
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io
   - virtualmachineclasses.virtualization.deckhouse.io
-  - replicatedstorageclasses.storage.deckhouse.io
   - virtualmachineipaddressleases.virtualization.deckhouse.io

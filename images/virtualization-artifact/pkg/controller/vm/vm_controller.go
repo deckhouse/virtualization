@@ -54,6 +54,7 @@ func SetupController(
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
+	vmClassService := service.NewVirtualMachineClassService(client)
 	handlers := []Handler{
 		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
@@ -95,6 +96,7 @@ func SetupController(
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
 		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
+		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err
 	}

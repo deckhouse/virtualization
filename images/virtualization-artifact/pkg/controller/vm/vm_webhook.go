@@ -27,6 +27,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -113,4 +114,42 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err.Error())
 	return nil, nil
+}
+
+type VirtualMachineDefaulter interface {
+	Default(ctx context.Context, vm *virtv2.VirtualMachine) error
+}
+
+type Defaulter struct {
+	defaulters []VirtualMachineDefaulter
+	log        *log.Logger
+}
+
+var _ admission.CustomDefaulter = &Defaulter{}
+
+func NewDefaulter(client client.Client, vmClassService *service.VirtualMachineClassService, log *log.Logger) *Defaulter {
+	return &Defaulter{
+		defaulters: []VirtualMachineDefaulter{
+			defaulter.NewVirtualMachineClassNameDefaulter(client, vmClassService),
+		},
+		log: log.With("webhook", "mutating"),
+	}
+}
+
+func (d *Defaulter) Default(ctx context.Context, obj runtime.Object) error {
+	vm, ok := obj.(*virtv2.VirtualMachine)
+	if !ok {
+		return fmt.Errorf("expected a VirtualMachine but got a %T", obj)
+	}
+
+	d.log.Debug("Mutating VM")
+
+	for _, defaulter := range d.defaulters {
+		err := defaulter.Default(ctx, vm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

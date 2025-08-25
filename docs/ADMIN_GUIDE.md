@@ -281,7 +281,7 @@ d8 k describe cvi ubuntu-22-04
 How to create an image from an HTTP server in the web interface:
 
 - Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Download Data via Link (HTTP)" from the drop-down menu.
+- Click "Create Image", then select "Load data from link (HTTP)" from the drop-down menu.
 - Enter the image name in the "Image Name" field.
 - Specify the link to the image in the "URL" field.
 - Click "Create".
@@ -337,7 +337,7 @@ An image stored in a container registry has a certain format. Let's look at an e
 How to create an image from the container registry in the web interface:
 
 - Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
-- Click "Create Image", then select "Load Data from Container Image" from the drop-down list.
+- Click "Create Image", then select "Load data from container image" from the drop-down list.
 - Enter the image name in the "Image Name" field.
 - Specify the link to the image in the "Image in Container Registry" field.
 - Click "Create".
@@ -412,7 +412,7 @@ How to perform the operation in the web interface:
 - Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
 - Click "Create Image", then select "Upload from Computer" from the drop-down menu.
 - Enter the image name in the "Image Name" field.
-- In the "Upload File" field, click the "Select File on Your Computer" link.
+- In the "Upload File" field, click the "Select a file on your computer" link.
 - Select the file in the file manager that opens.
 - Click the "Create" button.
 - Wait until the image changes to `Ready` status.
@@ -421,8 +421,7 @@ How to perform the operation in the web interface:
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
-By default, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
-
+During installation, a single VirtualMachineClass `generic` resource is automatically created. It represents a universal CPU type based on the older, but widely supported, Nehalem architecture. This enables running VMs on any nodes in the cluster and allows live migration.
 {{< alert level="info" >}}
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
 
@@ -455,6 +454,43 @@ spec:
   ...
 ```
 
+### Default VirtualMachineClass
+
+For convenience, you can assign a default VirtualMachineClass. This class will be used in the `spec.virtualMachineClassName` field if it is not specified in the virtual machine manifest.
+
+The default VirtualMachineClass is set via the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation. There can be only one default class in the cluster. To change the default class, remove the annotation from one class and add it to another.
+
+It is not recommended to set the annotation on the `generic` class, since the annotation may be removed during an update. It is recommended to create your own class and assign it as the default.
+
+Example output of the class list without a default class:
+
+```console
+$ d8 k get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready               1d
+```
+
+Example command of assigning the default class:
+
+```shell
+d8 k annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
+```
+
+After assigning the default class, the output will be:
+
+```console
+$ d8 k get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready   true        1d
+```
+
+When creating a VM without specifying the `spec.virtualMachineClassName` field, it will be set to `host-passthrough-custom`.
+
 ### VirtualMachineClass settings
 
 The VirtualMachineClass resource structure is as follows:
@@ -464,6 +500,9 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: <vmclass-name>
+  # (optional) Set class as a default.
+  # annotations:
+  #   virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
 spec:
   # The section describes virtual processor parameters for virtual machines.
   # This block cannot be changed after the resource has been created.
@@ -744,8 +783,8 @@ How to configure sizing policies in the web interface in the [VM class creation 
 - Click "Add" in the "Resource allocation rules for virtual machines" block.
 - In the "PU" block, enter `1` in the "Min" field.
 - In the "CPU" block, enter `4` in the "Max" field.
-- In the "CPU" block, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order in the "Allow core shares" field.
-- In the "Memory" block, set the switch to "Volume per core".
+- In the "CPU" block, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order in the "Allow setting core fractions" field.
+- In the "Memory" block, set the switch to "Amount per core".
 - In the "Memory" block, enter `1` in the "Min" field.
 - In the "Memory" block, enter `8` in the "Max" field.
 - In the "Memory" block, enter `1` in the "Sampling step" field.

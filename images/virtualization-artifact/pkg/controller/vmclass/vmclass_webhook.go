@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -37,11 +38,12 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.EventRecorderLogger) *Validator {
+func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.EventRecorderLogger, vmClassService *service.VirtualMachineClassService) *Validator {
 	return &Validator{
 		validators: []VirtualMachineClassValidator{
 			validators.NewSizingPoliciesValidator(client),
 			validators.NewPolicyChangesValidator(recorder),
+			validators.NewSingleDefaultClassValidator(client, vmClassService),
 		},
 		log: log.With("webhook", "validation"),
 	}

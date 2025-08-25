@@ -29,52 +29,56 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	ControllerName = "vmop-controller"
-)
+type SubController interface {
+	Name() string
+	Watchers() []reconciler.Watcher
+	Handlers() []reconciler.Handler[*v1alpha2.VirtualMachineOperation]
+	ShouldReconcile(vmop *v1alpha2.VirtualMachineOperation) bool
+}
+
+const ControllerName = "vmop-controller"
 
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
 ) error {
-	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
-	svcOpCreator := internal.NewSvcOpCreator(client)
 
-	handlers := []Handler{
-		internal.NewDeletionHandler(svcOpCreator),
-		internal.NewLifecycleHandler(client, svcOpCreator, recorder),
-		internal.NewOperationHandler(client, svcOpCreator, recorder),
+	controllers := []SubController{
+		powerstate.NewController(client, mgr),
+		migration.NewController(client, mgr),
 	}
 
-	reconciler := NewReconciler(client, handlers...)
+	for _, ctr := range controllers {
+		r := NewReconciler(client, ctr)
+		c, err := controller.New(ctr.Name(), mgr, controller.Options{
+			Reconciler:       r,
+			RateLimiter:      workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Second, 32*time.Second),
+			RecoverPanic:     ptr.To(true),
+			LogConstructor:   logger.NewConstructor(log),
+			CacheSyncTimeout: 10 * time.Minute,
+		})
+		if err != nil {
+			return err
+		}
 
-	vmopController, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler:       reconciler,
-		RateLimiter:      workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Second, 32*time.Second),
-		RecoverPanic:     ptr.To(true),
-		LogConstructor:   logger.NewConstructor(log),
-		CacheSyncTimeout: 10 * time.Minute,
-	})
-	if err != nil {
-		return err
+		err = r.SetupController(ctx, mgr, c)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = reconciler.SetupController(ctx, mgr, vmopController)
-	if err != nil {
-		return err
-	}
-
-	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualMachineOperation{}).
+	if err := builder.WebhookManagedBy(mgr).
+		For(&v1alpha2.VirtualMachineOperation{}).
 		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return err

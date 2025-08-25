@@ -23,6 +23,9 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -30,6 +33,14 @@ import (
 
 var ErrStopHandlerChain = errors.New("stop handler chain execution")
 
+type Handler[T client.Object] interface {
+	Handle(ctx context.Context, obj T) (reconcile.Result, error)
+	Name() string
+}
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
 type ResourceUpdater func(ctx context.Context) error
 
 type HandlerExecutor[H any] func(ctx context.Context, h H) (reconcile.Result, error)

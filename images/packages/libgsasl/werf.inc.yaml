@@ -24,6 +24,13 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
+    cd /src
+    GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
+    cd gnulib
+    git checkout $GNULIB_REVISION
+    cd /
+
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -66,7 +73,10 @@ shell:
     OUTDIR=/out
 
     cd /src
-    ./bootstrap --skip-po
+    export GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    export GNULIB_SRCDIR=$(pwd)/gnulib
+
+    ./bootstrap --skip-po --no-git
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \

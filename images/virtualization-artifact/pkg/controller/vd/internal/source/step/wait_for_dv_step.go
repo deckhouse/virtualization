@@ -82,12 +82,11 @@ func (s WaitForDVStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*recon
 	if err != nil {
 		return nil, fmt.Errorf("set for first consumer is awaited: %w", err)
 	}
-	if set {
+	ok := s.checkQoutaNotExceededCondition(vd, set)
+	if !ok {
 		return &reconcile.Result{}, nil
 	}
-
-	ok := s.checkQoutaNotExceededCondition(vd)
-	if !ok {
+	if set {
 		return &reconcile.Result{}, nil
 	}
 
@@ -144,10 +143,13 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *vir
 	return false, nil
 }
 
-func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *virtv2.VirtualDisk) (ok bool) {
+func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *virtv2.VirtualDisk, inwffc bool) (ok bool) {
 	dvQuotaNotExceededCondition, _ := conditions.GetDataVolumeCondition(conditions.DVQoutaNotExceededConditionType, s.dv.Status.Conditions)
 	if dvQuotaNotExceededCondition.Status == corev1.ConditionFalse {
 		vd.Status.Phase = virtv2.DiskPending
+		if inwffc {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).

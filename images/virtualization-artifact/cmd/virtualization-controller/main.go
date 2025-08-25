@@ -33,6 +33,7 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -73,6 +74,7 @@ const (
 	logOutputEnv              = "LOG_OUTPUT"
 
 	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
+	healthProbeBindAddrEnv                     = "HEALTH_PROBE_BIND_ADDRESS"
 	podNamespaceEnv                            = "POD_NAMESPACE"
 	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
@@ -120,6 +122,9 @@ func main() {
 	var metricsBindAddr string
 	pflag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
 
+	var healthProbeBindAddr string
+	pflag.StringVar(&healthProbeBindAddr, "health-probe-bind-address", getEnv(healthProbeBindAddrEnv, ":8083"), "health probe bind address")
+
 	var firmwareImage string
 	pflag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
 
@@ -128,6 +133,9 @@ func main() {
 
 	var clusterUUID string
 	pflag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
+
+	var leaderElection bool
+	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
 
 	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
 	featuregates.AddFlags(pflag.CommandLine)
@@ -217,9 +225,13 @@ func main() {
 		}
 	}
 
+	if !leaderElection {
+		log.Warn("Leader election is disabled, use only for development")
+	}
+
 	managerOpts := manager.Options{
 		// This controller watches resources in all namespaces.
-		LeaderElection:             true,
+		LeaderElection:             leaderElection,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
@@ -227,6 +239,7 @@ func main() {
 		Metrics: metricsserver.Options{
 			BindAddress: metricsBindAddr,
 		},
+		HealthProbeBindAddress: healthProbeBindAddr,
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -255,6 +268,11 @@ func main() {
 	virtClient, err := kubeclient.GetClientFromRESTConfig(cfg)
 	if err != nil {
 		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Error("Failed to add healthz check", logger.SlogErr(err))
 		os.Exit(1)
 	}
 

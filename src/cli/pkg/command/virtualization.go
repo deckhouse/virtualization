@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/component-base/logs"
 
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/console"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle"
@@ -36,9 +37,6 @@ import (
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/scp"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/vnc"
-
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
-
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
@@ -53,7 +51,7 @@ func NewCommand(programName string) *cobra.Command {
 	// used to enable replacement of `ProgramName` placeholder for cobra.Example, which has no template support
 	cobra.AddTemplateFunc(
 		"prepare", func(s string) string {
-			result := strings.Replace(s, "{{ProgramName}}", programName, -1)
+			result := strings.ReplaceAll(s, "{{ProgramName}}", programName)
 			return result
 		},
 	)
@@ -63,8 +61,8 @@ func NewCommand(programName string) *cobra.Command {
 		Short:         programName + " controls virtual machine related operations on your kubernetes cluster.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
 		},
 	}
 
@@ -77,7 +75,7 @@ func NewCommand(programName string) *cobra.Command {
 		Use:    "options",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Printf("%s", cmd.UsageString())
 		},
 	}
 

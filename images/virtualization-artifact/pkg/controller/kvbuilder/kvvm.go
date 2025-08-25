@@ -501,6 +501,7 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 			Type: "q35",
 		}
 		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = nil
 		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
 			ACPI: virtv1.FeatureState{Enabled: pointer.GetPointer(true)},

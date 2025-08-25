@@ -25,38 +25,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/watcher"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Watcher interface {
-	Watch(mgr manager.Manager, ctr controller.Controller) error
-}
-
-type Handler interface {
-	Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error)
-	Name() string
-}
-
 type Reconciler struct {
-	handlers []Handler
-	client   client.Client
+	client     client.Client
+	controller SubController
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, controller SubController) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		client:     client,
+		controller: controller,
 	}
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	watchers := []Watcher{
-		watcher.NewVMOPWatcher(),
-		watcher.NewVMWatcher(),
-		watcher.NewMigrationWatcher(),
-	}
-	for _, w := range watchers {
+	for _, w := range r.controller.Watchers() {
 		if err := w.Watch(mgr, ctr); err != nil {
 			return err
 		}
@@ -76,8 +61,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
-	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+	if !r.controller.ShouldReconcile(vmop.Changed()) {
+		return reconcile.Result{}, nil
+	}
+
+	rec := reconciler.NewBaseReconciler[reconciler.Handler[*v1alpha2.VirtualMachineOperation]](r.controller.Handlers())
+	rec.SetHandlerExecutor(func(ctx context.Context, h reconciler.Handler[*v1alpha2.VirtualMachineOperation]) (reconcile.Result, error) {
 		return h.Handle(ctx, vmop.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
@@ -89,10 +78,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineOperation {
-	return &virtv2.VirtualMachineOperation{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachineOperation {
+	return &v1alpha2.VirtualMachineOperation{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineOperation) virtv2.VirtualMachineOperationStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineOperation) v1alpha2.VirtualMachineOperationStatus {
 	return obj.Status
 }

@@ -66,7 +66,7 @@ var _ = Describe("MigratingHandler", func() {
 		return kvvmi
 	}
 
-	newVMOP := func(phase virtv2.VMOPPhase, reason string) *virtv2.VirtualMachineOperation {
+	newVMOP := func(phase virtv2.VMOPPhase, reason string, isSignalSent bool) *virtv2.VirtualMachineOperation {
 		vmop := vmopbuilder.New(
 			vmopbuilder.WithGenerateName("test-vmop-"),
 			vmopbuilder.WithNamespace(namespace),
@@ -80,6 +80,12 @@ var _ = Describe("MigratingHandler", func() {
 				Status: metav1.ConditionFalse,
 				Reason: reason,
 			},
+		}
+		if isSignalSent {
+			vmop.Status.Conditions = append(vmop.Status.Conditions, metav1.Condition{
+				Type:   vmopcondition.TypeSignalSent.String(),
+				Status: metav1.ConditionTrue,
+			})
 		}
 		return vmop
 	}
@@ -160,7 +166,7 @@ var _ = Describe("MigratingHandler", func() {
 		It("Should set condition when vmop is in progress with pending reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationPending.String())
+			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationPending.String(), true)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
 
 			reconcile()
@@ -179,7 +185,7 @@ var _ = Describe("MigratingHandler", func() {
 		It("Should set condition when vmop is in progress with target ready reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationTargetReady.String())
+			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationTargetReady.String(), true)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
 
 			reconcile()
@@ -198,7 +204,7 @@ var _ = Describe("MigratingHandler", func() {
 		It("Should set condition when vmop is in progress with running reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationRunning.String())
+			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationRunning.String(), true)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
 
 			reconcile()
