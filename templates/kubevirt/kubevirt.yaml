@@ -10,7 +10,7 @@
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 {{- $logVerbosity := include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | int }}
-{{ $delve := (include "debugEnvs" . | fromYaml) }}
+{{ $delve := (include "delve" . | fromYaml) }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt

@@ -1,5 +1,5 @@
 {{- $priorityClassName := include "priorityClassName" . }}
-{{- $delve := (include "debugEnvs" . | fromYaml) -}}
+{{- $delve := (include "delve" . | fromYaml) -}}
 
 {{- define "virtualization_api_resources" }}
 cpu: 10m
@@ -107,7 +107,7 @@ spec:
             - containerPort: 8443
               name: apiserver
               protocol: TCP
-            {{- include "debugPorts" (list $delve "virtualization-api") | nindent 12 }}
+            {{- include "delvePorts" (list $delve "virtualization-api") | nindent 12 }}
           {{- if not (and ($delve) (eq $delve.debug.component "virtualization-api")) }}
           livenessProbe:
             httpGet:

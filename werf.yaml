@@ -65,7 +65,7 @@ shell:
       cat images_digests.json
 {{-  if .DEBUG_COMPONENT }}
     - |
-      cat <<EOF>> /debug-values.yaml
+      cat <<EOF>> /delve.yaml
       debug:
         component: {{ printf "%s" (split "/" .DEBUG_COMPONENT)._1 }}
       EOF
@@ -81,7 +81,7 @@ import:
   includePaths:
     - images_digests.json
   {{-  if .DEBUG_COMPONENT }}
-    - debug-values.yaml
+    - delve.yaml
   {{-  end }}
 - image: go-hooks-artifact
   add: /go-hooks
