@@ -31,7 +31,6 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 {{-   $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
 {{-   $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
-{{-   $_ := set $ctx "DELVE_DEBUG" $Root.DELVE_DEBUG }}
 {{-   $_ := set $ctx "DEBUG_COMPONENT" $Root.DEBUG_COMPONENT }}
 {{-   $_ := set $ctx "Firmware" $Root.Firmware }}
 {{-   $_ := set $ctx "Package" $Root.Package }}
