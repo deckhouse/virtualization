@@ -23,12 +23,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
@@ -83,19 +79,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualImage]{},
-			predicate.TypedFuncs[*virtv2.VirtualImage]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
-					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-				},
-			},
-		),
-	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualImage: %w", err)
-	}
-
 	viFromVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualImageObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), viFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
@@ -117,6 +100,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewDataVolumeWatcher(),
 		watcher.NewPersistentVolumeClaimWatcher(),
 		watcher.NewVirtualDiskWatcher(mgrClient),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

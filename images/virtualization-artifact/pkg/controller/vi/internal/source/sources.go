@@ -109,7 +109,7 @@ type CheckImportProcess interface {
 	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
-func setPhaseConditionForFinishedImage(
+func SetPhaseConditionForFinishedImage(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *virtv2.ImagePhase,
