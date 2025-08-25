@@ -8,8 +8,9 @@ dirs:
   - /var/lib/kubevirt
   - /var/lib/kubelet/device-plugins
   - /var/lib/kubelet/pods
-  - /var/run/kubevirt
-  - /var/run/kubevirt-libvirt-runtimes
   - /var/lib/kubevirt-node-labeller
-  - /var/run/kubevirt-private
+  # Create dirs in /run, as /var/run is s symlink to /run.
+  - /run/kubevirt
+  - /run/kubevirt-libvirt-runtimes
+  - /run/kubevirt-private
   - /tmp

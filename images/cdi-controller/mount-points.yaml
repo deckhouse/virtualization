@@ -1,8 +1,9 @@
 dirs:
-  - /var/run/cdi/token/keys
-  - /var/run/certs/cdi-uploadserver-signer
-  - /var/run/certs/cdi-uploadserver-client-signer
-  - /var/run/ca-bundle/cdi-uploadserver-signer-bundle
-  - /var/run/ca-bundle/cdi-uploadserver-client-signer-bundle
+  # Create dirs in /run, as /var/run is s symlink to /run.
+  - /run/cdi/token/keys
+  - /run/certs/cdi-uploadserver-signer
+  - /run/certs/cdi-uploadserver-client-signer
+  - /run/ca-bundle/cdi-uploadserver-signer-bundle
+  - /run/ca-bundle/cdi-uploadserver-client-signer-bundle
   - /kubeconfig.local
   - /tmp

@@ -3,5 +3,4 @@ dirs:
   - /etc/virt-handler/clientcertificates
   - /profile-data
   - /kubeconfig.local
-  # TODO is it needed?
   - /tmp
