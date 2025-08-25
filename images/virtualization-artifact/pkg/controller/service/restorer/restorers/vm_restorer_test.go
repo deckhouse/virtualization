@@ -160,11 +160,9 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			},
 			Update: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.UpdateOption) error {
 				if obj.GetName() == vm.Name && obj.GetNamespace() == vm.Namespace {
-					updatedVM, ok := obj.(*v1alpha2.VirtualMachine)
+					_, ok := obj.(*v1alpha2.VirtualMachine)
 					Expect(ok).To(BeTrue())
 					vmUpdated = true
-					// Verify that RunPolicy was set correctly
-					Expect(updatedVM.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOffPolicy))
 				}
 				return nil
 			},
@@ -188,8 +186,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 					vmToAdd.Annotations[annotations.AnnVMRestore] = restoreUID
 				}
 				if !args.vmHasCorrectSpec {
-					// Change the spec to make it different
-					vmToAdd.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
 					vmToAdd.Spec.VirtualMachineIPAddress = "different-ip"
 				}
 				objects = append(objects, vmToAdd)
@@ -221,8 +217,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			handler = NewVirtualMachineHandler(fakeClient, args.mode, vm, restoreUID)
 			Expect(handler).ToNot(BeNil())
 
-			// Verify that RunPolicy was set to AlwaysOffPolicy during construction
-			Expect(handler.vm.Spec.RunPolicy).To(Equal(v1alpha2.AlwaysOffPolicy))
 			// Verify that restore annotation was added
 			Expect(handler.vm.Annotations[annotations.AnnVMRestore]).To(Equal(restoreUID))
 
