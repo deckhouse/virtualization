@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/yaml"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestActionRequiredOnCompare(t *testing.T) {
@@ -369,9 +369,9 @@ enableParavirtualization: true
 	}
 }
 
-func loadVMSpec(t *testing.T, inYAML string) *virtv2.VirtualMachineSpec {
+func loadVMSpec(t *testing.T, inYAML string) *v1alpha2.VirtualMachineSpec {
 	t.Helper()
-	var spec virtv2.VirtualMachineSpec
+	var spec v1alpha2.VirtualMachineSpec
 	err := yaml.Unmarshal([]byte(inYAML), &spec)
 	require.NoError(t, err, "Should load vm spec from '%s'", inYAML)
 	return &spec

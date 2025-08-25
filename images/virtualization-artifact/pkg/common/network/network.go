@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -47,10 +47,10 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec) InterfaceSpecList {
+func CreateNetworkSpec(vmSpec v1alpha2.VirtualMachineSpec) InterfaceSpecList {
 	var networksSpec InterfaceSpecList
 	for id, network := range vmSpec.Networks {
-		if network.Type == virtv2.NetworksTypeMain {
+		if network.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 
@@ -79,9 +79,9 @@ func generateInterfaceName(id int, networkType string) string {
 	hashHex := hex.EncodeToString(hash[:])
 
 	switch networkType {
-	case virtv2.NetworksTypeNetwork:
+	case v1alpha2.NetworksTypeNetwork:
 		name = fmt.Sprintf("veth_n%s", hashHex[:8])
-	case virtv2.NetworksTypeClusterNetwork:
+	case v1alpha2.NetworksTypeClusterNetwork:
 		name = fmt.Sprintf("veth_cn%s", hashHex[:8])
 	}
 	return name

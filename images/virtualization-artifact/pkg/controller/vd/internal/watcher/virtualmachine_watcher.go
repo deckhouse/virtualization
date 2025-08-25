@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineWatcher struct{}
@@ -40,16 +40,16 @@ func NewVirtualMachineWatcher() *VirtualMachineWatcher {
 
 func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueDisksAttachedToVM),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
 					return w.vmHasAttachedDisks(e.Object)
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool {
 					return w.vmHasAttachedDisks(e.Object)
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					return w.vmHasAttachedDisks(e.ObjectOld) || w.vmHasAttachedDisks(e.ObjectNew)
 				},
 			},
@@ -60,11 +60,11 @@ func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 	return nil
 }
 
-func (w *VirtualMachineWatcher) enqueueDisksAttachedToVM(_ context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+func (w *VirtualMachineWatcher) enqueueDisksAttachedToVM(_ context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
 	var requests []reconcile.Request
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
@@ -77,9 +77,9 @@ func (w *VirtualMachineWatcher) enqueueDisksAttachedToVM(_ context.Context, vm *
 	return requests
 }
 
-func (w *VirtualMachineWatcher) vmHasAttachedDisks(vm *virtv2.VirtualMachine) bool {
+func (w *VirtualMachineWatcher) vmHasAttachedDisks(vm *v1alpha2.VirtualMachine) bool {
 	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == virtv2.DiskDevice {
+		if bda.Kind == v1alpha2.DiskDevice {
 			return true
 		}
 	}

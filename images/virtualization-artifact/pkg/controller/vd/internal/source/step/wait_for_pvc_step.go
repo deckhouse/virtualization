@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -51,9 +51,9 @@ func NewWaitForPVCStep(
 	}
 }
 
-func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s WaitForPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc == nil {
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -71,7 +71,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reco
 	}
 
 	if wffc {
-		vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
@@ -79,7 +79,7 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reco
 		return &reconcile.Result{}, nil
 	}
 
-	vd.Status.Phase = virtv2.DiskProvisioning
+	vd.Status.Phase = v1alpha2.DiskProvisioning
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).

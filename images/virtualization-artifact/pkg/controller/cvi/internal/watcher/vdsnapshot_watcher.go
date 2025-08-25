@@ -35,7 +35,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskSnapshotWatcher struct {
@@ -45,17 +45,17 @@ type VirtualDiskSnapshotWatcher struct {
 
 func NewVirtualDiskSnapshotWatcher(client client.Client) *VirtualDiskSnapshotWatcher {
 	return &VirtualDiskSnapshotWatcher{
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskSnapshotKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualDiskSnapshotKind)),
 		client: client,
 	}
 }
 
 func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDiskSnapshot{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDiskSnapshot{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualDiskSnapshot]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDiskSnapshot]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualDiskSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDiskSnapshot]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
@@ -66,8 +66,8 @@ func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	return nil
 }
 
-func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (requests []reconcile.Request) {
-	var cvis virtv2.ClusterVirtualImageList
+func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (requests []reconcile.Request) {
+	var cvis v1alpha2.ClusterVirtualImageList
 	err := w.client.List(ctx, &cvis, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldCVIByVDSnapshot, types.NamespacedName{
 			Namespace: vdSnapshot.Namespace,
@@ -95,12 +95,12 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, vdSnaps
 	return
 }
 
-func isSnapshotDataSource(ds virtv2.ClusterVirtualImageDataSource, vdSnapshot metav1.Object) bool {
-	if ds.Type != virtv2.DataSourceTypeObjectRef {
+func isSnapshotDataSource(ds v1alpha2.ClusterVirtualImageDataSource, vdSnapshot metav1.Object) bool {
+	if ds.Type != v1alpha2.DataSourceTypeObjectRef {
 		return false
 	}
 
-	if ds.ObjectRef == nil || ds.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
+	if ds.ObjectRef == nil || ds.ObjectRef.Kind != v1alpha2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
 		return false
 	}
 

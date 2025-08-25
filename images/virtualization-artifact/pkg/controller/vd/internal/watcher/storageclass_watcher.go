@@ -36,7 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StorageClassWatcher struct {
@@ -47,7 +47,7 @@ type StorageClassWatcher struct {
 func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 	return &StorageClassWatcher{
 		client: client,
-		logger: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskKind)),
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualDiskKind)),
 	}
 }
 
@@ -78,7 +78,7 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 }
 
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.StorageClass) []reconcile.Request {
-	var vds virtv2.VirtualDiskList
+	var vds v1alpha2.VirtualDiskList
 	err := w.client.List(ctx, &vds, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, sc.Name),
 	})
@@ -87,12 +87,12 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.
 		return []reconcile.Request{}
 	}
 
-	vdMap := make(map[string]virtv2.VirtualDisk, len(vds.Items))
+	vdMap := make(map[string]v1alpha2.VirtualDisk, len(vds.Items))
 	for _, vd := range vds.Items {
 		vdMap[vd.Name] = vd
 	}
 
-	vds.Items = []virtv2.VirtualDisk{}
+	vds.Items = []v1alpha2.VirtualDisk{}
 
 	isDefault, ok := sc.Annotations[annotations.AnnDefaultStorageClass]
 	if ok && isDefault == "true" {

@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
@@ -57,7 +57,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 	}
 	changed := s.VirtualMachineClass().Changed()
 	if s.VirtualMachineClass().Current().GetDeletionTimestamp().IsZero() {
-		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMCleanup)
+		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerVMCleanup)
 		return reconcile.Result{}, nil
 	}
 
@@ -89,7 +89,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 	conditions.RemoveCondition(vmclasscondition.TypeInUse, &changed.Status.Conditions)
 
 	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
-	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)
+	controllerutil.RemoveFinalizer(changed, v1alpha2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
 }
 

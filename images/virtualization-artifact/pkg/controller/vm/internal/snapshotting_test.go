@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -42,7 +42,7 @@ var _ = Describe("SnapshottingHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
 	)
 
@@ -52,20 +52,20 @@ var _ = Describe("SnapshottingHandler", func() {
 		vmState = nil
 	})
 
-	newVM := func() *virtv2.VirtualMachine {
+	newVM := func() *v1alpha2.VirtualMachine {
 		return vmbuilder.NewEmpty(name, namespace)
 	}
 
-	newVMSnapshot := func(vmName string, phase virtv2.VirtualMachineSnapshotPhase) *virtv2.VirtualMachineSnapshot {
-		return &virtv2.VirtualMachineSnapshot{
+	newVMSnapshot := func(vmName string, phase v1alpha2.VirtualMachineSnapshotPhase) *v1alpha2.VirtualMachineSnapshot {
+		return &v1alpha2.VirtualMachineSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      vmName + "-snapshot",
 				Namespace: namespace,
 			},
-			Spec: virtv2.VirtualMachineSnapshotSpec{
+			Spec: v1alpha2.VirtualMachineSnapshotSpec{
 				VirtualMachineName: vmName,
 			},
-			Status: virtv2.VirtualMachineSnapshotStatus{
+			Status: v1alpha2.VirtualMachineSnapshotStatus{
 				Phase: phase,
 			},
 		}
@@ -82,12 +82,12 @@ var _ = Describe("SnapshottingHandler", func() {
 	Describe("Condition presence and absence scenarios", func() {
 		It("Should add condition if snapshot is in progress", func() {
 			vm := newVM()
-			snapshot := newVMSnapshot(vm.Name, virtv2.VirtualMachineSnapshotPhaseInProgress)
+			snapshot := newVMSnapshot(vm.Name, v1alpha2.VirtualMachineSnapshotPhaseInProgress)
 			fakeClient, resource, vmState = setupEnvironment(vm, snapshot)
 
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -98,11 +98,11 @@ var _ = Describe("SnapshottingHandler", func() {
 
 		It("Should not add condition if snapshot is ready", func() {
 			vm := newVM()
-			snapshot := newVMSnapshot(vm.Name, virtv2.VirtualMachineSnapshotPhaseReady)
+			snapshot := newVMSnapshot(vm.Name, v1alpha2.VirtualMachineSnapshotPhaseReady)
 			fakeClient, resource, vmState = setupEnvironment(vm, snapshot)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -115,7 +115,7 @@ var _ = Describe("SnapshottingHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -134,7 +134,7 @@ var _ = Describe("SnapshottingHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 

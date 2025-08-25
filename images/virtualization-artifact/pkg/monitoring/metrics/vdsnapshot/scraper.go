@@ -23,7 +23,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -42,17 +42,17 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricVDSnapshotStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.VirtualDiskSnapshotPhasePending
+		phase = v1alpha2.VirtualDiskSnapshotPhasePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.VirtualDiskSnapshotPhasePending, string(virtv2.VirtualDiskSnapshotPhasePending)},
-		{phase == virtv2.VirtualDiskSnapshotPhaseInProgress, string(virtv2.VirtualDiskSnapshotPhaseInProgress)},
-		{phase == virtv2.VirtualDiskSnapshotPhaseReady, string(virtv2.VirtualDiskSnapshotPhaseReady)},
-		{phase == virtv2.VirtualDiskSnapshotPhaseFailed, string(virtv2.VirtualDiskSnapshotPhaseFailed)},
-		{phase == virtv2.VirtualDiskSnapshotPhaseTerminating, string(virtv2.VirtualDiskSnapshotPhaseTerminating)},
+		{phase == v1alpha2.VirtualDiskSnapshotPhasePending, string(v1alpha2.VirtualDiskSnapshotPhasePending)},
+		{phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress, string(v1alpha2.VirtualDiskSnapshotPhaseInProgress)},
+		{phase == v1alpha2.VirtualDiskSnapshotPhaseReady, string(v1alpha2.VirtualDiskSnapshotPhaseReady)},
+		{phase == v1alpha2.VirtualDiskSnapshotPhaseFailed, string(v1alpha2.VirtualDiskSnapshotPhaseFailed)},
+		{phase == v1alpha2.VirtualDiskSnapshotPhaseTerminating, string(v1alpha2.VirtualDiskSnapshotPhaseTerminating)},
 	}
 
 	for _, p := range phases {

@@ -28,7 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -83,21 +83,21 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 		})
 
 		It("checks the resources phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
+			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", v1alpha2.ImageReady), func() {
 				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-			By(fmt.Sprintf("`VirtualMachineClasses` should be in %s phases", virtv2.ClassPhaseReady), func() {
+			By(fmt.Sprintf("`VirtualMachineClasses` should be in %s phases", v1alpha2.ClassPhaseReady), func() {
 				WaitPhaseByLabel(kc.ResourceVMClass, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-			By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", virtv2.DiskReady), func() {
+			By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", v1alpha2.DiskReady), func() {
 				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
@@ -117,10 +117,10 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 	Context("When the virtual machines agents are ready", func() {
 		It("checks the `status.nodeName` field of the `VirtualMachines`", func() {
 			var (
-				vmObjA = &virtv2.VirtualMachine{}
-				vmObjB = &virtv2.VirtualMachine{}
-				vmObjC = &virtv2.VirtualMachine{}
-				vmObjD = &virtv2.VirtualMachine{}
+				vmObjA = &v1alpha2.VirtualMachine{}
+				vmObjB = &v1alpha2.VirtualMachine{}
+				vmObjC = &v1alpha2.VirtualMachine{}
+				vmObjD = &v1alpha2.VirtualMachine{}
 				err    error
 			)
 			By("Obtain the `VirtualMachine` objects", func() {
@@ -165,15 +165,15 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					defer GinkgoRecover()
 					defer wg.Done()
 					Eventually(func() error {
-						updatedVMObjC := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+						updatedVMObjC := &v1alpha2.VirtualMachine{}
+						err := GetObject(v1alpha2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
 							Namespace: ns,
 						})
 						if err != nil {
 							return err
 						}
-						if updatedVMObjC.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
+						if updatedVMObjC.Status.Phase != v1alpha2.MachineMigrating {
+							return fmt.Errorf("the `VirtualMachine` should be %s", v1alpha2.MachineMigrating)
 						}
 						return nil
 					}).WithTimeout(LongWaitDuration).WithPolling(migratingStatusPollingInterval).Should(Succeed())
@@ -193,8 +193,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				updatedVMObjC := &virtv2.VirtualMachine{}
-				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+				updatedVMObjC := &v1alpha2.VirtualMachine{}
+				err = GetObject(v1alpha2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmC)
@@ -205,8 +205,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 			By("Change anti-affinity to affinity when the `VirtualMachines` are runnning: `vm-a` and `vm-c` should be running on the same node", func() {
 				wg := &sync.WaitGroup{}
 
-				updatedVMObjC := &virtv2.VirtualMachine{}
-				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+				updatedVMObjC := &v1alpha2.VirtualMachine{}
+				err = GetObject(v1alpha2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
 					Namespace: ns,
 				})
 
@@ -238,8 +238,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					defer GinkgoRecover()
 					defer wg.Done()
 					Eventually(func() error {
-						updatedVMObjC = &virtv2.VirtualMachine{}
-						err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+						updatedVMObjC = &v1alpha2.VirtualMachine{}
+						err = GetObject(v1alpha2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
 							Namespace: ns,
 						})
 						if err != nil {
@@ -284,7 +284,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 				targetNode string
 				err        error
 			)
-			vmObj := &virtv2.VirtualMachine{}
+			vmObj := &v1alpha2.VirtualMachine{}
 			By("Sets the `spec.nodeSelector` with the `status.nodeSelector` value", func() {
 				vmObj, err = GetVirtualMachineObjByLabel(ns, vmNodeSelector)
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
@@ -297,8 +297,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 			})
 			By("The `VirtualMachine` should not be migrated", func() {
 				time.Sleep(20 * time.Second)
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+				updatedVMObj := &v1alpha2.VirtualMachine{}
+				err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
@@ -313,8 +313,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 			By("Sets the `spec.nodeSelector` with `another node` value", func() {
 				wg := &sync.WaitGroup{}
 
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+				updatedVMObj := &v1alpha2.VirtualMachine{}
+				err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
@@ -330,15 +330,15 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					defer GinkgoRecover()
 					defer wg.Done()
 					Eventually(func() error {
-						updatedVMObj := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+						updatedVMObj := &v1alpha2.VirtualMachine{}
+						err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 							Namespace: ns,
 						})
 						if err != nil {
 							return err
 						}
-						if updatedVMObj.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
+						if updatedVMObj.Status.Phase != v1alpha2.MachineMigrating {
+							return fmt.Errorf("the `VirtualMachine` should be %s", v1alpha2.MachineMigrating)
 						}
 						return nil
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
@@ -354,8 +354,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+				updatedVMObj := &v1alpha2.VirtualMachine{}
+				err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
@@ -373,7 +373,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 				targetNode string
 				err        error
 			)
-			vmObj := &virtv2.VirtualMachine{}
+			vmObj := &v1alpha2.VirtualMachine{}
 			By("Sets the `spec.affinity.nodeAffinity` with the `status.nodeSelector` value", func() {
 				vmObj, err = GetVirtualMachineObjByLabel(ns, vmNodeAffinity)
 				Expect(err).NotTo(HaveOccurred())
@@ -389,8 +389,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 			})
 			By("The `VirtualMachine` should not be migrated", func() {
 				time.Sleep(20 * time.Second)
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+				updatedVMObj := &v1alpha2.VirtualMachine{}
+				err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
@@ -405,8 +405,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 			By("Sets the `spec.affinity.nodeAffinity` with `another node` value", func() {
 				wg := &sync.WaitGroup{}
 
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+				updatedVMObj := &v1alpha2.VirtualMachine{}
+				err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
@@ -425,15 +425,15 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					defer GinkgoRecover()
 					defer wg.Done()
 					Eventually(func() error {
-						updatedVMObj := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+						updatedVMObj := &v1alpha2.VirtualMachine{}
+						err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 							Namespace: ns,
 						})
 						if err != nil {
 							return err
 						}
-						if updatedVMObj.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
+						if updatedVMObj.Status.Phase != v1alpha2.MachineMigrating {
+							return fmt.Errorf("the `VirtualMachine` should be %s", v1alpha2.MachineMigrating)
 						}
 						return nil
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
@@ -449,8 +449,8 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+				updatedVMObj := &v1alpha2.VirtualMachine{}
+				err := GetObject(v1alpha2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
 					Namespace: ns,
 				})
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
@@ -468,7 +468,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETest
 	})
 })
 
-func ExpectVirtualMachineIsMigratable(vmObj *virtv2.VirtualMachine) {
+func ExpectVirtualMachineIsMigratable(vmObj *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 	for _, c := range vmObj.Status.Conditions {
 		if c.Type == string(vmcondition.TypeMigratable) {
@@ -501,8 +501,8 @@ func DefineTargetNode(sourceNode string, targetLabel map[string]string) (string,
 	return "", fmt.Errorf("failed to define a target node")
 }
 
-func GetVirtualMachineObjByLabel(namespace string, label map[string]string) (*virtv2.VirtualMachine, error) {
-	vmObjects := virtv2.VirtualMachineList{}
+func GetVirtualMachineObjByLabel(namespace string, label map[string]string) (*v1alpha2.VirtualMachine, error) {
+	vmObjects := v1alpha2.VirtualMachineList{}
 	err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{
 		Labels:    label,
 		Namespace: namespace,
@@ -517,7 +517,7 @@ func GetVirtualMachineObjByLabel(namespace string, label map[string]string) (*vi
 }
 
 func GenerateNodeAffinityPatch(key string, operator corev1.NodeSelectorOperator, values []string) ([]byte, error) {
-	vmAffinity := &virtv2.VMAffinity{
+	vmAffinity := &v1alpha2.VMAffinity{
 		NodeAffinity: &corev1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -543,8 +543,8 @@ func GenerateNodeAffinityPatch(key string, operator corev1.NodeSelectorOperator,
 }
 
 func GenerateVirtualMachineAndPodAntiAffinityPatch(key, topologyKey string, operator metav1.LabelSelectorOperator, values []string) ([]byte, error) {
-	vmAndPodAntiAffinity := &virtv2.VirtualMachineAndPodAntiAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: []virtv2.VirtualMachineAndPodAffinityTerm{
+	vmAndPodAntiAffinity := &v1alpha2.VirtualMachineAndPodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []v1alpha2.VirtualMachineAndPodAffinityTerm{
 			{
 				LabelSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -568,8 +568,8 @@ func GenerateVirtualMachineAndPodAntiAffinityPatch(key, topologyKey string, oper
 }
 
 func GenerateVirtualMachineAndPodAffinityPatch(key, topologyKey string, operator metav1.LabelSelectorOperator, values []string) ([]byte, error) {
-	vmAndPodAffinity := &virtv2.VirtualMachineAndPodAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: []virtv2.VirtualMachineAndPodAffinityTerm{
+	vmAndPodAffinity := &v1alpha2.VirtualMachineAndPodAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []v1alpha2.VirtualMachineAndPodAffinityTerm{
 			{
 				LabelSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{

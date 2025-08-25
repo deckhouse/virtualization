@@ -26,7 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type removeCIDRsValidator struct {
@@ -65,7 +65,7 @@ loop:
 		return nil, nil
 	}
 
-	leases := &virtv2.VirtualMachineIPAddressLeaseList{}
+	leases := &v1alpha2.VirtualMachineIPAddressLeaseList{}
 	if err := v.client.List(ctx, leases); err != nil {
 		return nil, fmt.Errorf("failed to list VirtualMachineIPAddressLeases: %w", err)
 	}

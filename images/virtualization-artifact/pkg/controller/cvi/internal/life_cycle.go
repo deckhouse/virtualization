@@ -26,7 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
@@ -42,7 +42,7 @@ func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCyc
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error) {
 	readyCondition, ok := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	if !ok {
 		cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
@@ -55,12 +55,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 	}
 
 	if cvi.DeletionTimestamp != nil {
-		cvi.Status.Phase = virtv2.ImageTerminating
+		cvi.Status.Phase = v1alpha2.ImageTerminating
 		return reconcile.Result{}, nil
 	}
 
 	if cvi.Status.Phase == "" {
-		cvi.Status.Phase = virtv2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImagePending
 	}
 
 	dataSourceReadyCondition, exists := conditions.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
@@ -73,8 +73,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && h.sources.Changed(ctx, cvi) {
-		cvi.Status = virtv2.ClusterVirtualImageStatus{
-			Phase:              virtv2.ImagePending,
+		cvi.Status = v1alpha2.ClusterVirtualImageStatus{
+			Phase:              v1alpha2.ImagePending,
 			Conditions:         cvi.Status.Conditions,
 			ObservedGeneration: cvi.Status.ObservedGeneration,
 		}

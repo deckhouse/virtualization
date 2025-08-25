@@ -21,7 +21,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newUnsafeIterator(reader client.Reader) *iterator {
@@ -37,7 +37,7 @@ type iterator struct {
 // Iter implements iteration on objects VirtualImage and create new DTO.
 // DO NOT mutate VirtualImage!
 func (l *iterator) Iter(ctx context.Context, h handler) error {
-	vis := virtv2.VirtualImageList{}
+	vis := v1alpha2.VirtualImageList{}
 	if err := l.reader.List(ctx, &vis, client.UnsafeDisableDeepCopy); err != nil {
 		return err
 	}

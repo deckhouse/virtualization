@@ -27,12 +27,12 @@ import (
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validator"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskValidator interface {
-	ValidateCreate(ctx context.Context, vm *virtv2.VirtualDisk) (admission.Warnings, error)
-	ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualDisk) (admission.Warnings, error)
+	ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualDisk) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualDisk) (admission.Warnings, error)
 }
 
 type Validator struct {
@@ -51,7 +51,7 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vd, ok := obj.(*virtv2.VirtualDisk)
+	vd, ok := obj.(*v1alpha2.VirtualDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", obj)
 	}
@@ -72,12 +72,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	newVD, ok := newObj.(*virtv2.VirtualDisk)
+	newVD, ok := newObj.(*v1alpha2.VirtualDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualDisk but got a %T", newObj)
 	}
 
-	oldVD, ok := oldObj.(*virtv2.VirtualDisk)
+	oldVD, ok := oldObj.(*v1alpha2.VirtualDisk)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualDisk but got a %T", oldObj)
 	}

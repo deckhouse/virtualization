@@ -33,46 +33,46 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineState interface {
-	VirtualMachine() *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	VirtualMachine() *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	KVVM(ctx context.Context) (*virtv1.VirtualMachine, error)
 	KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error)
 	Pods(ctx context.Context) (*corev1.PodList, error)
 	Pod(ctx context.Context) (*corev1.Pod, error)
-	VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error)
-	VirtualImage(ctx context.Context, name string) (*virtv2.VirtualImage, error)
-	ClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error)
-	VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error)
-	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
-	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
-	VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment, error)
-	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
-	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
-	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
+	VirtualDisk(ctx context.Context, name string) (*v1alpha2.VirtualDisk, error)
+	VirtualImage(ctx context.Context, name string) (*v1alpha2.VirtualImage, error)
+	ClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error)
+	VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.VirtualDisk, error)
+	VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.VirtualImage, error)
+	ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.ClusterVirtualImage, error)
+	VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
+	IPAddress(ctx context.Context) (*v1alpha2.VirtualMachineIPAddress, error)
+	Class(ctx context.Context) (*v1alpha2.VirtualMachineClass, error)
+	VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 }
 
-func New(c client.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
+func New(c client.Client, vm *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]) VirtualMachineState {
 	return &state{client: c, vm: vm}
 }
 
 type state struct {
 	client      client.Client
 	mu          sync.RWMutex
-	vm          *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	vm          *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	kvvm        *virtv1.VirtualMachine
 	kvvmi       *virtv1.VirtualMachineInstance
 	pods        *corev1.PodList
 	pod         *corev1.Pod
-	vdByName    map[string]*virtv2.VirtualDisk
-	viByName    map[string]*virtv2.VirtualImage
-	cviByName   map[string]*virtv2.ClusterVirtualImage
-	vmbdasByRef map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment
-	ipAddress   *virtv2.VirtualMachineIPAddress
-	vmClass     *virtv2.VirtualMachineClass
+	vdByName    map[string]*v1alpha2.VirtualDisk
+	viByName    map[string]*v1alpha2.VirtualImage
+	cviByName   map[string]*v1alpha2.ClusterVirtualImage
+	vmbdasByRef map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment
+	ipAddress   *v1alpha2.VirtualMachineIPAddress
+	vmClass     *v1alpha2.VirtualMachineClass
 	shared      Shared
 }
 
@@ -84,7 +84,7 @@ func (s *state) Shared(fn func(s *Shared)) {
 	fn(&s.shared)
 }
 
-func (s *state) VirtualMachine() *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus] {
+func (s *state) VirtualMachine() *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus] {
 	return s.vm
 }
 
@@ -171,7 +171,7 @@ func (s *state) Pod(ctx context.Context) (*corev1.Pod, error) {
 	return pod, nil
 }
 
-func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
+func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -181,7 +181,7 @@ func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := s.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: s.vm.Name().Namespace,
 	})
@@ -189,13 +189,13 @@ func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v
 		return nil, err
 	}
 
-	vmbdasByRef := make(map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment)
+	vmbdasByRef := make(map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment)
 	for _, vmbda := range vmbdas.Items {
 		if vmbda.Spec.VirtualMachineName != s.vm.Name().Name {
 			continue
 		}
 
-		key := virtv2.VMBDAObjectRef{
+		key := v1alpha2.VMBDAObjectRef{
 			Kind: vmbda.Spec.BlockDeviceRef.Kind,
 			Name: vmbda.Spec.BlockDeviceRef.Name,
 		}
@@ -207,27 +207,27 @@ func (s *state) VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[v
 	return vmbdasByRef, nil
 }
 
-func (s *state) VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error) {
+func (s *state) VirtualDisk(ctx context.Context, name string) (*v1alpha2.VirtualDisk, error) {
 	return object.FetchObject(ctx, types.NamespacedName{
 		Name:      name,
 		Namespace: s.vm.Current().GetNamespace(),
-	}, s.client, &virtv2.VirtualDisk{})
+	}, s.client, &v1alpha2.VirtualDisk{})
 }
 
-func (s *state) VirtualImage(ctx context.Context, name string) (*virtv2.VirtualImage, error) {
+func (s *state) VirtualImage(ctx context.Context, name string) (*v1alpha2.VirtualImage, error) {
 	return object.FetchObject(ctx, types.NamespacedName{
 		Name:      name,
 		Namespace: s.vm.Current().GetNamespace(),
-	}, s.client, &virtv2.VirtualImage{})
+	}, s.client, &v1alpha2.VirtualImage{})
 }
 
-func (s *state) ClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error) {
+func (s *state) ClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error) {
 	return object.FetchObject(ctx, types.NamespacedName{
 		Name: name,
-	}, s.client, &virtv2.ClusterVirtualImage{})
+	}, s.client, &v1alpha2.ClusterVirtualImage{})
 }
 
-func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error) {
+func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.VirtualDisk, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -236,14 +236,14 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.Virt
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	vdByName := make(map[string]*virtv2.VirtualDisk)
+	vdByName := make(map[string]*v1alpha2.VirtualDisk)
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
-		case virtv2.DiskDevice:
+		case v1alpha2.DiskDevice:
 			vmd, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
-			}, s.client, &virtv2.VirtualDisk{})
+			}, s.client, &v1alpha2.VirtualDisk{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get virtual disk %q: %w", bd.Name, err)
 			}
@@ -259,7 +259,7 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.Virt
 	return vdByName, nil
 }
 
-func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error) {
+func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.VirtualImage, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -268,14 +268,14 @@ func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*virtv2.Vir
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	viByName := make(map[string]*virtv2.VirtualImage)
+	viByName := make(map[string]*v1alpha2.VirtualImage)
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
-		case virtv2.ImageDevice:
+		case v1alpha2.ImageDevice:
 			vi, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
-			}, s.client, &virtv2.VirtualImage{})
+			}, s.client, &v1alpha2.VirtualImage{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get VI %q: %w", bd.Name, err)
 			}
@@ -291,7 +291,7 @@ func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*virtv2.Vir
 	return viByName, nil
 }
 
-func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error) {
+func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.ClusterVirtualImage, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -300,14 +300,14 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	cviByName := make(map[string]*virtv2.ClusterVirtualImage)
+	cviByName := make(map[string]*v1alpha2.ClusterVirtualImage)
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
-		case virtv2.ClusterImageDevice:
+		case v1alpha2.ClusterImageDevice:
 			cvi, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
-			}, s.client, &virtv2.ClusterVirtualImage{})
+			}, s.client, &v1alpha2.ClusterVirtualImage{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get CVI %q: %w", bd.Name, err)
 			}
@@ -323,7 +323,7 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	return cviByName, nil
 }
 
-func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {
+func (s *state) IPAddress(ctx context.Context) (*v1alpha2.VirtualMachineIPAddress, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -336,7 +336,7 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 
 	vmipName := s.vm.Current().Spec.VirtualMachineIPAddress
 	if vmipName == "" {
-		vmipList := &virtv2.VirtualMachineIPAddressList{}
+		vmipList := &v1alpha2.VirtualMachineIPAddressList{}
 
 		err := s.client.List(ctx, vmipList, &client.ListOptions{
 			Namespace:     s.vm.Current().GetNamespace(),
@@ -355,7 +355,7 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 	} else {
 		vmipKey := types.NamespacedName{Name: vmipName, Namespace: s.vm.Current().GetNamespace()}
 
-		ipAddress, err := object.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
+		ipAddress, err := object.FetchObject(ctx, vmipKey, s.client, &v1alpha2.VirtualMachineIPAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch VirtualMachineIPAddress: %w", err)
 		}
@@ -365,7 +365,7 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 	return s.ipAddress, nil
 }
 
-func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) {
+func (s *state) Class(ctx context.Context) (*v1alpha2.VirtualMachineClass, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -374,7 +374,7 @@ func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) 
 	}
 	className := s.vm.Current().Spec.VirtualMachineClassName
 	classKey := types.NamespacedName{Name: className}
-	class, err := object.FetchObject(ctx, classKey, s.client, &virtv2.VirtualMachineClass{})
+	class, err := object.FetchObject(ctx, classKey, s.client, &v1alpha2.VirtualMachineClass{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch VirtualMachineClass: %w", err)
 	}
@@ -382,19 +382,19 @@ func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) 
 	return s.vmClass, nil
 }
 
-func (s *state) VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error) {
+func (s *state) VMOPs(ctx context.Context) ([]*v1alpha2.VirtualMachineOperation, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
 
 	vm := s.vm.Current()
-	vmops := &virtv2.VirtualMachineOperationList{}
+	vmops := &v1alpha2.VirtualMachineOperationList{}
 	err := s.client.List(ctx, vmops, client.InNamespace(vm.Namespace))
 	if err != nil {
 		return nil, fmt.Errorf("failed to list VirtualMachineOperation: %w", err)
 	}
 
-	var resultVMOPs []*virtv2.VirtualMachineOperation
+	var resultVMOPs []*v1alpha2.VirtualMachineOperation
 
 	for _, vmop := range vmops.Items {
 		if vmop.Spec.VirtualMachine == vm.Name {

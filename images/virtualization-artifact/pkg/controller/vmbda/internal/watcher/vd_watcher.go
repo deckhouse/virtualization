@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -48,11 +48,11 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 
 func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualDisk]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualDisk]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualDisk]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 						return true
 					}
@@ -70,8 +70,8 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	return nil
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -81,7 +81,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.Virt
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualDisk && vmbda.Spec.BlockDeviceRef.Name != vd.GetName() {
+		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk && vmbda.Spec.BlockDeviceRef.Name != vd.GetName() {
 			continue
 		}
 

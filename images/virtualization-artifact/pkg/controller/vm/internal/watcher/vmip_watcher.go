@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMIPWatcher() *VMIPWatcher {
@@ -42,8 +42,8 @@ func (w *VMIPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineIPAddress{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) []reconcile.Request {
+			&v1alpha2.VirtualMachineIPAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) []reconcile.Request {
 				name := vmip.Status.VirtualMachine
 				if name == "" {
 					return nil
@@ -57,8 +57,8 @@ func (w *VMIPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 					},
 				}
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineIPAddress]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineIPAddress]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineIPAddress]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineIPAddress]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
 						e.ObjectOld.Status.VirtualMachine != e.ObjectNew.Status.VirtualMachine
 				},

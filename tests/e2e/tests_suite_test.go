@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
@@ -119,7 +119,7 @@ func init() {
 	}
 
 	scheme := runtime.NewScheme()
-	err = virtv2.AddToScheme(scheme)
+	err = v1alpha2.AddToScheme(scheme)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 			},
 		)
 
-		var containerStartedAt v1.Time
+		var containerStartedAt metav1.Time
 		for _, s := range p.Status.ContainerStatuses {
 			if s.Name == VirtualizationController {
 				containerStartedAt = s.State.Running.StartedAt

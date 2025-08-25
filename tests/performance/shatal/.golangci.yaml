@@ -39,6 +39,34 @@ linters-settings:
     # Enable to require nolint directives to mention the specific linter being suppressed.
     # Default: false
     require-specific: true
+  importas:
+    # Do not allow unaliased imports of aliased packages.
+    # Default: false
+    no-unaliased: true
+    # Do not allow non-required aliases.
+    # Default: false
+    no-extra-aliases: false
+    # List of aliases
+    # Default: []
+    alias:
+      - pkg: github.com/deckhouse/virtualization/api/core/v1alpha2
+        alias: ""
+      - pkg: github.com/deckhouse/virtualization/api/subresources/v1alpha2
+        alias: "sub1alpha2"
+      - pkg: kubevirt.io/api/core/v1
+        alias: virtv1
+      - pkg: k8s.io/api/core/v1
+        alias: corev1
+      - pkg: k8s.io/api/authentication/v1
+        alias: authnv1
+      - pkg: k8s.io/api/storage/v1
+        alias: storagev1
+      - pkg: k8s.io/api/networking/v1
+        alias: netv1
+      - pkg: k8s.io/api/policy/v1
+        alias: policyv1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
 
 linters:
   disable-all: true
@@ -77,3 +105,4 @@ linters:
     - tparallel # detects inappropriate usage of t.Parallel() method in your Go test codes
     - whitespace # detects leading and trailing whitespace
     - wastedassign # Finds wasted assignment statements.
+    - importas # checks import aliases against the configured convention

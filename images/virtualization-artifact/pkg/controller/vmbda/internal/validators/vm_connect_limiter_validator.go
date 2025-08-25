@@ -25,7 +25,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMConnectLimiterValidator struct {
@@ -40,7 +40,7 @@ func NewVMConnectLimiterValidator(service *service.BlockDeviceService, log *log.
 	}
 }
 
-func (v *VMConnectLimiterValidator) ValidateCreate(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
+func (v *VMConnectLimiterValidator) ValidateCreate(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	count, err := v.service.CountBlockDevicesAttachedToVMName(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (v *VMConnectLimiterValidator) ValidateCreate(ctx context.Context, vmbda *v
 	return nil, nil
 }
 
-func (v *VMConnectLimiterValidator) ValidateUpdate(ctx context.Context, _, newVMBDA *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
+func (v *VMConnectLimiterValidator) ValidateUpdate(ctx context.Context, _, newVMBDA *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	count, err := v.service.CountBlockDevicesAttachedToVMName(ctx, newVMBDA.Spec.VirtualMachineName, newVMBDA.Namespace)
 	if err != nil {
 		v.log.Error(err.Error())

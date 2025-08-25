@@ -22,7 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SpecMutateValidator struct{}
@@ -31,11 +31,11 @@ func NewSpecMutateValidator() *SpecMutateValidator {
 	return &SpecMutateValidator{}
 }
 
-func (v *SpecMutateValidator) ValidateCreate(_ context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
+func (v *SpecMutateValidator) ValidateCreate(_ context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	return nil, nil
 }
 
-func (v *SpecMutateValidator) ValidateUpdate(_ context.Context, oldVMBDA, newVMBDA *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
+func (v *SpecMutateValidator) ValidateUpdate(_ context.Context, oldVMBDA, newVMBDA *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	if oldVMBDA.Generation != newVMBDA.Generation {
 		return nil, fmt.Errorf("VirtualMachineBlockDeviceAttachment is an idempotent resource: specification changes are not available")
 	}

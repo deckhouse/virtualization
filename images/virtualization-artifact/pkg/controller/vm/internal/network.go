@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -73,9 +73,9 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 	}
 
 	if len(vm.Spec.Networks) == 1 {
-		vm.Status.Networks = []virtv2.NetworksStatus{
+		vm.Status.Networks = []v1alpha2.NetworksStatus{
 			{
-				Type: virtv2.NetworksTypeMain,
+				Type: v1alpha2.NetworksTypeMain,
 			},
 		}
 		return reconcile.Result{}, nil
@@ -114,13 +114,13 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}
 
-	networksStatus := []virtv2.NetworksStatus{
+	networksStatus := []v1alpha2.NetworksStatus{
 		{
-			Type: virtv2.NetworksTypeMain,
+			Type: v1alpha2.NetworksTypeMain,
 		},
 	}
 	for _, i := range network.CreateNetworkSpec(vm.Spec) {
-		networksStatus = append(networksStatus, virtv2.NetworksStatus{
+		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 			Type: i.Type,
 			Name: i.Name,
 			MAC:  macAddressesByInterfaceName[i.InterfaceName],

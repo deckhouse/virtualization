@@ -28,7 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -44,7 +44,7 @@ func NewSpecChangesValidator(client client.Client, scService *intsvc.VirtualDisk
 	}
 }
 
-func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
 		sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
 		if err != nil {
@@ -61,14 +61,14 @@ func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *virtv2
 	return nil, nil
 }
 
-func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if oldVD.Generation == newVD.Generation {
 		return nil, nil
 	}
 
 	ready, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
 	switch {
-	case ready.Status == metav1.ConditionTrue, newVD.Status.Phase == virtv2.DiskReady, newVD.Status.Phase == virtv2.DiskLost:
+	case ready.Status == metav1.ConditionTrue, newVD.Status.Phase == v1alpha2.DiskReady, newVD.Status.Phase == v1alpha2.DiskLost:
 		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
 			return nil, errors.New("data source cannot be changed if the VirtualDisk has already been provisioned")
 		}
@@ -76,11 +76,11 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
 			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
 		}
-	case newVD.Status.Phase == virtv2.DiskTerminating:
+	case newVD.Status.Phase == v1alpha2.DiskTerminating:
 		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {
 			return nil, errors.New("spec cannot be changed if the VirtualDisk is the process of termination")
 		}
-	case newVD.Status.Phase == virtv2.DiskPending:
+	case newVD.Status.Phase == v1alpha2.DiskPending:
 		if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
 			sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
 			if err != nil {

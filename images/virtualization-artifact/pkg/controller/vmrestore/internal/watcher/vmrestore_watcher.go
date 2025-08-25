@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineRestoreWatcher struct {
@@ -42,10 +42,10 @@ func NewVirtualMachineRestoreWatcher(client client.Client) *VirtualMachineRestor
 
 func (w VirtualMachineRestoreWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineRestore{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineRestore]{},
-			predicate.TypedFuncs[*virtv2.VirtualMachineRestore]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineRestore]) bool {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineRestore{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineRestore]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineRestore]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineRestore]) bool {
 					oldPhase := e.ObjectOld.Status.Phase
 					newPhase := e.ObjectNew.Status.Phase
 

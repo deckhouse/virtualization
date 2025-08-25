@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ResourceObject[T, ST any] interface {
@@ -111,41 +111,41 @@ func rewriteObject(obj client.Object) {
 	var conds []metav1.Condition
 
 	switch obj.GetObjectKind().GroupVersionKind().Kind {
-	case virtv2.VirtualMachineKind:
-		vm := obj.(*virtv2.VirtualMachine)
+	case v1alpha2.VirtualMachineKind:
+		vm := obj.(*v1alpha2.VirtualMachine)
 		conds = vm.Status.Conditions
-	case virtv2.VirtualDiskKind:
-		vd := obj.(*virtv2.VirtualDisk)
+	case v1alpha2.VirtualDiskKind:
+		vd := obj.(*v1alpha2.VirtualDisk)
 		conds = vd.Status.Conditions
-	case virtv2.VirtualImageKind:
-		vi := obj.(*virtv2.VirtualImage)
+	case v1alpha2.VirtualImageKind:
+		vi := obj.(*v1alpha2.VirtualImage)
 		conds = vi.Status.Conditions
-	case virtv2.ClusterVirtualImageKind:
-		cvi := obj.(*virtv2.ClusterVirtualImage)
+	case v1alpha2.ClusterVirtualImageKind:
+		cvi := obj.(*v1alpha2.ClusterVirtualImage)
 		conds = cvi.Status.Conditions
-	case virtv2.VirtualMachineBlockDeviceAttachmentKind:
-		vmbda := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+	case v1alpha2.VirtualMachineBlockDeviceAttachmentKind:
+		vmbda := obj.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 		conds = vmbda.Status.Conditions
-	case virtv2.VirtualMachineIPAddressKind:
-		ip := obj.(*virtv2.VirtualMachineIPAddress)
+	case v1alpha2.VirtualMachineIPAddressKind:
+		ip := obj.(*v1alpha2.VirtualMachineIPAddress)
 		conds = ip.Status.Conditions
-	case virtv2.VirtualMachineIPAddressLeaseKind:
-		ipl := obj.(*virtv2.VirtualMachineIPAddressLease)
+	case v1alpha2.VirtualMachineIPAddressLeaseKind:
+		ipl := obj.(*v1alpha2.VirtualMachineIPAddressLease)
 		conds = ipl.Status.Conditions
-	case virtv2.VirtualMachineOperationKind:
-		vmop := obj.(*virtv2.VirtualMachineOperation)
+	case v1alpha2.VirtualMachineOperationKind:
+		vmop := obj.(*v1alpha2.VirtualMachineOperation)
 		conds = vmop.Status.Conditions
-	case virtv2.VirtualDiskSnapshotKind:
-		snap := obj.(*virtv2.VirtualDiskSnapshot)
+	case v1alpha2.VirtualDiskSnapshotKind:
+		snap := obj.(*v1alpha2.VirtualDiskSnapshot)
 		conds = snap.Status.Conditions
-	case virtv2.VirtualMachineClassKind:
-		class := obj.(*virtv2.VirtualMachineClass)
+	case v1alpha2.VirtualMachineClassKind:
+		class := obj.(*v1alpha2.VirtualMachineClass)
 		conds = class.Status.Conditions
-	case virtv2.VirtualMachineRestoreKind:
-		restore := obj.(*virtv2.VirtualMachineRestore)
+	case v1alpha2.VirtualMachineRestoreKind:
+		restore := obj.(*v1alpha2.VirtualMachineRestore)
 		conds = restore.Status.Conditions
-	case virtv2.VirtualMachineSnapshotKind:
-		snap := obj.(*virtv2.VirtualMachineSnapshot)
+	case v1alpha2.VirtualMachineSnapshotKind:
+		snap := obj.(*v1alpha2.VirtualMachineSnapshot)
 		conds = snap.Status.Conditions
 	}
 

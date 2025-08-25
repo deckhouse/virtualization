@@ -26,7 +26,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("The protection handler test", func() {
@@ -41,7 +41,7 @@ var _ = Describe("The protection handler test", func() {
 	BeforeEach(func() {
 		schema = runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(schema)).To(Succeed())
-		Expect(virtv2.AddToScheme(schema)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(schema)).To(Succeed())
 		Expect(virtv1.AddToScheme(schema)).To(Succeed())
 
 		ctx = context.TODO()
@@ -50,7 +50,7 @@ var _ = Describe("The protection handler test", func() {
 	Context("`VirtualDisk`", func() {
 		When("has the `AttachedToVirtualMachines` status with the `Mounted` false value", func() {
 			It("should remove the `vd-protection` finalizer from the `VirtualDisk`", func() {
-				vd := &virtv2.VirtualDisk{
+				vd := &v1alpha2.VirtualDisk{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-virtual-disk",
 						Namespace: "default",
@@ -58,9 +58,9 @@ var _ = Describe("The protection handler test", func() {
 							vdProtection,
 						},
 					},
-					Status: virtv2.VirtualDiskStatus{
+					Status: v1alpha2.VirtualDiskStatus{
 						Conditions: []metav1.Condition{},
-						AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 							{
 								Name:    "test-virtual-machine",
 								Mounted: false,
@@ -79,7 +79,7 @@ var _ = Describe("The protection handler test", func() {
 
 		When("has the `AttachedToVirtualMachines` status with the `Mounted` true value", func() {
 			It("should not remove the `vd-protection` finalizer from the `VirtualDisk`", func() {
-				vd := &virtv2.VirtualDisk{
+				vd := &v1alpha2.VirtualDisk{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-virtual-disk",
 						Namespace: "default",
@@ -87,9 +87,9 @@ var _ = Describe("The protection handler test", func() {
 							vdProtection,
 						},
 					},
-					Status: virtv2.VirtualDiskStatus{
+					Status: v1alpha2.VirtualDiskStatus{
 						Conditions: []metav1.Condition{},
-						AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 							{
 								Name:    "test-virtual-machine",
 								Mounted: true,

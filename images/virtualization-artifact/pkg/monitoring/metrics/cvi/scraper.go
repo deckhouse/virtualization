@@ -23,7 +23,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -42,18 +42,18 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricClusterVirtualImageStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.ImagePending
+		phase = v1alpha2.ImagePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.ImagePending, string(virtv2.ImagePending)},
-		{phase == virtv2.ImageWaitForUserUpload, string(virtv2.ImageWaitForUserUpload)},
-		{phase == virtv2.ImageProvisioning, string(virtv2.ImageProvisioning)},
-		{phase == virtv2.ImageReady, string(virtv2.ImageReady)},
-		{phase == virtv2.ImageFailed, string(virtv2.ImageFailed)},
-		{phase == virtv2.ImageTerminating, string(virtv2.ImageTerminating)},
+		{phase == v1alpha2.ImagePending, string(v1alpha2.ImagePending)},
+		{phase == v1alpha2.ImageWaitForUserUpload, string(v1alpha2.ImageWaitForUserUpload)},
+		{phase == v1alpha2.ImageProvisioning, string(v1alpha2.ImageProvisioning)},
+		{phase == v1alpha2.ImageReady, string(v1alpha2.ImageReady)},
+		{phase == v1alpha2.ImageFailed, string(v1alpha2.ImageFailed)},
+		{phase == v1alpha2.ImageTerminating, string(v1alpha2.ImageTerminating)},
 	}
 
 	for _, p := range phases {

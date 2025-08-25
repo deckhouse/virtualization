@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -76,7 +76,7 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.Com
 			Timeout:   MaxWaitTimeout,
 		})
 
-		vms := &virtv2.VirtualMachineList{}
+		vms := &v1alpha2.VirtualMachineList{}
 		err := GetObjects(kc.ResourceVM, vms, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.Com
 		someCompleted := false
 
 		Eventually(func() error {
-			vmops := &virtv2.VirtualMachineOperationList{}
+			vmops := &v1alpha2.VirtualMachineOperationList{}
 			err := GetObjects(kc.ResourceVMOP, vmops, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 			if err != nil {
 				return err
@@ -137,7 +137,7 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.Com
 
 			for _, vmop := range vmops.Items {
 				switch vmop.Status.Phase {
-				case virtv2.VMOPPhaseInProgress:
+				case v1alpha2.VMOPPhaseInProgress:
 					_, readyToDelete := migrationReady[vmop.Name]
 
 					if readyToDelete && vmop.GetDeletionTimestamp().IsZero() {
@@ -150,7 +150,7 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.Com
 							return res.Error()
 						}
 					}
-				case virtv2.VMOPPhaseFailed, virtv2.VMOPPhaseCompleted:
+				case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted:
 					someCompleted = true
 					return nil
 				}

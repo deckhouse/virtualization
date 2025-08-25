@@ -27,7 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -35,9 +35,9 @@ import (
 var _ = Describe("LifeCycle handler", func() {
 	var snapshotter *LifeCycleSnapshotterMock
 	var pvc *corev1.PersistentVolumeClaim
-	var vd *virtv2.VirtualDisk
+	var vd *v1alpha2.VirtualDisk
 	var vs *vsv1.VolumeSnapshot
-	var vdSnapshot *virtv2.VirtualDiskSnapshot
+	var vdSnapshot *v1alpha2.VirtualDiskSnapshot
 
 	BeforeEach(func() {
 		pvc = &corev1.PersistentVolumeClaim{
@@ -47,10 +47,10 @@ var _ = Describe("LifeCycle handler", func() {
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-01"},
-			Status: virtv2.VirtualDiskStatus{
-				Target: virtv2.DiskTarget{
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: pvc.Name,
 				},
 			},
@@ -60,10 +60,10 @@ var _ = Describe("LifeCycle handler", func() {
 			ObjectMeta: metav1.ObjectMeta{Name: "vs-01"},
 		}
 
-		vdSnapshot = &virtv2.VirtualDiskSnapshot{
+		vdSnapshot = &v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{Name: "vdsnapshot"},
-			Spec:       virtv2.VirtualDiskSnapshotSpec{VirtualDiskName: vd.Name},
-			Status: virtv2.VirtualDiskSnapshotStatus{
+			Spec:       v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: vd.Name},
+			Status: v1alpha2.VirtualDiskSnapshotStatus{
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdscondition.VirtualDiskReadyType.String(),
@@ -80,10 +80,10 @@ var _ = Describe("LifeCycle handler", func() {
 			GetPersistentVolumeClaimFunc: func(_ context.Context, _, _ string) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
-			GetVirtualDiskFunc: func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
+			GetVirtualDiskFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 				return vd, nil
 			},
-			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
+			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return nil, nil
 			},
 			GetVolumeSnapshotFunc: func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
@@ -98,7 +98,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseInProgress))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
@@ -119,7 +119,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotFailed.String()))
@@ -135,7 +135,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseInProgress))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
@@ -154,7 +154,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseReady))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
@@ -163,32 +163,32 @@ var _ = Describe("LifeCycle handler", func() {
 	})
 
 	Context("The virtual disk snapshot with virtual machine", func() {
-		var vm *virtv2.VirtualMachine
+		var vm *v1alpha2.VirtualMachine
 
 		BeforeEach(func() {
-			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 
-			vm = &virtv2.VirtualMachine{
+			vm = &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm"},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachineRunning,
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachineRunning,
 				},
 			}
-			vd.Status.AttachedToVirtualMachines = []virtv2.AttachedVirtualMachine{{Name: vm.Name}}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm.Name}}
 
-			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
+			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
 			}
-			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
+			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return false
 			}
-			snapshotter.CanFreezeFunc = func(_ *virtv2.VirtualMachine) bool {
+			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return true
 			}
 			snapshotter.FreezeFunc = func(_ context.Context, _, _ string) error {
 				return nil
 			}
-			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *virtv2.VirtualMachine) (bool, error) {
+			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine) (bool, error) {
 				return true, nil
 			}
 			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {
@@ -201,7 +201,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseInProgress))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.FileSystemFreezing.String()))
@@ -209,15 +209,15 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("No need to freeze virtual machine", func() {
-			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
-				vm.Status.Phase = virtv2.MachineStopped
+			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
+				vm.Status.Phase = v1alpha2.MachineStopped
 				return vm, nil
 			}
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseInProgress))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
@@ -226,14 +226,14 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("Cannot freeze virtual machine: deny potentially inconsistent", func() {
 			vdSnapshot.Spec.RequiredConsistency = true
-			snapshotter.CanFreezeFunc = func(_ *virtv2.VirtualMachine) bool {
+			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return false
 			}
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhasePending))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhasePending))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.PotentiallyInconsistent.String()))
@@ -242,14 +242,14 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("Cannot freeze virtual machine: allow potentially inconsistent", func() {
 			vdSnapshot.Spec.RequiredConsistency = false
-			snapshotter.CanFreezeFunc = func(_ *virtv2.VirtualMachine) bool {
+			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return false
 			}
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseInProgress))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
@@ -257,7 +257,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("Unfreeze virtual machine", func() {
-			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
+			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return true
 			}
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
@@ -270,17 +270,17 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseReady))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
 			Expect(ready.Message).To(BeEmpty())
 		})
 
-		DescribeTable("Check unfreeze if failed", func(vm *virtv2.VirtualMachine, expectUnfreezing bool) {
+		DescribeTable("Check unfreeze if failed", func(vm *v1alpha2.VirtualMachine, expectUnfreezing bool) {
 			unFreezeCalled := false
 
-			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
+			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return true
 			}
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
@@ -293,22 +293,22 @@ var _ = Describe("LifeCycle handler", func() {
 				unFreezeCalled = true
 				return nil
 			}
-			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
+			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
 			}
 
 			h := NewLifeCycleHandler(snapshotter)
 
-			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 			_, err := h.Handle(testContext(), vdSnapshot)
 
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
 			Expect(unFreezeCalled).To(Equal(expectUnfreezing))
 		},
 			Entry("Has VM with frozen filesystem",
-				&virtv2.VirtualMachine{
-					Status: virtv2.VirtualMachineStatus{
+				&v1alpha2.VirtualMachine{
+					Status: v1alpha2.VirtualMachineStatus{
 						Conditions: []metav1.Condition{
 							{
 								Type:   vmcondition.TypeFilesystemFrozen.String(),
@@ -319,7 +319,7 @@ var _ = Describe("LifeCycle handler", func() {
 				},
 				true,
 			),
-			Entry("Has VM with unfrozen filesystem", &virtv2.VirtualMachine{}, false),
+			Entry("Has VM with unfrozen filesystem", &v1alpha2.VirtualMachine{}, false),
 			Entry("Has no VM", nil, false),
 		)
 	})

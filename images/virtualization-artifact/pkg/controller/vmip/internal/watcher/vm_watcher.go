@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineWatcher struct {
@@ -44,16 +44,16 @@ type VirtualMachineWatcher struct {
 func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 	return &VirtualMachineWatcher{
 		client: client,
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineKind)),
 	}
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					oldVM := e.ObjectOld
 					newVM := e.ObjectNew
 					return oldVM.Spec.VirtualMachineIPAddress != newVM.Spec.VirtualMachineIPAddress ||
@@ -67,7 +67,7 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
 	var requests []reconcile.Request
 
 	vmipNames := make(map[string]struct{})
@@ -80,7 +80,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 		vmipNames[vm.Status.VirtualMachineIPAddress] = struct{}{}
 	}
 
-	vmips := &virtv2.VirtualMachineIPAddressList{}
+	vmips := &v1alpha2.VirtualMachineIPAddressList{}
 	err := w.client.List(ctx, vmips, client.InNamespace(vm.Namespace), &client.MatchingFields{
 		indexer.IndexFieldVMIPByVM: vm.Name,
 	})
