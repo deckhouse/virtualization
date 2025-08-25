@@ -124,52 +124,63 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 		return nil
 	}
 
-	// 2. Check if migration requested
-	vmop, err := h.getVMOPCandidate(ctx, s)
-	if err != nil {
-		return err
-	}
-	if vmop != nil && kvvmi != nil {
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMigratingPending)
-
-		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-		switch completed.Reason {
-		case vmopcondition.ReasonMigrationPending.String():
-			cb.Message("Migration is awaiting start.")
-		case vmopcondition.ReasonQuotaExceeded.String():
-			cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
-		case vmopcondition.ReasonMigrationPrepareTarget.String():
-			cb.Message("Migration is awaiting target preparation.")
-		case vmopcondition.ReasonMigrationTargetReady.String():
-			cb.Message("Migration is awaiting execution.")
-		case vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String():
-			// 2.1 Check if virtual disks can be migrated or ready to migrate
-			if err := h.syncWaitingForVMToBeReadyMigrate(ctx, kvvmi, s, cb); err != nil {
-				return err
-			}
-		case vmopcondition.ReasonMigrationRunning.String():
-			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
-		case vmopcondition.ReasonOperationFailed.String():
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonLastMigrationFinishedWithError).
-				Message("")
-		}
-
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
-	}
-
-	// 3. Set error if migration failed.
+	// 2. Set error if migration failed.
 	if kvvmi != nil && liveMigrationFailed(vm.Status.MigrationState) {
 		msg := kvvmi.Status.MigrationState.FailureReason
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonLastMigrationFinishedWithError).
 			Message(msg)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
 	}
 
-	// 4.Remove Migrating condition. Migration is finished successfully or not requested.
-	conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+	// 3. Check if migration requested
+	vmop, err := h.getVMOPCandidate(ctx, s)
+	if err != nil {
+		return err
+	}
+
+	// 4. Remove Migrating condition if migration is finished successfully. Or migration was not be requested.
+	if vmop == nil {
+		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+		if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
+			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+			return nil
+		}
+	}
+
+	// 5. Cannot sync migration request if the KVVMI is not exists
+	if kvvmi == nil {
+		return nil
+	}
+
+	// 6. Sync migration status from VMOP
+	cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMigratingPending)
+
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	switch completed.Reason {
+	case vmopcondition.ReasonMigrationPending.String():
+		cb.Message("Migration is awaiting start.")
+	case vmopcondition.ReasonQuotaExceeded.String():
+		cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
+	case vmopcondition.ReasonMigrationPrepareTarget.String():
+		cb.Message("Migration is awaiting target preparation.")
+	case vmopcondition.ReasonMigrationTargetReady.String():
+		cb.Message("Migration is awaiting execution.")
+	case vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String():
+		// 6.1 Check if virtual disks can be migrated or ready to migrate
+		if err := h.syncWaitingForVMToBeReadyMigrate(ctx, kvvmi, s, cb); err != nil {
+			return err
+		}
+	case vmopcondition.ReasonMigrationRunning.String():
+		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
+	case vmopcondition.ReasonOperationFailed.String():
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonLastMigrationFinishedWithError).
+			Message("")
+	}
+
+	conditions.SetCondition(cb, &vm.Status.Conditions)
 	return nil
 }
 
