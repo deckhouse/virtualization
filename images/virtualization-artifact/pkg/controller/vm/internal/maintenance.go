@@ -100,7 +100,7 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// Hide all other conditions when in maintenance mode
-	if changed.Status.Conditions != nil && changed.Status.Phase == virtv2.MachineStopped {
+	if changed.Status.Conditions != nil {
 		var newConditions []metav1.Condition
 		for _, cond := range changed.Status.Conditions {
 			if vmcondition.Type(cond.Type) == vmcondition.TypeMaintenance {
@@ -114,26 +114,26 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("get KVVM: %w", err)
+		return reconcile.Result{}, fmt.Errorf("%w: get KVVM: %v", reconciler.ErrStopHandlerChain, err)
 	}
 	if kvvm != nil {
 		log.Info("Deleting KVVM for maintenance mode")
 		err = object.CleanupObject(ctx, h.client, kvvm)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("delete KVVM: %w", err)
+			return reconcile.Result{}, fmt.Errorf("%w: delete KVVM: %v", reconciler.ErrStopHandlerChain, err)
 		}
 	}
 
 	pods, err := s.Pods(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("get pods: %w", err)
+		return reconcile.Result{}, fmt.Errorf("%w: get pods: %v", reconciler.ErrStopHandlerChain, err)
 	}
 	if pods != nil && len(pods.Items) > 0 {
 		log.Info("Deleting pods for maintenance mode")
 		for i := range pods.Items {
 			err = object.CleanupObject(ctx, h.client, &pods.Items[i])
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("delete pod: %w", err)
+				return reconcile.Result{}, fmt.Errorf("%w: delete pod: %v", reconciler.ErrStopHandlerChain, err)
 			}
 		}
 	}
