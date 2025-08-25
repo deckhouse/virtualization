@@ -112,7 +112,7 @@ spec:
           env:
             {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
             {{- include "virtualization-controller.envs" . | nindent 12 }}
-          {{- if not (and ($delve) (eq $delve.debug.component "virtualization-controller")) }}
+          {{- if ne "delve/virtualization-controller" ($delve | dig "debug" "component" "<missing>") }}
           livenessProbe:
             httpGet:
               path: /healthz
