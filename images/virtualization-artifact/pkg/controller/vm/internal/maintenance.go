@@ -87,17 +87,6 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	log.Info("Reconcile observe a VirtualMachine in maintenance mode")
 
-	// Hide all other conditions when in maintenance mode
-	if changed.Status.Conditions != nil {
-		var newConditions []metav1.Condition
-		for _, cond := range changed.Status.Conditions {
-			if vmcondition.Type(cond.Type) == vmcondition.TypeMaintenance {
-				newConditions = append(newConditions, cond)
-			}
-		}
-		changed.Status.Conditions = newConditions
-	}
-
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("get KVVMI: %w", err)
@@ -107,6 +96,17 @@ func (h *MaintenanceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if kvvmi != nil {
 		log.Info("VM is still running, waiting for shutdown in maintenance mode")
 		return reconcile.Result{}, nil
+	}
+
+	// Hide all other conditions when in maintenance mode
+	if changed.Status.Conditions != nil {
+		var newConditions []metav1.Condition
+		for _, cond := range changed.Status.Conditions {
+			if vmcondition.Type(cond.Type) == vmcondition.TypeMaintenance {
+				newConditions = append(newConditions, cond)
+			}
+		}
+		changed.Status.Conditions = newConditions
 	}
 
 	log.Info("VM is stopped, cleaning up resources if any for maintenance mode")
