@@ -28,7 +28,7 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool gettext-tools
+- gcc git make libtool gettext-tools cmake
 - tree
 {{- end -}}
 
