@@ -33,9 +33,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -111,6 +113,22 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
 	}
 
+	// 3.1 Check migration, if exists, that means previous reconcile finished with error and SignalSent condition is not synced.
+	// Do it now.
+	mig, err := h.migration.GetMigration(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if mig != nil {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
+				Generation(vmop.GetGeneration()).
+				Reason(vmopcondition.ReasonSignalSentSuccess).
+				Status(metav1.ConditionTrue),
+			&vmop.Status.Conditions)
+		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
+	}
+
 	// 4. VMOP is not in progress.
 	// All operations must be performed in course, check it and set phase if operation cannot be executed now.
 	should, err := h.base.ShouldExecuteOrSetFailedPhase(ctx, vmop)
@@ -160,7 +178,11 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
-	// 6. The Operation is valid, and can be executed.
+	// 6. Check if the vm is migratable.
+	if !h.canExecute(vmop, vm) {
+		return reconcile.Result{}, nil
+	}
+	// 6.1 The Operation is valid, and can be executed.
 	err = h.execute(ctx, vmop, vm)
 
 	return reconcile.Result{}, err
@@ -291,11 +313,48 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 		return false, err
 	}
 	for _, mig := range migList.Items {
-		if !mig.IsFinal() && mig.Spec.VMIName == vmop.Spec.VirtualMachine {
+		if mig.Spec.VMIName == vmop.Spec.VirtualMachine &&
+			!mig.IsFinal() &&
+			!metav1.IsControlledBy(&mig, vmop) {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool {
+	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+	if migratable.Status == metav1.ConditionTrue {
+		return true
+	}
+
+	if featuregates.Default().Enabled(featuregates.VolumeMigration) {
+		if migratable.Reason == vmcondition.ReasonDisksNotMigratable.String() {
+			migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+			if migrating.Reason == vmcondition.ReasonReadyToMigrate.String() {
+				return true
+			}
+
+			vmop.Status.Phase = v1alpha2.VMOPPhasePending
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+					Generation(vmop.GetGeneration()).
+					Reason(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate).
+					Status(metav1.ConditionFalse),
+				&vmop.Status.Conditions)
+			return false
+		}
+	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonOperationFailed).
+			Status(metav1.ConditionFalse).
+			Message("VirtualMachine is not migratable, cannot be processed."),
+		&vmop.Status.Conditions)
+	return false
 }
 
 func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) error {

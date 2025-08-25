@@ -69,6 +69,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		vd.Status.Phase = virtv2.DiskPending
 	}
 
+	migrating, _ := conditions.GetCondition(vdcondition.MigrationType, vd.Status.Conditions)
+	if migrating.Status == metav1.ConditionTrue {
+		vd.Status.Phase = virtv2.DiskMigrating
+		return reconcile.Result{}, nil
+	}
+
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
 		h.recorder.Event(
 			vd,

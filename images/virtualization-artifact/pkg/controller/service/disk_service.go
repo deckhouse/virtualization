@@ -74,27 +74,24 @@ func (s DiskService) Start(
 	pvcSize resource.Quantity,
 	sc *storagev1.StorageClass,
 	source *cdiv1.DataVolumeSource,
-	obj ObjectKind,
-	sup *supplements.Generator,
+	obj client.Object,
+	sup supplements.DataVolumeSupplement,
 	opts ...Option,
 ) error {
 	if sc == nil {
 		return errors.New("cannot create DataVolume: StorageClass must not be nil")
 	}
 
+	options := newGenericOptions(opts...)
+
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
-	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetOwnerRef(obj, obj.GetObjectKind().GroupVersionKind())
 
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case *NodePlacementOption:
-			err := dvBuilder.SetNodePlacement(v.nodePlacement)
-			if err != nil {
-				return fmt.Errorf("set node placement: %w", err)
-			}
-		default:
-			return fmt.Errorf("unknown Start option")
+	if options.nodePlacement != nil {
+		err := dvBuilder.SetNodePlacement(options.nodePlacement)
+		if err != nil {
+			return fmt.Errorf("set node placement: %w", err)
 		}
 	}
 
@@ -163,16 +160,16 @@ func (s DiskService) StartImmediate(
 	pvcSize resource.Quantity,
 	sc *storagev1.StorageClass,
 	source *cdiv1.DataVolumeSource,
-	obj ObjectKind,
-	sup *supplements.Generator,
+	obj client.Object,
+	dataVolumeSupplement supplements.DataVolumeSupplement,
 ) error {
 	if sc == nil {
 		return errors.New("cannot create DataVolume: StorageClass must not be nil")
 	}
 
-	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
+	dvBuilder := kvbuilder.NewDV(dataVolumeSupplement.DataVolume())
 	dvBuilder.SetDataSource(source)
-	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetOwnerRef(obj, obj.GetObjectKind().GroupVersionKind())
 	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
 	dvBuilder.SetImmediate()
 	dv := dvBuilder.GetResource()
@@ -191,7 +188,7 @@ func (s DiskService) StartImmediate(
 		return nil
 	}
 
-	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+	return supplements.EnsureForDataVolume(ctx, s.client, dataVolumeSupplement, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
 func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
@@ -230,7 +227,7 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
-func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
 	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {
 		return false, err
@@ -260,7 +257,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
 }
 
-func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
 	// 1. Update owner ref of pvc.
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
@@ -532,11 +529,11 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }
 
-func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
+func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
 	return object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
 }
 
-func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
 }
 

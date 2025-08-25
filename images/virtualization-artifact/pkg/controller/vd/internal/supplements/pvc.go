@@ -14,8 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package supplements
 
-func GetEdition() string {
-	return edition
+import "github.com/deckhouse/virtualization/api/core/v1alpha2"
+
+func SetPVCName(vd *v1alpha2.VirtualDisk, pvcName string) {
+	if vd != nil && pvcName != "" {
+		vd.Status.Target.PersistentVolumeClaim = pvcName
+	}
 }
