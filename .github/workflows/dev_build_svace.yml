@@ -167,6 +167,7 @@ jobs:
       - dev_setup_build
     steps:
       - uses: deckhouse/modules-actions/svace_analyze@v4
+        id: analyze
         with:
           project_group: ${{ github.event.repository.name }}
           ci_commit_ref_name: ${{ github.event.pull_request.head.ref || github.ref_name }}
@@ -177,3 +178,24 @@ jobs:
           svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
           svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
           svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
+
+      - name: Send results to Loop
+        if: always()
+        run: |
+          if [ "${{ steps.analyze.outcome }}" == "success" ]; then
+            STATUS=":white_check_mark: SUCCESS!"
+          else
+            STATUS=":x: FAIL!"
+          fi
+          SUMMARY="
+          ### :gear: **DVP $DATE Weekly analyze**
+
+          **Branch:** \`$GITHUB_REF_NAME\`
+          **Status: ${STATUS}**
+
+          [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+          "
+          curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${MESSAGE}\"}" $LOOP_WEBHOOK_URL
+        env:
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+
