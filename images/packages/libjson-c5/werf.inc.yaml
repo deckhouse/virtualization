@@ -70,7 +70,7 @@ shell:
       -DENABLE_RDRAND:BOOL=OFF \
       -DENABLE_THREADING:BOOL=ON
 
-    cmake --build --parallel $(nproc) .
+    cmake --build . --parallel $(nproc)
     DESTDIR=$OUTDIR cmake --install .
     rm -rf $OUTDIR/usr/share/man
     tree -hp $OUTDIR
