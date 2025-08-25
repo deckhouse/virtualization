@@ -22,7 +22,6 @@ build:
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
 # Delve debag
-{{- $_ := set . "DELVE_DEBUG" (env "DELVE_DEBUG" "false") }}
 {{- $_ := set . "DEBUG_COMPONENT" (env "DEBUG_COMPONENT" "") }}
 
 # svace analyze toggler
