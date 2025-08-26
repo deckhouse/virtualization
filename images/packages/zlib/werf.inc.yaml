@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "GNOME/libxml2.git" }}
+{{- $gitRepoUrl := "madler/zlib.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -64,8 +64,8 @@ shell:
     
     ./configure \
       --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --disable-static
+      --libdir=/usr/lib64
+      
 
     make -j$(nproc)
 
