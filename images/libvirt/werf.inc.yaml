@@ -78,9 +78,7 @@ libraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libnuma-devel libcap-ng-devel
-- libcurl-devel
-- libfuse-devel
+- libnuma-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
