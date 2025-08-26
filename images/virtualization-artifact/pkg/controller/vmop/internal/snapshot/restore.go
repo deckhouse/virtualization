@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -52,19 +53,18 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vm *v1alpha2.VirtualMachine
 
 	if r.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(err.Error())
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if r.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(err.Error())
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
-
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(err.Error())
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
