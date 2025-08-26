@@ -32,18 +32,16 @@ import (
 
 func NewRestoreOperation(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
 	return &RestoreOperation{
-		client:   client,
-		vmop:     vmop,
-		recorder: recorder,
-		restore:  snapshot.NewVMSnapshotRestore(client, recorder, vmop),
+		client:  client,
+		vmop:    vmop,
+		restore: snapshot.NewVMSnapshotRestore(client, recorder, vmop),
 	}
 }
 
 type RestoreOperation struct {
-	client   client.Client
-	vmop     *virtv2.VirtualMachineOperation
-	restore  *snapshot.VMSnapshotRestore
-	recorder eventrecord.EventRecorderLogger
+	client  client.Client
+	vmop    *virtv2.VirtualMachineOperation
+	restore *snapshot.VMSnapshotRestore
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
