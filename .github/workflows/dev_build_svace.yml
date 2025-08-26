@@ -198,4 +198,3 @@ jobs:
           curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${MESSAGE}\"}" $LOOP_WEBHOOK_URL
         env:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
-
