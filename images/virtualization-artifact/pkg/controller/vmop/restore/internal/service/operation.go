@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -44,12 +43,5 @@ func NewOperationService(client client.Client, recorder eventrecord.EventRecorde
 		return NewRestoreOperation(client, snapshot.NewVMSnapshotRestore(client, recorder, vmop), vmop), nil
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
-	}
-}
-
-func virtualMachineKeyByVmop(vmop *v1alpha2.VirtualMachineOperation) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      vmop.Spec.VirtualMachine,
-		Namespace: vmop.Namespace,
 	}
 }
