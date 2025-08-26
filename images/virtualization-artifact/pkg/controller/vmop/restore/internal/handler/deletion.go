@@ -30,13 +30,10 @@ const deletionHandlerName = "DeletionHandler"
 
 // DeletionHandler manages finalizers on VirtualMachineOperation resource.
 type DeletionHandler struct {
-	svcOpCreator SvcOpCreator
 }
 
-func NewDeletionHandler(svcOpCreator SvcOpCreator) *DeletionHandler {
-	return &DeletionHandler{
-		svcOpCreator: svcOpCreator,
-	}
+func NewDeletionHandler() *DeletionHandler {
+	return &DeletionHandler{}
 }
 
 func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {

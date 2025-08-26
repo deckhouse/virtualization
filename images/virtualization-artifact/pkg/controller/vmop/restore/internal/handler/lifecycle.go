@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
@@ -45,15 +44,13 @@ type Base interface {
 }
 
 type LifecycleHandler struct {
-	client       client.Client
 	svcOpCreator SvcOpCreator
 	base         Base
 	recorder     eventrecord.EventRecorderLogger
 }
 
-func NewLifecycleHandler(client client.Client, svcOpCreator SvcOpCreator, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(svcOpCreator SvcOpCreator, base Base, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
-		client:       client,
 		svcOpCreator: svcOpCreator,
 		base:         base,
 		recorder:     recorder,

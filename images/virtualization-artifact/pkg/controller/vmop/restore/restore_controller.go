@@ -42,8 +42,8 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 			watcher.NewVMOPWatcher(),
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
-			handler.NewDeletionHandler(svcOpCreator),
-			handler.NewLifecycleHandler(client, svcOpCreator, baseSvc, recorder),
+			handler.NewDeletionHandler(),
+			handler.NewLifecycleHandler(svcOpCreator, baseSvc, recorder),
 		},
 	}
 }
