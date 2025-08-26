@@ -18,7 +18,9 @@ package snapshot
 
 import (
 	"context"
+	"fmt"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type VMSnapshotRestore struct {
@@ -38,21 +41,40 @@ type VMSnapshotRestore struct {
 
 func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *VMSnapshotRestore {
 	return &VMSnapshotRestore{
-		client: client,
-		vmop:   vmop,
+		client:   client,
+		recorder: recorder,
+		vmop:     vmop,
 	}
 }
 
 func (r VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmrestorecondition.VirtualMachineRestoreReadyType)
-	defer func() { conditions.SetCondition(cb.Generation(vm.Generation), &vm.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb.Generation(r.vmop.Generation), &r.vmop.Status.Conditions) }()
+
+	if r.vmop.Spec.Restore == nil {
+		err := fmt.Errorf("restore specification is nil")
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(err.Error())
+		return reconcile.Result{}, err
+	}
+
+	if r.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
+		err := fmt.Errorf("virtual machine snapshot name is required")
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(err.Error())
+		return reconcile.Result{}, err
+	}
+
+	if vm == nil {
+		err := fmt.Errorf("virtual machine is nil")
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(err.Error())
+		return reconcile.Result{}, err
+	}
 
 	return steptaker.NewStepTakers(
 		step.NewVMSnapshotReadyStep(r.client, r.recorder, cb, r.vmop),
-		step.NewDryRunStep(r.client, r.recorder, cb, r.vmop),
-		step.NewStopVMStep(r.client, r.recorder, cb, r.vmop),
+		step.NewValidateStep(r.client, r.recorder, cb, r.vmop),
+		step.NewEnterMaintenanceStep(r.client, r.recorder, cb, r.vmop),
 		step.NewBestEffortRestoreStep(r.client, r.recorder, cb, r.vmop),
 		step.NewStrictRestoreStep(r.client, r.recorder, cb, r.vmop),
-		step.NewStartVMStep(r.client, r.recorder, cb, r.vmop),
+		step.NewExitMaintenanceStep(r.client, r.recorder, cb, r.vmop),
 	).Run(ctx, vm)
 }

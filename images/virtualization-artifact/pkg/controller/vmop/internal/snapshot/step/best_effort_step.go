@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +58,12 @@ func NewBestEffortRestoreStep(
 }
 
 func (s BestEffortRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+	if s.vmop.Spec.Restore.Mode != virtv2.VMOPRestoreModeBestEffort {
+		return nil, nil
+	}
+
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
+	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
 	if conditions.HasCondition(cb.GetType(), s.vmop.Status.Conditions) && cb.Condition().Status == metav1.ConditionTrue {
 		return nil, nil
@@ -66,6 +72,12 @@ func (s BestEffortRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachi
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
 	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
+		err := fmt.Errorf("snapshot secret name is empty")
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}

@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,20 +36,20 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type DryRunStep struct {
+type ValidateStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
 	vmop     *virtv2.VirtualMachineOperation
 }
 
-func NewDryRunStep(
+func NewValidateStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vmop *virtv2.VirtualMachineOperation,
-) *DryRunStep {
-	return &DryRunStep{
+) *ValidateStep {
+	return &ValidateStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
@@ -56,7 +57,7 @@ func NewDryRunStep(
 	}
 }
 
-func (s DryRunStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+func (s ValidateStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
@@ -67,6 +68,12 @@ func (s DryRunStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*recon
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
 	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
+		err := fmt.Errorf("snapshot secret name is empty")
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
@@ -89,8 +96,14 @@ func (s DryRunStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*recon
 	statuses, err := snapshotResources.Validate(ctx)
 	if err != nil {
 		common.FillResourcesStatuses(s.vmop, statuses)
+
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
+	}
+
+	// if not DryRun continue restore
+	if s.vmop.Spec.Restore.Mode != virtv2.VMOPRestoreModeDryRun {
+		return nil, nil
 	}
 
 	common.FillResourcesStatuses(s.vmop, statuses)
