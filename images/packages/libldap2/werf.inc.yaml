@@ -89,7 +89,8 @@ shell:
       --enable-mdb=yes \
       --disable-wt \
       --disable-docs \
-      --enable-balancer=mod
+      --enable-balancer=mod \
+      --disable-sql
 
     make -j$(nproc)
     DESTDIR=$OUTDIR make install-strip
