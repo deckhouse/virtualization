@@ -42,7 +42,7 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(ipam internal.IPAM, client client.Client, service *service.BlockDeviceService, log *log.Logger) *Validator {
+func NewValidator(client client.Client, service *service.BlockDeviceService, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
 			validators.NewMaintenanceValidator(),
