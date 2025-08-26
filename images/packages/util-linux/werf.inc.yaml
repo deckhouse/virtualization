@@ -93,8 +93,10 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 
-    strip $OUTDIR/usr/bin/*
-    strip $OUTDIR/usr/sbin/*
-    strip $OUTDIR/usr/lib/*
-    strip $OUTDIR/usr/lib64/*
-
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+        echo "Stripped: $execfile"
+      else
+        continue
+      fi
+    done

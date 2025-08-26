@@ -76,6 +76,14 @@ shell:
     make -j$(nproc) all
 
     make DESTDIR=$OUTDIR prefix=/usr LIB=/lib64 install
+  
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+        echo "Stripped: $execfile"
+      else
+        continue
+      fi
+    done
 
     # We don't need man
     rm -rf $OUTDIR/usr/share

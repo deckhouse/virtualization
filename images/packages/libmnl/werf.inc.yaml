@@ -68,3 +68,11 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+        echo "Stripped: $execfile"
+      else
+        continue
+      fi
+    done
