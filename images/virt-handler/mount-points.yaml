@@ -13,4 +13,5 @@ dirs:
   - /run/kubevirt
   - /run/kubevirt-libvirt-runtimes
   - /run/kubevirt-private
-  - /tmp
+  # Other mount points used in Pod, but created by containerd.
+  # - /tmp

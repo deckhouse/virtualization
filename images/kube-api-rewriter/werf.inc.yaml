@@ -18,6 +18,10 @@ mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 shell:
+  beforeInstall:
+    # Make containerd compatible directories structure.
+    - mkdir /var
+    - ln -s ../run /var/run
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
     - cd /src/kube-api-rewriter
@@ -42,8 +46,26 @@ import:
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
+    add: /
+    to: /
+    includePaths:
+      - /var
+    after: install
+  - image: kube-api-rewriter-busybox
+    add: /bin
+    to: /bin
+    includePaths:
+      - /bin/busybox
 imageSpec:
   config:
     user: "64535:64535"
     workingDir: "/app"
     entrypoint: ["/app/kube-api-rewriter"]
+
+---
+image: kube-api-rewriter-busybox
+fromImage: builder/alt
+shell:
+  beforeInstall:
+    - apt-get update && apt-get install -y busybox

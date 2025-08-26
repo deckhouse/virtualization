@@ -3,4 +3,5 @@ dirs:
   - /etc/virt-handler/clientcertificates
   - /profile-data
   - /kubeconfig.local
-  - /tmp
+  # Other mount points used in Pod, but created by containerd.
+  # - /tmp

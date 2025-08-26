@@ -6,4 +6,5 @@ dirs:
   - /run/ca-bundle/cdi-uploadserver-signer-bundle
   - /run/ca-bundle/cdi-uploadserver-client-signer-bundle
   - /kubeconfig.local
-  - /tmp
+  # Other mount points used in Pod, but created by containerd.
+  # - /tmp
