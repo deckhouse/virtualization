@@ -32,7 +32,7 @@ import (
 	restorercommon "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -40,14 +40,14 @@ type BestEffortRestoreStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vmop     *virtv2.VirtualMachineOperation
+	vmop     *v1alpha2.VirtualMachineOperation
 }
 
 func NewBestEffortRestoreStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vmop *virtv2.VirtualMachineOperation,
+	vmop *v1alpha2.VirtualMachineOperation,
 ) *BestEffortRestoreStep {
 	return &BestEffortRestoreStep{
 		client:   client,
@@ -57,8 +57,8 @@ func NewBestEffortRestoreStep(
 	}
 }
 
-func (s BestEffortRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	if s.vmop.Spec.Restore.Mode != virtv2.VMOPRestoreModeBestEffort {
+func (s BestEffortRestoreStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
+	if s.vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeBestEffort {
 		return nil, nil
 	}
 
@@ -70,7 +70,7 @@ func (s BestEffortRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachi
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
-	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
+	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err

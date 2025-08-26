@@ -32,7 +32,7 @@ import (
 	restorercommon "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -40,14 +40,14 @@ type ValidateStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vmop     *virtv2.VirtualMachineOperation
+	vmop     *v1alpha2.VirtualMachineOperation
 }
 
 func NewValidateStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vmop *virtv2.VirtualMachineOperation,
+	vmop *v1alpha2.VirtualMachineOperation,
 ) *ValidateStep {
 	return &ValidateStep{
 		client:   client,
@@ -57,7 +57,7 @@ func NewValidateStep(
 	}
 }
 
-func (s ValidateStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+func (s ValidateStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
@@ -66,7 +66,7 @@ func (s ValidateStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*rec
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
-	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
+	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
@@ -101,7 +101,7 @@ func (s ValidateStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*rec
 	}
 
 	// if not DryRun continue restore
-	if s.vmop.Spec.Restore.Mode != virtv2.VMOPRestoreModeDryRun {
+	if s.vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 

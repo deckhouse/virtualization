@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -36,14 +36,14 @@ type ExitMaintenanceStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vmop     *virtv2.VirtualMachineOperation
+	vmop     *v1alpha2.VirtualMachineOperation
 }
 
 func NewExitMaintenanceStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vmop *virtv2.VirtualMachineOperation,
+	vmop *v1alpha2.VirtualMachineOperation,
 ) *ExitMaintenanceStep {
 	return &ExitMaintenanceStep{
 		client:   client,
@@ -53,8 +53,8 @@ func NewExitMaintenanceStep(
 	}
 }
 
-func (s ExitMaintenanceStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	if s.vmop.Spec.Restore.Mode == virtv2.VMOPRestoreModeDryRun {
+func (s ExitMaintenanceStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
+	if s.vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 
@@ -78,7 +78,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vm *virtv2.VirtualMachine
 		s.recorder.Event(
 			s.vmop,
 			corev1.EventTypeWarning,
-			virtv2.ReasonErrVMOPFailed,
+			v1alpha2.ReasonErrVMOPFailed,
 			"Failed to exit maintenance mode: "+err.Error(),
 		)
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)

@@ -22,37 +22,37 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, err error) {
-	*phase = virtv2.VMOPPhaseFailed
+func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, err error) {
+	*phase = v1alpha2.VMOPPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmopcondition.ReasonRestoreOperationFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
-	*phase = virtv2.VMOPPhasePending
+func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
+	*phase = v1alpha2.VMOPPhasePending
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(reason).
 		Message(service.CapitalizeFirstLetter(msg) + ".")
 }
 
-func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
-	*phase = virtv2.VMOPPhaseCompleted
+func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
+	*phase = v1alpha2.VMOPPhaseCompleted
 	cb.
 		Status(metav1.ConditionTrue).
 		Reason(reason).
 		Message(service.CapitalizeFirstLetter(msg) + ".")
 }
 
-func FillResourcesStatuses(vmop *virtv2.VirtualMachineOperation, statuses []restorer.SnapshotResourceStatus) {
+func FillResourcesStatuses(vmop *v1alpha2.VirtualMachineOperation, statuses []restorer.SnapshotResourceStatus) {
 	for _, status := range statuses {
-		vmop.Status.Resources = append(vmop.Status.Resources, virtv2.VirtualMachineOperationResource{
+		vmop.Status.Resources = append(vmop.Status.Resources, v1alpha2.VirtualMachineOperationResource{
 			APIVersion: status.APIVersion,
 			Kind:       status.Kind,
 			Name:       status.Name,

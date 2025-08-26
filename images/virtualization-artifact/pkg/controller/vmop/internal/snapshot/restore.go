@@ -28,17 +28,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type VMSnapshotRestore struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	vmop     *virtv2.VirtualMachineOperation
+	vmop     *v1alpha2.VirtualMachineOperation
 }
 
-func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *VMSnapshotRestore {
+func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) *VMSnapshotRestore {
 	return &VMSnapshotRestore{
 		client:   client,
 		recorder: recorder,
@@ -46,7 +46,7 @@ func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecord
 	}
 }
 
-func (r VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+func (r VMSnapshotRestore) Sync(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(r.vmop.Generation), &r.vmop.Status.Conditions) }()
 

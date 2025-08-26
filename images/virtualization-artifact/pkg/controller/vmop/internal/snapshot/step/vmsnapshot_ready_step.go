@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
@@ -38,14 +38,14 @@ type VMSnapshotReadyStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vmop     *virtv2.VirtualMachineOperation
+	vmop     *v1alpha2.VirtualMachineOperation
 }
 
 func NewVMSnapshotReadyStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vmop *virtv2.VirtualMachineOperation,
+	vmop *v1alpha2.VirtualMachineOperation,
 ) *VMSnapshotReadyStep {
 	return &VMSnapshotReadyStep{
 		client:   client,
@@ -55,7 +55,7 @@ func NewVMSnapshotReadyStep(
 	}
 }
 
-func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
 	if s.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("the virtual machine snapshot name is empty")
 		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
@@ -63,7 +63,7 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *virtv2.VirtualMachine
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
-	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
+	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
@@ -71,7 +71,7 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *virtv2.VirtualMachine
 
 	vmSnapshotReadyToUseCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		s.vmop.Status.Phase = virtv2.VMOPPhasePending
+		s.vmop.Status.Phase = v1alpha2.VMOPPhasePending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmrestorecondition.VirtualMachineSnapshotNotReadyToUse).
