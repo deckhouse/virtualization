@@ -29,6 +29,7 @@ shell:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools meson ninja-build
+- glib2-devel
 - tree
 {{- end -}}
 
