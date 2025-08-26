@@ -57,6 +57,7 @@ import:
     to: /bin
     includePaths:
       - busybox
+    after: install
 imageSpec:
   config:
     user: "64535:64535"
