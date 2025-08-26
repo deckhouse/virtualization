@@ -28,30 +28,26 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
 
 type VMSnapshotReadyStep struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
-	vmop     *v1alpha2.VirtualMachineOperation
+	client client.Client
+	cb     *conditions.ConditionBuilder
+	vmop   *v1alpha2.VirtualMachineOperation
 }
 
 func NewVMSnapshotReadyStep(
 	client client.Client,
-	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vmop *v1alpha2.VirtualMachineOperation,
 ) *VMSnapshotReadyStep {
 	return &VMSnapshotReadyStep{
-		client:   client,
-		recorder: recorder,
-		cb:       cb,
-		vmop:     vmop,
+		client: client,
+		cb:     cb,
+		vmop:   vmop,
 	}
 }
 

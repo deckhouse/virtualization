@@ -69,7 +69,7 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vm *v1alpha2.VirtualMachine
 	}
 
 	return steptaker.NewStepTakers(
-		step.NewVMSnapshotReadyStep(r.client, r.recorder, cb, r.vmop),
+		step.NewVMSnapshotReadyStep(r.client, cb, r.vmop),
 		step.NewValidateStep(r.client, r.recorder, cb, r.vmop),
 		step.NewEnterMaintenanceStep(r.client, r.recorder, cb, r.vmop),
 		step.NewBestEffortRestoreStep(r.client, r.recorder, cb, r.vmop),
