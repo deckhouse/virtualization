@@ -71,10 +71,9 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vm *virtv2.VirtualMachine
 		return nil, nil
 	}
 
-	vmCopy := vm.DeepCopy()
-	conditions.RemoveCondition(vmcondition.TypeMaintenance, &vmCopy.Status.Conditions)
+	conditions.RemoveCondition(vmcondition.TypeMaintenance, &vm.Status.Conditions)
 
-	err := s.client.Status().Update(ctx, vmCopy)
+	err := s.client.Status().Update(ctx, vm)
 	if err != nil {
 		s.recorder.Event(
 			s.vmop,

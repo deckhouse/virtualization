@@ -76,10 +76,10 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vm *v1alpha2.VirtualMach
 			Reason(vmcondition.ReasonMaintenanceRestore).
 			Status(metav1.ConditionTrue). // v i/a "/w/
 			Message("VM is in maintenance mode for restore operation"),
-		&vmCopy.Status.Conditions,
+		&vm.Status.Conditions,
 	)
 
-	err := s.client.Status().Update(ctx, vmCopy)
+	err := s.client.Status().Update(ctx, vm)
 	if err != nil {
 		s.recorder.Event(
 			s.vmop,
