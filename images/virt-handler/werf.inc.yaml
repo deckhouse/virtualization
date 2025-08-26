@@ -39,11 +39,24 @@ import:
   after: install
   includePaths:
   - nsswitch.conf
+{{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
+- image: debuger
+  add: /app/dlv
+  to: /app/dlv
+  after: install
+{{- end }}
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-handler/BUILD.bazel
 imageSpec:
   config:
     user: 0
+    {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
+      XDG_CONFIG_HOME: "/tmp"
+    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/usr/bin/virt-handler", "--"]
+    {{- else }}
     entrypoint: ["/usr/bin/virt-handler"]
+    {{- end }}
 
 ---
 {{- $name := print $.ImageName "-dependencies" -}}

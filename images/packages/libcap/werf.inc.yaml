@@ -12,6 +12,20 @@ import:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "libcap/libcap.git" }}
 
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -28,6 +42,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -40,10 +59,7 @@ shell:
   install:
   - |
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
     make -j$(nproc)
     make DESTDIR=$OUTDIR prefix=/usr install
-
+    tree -sp $OUTDIR

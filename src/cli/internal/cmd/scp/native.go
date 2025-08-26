@@ -53,7 +53,7 @@ func (o *SCP) nativeSCP(virtClient kubeclient.Client, local templates.LocalSCPAr
 func (o *SCP) copyToRemote(client *scp.Client, localPath, remotePath string) error {
 	isFile, isDir, exists, err := stat(localPath)
 	if err != nil {
-		return fmt.Errorf("failed reading path %q: %v", localPath, err)
+		return fmt.Errorf("failed reading path %q: %w", localPath, err)
 	}
 
 	if !exists {
@@ -78,7 +78,7 @@ func (o *SCP) copyToRemote(client *scp.Client, localPath, remotePath string) err
 func (o *SCP) copyFromRemote(client *scp.Client, localPath, remotePath string) error {
 	_, isDir, exists, err := stat(localPath)
 	if err != nil {
-		return fmt.Errorf("failed reading path %q: %v", localPath, err)
+		return fmt.Errorf("failed reading path %q: %w", localPath, err)
 	}
 
 	if o.recursive {
@@ -90,7 +90,7 @@ func (o *SCP) copyFromRemote(client *scp.Client, localPath, remotePath string) e
 		}
 
 		if err := os.MkdirAll(localPath, os.ModePerm); err != nil {
-			return fmt.Errorf("failed ensuring the existence of the local target directory %q: %v", localPath, err)
+			return fmt.Errorf("failed ensuring the existence of the local target directory %q: %w", localPath, err)
 		}
 
 		return client.CopyDirFromRemote(remotePath, localPath, &scp.DirTransferOption{PreserveProp: o.preserve})

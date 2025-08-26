@@ -56,5 +56,5 @@ shell:
     export TAGS="{{ printf "-tags %s" .MODULE_EDITION }}"
     {{- $_ := set $ "ProjectName" (list $.ImageName "hooks" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}
-    # Note: module-config-reporter should have extension to be treated as a classic shell hook (not batch).
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/module-config-reporter.exe ./cmd/module-config-reporter`) | nindent 6 }}
+    # Note: module-config-reporter hook binary should have extension to be treated as a classic shell hook (not batch).
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/module-config-reporter.classic.hook ./cmd/module-config-reporter`) | nindent 6 }}

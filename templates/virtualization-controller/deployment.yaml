@@ -1,4 +1,5 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "delve" . | fromYaml) -}}
 
 {{- define "virtualization_controller_resources" }}
 cpu: 10m
@@ -98,6 +99,10 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
+            {{- include "delvePorts" (list $delve "delve/virtualization-controller") | nindent 12 }}
+            - containerPort: 8083
+              name: health
+              protocol: TCP
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -107,11 +112,28 @@ spec:
           env:
             {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
             {{- include "virtualization-controller.envs" . | nindent 12 }}
+          {{- if ne "delve/virtualization-controller" ($delve | dig "debug" "component" "<missing>") }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 10
+          {{- end }}
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
+        {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
             (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virtualization-controller")
             (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+            (dict "upstream" "http://127.0.0.1:9090/healthz" "path" "/proxy/healthz" "name" "kube-api-rewriter")
+            (dict "upstream" "http://127.0.0.1:9090/readyz" "path" "/proxy/readyz" "name" "kube-api-rewriter")
         ) }}
         {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
       dnsPolicy: ClusterFirst

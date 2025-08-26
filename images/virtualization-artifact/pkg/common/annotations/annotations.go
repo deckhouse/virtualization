@@ -66,6 +66,9 @@ const (
 	AnnVirtualDiskAccessMode  = AnnVirtualDisk + "/access-mode"
 	AnnVirtualDiskBindingMode = AnnVirtualDisk + "/binding-mode"
 
+	AnnVirtualMachineClass        = "virtualmachineclass." + AnnAPIGroupV
+	AnnVirtualMachineClassDefault = AnnVirtualMachineClass + "/is-default-class"
+
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
 
@@ -93,6 +96,7 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 

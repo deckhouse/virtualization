@@ -92,12 +92,12 @@ func ExactArgs(nameOfCommand string, n int) cobra.PositionalArgs {
 }
 
 // PrintWarningForPausedVM prints warning message if VM is paused
-func PrintWarningForPausedVM(virtCli kubeclient.Client, vmName, namespace string) {
-	vm, err := virtCli.VirtualMachines(namespace).Get(context.Background(), vmName, metav1.GetOptions{})
+func PrintWarningForPausedVM(ctx context.Context, virtCli kubeclient.Client, vmName, namespace string) {
+	vm, err := virtCli.VirtualMachines(namespace).Get(ctx, vmName, metav1.GetOptions{})
 	if err != nil {
 		return
 	}
 	if vm.Status.Phase == virtv2.MachinePause {
-		fmt.Fprintf(os.Stderr, "\rWarning: %s is paused. Console will be active after unpause.\n", vmName)
+		_, _ = fmt.Fprintf(os.Stderr, "\rWarning: %s is paused. Console will be active after unpause.\n", vmName)
 	}
 }

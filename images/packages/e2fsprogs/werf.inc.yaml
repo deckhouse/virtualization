@@ -11,7 +11,20 @@ import:
 ---
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "ext2/e2fsprogs.git" }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -30,6 +43,10 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 {{- $images := list "libblkid" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
@@ -51,9 +68,6 @@ shell:
     done
 
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
     find -type f -print0 |
     xargs -r0 grep -lZ '^static void usage' -- |
@@ -78,5 +92,5 @@ shell:
     strip $OUTDIR/usr/lib64/*.so.*
     rm -rf $OUTDIR/usr/share/locale
     rm -rf $OUTDIR/usr/share/man
-    tree $OUTDIR
+    tree -sp $OUTDIR
 

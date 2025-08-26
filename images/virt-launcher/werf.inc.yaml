@@ -421,8 +421,13 @@ shell:
   {{- include "debian packages proxy" . | nindent 2 }}
   - |
     echo "install deps libvirt-dev"
+{{- if eq $.SVACE_ENABLED "false" }}
     apt-get install -y libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  - apt-get -qq install -y libvirt-devel
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   - |
     # Install packages
     PKGS="{{ $images | join " " }}"
@@ -460,9 +465,15 @@ git:
         - '*.c'
 shell:
   beforeInstall:
+{{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get install --yes musl-dev musl-tools
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get -qq install -y musl-devel musl-devel-static
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   install:
   - |
     cd /static_binaries

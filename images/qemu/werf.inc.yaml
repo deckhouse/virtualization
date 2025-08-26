@@ -120,7 +120,7 @@ libraries:
 - libnfs-devel libzstd-devel libseccomp-devel
 - libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
-- libdaxctl-devel rdma-core-devel libnuma-devel
+- libdaxctl-devel rdma-core-devel
 - bzlib-devel liblzo2-devel libsnappy-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
@@ -151,7 +151,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" -}}
+{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO

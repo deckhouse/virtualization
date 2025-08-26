@@ -214,6 +214,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	}
 
 	switch {
@@ -388,12 +389,10 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		vi.Status.Size = ds.statService.GetSize(pod)
 		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
 		err = ds.diskService.Protect(ctx, vi, dv, pvc)
 		if err != nil {
