@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -171,16 +172,40 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 ) error {
 	var tarWriter *tar.Writer
 	{
+		now := time.Now()
+
 		tarWriter = tar.NewWriter(pipeWriter)
+		dirHeader := &tar.Header{
+			Name:       "disk",
+			Mode:       0o755,
+			Uid:        107,
+			Gid:        107,
+			ModTime:    now,
+			AccessTime: now,
+			ChangeTime: now,
+			Typeflag:   tar.TypeDir,
+			Format:     tar.FormatPAX,
+		}
+		if err := tarWriter.WriteHeader(dirHeader); err != nil {
+			return fmt.Errorf("error writing tar header [disk]: %w", err)
+		}
+
+		imagePath := path.Join("disk", sourceImageFilename)
 		header := &tar.Header{
-			Name:     path.Join("disk", sourceImageFilename),
-			Size:     int64(sourceImageSize),
-			Mode:     0o644,
-			Typeflag: tar.TypeReg,
+			Name:       imagePath,
+			Size:       int64(sourceImageSize),
+			Mode:       0o644,
+			Uid:        107,
+			Gid:        107,
+			ModTime:    now,
+			AccessTime: now,
+			ChangeTime: now,
+			Typeflag:   tar.TypeReg,
+			Format:     tar.FormatPAX,
 		}
 
 		if err := tarWriter.WriteHeader(header); err != nil {
-			return fmt.Errorf("error writing tar header: %w", err)
+			return fmt.Errorf("error writing tar header [%s]: %w", imagePath, err)
 		}
 	}
 
