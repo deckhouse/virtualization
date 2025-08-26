@@ -68,7 +68,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "openssl" "libidn2" "libgmp" "gnutls" "nettle" -}}
+{{- $images := list "openssl" "libidn2" "libgmp" "gnutls" "nettle" "libldap2" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
