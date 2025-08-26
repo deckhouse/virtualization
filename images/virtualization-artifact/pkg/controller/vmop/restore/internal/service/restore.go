@@ -24,24 +24,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func NewRestoreOperation(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
+type restorer interface {
+	Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error)
+}
+
+func NewRestoreOperation(client client.Client, restorer restorer, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
 	return &RestoreOperation{
 		client:  client,
 		vmop:    vmop,
-		restore: snapshot.NewVMSnapshotRestore(client, recorder, vmop),
+		restore: restorer,
 	}
 }
 
 type RestoreOperation struct {
 	client  client.Client
 	vmop    *virtv2.VirtualMachineOperation
-	restore *snapshot.VMSnapshotRestore
+	restore restorer
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {

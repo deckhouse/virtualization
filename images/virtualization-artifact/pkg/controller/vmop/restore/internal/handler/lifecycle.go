@@ -91,7 +91,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// Synchronize conditions to the VMOP.
 	if isOperationInProgress(vmop) {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", vmop.Status.Phase)
-		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop, svcOp)
+		return reconcile.Result{}, h.syncOperationComplete(vmop, svcOp)
 	}
 
 	// 4. VMOP is not in progress.
@@ -167,11 +167,11 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 }
 
 // syncOperationComplete detects if operation is completed and VM has desired phase.
-func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *v1alpha2.VirtualMachineOperation, svcOp service.Operation) error {
+func (h LifecycleHandler) syncOperationComplete(changed *v1alpha2.VirtualMachineOperation, svcOp service.Operation) error {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(changed.GetGeneration())
 
-	isComplete, failureMessage, err := svcOp.IsComplete(ctx)
+	isComplete, failureMessage, err := svcOp.IsComplete()
 	if err != nil {
 		return fmt.Errorf("check if operation is complete: %w", err)
 	}

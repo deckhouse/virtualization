@@ -29,8 +29,7 @@ import (
 const deletionHandlerName = "DeletionHandler"
 
 // DeletionHandler manages finalizers on VirtualMachineOperation resource.
-type DeletionHandler struct {
-}
+type DeletionHandler struct{}
 
 func NewDeletionHandler() *DeletionHandler {
 	return &DeletionHandler{}

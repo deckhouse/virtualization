@@ -25,7 +25,6 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -37,7 +36,6 @@ var _ = Describe("DeletionHandler", func() {
 
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
-		recorder   eventrecord.EventRecorderLogger
 		fakeClient client.WithWatch
 		srv        *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
 	)
@@ -48,7 +46,7 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	reconcile := func() {
-		h := NewDeletionHandler(NewSvcOpCreator(fakeClient, recorder))
+		h := NewDeletionHandler()
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 		err = srv.Update(ctx)
