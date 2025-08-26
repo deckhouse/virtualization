@@ -68,3 +68,6 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
+
+    # docs are not needed.
+    rm -rf $OUTDIR/share
