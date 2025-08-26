@@ -55,6 +55,7 @@ func SetupController(
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
 	handlers := []Handler{
+		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
@@ -94,7 +95,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(netmanager.NewIPAM(), client, blockDeviceService, log)).
+		WithValidator(NewValidator(client, blockDeviceService, log)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err

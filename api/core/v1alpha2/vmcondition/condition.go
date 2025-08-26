@@ -46,6 +46,10 @@ const (
 	TypeNeedsEvict Type = "NeedsEvict"
 	// TypeNetworkReady indicates the state of additional network interfaces inside the virtual machine pod
 	TypeNetworkReady Type = "NetworkReady"
+
+	// TypeMaintenance indicates that the VirtualMachine is in maintenance mode.
+	// During this condition, the VM remains stopped and no changes are allowed.
+	TypeMaintenance Type = "Maintenance"
 )
 
 type Reason string
@@ -132,4 +136,7 @@ const (
 	ReasonNetworkNotReady Reason = "NetworkNotReady"
 	// ReasonSDNModuleDisable indicates that the SDN module is disabled, which may prevent network interfaces from becoming ready.
 	ReasonSDNModuleDisable Reason = "SDNModuleDisable"
+
+	// ReasonMaintenanceRestore indicates that the VirtualMachine is in maintenance mode for restore operation.
+	ReasonMaintenanceRestore Reason = "RestoreInProgress"
 )

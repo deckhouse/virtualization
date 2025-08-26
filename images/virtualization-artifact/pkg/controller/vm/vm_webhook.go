@@ -26,7 +26,6 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -42,9 +41,10 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(ipam internal.IPAM, client client.Client, service *service.BlockDeviceService, log *log.Logger) *Validator {
+func NewValidator(client client.Client, service *service.BlockDeviceService, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
+			validators.NewMaintenanceValidator(),
 			validators.NewMetaValidator(client),
 			validators.NewIPAMValidator(client),
 			validators.NewBlockDeviceSpecRefsValidator(),
