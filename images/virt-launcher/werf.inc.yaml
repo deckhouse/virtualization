@@ -63,7 +63,6 @@ altLibs:
   - libdaxctl-devel
   - rdma-core-devel
   - bzlib-devel
-  - liblzo2-devel
   - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
@@ -229,6 +228,13 @@ import:
   after: setup
   includePaths:
   - sbin/hwclock
+
+- image: {{ .ModuleNamePrefix }}packages/lzo
+  add: /lzo
+  to: /relocate
+  after: setup
+  includePaths:
+  - usr/lib64/liblzo2.a
 
 # GNU utilities
 - image: tools/coreutils
