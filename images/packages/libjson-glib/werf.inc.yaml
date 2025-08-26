@@ -59,12 +59,13 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    /usr/bin/meson setup .  \
+    mkdir _build
+    /usr/bin/meson setup _build  \
       --prefix=$OUTDIR/usr \
       --libdir=$OUTDIR/usr/lib64 \
       -Dman=false \
 
-    ninja-build -j$(nproc) -C build
-    DESTDIR=$OUTDIR ninja-build install . -C build
+    ninja-build -j$(nproc) -C _build
+    DESTDIR=$OUTDIR ninja-build install . -C _build
     tree -hp $OUTDIR
 
