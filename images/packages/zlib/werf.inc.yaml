@@ -64,9 +64,17 @@ shell:
     
     ./configure \
       --prefix=/usr \
+      --eprefix=/usr \
       --libdir=/usr/lib64
-      
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
+
+    rm -rf ${OUTDIR}/usr/share
+    
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
