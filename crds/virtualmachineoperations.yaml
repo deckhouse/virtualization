@@ -77,7 +77,11 @@ spec:
                   description: Restore defines the restore operation.
                   properties:
                     mode:
-                      description: Mode defines the restore mode.
+                      description: |-
+                        Mode defines the restore mode:
+                        * `DryRun` - validation run without performing the restore. Conflicts and inconsistencies are recorded in the operation status.
+                        * `Strict` - strict restore mode "as in snapshot". Missing external dependencies may cause the virtual machine to remain in Pending state after restoration.
+                        * `BestEffort` - restore mode with removal of missing external dependencies (ClusterVirtualImage, VirtualImage, Secret) from the virtual machine specification.
                       enum:
                         - DryRun
                         - Strict
