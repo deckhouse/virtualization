@@ -33,7 +33,7 @@ packages:
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- zlib-devel libzstd-devel libpsl-devel libldap-devel libbrotli-devel
+- zlib-devel libzstd-devel libpsl-devel libbrotli-devel
 - python3-base
 - libnghttp2-tools
 - openssh-server
@@ -64,6 +64,13 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
+- image: {{ .ModuleNamePrefix }}packages/openldap
+  add: /openldap
+  to: /
+  before: install
+  includePaths:
+  - usr/lib64/libldap.a
+  - usr/lib64/pkgconfig/ldap.pc
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
