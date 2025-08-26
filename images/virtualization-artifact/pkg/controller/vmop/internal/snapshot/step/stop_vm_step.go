@@ -19,12 +19,14 @@ package step
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 type StopVMStep struct {
@@ -53,16 +55,22 @@ func (s StopVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*recon
 		return nil, nil
 	}
 
-	// err := stopVirtualMachine(ctx, s.client, vm.Name, vm.Namespace, "TODO")
-	// if err != nil {
-	// 	if errors.Is(err, restorer.ErrIncomplete) {
-	// 		setPhaseConditionToPending(s.cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, "waiting for the virtual machine will be stopped")
-	// 		return &reconcile.Result{}, nil
-	// 	}
-	//
-	// 	setPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
-	// 	return &reconcile.Result{}, err
-	// }
+	if vm.Status.Phase == virtv2.MachineRunning {
+		if !conditions.HasCondition(vmcondition.TypeMaintenance, vm.Status.Conditions) {
+			conditions.SetCondition(
+				conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+					Generation(vm.GetGeneration()).
+					Reason(vmcondition.ReasonMaintenanceRestore).
+					Status(metav1.ConditionTrue).
+					Message("VM is being moved to maintenance mode for restore operation"),
+				&vm.Status.Conditions,
+			)
+
+			s.recorder.Event(s.vmop, "Normal", "MaintenanceMode", "VM is being moved to maintenance mode for restore operation")
+		}
+
+		return &reconcile.Result{}, nil
+	}
 
 	return nil, nil
 }
