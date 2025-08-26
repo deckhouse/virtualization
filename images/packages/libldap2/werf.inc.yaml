@@ -33,6 +33,7 @@ packages:
 - libsystemd-devel
 - libevent-devel libuuid-devel
 - liblmdb-devel
+- libargon2-devel
 - tree
 {{- end -}}
 
@@ -90,7 +91,21 @@ shell:
       --disable-wt \
       --disable-docs \
       --enable-balancer=mod \
-      --disable-sql
+      --enable-argon2 \
+      --with-yielding-select \
+      --enable-aci \
+      --disable-slapi \
+      --disable-slp \
+      --disable-sql \
+      --with-cyrus-sasl \
+      --enable-spasswd \
+      --disable-perl \
+      --enable-overlays=mod \
+      --with-systemd \
+      --without-fetch \
+      --with-threads \
+      --with-pic \
+      --with-gnu-ld
 
     make -j$(nproc)
     DESTDIR=$OUTDIR make install-strip
