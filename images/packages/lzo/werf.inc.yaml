@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /liblzo2
+  to: /lzo
   before: setup
 
 ---

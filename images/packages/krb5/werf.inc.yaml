@@ -60,19 +60,20 @@ shell:
 
     cd /src/src
     export YACC="bison -y"
+    export CFLAGS="-O2 -fcommon"
 
     autoreconf
 
     ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --enable-shared --disable-static \
-      --with-system-et \
-      --with-system-ss \
-      --enable-dns-for-realm \
-      --enable-pkinit \
-      --with-pkinit-crypto-impl=openssl \
-      --with-tls-impl=openssl 
+        --prefix=/usr \
+        --libdir=/usr/lib64 \
+        --disable-shared --enable-static \
+        --enable-dns-for-realm \
+        --enable-pkinit \
+        --with-system-et \
+        --with-system-ss \
+        --with-pkinit-crypto-impl=openssl \
+        --with-tls-impl=openssl
     
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
