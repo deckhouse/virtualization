@@ -20,7 +20,9 @@ mount:
 shell:
   beforeInstall:
     # Make containerd compatible directories structure.
-    - mkdir /var
+    - ls -la /
+    - ls -la /var
+    - mkdir /var -p
     - ln -s ../run /var/run
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
