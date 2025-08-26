@@ -34,6 +34,10 @@ type VirtualMachineIPAddressExpansion interface{}
 
 type VirtualMachineIPAddressLeaseExpansion interface{}
 
+type VirtualMachineMACAddressExpansion interface{}
+
+type VirtualMachineMACAddressLeaseExpansion interface{}
+
 type VirtualMachineOperationExpansion interface{}
 
 type VirtualMachineRestoreExpansion interface{}

@@ -1371,6 +1371,7 @@ var _ = Describe("Capacity check", func() {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		_ = vmResource.Fetch(ctx)
+
 		vmState := state.New(fakeClient, vmResource)
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
@@ -1554,6 +1555,7 @@ var _ = Describe("Capacity check", func() {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
 			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			_ = vmResource.Fetch(ctx)
+
 			vmState := state.New(fakeClient, vmResource)
 
 			handler := NewBlockDeviceHandler(fakeClient, blockDeviceServiceMock)
