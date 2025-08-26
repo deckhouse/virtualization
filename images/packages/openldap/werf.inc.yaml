@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libldap2
+  to: /openldap
   before: setup
 
 ---
@@ -60,8 +60,11 @@ shell:
     cd /src
 
     ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64
+        --prefix=/usr \
+        --libdir=/usr/lib64 \
+        --disable-shared \
+        --enable-static \
+        --with-tls=openssl
     
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
