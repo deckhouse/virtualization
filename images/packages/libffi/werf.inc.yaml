@@ -69,5 +69,5 @@ shell:
 
     make DESTDIR=$OUTDIR install
 
-    # docs are not needed.
-    rm -rf $OUTDIR/share
+    # We don't need man
+    rm -rf $OUTDIR/usr/share
