@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -41,34 +40,28 @@ type KVVMIMWatcher struct{}
 func (w *KVVMIMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	// Subscribe to VirtualMachineInstanceMigration status changes.
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			kvvmim, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
-			if !ok {
-				return nil
-			}
-			vmiName := kvvmim.Spec.VMIName
-			if vmiName == "" {
-				return nil
-			}
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      vmiName,
-						Namespace: kvvmim.GetNamespace(),
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, kvvmim *virtv1.VirtualMachineInstanceMigration) []reconcile.Request {
+				vmiName := kvvmim.Spec.VMIName
+				if vmiName == "" {
+					return nil
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmiName,
+							Namespace: kvvmim.GetNamespace(),
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv1.VirtualMachineInstanceMigration]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstanceMigration]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstanceMigration]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldKvvmim := e.ObjectOld.(*virtv1.VirtualMachineInstanceMigration)
-				newKvvmim := e.ObjectNew.(*virtv1.VirtualMachineInstanceMigration)
-				return oldKvvmim.Status.Phase != newKvvmim.Status.Phase
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstanceMigration: %w", err)
 	}

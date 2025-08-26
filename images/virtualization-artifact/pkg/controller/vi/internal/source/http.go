@@ -214,6 +214,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
+		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	}
 
 	switch {
@@ -388,12 +389,10 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		vi.Status.Size = ds.statService.GetSize(pod)
 		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
-		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
 		err = ds.diskService.Protect(ctx, vi, dv, pvc)
 		if err != nil {
@@ -451,7 +450,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) err
 	return nil
 }
 
-func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vi.Spec.DataSource.HTTP, supgen)
@@ -479,7 +478,7 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

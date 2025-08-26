@@ -1284,7 +1284,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=\"$namespace\", name=\"$name\", network=\"$network\"}[$__rate_interval])*8)",
+          "expr": "sum(rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])*8)",
           "instant": false,
           "legendFormat": "RX",
           "range": true,
@@ -1296,7 +1296,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=\"$namespace\", name=\"$name\", network=\"$network\"}[$__rate_interval])*8)",
+          "expr": "sum(rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])*8)",
           "hide": false,
           "instant": false,
           "legendFormat": "TX",
@@ -1720,7 +1720,7 @@
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "Bps"
         },
         "overrides": []
       },
@@ -1750,7 +1750,7 @@
             "uid": "P0D6E4079E36703EB"
           },
           "editorMode": "code",
-          "expr": "rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])",
+          "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
           "instant": false,
           "legendFormat": "Processed memory rate",
           "range": true,
@@ -1762,7 +1762,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "rate(d8_virtualization_virtualmachine_migration_data_remaining_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])",
+          "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_remaining_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
           "hide": false,
           "instant": false,
           "legendFormat": "Remaining memory rate",
@@ -1775,7 +1775,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\", name=\"$name\"}",
+          "expr": "sum(d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\", name=\"$name\"}) without (instance,job,node)",
           "hide": false,
           "instant": false,
           "legendFormat": "Dirty memory rate",
@@ -4471,8 +4471,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default",
-          "value": "default"
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
@@ -4480,7 +4480,7 @@
         },
         "definition": "label_values(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=\"$namespace\", name=\"$name\"},network)",
         "hide": 2,
-        "includeAll": false,
+        "includeAll": true,
         "multi": false,
         "name": "network",
         "options": [],

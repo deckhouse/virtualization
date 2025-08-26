@@ -1,8 +1,6 @@
 module github.com/deckhouse/virtualization-controller/dvcr-importers
 
-go 1.23.1
-
-toolchain go1.24.0
+go 1.24.6
 
 require (
 	github.com/containers/image/v5 v5.32.0
@@ -25,8 +23,6 @@ require (
 	kubevirt.io/containerized-data-importer-api v1.60.3
 )
 
-require github.com/DataDog/gostackparse v0.7.0 // indirect
-
 require (
 	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
@@ -43,7 +39,6 @@ require (
 	github.com/containers/ocicrypt v1.2.0 // indirect
 	github.com/containers/storage v1.55.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
-	github.com/deckhouse/deckhouse/pkg/log v0.0.0-20250604150931-f6e768cdfdcc
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker v27.1.1+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.2 // indirect
@@ -114,7 +109,7 @@ require (
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
 	golang.org/x/net v0.26.0 // indirect
-	golang.org/x/oauth2 v0.21.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
@@ -153,9 +148,6 @@ replace (
 	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20230310153733-63d38b55bd5a
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
-	golang.org/x/crypto => golang.org/x/crypto v0.38.0 // CVE-2024-45337,CVE-2025-22869
-	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
-
 	k8s.io/api => k8s.io/api v0.30.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.30.2
@@ -191,4 +183,11 @@ replace (
 
 	kubevirt.io/controller-lifecycle-operator-sdk/api => kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.18.4
+)
+
+// CVE Replaces
+replace (
+	golang.org/x/crypto => golang.org/x/crypto v0.38.0 // CVE-2024-45337,CVE-2025-22869
+	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
+	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )

@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -31,7 +32,7 @@ import (
 )
 
 func TestDatasourceReadyHandler_Handle(t *testing.T) {
-	ctx := context.TODO()
+	ctx := t.Context()
 	blank := &HandlerMock{
 		ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
 			return nil
@@ -88,5 +89,49 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		require.Equal(t, vdcondition.DatasourceReadyType.String(), condition.Type)
 		require.Equal(t, metav1.ConditionTrue, condition.Status)
 		require.Equal(t, vdcondition.DatasourceReady.String(), condition.Reason)
+	})
+
+	t.Run("VirtualDisk with missing VI reference", func(t *testing.T) {
+		vd := virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{
+				DataSource: &virtv2.VirtualDiskDataSource{
+					Type: "NonBlank",
+				},
+			},
+		}
+		sources.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+			return &source.HandlerMock{ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
+				return source.NewImageNotFoundError("missing-vi")
+			}}, true
+		}
+		handler := NewDatasourceReadyHandler(recorder, blank, sources)
+		_, err := handler.Handle(ctx, &vd)
+		require.NoError(t, err)
+		condition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		require.Equal(t, metav1.ConditionFalse, condition.Status)
+		require.Equal(t, vdcondition.ImageNotFound.String(), condition.Reason)
+		require.Equal(t, "VirtualImage \"missing-vi\" not found.", condition.Message)
+	})
+
+	t.Run("VirtualDisk with missing CVI reference", func(t *testing.T) {
+		vd := virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{
+				DataSource: &virtv2.VirtualDiskDataSource{
+					Type: "NonBlank",
+				},
+			},
+		}
+		sources.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+			return &source.HandlerMock{ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
+				return source.NewClusterImageNotFoundError("missing-cvi")
+			}}, true
+		}
+		handler := NewDatasourceReadyHandler(recorder, blank, sources)
+		_, err := handler.Handle(ctx, &vd)
+		require.NoError(t, err)
+		condition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		require.Equal(t, metav1.ConditionFalse, condition.Status)
+		require.Equal(t, vdcondition.ClusterImageNotFound.String(), condition.Reason)
+		require.Equal(t, "ClusterVirtualImage \"missing-cvi\" not found.", condition.Message)
 	})
 }

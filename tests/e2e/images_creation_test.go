@@ -24,12 +24,12 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "images-creation"}
 		ns            string
@@ -45,23 +45,25 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+		CreateNamespace(ns)
+
 		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
 		virtualDisk := virtv2.VirtualDisk{}
 		vdFilePath := fmt.Sprintf("%s/vd/vd-alpine-http.yaml", conf.TestData.ImagesCreation)
-		err = UnmarshalResource(vdFilePath, &virtualDisk)
+		err = helper.UnmarshalResource(vdFilePath, &virtualDisk)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdFilePath, err)
 
 		virtualDisk.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
-		err = WriteYamlObject(vdFilePath, &virtualDisk)
+		err = helper.WriteYamlObject(vdFilePath, &virtualDisk)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdFilePath, err)
 
 		virtualDiskSnapshot := virtv2.VirtualDiskSnapshot{}
 		vdSnapshotFilePath := fmt.Sprintf("%s/vdsnapshot/vdsnapshot.yaml", conf.TestData.ImagesCreation)
-		err = UnmarshalResource(vdSnapshotFilePath, &virtualDiskSnapshot)
+		err = helper.UnmarshalResource(vdSnapshotFilePath, &virtualDiskSnapshot)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdSnapshotFilePath, err)
 
-		err = WriteYamlObject(vdSnapshotFilePath, &virtualDiskSnapshot)
+		err = helper.WriteYamlObject(vdSnapshotFilePath, &virtualDiskSnapshot)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdSnapshotFilePath, err)
 	})
 

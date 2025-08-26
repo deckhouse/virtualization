@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.18.0
   labels:
     heritage: deckhouse
     module: virtualization
@@ -13,13 +13,11 @@ spec:
   names:
     categories:
       - virtualization
-      - all
     kind: VirtualDisk
     listKind: VirtualDiskList
     plural: virtualdisks
     shortNames:
       - vd
-      - vds
     singular: virtualdisk
   scope: Namespaced
   versions:
@@ -366,6 +364,32 @@ spec:
                         the cluster.
                       type: string
                   type: object
+                migrationState:
+                  description: Migration information.
+                  properties:
+                    endTimestamp:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    result:
+                      description:
+                        VirtualDiskMigrationResult is the result of the VirtualDisk
+                        migration.
+                      enum:
+                        - Succeeded
+                        - Failed
+                      type: string
+                    sourcePVC:
+                      description: Source PersistentVolumeClaim name.
+                      type: string
+                    startTimestamp:
+                      format: date-time
+                      type: string
+                    targetPVC:
+                      description: Target PersistentVolumeClaim name.
+                      type: string
+                  type: object
                 observedGeneration:
                   description: Resource generation last processed by the controller.
                   format: int64
@@ -381,7 +405,9 @@ spec:
                     * `Resizing`: The process of resource resizing is in progress.
                     * `Failed`: There was an error when creating the resource.
                     * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
+                    * `Exporting`: The child PV of the resource is in the process of exporting.
                     * `Terminating`: The resource is being deleted.
+                    * `Migrating`: The resource is being migrating.
                   enum:
                     - Pending
                     - Provisioning
@@ -391,7 +417,9 @@ spec:
                     - Resizing
                     - Failed
                     - PVCLost
+                    - Exporting
                     - Terminating
+                    - Migrating
                   type: string
                 progress:
                   description:

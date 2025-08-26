@@ -27,12 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -57,7 +56,7 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *virtv2.VirtualDisk
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
@@ -93,7 +92,11 @@ func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *virtv2.Virtual
 		return fmt.Errorf("fetch vi %q: %w", viRefKey, err)
 	}
 
-	if viRef == nil || viRef.Status.Phase != virtv2.ImageReady {
+	if viRef == nil {
+		return NewImageNotFoundError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	if viRef.Status.Phase != virtv2.ImageReady {
 		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 

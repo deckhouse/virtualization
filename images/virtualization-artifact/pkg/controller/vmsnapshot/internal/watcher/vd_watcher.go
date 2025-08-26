@@ -48,21 +48,41 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 }
 
 func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualDisk]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualDisk]) bool { return false },
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualDisk]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
+					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
+					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+
+					if oldInUseCondition != newInUseCondition {
+						return true
+					}
+
+					oldResized, _ := conditions.GetCondition(vdcondition.ResizingType, e.ObjectOld.Status.Conditions)
+					newResized, _ := conditions.GetCondition(vdcondition.ResizingType, e.ObjectNew.Status.Conditions)
+
+					return oldResized.Status != newResized.Status || oldResized.Reason != newResized.Reason
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
 	var vmSnapshots virtv2.VirtualMachineSnapshotList
 	err := w.client.List(ctx, &vmSnapshots, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual machine snapshots: %s", err))
@@ -77,7 +97,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 				continue
 			}
 
-			if vdName == obj.GetName() {
+			if vdName == vd.GetName() {
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
 						Name:      vmSnapshot.Name,
@@ -90,23 +110,4 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 	}
 
 	return
-}
-
-func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
-		return false
-	}
-
-	oldResized, _ := conditions.GetCondition(vdcondition.ResizingType, oldVD.Status.Conditions)
-	newResized, _ := conditions.GetCondition(vdcondition.ResizingType, newVD.Status.Conditions)
-
-	return oldResized.Status != newResized.Status || oldResized.Reason != newResized.Reason
 }

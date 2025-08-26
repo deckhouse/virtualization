@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -42,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -85,7 +85,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -104,6 +104,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
+	}
+
+	var sc *storagev1.StorageClass
+	sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -245,11 +252,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		var sc *storagev1.StorageClass
-		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -264,6 +266,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
@@ -271,6 +276,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
 		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
@@ -302,7 +310,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
@@ -313,7 +320,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
@@ -337,7 +343,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 }
 
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -357,7 +363,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) erro
 }
 
 func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -380,7 +386,7 @@ func (ds HTTPDataSource) Name() string {
 	return httpDataSource
 }
 
-func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vd.Spec.DataSource.HTTP, supgen)
@@ -394,7 +400,7 @@ func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *suppleme
 	return &settings
 }
 
-func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

@@ -24,7 +24,7 @@ import (
 	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
-	"k8s.io/client-go/pkg/version"
+	"k8s.io/apiserver/pkg/util/compatibility"
 	"k8s.io/client-go/rest"
 	"k8s.io/component-base/cli/flag"
 	"k8s.io/component-base/logs"
@@ -32,10 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
+	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
-	generatedopenapi "github.com/deckhouse/virtualization/api/pkg/apiserver/api/generated/openapi"
 )
 
 type Options struct {
@@ -153,14 +153,14 @@ func (o Options) ApiserverConfig() (*genericapiserver.Config, error) {
 		return nil, err
 	}
 
-	versionGet := version.Get()
-	serverConfig.Version = &versionGet
+	versionGet := compatibility.DefaultBuildEffectiveVersion()
+	serverConfig.EffectiveVersion = versionGet
 	serverConfig.OpenAPIConfig = genericapiserver.DefaultOpenAPIConfig(generatedopenapi.GetOpenAPIDefinitions, openapinamer.NewDefinitionNamer(api.Scheme))
 	serverConfig.OpenAPIV3Config = genericapiserver.DefaultOpenAPIV3Config(generatedopenapi.GetOpenAPIDefinitions, openapinamer.NewDefinitionNamer(api.Scheme))
 	serverConfig.OpenAPIConfig.Info.Title = "VirtualizationAPI"
 	serverConfig.OpenAPIV3Config.Info.Title = "VirtualizationAPI"
-	serverConfig.OpenAPIConfig.Info.Version = strings.Split(serverConfig.Version.String(), "-")[0]
-	serverConfig.OpenAPIV3Config.Info.Version = strings.Split(serverConfig.Version.String(), "-")[0]
+	serverConfig.OpenAPIConfig.Info.Version = strings.Split(versionGet.String(), "-")[0]
+	serverConfig.OpenAPIV3Config.Info.Version = strings.Split(versionGet.String(), "-")[0]
 
 	return serverConfig, nil
 }

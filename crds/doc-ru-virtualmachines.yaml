@@ -542,6 +542,26 @@ spec:
                     * `PreferSafe` — использовать безопасный вариант для автоматических миграций. Замедление CPU можно включить вручную с помощью поля `force=true` в VMOP.
                     * `AlwaysForced` — включать замедление CPU для автоматических миграций и для ручного запуска. Нельзя отключить замедление CPU.
                     * `PreferForced` — включать замедление CPU для автоматических миграций. Замедление CPU можно выключить вручную с помощью поля `force=false` в VMOP.
+                networks:
+                  description: |
+                    Список конфигураций сетевых интерфейсов.
+                  items:
+                    properties:
+                      type:
+                        description: |
+                          Тип сетевого интерфейса.
+
+                          Возможные типы:
+                          * `Main` — основной сетевой интерфейс, который всегда присутствует (сеть по умолчанию);
+                          * `Network` — подсеть на уровне пространства имен;
+                          * `ClusterNetwork` — подсеть на уровне кластера.
+                      name:
+                        description: |
+                          Имя сетевого интерфейса.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          Имя ресурса `VirtualMachineMACAddress`, связанного с сетевым интерфейсом.
             status:
               properties:
                 blockDeviceRefs:
@@ -715,3 +735,20 @@ spec:
                           description: Накладные расходы на память во время выполнения.
                         size:
                           description: Текущий размер памяти виртуальной машины.
+                networks:
+                  description: |
+                    Список сетевых интерфейсов, подключенных к ВМ.
+                  items:
+                    properties:
+                      type:
+                        description: |
+                          Тип сетевого интерфейса.
+                      name:
+                        description: |
+                          Имя сетевого интерфейса.
+                      macAddress:
+                        description: |
+                          MAC-адрес сетевого интерфейса.
+                      virtualMachineMACAddressName:
+                        description: |
+                          Имя ресурса `VirtualMachineMACAddress` связанного с сетевым интерфейсом.

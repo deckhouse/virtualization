@@ -30,20 +30,25 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineEvacuation", SIGMigration(), framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
+	kubeClient := framework.GetClients().KubeClient()
 	var ns string
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMEvacuation, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{conf.TestData.VMEvacuation},
 			FilenameOption: kc.Kustomize,

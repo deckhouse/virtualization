@@ -1,8 +1,6 @@
 module vlctl
 
-go 1.23.0
-
-toolchain go1.23.9
+go 1.24.6
 
 require (
 	github.com/spf13/cobra v1.9.1
@@ -53,12 +51,10 @@ require (
 )
 
 replace (
-	github.com/golang/glog => github.com/golang/glog v1.2.4 // CVE-2024-45339
 	github.com/nxadm/tail => github.com/nxadm/tail v0.0.0-20211216163028-4472660a31a6
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20191219222812-2987a591a72c
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
-	golang.org/x/net => golang.org/x/net v0.40.0
 
 	k8s.io/api => k8s.io/api v0.31.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.31.0
@@ -89,4 +85,10 @@ replace (
 
 	kubevirt.io/client-go => kubevirt.io/client-go v1.4.0
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
+)
+
+// CVE Replaces
+replace (
+	github.com/golang/glog => github.com/golang/glog v1.2.4 // CVE-2024-45339
+	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 )

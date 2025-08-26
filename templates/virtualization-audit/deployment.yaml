@@ -1,13 +1,12 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "delve" . | fromYaml) -}}
 
 {{- define "virtualization_audit_resources" }}
 cpu: 10m
 memory: 150Mi
 {{- end }}
 
-{{- if ((.Values.virtualization.audit).enabled) }}
-{{- if (.Values.global.enabledModules | has "log-shipper") }}
-{{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
+{{- if eq (include "audit.isEnabled" .) "true" }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
@@ -72,7 +71,7 @@ spec:
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           args:
             - --secure-port=8443
-            {{- if eq .Values.virtualization.logLevel "debug" }}
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
             - --verbose=10
             {{- else }}
             - --verbose=3
@@ -90,6 +89,7 @@ spec:
             - containerPort: 8443
               name: audit
               protocol: TCP
+            {{- include "delvePorts" (list $delve "delve/virtualization-audit") | nindent 12 }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -108,6 +108,5 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-audit-tls
-{{- end }}
-{{- end }}
+
 {{- end }}

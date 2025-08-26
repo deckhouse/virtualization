@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -27,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -70,12 +72,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	}
 
 	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
-	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
@@ -147,6 +143,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			Reason(vdscondition.WaitingForTheVirtualDisk).
 			Message("Waiting for the virtual disk's pvc to be in phase Bound.")
 		return reconcile.Result{}, nil
+	}
+
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -223,11 +225,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 		anno := make(map[string]string)
 		if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
-			anno["storageClass"] = *pvc.Spec.StorageClassName
+			anno[annotations.AnnStorageClassName] = *pvc.Spec.StorageClassName
 		}
 
 		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode != "" {
-			anno["volumeMode"] = string(*pvc.Spec.VolumeMode)
+			anno[annotations.AnnVolumeMode] = string(*pvc.Spec.VolumeMode)
 		}
 
 		accessModes := make([]string, 0, len(pvc.Status.AccessModes))
@@ -235,7 +237,25 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			accessModes = append(accessModes, string(accessMode))
 		}
 
-		anno["accessModes"] = strings.Join(accessModes, ",")
+		anno[annotations.AnnAccessModes] = strings.Join(accessModes, ",")
+
+		if len(vd.Annotations) > 0 {
+			vdAnnotationsJSON, err := json.Marshal(vd.Annotations)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk annotations: %w", err)
+			} else {
+				anno[annotations.AnnVirtualDiskOriginalAnnotations] = string(vdAnnotationsJSON)
+			}
+		}
+
+		if len(vd.Labels) > 0 {
+			vdLabelsJSON, err := json.Marshal(vd.Labels)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk labels: %w", err)
+			} else {
+				anno[annotations.AnnVirtualDiskOriginalLabels] = string(vdLabelsJSON)
+			}
+		}
 
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{

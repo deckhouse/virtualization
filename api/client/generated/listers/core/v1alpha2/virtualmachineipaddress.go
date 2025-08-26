@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualMachineIPAddressLister helps list VirtualMachineIPAddresses.
@@ -30,7 +30,7 @@ import (
 type VirtualMachineIPAddressLister interface {
 	// List lists all VirtualMachineIPAddresses in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddress, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineIPAddress, err error)
 	// VirtualMachineIPAddresses returns an object that can list and get VirtualMachineIPAddresses.
 	VirtualMachineIPAddresses(namespace string) VirtualMachineIPAddressNamespaceLister
 	VirtualMachineIPAddressListerExpansion
@@ -38,25 +38,17 @@ type VirtualMachineIPAddressLister interface {
 
 // virtualMachineIPAddressLister implements the VirtualMachineIPAddressLister interface.
 type virtualMachineIPAddressLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineIPAddress]
 }
 
 // NewVirtualMachineIPAddressLister returns a new VirtualMachineIPAddressLister.
 func NewVirtualMachineIPAddressLister(indexer cache.Indexer) VirtualMachineIPAddressLister {
-	return &virtualMachineIPAddressLister{indexer: indexer}
-}
-
-// List lists all VirtualMachineIPAddresses in the indexer.
-func (s *virtualMachineIPAddressLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddress, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineIPAddress))
-	})
-	return ret, err
+	return &virtualMachineIPAddressLister{listers.New[*corev1alpha2.VirtualMachineIPAddress](indexer, corev1alpha2.Resource("virtualmachineipaddress"))}
 }
 
 // VirtualMachineIPAddresses returns an object that can list and get VirtualMachineIPAddresses.
 func (s *virtualMachineIPAddressLister) VirtualMachineIPAddresses(namespace string) VirtualMachineIPAddressNamespaceLister {
-	return virtualMachineIPAddressNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualMachineIPAddressNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualMachineIPAddress](s.ResourceIndexer, namespace)}
 }
 
 // VirtualMachineIPAddressNamespaceLister helps list and get VirtualMachineIPAddresses.
@@ -64,36 +56,15 @@ func (s *virtualMachineIPAddressLister) VirtualMachineIPAddresses(namespace stri
 type VirtualMachineIPAddressNamespaceLister interface {
 	// List lists all VirtualMachineIPAddresses in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddress, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineIPAddress, err error)
 	// Get retrieves the VirtualMachineIPAddress from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineIPAddress, error)
+	Get(name string) (*corev1alpha2.VirtualMachineIPAddress, error)
 	VirtualMachineIPAddressNamespaceListerExpansion
 }
 
 // virtualMachineIPAddressNamespaceLister implements the VirtualMachineIPAddressNamespaceLister
 // interface.
 type virtualMachineIPAddressNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualMachineIPAddresses in the indexer for a given namespace.
-func (s virtualMachineIPAddressNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddress, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineIPAddress))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineIPAddress from the indexer for a given namespace and name.
-func (s virtualMachineIPAddressNamespaceLister) Get(name string) (*v1alpha2.VirtualMachineIPAddress, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualmachineipaddress"), name)
-	}
-	return obj.(*v1alpha2.VirtualMachineIPAddress), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineIPAddress]
 }

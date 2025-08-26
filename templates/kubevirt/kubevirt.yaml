@@ -3,13 +3,14 @@
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $priorityClassName := include "priorityClassName" . | quote }}
-{{ $_ := set . "Version" dict }}
-{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
+{{ $_ := set . "Firmware" dict }}
+{{- $versions_ctx := (.Files.Get "build/components/versions.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
-  {{- $_ := set $.Version $k $v}}
+  {{- $_ := set $.Firmware $k $v}}
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
-{{- $logVerbosity := include "kubevirt.logVerbosity" .Values.virtualization.logLevel | int }}
+{{- $logVerbosity := include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | int }}
+{{ $delve := (include "delve" . | fromYaml) }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -26,10 +27,11 @@ spec:
           tokenBucketRateLimiter:
             qps: 5000
             burst: 6000
+    selinuxLauncherType: spc_t
     migrations:
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
-      parallelMigrationsPerCluster: {{ .Values.virtualization.internal | dig "virtHandler" "nodeCount" 1 }}
+      parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
       parallelOutboundMigrationsPerNode: 1
       progressTimeout: 150
     smbios:
@@ -58,19 +60,27 @@ spec:
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
+      - VolumeMigration
+      - VolumesUpdateStrategy
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
     flags:
+      {{- if ne "delve/virt-api" ($delve | dig "debug" "component" "<missing>") }}
       api:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
+      {{- end }}
+      {{- if ne "delve/virt-controller" ($delve | dig "debug" "component" "<missing>") }}
       controller:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
+      {{- end }}
+      {{- if ne "delve/virt-handler" ($delve | dig "debug" "component" "<missing>") }}
       handler:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
+      {{- end }}
     patches:
     # Add node placement settings for virt-api, virt-controller, virt-operator, virt-handler.
     - resourceType: Deployment
@@ -93,6 +103,27 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
+    {{- if and $delve (hasKey $delve "debug") }}
+    # Debug
+      {{- if eq $delve.debug.component "delve/virt-api" }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
+      type: strategic
+      {{- end }}
+      {{- if eq $delve.debug.component "delve/virt-handler" }}
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
+      type: strategic
+      {{- end }}
+      {{- if eq $delve.debug.component "delve/virt-controller" }}
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "kubevirt.delve_strategic_patch_json" (list $delve.debug.component) }}
+      type: strategic
+      {{- end }}
+    {{- end }}
     # Add node affinity for the lowest virtualization level for virt-handler pods
     - resourceType: DaemonSet
       resourceName: virt-handler
@@ -159,27 +190,36 @@ spec:
     # Add kube-api-rewriter sidecar containers to virt-controller, virt-api, virt-handler.
     {{- $kubeRbacProxySettings := dict }}
     {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+    {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
         (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller")
+        (dict "upstream" "http://127.0.0.1:9090/healthz" "path" "/proxy/healthz" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:9090/readyz" "path" "/proxy/readyz" "name" "kube-api-rewriter")
     ) }}
     - resourceName: virt-controller
       resourceType: Deployment
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
       type: strategic
 
+    {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
         (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api")
+        (dict "upstream" "http://127.0.0.1:9090/healthz" "path" "/proxy/healthz" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:9090/readyz" "path" "/proxy/readyz" "name" "kube-api-rewriter")
     ) }}
     - resourceName: virt-api
       resourceType: Deployment
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
       type: strategic
 
+    {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter")
         (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler")
+        (dict "upstream" "http://127.0.0.1:9090/healthz" "path" "/proxy/healthz" "resource" "daemonsets" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:9090/readyz" "path" "/proxy/readyz" "resource" "daemonsets" "name" "kube-api-rewriter")
     ) }}
     - resourceName: virt-handler
       resourceType: DaemonSet
@@ -291,9 +331,9 @@ spec:
 env:
 # Firmware component versions.
 - name: QEMU_VERSION
-  value: {{$.Version.qemu}}
+  value: {{$.Firmware.qemu}}
 - name: LIBVIRT_VERSION
-  value: {{$.Version.libvirt}}
+  value: {{$.Firmware.libvirt}}
 {{ end }}
     - resourceType: Deployment
       resourceName: virt-controller

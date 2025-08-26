@@ -1,16 +1,29 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
-{{- $version := "v1.3.1" }}
-{{- $tag := print $version "-v12n.7"}}
+{{- $gitRepoName := "3p-kubevirt" }}
+{{- $tag := get $.Core $gitRepoName }}
+{{- $version := (split "-" $tag)._0 }}
 
-{{- $name := print $.ImageName "-dependencies" -}}
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
+
+---
+
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - git
 - curl
 - pkg-config
 - libtool
-- libncurses-devel
 - libvirt-libs
 - libvirt-devel
 - libvirt-client
@@ -21,37 +34,54 @@ packages:
 - glibc-devel-static
 - glibc
 - golang
+packages:
+- libmnl
+- ncurses
 {{- end -}}
 
-{{ $virtArtifactDependencies := include "$name" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
+- id: GOPROXY
+  value: {{ .GOPROXY }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /kubevirt
+  to: /kubevirt
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $virtArtifactDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
-     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-     git config --global --add advice.detachedHead false
-     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
-     cd /kubevirt
-     go mod download
-     go get github.com/opencontainers/runc@v1.1.14
-     go get github.com/containers/common@v0.60.4
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+  - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    cd /kubevirt
+    go mod download
+    go get github.com/opencontainers/runc@v1.1.14
+    go get github.com/containers/common@v0.60.4
 
   - |
     echo Download Go modules.
@@ -70,6 +100,8 @@ shell:
     go get golang.org/x/crypto@v0.38.0
     # CVE-2025-22870, CVE-2025-22872
     go get golang.org/x/net@v0.40.0
+    # CVE-2025-22868
+    go get golang.org/x/oauth2@v0.27.0
 
     go mod vendor
 
@@ -115,7 +147,11 @@ shell:
     - echo ============== Build virt-handler =====================
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-handler" | join "/") }}
     - |
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | nindent 6 }}
+    {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
+    go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
+    {{- else }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | nindent 6 }}
+    {{- end }}
 
     - echo ============== Build virt-launcher-monitor ============
     - export CGO_ENABLED=0
@@ -142,7 +178,11 @@ shell:
     - echo ============== Build virt-api =========================
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-api" | join "/") }}
     - |
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/`) | nindent 6 }}
+    {{- if eq $.DEBUG_COMPONENT "delve/virt-api" }}
+    go build -o /kubevirt-binaries/virt-api ./cmd/virt-api/
+    {{- else }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/`) | nindent 6 }}
+    {{- end }}
     - chown 64535:64535 /kubevirt-binaries/virt-api
 
     - echo ============== Build virt-chroot ======================
@@ -163,7 +203,11 @@ shell:
     - echo ============== Build virt-controller ==================
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-controller" | join "/") }}
     - |
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/`) | nindent 6 }}
+    {{- if eq $.DEBUG_COMPONENT "delve/virt-controller" }}
+    go build -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
+    {{- else }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/`) | nindent 6 }}
+    {{- end }}
     - chown 64535:64535 /kubevirt-binaries/virt-api
 
     - echo ============== Build virt-operator ====================

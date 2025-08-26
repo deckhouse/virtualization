@@ -2,34 +2,19 @@ version: "3"
 
 silent: true
 
-env:
-  K8S_CODEGEN:
-    sh: echo $(go env GOMODCACHE)/$(go list -f '{{`{{.Path}}@{{.Version}}`}}' -m k8s.io/code-generator)
-
-vars:
-  CONTROLLER_GEN_VERSION: 0.16.4
-
 tasks:
   generate:
     desc: "Regenerate all"
-    deps:
-      - _ensure:k8s-codegen-mod
-      - _ensure:k8s-kube-openapi
     cmds:
       - ./scripts/update-codegen.sh all
       - task: format:yaml
 
   generate:core:
     desc: "Regenerate code for core components."
-    deps:
-      - _ensure:k8s-codegen-mod
     cmd: ./scripts/update-codegen.sh core
 
   generate:subresources:
     desc: "Regenerate code for subresources components"
-    deps:
-      - _ensure:k8s-codegen-mod
-      - _ensure:k8s-kube-openapi
     cmd: ./scripts/update-codegen.sh subresources
 
   ci:generate:
@@ -40,8 +25,6 @@ tasks:
 
   generate:crds:
     desc: "Regenerate crds"
-    deps:
-      - _ensure:k8s-controller-gen
     cmds:
       - ./scripts/update-codegen.sh crds
       - task: format:yaml
@@ -60,31 +43,3 @@ tasks:
     cmds:
       - |
         git diff --exit-code || (echo "Please run task gen:api and commit changes" && exit 1)
-
-  _ensure:k8s-codegen-mod:
-    desc: "Ensure k8s.io/codegen module is present"
-    internal: true
-    cmds:
-      - echo -e "Path K8S_CODEGEN=${K8S_CODEGEN} should exists.\nAdd k8s.io/code-generator to go.mod and run go mod download" > /dev/stderr
-      - exit 1
-    status:
-      - |
-        ls $K8S_CODEGEN && find $K8S_CODEGEN -name \*.sh -exec chmod +x {} \;
-
-  _ensure:k8s-kube-openapi:
-    desc: "Ensure k8s.io/kube-openapi"
-    internal: true
-    cmds:
-      - go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen
-    status:
-      - |
-        ls $GOPATH/bin/openapi-gen
-
-  _ensure:k8s-controller-gen:
-    desc: "Ensure sigs.k8s.io/controller-tools/cmd/controller-gen"
-    internal: true
-    cmds:
-      - go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v{{ .CONTROLLER_GEN_VERSION }}
-    status:
-      - |
-        $GOPATH/bin/controller-gen --version | grep -q "v{{ .CONTROLLER_GEN_VERSION }}"

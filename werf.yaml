@@ -14,42 +14,26 @@ build:
 ---
 
 # Source repo settings
-{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" "https://github.com") }}
 
-{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" | default "https://github.com") }}
-
-# Edition module settings
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
+{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" "https://github.com") }}
 
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
-# Component versions
-{{ $_ := set . "Version" dict }}
-{{ $_ := set . "Packages" dict }}
-{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
+# Delve debag
+{{- $_ := set . "DEBUG_COMPONENT" (env "DEBUG_COMPONENT" "") }}
 
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
-
 {{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
-
 {{- $_ := set . "SVACE_ANALYZE_SSH_USER" (env "SVACE_ANALYZE_SSH_USER" "user") }}
 
-{{- range $k, $v := $versions_ctx.firmware }}
-  {{- $_ := set $.Version $k $v}}
-{{- end }}
-
-{{- range $k, $v := $versions_ctx.package }}
-  {{- $_ := set $.Packages $k $v}}
-{{- end }}
-
-{{- $_ := set $ "ImagesIDList" list }}
+{{- $_ := set . "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
   {{- tpl $content $ }}
 {{- end }}
-
 
 ---
 image: images-digests
@@ -79,47 +63,38 @@ shell:
         )
       ' > /images_digests.json
       cat images_digests.json
----
-image: python-dependencies
-fromImage: BASE_ALT_P11
-fromCacheVersion: "2025-28-05.1"
-git:
-  - add: /lib/python/requirements-release.txt
-    to: /requirements-release.txt
-    stageDependencies:
-      setup:
-        - '*'
-shell:
-  beforeInstall:
-    - apt-get update
-    - apt-get install -y python3 python3-module-pip-run
-  setup:
-    - pip3 install -r /requirements-release.txt -t /dist
+{{-  if .DEBUG_COMPONENT }}
+    - |
+      cat <<EOF>> /delve.yaml
+      debug:
+        component: "{{ .DEBUG_COMPONENT }}"
+      EOF
+{{-  end }}
 ---
 image: bundle
 fromImage: builder/scratch
 import:
-  - image: images-digests
-    add: /images_digests.json
-    to: /images_digests.json
-    after: setup
-  - image: python-dependencies
-    add: /dist
-    to: /lib/python/dist
-    after: setup
-  - image: hooks
-    add: /hooks
-    to: /hooks/go
-    after: setup
+- image: images-digests
+  add: /
+  to: /
+  after: setup
+  includePaths:
+    - images_digests.json
+  {{-  if .DEBUG_COMPONENT }}
+    - delve.yaml
+  {{-  end }}
+- image: go-hooks-artifact
+  add: /go-hooks
+  to: /hooks/go
+  after: setup
 git:
   - add: /
     to: /
     includePaths:
       - charts
       - crds
-      - component_versions
+      - build/components
       - docs
-      - hooks
       - openapi
       - monitoring
       - templates
@@ -127,13 +102,10 @@ git:
       - module.yaml
       - .helmignore
     excludePaths:
-      - component_versions/README.md
-      - hooks/lib/tests
-      - hooks/test*
-      - hooks/Taskfile*
-      - hooks/**/__pycache__
+      - build/components/README.md
       - docs/images/*.drawio
       - docs/images/*.sh
+      - docs/internal
       - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
@@ -143,4 +115,4 @@ image: release-channel-version
 fromImage: builder/scratch
 shell:
   install:
-    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" }}"}' > version.json
+    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json

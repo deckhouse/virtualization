@@ -38,7 +38,7 @@ import (
 const deletionHandlerName = "DeletionHandler"
 
 type UnplugInterface interface {
-	IsAttached(vm *virtv2.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool
+	IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool
 	UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error
 }
 type DeletionHandler struct {
@@ -65,9 +65,14 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		return reconcile.Result{}, fmt.Errorf("fetch vm: %w", err)
 	}
 
-	if h.unplug.IsAttached(vm, vmbda) {
+	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv1.VirtualMachine{})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("fetch intvirtvm: %w", err)
+	}
+
+	if h.unplug.IsAttached(vm, kvvm, vmbda) {
 		var res reconcile.Result
-		res, err = h.detach(ctx, vmbda)
+		res, err = h.detach(ctx, kvvm, vmbda)
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to detach: %w", err)
 		}
@@ -80,12 +85,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	return reconcile.Result{}, nil
 }
 
-func (h *DeletionHandler) detach(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
-	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv1.VirtualMachine{})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch intvirtvm: %w", err)
-	}
-
+func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	if kvvm == nil {
 		return reconcile.Result{}, errors.New("intvirtvm not found to unplug")
 	}
@@ -93,16 +93,16 @@ func (h *DeletionHandler) detach(ctx context.Context, vmbda *virtv2.VirtualMachi
 	var blockDeviceName string
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case virtv2.VMBDAObjectRefKindVirtualDisk:
-		blockDeviceName = kvbuilder.GenerateVMDDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateVDDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	case virtv2.VMBDAObjectRefKindVirtualImage:
-		blockDeviceName = kvbuilder.GenerateVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-		blockDeviceName = kvbuilder.GenerateCVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateCVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 	log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
-	err = h.unplug.UnplugDisk(ctx, kvvm, blockDeviceName)
+	err := h.unplug.UnplugDisk(ctx, kvvm, blockDeviceName)
 	if err != nil {
 		switch {
 		case IsDoesNotExistError(err):

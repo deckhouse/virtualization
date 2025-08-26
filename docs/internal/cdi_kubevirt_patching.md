@@ -62,7 +62,7 @@ cp 000-bundle-images.patch ../../images/cdi-artifact/patches/000-bundle-images.p
 cp 003-apiserver-node-selector-and-tolerations.patch ../../images/cdi-artifact/patches/003-apiserver-node-selector-and-tolerations.patch
 ```
 
-#### Сlean
+#### Clean
 ```bash
 cd ../../
 rm -rf tmp/cdi
@@ -94,7 +94,7 @@ git diff --patch "<TAG COMMIT>" HEAD > 004-replicas.patch
 cp 004-replicas.patch ../../images/cdi-artifact/patches/004-replicas.patch
 git add ../../images/cdi-artifact/patches/004-replicas.patch
 ```
-#### Сlean
+#### Clean
 ```bash
 cd ../../
 rm -rf tmp/cdi

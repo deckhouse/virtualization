@@ -1,8 +1,10 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   after: install
@@ -15,7 +17,7 @@ import:
   includePaths:
   - usr/bin/cp
   - usr/bin/coreutils
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   after: install
@@ -23,36 +25,46 @@ import:
   - virt-chroot
   - virt-handler
   - container-disk
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt/cmd/{{ $.ImageName }}/virt_launcher.cil
+  to: /virt_launcher.cil
   after: install
-  includePaths:
-  - virt_launcher.cil
-- image: virt-artifact
-  add: /kubevirt-config-files/
-  to: /
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-config-files/.version
+  to: /.version
   after: install
   includePaths:
   - .version
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
   includePaths:
   - nsswitch.conf
+{{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
+- image: debuger
+  add: /app/dlv
+  to: /app/dlv
+  after: install
+{{- end }}
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-handler/BUILD.bazel
 imageSpec:
   config:
     user: 0
+    {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
+      XDG_CONFIG_HOME: "/tmp"
+    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/usr/bin/virt-handler", "--"]
+    {{- else }}
     entrypoint: ["/usr/bin/virt-handler"]
+    {{- end }}
 
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - libnftnl
-- libjansson4
 binaries:
 - /usr/bin/getfacl
 - /usr/bin/setfacl
@@ -62,13 +74,15 @@ binaries:
 - /usr/bin/osirrox
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
+packages:
+- libisoburn nftables acl libmnl libjansson4
 {{- end -}}
 
-{{ $virtHandlerDependencies := include "$name" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -77,9 +91,8 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-{{- $images := list "libisoburn" "nftables" "acl" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-- image: qemu
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup
@@ -88,12 +101,12 @@ shell:
     {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes \
-      {{ $virtHandlerDependencies.packages | join " " }}
-  
+      {{ $builderDependencies.altPackages | join " " }}
+
   {{- include "alt packages clean" . | nindent 2 }}
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -101,7 +114,7 @@ shell:
 
   setup:
   - |
-    /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
 
     mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd

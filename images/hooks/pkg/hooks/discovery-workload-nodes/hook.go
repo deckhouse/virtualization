@@ -36,6 +36,11 @@ const (
 	nodeLabelValue         = "true"
 
 	virtHandlerNodeCountPath = "virtualization.internal.virtHandler.nodeCount"
+
+	kubevirtConfigSnapshot = "kubevirt-config"
+
+	virtConfigPhasePath                        = "virtualization.internal.virtConfig.phase"
+	virtConfigParallelMigrationsPerClusterPath = "virtualization.internal.virtConfig.parallelMigrationsPerCluster"
 )
 
 var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryNodes)
@@ -55,6 +60,21 @@ var configDiscoveryService = &pkg.HookConfig{
 			},
 			ExecuteHookOnSynchronization: ptr.To(false),
 		},
+		{
+			Name:       kubevirtConfigSnapshot,
+			APIVersion: "internal.virtualization.deckhouse.io/v1",
+			Kind:       "InternalVirtualizationKubeVirt",
+			JqFilter:   `{ "phase": .status.phase, "parallelMigrationsPerCluster": .spec.configuration.migrations.parallelMigrationsPerCluster }`,
+			NamespaceSelector: &pkg.NamespaceSelector{
+				NameSelector: &pkg.NameSelector{
+					MatchNames: []string{"d8-virtualization"},
+				},
+			},
+			NameSelector: &pkg.NameSelector{
+				MatchNames: []string{"config"},
+			},
+			ExecuteHookOnSynchronization: ptr.To(false),
+		},
 	},
 
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
@@ -63,5 +83,35 @@ var configDiscoveryService = &pkg.HookConfig{
 func handleDiscoveryNodes(_ context.Context, input *pkg.HookInput) error {
 	nodeCount := len(input.Snapshots.Get(discoveryNodesSnapshot))
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
+
+	kvCfgState, err := virtConfigStateFromSnapshot(input)
+	if err != nil {
+		return err
+	}
+	if kvCfgState != nil {
+		input.Values.Set(virtConfigPhasePath, kvCfgState.Phase)
+		input.Values.Set(virtConfigParallelMigrationsPerClusterPath, kvCfgState.ParallelMigrationsPerCluster)
+	}
+
 	return nil
+}
+
+type virtConfigState struct {
+	Phase                        string `json:"phase"`
+	ParallelMigrationsPerCluster int    `json:"parallelMigrationsPerCluster"`
+}
+
+func virtConfigStateFromSnapshot(input *pkg.HookInput) (*virtConfigState, error) {
+	snap := input.Snapshots.Get(kubevirtConfigSnapshot)
+	if len(snap) == 0 {
+		return nil, nil
+	}
+
+	var kvCfgState virtConfigState
+	err := snap[0].UnmarshalTo(&kvCfgState)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kvCfgState, nil
 }

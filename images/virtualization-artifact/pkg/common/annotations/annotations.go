@@ -47,8 +47,9 @@ const (
 	// AnnPodRetainAfterCompletion is PVC annotation for retaining transfer pods after completion
 	AnnPodRetainAfterCompletion = AnnAPIGroup + "/storage.pod.retainAfterCompletion"
 
-	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation.
-	AnnUploadURL = AnnAPIGroup + "/upload.url"
+	// AnnUploadURLDeprecated provides a const for CVMI/VMI/VMD uploadURL annotation.
+	// TODO remove annotation and its usages after version 1.0 becomes Stable.
+	AnnUploadURLDeprecated = AnnAPIGroup + "/upload.url"
 
 	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
 	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
@@ -65,6 +66,9 @@ const (
 	AnnVirtualDiskVolumeMode  = AnnVirtualDisk + "/volume-mode"
 	AnnVirtualDiskAccessMode  = AnnVirtualDisk + "/access-mode"
 	AnnVirtualDiskBindingMode = AnnVirtualDisk + "/binding-mode"
+
+	AnnVirtualMachineClass        = "virtualmachineclass." + AnnAPIGroupV
+	AnnVirtualMachineClassDefault = AnnVirtualMachineClass + "/is-default-class"
 
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
@@ -93,6 +97,19 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
+	AnnVMOPVolumeMigration = AnnAPIGroupV + "/volume-migration"
+
+	// AnnVMOPRestore is an annotation on a resource that indicates it was created by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
+	AnnVMOPRestore = AnnAPIGroupV + "/vmoprestore"
+	// AnnVMRestoreDeleted is an annotation on a resource that indicates it was deleted by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
+	AnnVMOPRestoreDeleted = AnnAPIGroupV + "/vmoprestoredeleted"
+
+	// AnnUploadURL is an annotation on Ingress with full URL to upload image from outside the cluster.
+	AnnUploadURL = AnnAPIGroupV + "/upload.url"
+	// AnnUploadPath is an annotation on Ingress with the URL path to upload image.
+	AnnUploadPath = AnnAPIGroupV + "/upload.path"
+
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
@@ -104,6 +121,9 @@ const (
 
 	// SkipPodSecurityStandardsCheckLabel is a label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
 	SkipPodSecurityStandardsCheckLabel = "security.deckhouse.io/skip-pss-check"
+
+	// LabelVirtualMachineMACAddressUID is a label to link VirtualMachineMACAddressLease to VirtualMachineMACAddress.
+	LabelVirtualMachineMACAddressUID = LabelsPrefix + "/virtual-machine-mac-address-uid"
 
 	UploaderServiceLabel = "service"
 
@@ -127,6 +147,20 @@ const (
 	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
+	// AnnDataExportRequest is the annotation for indicating that export requested.
+	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
+
+	// TODO: remove deprecated annotations in the v1 version.
+	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
+	AnnStorageClassName           = AnnAPIGroupV + "/storage-class-name"
+	AnnStorageClassNameDeprecated = "storageClass"
+	// AnnVolumeMode is the annotation for indicating that volume mode.  (USED IN STORAGE sds controllers)
+	AnnVolumeMode           = AnnAPIGroupV + "/volume-mode"
+	AnnVolumeModeDeprecated = "volumeMode"
+	// AnnAccessMode is the annotation for indicating that access mode.  (USED IN STORAGE sds controllers)
+	AnnAccessModes           = AnnAPIGroupV + "/access-mode"
+	AnnAccessModesDeprecated = "accessModes"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.
@@ -136,6 +170,20 @@ const (
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
+
+	// AnnNetworksSpec is the annotation for request network configuration into Pod.
+	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
+	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
+	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+
+	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
+	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
+	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
+	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
+	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.
+	AnnVMOPUID = AnnAPIGroupV + "/vmop-uid"
+	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
+	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 )
 
 // AddAnnotation adds an annotation to an object

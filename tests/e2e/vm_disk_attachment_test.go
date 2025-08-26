@@ -27,8 +27,8 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -36,40 +36,41 @@ const unacceptableCount = -1000
 
 var APIVersion = virtv2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDisAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), func() {
+	var (
+		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
+		nameSuffix               = "automatic-with-hotplug-standalone"
+		disksBefore              Disks
+		disksAfter               Disks
+		vdAttach                 string
+		vmName                   string
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
+	)
+
+	BeforeAll(func() {
+		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
+		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMDiskAttachment, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
 	})
 
-	var (
-		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
-		nameSuffix         = "automatic-with-hotplug-standalone"
-		disksBefore        Disks
-		disksAfter         Disks
-		vdAttach           string
-		vmName             string
-		ns                 string
-	)
-
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
-		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
-
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMDiskAttachment, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
 	})
 
 	Context("When resources are applied", func() {
@@ -258,7 +259,7 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 		},
 	}
 
-	err := WriteYamlObject(filePath, vmbda)
+	err := helper.WriteYamlObject(filePath, vmbda)
 	if err != nil {
 		return err
 	}
@@ -269,10 +270,10 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 func GetDisksMetadata(vmNamespace, vmName string, disks *Disks) error {
 	GinkgoHelper()
 	cmd := "lsblk --nodeps --json"
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())

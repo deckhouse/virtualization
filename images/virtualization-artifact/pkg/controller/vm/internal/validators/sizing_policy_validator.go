@@ -18,9 +18,10 @@ package validators
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -57,7 +58,7 @@ func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.Virtu
 		Name: vm.Spec.VirtualMachineClassName,
 	}, vmClass)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			warnings = append(warnings, fmt.Sprintf(
 				"The VM class %q does not exist; it may not have been created yet. Until it is created, the virtual machine will remain in a pending status.",
 				vm.Spec.VirtualMachineClassName,
@@ -73,5 +74,14 @@ func (v *SizingPolicyValidator) validate(ctx context.Context, vm *v1alpha2.Virtu
 		}
 	}
 
-	return nil, v.service.CheckVMMatchedSizePolicy(vm, vmClass)
+	err = v.service.CheckVMMatchedSizePolicy(vm, vmClass)
+	// If the VM is being deleted (DeletionTimestamp is set), we allow the deletion to proceed
+	// even if no sizing policy matches, to prevent the VM from being stuck in Terminating
+	// due to an outdated or invalid VMClass.
+	var noSizingErr *service.NoSizingPolicyMatchError
+	if errors.As(err, &noSizingErr) && vm.DeletionTimestamp != nil {
+		return nil, nil
+	}
+
+	return nil, err
 }

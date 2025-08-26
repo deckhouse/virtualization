@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -76,18 +77,17 @@ func (s WaitForDVStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*recon
 	}
 
 	vd.Status.Progress = s.disk.GetProgress(s.dv, vd.Status.Progress, service.NewScaleOption(0, 100))
-	vd.Status.Target.PersistentVolumeClaim = s.dv.Status.ClaimName
+	vdsupplements.SetPVCName(vd, s.dv.Status.ClaimName)
 
 	set, err := s.setForFirstConsumerIsAwaited(ctx, vd)
 	if err != nil {
 		return nil, fmt.Errorf("set for first consumer is awaited: %w", err)
 	}
-	if set {
+	ok := s.checkQoutaNotExceededCondition(vd, set)
+	if !ok {
 		return &reconcile.Result{}, nil
 	}
-
-	ok := s.checkQoutaNotExceededCondition(vd)
-	if !ok {
+	if set {
 		return &reconcile.Result{}, nil
 	}
 
@@ -144,10 +144,13 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *vir
 	return false, nil
 }
 
-func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *virtv2.VirtualDisk) (ok bool) {
+func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *virtv2.VirtualDisk, inwffc bool) (ok bool) {
 	dvQuotaNotExceededCondition, _ := conditions.GetDataVolumeCondition(conditions.DVQoutaNotExceededConditionType, s.dv.Status.Conditions)
 	if dvQuotaNotExceededCondition.Status == corev1.ConditionFalse {
 		vd.Status.Phase = virtv2.DiskPending
+		if inwffc {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
@@ -162,14 +165,14 @@ func (s WaitForDVStep) checkRunningCondition(vd *virtv2.VirtualDisk) (ok bool) {
 	dvRunningCondition, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	switch {
 	case dvRunningCondition.Reason == conditions.DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
 		return false
 	case strings.Contains(dvRunningCondition.Reason, "Error"):
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).

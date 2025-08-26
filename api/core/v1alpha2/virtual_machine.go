@@ -39,7 +39,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm,vms},singular=virtualmachine
+// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm},singular=virtualmachine
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
 // +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
 // +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range."
@@ -113,6 +113,7 @@ type VirtualMachineSpec struct {
 
 	// Live migration policy type.
 	LiveMigrationPolicy LiveMigrationPolicy `json:"liveMigrationPolicy"`
+	Networks            []NetworksSpec      `json:"networks,omitempty"`
 }
 
 // RunPolicy parameter defines the VM startup policy
@@ -254,6 +255,18 @@ const (
 type LiveMigrationPolicy string
 
 const (
+	NetworksTypeMain           = "Main"
+	NetworksTypeNetwork        = "Network"
+	NetworksTypeClusterNetwork = "ClusterNetwork"
+)
+
+type NetworksSpec struct {
+	Type                         string `json:"type"`
+	Name                         string `json:"name,omitempty"`
+	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
+}
+
+const (
 	ManualMigrationPolicy       LiveMigrationPolicy = "Manual"
 	NeverMigrationPolicy        LiveMigrationPolicy = "Never"
 	AlwaysSafeMigrationPolicy   LiveMigrationPolicy = "AlwaysSafe"
@@ -298,8 +311,9 @@ type VirtualMachineStatus struct {
 	// List of virtual machine pods.
 	VirtualMachinePods []VirtualMachinePod `json:"virtualMachinePods,omitempty"`
 	// Hypervisor versions.
-	Versions  Versions        `json:"versions,omitempty"`
-	Resources ResourcesStatus `json:"resources,omitempty"`
+	Versions  Versions         `json:"versions,omitempty"`
+	Resources ResourcesStatus  `json:"resources,omitempty"`
+	Networks  []NetworksStatus `json:"networks,omitempty"`
 }
 
 type VirtualMachineStats struct {
@@ -405,6 +419,13 @@ type Versions struct {
 	Qemu string `json:"qemu,omitempty"`
 	// Libvirt is the version of the libvirt.
 	Libvirt string `json:"libvirt,omitempty"`
+}
+
+type NetworksStatus struct {
+	Type                         string `json:"type"`
+	Name                         string `json:"name,omitempty"`
+	MAC                          string `json:"macAddress,omitempty"`
+	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName,omitempty"`
 }
 
 // MachinePhase defines current phase of the virtual machine:

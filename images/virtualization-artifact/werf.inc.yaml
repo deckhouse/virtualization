@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
 git:
-- add: /api
+- add: {{ .ModuleDir }}/api
   to: /src/api
   stageDependencies:
     install:
@@ -11,7 +11,7 @@ git:
       - go.sum
     setup:
       - "**/*.go"
-- add: /images/{{ $.ImageName }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src/images/virtualization-artifact
   stageDependencies:
     install:
@@ -19,11 +19,15 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /src/images/virtualization-artifact
   - go mod download
   setup:
@@ -36,14 +40,31 @@ shell:
   - |
     echo "Build virtualization-controller binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
-    {{- $buildCommand := printf "go build -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
-    {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 6 }}
+    
+    {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
+    go build -tags {{ .MODULE_EDITION }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
+    {{- else }}
+    {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{-   include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 4 }}
+    {{- end }}
+    
+  - |
     echo "Build virtualization-api binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o /out/virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
+    
+    {{- if eq $.DEBUG_COMPONENT "delve/virtualization-api" }}
+    go build -v -o /out/virtualization-api ./cmd/virtualization-api
+    {{- else }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-api ./cmd/virtualization-api`) | nindent 4 }}
+    {{- end }}
+
 {{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
   - |
     echo "Build virtualization-audit binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-audit" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o /out/virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
+    {{- if eq $.DEBUG_COMPONENT "delve/virtualization-audit" }}
+    go build -v -o /out/virtualization-audit ./cmd/virtualization-audit
+    {{- else }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -v -o /out/virtualization-audit ./cmd/virtualization-audit`) | nindent 4 }}
+    {{- end }}
 {{- end }}

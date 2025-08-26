@@ -1,0 +1,78 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libisoburn
+  before: setup
+
+---
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "libburnia/libisoburn.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc
+- git pkg-config trousers
+- automake autoconf make makeinfo libtool
+packages:
+- libburn libisofs
+- ncurses
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+    ./bootstrap
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static \
+      --disable-doc
+    make -j$(nproc)
+    make DESTDIR=/out install
+
+    strip $OUTDIR/usr/bin/xorriso

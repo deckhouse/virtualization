@@ -19,6 +19,7 @@ package watcher
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -39,25 +41,32 @@ type KVVMWatcher struct{}
 
 func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachine{}),
-		handler.EnqueueRequestForOwner(
-			mgr.GetScheme(),
-			mgr.GetRESTMapper(),
-			&virtv2.VirtualMachine{},
-			handler.OnlyControllerOwner(),
-		),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*virtv1.VirtualMachine)
-				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
-				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
-					oldVM.Status.Ready != newVM.Status.Ready ||
-					oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
-					oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
+		source.Kind(
+			mgr.GetCache(),
+			&virtv1.VirtualMachine{},
+			handler.TypedEnqueueRequestForOwner[*virtv1.VirtualMachine](
+				mgr.GetScheme(),
+				mgr.GetRESTMapper(),
+				&virtv2.VirtualMachine{},
+				handler.OnlyControllerOwner(),
+			),
+			predicate.TypedFuncs[*virtv1.VirtualMachine]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachine]) bool {
+					oldVM := e.ObjectOld
+					newVM := e.ObjectNew
+					oldSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, oldVM.Status.Conditions)
+					newSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, newVM.Status.Conditions)
+
+					return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
+						oldSynchronizedCondition.Status != newSynchronizedCondition.Status ||
+						oldSynchronizedCondition.Reason != newSynchronizedCondition.Reason ||
+						oldVM.Status.Ready != newVM.Status.Ready ||
+						oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
+						oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested] ||
+						!equality.Semantic.DeepEqual(oldVM.Status.VolumeSnapshotStatuses, newVM.Status.VolumeSnapshotStatuses)
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}

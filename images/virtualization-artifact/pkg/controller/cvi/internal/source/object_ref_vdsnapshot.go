@@ -132,9 +132,20 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 
 		pvcKey := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID).PersistentVolumeClaim()
 
-		storageClassName := vs.Annotations["storageClass"]
-		volumeMode := vs.Annotations["volumeMode"]
-		accessModesStr := strings.Split(vs.Annotations["accessModes"], ",")
+		storageClassName := vs.Annotations[annotations.AnnStorageClassName]
+		if storageClassName == "" {
+			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+		}
+		volumeMode := vs.Annotations[annotations.AnnVolumeMode]
+		if volumeMode == "" {
+			volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
+		}
+		accessModesRaw := vs.Annotations[annotations.AnnAccessModes]
+		if accessModesRaw == "" {
+			accessModesRaw = vs.Annotations[annotations.AnnAccessModesDeprecated]
+		}
+
+		accessModesStr := strings.Split(accessModesRaw, ",")
 		accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
 		for _, accessModeStr := range accessModesStr {
 			accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(accessModeStr))
@@ -347,7 +358,7 @@ func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *virtv2.
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

@@ -32,7 +32,7 @@ const (
 // Once a VirtualDisk is created, only the disk size field `.spec.persistentVolumeClaim.size` can be changed. All other fields are immutable.
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
-// +kubebuilder:resource:categories={virtualization,all},scope=Namespaced,shortName={vd,vds},singular=virtualdisk
+// +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vd},singular=virtualdisk
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Capacity",type=string,JSONPath=`.status.capacity`
@@ -79,6 +79,9 @@ type VirtualDiskStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type is used.
 	StorageClassName string `json:"storageClassName,omitempty"`
+
+	// Migration information.
+	MigrationState VirtualDiskMigrationState `json:"migrationState,omitempty"`
 }
 
 // VirtualDisk statistics.
@@ -196,8 +199,10 @@ type VirtualDiskList struct {
 // * `Resizing`: The process of resource resizing is in progress.
 // * `Failed`: There was an error when creating the resource.
 // * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
+// * `Exporting`: The child PV of the resource is in the process of exporting.
 // * `Terminating`: The resource is being deleted.
-// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Terminating}
+// * `Migrating`: The resource is being migrating.
+// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Exporting,Terminating,Migrating}
 type DiskPhase string
 
 const (
@@ -209,5 +214,27 @@ const (
 	DiskResizing             DiskPhase = "Resizing"
 	DiskFailed               DiskPhase = "Failed"
 	DiskLost                 DiskPhase = "PVCLost"
+	DiskExporting            DiskPhase = "Exporting"
 	DiskTerminating          DiskPhase = "Terminating"
+	DiskMigrating            DiskPhase = "Migrating"
+)
+
+type VirtualDiskMigrationState struct {
+	// Source PersistentVolumeClaim name.
+	SourcePVC string `json:"sourcePVC,omitempty"`
+	// Target PersistentVolumeClaim name.
+	TargetPVC      string                     `json:"targetPVC,omitempty"`
+	Result         VirtualDiskMigrationResult `json:"result,omitempty"`
+	Message        string                     `json:"message,omitempty"`
+	StartTimestamp metav1.Time                `json:"startTimestamp,omitempty"`
+	EndTimestamp   metav1.Time                `json:"endTimestamp,omitempty"`
+}
+
+// VirtualDiskMigrationResult is the result of the VirtualDisk migration.
+// +kubebuilder:validation:Enum=Succeeded;Failed
+type VirtualDiskMigrationResult string
+
+const (
+	VirtualDiskMigrationResultSucceeded VirtualDiskMigrationResult = "Succeeded"
+	VirtualDiskMigrationResultFailed    VirtualDiskMigrationResult = "Failed"
 )

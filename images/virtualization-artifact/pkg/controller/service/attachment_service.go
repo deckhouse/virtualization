@@ -149,8 +149,8 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
-	if vm == nil {
+func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
+	if vm == nil || kvvm == nil {
 		return false
 	}
 
@@ -282,7 +282,7 @@ func NewAttachmentDiskFromVirtualDisk(vd *virtv2.VirtualDisk) *AttachmentDisk {
 		Kind:         virtv2.DiskDevice,
 		Name:         vd.GetName(),
 		Namespace:    vd.GetNamespace(),
-		GenerateName: kvbuilder.GenerateVMDDiskName(vd.GetName()),
+		GenerateName: kvbuilder.GenerateVDDiskName(vd.GetName()),
 		Serial:       kvbuilder.GenerateSerialFromObject(vd),
 		PVCName:      vd.Status.Target.PersistentVolumeClaim,
 	}
@@ -297,7 +297,7 @@ func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk 
 		Kind:         virtv2.ImageDevice,
 		Name:         vi.GetName(),
 		Namespace:    vi.GetNamespace(),
-		GenerateName: kvbuilder.GenerateVMIDiskName(vi.GetName()),
+		GenerateName: kvbuilder.GenerateVIDiskName(vi.GetName()),
 		Serial:       serial,
 		IsCdrom:      vi.Status.CDROM,
 	}
@@ -319,7 +319,7 @@ func NewAttachmentDiskFromClusterVirtualImage(cvi *virtv2.ClusterVirtualImage) *
 	return &AttachmentDisk{
 		Kind:         virtv2.ClusterImageDevice,
 		Name:         cvi.GetName(),
-		GenerateName: kvbuilder.GenerateCVMIDiskName(cvi.GetName()),
+		GenerateName: kvbuilder.GenerateCVIDiskName(cvi.GetName()),
 		Image:        cvi.Status.Target.RegistryURL,
 		Serial:       serial,
 		IsCdrom:      cvi.Status.CDROM,

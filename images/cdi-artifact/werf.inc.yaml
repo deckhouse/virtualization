@@ -1,38 +1,82 @@
 ---
-{{- $version := "v1.60.3-v12n.7" }}
-{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
+{{- $gitRepoName := "3p-containerized-data-importer" }}
+{{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
+{{- $version := get $.Core $gitRepoName }}
 
----
-image: {{ $.ImageName }}
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+binaries:
+- /cdi-binaries/cdi-importer
+- /cdi-binaries/cdi-source-update-poller
+packages:
+- libnbd
+- libxml2
+- xz
+- libtasn1
+- libunistring
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
-mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+fromImage: builder/src
+git:
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
+    to: /src
+    stageDependencies:
+      install:
+        - '**/*'
+    excludePaths:
+      - patches/README.md
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
-  beforeInstall:
-{{- if eq $.SVACE_ENABLED "false" }}
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get install --yes libnbd-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y libnbd-devel
-  {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
-
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     echo "Git clone CDI repository..."
-    git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
+    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
+
+    rm -rf /src/containerized-data-importer/.git
+
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
+mount:
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
+- id: GOPROXY
+  value: {{ .GOPROXY }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/containerized-data-importer
+  to: /containerized-data-importer
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get -qq install -y libxml2-devel \
+      git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
+  {{- include "alt packages clean" . | nindent 2 }}
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
   - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+
     echo Download Go modules.
     cd /containerized-data-importer
     go mod download
@@ -43,9 +87,11 @@ shell:
     go get golang.org/x/crypto@v0.38.0
     # CVE-2025-22870, CVE-2025-22872
     go get golang.org/x/net@v0.40.0
-
     # CVE-2025-27144
     go get github.com/go-jose/go-jose/v3@v3.0.4
+    # CVE-2025-22868
+    go get golang.org/x/oauth2@v0.27.0
+
     go mod tidy
     go mod vendor
     # Apply patch for json-patch from 3p-cdi repo
@@ -102,17 +148,18 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "cdi-source-update-poller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller`) | nindent 6 }}
 
-
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries
 
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /
+    includePaths:
+    - static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -128,6 +175,7 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
   - |
+    cd /static_binaries
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     {{- $_ := set $ "ProjectName" (list $.ImageName "hello" | join "/") }}

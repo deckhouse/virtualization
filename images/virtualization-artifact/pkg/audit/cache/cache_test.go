@@ -23,7 +23,7 @@ import (
 )
 
 func TestTTLCache_Add(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cache := NewTTLCache(100 * time.Millisecond)
 	cache.Start(ctx)
 
@@ -39,7 +39,7 @@ func TestTTLCache_Add(t *testing.T) {
 }
 
 func TestTTLCache_Get_NonExistent(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cache := NewTTLCache(100 * time.Millisecond)
 	cache.Start(ctx)
 
@@ -50,7 +50,7 @@ func TestTTLCache_Get_NonExistent(t *testing.T) {
 }
 
 func TestTTLCache_Expiration(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cache := NewTTLCache(50 * time.Millisecond)
 	cache.Start(ctx)
 
@@ -70,7 +70,7 @@ func TestTTLCache_Expiration(t *testing.T) {
 }
 
 func TestTTLCache_Overwrite(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cache := NewTTLCache(100 * time.Millisecond)
 	cache.Start(ctx)
 
@@ -88,7 +88,7 @@ func TestTTLCache_Overwrite(t *testing.T) {
 }
 
 func TestTTLCache_CleanupRoutine(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	cache := NewTTLCache(50 * time.Millisecond)
 	cache.Start(ctx)
 
@@ -107,7 +107,7 @@ func TestTTLCache_CleanupRoutine(t *testing.T) {
 }
 
 func TestTTLCache_Stop(t *testing.T) {
-	ctx, stop := context.WithCancel(context.Background())
+	ctx, stop := context.WithCancel(t.Context())
 	cache := NewTTLCache(50 * time.Millisecond)
 	cache.Start(ctx)
 	stop()

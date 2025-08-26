@@ -1,8 +1,10 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   before: setup
@@ -16,8 +18,6 @@ imageSpec:
 {{- define "cdi-importer-deps" -}}
 libraries:
 - libsqlite3
-packages:
-  - libnbd
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
@@ -27,13 +27,16 @@ binaries:
   - /usr/lib64/libsqlite3.so.0
   # CDI binaries
   - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
+packages:
+- nbdkit libnbd
+- libtasn1 libxml2
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -43,7 +46,7 @@ import:
   - sbin/blockdev
   - bin/mount
   - bin/umount
-- image: cdi-artifact
+- image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   before: setup
@@ -51,25 +54,25 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup
-- image: packages/binaries/nbdkit
-  add: /nbdkit
-  to: /nbdkit
-  before: install
+{{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes \
-      {{ $cdiImporterDependencies.packages | join " " }} \
       {{ $cdiImporterDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   - |
-    cp -a /nbdkit/. /
-    rm -rf /nbdkit
+    echo "Install packages"
+    PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   setup:
   - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate

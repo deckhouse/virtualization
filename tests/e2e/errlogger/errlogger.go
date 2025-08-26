@@ -18,34 +18,23 @@ package errlogger
 
 import (
 	"bufio"
-	"context"
+	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
-	"os/exec"
 	"regexp"
-	"strings"
-	"sync"
-	"syscall"
 	"time"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	Red        = "\033[31m"
-	Yellow     = "\033[33m"
-	Green      = "\033[32m"
-	Reset      = "\033[0m"
-	Bold       = "\033[1m"
-	LevelError = "error"
+	Red         = "\033[31m"
+	Yellow      = "\033[33m"
+	Green       = "\033[32m"
+	Reset       = "\033[0m"
+	Bold        = "\033[1m"
+	LevelError  = "error"
+	maxCapacity = 1024 << 10
 )
-
-type warning string
 
 type LogEntry struct {
 	Level       string `json:"level"`
@@ -61,99 +50,76 @@ type LogEntry struct {
 	Time        string `json:"time"`
 }
 
-type LogStream struct {
-	Cancel             context.CancelFunc
-	ContainerStartedAt v1.Time
-	LogStreamCmd       *exec.Cmd
-	LogStreamWaitGroup *sync.WaitGroup
-	PodName            string
-	Stderr             io.ReadCloser
-	Stdout             io.ReadCloser
-}
-
-func (l *LogStream) ConnectStderr() {
-	GinkgoHelper()
-	stderr, err := l.LogStreamCmd.StderrPipe()
-	Expect(err).NotTo(HaveOccurred(), "failed to obtain the `Virtualization-controller` STDERR stream: %s", l.PodName)
-	l.Stderr = stderr
-}
-
-func (l *LogStream) ConnectStdout() {
-	GinkgoHelper()
-	stdout, err := l.LogStreamCmd.StdoutPipe()
-	Expect(err).NotTo(HaveOccurred(), "failed to obtain the `Virtualization-controller` STDOUT stream: %s", l.PodName)
-	l.Stdout = stdout
-}
-
-func (l *LogStream) ParseStderr() {
-	GinkgoHelper()
-	defer GinkgoRecover()
-	defer l.LogStreamWaitGroup.Done()
-
-	scanner := bufio.NewScanner(l.Stderr)
-	for scanner.Scan() {
-		_, writeErr := GinkgoWriter.Write([]byte(fmt.Sprintf("%s%s%s\n", Red, scanner.Text(), Reset)))
-		Expect(writeErr).NotTo(HaveOccurred())
+func NewLogStreamer(excludedPatterns []string, excludedRegexpPattens []regexp.Regexp) *LogStreamer {
+	patterns := make([][]byte, len(excludedPatterns))
+	for i, s := range excludedPatterns {
+		patterns[i] = []byte(s)
 	}
-	parseScanError(scanner.Err(), "STDERR")
+	return &LogStreamer{
+		excludedPatterns:      patterns,
+		excludedRegexpPattens: excludedRegexpPattens,
+	}
 }
 
-func (l *LogStream) ParseStdout(excludedPatterns []string, excludedRegexpPattens []regexp.Regexp, startTime time.Time) {
-	GinkgoHelper()
-	defer GinkgoRecover()
-	defer l.LogStreamWaitGroup.Done()
+type LogStreamer struct {
+	excludedPatterns      [][]byte
+	excludedRegexpPattens []regexp.Regexp
+}
 
-	errFlag := false
-	scanner := bufio.NewScanner(l.Stdout)
+func (l *LogStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
+	startTime := time.Now()
+
+	scanner := bufio.NewScanner(r)
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	num := 0
+
 	for scanner.Scan() {
+		rawEntry := scanner.Bytes()
+
 		var entry LogEntry
-		rawEntry := strings.TrimPrefix(scanner.Text(), "0")
-		err := json.Unmarshal([]byte(rawEntry), &entry)
-		Expect(err).NotTo(HaveOccurred(), "error parsing JSON")
-		if entry.Level == LevelError && !isMsgIgnoredByPattern(rawEntry, excludedPatterns, excludedRegexpPattens) {
+		err := json.Unmarshal(rawEntry, &entry)
+		if err != nil {
+			continue
+		}
+
+		if entry.Level == LevelError && !l.isMsgIgnoredByPattern(rawEntry) {
 			errTime, err := time.Parse(time.RFC3339, entry.Time)
-			Expect(err).NotTo(HaveOccurred(), "failed to parse error timestamp")
+			if err != nil {
+				continue
+			}
 			if errTime.After(startTime) {
-				errFlag = true
 				jsonData, err := json.MarshalIndent(entry, "", "  ")
-				Expect(err).NotTo(HaveOccurred(), "error converting to JSON")
+				if err != nil {
+					continue
+				}
 				msg := formatMessage(
 					"this is the `Virtualization-controller` error! not the current `Ginkgo` context error:",
 					string(jsonData),
 					Red,
 				)
-				_, writeErr := GinkgoWriter.Write([]byte(msg))
-				Expect(writeErr).NotTo(HaveOccurred())
+				n, _ := w.Write([]byte(msg))
+				num += n
 			}
 		}
 	}
-	parseScanError(scanner.Err(), "STDOUT")
-	Expect(errFlag).ShouldNot(BeTrue(), "errors have appeared in the `Virtualization-controller` logs")
+
+	return num, scanner.Err()
 }
 
-func (l *LogStream) WaitCmd() (warning, error) {
-	err := l.LogStreamCmd.Wait()
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok && status.Signaled() {
-				msg := formatMessage(
-					"Warning!",
-					fmt.Sprintf("The process was terminated with the %q signal.", status.Signal()),
-					Yellow,
-				)
-				return warning(msg), nil
-			}
+func (l *LogStreamer) isMsgIgnoredByPattern(msg []byte) bool {
+	for _, s := range l.excludedPatterns {
+		if bytes.Contains(msg, s) {
+			return true
 		}
-		return "", fmt.Errorf("the command %q has been finished with the error: %w", l.LogStreamCmd.String(), err)
 	}
-	return "", nil
-}
-
-func (l *LogStream) Start() {
-	GinkgoHelper()
-	err := l.LogStreamCmd.Start()
-	Expect(err).NotTo(HaveOccurred(), "failed to start the `Virtualization-controller` log stream: %s", l.PodName)
+	for _, r := range l.excludedRegexpPattens {
+		if r.Match(msg) {
+			return true
+		}
+	}
+	return false
 }
 
 func formatMessage(header, msg, color string) string {
@@ -167,34 +133,4 @@ func formatMessage(header, msg, color string) string {
 		msg,
 		Reset,
 	)
-}
-
-func isMsgIgnoredByPattern(msg string, patterns []string, regexpPatterns []regexp.Regexp) bool {
-	for _, s := range patterns {
-		if strings.Contains(msg, s) {
-			return true
-		}
-	}
-	for _, r := range regexpPatterns {
-		if r.MatchString(msg) {
-			return true
-		}
-	}
-	return false
-}
-
-// stream: "STDERR" | "STDOUT"
-func parseScanError(err error, stream string) {
-	var pathError *fs.PathError
-	if errors.As(err, &pathError) {
-		msg := formatMessage(
-			fmt.Sprintf("Warning! The %q file already closed.", stream),
-			"This may be caused by canceling the log stream process.",
-			Yellow,
-		)
-		_, writeErr := GinkgoWriter.Write([]byte(msg))
-		Expect(writeErr).NotTo(HaveOccurred())
-	} else {
-		Expect(err).NotTo(HaveOccurred(), "failed to scan the %q stream)", stream)
-	}
 }

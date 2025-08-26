@@ -32,6 +32,15 @@ spec:
       - 10.66.10.0/24
 ```
 
+How to configure the `virtualization` module in the web interface:
+
+- Go to the "System" tab, then to the `Deckhouse` -> "Modules" section.
+- Select the `virtualization` module from the list.
+- In the pop-up window, select the "Configuration" tab.
+- To display the settings, click the "Advanced settings" switch.
+- Configure the settings. The names of the fields on the form correspond to the names of the parameters in YAML.
+- To apply the settings, click the "Save" button.
+
 ### Parameter description
 
 **Enable the module**
@@ -167,25 +176,14 @@ There are different types of images:
 
 Examples of resources for obtaining virtual machine images:
 
-- Ubuntu
-  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
-  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
-  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
-  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
-- Debian
-  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
-  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
-- AlmaLinux
-  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
-  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
-- RockyLinux
-  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
-  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
-- CentOS
-  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
-  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
-  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
-  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+| Distribution                                                                      | Default user.             |
+| --------------------------------------------------------------------------------- | ------------------------- |
+| [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
+| [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`                  |
+| [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user`              |
+| [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`                  |
+| [Rocky](https://rockylinux.org/download/)                                         | `rocky`                   |
+| [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`                  |
 
 The following preinstalled image formats are supported:
 
@@ -280,6 +278,15 @@ To check on the description, run the following command:
 d8 k describe cvi ubuntu-22-04
 ```
 
+How to create an image from an HTTP server in the web interface:
+
+- Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
+- Click "Create Image", then select "Load data from link (HTTP)" from the drop-down menu.
+- Enter the image name in the "Image Name" field.
+- Specify the link to the image in the "URL" field.
+- Click "Create".
+- Wait until the image status changes to `Ready`.
+
 ### Creating an image from a container registry
 
 An image stored in a container registry has a certain format. Let's look at an example:
@@ -326,6 +333,15 @@ An image stored in a container registry has a certain format. Let's look at an e
          image: docker.io/<username>/ubuntu2204:latest
    EOF
    ```
+
+How to create an image from the container registry in the web interface:
+
+- Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
+- Click "Create Image", then select "Load data from container image" from the drop-down list.
+- Enter the image name in the "Image Name" field.
+- Specify the link to the image in the "Image in Container Registry" field.
+- Click "Create".
+- Wait until the image changes to the `Ready` status.
 
 ### Uploading an image via CLI
 
@@ -391,12 +407,21 @@ An image stored in a container registry has a certain format. Let's look at an e
    some-image   Ready   false   100%       1m
    ```
 
+How to perform the operation in the web interface:
+
+- Go to the "System" tab, then to the "Virtualization" -> "Cluster Images" section.
+- Click "Create Image", then select "Upload from Computer" from the drop-down menu.
+- Enter the image name in the "Image Name" field.
+- In the "Upload File" field, click the "Select a file on your computer" link.
+- Select the file in the file manager that opens.
+- Click the "Create" button.
+- Wait until the image changes to `Ready` status.
+
 ## Virtual machine classes
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
-By default, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
-
+During installation, a single VirtualMachineClass `generic` resource is automatically created. It represents a universal CPU type based on the older, but widely supported, Nehalem architecture. This enables running VMs on any nodes in the cluster and allows live migration.
 {{< alert level="info" >}}
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
 
@@ -429,6 +454,43 @@ spec:
   ...
 ```
 
+### Default VirtualMachineClass
+
+For convenience, you can assign a default VirtualMachineClass. This class will be used in the `spec.virtualMachineClassName` field if it is not specified in the virtual machine manifest.
+
+The default VirtualMachineClass is set via the `virtualmachineclass.virtualization.deckhouse.io/is-default-class` annotation. There can be only one default class in the cluster. To change the default class, remove the annotation from one class and add it to another.
+
+It is not recommended to set the annotation on the `generic` class, since the annotation may be removed during an update. It is recommended to create your own class and assign it as the default.
+
+Example output of the class list without a default class:
+
+```console
+$ d8 k get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready               1d
+```
+
+Example command of assigning the default class:
+
+```shell
+d8 k annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
+```
+
+After assigning the default class, the output will be:
+
+```console
+$ d8 k get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready   true        1d
+```
+
+When creating a VM without specifying the `spec.virtualMachineClassName` field, it will be set to `host-passthrough-custom`.
+
 ### VirtualMachineClass settings
 
 The VirtualMachineClass resource structure is as follows:
@@ -438,6 +500,9 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: <vmclass-name>
+  # (optional) Set class as a default.
+  # annotations:
+  #   virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
 spec:
   # The section describes virtual processor parameters for virtual machines.
   # This block cannot be changed after the resource has been created.
@@ -451,6 +516,12 @@ spec:
   # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
   sizingPolicies: ...
 ```
+
+How to configure VirtualMachineClass in the web interface:
+
+- Go to the "System" tab, then to the "Virtualization" -> "VM Classes" section.
+- Click the "Create" button.
+- In the window that opens, enter a name for the VM class in the "Name" field.
 
 Next, let's take a closer look at the setting blocks.
 
@@ -474,6 +545,12 @@ Examples of the `.spec.cpu` block settings:
       type: Features
   ```
 
+  How to configure vCPU in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+  - In the "CPU Settings" block, select `Features` in the "Type" field.
+  - In the "Required set of supported instructions" field, select the instructions you need for the processor.
+  - To create a VM class, click the "Create" button.
+
 - A class with a universal vCPU for a given set of nodes. In this case, use `type: Discovery`:
 
   ```yaml
@@ -487,6 +564,14 @@ Examples of the `.spec.cpu` block settings:
       type: Discovery
   ```
 
+  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+  - In the "CPU Settings" block, select `Discovery` in the "Type" field.
+  - Click "Add" in the "Conditions for creating a universal processor" -> "Labels and expressions" block.
+  - In the pop-up window, you can set the "Key", "Operator" and "Value" of the key that corresponds to the `spec.cpu.discovery.nodeSelector` settings.
+  - To confirm the key parameters, click the "Enter" button.
+  - To create a VM class, click the "Create" button.
+
 - The vmclass with `type: Host` uses a virtual vCPU that matches the platform node's vCPU instruction set as closely as possible, ensuring high performance and functionality. It also guarantees compatibility with live migration for nodes with similar vCPU types. For example, it is not possible to migrate a virtual machine between nodes with Intel and AMD processors. This also applies to processors of different generations, as their instruction sets may differ.
 
   ```yaml
@@ -495,6 +580,11 @@ Examples of the `.spec.cpu` block settings:
       type: Host
   ```
 
+  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+  - In the "CPU Settings" block, select `Host` in the "Type" field.
+  - To create a VM class, click the "Create" button.
+
 - A vmclass with `type: HostPassthrough` uses a physical CPU of the platform node without modification. A virtual machine using this class can only be migrated to a node that has a CPU that exactly matches the CPU of the source node.
 
   ```yaml
@@ -502,6 +592,11 @@ Examples of the `.spec.cpu` block settings:
     cpu:
       type: HostPassthrough
   ```
+
+  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+  - In the "CPU Settings" block, select `HostPassthrough` in the "Type" field.
+  - To create a VM class, click the "Create" button.
 
 - To create a vCPU of a specific CPU with a predefined instruction set, use `type: Model`. To get a list of supported CPU names for the cluster node, run the command in advance:
 
@@ -537,6 +632,12 @@ Examples of the `.spec.cpu` block settings:
       type: Model
   ```
 
+  How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+  - In the "CPU Settings" block, select `Model` in the "Type" field.
+  - Select the required processor model in the "Model" field.
+  - To create a VM class, click the "Create" button.
+
 #### Placement settings
 
 The `.spec.nodeSelector` block is optional. It allows you to specify the nodes that will host VMs using this vmclass:
@@ -557,6 +658,13 @@ Since changing the `.spec.nodeSelector` parameter affects all virtual machines u
 - For the Enterprise edition, this may cause virtual machines to be migrated to new destination nodes if the current nodes do not meet placement requirements.
 - For the Community edition, this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
 {{< /alert >}}
+
+How to perform the operation in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+- Click "Add" in the "VM scheduling conditions on nodes" -> "Labels and expressions" block.
+- In the pop-up window, you can set the "Key", "Operator" and "Value" of the key that corresponds to the `spec.nodeSelector` settings.
+- To confirm the key parameters, click the "Enter" button.
+- To create a VM class, click the "Create" button.
 
 #### Sizing policy settings
 
@@ -670,6 +778,19 @@ spec:
       coreFractions: [100]
 ```
 
+How to configure sizing policies in the web interface in the [VM class creation form](#virtualmachineclass-settings):
+
+- Click "Add" in the "Resource allocation rules for virtual machines" block.
+- In the "PU" block, enter `1` in the "Min" field.
+- In the "CPU" block, enter `4` in the "Max" field.
+- In the "CPU" block, select the values `5%`, `10%`, `20%`, `50%`, `100%` in order in the "Allow setting core fractions" field.
+- In the "Memory" block, set the switch to "Amount per core".
+- In the "Memory" block, enter `1` in the "Min" field.
+- In the "Memory" block, enter `8` in the "Max" field.
+- In the "Memory" block, enter `1` in the "Sampling step" field.
+- You can add more ranges using the "Add" button.
+- To create a VM class, click the "Create" button.
+
 ### vCPU Discovery configuration example
 
 ![VirtualMachineClass configuration example](./images/vmclass-examples.png)
@@ -706,13 +827,13 @@ metadata:
   name: cpuX
 spec:
   cpu:
-    discovery: {}
+    discovery:
+      nodeSelector:
+        matchExpressions:
+          - key: group
+            operator: In
+            values: ["blue"]
     type: Discovery
-  nodeSelector:
-    matchExpressions:
-      - key: group
-        operator: In
-        values: ["blue"]
   sizingPolicies: { ... }
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -803,6 +924,14 @@ The following is an example of migrating a selected virtual machine.
 
 1. If you need to abort the migration, delete the corresponding `vmop` resource while it is in the `Pending` or `InProgress` phase.
 
+How to start VM migration in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the desired virtual machine from the list and click the ellipsis button.
+- Select `Migrate` from the pop-up menu.
+- Confirm or cancel the migration in the pop-up window.
+
 #### Maintenance mode
 
 When working on nodes with virtual machines running, there is a risk of disrupting their performance. To avoid this, you can put a node into the maintenance mode and migrate the virtual machines to other free nodes.
@@ -830,6 +959,12 @@ d8 k uncordon <nodename>
 ```
 
 ![A diagram showing the migration of virtual machines from one node to another](./images/drain.png)
+
+How to perform the operation in the web interface:
+
+- Go to the "System”"tab, then to the "Nodes" section -> "Nodes of all groups".
+- Select the desired node from the list and click the "Cordon + Drain" button.
+- To remove it from maintenance mode, click the "Uncordon" button.
 
 ### ColdStandby
 

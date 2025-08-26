@@ -21,13 +21,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . DiskService Sources StorageClassService
+//go:generate go tool moq -rm -out mock.go . DiskService Sources StorageClassService
 
 type Sources interface {
 	Changed(ctx context.Context, vi *virtv2.VirtualImage) bool
@@ -37,7 +38,7 @@ type Sources interface {
 
 type DiskService interface {
 	GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 
 type StorageClassService interface {
@@ -45,6 +46,8 @@ type StorageClassService interface {
 	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
+	ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error
 }

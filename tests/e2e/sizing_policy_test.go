@@ -29,18 +29,12 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
+var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string
@@ -52,27 +46,34 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		existingVMClass                = map[string]string{"vm": "existing-vmclass"}
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 		ns                             string
+		phaseByVolumeBindingMode       = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
-	Context("Preparing the environment", func() {
+	BeforeAll(func() {
 		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassChanging["vm"])
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassCreating["vm"])
 		vmClassDiscovery = fmt.Sprintf("%s-sizing-policy-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-sizing-policy-discovery-copy", namePrefix)
 		newVMClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
 	})
 
 	Context("When resources are applied", func() {
@@ -189,7 +190,7 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(err).NotTo(HaveOccurred())
 				vmClass.Name = vmClassDiscoveryCopy
 				vmClass.Labels = map[string]string{"id": namePrefix}
-				writeErr := WriteYamlObject(newVMClassFilePath, &vmClass)
+				writeErr := helper.WriteYamlObject(newVMClassFilePath, &vmClass)
 				Expect(writeErr).NotTo(HaveOccurred(), writeErr)
 				res := kubectl.Apply(kc.ApplyOptions{
 					Filename:       []string{newVMClassFilePath},

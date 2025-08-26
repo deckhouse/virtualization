@@ -14,7 +14,6 @@ spec:
     plural: internalvirtualizationcdis
     shortNames:
       - intvirtcdi
-      - intvirtcdis
     singular: internalvirtualizationcdi
   scope: Cluster
   versions:

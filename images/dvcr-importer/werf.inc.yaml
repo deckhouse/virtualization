@@ -1,8 +1,10 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-- image: dvcr-artifact-bins
+- image: {{ .ModuleNamePrefix }}dvcr-artifact-bins
   add: /relocate
   to: /
   after: install

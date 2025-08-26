@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package
-// +k8s:protobuf-gen=package
 // +k8s:openapi-gen=true
 // +k8s:conversion-gen=github.com/deckhouse/virtualization/api/subresources
 // +groupName=subresources.virtualization.deckhouse.io

@@ -1,14 +1,16 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
   - virt-operator
   before: setup
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-config-files/
   to: /etc
   includePaths:

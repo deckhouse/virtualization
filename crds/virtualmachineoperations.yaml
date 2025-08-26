@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.18.0
   labels:
     heritage: deckhouse
     module: virtualization
@@ -13,13 +13,11 @@ spec:
   names:
     categories:
       - virtualization
-      - all
     kind: VirtualMachineOperation
     listKind: VirtualMachineOperationList
     plural: virtualmachineoperations
     shortNames:
       - vmop
-      - vmops
     singular: virtualmachineoperation
   scope: Namespaced
   versions:
@@ -66,6 +64,66 @@ spec:
               type: object
             spec:
               properties:
+                clone:
+                  description: Clone defines the clone operation.
+                  properties:
+                    customization:
+                      description: Customization defines customization options for cloning.
+                      properties:
+                        namePrefix:
+                          description: |-
+                            NamePrefix adds a prefix to resource names during cloning.
+                            Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
+                          type: string
+                        nameSuffix:
+                          description: |-
+                            NameSuffix adds a suffix to resource names during cloning.
+                            Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
+                          type: string
+                      type: object
+                    mode:
+                      description: |-
+                        VMOPRestoreMode defines the kind of the restore operation.
+                        * `DryRun`: DryRun run without any changes. Compatibility shows in status.
+                        * `Strict`: Strict restore as is in the snapshot.
+                        * `BestEffort`: BestEffort restore without deleted external missing dependencies.
+                      enum:
+                        - DryRun
+                        - Strict
+                        - BestEffort
+                      type: string
+                    nameReplacement:
+                      description:
+                        NameReplacement defines rules for renaming resources
+                        during cloning.
+                      items:
+                        description:
+                          NameReplacement represents a rule for redefining
+                          the virtual machine resource names.
+                        properties:
+                          from:
+                            description: Selector to choose resources for name replacement.
+                            properties:
+                              kind:
+                                description: Kind of a resource to rename.
+                                type: string
+                              name:
+                                description: Current name of a resource to rename.
+                                type: string
+                            required:
+                              - name
+                            type: object
+                          to:
+                            description: New resource name.
+                            type: string
+                        required:
+                          - from
+                          - to
+                        type: object
+                      type: array
+                  required:
+                    - mode
+                  type: object
                 force:
                   description: |-
                     Force execution of an operation.
@@ -73,6 +131,29 @@ spec:
                     * Effect on `Restart` and `Stop`: operation performs immediately.
                     * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
                   type: boolean
+                restore:
+                  description: Restore defines the restore operation.
+                  properties:
+                    mode:
+                      description: |-
+                        VMOPRestoreMode defines the kind of the restore operation.
+                        * `DryRun`: DryRun run without any changes. Compatibility shows in status.
+                        * `Strict`: Strict restore as is in the snapshot.
+                        * `BestEffort`: BestEffort restore without deleted external missing dependencies.
+                      enum:
+                        - DryRun
+                        - Strict
+                        - BestEffort
+                      type: string
+                    virtualMachineSnapshotName:
+                      description:
+                        VirtualMachineSnapshotName defines the source of
+                        the restore operation.
+                      type: string
+                  required:
+                    - mode
+                    - virtualMachineSnapshotName
+                  type: object
                 type:
                   description: |-
                     Type of the operation to execute on a virtual machine:
@@ -81,12 +162,16 @@ spec:
                     * `Restart`: Restart the virtual machine.
                     * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
                     * `Evict`: Migrate the virtual machine to another node where it can be started.
+                    * `Restore`: Restore the virtual machine from a snapshot.
+                    * `Clone`: Clone the virtual machine to a new virtual machine.
                   enum:
                     - Restart
                     - Start
                     - Stop
                     - Migrate
                     - Evict
+                    - Restore
+                    - Clone
                   type: string
                 virtualMachineName:
                   description:
@@ -106,6 +191,10 @@ spec:
                   rule:
                     "self.type == 'Migrate' ? !has(self.force) || !self.force :
                     true"
+                - message: Restore requires restore field.
+                  rule: "self.type == 'Restore' ? has(self.restore) : true"
+                - message: Clone requires clone field.
+                  rule: "self.type == 'Clone' ? has(self.clone) : true"
             status:
               properties:
                 conditions:
@@ -187,6 +276,42 @@ spec:
                     - Failed
                     - Terminating
                   type: string
+                resources:
+                  description:
+                    Resources contains the list of resources that are affected
+                    by the snapshot operation.
+                  items:
+                    description:
+                      VirtualMachineOperationResource defines the resource
+                      affected by the operation.
+                    properties:
+                      apiVersion:
+                        description: API version of the resource.
+                        type: string
+                      kind:
+                        description: Kind of the resource.
+                        type: string
+                      message:
+                        description: Message about the resource.
+                        type: string
+                      name:
+                        description: Name of the resource.
+                        type: string
+                      status:
+                        description: Status of the resource.
+                        enum:
+                          - InProgress
+                          - Completed
+                          - Failed
+                        type: string
+                    required:
+                      - apiVersion
+                      - kind
+                      - message
+                      - name
+                      - status
+                    type: object
+                  type: array
               required:
                 - phase
               type: object

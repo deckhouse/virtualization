@@ -22,20 +22,23 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
-  MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}-dev
+  MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
-  GO_VERSION: "1.22.7"
+  GO_VERSION: "1.24.6"
   MODULE_EDITION: "EE"
 
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+.*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Input existing tag, example v0.16.1. Image module tag in dev-registry will have suffix -dev. For example: v0.16.1-dev"
+        description: |
+          Allow input tag vX.Y.Z (release tag) or vX.Y.Z-rc.N (release candidate tag).
+
+          Example: v1.0.0 or v1.0.0-rc.1
         type: string
         required: true
 
@@ -64,12 +67,26 @@ jobs:
           echo CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo RELEASE_CHANNEL=$RELEASE_CHANNEL
-          echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
         shell: bash
-      - name: Validation for tag
+      - name: Validation and set MODULES_MODULE_TAG
+        id: get-tag
         run: |
-          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+.*$'
+          TAG="${{ github.event.inputs.tag }}"
+          echo "Processing tag: $TAG"
+
+          # Check if tag matches vX.Y.Z pattern (release)
+          if echo "$TAG" | grep -P '^v\d+\.\d+\.\d+$' > /dev/null; then
+            echo "Release tag detected"
+            echo "MODULES_MODULE_TAG=${TAG}" >> $GITHUB_OUTPUT
+          # Check if tag matches vX.Y.Z-rc.N pattern (release candidate)
+          elif echo "$TAG" | grep -P '^v\d+\.\d+\.\d+-rc\.\d+$' > /dev/null; then
+            echo "Release candidate tag detected"
+            echo "MODULES_MODULE_TAG=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Invalid tag format. Use format vX.Y.Z or vX.Y.Z-rc.N"
+            exit 1
+          fi
         shell: bash
 
       - uses: actions/checkout@v4
@@ -91,13 +108,6 @@ jobs:
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
-
-      - uses: deckhouse/modules-actions/deploy@v2
-        with:
-          module_source: "$MODULES_MODULE_SOURCE"
-          module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
-          release_channel: ${{ github.event.inputs.version }}
+          module_tag: ${{ steps.get-tag.outputs.MODULES_MODULE_TAG }}

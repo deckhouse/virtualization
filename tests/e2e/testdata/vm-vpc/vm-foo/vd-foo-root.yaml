@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-foo-root
+spec:
+  persistentVolumeClaim:
+    size: 512Mi
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualImage
+      name: vi-alpine-http

@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -101,7 +101,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		}
 		if kvvmi != nil && kvvmi.Status.Phase == virtv1.Running {
 			for _, iface := range kvvmi.Status.Interfaces {
-				if iface.Name == kvbuilder.NetworkInterfaceName {
+				if iface.Name == network.NameDefaultInterface {
 					hasClaimedIP := false
 					for _, ip := range iface.IPs {
 						if ip == ipAddress.Status.Address {
@@ -109,7 +109,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 						}
 					}
 					if !hasClaimedIP {
-						msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Status.Address, kvbuilder.NetworkInterfaceName, strings.Join(iface.IPs, ", "))
+						msg := fmt.Sprintf("IP address (%s) is not among addresses assigned to '%s' network interface (%s)", ipAddress.Status.Address, network.NameDefaultInterface, strings.Join(iface.IPs, ", "))
 						mgr.Update(cb.Status(metav1.ConditionFalse).
 							Reason(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).

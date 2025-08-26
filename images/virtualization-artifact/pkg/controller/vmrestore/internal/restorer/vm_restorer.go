@@ -46,6 +46,7 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 		vmTmpl.Annotations = make(map[string]string)
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
+
 	return &VirtualMachineOverrideValidator{
 		vm: &virtv2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
@@ -98,6 +99,9 @@ func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+			return nil
+		}
 		return fmt.Errorf("the virtual machine %q %w", vmKey.Name, ErrAlreadyExists)
 	}
 
@@ -135,9 +139,8 @@ func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) 
 			if updErr != nil {
 				if apierrors.IsConflict(updErr) {
 					return fmt.Errorf("waiting for the `VirtualMachine` %w", ErrUpdating)
-				} else {
-					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 				}
+				return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 			}
 		}
 	}

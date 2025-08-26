@@ -19,6 +19,7 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -30,8 +31,8 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -41,7 +42,7 @@ const (
 	frozenReasonPollingInterval    = 1 * time.Second
 )
 
-var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
 		attachedVirtualDiskLabel = map[string]string{"attachedVirtualDisk": ""}
@@ -60,15 +61,17 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+		CreateNamespace(ns)
+
 		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
 		virtualDiskWithoutConsumer := virtv2.VirtualDisk{}
 		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
-		err = UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+		err = helper.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 
 		virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
-		err = WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+		err = helper.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 	})
 
@@ -145,7 +148,10 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 			for _, vdName := range vds {
 				By(fmt.Sprintf("Create snapshot for %q", vdName))
-				err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, hasNoConsumerLabel)
+				labels := make(map[string]string)
+				maps.Copy(labels, hasNoConsumerLabel)
+				maps.Copy(labels, testCaseLabel)
+				err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, labels)
 				Expect(err).NotTo(HaveOccurred(), "%s", err)
 			}
 		})
@@ -193,7 +199,10 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 				for _, blockDevice := range blockDevices {
 					if blockDevice.Kind == virtv2.VirtualDiskKind {
 						By(fmt.Sprintf("Create snapshot for %q", blockDevice.Name))
-						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, ns, true, attachedVirtualDiskLabel)
+						labels := make(map[string]string)
+						maps.Copy(labels, attachedVirtualDiskLabel)
+						maps.Copy(labels, testCaseLabel)
+						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, ns, true, labels)
 						Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 						Eventually(func() error {
@@ -244,14 +253,18 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 							go func(index int) {
 								defer wg.Done()
 								snapshotName := fmt.Sprintf("%s-%d", blockDevice.Name, index)
-								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, ns, true, attachedVirtualDiskLabel)
+
+								labels := make(map[string]string)
+								maps.Copy(labels, attachedVirtualDiskLabel)
+								maps.Copy(labels, testCaseLabel)
+								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, ns, true, labels)
 								if err != nil {
 									errs = append(errs, err)
 								}
 							}(i)
 						}
 						wg.Wait()
-						Expect(errs).To(BeEmpty(), "concurrent snapshotting error")
+						Expect(errs).To(BeEmpty(), "should not face concurrent snapshotting error")
 
 						Eventually(func() error {
 							frozen, err := CheckFileSystemFrozen(vm.Name, ns)
@@ -267,6 +280,28 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 					}
 				}
 			}
+		})
+
+		It("checks snapshots", func() {
+			By("Snapshots should be `Ready`")
+			labels := make(map[string]string)
+			maps.Copy(labels, attachedVirtualDiskLabel)
+			maps.Copy(labels, testCaseLabel)
+
+			Eventually(func() error {
+				vdSnapshots := GetVirtualDiskSnapshots(ns, labels)
+				for _, snapshot := range vdSnapshots.Items {
+					if snapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseReady || snapshot.DeletionTimestamp != nil {
+						continue
+					}
+					return errors.New("still wait for all snapshots either in ready or in deletion state")
+				}
+				return nil
+			}).WithTimeout(
+				LongWaitDuration,
+			).WithPolling(
+				Interval,
+			).Should(Succeed(), "all snapshots should be in ready state after creation")
 		})
 
 		// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
@@ -301,12 +336,12 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+					frozen, err := CheckFileSystemFrozen(vm.Name, vm.Namespace)
 					if err != nil {
 						return nil
 					}
 					if frozen {
-						return errors.New("Filesystem of the Virtual Machine is frozen")
+						return fmt.Errorf("the filesystem of the virtual machine %s/%s is still frozen", vm.Namespace, vm.Name)
 					}
 					return nil
 				}).WithTimeout(
@@ -356,7 +391,7 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredC
 	}
 
 	filePath := fmt.Sprintf("%s/snapshots/%s.yaml", conf.TestData.VdSnapshots, snapshotName)
-	err := WriteYamlObject(filePath, &vdSnapshot)
+	err := helper.WriteYamlObject(filePath, &vdSnapshot)
 	if err != nil {
 		return fmt.Errorf("cannot write file with virtual disk snapshot: %s\nstderr: %w", snapshotName, err)
 	}
@@ -369,6 +404,18 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredC
 		return fmt.Errorf("cannot create virtual disk snapshot: %s\nstderr: %s", snapshotName, res.StdErr())
 	}
 	return nil
+}
+
+func GetVirtualDiskSnapshots(namespace string, labels map[string]string) virtv2.VirtualDiskSnapshotList {
+	GinkgoHelper()
+	vdSnapshots := virtv2.VirtualDiskSnapshotList{}
+	err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{
+		ExcludedLabels: []string{"hasNoConsumer"},
+		Namespace:      namespace,
+		Labels:         labels,
+	})
+	Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
+	return vdSnapshots
 }
 
 func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {

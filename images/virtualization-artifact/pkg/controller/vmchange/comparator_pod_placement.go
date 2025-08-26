@@ -44,7 +44,7 @@ func compareAffinity(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.Affinity, desired.Affinity),
-		placementAction,
+		placementAction(),
 	)
 }
 
@@ -57,7 +57,7 @@ func compareNodeSelector(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.NodeSelector, desired.NodeSelector),
-		placementAction,
+		placementAction(),
 	)
 }
 
@@ -80,6 +80,19 @@ func compareTolerations(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.Tolerations, desired.Tolerations),
+		ActionRestart,
+	)
+}
+
+func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	currentValue := NewValue(current.Networks, current.Networks == nil, false)
+	desiredValue := NewValue(desired.Networks, desired.Networks == nil, false)
+
+	return compareValues(
+		"networks",
+		currentValue,
+		desiredValue,
+		reflect.DeepEqual(current.Networks, desired.Networks),
 		ActionRestart,
 	)
 }

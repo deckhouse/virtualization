@@ -3,9 +3,6 @@ version: "3"
 silent: true
 
 vars:
-  GINKGO_VERSION:
-    # Should hide curly brackets from task templater.
-    sh: go list -f '{{`{{.Version}}`}}' -m github.com/onsi/ginkgo/v2
   VERSION: "v1.0.0"
 
 tasks:
@@ -19,18 +16,6 @@ tasks:
         fi
         cp -a testdata /tmp/testdata
 
-  ginkgo:
-    cmds:
-      - |
-        if ! which ginkgo >/dev/null ; then
-          echo "Ginkgo not found or not in the PATH. Install from github or run go install github.com/onsi/ginkgo/v2/ginkgo@{{ .GINKGO_VERSION }}"
-          exit 1
-        fi
-        v=($(ginkgo version 2>/dev/null))
-        if [ "v${v[2]}" != "{{ .GINKGO_VERSION }}" ]; then
-          echo "Ginkgo version mismatch: {{ .GINKGO_VERSION }} is required. Got ${v[2]} in PATH."
-          exit 2
-        fi
   kubectl:
     cmds:
       - |
@@ -49,64 +34,29 @@ tasks:
     desc: "Separate task to run e2e tests in the CI environment"
     deps:
       - copy
-      - ginkgo
       - kubectl
       - d8
     cmds:
-      - |
-        bash -c 'GINKGO_RESULT=$(mktemp)
-        ginkgo -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
-        EXIT_CODE="${PIPESTATUS[0]}"
-        RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
-        if [[ $RESULT == FAIL!* || $EXIT_CODE -ne "0" ]]; then
-          RESULT_STATUS=":x: FAIL!"
-        elif [[ $RESULT == SUCCESS!* ]]; then
-          RESULT_STATUS=":white_check_mark: SUCCESS!"
-        else
-          RESULT_STATUS=":question: UNKNOWN"
-          EXIT_CODE=1
-        fi
-        DATE=$(date +"%Y-%m-%d")
-
-        PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
-        FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
-        PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
-        SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
-
-        SUMMARY="
-        ### :dvp: **DVP $DATE Nightly e2e Tests**
-
-        **Branch:** \`$GITHUB_REF_NAME\`
-        **Status: $RESULT_STATUS**
-
-        - ${PASSED:-0} Passed
-        - ${FAILED:-0} Failed
-        - ${PENDING:-0} Pending
-        - ${SKIPPED:-0} Skipped
-
-        [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
-        "
-        echo "SUMMARY<<EOF" >> $GITHUB_ENV
-        echo "$SUMMARY" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-        exit $EXIT_CODE'
+      - ./task_run_ci.sh
 
   runp:
     desc: "Run e2e tests"
     deps:
       - copy
-      - ginkgo
       - kubectl
       - d8
     cmds:
       - |
-        ginkgo -v \
+        go tool ginkgo -v \
           -p --procs=12 \
           --race \
+          {{if .LABELS -}}
+          --label-filter="{{ .LABELS }}" \
+          {{end -}}
           {{if .TIMEOUT -}}
           --timeout={{ .TIMEOUT }} \
           {{else -}}
-          --timeout=2h \
+          --timeout=3h \
           {{end -}}
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
@@ -116,17 +66,19 @@ tasks:
     desc: "Run e2e tests"
     deps:
       - copy
-      - ginkgo
       - kubectl
       - d8
     cmds:
       - |
-        ginkgo -v \
+        go tool ginkgo -v \
           --race \
+          {{if .LABELS -}}
+          --label-filter="{{ .LABELS }}" \
+          {{end -}}
           {{if .TIMEOUT -}}
           --timeout={{ .TIMEOUT }} \
           {{else -}}
-          --timeout=2h \
+          --timeout=3h \
           {{end -}}
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
@@ -181,7 +133,7 @@ tasks:
           exit 1
         fi
 
-        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}" 
+        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}"
         images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
 
         v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
@@ -191,7 +143,7 @@ tasks:
 
         retry_count=0
         max_retries=120
-        sleep_interval=5 
+        sleep_interval=5
 
         if [ $audit_image_skip == "true" ]; then
           SKIP_IMAGES=("virtualizationAudit")

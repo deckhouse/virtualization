@@ -24,17 +24,20 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"github.com/deckhouse/virtualization/tests/e2e/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
 	var ns string
 
-	AfterAll(func() {
-		By("Delete manifests")
-		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
 	})
 
 	BeforeEach(func() {
@@ -43,22 +46,21 @@ var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), 
 		}
 	})
 
+	AfterAll(func() {
+		By("Delete manifests")
+		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
-
-		It("project apply", func() {
-			config.PrepareProject(conf.TestData.ImporterNetworkPolicy)
+	Context("Project", func() {
+		It("creates project", func() {
+			//nolint:staticcheck // deprecated function is temporarily used
+			util.PrepareProject(conf.TestData.ImporterNetworkPolicy)
 
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ImporterNetworkPolicy + "/project"},

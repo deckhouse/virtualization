@@ -9,4 +9,5 @@ spec:
     containerImage:
       image: cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest
   persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 3600Mi

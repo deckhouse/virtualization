@@ -115,7 +115,13 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 		return virtv2.MachineStarting
 	},
 	// VirtualMachineStatusStarting indicates that the virtual machine is being prepared for running.
-	virtv1.VirtualMachineStatusStarting: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusStarting: func(_ *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.MachinePhase {
+		synchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, kvvm.Status.Conditions)
+
+		if synchronizedCondition.Reason == failedCreatePodReason {
+			return virtv2.MachinePending
+		}
+
 		return virtv2.MachineStarting
 	},
 	// VirtualMachineStatusRunning indicates that the virtual machine is running.
@@ -201,7 +207,7 @@ func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
 	return conditions.CommonReason(kvmiReason)
 }
 
-var mapReasons = map[string]vmcondition.Reason{
+var mapReasons = map[string]vmcondition.RunningReason{
 	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminating,
 	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
@@ -271,6 +277,16 @@ func checkVirtualMachineConfiguration(vm *virtv2.VirtualMachine) bool {
 
 		case vmcondition.TypeSizingPolicyMatched:
 			if c.Status != metav1.ConditionTrue {
+				return false
+			}
+
+		case vmcondition.TypeMACAddressReady:
+			if c.Status != metav1.ConditionTrue {
+				return false
+			}
+
+		case vmcondition.TypeNetworkReady:
+			if c.Status == metav1.ConditionFalse && c.Reason == vmcondition.ReasonSDNModuleDisable.String() {
 				return false
 			}
 		}

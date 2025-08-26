@@ -49,3 +49,53 @@ func WithMemory(size resource.Quantity) Option {
 		vm.Spec.Memory.Size = size
 	}
 }
+
+func WithDisks(disks ...*v1alpha2.VirtualDisk) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		blockDeviceRefs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(disks))
+		for _, disk := range disks {
+			blockDeviceRefs = append(blockDeviceRefs, v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: disk.Name,
+			})
+		}
+		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, blockDeviceRefs...)
+	}
+}
+
+func WithBlockDeviceRefs(refs ...v1alpha2.BlockDeviceSpecRef) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, refs...)
+	}
+}
+
+func WithNodeSelector(nodeSelector map[string]string) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.NodeSelector = nodeSelector
+	}
+}
+
+func WithLiveMigrationPolicy(liveMigrationPolicy v1alpha2.LiveMigrationPolicy) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.LiveMigrationPolicy = liveMigrationPolicy
+	}
+}
+
+func WithVirtualMachineClass(class string) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.VirtualMachineClassName = class
+	}
+}
+
+func WithProvisioning(provisioning *v1alpha2.Provisioning) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Provisioning = provisioning
+	}
+}
+
+func WithProvisioningUserData(cloudInit string) Option {
+	return WithProvisioning(&v1alpha2.Provisioning{
+		Type:     v1alpha2.ProvisioningTypeUserData,
+		UserData: cloudInit,
+	})
+}

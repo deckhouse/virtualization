@@ -19,7 +19,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -29,29 +28,9 @@ import (
 
 	yamlv3 "gopkg.in/yaml.v3"
 	storagev1 "k8s.io/api/storage/v1"
-
-	gt "github.com/deckhouse/virtualization/tests/e2e/git"
-	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/rest"
 )
-
-var (
-	conf    *Config
-	git     gt.Git
-	kubectl kc.Kubectl
-)
-
-func init() {
-	var err error
-	if conf, err = GetConfig(); err != nil {
-		log.Fatal(err)
-	}
-	if git, err = gt.NewGit(); err != nil {
-		log.Fatal(err)
-	}
-	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {
-		log.Fatal(err)
-	}
-}
 
 func GetConfig() (*Config, error) {
 	cfg := "./default_config.yaml"
@@ -72,39 +51,6 @@ func GetConfig() (*Config, error) {
 	}
 
 	return &conf, nil
-}
-
-type ModuleConfig struct {
-	APIVersion string   `yaml:"apiVersion"`
-	Kind       string   `yaml:"kind"`
-	Metadata   Metadata `yaml:"metadata"`
-	Spec       Spec     `yaml:"spec"`
-}
-
-type Metadata struct {
-	Name string `yaml:"name"`
-}
-
-type Spec struct {
-	Enabled  bool     `yaml:"enabled"`
-	Settings Settings `yaml:"settings"`
-	Version  int      `yaml:"version"`
-}
-
-type Settings struct {
-	Loglevel            string   `yaml:"logLevel,omitempty"`
-	VirtualMachineCIDRs []string `yaml:"virtualMachineCIDRs"`
-	Dvcr                Dvcr     `yaml:"dvcr"`
-	HighAvailability    bool     `yaml:"highAvailability,omitempty"`
-}
-
-type Dvcr struct {
-	Storage Storage `yaml:"storage"`
-}
-
-type Storage struct {
-	PersistentVolumeClaim map[string]string `yaml:"persistentVolumeClaim"`
-	Type                  string            `yaml:"type"`
 }
 
 type Kustomize struct {
@@ -152,16 +98,19 @@ type TestData struct {
 	VMEvacuation          string `yaml:"vmEvacuation"`
 	VMDiskAttachment      string `yaml:"vmDiskAttachment"`
 	VMRestoreForce        string `yaml:"vmRestoreForce"`
+	VMRestoreSafe         string `yaml:"vmRestoreSafe"`
 	VMVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
 	Sshkey                string `yaml:"sshKey"`
 	SSHUser               string `yaml:"sshUser"`
 	IPAM                  string `yaml:"ipam"`
+	VMVpc                 string `yaml:"vmVpc"`
 }
 
 type StorageClass struct {
 	DefaultStorageClass   *storagev1.StorageClass
 	ImmediateStorageClass *storagev1.StorageClass
+	TemplateStorageClass  *storagev1.StorageClass
 }
 
 type ClusterTransport struct {
@@ -170,6 +119,26 @@ type ClusterTransport struct {
 	Endpoint             string `yaml:"endpoint"`
 	CertificateAuthority string `yaml:"certificateAuthority"`
 	InsecureTLS          bool   `yaml:"insecureTls"`
+}
+
+func (c ClusterTransport) RestConfig() (*rest.Config, error) {
+	configFlags := genericclioptions.ConfigFlags{}
+	if c.KubeConfig != "" {
+		configFlags.KubeConfig = &c.KubeConfig
+	}
+	if c.Token != "" {
+		configFlags.BearerToken = &c.Token
+	}
+	if c.InsecureTLS {
+		configFlags.Insecure = &c.InsecureTLS
+	}
+	if c.CertificateAuthority != "" {
+		configFlags.CAFile = &c.CertificateAuthority
+	}
+	if c.Endpoint != "" {
+		configFlags.APIServer = &c.Endpoint
+	}
+	return configFlags.ToRESTConfig()
 }
 
 type DisksConf struct {
@@ -256,22 +225,6 @@ func (c *Config) GetTestCases() ([]string, error) {
 	}
 }
 
-func GetNamePrefix() (string, error) {
-	if prNumber, ok := os.LookupEnv("MODULES_MODULE_TAG"); ok && prNumber != "" {
-		return prNumber, nil
-	}
-
-	res := git.GetHeadHash()
-	if !res.WasSuccess() {
-		return "", errors.New(res.StdErr())
-	}
-
-	commitHash := res.StdOut()
-	commitHash = commitHash[:len(commitHash)-1]
-	commitHash = fmt.Sprintf("head-%s", commitHash)
-	return commitHash, nil
-}
-
 func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	var kustomizeFile Kustomize
 
@@ -290,7 +243,9 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 
 	kustomizeFile.Namespace = namespace + "-" + testCaseName
 	kustomizeFile.NamePrefix = namePrefix + "-"
-	kustomizeFile.Labels[0].Pairs["id"] = namePrefix
+	if len(kustomizeFile.Labels) > 0 {
+		kustomizeFile.Labels[0].Pairs["id"] = namePrefix
+	}
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr
@@ -351,18 +306,4 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 	}
 
 	return nil
-}
-
-func GetModuleConfig() (*ModuleConfig, error) {
-	res := kubectl.GetResource(kc.ResourceModuleConfig, "virtualization", kc.GetOptions{Output: "yaml"})
-	if !res.WasSuccess() {
-		return nil, errors.New(res.StdErr())
-	}
-
-	var mc ModuleConfig
-	unmarshalErr := yamlv3.Unmarshal([]byte(res.StdOut()), &mc)
-	if unmarshalErr != nil {
-		return nil, unmarshalErr
-	}
-	return &mc, nil
 }

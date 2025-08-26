@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,15 +54,19 @@ func NewPersistentVolumeClaimWatcher(client client.Client) *PersistentVolumeClai
 }
 
 func (w PersistentVolumeClaimWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequestsFromOwnerRefsRecursively),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, pvc *corev1.PersistentVolumeClaim) []reconcile.Request {
+				return w.enqueueRequestsFromOwnerRefsRecursively(ctx, pvc)
+			}),
+			predicate.TypedFuncs[*corev1.PersistentVolumeClaim]{
+				UpdateFunc: w.filterUpdateEvents,
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on PersistentVolumeClaim: %w", err)
+	}
+	return nil
 }
 
 func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
@@ -95,24 +100,19 @@ func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(ct
 	return
 }
 
-func (w PersistentVolumeClaimWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldPVC, ok := e.ObjectOld.(*corev1.PersistentVolumeClaim)
-	if !ok {
-		return false
-	}
-	newPVC, ok := e.ObjectNew.(*corev1.PersistentVolumeClaim)
-	if !ok {
-		return false
-	}
-
-	if oldPVC.Status.Capacity[corev1.ResourceStorage] != newPVC.Status.Capacity[corev1.ResourceStorage] {
+func (w PersistentVolumeClaimWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*corev1.PersistentVolumeClaim]) bool {
+	if e.ObjectOld.Status.Capacity[corev1.ResourceStorage] != e.ObjectNew.Status.Capacity[corev1.ResourceStorage] {
 		return true
 	}
 
-	if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
-		service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
+	if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, e.ObjectOld.Status.Conditions) != nil ||
+		service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, e.ObjectNew.Status.Conditions) != nil {
 		return true
 	}
 
-	return oldPVC.Status.Phase != newPVC.Status.Phase
+	if !equality.Semantic.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations()) {
+		return true
+	}
+
+	return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 }

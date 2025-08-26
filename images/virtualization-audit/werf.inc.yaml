@@ -1,15 +1,30 @@
 {{- if eq .MODULE_EDITION "EE" }}
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-  - image: virtualization-artifact
-    add: /out/virtualization-audit
-    to: /app/virtualization-audit
-    after: install
+- image: {{ .ModuleNamePrefix }}virtualization-artifact
+  add: /out/virtualization-audit
+  to: /app/virtualization-audit
+  after: install
+{{- if eq $.DEBUG_COMPONENT "delve/virtualization-audit" }}
+- image: debuger
+  add: /app/dlv
+  to: /app/dlv
+  after: install
+{{- end }}
 imageSpec:
   config:
     user: 64535
     workingDir: "/app"
+    {{- if eq $.DEBUG_COMPONENT "delve/virtualization-audit" }}
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
+      XDG_CONFIG_HOME: "/tmp"
+    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/app/virtualization-audit", "--"]
+    {{- else }}
     entrypoint: ["/app/virtualization-audit"]
+    {{- end }}
 {{- end }}

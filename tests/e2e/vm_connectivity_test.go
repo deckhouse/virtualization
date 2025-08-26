@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	"github.com/deckhouse/virtualization/tests/e2e/network"
 )
@@ -41,7 +41,7 @@ const (
 	nginxActiveStatus = "active"
 )
 
-var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
@@ -54,20 +54,19 @@ var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorator
 		selectorB string
 	)
 
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			Expect(ns).NotTo(BeEmpty())
-		})
 	})
 
 	Context("When resources are applied", func() {
@@ -309,8 +308,12 @@ func CheckCiliumAgents(kubectl kc.Kubectl, namespace string, vms ...string) {
 	GinkgoHelper()
 	for _, vm := range vms {
 		By(fmt.Sprintf("Cilium agent should be OK's for VM: %s", vm))
-		err := network.CheckCilliumAgents(context.Background(), kubectl, vm, namespace)
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			return network.CheckCiliumAgents(context.Background(), kubectl, vm, namespace)
+		}).
+			WithTimeout(Timeout).
+			WithPolling(Interval).
+			Should(Succeed())
 	}
 }
 
@@ -326,10 +329,10 @@ func CheckExternalConnection(host, httpCode, vmNamespace string, vmNames ...stri
 func CheckResultSSHCommand(vmNamespace, vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-			Namespace:   vmNamespace,
-			Username:    conf.TestData.SSHUser,
-			IdenityFile: conf.TestData.Sshkey,
+		res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+			Namespace:    vmNamespace,
+			Username:     conf.TestData.SSHUser,
+			IdentityFile: conf.TestData.Sshkey,
 		})
 		if res.Error() != nil {
 			return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())

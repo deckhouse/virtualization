@@ -1,8 +1,10 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-- image: cdi-artifact
+- image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   before: setup

@@ -29,11 +29,11 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImageHotplug", framework.CommonE2ETestDecorators(), func() {
 	const (
 		viCount    = 2
 		cviCount   = 2
@@ -51,12 +51,6 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		ns            string
 	)
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml")
 		var err error
@@ -69,6 +63,14 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 			Resource:       kc.ResourceCVI,
 		})
 		Expect(res.Error()).NotTo(HaveOccurred())
+
+		CreateNamespace(ns)
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
 	})
 
 	Context("When the virtualization resources are applied", func() {
@@ -332,10 +334,10 @@ func IsBlockDeviceCdRom(vmNamespace, vmName, blockDeviceName string) (bool, erro
 	var blockDevices *BlockDevices
 	bdIDPath := fmt.Sprintf("/dev/disk/by-id/%s-%s", CdRomIDPrefix, blockDeviceName)
 	cmd := fmt.Sprintf("lsblk --json --nodeps --output name,type %s", bdIDPath)
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return false, errors.New(res.StdErr())
@@ -354,10 +356,10 @@ func IsBlockDeviceCdRom(vmNamespace, vmName, blockDeviceName string) (bool, erro
 func MountBlockDevice(vmNamespace, vmName, blockDeviceID string) error {
 	bdIDPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceID)
 	cmd := fmt.Sprintf("sudo mount --read-only %s /mnt", bdIDPath)
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return errors.New(res.StdErr())
@@ -368,10 +370,10 @@ func MountBlockDevice(vmNamespace, vmName, blockDeviceID string) error {
 func IsBlockDeviceReadOnly(vmNamespace, vmName, blockDeviceID string) (bool, error) {
 	bdIDPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceID)
 	cmd := fmt.Sprintf("findmnt --noheadings --output options %s", bdIDPath)
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return false, errors.New(res.StdErr())

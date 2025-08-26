@@ -10,14 +10,12 @@ spec:
   scope: Namespaced
   names:
     categories:
-      - all
       - virtualization
     plural: virtualmachineipaddresses
     singular: virtualmachineipaddress
     kind: VirtualMachineIPAddress
     shortNames:
       - vmip
-      - vmips
   versions:
     - name: v1alpha2
       schema:

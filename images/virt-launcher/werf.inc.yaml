@@ -1,9 +1,11 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
-fromImage: distroless
+fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
-  - image: {{ $.ImageName }}-binaries
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate
     to: /
     after: install
@@ -16,22 +18,14 @@ imageSpec:
     user: 0
 
 ---
-{{- define "virt-launcher-dependencies" -}}
-libs:
-  - libssh-devel
-  - libssh2-devel
-  - libcap-ng-devel
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altLibs:
   - libxfs-devel
-  - zlib-devel
-  - libcurl-devel
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
-  - libpixman-devel
-  - libkeyutils-devel
   - libuuid-devel
-  - libpam0-devel
-  - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
   - libxdp-devel
@@ -43,8 +37,6 @@ libs:
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
-  - libcapstone-devel
-  - libsasl2-devel
   - libjpeg-devel
   - libpng-devel
   - libxkbcommon-devel
@@ -56,31 +48,23 @@ libs:
   - libvirglrenderer-devel
   - libdbus
   - libusb-devel
-  - liburing-devel
   - libbpf-devel
   - libspice-server-devel
   - ceph-devel
   - libnfs-devel
-  - libzstd-devel
   - libseccomp-devel
   - libudev-devel
   - libmultipath-devel
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - rdma-core-devel
   - bzlib-devel
-  - liblzo2-devel
-  - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
   - libgbm-devel
   - libvitastor-devel
   - libiscsi-devel
-  - libaio-devel
-  - libselinux-devel
-  - libqpl-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -92,22 +76,12 @@ libs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libnbd-devel
-  - libp11-kit-devel
-  - libreadline-devel
   - libsystemd-devel
-  - libjson-c-devel
   - systemtap-sdt-devel
-  - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
-  - libxml2-devel
-  - libgcc1
-  - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libisofs
-packages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -138,19 +112,38 @@ binaries:
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Iproute2
   - /usr/sbin/tc
+packages:
+- swtpm libtpms numactl dmidecode
+- libisoburn libburn libattr libaudit
+- gnutls acl libbsd libgcrypt libmd
+- util-linux libfuse3 nettle libgsasl
+- libnbd libcap-ng libcapstone libcurl
+- libjson-c5 keyutils libisofs
+- zlib zstd p11-kit
+- libssh libssh2
+- libpixman libqpl rdma-core
+- krb5 xz libxml2
+- readline
+- selinux
+- linux-pam
+- cyrus-sasl2
+- snappy
+- libtasn1 libtirpc
+- libaio
+- liburing libunistring
 {{- end -}}
 
-{{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $gitRepoName := "libvirt" }}
-{{- $version := get $.Version $gitRepoName }}
+{{- $version := get $.Firmware $gitRepoName }}
 
-image: {{ $.ImageName }}-binaries
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
-  - add: /images/{{ $.ImageName }}/configs
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
     to: /relocate/etc/libvirt
     stageDependencies:
       setup:
@@ -159,7 +152,7 @@ git:
     includePaths:
     - qemu.conf
     - virtqemud.conf
-  - add: /images/{{ $.ImageName }}/configs
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
     to: /relocate/etc
     stageDependencies:
       setup:
@@ -168,16 +161,17 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: libvirt
+- image: {{ .ModuleNamePrefix }}libvirt
   add: /BINS
   to: /libvirt-bins
   before: install
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /BINS
   to: /qemu-bins
   before: install
+
 # EDK2 (uefi firmware)
-- image: edk2
+- image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/edk2/ovmf
   before: install
@@ -186,21 +180,19 @@ import:
   - '*.bin'
   - '*.efi'
   - '*.iso'
-- image: edk2
+- image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/qemu/firmware
   before: install
   includePaths:
   - '*.json'
 # Import from virt artifact
-- image: virt-artifact
-  add: /kubevirt-config-files/
-  to: /
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-config-files/.version
+  to: /.version
   after: install
-  includePaths:
-  - .version
 
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /relocate/usr/bin
   before: setup
@@ -211,7 +203,7 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: {{ $.ImageName }}-gobuilder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
   to: /relocate/usr/bin
   before: setup
@@ -219,17 +211,10 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-
-- image: libs/libffi
-  add: /usr
-  to: /libffi8/usr
-  before: install
-
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 
 # Statically builded
-- image: packages/binaries/openssl
+- image: {{ .ModuleNamePrefix }}packages/openssl
   add: /openssl
   to: /relocate
   after: setup
@@ -252,7 +237,7 @@ import:
   - usr/bin/sleep
   - usr/bin/coreutils
 
-- image: {{ $.ImageName }}-cbuilder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
   before: setup
@@ -260,31 +245,17 @@ import:
   - temp_pod
 shell:
   beforeInstall:
-    {{- include "alt packages proxy" . | nindent 2 }}
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
-
-  {{ if not $.DistroPackagesProxy }}
-      REPO_URL=http://ftp.altlinux.org/pub/distributions
-  {{- else }}
-      REPO_URL=http://{{ $.DistroPackagesProxy }}/repository/archive-ALT-Linux-APT-Repository
-  {{- end }}
-    # libtpms libtpms-devel require version 0.10 that in sisyphus repo
-    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus x86_64 classic
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
-    EOF
-
-    apt-get update
-    apt-get install -y libtpms
-    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+    apt-get install -y \
+      {{ $builderDependencies.altLibs | join " " }} \
+      {{ $builderDependencies.altPackages | join " " }}
 
     {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
-    # Install packages
-    PKGS="{{ $images | join " " }}"
-    PKGS+=" libffi8"
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -309,7 +280,7 @@ shell:
     LIBS+=" /usr/lib64/libjson-c.s* /usr/lib64/libssh.s* /usr/lib64/libssh2.s*"
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
-    LIBS+=" /usr/lib64/libisoburn.s*"
+    LIBS+=" /usr/lib64/libisoburn.s* /usr/lib64/libacl.s*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -326,7 +297,8 @@ shell:
 
   setup:
   - |
-    ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
+    echo "Copy binaries to /relocate"
+    ./relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
 
     echo "Copy additional config swtpm"
     cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
@@ -366,7 +338,7 @@ shell:
 
   - |
     convert_version() {
-      local version="$1"
+      local version="${1#v}"
       IFS='.' read -r major minor patch <<< "$version"
       printf "%d%03d\n" "$major" "$minor"
     }
@@ -415,36 +387,50 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
 
 ---
-image: {{ $.ImageName }}-gobuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
 git:
-  - add: /images/{{ $.ImageName }}/node-labeller
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
-  - add: /images/{{ $.ImageName }}/vlctl
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/vlctl
     to: /src-vlctl
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
+import:
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
-{{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y --no-install-recommends libvirt-dev
+  - |
+    echo "install deps libvirt-dev"
+{{- if eq $.SVACE_ENABLED "false" }}
+    apt-get install -y libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
 {{- else }}
-  {{- include "alt packages proxy" . | nindent 2 }}
   - apt-get -qq install -y libvirt-devel
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   - mkdir -p /binaries
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - |
     echo "Build node-labeller binaries"
     cd /node-labeller
@@ -462,12 +448,12 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go`) | nindent 6 }}
     echo "Done"
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
-    to: /
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
+    to: /static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -484,6 +470,7 @@ shell:
 {{- end }}
   install:
   - |
+    cd /static_binaries
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
 

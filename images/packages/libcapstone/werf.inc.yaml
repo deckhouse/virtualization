@@ -1,0 +1,77 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "aquynh/capstone.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libtool gettext-tools
+- rpm-macros-java
+- rpm-macros-python3
+- java-devel-default
+- jna
+- python-devel
+- rpm-build-python3
+- tree
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+    cd /src
+    MAKE_JOBS=$(nproc) PREFIX=/usr LIBDIRARCH=lib64 ./make.sh
+    # fix the pkgconfig file
+    sed -i 's;%buildroot;;' capstone.pc
+    # remove static libs entry from the pkgconfig file
+    sed -i 's;archive.*;;' capstone.pc
+    DESTDIR=$OUTDIR LIBDIRARCH=lib64 ./make.sh install
+    strip $OUTDIR/usr/bin/cstool
+    strip $OUTDIR/usr/lib64/libcapstone.so.4
+    tree $OUTDIR
+

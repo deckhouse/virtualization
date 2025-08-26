@@ -26,8 +26,6 @@ type VirtualDiskSnapshotExpansion interface{}
 
 type VirtualImageExpansion interface{}
 
-type VirtualMachineExpansion interface{}
-
 type VirtualMachineBlockDeviceAttachmentExpansion interface{}
 
 type VirtualMachineClassExpansion interface{}
@@ -35,6 +33,10 @@ type VirtualMachineClassExpansion interface{}
 type VirtualMachineIPAddressExpansion interface{}
 
 type VirtualMachineIPAddressLeaseExpansion interface{}
+
+type VirtualMachineMACAddressExpansion interface{}
+
+type VirtualMachineMACAddressLeaseExpansion interface{}
 
 type VirtualMachineOperationExpansion interface{}
 

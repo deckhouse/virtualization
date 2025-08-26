@@ -19,6 +19,7 @@ package watcher
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -39,28 +40,40 @@ type VirtualDiskWatcher struct{}
 
 func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		handler.EnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice(mgr.GetClient(), virtv2.DiskDevice)),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVd, oldOk := e.ObjectOld.(*virtv2.VirtualDisk)
-				newVd, newOk := e.ObjectNew.(*virtv2.VirtualDisk)
-				if !oldOk || !newOk {
-					return false
-				}
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualDisk{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.VirtualDisk](mgr.GetClient())),
+			predicate.TypedFuncs[*virtv2.VirtualDisk]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
 
-				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
-				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
+					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
+					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+					if !equality.Semantic.DeepEqual(oldInUseCondition, newInUseCondition) {
+						return true
+					}
 
-				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition != newInUseCondition {
-					return true
-				}
+					if oldInUseCondition != newInUseCondition {
+						return true
+					}
 
-				return false
+					if e.ObjectOld.Status.Target.PersistentVolumeClaim != e.ObjectNew.Status.Target.PersistentVolumeClaim {
+						return true
+					}
+
+					oldMigrationCondition, _ := conditions.GetCondition(vdcondition.MigratingType, e.ObjectOld.Status.Conditions)
+					newMigrationCondition, _ := conditions.GetCondition(vdcondition.MigratingType, e.ObjectNew.Status.Conditions)
+					if !equality.Semantic.DeepEqual(oldMigrationCondition, newMigrationCondition) {
+						return true
+					}
+
+					return !equality.Semantic.DeepEqual(e.ObjectOld.Status.MigrationState, e.ObjectNew.Status.MigrationState)
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}

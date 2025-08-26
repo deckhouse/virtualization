@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +46,7 @@ func NewEvacuationHandler(client client.Client, evacuateCanceler EvacuateCancele
 	}
 }
 
-//go:generate moq -rm -out mock.go . EvacuateCanceler
+//go:generate go tool moq -rm -out mock.go . EvacuateCanceler
 type EvacuateCanceler interface {
 	Cancel(ctx context.Context, name, namespace string) error
 }
@@ -67,9 +68,9 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameEvacuationHandler))
 
-	needRequeue := false
+	var requeueAfter time.Duration
 	if err = h.removeFinalizerFromVMOPs(ctx, finishedVMOPs); err != nil {
-		needRequeue = true
+		requeueAfter = 100 * time.Millisecond
 		if k8serrors.IsConflict(err) {
 			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
 		} else {
@@ -81,7 +82,7 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 		if err = h.cancelEvacuationForTerminatingVMOPs(ctx, migrationVMOPs, log); err != nil {
 			return reconcile.Result{}, err
 		}
-		return reconcile.Result{Requeue: needRequeue}, nil
+		return reconcile.Result{RequeueAfter: requeueAfter}, nil
 	}
 
 	if !isVMNeedEvict(vm) || isVMMigrating(vm) {
@@ -94,7 +95,7 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{Requeue: needRequeue}, nil
+	return reconcile.Result{RequeueAfter: requeueAfter}, nil
 }
 
 func (h *EvacuationHandler) Name() string {

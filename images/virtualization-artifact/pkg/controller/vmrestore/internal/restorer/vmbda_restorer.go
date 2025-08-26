@@ -83,6 +83,9 @@ func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Validate(ctx con
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+			return nil
+		}
 		return fmt.Errorf("the virtual machine block device attachment %q %w", vmbdaKey.Name, ErrAlreadyExists)
 	}
 

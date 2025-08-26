@@ -1,0 +1,108 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/libgcc1
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgcc1
+  before: setup
+  includePaths:
+  - usr/lib64/libgcc_s.so.1
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /gcc
+  before: setup
+
+---
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "gcc.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- git gcc-c++ flex make makeinfo libtool autoconf_2.60
+- libelf-devel libmpc-devel libmpfr-devel perl-Pod-Parser
+- libgc-devel coreutils
+- autogen dejagnu glibc-devel-static
+- tree
+packages:
+- zlib 
+- zstd
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
+    OUTDIR=/out
+
+    cd /src
+
+    ./configure \
+      --enable-languages=c,c++ \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --build=x86_64-linux-gnu \
+      --host=x86_64-linux-gnu \
+      --target=x86_64-linux-gnu \
+      --disable-multilib \
+      --disable-nls \
+      --enable-checking=release \
+      --enable-shared \
+      --enable-threads=posix \
+      --enable-__cxa_atexit \
+      --enable-clocale=gnu \
+      --with-system-zlib \
+      --program-suffix=-{{ (split "-" $version)._1 }}
+
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install-strip
+    rm -rf $OUTDIR/usr/share
+
+    tree -sp $OUTDIR

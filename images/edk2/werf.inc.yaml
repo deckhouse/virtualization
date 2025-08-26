@@ -1,11 +1,11 @@
 ---
 {{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Version $gitRepoName }}
+{{- $version := get .Firmware $gitRepoName }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc gcc-c++
 - git curl
 - bash-completion
@@ -20,98 +20,116 @@ packages:
 - qemu-kvm-core
 - iasl
 - python3-modules-sqlite3 python3-module-virt-firmware libuuid-devel
-- libssl-devel
-- libssl-devel libdwarf-devel libuuid-devel
-- bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
+- libdwarf-devel libuuid-devel
+- bc perl-PathTools perl-IPC-Cmd perl-JSON
+packages:
+- zlib libisoburn libburn libisofs
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: base-alt-p11
+fromImage: builder/src
 git:
-- add: /images/{{ $.ImageName }}
-  to: /
-  includePaths:
-  - build.sh
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+  to: /src
+  includePaths: build.sh
   stageDependencies:
-    setup:
+    install:
       - build.sh
-- add: /images/{{ $.ImageName }}/logo
-  to: /
-  includePaths:
-  - Logo.bmp
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
+  to: /src
+  includePaths: Logo.bmp
   stageDependencies:
-    setup:
+    install:
       - '**/*'
-- add: /images/{{ $.ImageName }}/json
-  to: /FIRMWARE
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
+  to: /src/FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
-    setup:
+    install:
       - '*.json'
-- add: /images/{{ $.ImageName }}/uefi-revocation-list
-  to: /FIRMWARE
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
+  to: /src/FIRMWARE
   includePaths:
   - '*.bin'
   stageDependencies:
-    setup:
+    install:
       - '*.bin'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    cd /src
+
+    echo "Git clone Edk2 repository..."
+    git clone \
+      --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
+      --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
+
+    git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
+
+    cd {{ $gitRepoName }}-{{ $version }}
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      # mbed-tls rewrite is needed for submodules from ARMmbed renamed organization.
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/mbed-tls/".insteadOf=https://github.com/ARMmbed/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive  --depth=1
+    fi
+
+---
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+final: false
+fromImage: builder/alt
 import:
-{{- $images := list "libisoburn" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-- image: qemu
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src
+  to: /
+  before: install
+  includePaths:
+  - "{{ $gitRepoName }}-{{ $version }}"
+  - edk2-platforms
+  - FIRMWARE
+  - Logo.bmp
+  - build.sh
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
-  - | 
+  - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
 
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
-    
-    git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
-
-    cd {{ $gitRepoName }}-{{ $version }}
-    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
-      git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
-      git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
-      git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-      git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-      git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
-      git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
-      git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
-      git submodule set-url -- MdePkg/Library/BaseFdtLib/libfdt $(cat /run/secrets/SOURCE_REPO)/devicetree-org/pylibfdt.git
-      git submodule set-url -- MdePkg/Library/MipiSysTLib/mipisyst $(cat /run/secrets/SOURCE_REPO)/MIPI-Alliance/public-mipi-sys-t.git
-      git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
-      git submodule set-url -- SecurityPkg/DeviceSecurity/SpdmLib/libspdm $(cat /run/secrets/SOURCE_REPO)/DMTF/libspdm.git
-    fi
-
-    git submodule update --init --recursive
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools

@@ -21,7 +21,7 @@ env:
   MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-  GO_VERSION: "1.22.7"
+  GO_VERSION: "1.24.6"
   GOLANGCI_LINT_VERSION: "1.64.8"
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
@@ -58,27 +58,58 @@ concurrency:
 jobs:
   set_vars:
     runs-on: ubuntu-latest
-    name: Set MODULES_MODULE_TAG
+    name: Get PR info and set vars
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
+      debug_component: ${{ steps.get-labels.outputs.debug_component }}
     steps:
       - name: Get Pull Request Labels
         id: get-labels
         uses: actions/github-script@v7
         with:
           script: |
+            function processDelveLabels(labelList) {
+              const delveLabels = labelList.filter(label => label.includes('delve'));
+
+              if (delveLabels.length === 0) {
+                  console.log("No delve labels found");
+                  return null;
+              } else if (delveLabels.length === 1) {
+                  return delveLabels[0];
+              } else {
+                  const errorMsg = "Error: Multiple delve labels found - " + delveLabels.join(', ');
+                  console.error(errorMsg);
+                  core.setFailed(errorMsg);
+                  return null;
+              }
+            }
+
+            let allLabels = [];
+            let debug_component = '';
+
             if (context.eventName === "pull_request" || context.eventName === "pull_request_target" ) {
-              const prNumber = context.payload.pull_request.number;
-              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-              });
-              return labels.map(label => label.name);
+              let prNumber = context.payload.pull_request.number;
+              try {
+                let { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                });
+                allLabels = labels.map(label => label.name);
+                debug_component = processDelveLabels(allLabels);
+
+                // Set the outputs
+                core.setOutput('debug_component', debug_component);
+                core.setOutput('prLabels', allLabels);
+
+              } catch (error) {
+                core.setFailed(`Script failed: ${error.message}`);
+              }
             } else {
-              return [];
+              core.setOutput('debug_component', debug_component);
+              core.setOutput('prLabels', allLabels);
             }
           result-encoding: string
 
@@ -100,17 +131,17 @@ jobs:
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
-          # Slect edition for build, default EE
-          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
+          # Select edition for build, default EE
+          if echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "edition/ce"; then
             echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
             echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
           fi
 
           # Select runner
-          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
+          if echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "build/github/ubuntu"; then
             echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
-          elif echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/self-hosted/regular"; then
+          elif echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "build/self-hosted/regular"; then
             echo "RUNNER_TYPE=[\"self-hosted\", \"regular\"]" >> "$GITHUB_OUTPUT"
           else
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
@@ -281,10 +312,6 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Run test Python hooks
-        run: |
-          task hooks:test
-
       - name: Run test GO hooks
         run: |
           task gohooks:test
@@ -302,6 +329,7 @@ jobs:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
+      DEBUG_COMPONENT: ${{needs.set_vars.outputs.debug_component}}
     steps:
       - name: Print vars
         run: |
@@ -311,6 +339,7 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
+          echo DEBUG_COMPONENT=$DEBUG_COMPONENT
 
       - uses: actions/checkout@v4
         with:
@@ -430,9 +459,10 @@ jobs:
       - dev_setup_build
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v3
+      - uses: deckhouse/modules-actions/cve_scan@v5
         with:
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          tag_type: dev
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
@@ -562,8 +592,7 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
-          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
-          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+          go install tool
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -595,7 +624,7 @@ jobs:
         with:
           name: resources_from_failed_tests
           retention-days: 2
-          path: /tmp/e2e_failed__*
+          path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
 
       - name: Cleanup E2E resources on cancel

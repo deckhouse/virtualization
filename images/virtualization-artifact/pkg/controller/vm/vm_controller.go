@@ -27,11 +27,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
+	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -52,10 +54,16 @@ func SetupController(
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
+	vmClassService := service.NewVirtualMachineClassService(client)
+
+	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
+
 	handlers := []Handler{
+		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
-		internal.NewIPAMHandler(ipam.New(), client, recorder),
+		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
+		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
@@ -63,11 +71,12 @@ func SetupController(
 		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
-		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
+		internal.NewNetworkInterfaceHandler(featuregates.Default()),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, migrateVolumesService),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
-		internal.NewMigratingHandler(),
+		internal.NewMigratingHandler(migrateVolumesService),
 		internal.NewFirmwareHandler(firmwareImage),
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),
@@ -90,7 +99,8 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
+		WithValidator(NewValidator(client, blockDeviceService, featuregates.Default(), log)).
+		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err
 	}

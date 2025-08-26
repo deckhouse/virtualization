@@ -1,0 +1,74 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "numactl/numactl.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc
+- git pkg-config trousers
+- automake autoconf make libtool
+- tree
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+
+    cd /src
+
+    ./autogen.sh
+
+    ./configure --prefix=/usr --libdir=/usr/lib64 --enable-static=no
+
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install
+
+    strip $OUTDIR/usr/bin/*
+
+    # We don't need man, test and samples files
+    rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/bin/numademo
+
+    tree -sp $OUTDIR

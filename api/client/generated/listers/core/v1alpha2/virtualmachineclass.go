@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualMachineClassLister helps list VirtualMachineClasses.
@@ -30,39 +30,19 @@ import (
 type VirtualMachineClassLister interface {
 	// List lists all VirtualMachineClasses in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineClass, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineClass, err error)
 	// Get retrieves the VirtualMachineClass from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineClass, error)
+	Get(name string) (*corev1alpha2.VirtualMachineClass, error)
 	VirtualMachineClassListerExpansion
 }
 
 // virtualMachineClassLister implements the VirtualMachineClassLister interface.
 type virtualMachineClassLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineClass]
 }
 
 // NewVirtualMachineClassLister returns a new VirtualMachineClassLister.
 func NewVirtualMachineClassLister(indexer cache.Indexer) VirtualMachineClassLister {
-	return &virtualMachineClassLister{indexer: indexer}
-}
-
-// List lists all VirtualMachineClasses in the indexer.
-func (s *virtualMachineClassLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineClass, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineClass))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineClass from the index for a given name.
-func (s *virtualMachineClassLister) Get(name string) (*v1alpha2.VirtualMachineClass, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualmachineclass"), name)
-	}
-	return obj.(*v1alpha2.VirtualMachineClass), nil
+	return &virtualMachineClassLister{listers.New[*corev1alpha2.VirtualMachineClass](indexer, corev1alpha2.Resource("virtualmachineclass"))}
 }

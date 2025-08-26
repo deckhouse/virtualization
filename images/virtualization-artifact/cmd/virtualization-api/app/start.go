@@ -17,6 +17,7 @@ limitations under the License.
 package app
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -30,13 +31,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/cmd/virtualization-api/app/options"
 )
 
-func NewAPIServerCommand(stopCh <-chan struct{}) *cobra.Command {
+func NewAPIServerCommand() *cobra.Command {
 	opts := options.NewOptions()
 	cmd := &cobra.Command{
 		Short: "Launch virtualization-api server",
 		Long:  "Launch virtualization-api server",
 		RunE: func(c *cobra.Command, args []string) error {
-			if err := runCommand(opts, stopCh); err != nil {
+			if err := runCommand(c.Context(), opts); err != nil {
 				return err
 			}
 			return nil
@@ -72,10 +73,10 @@ func NewAPIServerCommand(stopCh <-chan struct{}) *cobra.Command {
 	return cmd
 }
 
-func runCommand(o *options.Options, stopCh <-chan struct{}) error {
+func runCommand(ctx context.Context, o *options.Options) error {
 	if o.ShowVersion {
 		fmt.Println(version.Get().GitVersion)
-		os.Exit(0)
+		return nil
 	}
 
 	err := o.Validate()
@@ -93,5 +94,5 @@ func runCommand(o *options.Options, stopCh <-chan struct{}) error {
 		return err
 	}
 
-	return s.RunUntil(stopCh)
+	return s.RunUntil(ctx)
 }

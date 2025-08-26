@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"net/http"
+	http "net/http"
 
-	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/scheme"
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	scheme "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/scheme"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -37,6 +37,8 @@ type VirtualizationV1alpha2Interface interface {
 	VirtualMachineClassesGetter
 	VirtualMachineIPAddressesGetter
 	VirtualMachineIPAddressLeasesGetter
+	VirtualMachineMACAddressesGetter
+	VirtualMachineMACAddressLeasesGetter
 	VirtualMachineOperationsGetter
 	VirtualMachineRestoresGetter
 	VirtualMachineSnapshotsGetter
@@ -83,6 +85,14 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineIPAddressLeases() VirtualMa
 	return newVirtualMachineIPAddressLeases(c)
 }
 
+func (c *VirtualizationV1alpha2Client) VirtualMachineMACAddresses(namespace string) VirtualMachineMACAddressInterface {
+	return newVirtualMachineMACAddresses(c, namespace)
+}
+
+func (c *VirtualizationV1alpha2Client) VirtualMachineMACAddressLeases() VirtualMachineMACAddressLeaseInterface {
+	return newVirtualMachineMACAddressLeases(c)
+}
+
 func (c *VirtualizationV1alpha2Client) VirtualMachineOperations(namespace string) VirtualMachineOperationInterface {
 	return newVirtualMachineOperations(c, namespace)
 }
@@ -100,9 +110,7 @@ func (c *VirtualizationV1alpha2Client) VirtualMachineSnapshots(namespace string)
 // where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*VirtualizationV1alpha2Client, error) {
 	config := *c
-	if err := setConfigDefaults(&config); err != nil {
-		return nil, err
-	}
+	setConfigDefaults(&config)
 	httpClient, err := rest.HTTPClientFor(&config)
 	if err != nil {
 		return nil, err
@@ -114,9 +122,7 @@ func NewForConfig(c *rest.Config) (*VirtualizationV1alpha2Client, error) {
 // Note the http client provided takes precedence over the configured transport values.
 func NewForConfigAndClient(c *rest.Config, h *http.Client) (*VirtualizationV1alpha2Client, error) {
 	config := *c
-	if err := setConfigDefaults(&config); err != nil {
-		return nil, err
-	}
+	setConfigDefaults(&config)
 	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
@@ -139,17 +145,15 @@ func New(c rest.Interface) *VirtualizationV1alpha2Client {
 	return &VirtualizationV1alpha2Client{c}
 }
 
-func setConfigDefaults(config *rest.Config) error {
-	gv := v1alpha2.SchemeGroupVersion
+func setConfigDefaults(config *rest.Config) {
+	gv := corev1alpha2.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()
 	}
-
-	return nil
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -24,6 +24,7 @@ func (t Type) String() string {
 
 const (
 	TypeIPAddressReady                      Type = "VirtualMachineIPAddressReady"
+	TypeMACAddressReady                     Type = "VirtualMachineMACAddressReady"
 	TypeClassReady                          Type = "VirtualMachineClassReady"
 	TypeBlockDevicesReady                   Type = "BlockDevicesReady"
 	TypeRunning                             Type = "Running"
@@ -43,77 +44,241 @@ const (
 	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
 	// TypeNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	TypeNeedsEvict Type = "NeedsEvict"
+	// TypeNetworkReady indicates the state of additional network interfaces inside the virtual machine pod
+	TypeNetworkReady Type = "NetworkReady"
+
+	// TypeMaintenance indicates that the VirtualMachine is in maintenance mode.
+	// During this condition, the VM remains stopped and no changes are allowed.
+	TypeMaintenance Type = "Maintenance"
 )
 
-type Reason string
+type AgentReadyReason string
 
-func (r Reason) String() string {
+func (r AgentReadyReason) String() string {
 	return string(r)
 }
 
 const (
-	ReasonAgentReady    Reason = "AgentReady"
-	ReasonAgentNotReady Reason = "AgentNotReady"
+	ReasonAgentReady    AgentReadyReason = "AgentReady"
+	ReasonAgentNotReady AgentReadyReason = "AgentNotReady"
+)
 
-	ReasonAgentSupported    Reason = "AgentVersionSupported"
-	ReasonAgentNotSupported Reason = "AgentVersionNotSupported"
+type AgentVersionNotSupportedReason string
 
-	ReasonClassReady    Reason = "VirtualMachineClassReady"
-	ReasonClassNotReady Reason = "VirtualMachineClassNotReady"
+func (r AgentVersionNotSupportedReason) String() string {
+	return string(r)
+}
 
-	ReasonIPAddressReady        Reason = "VirtualMachineIPAddressReady"
-	ReasonIPAddressNotReady     Reason = "VirtualMachineIPAddressNotReady"
-	ReasonIPAddressNotAssigned  Reason = "VirtualMachineIPAddressNotAssigned"
-	ReasonIPAddressNotAvailable Reason = "VirtualMachineIPAddressNotAvailable"
+const (
+	ReasonAgentSupported    AgentVersionNotSupportedReason = "AgentVersionSupported"
+	ReasonAgentNotSupported AgentVersionNotSupportedReason = "AgentVersionNotSupported"
+)
 
-	ReasonBlockDevicesReady           Reason = "BlockDevicesReady"
-	ReasonWaitingForProvisioningToPVC Reason = "WaitingForTheProvisioningToPersistentVolumeClaim"
-	ReasonBlockDevicesNotReady        Reason = "BlockDevicesNotReady"
+type ClassReadyReason string
 
-	ReasonProvisioningReady    Reason = "ProvisioningReady"
-	ReasonProvisioningNotReady Reason = "ProvisioningNotReady"
+func (r ClassReadyReason) String() string {
+	return string(r)
+}
 
-	ReasonConfigurationApplied    Reason = "ConfigurationApplied"
-	ReasonConfigurationNotApplied Reason = "ConfigurationNotApplied"
+const (
+	ReasonClassReady    ClassReadyReason = "VirtualMachineClassReady"
+	ReasonClassNotReady ClassReadyReason = "VirtualMachineClassNotReady"
+)
 
-	ReasonRestartAwaitingChangesExist        Reason = "RestartAwaitingChangesExist"
-	ReasonRestartAwaitingVMClassChangesExist Reason = "RestartAwaitingVMClassChangesExist"
-	ReasonRestartNoNeed                      Reason = "NoNeedRestart"
+type IpAddressReadyReason string
 
-	ReasonMigratable    Reason = "VirtualMachineMigratable"
-	ReasonNotMigratable Reason = "VirtualMachineNotMigratable"
+func (r IpAddressReadyReason) String() string {
+	return string(r)
+}
 
-	ReasonVmIsMigrating                  Reason = "VirtualMachineMigrating"
-	ReasonVmIsNotMigrating               Reason = "VirtualMachineNotMigrating"
-	ReasonLastMigrationFinishedWithError Reason = "LastMigrationFinishedWithError"
-	ReasonVmIsNotRunning                 Reason = "VirtualMachineNotRunning"
-	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
-	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
-	ReasonPodNotStarted                  Reason = "PodNotStarted"
+const (
+	ReasonIPAddressReady        IpAddressReadyReason = "VirtualMachineIPAddressReady"
+	ReasonIPAddressNotReady     IpAddressReadyReason = "VirtualMachineIPAddressNotReady"
+	ReasonIPAddressNotAssigned  IpAddressReadyReason = "VirtualMachineIPAddressNotAssigned"
+	ReasonIPAddressNotAvailable IpAddressReadyReason = "VirtualMachineIPAddressNotAvailable"
+)
 
-	// 	ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
-	ReasonFilesystemFrozen Reason = "Frozen"
+type MacAddressReadyReason string
 
-	WaitingForTheSnapshotToStart Reason = "WaitingForTheSnapshotToStart"
-	ReasonSnapshottingInProgress Reason = "SnapshottingInProgress"
+func (r MacAddressReadyReason) String() string {
+	return string(r)
+}
 
-	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
-	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
-	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
+const (
+	ReasonMACAddressReady        MacAddressReadyReason = "VirtualMachineMACAddressReady"
+	ReasonMACAddressNotReady     MacAddressReadyReason = "VirtualMachineMACAddressNotReady"
+	ReasonMACAddressNotAvailable MacAddressReadyReason = "VirtualMachineMACAddressNotAvailable"
+)
 
+type BlockDevicesReadyReason string
+
+func (r BlockDevicesReadyReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonBlockDevicesReady           BlockDevicesReadyReason = "BlockDevicesReady"
+	ReasonWaitingForProvisioningToPVC BlockDevicesReadyReason = "WaitingForTheProvisioningToPersistentVolumeClaim"
+	ReasonBlockDevicesNotReady        BlockDevicesReadyReason = "BlockDevicesNotReady"
 	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
-	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
+	ReasonBlockDeviceLimitExceeded BlockDevicesReadyReason = "BlockDeviceLimitExceeded"
+)
 
-	ReasonPodTerminating      Reason = "PodTerminating"
-	ReasonPodNotExists        Reason = "PodNotExists"
-	ReasonPodConditionMissing Reason = "PodConditionMissing"
-	ReasonGuestNotRunning     Reason = "GuestNotRunning"
+type ProvisioningReadyReason string
 
-	// ReasonFirmwareUpToDate indicates that the firmware up to date.
-	ReasonFirmwareUpToDate Reason = "FirmwareUpToDate"
-	// ReasonFirmwareOutOfDate indicates that the firmware out of date.
-	ReasonFirmwareOutOfDate Reason = "FirmwareOutOfDate"
+func (r ProvisioningReadyReason) String() string {
+	return string(r)
+}
 
+const (
+	ReasonProvisioningReady    ProvisioningReadyReason = "ProvisioningReady"
+	ReasonProvisioningNotReady ProvisioningReadyReason = "ProvisioningNotReady"
+)
+
+type ConfigurationAppliedReason string
+
+func (r ConfigurationAppliedReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonConfigurationApplied    ConfigurationAppliedReason = "ConfigurationApplied"
+	ReasonConfigurationNotApplied ConfigurationAppliedReason = "ConfigurationNotApplied"
+)
+
+type AwaitingRestartToApplyConfigurationReason string
+
+func (r AwaitingRestartToApplyConfigurationReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonRestartAwaitingUnexpectedState     AwaitingRestartToApplyConfigurationReason = "RestartAwaitingUnexpectedState"
+	ReasonRestartAwaitingChangesExist        AwaitingRestartToApplyConfigurationReason = "RestartAwaitingChangesExist"
+	ReasonRestartAwaitingVMClassChangesExist AwaitingRestartToApplyConfigurationReason = "RestartAwaitingVMClassChangesExist"
+	ReasonRestartNoNeed                      AwaitingRestartToApplyConfigurationReason = "NoNeedRestart"
+)
+
+type RunningReason string
+
+func (r RunningReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonVmIsNotRunning              RunningReason = "VirtualMachineNotRunning"
+	ReasonVmIsRunning                 RunningReason = "VirtualMachineRunning"
+	ReasonInternalVirtualMachineError RunningReason = "InternalVirtualMachineError"
+	ReasonPodNotStarted               RunningReason = "PodNotStarted"
+	ReasonPodTerminating              RunningReason = "PodTerminating"
+	ReasonPodNotExists                RunningReason = "PodNotExists"
+	ReasonPodConditionMissing         RunningReason = "PodConditionMissing"
+	ReasonGuestNotRunning             RunningReason = "GuestNotRunning"
+)
+
+type FilesystemFrozenReason string
+
+func (r FilesystemFrozenReason) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
+	ReasonFilesystemFrozen FilesystemFrozenReason = "Frozen"
+)
+
+type SnapshottingReason string
+
+func (r SnapshottingReason) String() string {
+	return string(r)
+}
+
+const (
+	WaitingForTheSnapshotToStart SnapshottingReason = "WaitingForTheSnapshotToStart"
+	ReasonSnapshottingInProgress SnapshottingReason = "SnapshottingInProgress"
+)
+
+type SizingPolicyMatchedReason string
+
+func (r SizingPolicyMatchedReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonSizingPolicyNotMatched         SizingPolicyMatchedReason = "SizingPolicyNotMatched"
+	ReasonVirtualMachineClassTerminating SizingPolicyMatchedReason = "VirtualMachineClassTerminating"
+	ReasonVirtualMachineClassNotExists   SizingPolicyMatchedReason = "VirtualMachineClassNotExists"
+)
+
+type FirmwareUpToDateReason string
+
+func (r FirmwareUpToDateReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonFirmwareUpToDate  FirmwareUpToDateReason = "FirmwareUpToDate"
+	ReasonFirmwareOutOfDate FirmwareUpToDateReason = "FirmwareOutOfDate"
+)
+
+type NeedsEvictReason string
+
+func (r NeedsEvictReason) String() string {
+	return string(r)
+}
+
+const (
 	// ReasonNeedsEvict indicates that the VirtualMachine should be evicting from node.
-	ReasonNeedsEvict Reason = "NeedsEvict"
+	ReasonNeedsEvict NeedsEvictReason = "NeedsEvict"
+)
+
+type NetworkReadyReason string
+
+func (r NetworkReadyReason) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonNetworkReady indicates that the additional network interfaces in the virtual machine pod are ready.
+	ReasonNetworkReady NetworkReadyReason = "NetworkReady"
+	// ReasonNetworkNotReady indicates that the additional network interfaces in the virtual machine pod are not ready.
+	ReasonNetworkNotReady NetworkReadyReason = "NetworkNotReady"
+	// ReasonSDNModuleDisable indicates that the SDN module is disabled, which may prevent network interfaces from becoming ready.
+	ReasonSDNModuleDisable NetworkReadyReason = "SDNModuleDisable"
+)
+
+type MigratableReason string
+
+func (r MigratableReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonMigratable             MigratableReason = "VirtualMachineMigratable"
+	ReasonNonMigratable          MigratableReason = "VirtualMachineNonMigratable"
+	ReasonDisksNotMigratable     MigratableReason = "VirtualMachineDisksNotMigratable"
+	ReasonDisksShouldBeMigrating MigratableReason = "VirtualMachineDisksShouldBeMigrating"
+)
+
+type MigratingReason string
+
+func (r MigratingReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonMigratingPending               MigratingReason = "Pending"
+	ReasonReadyToMigrate                 MigratingReason = "ReadyToMigrate"
+	ReasonMigratingInProgress            MigratingReason = "InProgress"
+	ReasonLastMigrationFinishedWithError MigratingReason = "LastMigrationFinishedWithError"
+)
+
+type MaintenanceReason string
+
+func (r MaintenanceReason) String() string {
+	return string(r)
+}
+
+const (
+	ReasonMaintenanceRestore MaintenanceReason = "RestoreInProgress"
 )

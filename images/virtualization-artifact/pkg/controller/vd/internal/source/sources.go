@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -102,7 +103,7 @@ func setPhaseConditionForFinishedDisk(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *virtv2.DiskPhase,
-	supgen *supplements.Generator,
+	supgen supplements.Generator,
 ) {
 	var newPhase virtv2.DiskPhase
 	switch {
@@ -113,11 +114,14 @@ func setPhaseConditionForFinishedDisk(
 			Reason(vdcondition.Lost).
 			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	case pvc.Status.Phase == corev1.ClaimLost:
-		newPhase = virtv2.DiskLost
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Lost).
-			Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
+		cb.Status(metav1.ConditionFalse)
+		if pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
+			newPhase = virtv2.DiskExporting
+			cb.Reason(vdcondition.Exporting).Message("PV is being exported")
+		} else {
+			newPhase = virtv2.DiskLost
+			cb.Reason(vdcondition.Lost).Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
+		}
 	default:
 		newPhase = virtv2.DiskReady
 		cb.
@@ -177,8 +181,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 				Message("Waiting for the pvc importer to be created")
 			return nil
 		}
-		isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
-		if isWFFC && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
+		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
 			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 			cb.
 				Status(metav1.ConditionFalse).
@@ -266,7 +269,7 @@ func setPhaseConditionFromPodError(
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 func setPhaseConditionFromProvisioningError(
@@ -297,7 +300,7 @@ func setPhaseConditionFromProvisioningError(
 		vd.Status.Phase = virtv2.DiskProvisioning
 
 		if isChanged {
-			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+			supgen := vdsupplements.NewGenerator(vd)
 
 			_, err = cleaner.CleanUp(ctx, supgen)
 			if err != nil {
@@ -352,6 +355,10 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Di
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+}
+
+func isStorageClassWFFC(sc *storev1.StorageClass) bool {
+	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
 }
 
 const (

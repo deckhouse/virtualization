@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
+fromImage: builder/src
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /app/images/hooks
   stageDependencies:
     install:
@@ -11,11 +11,40 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+- add: {{ .ModuleDir }}/images/virtualization-artifact
+  to: /app/images/virtualization-artifact
+  stageDependencies:
+    install:
+      - go.mod
+      - go.sum
+    setup:
+      - "**/*.go"
+- add: {{ .ModuleDir }}/api
+  to: /app/api
+  stageDependencies:
+    install:
+      - go.mod
+      - go.sum
+    setup:
+      - "**/*.go"
+---
+image: {{ .ModuleNamePrefix }}go-hooks-artifact
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+    add: /app
+    to: /app
+    before: install
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /app/images/hooks
   - go mod download
   setup:
@@ -26,4 +55,6 @@ shell:
     export CGO_ENABLED=0
     export TAGS="{{ printf "-tags %s" .MODULE_EDITION }}"
     {{- $_ := set $ "ProjectName" (list $.ImageName "hooks" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}
+    # Note: module-config-reporter hook binary should have extension to be treated as a classic shell hook (not batch).
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/module-config-reporter.classic.hook ./cmd/module-config-reporter`) | nindent 6 }}

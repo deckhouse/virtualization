@@ -1,0 +1,124 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /gnutls
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "gnutls/gnutls.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
+
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc gcc-c++ git gperf glibc-devel-static pkgconfig
+- make autoconf automake libtool makeinfo gettext-devel patch
+- perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
+- gem-gettext-devel gettext po4a
+- libtpm2-tss-devel libtrousers-devel
+- libunbound-devel bison gtk-doc texinfo texlive
+- libev4 libev-devel libopencdk-devel
+- liboqs-devel
+- iproute2-devel
+- wget
+packages:
+- libbrotli libidn2 libgcrypt libgmp
+- nettle zlib zstd p11-kit
+- openssl
+- readline
+- libtasn1
+- libunistring
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      # cp -a /$pkg/. /packages
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+
+    # Fake distcheck-hook that checks bootstrap is called without --skip-po
+    mkdir -p po/.reference
+
+    ./bootstrap --skip-po
+
+    ./configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --bindir=/usr/bin \
+      --sbindir=/usr/sbin \
+      --libdir=/usr/lib64 \
+      --libexecdir=/usr/libexec \
+      --disable-rpath \
+      --disable-static \
+      --disable-silent-rules \
+      --disable-libdane  \
+      --disable-gtk-doc \
+      --disable-doc \
+      --without-tpm \
+      --with-default-trust-store-pkcs11='pkcs11:' \
+      --with-default-trust-store-file=/usr/share/ca-certificates/ca-bundle.crt \
+      --with-included-libtasn1=no \
+      --enable-openssl-compatibility \
+      --with-tpm2 \
+      --enable-gost --enable-sha1-support
+
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install-strip

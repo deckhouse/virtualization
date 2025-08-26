@@ -171,6 +171,18 @@ spec:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+  livenessProbe:
+    httpGet:
+      path: /proxy/healthz
+      port: 8082
+      scheme: HTTPS
+    initialDelaySeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /proxy/readyz
+      port: 8082
+      scheme: HTTPS
+    initialDelaySeconds: 10
   terminationMessagePath: /dev/termination-log
   terminationMessagePolicy: File
   {{- if $isWebhook }}
@@ -178,7 +190,7 @@ spec:
     {{- include "kube_api_rewriter.webhook_volume_mount" (tuple $settings.webhookCertsVolumeName $settings.webhookCertsMountPath) | nindent 4 }}
   {{- end }}
   ports:
-  {{- if eq $ctx.Values.virtualization.logLevel "debug" }}
+  {{- if eq (include "moduleLogLevel" $ctx) "debug" }}
   {{-   include "kube_api_rewriter.pprof_container_port" . | nindent 4 }}
   {{- end }}
   {{- if $isWebhook -}}

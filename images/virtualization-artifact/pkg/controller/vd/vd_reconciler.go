@@ -19,22 +19,20 @@ package vd
 import (
 	"context"
 	"fmt"
+	"reflect"
 
-	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -77,6 +75,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
 
+		if vd.Changed().Status.Target.PersistentVolumeClaim == "" {
+			logger.FromContext(ctx).Error("Target.PersistentVolumeClaim is empty, restore previous value. Please report a bug.")
+			vdsupplements.SetPVCName(vd.Changed(), vd.Current().Status.Target.PersistentVolumeClaim)
+		}
+
 		return vd.Update(ctx)
 	})
 
@@ -85,72 +88,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-			},
-		},
+		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualDisk]{},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
-	}
-
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &cdiv1.DataVolume{}),
-		handler.EnqueueRequestForOwner(
-			mgr.GetScheme(),
-			mgr.GetRESTMapper(),
-			&virtv2.VirtualDisk{},
-			handler.OnlyControllerOwner(),
-		),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldDV, ok := e.ObjectOld.(*cdiv1.DataVolume)
-				if !ok {
-					return false
-				}
-				newDV, ok := e.ObjectNew.(*cdiv1.DataVolume)
-				if !ok {
-					return false
-				}
-
-				if oldDV.Status.Progress != newDV.Status.Progress {
-					return true
-				}
-
-				if oldDV.Status.Phase != newDV.Status.Phase && newDV.Status.Phase == cdiv1.Succeeded {
-					return true
-				}
-
-				dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, newDV.Status.Conditions)
-				return dvRunning != nil && dvRunning.Reason == "Error"
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on DV: %w", err)
-	}
-
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueDisksAttachedToVM()),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return r.vmHasAttachedDisks(e.Object)
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return r.vmHasAttachedDisks(e.Object)
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return r.vmHasAttachedDisks(e.ObjectOld) || r.vmHasAttachedDisks(e.ObjectNew)
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on VMs: %w", err)
 	}
 
 	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualDiskObjectRefKindVirtualImage)
@@ -165,14 +107,18 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
+	mgrClient := mgr.GetClient()
 	for _, w := range []Watcher{
-		watcher.NewPersistentVolumeClaimWatcher(mgr.GetClient()),
-		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
-		watcher.NewStorageClassWatcher(mgr.GetClient()),
+		watcher.NewPersistentVolumeClaimWatcher(mgrClient),
+		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
+		watcher.NewStorageClassWatcher(mgrClient),
+		watcher.NewDataVolumeWatcher(),
+		watcher.NewVirtualMachineWatcher(),
+		watcher.NewResourceQuotaWatcher(mgrClient),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
-			return fmt.Errorf("error setting watcher: %w", err)
+			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
 		}
 	}
 
@@ -185,43 +131,4 @@ func (r *Reconciler) factory() *virtv2.VirtualDisk {
 
 func (r *Reconciler) statusGetter(obj *virtv2.VirtualDisk) virtv2.VirtualDiskStatus {
 	return obj.Status
-}
-
-func (r *Reconciler) enqueueDisksAttachedToVM() handler.MapFunc {
-	return func(_ context.Context, obj client.Object) []reconcile.Request {
-		vm, ok := obj.(*virtv2.VirtualMachine)
-		if !ok {
-			return nil
-		}
-
-		var requests []reconcile.Request
-
-		for _, bdr := range vm.Status.BlockDeviceRefs {
-			if bdr.Kind != virtv2.DiskDevice {
-				continue
-			}
-
-			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-				Name:      bdr.Name,
-				Namespace: vm.Namespace,
-			}})
-		}
-
-		return requests
-	}
-}
-
-func (r *Reconciler) vmHasAttachedDisks(obj client.Object) bool {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		return false
-	}
-
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == virtv2.DiskDevice {
-			return true
-		}
-	}
-
-	return false
 }

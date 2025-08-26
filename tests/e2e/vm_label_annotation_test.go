@@ -26,17 +26,11 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
+var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDecorators(), func() {
 	const (
 		specialKey   = "specialKey"
 		specialValue = "specialValue"
@@ -45,19 +39,25 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 	specialKeyValue := map[string]string{specialKey: specialValue}
 	var ns string
 
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMLabelAnnotation, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMLabelAnnotation, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
 	})
 
 	Context("When resources are applied", func() {
@@ -94,8 +94,8 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
+			By("Virtual machine phase should be Running")
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -103,7 +103,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 		})
 	})
 
-	Context("When virtual machine agents are ready", func() {
+	Context("When virtual machine is running", func() {
 		It(fmt.Sprintf("marks VMs with label %q", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,

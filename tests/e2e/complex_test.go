@@ -26,17 +26,20 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "complex-test"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
-		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
-		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "complex-test"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
+		alwaysOnLabel            = map[string]string{"alwaysOn": "complex-test"}
+		notAlwaysOnLabel         = map[string]string{"notAlwaysOn": "complex-test"}
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
+
+		f = framework.NewFramework("")
 	)
 
 	AfterEach(func() {
@@ -45,14 +48,13 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 		}
 	})
 
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			Expect(ns).NotTo(BeEmpty())
-		})
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
 	})
 
 	Context("When virtualization resources are applied", func() {
@@ -75,6 +77,19 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+		})
+
+		It("should fill empty virtualMachineClassName with the default class name", func() {
+			defaultVMLabels := testCaseLabel
+			defaultVMLabels["vm"] = "default"
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Output:    "jsonpath='{.items[*].spec.virtualMachineClassName}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+			Expect(res.StdOut()).Should(ContainSubstring(config.DefaultVirtualMachineClassName), "should fill empty .spec.virtualMachineClassName value")
 		})
 	})
 
@@ -115,7 +130,7 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 		It("patches custom VMIP with unassigned address", func() {
 			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
 			Eventually(func() error {
-				return AssignIPToVMIP(ns, vmipName)
+				return AssignIPToVMIP(f, ns, vmipName)
 			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
 		})
 
@@ -539,17 +554,24 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 	})
 })
 
-func AssignIPToVMIP(vmipNamespace, vmipName string) error {
+func AssignIPToVMIP(f *framework.Framework, vmipNamespace, vmipName string) error {
+	mc, err := f.GetVirtualizationModuleConfig()
+	if err != nil {
+		return err
+	}
+
 	assignErr := fmt.Sprintf("cannot patch VMIP %q with unnassigned IP address", vmipName)
 	unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
 	if err != nil {
 		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
-	patch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
+
+	patch := fmt.Sprintf(`{"spec":{"staticIP":%q}}`, unassignedIP)
 	err = MergePatchResource(kc.ResourceVMIP, vmipNamespace, vmipName, patch)
 	if err != nil {
 		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
+
 	vmip := virtv2.VirtualMachineIPAddress{}
 	err = GetObject(kc.ResourceVMIP, vmipName, &vmip, kc.GetOptions{
 		Namespace: vmipNamespace,
@@ -557,6 +579,7 @@ func AssignIPToVMIP(vmipNamespace, vmipName string) error {
 	if err != nil {
 		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
+
 	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseAttached)
 	waitOpts := kc.WaitOptions{
 		Namespace: vmipNamespace,
@@ -567,5 +590,6 @@ func AssignIPToVMIP(vmipNamespace, vmipName string) error {
 	if res.Error() != nil {
 		return fmt.Errorf("%s\n%s", assignErr, res.StdErr())
 	}
+
 	return nil
 }

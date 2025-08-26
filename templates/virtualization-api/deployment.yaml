@@ -1,9 +1,12 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "delve" . | fromYaml) -}}
 
 {{- define "virtualization_api_resources" }}
 cpu: 10m
 memory: 40Mi
 {{- end }}
+
+{{- if eq (include "virtualization-api.isEnabled" .) "true" }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
@@ -77,24 +80,24 @@ spec:
             - --kubevirt-cabundle=/etc/virt-api/certificates/ca.crt
             - --kubevirt-endpoint=virt-api.d8-{{ .Chart.Name}}.svc
             - --secure-port=8443
-            {{- if eq .Values.virtualization.logLevel "debug" }}
+            {{- if eq (include "moduleLogLevel" .) "debug" }}
             - --v=10
             {{- else }}
             - --v=3
             {{- end }}
-            - --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt
-            - --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key
-            - --proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt
-            - --proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key
+            - --tls-cert-file=/etc/virtualization-api/certificates/tls.crt
+            - --tls-private-key-file=/etc/virtualization-api/certificates/tls.key
+            - --proxy-client-cert-file=/etc/virtualization-api-proxy/certificates/tls.crt
+            - --proxy-client-key-file=/etc/virtualization-api-proxy/certificates/tls.key
             - --service-account-name=virtualization-api
             - --service-account-namespace=d8-{{ .Chart.Name }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
           imagePullPolicy: IfNotPresent
           volumeMounts:
-            - mountPath: /etc/virtualziation-api/certificates
+            - mountPath: /etc/virtualization-api/certificates
               name:  virtualization-api-tls
               readOnly: true
-            - mountPath: /etc/virtualziation-api-proxy/certificates
+            - mountPath: /etc/virtualization-api-proxy/certificates
               name:  virtualization-api-proxy-tls
               readOnly: true
             - mountPath: /etc/virt-api/certificates
@@ -104,6 +107,21 @@ spec:
             - containerPort: 8443
               name: apiserver
               protocol: TCP
+            {{- include "delvePorts" (list $delve "delve/virtualization-api") | nindent 12 }}
+          {{- if ne "delve/virtualization-api" ($delve | dig "debug" "component" "<missing>") }}
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: apiserver
+              scheme: HTTPS
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: apiserver
+              scheme: HTTPS
+            initialDelaySeconds: 10
+          {{- end }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -135,3 +153,5 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-api-proxy-tls
+
+{{- end }}

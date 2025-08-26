@@ -18,7 +18,6 @@ spec:
     kind: VirtualMachine
     shortNames:
       - vm
-      - vms
   preserveUnknownFields: false
   versions:
     - name: v1alpha2
@@ -52,6 +51,8 @@ spec:
                   description: |
                     Section describing a VM initial provisioning scenario.
                   type: object
+                  required:
+                    - type
                   properties:
                     type:
                       description: |
@@ -947,7 +948,37 @@ spec:
                     * `PreferSafe` — use Safe options for automatic migrations. CPU throttling can be enabled with `force=true` in VMOP.
                     * `AlwaysForced` — enable CPU throttling for automatic and VMOP migrations. No way to disable CPU throttling.
                     * `PreferForced` — enable CPU throttling for automatic migrations. CPU throttling can be disabled with `force=false` in VMOP.
+                networks:
+                  type: array
+                  description: |
+                    List of network interface configurations.
+                  items:
+                    type: object
+                    required:
+                      - type
+                    properties:
+                      type:
+                        type: string
+                        description: |
+                          The type of the network interface.
 
+                          Supported types:
+
+                          * `Main` — primary network interface that is always present (default network).
+                          * `Network` — a subnet at the namespace level.
+                          * `ClusterNetwork` — a subnet at the cluster level.
+                        enum:
+                          - "Main"
+                          - "Network"
+                          - "ClusterNetwork"
+                      name:
+                        type: string
+                        description: |
+                          The name of the network interface.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
             status:
               type: object
               properties:
@@ -1267,6 +1298,31 @@ spec:
                         - size
                       type: object
                   type: object
+                networks:
+                  type: array
+                  description: |
+                    List of network interfaces attached to the VM.
+                  items:
+                    type: object
+                    required:
+                      - type
+                    properties:
+                      type:
+                        type: string
+                        description: |
+                          The type of the network interface.
+                      name:
+                        type: string
+                        description: |
+                          The name of the network interface.
+                      macAddress:
+                        type: string
+                        description: |
+                          The MAC address of the network interface.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase

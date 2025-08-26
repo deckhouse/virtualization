@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	"github.com/spf13/pflag"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -33,6 +33,7 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -53,10 +54,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
@@ -72,6 +77,7 @@ const (
 	logOutputEnv              = "LOG_OUTPUT"
 
 	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
+	healthProbeBindAddrEnv                     = "HEALTH_PROBE_BIND_ADDRESS"
 	podNamespaceEnv                            = "POD_NAMESPACE"
 	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
@@ -79,11 +85,14 @@ const (
 
 	FirmwareImageEnv      = "FIRMWARE_IMAGE"
 	VirtControllerNameEnv = "VIRT_CONTROLLER_NAME"
+
+	SdnEnabledEnv  = "SDN_ENABLED"
+	clusterUUIDEnv = "CLUSTER_UUID"
 )
 
 func main() {
 	var logLevel string
-	flag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
+	pflag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
 
 	var err error
 	var defaultDebugVerbosity int64
@@ -105,24 +114,33 @@ func main() {
 	}
 
 	var logDebugVerbosity int
-	flag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
+	pflag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
 
 	var logOutput string
-	flag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
+	pflag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
 
 	var pprofBindAddr string
-	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
+	pflag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
 
 	var metricsBindAddr string
-	flag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
+	pflag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
+
+	var healthProbeBindAddr string
+	pflag.StringVar(&healthProbeBindAddr, "health-probe-bind-address", getEnv(healthProbeBindAddrEnv, ":8083"), "health probe bind address")
 
 	var firmwareImage string
-	flag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
+	pflag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
 
 	var virtControllerName string
-	flag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
+	pflag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
 
-	flag.Parse()
+	var leaderElection bool
+	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
+
+	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
+	featuregates.AddFlags(pflag.CommandLine)
+
+	pflag.Parse()
 
 	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)
@@ -163,8 +181,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
-	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+	clusterSubnets, err := appconfig.LoadClusterSubnetsFromEnvs()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	viStorageClassSettings, err := appconfig.LoadVirtualImageStorageClassSettings()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vdStorageClassSettings, err := appconfig.LoadVirtualDiskStorageClassSettings()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -201,9 +234,13 @@ func main() {
 		}
 	}
 
+	if !leaderElection {
+		log.Warn("Leader election is disabled, use only for development")
+	}
+
 	managerOpts := manager.Options{
 		// This controller watches resources in all namespaces.
-		LeaderElection:             true,
+		LeaderElection:             leaderElection,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
@@ -211,6 +248,7 @@ func main() {
 		Metrics: metricsserver.Options{
 			BindAddress: metricsBindAddr,
 		},
+		HealthProbeBindAddress: healthProbeBindAddr,
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -229,6 +267,12 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
+	clusterUUID := os.Getenv(clusterUUIDEnv)
+	if clusterUUID == "" {
+		log.Error(fmt.Sprintf("Required %s environment variable is empty, should contain cluster UUID", clusterUUIDEnv))
+		os.Exit(1)
+	}
+
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
@@ -239,6 +283,11 @@ func main() {
 	virtClient, err := kubeclient.GetClientFromRESTConfig(cfg)
 	if err != nil {
 		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Error("Failed to add healthz check", logger.SlogErr(err))
 		os.Exit(1)
 	}
 
@@ -350,17 +399,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = mc.SetupWebhookWithManager(mgr); err != nil {
+	if err = mc.SetupWebhookWithManager(mgr, clusterSubnets); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage, controllerNamespace, virtControllerName); err != nil {
+	workloadUpdaterLogger := logger.NewControllerLogger(workloadupdater.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = workloadupdater.SetupController(ctx, mgr, workloadUpdaterLogger, firmwareImage, controllerNamespace, virtControllerName); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = evacuation.SetupController(ctx, mgr, virtClient, log); err != nil {
+	evacuationLogger := logger.NewControllerLogger(evacuation.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = evacuation.SetupController(ctx, mgr, virtClient, evacuationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	volumeMigrationLogger := logger.NewControllerLogger(volumemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = volumemigration.SetupController(ctx, mgr, volumeMigrationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, clusterUUID, virtClient); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

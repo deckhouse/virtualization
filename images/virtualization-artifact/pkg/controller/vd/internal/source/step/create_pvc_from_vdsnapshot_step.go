@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -35,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -117,15 +118,60 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 
 	vd.Status.Progress = "0%"
 	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
-	vd.Status.Target.PersistentVolumeClaim = pvc.Name
+	vdsupplements.SetPVCName(vd, pvc.Name)
 
+	s.AddOriginalMetadata(vd, vs)
 	return nil, nil
 }
 
+// AddOriginalMetadata adds original annotations and labels from VolumeSnapshot to VirtualDisk,
+// without overwriting existing values
+func (s CreatePVCFromVDSnapshotStep) AddOriginalMetadata(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) {
+	if vd.Annotations == nil {
+		vd.Annotations = make(map[string]string)
+	}
+	if vd.Labels == nil {
+		vd.Labels = make(map[string]string)
+	}
+
+	if annotationsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]; annotationsJSON != "" {
+		var originalAnnotations map[string]string
+		if err := json.Unmarshal([]byte(annotationsJSON), &originalAnnotations); err == nil {
+			for key, value := range originalAnnotations {
+				if _, exists := vd.Annotations[key]; !exists {
+					vd.Annotations[key] = value
+				}
+			}
+		}
+	}
+
+	if labelsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]; labelsJSON != "" {
+		var originalLabels map[string]string
+		if err := json.Unmarshal([]byte(labelsJSON), &originalLabels); err == nil {
+			for key, value := range originalLabels {
+				if _, exists := vd.Labels[key]; !exists {
+					vd.Labels[key] = value
+				}
+			}
+		}
+	}
+}
+
 func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
-	storageClassName := vs.Annotations["storageClass"]
-	volumeMode := vs.Annotations["volumeMode"]
-	accessModesStr := strings.Split(vs.Annotations["accessModes"], ",")
+	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
+	if storageClassName == "" {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+	}
+	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
+	if volumeMode == "" {
+		volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
+	}
+	accessModesRaw := vs.Annotations[annotations.AnnAccessModes]
+	if accessModesRaw == "" {
+		accessModesRaw = vs.Annotations[annotations.AnnAccessModesDeprecated]
+	}
+
+	accessModesStr := strings.Split(accessModesRaw, ",")
 	accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
 	for _, accessModeStr := range accessModesStr {
 		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(accessModeStr))
@@ -157,7 +203,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.V
 		}
 	}
 
-	pvcKey := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
+	pvcKey := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
 
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

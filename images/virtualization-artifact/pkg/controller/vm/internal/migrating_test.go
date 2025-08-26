@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -66,7 +67,7 @@ var _ = Describe("MigratingHandler", func() {
 		return kvvmi
 	}
 
-	newVMOP := func(phase virtv2.VMOPPhase, reason string) *virtv2.VirtualMachineOperation {
+	newVMOP := func(phase virtv2.VMOPPhase, reason string, isSignalSent bool) *virtv2.VirtualMachineOperation {
 		vmop := vmopbuilder.New(
 			vmopbuilder.WithGenerateName("test-vmop-"),
 			vmopbuilder.WithNamespace(namespace),
@@ -81,11 +82,17 @@ var _ = Describe("MigratingHandler", func() {
 				Reason: reason,
 			},
 		}
+		if isSignalSent {
+			vmop.Status.Conditions = append(vmop.Status.Conditions, metav1.Condition{
+				Type:   vmopcondition.TypeSignalSent.String(),
+				Status: metav1.ConditionTrue,
+			})
+		}
 		return vmop
 	}
 
 	reconcile := func() {
-		h := NewMigratingHandler()
+		h := NewMigratingHandler(vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
@@ -110,7 +117,7 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingInProgress.String()))
 		})
 
 		It("Should display condition for last unsuccessful migration", func() {
@@ -160,7 +167,7 @@ var _ = Describe("MigratingHandler", func() {
 		It("Should set condition when vmop is in progress with pending reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationPending.String())
+			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationPending.String(), true)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
 
 			reconcile()
@@ -172,14 +179,14 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsNotMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
 			Expect(cond.Message).To(Equal("Migration is awaiting start."))
 		})
 
 		It("Should set condition when vmop is in progress with target ready reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationTargetReady.String())
+			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationTargetReady.String(), true)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
 
 			reconcile()
@@ -191,14 +198,14 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsNotMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
 			Expect(cond.Message).To(Equal("Migration is awaiting execution."))
 		})
 
 		It("Should set condition when vmop is in progress with running reason", func() {
 			vm := newVM()
 			kvvmi := newKVVMI(nil)
-			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationRunning.String())
+			vmop := newVMOP(virtv2.VMOPPhaseInProgress, vmopcondition.ReasonMigrationRunning.String(), true)
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmop)
 
 			reconcile()
@@ -210,7 +217,7 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingInProgress.String()))
 		})
 	})
 })

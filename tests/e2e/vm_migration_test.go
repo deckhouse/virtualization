@@ -25,28 +25,27 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineMigration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineMigration", SIGMigration(), framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 	var ns string
+
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigration, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigration, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			Expect(ns).NotTo(BeEmpty())
-		})
 	})
 
 	Context("When resources are applied", func() {
