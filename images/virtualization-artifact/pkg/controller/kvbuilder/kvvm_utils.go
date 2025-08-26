@@ -31,8 +31,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -198,7 +200,9 @@ func ApplyVirtualMachineSpec(
 			vd := vdByName[bd.Name]
 
 			pvcName := vd.Status.Target.PersistentVolumeClaim
-			if vd.Status.MigrationInfo.TargetPVC != "" {
+
+			migrating, _ := conditions.GetCondition(vdcondition.MigrationType, vd.Status.Conditions)
+			if migrating.Status == metav1.ConditionTrue && vd.Status.MigrationInfo.TargetPVC != "" {
 				pvcName = vd.Status.MigrationInfo.TargetPVC
 				updateVolumesStrategy = virtv1.UpdateVolumesStrategyMigration
 			}
