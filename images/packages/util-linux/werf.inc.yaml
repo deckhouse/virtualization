@@ -8,8 +8,10 @@ packages:
 - pkgconf asciidoctor
 - python3-devel python3-module-setuptools
 - zlib-devel glibc-devel-static
-- libncursesw-devel libpopt-devel libcap-ng-devel
-- klibc-devel
+- libncursesw-devel libpopt-devel
+- klibc-devel libsqlite3
+dvppackages:
+- libcap-ng
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -46,14 +48,15 @@ shell:
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -64,6 +67,13 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
+  - |
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   - |
     OUTDIR=/out
 
