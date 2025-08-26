@@ -8,10 +8,11 @@
 binaries:
 - /cdi-binaries/cdi-importer
 - /cdi-binaries/cdi-source-update-poller
+dvppackages:
+- libnbd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
-
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
@@ -39,7 +40,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
@@ -53,8 +54,7 @@ import:
   add: /src/containerized-data-importer
   to: /containerized-data-importer
   before: install
-{{- $images := list "libnbd" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -65,7 +65,7 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
     for pkg in $PKGS; do
       cp -af /$pkg/. /
       rm -rf /$pkg
