@@ -50,13 +50,13 @@ import:
     add: /
     to: /
     includePaths:
-      - /var
+      - var
     after: install
   - image: kube-api-rewriter-busybox
     add: /bin
     to: /bin
     includePaths:
-      - /bin/busybox
+      - busybox
 imageSpec:
   config:
     user: "64535:64535"
@@ -66,6 +66,7 @@ imageSpec:
 ---
 image: kube-api-rewriter-busybox
 fromImage: builder/alt
+final: false
 shell:
   beforeInstall:
     - apt-get update && apt-get install -y busybox
