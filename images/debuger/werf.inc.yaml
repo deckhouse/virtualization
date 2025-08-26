@@ -1,6 +1,7 @@
 ---
 image: {{ $.ImageName }}
 fromImage: distroless
+final: false
 import:
 - image: {{ $.ImageName }}-builder
   add: /out
