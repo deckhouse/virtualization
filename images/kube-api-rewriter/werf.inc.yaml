@@ -49,10 +49,10 @@ import:
     to: /app/kube-api-rewriter
     after: install
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
-    add: /
-    to: /
+    add: /var
+    to: /var
     includePaths:
-      - var
+      - run
     after: install
   - image: kube-api-rewriter-busybox
     add: /bin
