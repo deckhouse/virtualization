@@ -67,5 +67,6 @@ shell:
 
     ninja-build -j$(nproc) -C _build
     DESTDIR=$OUTDIR ninja-build install -C _build
+    rm $OUTDIR/usr/share/{locale,man}
     tree -hp $OUTDIR
 
