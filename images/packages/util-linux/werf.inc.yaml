@@ -5,6 +5,11 @@ packages:
 - gcc
 - git make libtool gettext-devel
 - bison flex
+- pkgconf asciidoctor
+- python3-devel python3-module-setuptools
+- zlib-devel glibc-devel-static
+- libncursesw-devel libpopt-devel libcap-ng-devel
+- klibc-devel
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -18,7 +23,8 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /libblkid
+  to: /{{ .ImageName }}
+  # to: /libblkid
   before: setup
 
 ---
@@ -66,15 +72,19 @@ shell:
     ./configure \
       --prefix=/usr \
       --exec-prefix=/usr \
+      --bindir=/usr/bin \
+      --sbindir=/usr/sbin \
       --libdir=/usr/lib64 \
-      --enable-libblkid \
-      --enable-libmount \
-      --disable-all-programs \
+      --enable-all-programs \
       --enable-shared \
       --disable-static \
-      --disable-examples
+      --disable-asciidoc
+    
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 
-    rm -rf $OUTDIR/{bin,sbin}
+    strip $OUTDIR/usr/bin/*
+    strip $OUTDIR/usr/sbin/*
+    strip $OUTDIR/usr/lib/*
+    strip $OUTDIR/usr/lib64/*
 

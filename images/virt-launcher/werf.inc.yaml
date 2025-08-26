@@ -217,7 +217,7 @@ import:
 {{- $images := list "swtpm" "libtpms" "numactl" "dmidecode"
                 "libisoburn" "libburn" "libattr" "libaudit"
                 "gnutls" "acl" "libbsd" "libgcrypt" "libmd"
-                "libblkid" "libfuse3" "nettle" "libgsasl" "libnbd" "libcap-ng" "libcapstone" "libcurl" -}}
+                "util-linux" "libfuse3" "nettle" "libgsasl" "libnbd" "libcap-ng" "libcapstone" "libcurl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded

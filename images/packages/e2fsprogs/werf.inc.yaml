@@ -47,7 +47,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libblkid" -}}
+{{- $images := list "util-linux" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:

@@ -20,7 +20,7 @@ package:
   gnutls: 3.8.6
   libattr: v2.5.2
   libaudit: v4.0.3
-  libblkid: v2.41
+  util-linux: v2.41.1
   libbrotli: v1.1.0
   libbsd: 0.12.2
   libburn: release-1.5.6
