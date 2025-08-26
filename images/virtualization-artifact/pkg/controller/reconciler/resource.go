@@ -210,7 +210,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 			return nil
 		}
 
-		return fmt.Errorf("error patching metadata (%s): %w", string(metadataPatchBytes), err)
+		return fmt.Errorf("error patching metadata (changedObj.DeletionTimestamp: %s) (%s): %w", r.currentObj.GetCreationTimestamp(), string(metadataPatchBytes), err)
 	}
 
 	return nil
