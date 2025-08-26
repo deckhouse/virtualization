@@ -17,49 +17,32 @@ limitations under the License.
 package mac
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func GenerateOUI(clusterUID string) string {
-	if !validateUUID(clusterUID) {
-		return ""
-	}
+const macPrefix = "mac-"
 
-	cleanUID := strings.ReplaceAll(clusterUID, "-", "")
-	numBytes := len(cleanUID) / 2
-	for i := 0; i < numBytes; i++ {
-		switch cleanUID[2*i+1] {
-		case '6', '2', 'a', 'e':
-			start := 2 * i
-			var oui string
-			if start+6 <= len(cleanUID) {
-				oui = cleanUID[start : start+6]
-			} else {
-				oui = cleanUID[start:]
-				oui += cleanUID[:(6 - len(oui))]
-			}
-			return formatOUI(oui)
-		}
-	}
+type AllocatedMACs map[string]*virtv2.VirtualMachineMACAddressLease
 
-	oui := cleanUID[:6]
-	oui = oui[:1] + "2" + oui[2:]
-
-	return formatOUI(oui)
+// AddressToLeaseName generate the Virtual Machine MAC Address Lease's name from the MAC address
+func AddressToLeaseName(address string) string {
+	return macPrefix + strings.ReplaceAll(strings.ToLower(address), ":", "-")
 }
 
-func formatOUI(prefix string) string {
-	prefix = strings.TrimSpace(prefix)
+// LeaseNameToAddress generate the MAC address from the Virtual Machine MAC Address Lease's name
+func LeaseNameToAddress(leaseName string) string {
+	if strings.HasPrefix(leaseName, macPrefix) && len(leaseName) > len(macPrefix) {
+		return strings.ReplaceAll(leaseName[len(macPrefix):], "-", ":")
+	}
 
-	re := regexp.MustCompile(`(?i)([0-9A-Fa-f]{2})`)
-	matches := re.FindAllString(prefix, -1)
-
-	return fmt.Sprintf("%s:%s:%s", matches[0], matches[1], matches[2])
+	return ""
 }
 
-func validateUUID(uid string) bool {
-	matched, _ := regexp.MatchString("^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$", uid)
-	return matched
+func IsValidAddressFormat(inputAddress string) bool {
+	inputAddress = strings.TrimSpace(inputAddress)
+	re := regexp.MustCompile(`^([0-9A-Fa-f]{2}([-:])){5}([0-9A-Fa-f]{2})$`)
+	return re.MatchString(inputAddress)
 }

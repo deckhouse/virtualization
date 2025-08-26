@@ -28,6 +28,8 @@
 {{-      $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 {{-      $_ := set $ctx "PackageVersion" $Root.Package }}
 {{-      $_ := set $ctx "GOPROXY" $Root.GOPROXY }}
+{{-      $_ := set $ctx "ProjectName" $ctx.ImageName }}
+{{-      $_ := set $ctx "Commit" $Root.Commit }}
 {{-      $_ := set $ctx "DistroPackagesProxy" $Root.DistroPackagesProxy }}
 {{-      $_ := set $ctx "SVACE_ENABLED" $Root.SVACE_ENABLED }}
 {{-      $_ := set $ctx "SVACE_ANALYZE_SSH_USER" $Root.SVACE_ANALYZE_SSH_USER }}
