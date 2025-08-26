@@ -21,6 +21,7 @@
 {{-      $_ := set $ctx "PackagePath" $ImageData._0 }}
 {{-      $_ := set $ctx "ImageName" $ImageData._1 }}
 {{-      $_ := set $ctx "ModuleNamePrefix" $Root.ModuleNamePrefix }}
+{{-      $_ := set $ctx "ModuleDir" $Root.ModuleDir }}
 {{-      $_ := set $ctx "ImageBuildData" $content }}
 {{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 {{-      $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}

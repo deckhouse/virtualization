@@ -32,7 +32,8 @@ packages:
 - make automake autoconf libtool makeinfo
 - pkg-config
 - bison
-- bzlib-devel libcap-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
+- bzlib-devel liblzma-devel libseccomp-devel libcap-devel libzstd-devel zlib-devel lzip ncompress strace
+- tree
 {{- end -}}
 
 
@@ -58,12 +59,11 @@ shell:
   install:
   - |
     OUTDIR=/out
-
     cd /src
-    
+
     autoreconf -f -i
     ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
-    
+
     make install -j $(nproc) DESTDIR=$OUTDIR
 
     rm -rf $OUTDIR/share/man

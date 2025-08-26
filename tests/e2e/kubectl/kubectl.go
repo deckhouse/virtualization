@@ -80,6 +80,7 @@ type CreateOptions struct {
 }
 
 type DeleteOptions struct {
+	AllFlag        bool
 	ExcludedLabels []string
 	Filename       []string
 	FilenameOption FilenameOption
@@ -290,6 +291,13 @@ func (k KubectlCMD) PatchResource(resource Resource, name string, opts PatchOpti
 	return k.ExecContext(ctx, cmd)
 }
 
+func (k KubectlCMD) addAllFlag(cmd string, allFlag bool) string {
+	if allFlag {
+		return fmt.Sprintf("%s --all=true", cmd)
+	}
+	return cmd
+}
+
 func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	if ns != "" {
 		return fmt.Sprintf("%s --namespace %s", cmd, ns)
@@ -387,6 +395,7 @@ func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
+	cmd = k.addAllFlag(cmd, opts.AllFlag)
 	if opts.Name != "" {
 		cmd += fmt.Sprintf(" %s", opts.Name)
 	}

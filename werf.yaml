@@ -21,6 +21,9 @@ build:
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
+# Delve debag
+{{- $_ := set . "DEBUG_COMPONENT" (env "DEBUG_COMPONENT" "") }}
+
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
 {{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
@@ -60,18 +63,30 @@ shell:
         )
       ' > /images_digests.json
       cat images_digests.json
+{{-  if .DEBUG_COMPONENT }}
+    - |
+      cat <<EOF>> /delve.yaml
+      debug:
+        component: "{{ .DEBUG_COMPONENT }}"
+      EOF
+{{-  end }}
 ---
 image: bundle
 fromImage: builder/scratch
 import:
-  - image: images-digests
-    add: /images_digests.json
-    to: /images_digests.json
-    after: setup
-  - image: go-hooks-artifact
-    add: /go-hooks
-    to: /hooks/go
-    after: setup
+- image: images-digests
+  add: /
+  to: /
+  after: setup
+  includePaths:
+    - images_digests.json
+  {{-  if .DEBUG_COMPONENT }}
+    - delve.yaml
+  {{-  end }}
+- image: go-hooks-artifact
+  add: /go-hooks
+  to: /hooks/go
+  after: setup
 git:
   - add: /
     to: /

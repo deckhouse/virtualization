@@ -1,0 +1,96 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "ext2/e2fsprogs.git" }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libtool gettext-tools
+- libuuid-devel libarchive-devel acl
+- glib2-devel
+- tree
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- $images := list "libblkid" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+    cd /src
+    find -type f -print0 |
+    xargs -r0 grep -lZ '^static void usage' -- |
+    xargs -r0 sed -i 's/^static void usage/__attribute__ ((noreturn)) &/' --
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --enable-nls \
+      --enable-elf-shlibs \
+      --disable-libblkid \
+      --disable-libuuid \
+      --disable-fsck \
+      --with-libarchive \
+      --without-manpages \
+      --disable-docs
+
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+    strip $OUTDIR/usr/bin/chattr
+    strip $OUTDIR/usr/bin/lsattr
+    strip $OUTDIR/usr/sbin/{badblocks,debugfs,dumpe2fs,e2freefrag,e2fsck,e2image,e2label,e2mmpstatus,e2undo,e4crypt,e4defrag,filefrag,fsck.ext2,fsck.ext3,fsck.ext4,logsave,mke2fs,mkfs.ext2,mkfs.ext3,mkfs.ext4,mklost+found,resize2fs,tune2fs}
+    strip $OUTDIR/usr/lib64/*.so.*
+    rm -rf $OUTDIR/usr/share/locale
+    rm -rf $OUTDIR/usr/share/man
+    tree -sp $OUTDIR
+

@@ -28,6 +28,10 @@ func IsFinished(vmop *v1alpha2.VirtualMachineOperation) bool {
 	return vmop != nil && (vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted)
 }
 
+func IsTerminating(vmop *v1alpha2.VirtualMachineOperation) bool {
+	return vmop != nil && (vmop.Status.Phase == v1alpha2.VMOPPhaseTerminating || !vmop.GetDeletionTimestamp().IsZero())
+}
+
 func IsMigration(vmop *v1alpha2.VirtualMachineOperation) bool {
 	return vmop != nil && (vmop.Spec.Type == v1alpha2.VMOPTypeMigrate || vmop.Spec.Type == v1alpha2.VMOPTypeEvict)
 }

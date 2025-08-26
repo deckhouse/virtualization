@@ -34,7 +34,12 @@ shell:
   - export CGO_ENABLED=0
   - |
     {{- $_ := set $ "ProjectName" (list $.ImageName "vm-route-forge" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | nindent 6 }}
+    
+    {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
+    go build -o vm-route-forge cmd/vm-route-forge/main.go
+    {{- else }}
+    {{-   include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | nindent 6 }}
+    {{- end }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
@@ -43,8 +48,21 @@ import:
   add: /app/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install
+{{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
+- image: debuger
+  add: /app/dlv
+  to: /app/dlv
+  after: install
+{{- end }}
 imageSpec:
   config:
     user: 64535
     workingDir: "/app"
+    {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
+      XDG_CONFIG_HOME: "/tmp"
+    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/app/vm-route-forge", "--" ]
+    {{- else }}
     entrypoint: ["/app/vm-route-forge"]
+    {{- end }}

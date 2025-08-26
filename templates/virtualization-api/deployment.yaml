@@ -1,4 +1,5 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "delve" . | fromYaml) -}}
 
 {{- define "virtualization_api_resources" }}
 cpu: 10m
@@ -106,6 +107,8 @@ spec:
             - containerPort: 8443
               name: apiserver
               protocol: TCP
+            {{- include "delvePorts" (list $delve "delve/virtualization-api") | nindent 12 }}
+          {{- if ne "delve/virtualization-api" ($delve | dig "debug" "component" "<missing>") }}
           livenessProbe:
             httpGet:
               path: /livez
@@ -118,6 +121,7 @@ spec:
               port: apiserver
               scheme: HTTPS
             initialDelaySeconds: 10
+          {{- end }}
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

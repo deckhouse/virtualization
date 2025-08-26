@@ -76,12 +76,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
-	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
 	if vdSnapshot.DeletionTimestamp != nil {
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseTerminating
 		cb.
@@ -148,6 +142,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			Reason(vdscondition.WaitingForTheVirtualDisk).
 			Message("Waiting for the virtual disk's pvc to be in phase Bound.")
 		return reconcile.Result{}, nil
+	}
+
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
 	}
 
 	switch {

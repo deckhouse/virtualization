@@ -34,7 +34,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    - Go to the "Projects" tab and select the desired project.
    - Go to the "Virtualization" -> "Disk Images" section.
    - Click "Create Image".
-   - Select "Download data via link (HTTP)" from the list.
+   - Select "Load data from link (HTTP)" from the list.
    - In the form that opens, enter `ubuntu` in the "Image Name" field.
    - Select `ContainerRegistry` in the "Storage" field.
    - In the "URL" field, paste `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img>`.
@@ -101,7 +101,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    metadata:
      name: linux-vm
    spec:
-     virtualMachineClassName: host
+     virtualMachineClassName: generic
      cpu:
        cores: 1
      memory:
@@ -133,7 +133,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    - In the "Disks and Images" section, in the "Boot Disks" subsection, click "Add".
 
      If you have already created a disk:
-      - In the form that opens, click "Select from existing".
+      - In the form that opens, click "Choose from existing".
       - Select the `linux-disk` disk from the list.
 
      If you have not created a disk:
@@ -144,7 +144,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
      - Select `ubuntu` from the drop-down list.
      - In the "Size" field, you can change the size to a larger one, for example, `5Gi`.
      - In the "Storage Class" field, you can select StorageClass or leave the default selection.
-     - Click the "Create and Add" button.
+     - Click the "Create and add" button.
 
    - Scroll down to the "Additional parameters" section.
    - Enable the "Cloud-init" switch.
@@ -350,7 +350,7 @@ How to create an image from an HTTP server in the web interface:
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" -> "Disk Images" section.
 - Click "Create Image".
-- Select "Download data via link (HTTP)" from the list.
+- Select "Load data from link (HTTP)" from the list.
 - In the form that opens, enter the image name in the "Image name" field.
 - Select `ContainerRegistry` in the "Storage" field.
 - Specify the link to the image in the "URL" field.
@@ -398,7 +398,7 @@ How to create an image and store it in PVC in the web interface:
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" -> "Disk Images" section.
 - Click "Create Image".
-- Select "Upload data via link (HTTP)" from the list.
+- Select "Load data from link (HTTP)" from the list.
 - In the form that opens, enter the image name in the "mage name" field.
 - In the "Storage" field, select `PersistentVolumeClaim`.
 - In the "Storage class" field, you can select StorageClass or leave the default selection.
@@ -462,7 +462,7 @@ How to create an image from Container Registry in the web interface:
 - Select "Upload data from container image" from the list.
 - In the form that opens, enter the image name in the "Image Name" field.
 - In the "Storage" field, select `ContainerRegistry`.
-- In the "Image in container registry" field, specify `docker.io/<username>/ubuntu2204:latest`.
+- In the "Image in Container Registry" field, specify `docker.io/<username>/ubuntu2204:latest`.
 - Click the "Create" button.
 - The image status is displayed at the top left, under the image name.
 
@@ -529,9 +529,9 @@ How to upload an image from the command line in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" -> "Disk Images" section.
-- Click "Create Image" then select "Upload from Computer" from the drop-down menu.
+- Click "Create Image" then select "Upload from computer" from the drop-down menu.
 - Enter the image name in the "Image Name" field.
-- In the "Upload File" field, click the "Select File on Your Computer" link.
+- In the "Upload File" field, click the "Choose a file from your computer" link.
 - Select the file in the file manager that opens.
 - Click the "Create" button.
 - Wait until the image changes to `Ready` status.
@@ -890,7 +890,7 @@ metadata:
   name: linux-vm
 spec:
   # VM class name.
-  virtualMachineClassName: host
+  virtualMachineClassName: generic
   # Block of scripts for the initial initialization of the VM.
   provisioning:
     type: UserData
@@ -955,7 +955,7 @@ How to create a virtual machine in the web interface:
 - In the "Machine Parameters" section, set `10%` in the "CPU Share" field.
 - In the "Machine Parameters" section, set `1Gi` in the "Size" field.
 - In the "Disks and Images" section, in the "Boot Disks" subsection, click "Add".
-- In the form that opens, click "Select from existing".
+- In the form that opens, click "Choose from existing".
 - Select the `linux-vm-root` disk from the list.
 - Scroll down to the "Additional Parameters" section.
 - Enable the "Cloud-init" switch.
@@ -1659,7 +1659,7 @@ In this example, there are three nodes in the cluster: two with fast disks (`dis
 
 How to perform the operation in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
-- Click "Add" in the "Run by nodes" -> "Select nodes by labels block".
+- Click "Add" in the "Run on nodes" -> "Select nodes by labels" block.
 - In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.nodeSelector` settings.
 - To confirm the key parameters, click the "Enter" button.
 - Click the "Save" button that appears.
@@ -1717,10 +1717,10 @@ In this example, the virtual machine will be placed, if possible (since preferre
 
 How to set "preferences" and "mandatories" for placing virtual machines in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
-- Click "Add" in the "Run VM next to other VMs" block.
+- Click "Add" in the "Run VM near other VMs" block.
 - In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.affinity.virtualMachineAndPodAffinity` settings.
 - To confirm the key parameters, click the "Enter" button.
-- Select one of the options "On the same server" or "In the same zone" that corresponds to the `topologyKey` parameter.
+- Select one of the options "On one server" or "In one zone" that corresponds to the `topologyKey` parameter.
 - Click the "Save" button that appears.
 
 #### Avoid co-location (AntiAffinity)
@@ -1756,7 +1756,7 @@ In this example, the virtual machine being created will not be placed on the sam
 
 How to configure VM AntiAffinity on nodes in the web interface in the [Placement section](#placement-of-vms-by-nodes):
 
-- Click "Add" in the "Define similar VMs by labels" -> "Select labels" block.
+- Click "Add" in the "Identify similar VMs by labels" -> "Select labels" block.
 - In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.affinity.virtualMachineAndPodAntiAffinity` settings.
 - To confirm the key parameters, click the "Enter" button.
 - Check the boxes next to the labels you want to use in the placement settings.
@@ -2502,7 +2502,7 @@ How to create a disk image in the web interface:
 - Click "Create Disk Snapshot".
 - In the "Disk Snapshot Name" field, enter a name for the snapshot.
 - On the "Configuration" tab, in the "Disk Name" field, select the disk from which the snapshot will be created.
-- Enable the "Integrity Guarantee" switch.
+- Enable the "Consistency Guarantee" switch.
 - Click the "Create" button.
 - The image status is displayed at the top left, under the snapshot name.
 
@@ -2652,7 +2652,7 @@ How to create a VM snapshot in the web interface:
 - Click the "Create" button.
 - In the form that opens, enter `linux-vm-snapshot` in the "Snapshot name" field.
 - On the "Configuration" tab, select `Never` in the "IP address conversion policy" field.
-- Enable the "Integrity Guarantee" switch.
+- Enable the "Consistency Guarantee" switch.
 - In the "Snapshot Storage Class" field, select a class for the disk snapshot.
 - Click the "Create" button.
 - The snapshot status is displayed at the top left, under the snapshot name.

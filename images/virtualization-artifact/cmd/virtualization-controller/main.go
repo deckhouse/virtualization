@@ -134,6 +134,9 @@ func main() {
 	var clusterUUID string
 	pflag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
 
+	var leaderElection bool
+	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
+
 	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
 	featuregates.AddFlags(pflag.CommandLine)
 
@@ -222,9 +225,13 @@ func main() {
 		}
 	}
 
+	if !leaderElection {
+		log.Warn("Leader election is disabled, use only for development")
+	}
+
 	managerOpts := manager.Options{
 		// This controller watches resources in all namespaces.
-		LeaderElection:             true,
+		LeaderElection:             leaderElection,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",

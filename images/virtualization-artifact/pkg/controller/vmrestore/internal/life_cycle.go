@@ -84,14 +84,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 	}
 
 	if vmRestore.Status.Phase == virtv2.VirtualMachineRestorePhaseInProgress {
-		err := h.startVirtualMachine(ctx, vmRestore)
-		if err != nil {
-			h.recorder.Event(
-				vmRestore,
-				corev1.EventTypeWarning,
-				virtv2.ReasonVMStartFailed,
-				err.Error(),
-			)
+		if vmRestore.Spec.RestoreMode == virtv2.RestoreModeForced {
+			err := h.startVirtualMachine(ctx, vmRestore)
+			if err != nil {
+				h.recorder.Event(
+					vmRestore,
+					corev1.EventTypeWarning,
+					virtv2.ReasonVMStartFailed,
+					err.Error(),
+				)
+			}
 		}
 
 		vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseReady
@@ -141,7 +143,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 		return reconcile.Result{}, err
 	}
-	runPolicy = vm.Spec.RunPolicy
+
+	if vmRestore.Spec.RestoreMode == virtv2.RestoreModeForced {
+		runPolicy = vm.Spec.RunPolicy
+		vm.Spec.RunPolicy = virtv2.AlwaysOffPolicy
+	}
 
 	vmip, err := h.restorer.RestoreVirtualMachineIPAddress(ctx, restorerSecret)
 	if err != nil {
@@ -324,29 +330,31 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		return reconcile.Result{}, err
 	}
 
-	err = h.checkKVVMDiskStatus(ctx, vm.Name, vm.Namespace)
-	if err != nil {
-		if errors.Is(err, restorer.ErrRestoring) {
-			setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
-			return reconcile.Result{}, nil
+	if vmRestore.Spec.RestoreMode == virtv2.RestoreModeForced {
+		err = h.checkKVVMDiskStatus(ctx, vm.Name, vm.Namespace)
+		if err != nil {
+			if errors.Is(err, restorer.ErrRestoring) {
+				setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+				return reconcile.Result{}, nil
+			}
+			return reconcile.Result{}, err
 		}
-		return reconcile.Result{}, err
-	}
 
-	vmObj, err := object.FetchObject(ctx, types.NamespacedName{Name: overridedVMName, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachine{})
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return reconcile.Result{}, fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
-	}
-
-	err = h.updateVMRunPolicy(ctx, vmObj, runPolicy)
-	if err != nil {
-		if errors.Is(err, restorer.ErrUpdating) {
-			setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
-			return reconcile.Result{}, nil
+		vmObj, err := object.FetchObject(ctx, types.NamespacedName{Name: overridedVMName, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachine{})
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+			return reconcile.Result{}, fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
 		}
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return reconcile.Result{}, err
+
+		err = h.updateVMRunPolicy(ctx, vmObj, runPolicy)
+		if err != nil {
+			if errors.Is(err, restorer.ErrUpdating) {
+				setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+				return reconcile.Result{}, nil
+			}
+			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+			return reconcile.Result{}, err
+		}
 	}
 
 	vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseInProgress
@@ -546,7 +554,7 @@ func (h LifeCycleHandler) startVirtualMachine(ctx context.Context, vmRestore *vi
 	}
 
 	if vmObj != nil {
-		if vmObj.Spec.RunPolicy == virtv2.AlwaysOffPolicy || vmObj.Spec.RunPolicy == virtv2.ManualPolicy {
+		if vmObj.Spec.RunPolicy != virtv2.AlwaysOnUnlessStoppedManually {
 			return nil
 		}
 

@@ -32,6 +32,7 @@ packages:
 - gcc-c++ gcc git
 - make autoconf automake libtool
 - libssl-devel makeinfo
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -75,4 +76,5 @@ shell:
       --disable-static \
       --disable-documentation
 
-    make -j$(nproc) DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
+    make -j$(nproc) DESTDIR=$OUTDIR install-shared-hogweed install-shared-nettle install-headers install-pkgconfig
+    tree $OUTDIR

@@ -47,8 +47,6 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
 
-	vmTmpl.Spec.RunPolicy = virtv2.AlwaysOffPolicy
-
 	return &VirtualMachineOverrideValidator{
 		vm: &virtv2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
@@ -101,6 +99,9 @@ func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+			return nil
+		}
 		return fmt.Errorf("the virtual machine %q %w", vmKey.Name, ErrAlreadyExists)
 	}
 
