@@ -130,9 +130,6 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(vmop.GetGeneration())
-	signalSendCond := conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
-		Generation(vmop.GetGeneration())
-
 	// 1. Execute the operation.
 	rec, err := svcOp.Execute(ctx)
 	if err != nil {
@@ -148,11 +145,6 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 			completedCond.
 				Reason(vmopcondition.ReasonOperationFailed).
 				Message(failMsg).
-				Status(metav1.ConditionFalse),
-			&vmop.Status.Conditions)
-		conditions.SetCondition(
-			signalSendCond.
-				Reason(vmopcondition.ReasonSignalSentError).
 				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
 	}
@@ -172,11 +164,6 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 			Reason(reason).
 			Message("Wait for operation to complete").
 			Status(metav1.ConditionFalse),
-		&vmop.Status.Conditions)
-	conditions.SetCondition(
-		signalSendCond.
-			Reason(vmopcondition.ReasonSignalSentSuccess).
-			Status(metav1.ConditionTrue),
 		&vmop.Status.Conditions)
 
 	return rec
