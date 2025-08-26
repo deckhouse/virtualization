@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -204,13 +205,15 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	logger.FromContext(ctx).Info("DeletionTimestamp before patch: %v", r.changedObj.GetDeletionTimestamp())
 	jsonPatch := client.RawPatch(types.JSONPatchType, metadataPatchBytes)
 	if err = r.client.Patch(ctx, r.changedObj, jsonPatch); err != nil {
 		if r.changedObj.GetDeletionTimestamp() != nil && len(r.changedObj.GetFinalizers()) == 0 && kerrors.IsNotFound(err) {
 			return nil
 		}
 
-		return fmt.Errorf("error patching metadata (changedObj.DeletionTimestamp: %s) (%s): %w", r.currentObj.GetCreationTimestamp(), string(metadataPatchBytes), err)
+		return fmt.Errorf("error patching metadata (changedObj.DeletionTimestamp: %v) (%s): %w", r.currentObj.GetDeletionTimestamp(), string(metadataPatchBytes), err)
 	}
 
 	return nil
