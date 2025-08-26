@@ -64,7 +64,7 @@ shell:
       --libdir=$OUTDIR/usr/lib64 \
       -Dman=false \
 
-    ninja-build -j$(nproc)
-    DESTDIR=$OUTDIR ninja-build install .
+    ninja-build -j$(nproc) -C build
+    DESTDIR=$OUTDIR ninja-build install . -C build
     tree -hp $OUTDIR
 
