@@ -18,12 +18,6 @@ mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 shell:
-  beforeInstall:
-    # Make containerd compatible directories structure.
-    - ls -la /
-    - ls -la /var
-    - mkdir /var -p
-    - ln -s ../run /var/run
   install:
     - export GOPROXY=$(cat /run/secrets/GOPROXY)
     - cd /src/kube-api-rewriter
@@ -48,12 +42,14 @@ import:
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
+  # Make containerd compatible directories structure.
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /var
     to: /var
     includePaths:
       - run
     after: install
+  # TMP busybox for debug
   - image: kube-api-rewriter-busybox
     add: /bin
     to: /bin
