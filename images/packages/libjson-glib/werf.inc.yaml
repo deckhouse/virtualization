@@ -66,6 +66,6 @@ shell:
       -Dman=false \
 
     ninja-build -j$(nproc) -C _build
-    DESTDIR=$OUTDIR ninja-build install . -C _build
+    DESTDIR=$OUTDIR ninja-build install -C _build
     tree -hp $OUTDIR
 
