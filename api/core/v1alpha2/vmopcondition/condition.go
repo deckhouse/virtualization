@@ -41,12 +41,6 @@ func (r ReasonCompleted) String() string {
 }
 
 const (
-	// ReasonRestoreInProgress is a ReasonCompleted indicating that the start signal has been sent and start is in progress.
-	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
-
-	// ReasonRestoreCompleted is a ReasonCompleted indicating that the start signal has been sent and start is in progress.
-	ReasonRestoreCompleted ReasonCompleted = "RestoreCompleted"
-
 	// ReasonVirtualMachineNotFound is a ReasonCompleted indicating that the specified virtual machine is absent.
 	ReasonVirtualMachineNotFound ReasonCompleted = "VirtualMachineNotFound"
 
@@ -94,8 +88,24 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
+)
 
-	ReasonTODO ReasonCompleted = "TODO"
+// ReasonRestoreCompleted represents specific reasons for the 'RestoreCompleted' condition type.
+type ReasonRestoreCompleted string
+
+func (r ReasonRestoreCompleted) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonRestoreInProgress is a ReasonRestoreCompleted indicating that the restore operation is in progress.
+	ReasonRestoreOperationInProgress ReasonRestoreCompleted = "RestoreInProgress"
+
+	// ReasonRestoreOperationCompleted is a ReasonRestoreCompleted indicating that the restore operation has completed successfully.
+	ReasonRestoreOperationCompleted ReasonRestoreCompleted = "RestoreCompleted"
+
+	// ReasonRestoreOperationFailed is a ReasonRestoreCompleted indicating that operation has failed.
+	ReasonRestoreOperationFailed ReasonRestoreCompleted = "RestoreFailed"
 )
 
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.

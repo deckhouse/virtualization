@@ -112,7 +112,7 @@ func (s StrictRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) 
 	}
 
 	common.FillResourcesStatuses(s.vmop, statuses)
-	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreCompleted, "The virtual machine has been restored from the snapshot")
+	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine has been restored from the snapshot")
 
 	return &reconcile.Result{}, nil
 }

@@ -81,12 +81,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vm *v1alpha2.VirtualMach
 
 	err := s.client.Status().Update(ctx, vm)
 	if err != nil {
-		s.recorder.Event(
-			s.vmop,
-			corev1.EventTypeWarning,
-			v1alpha2.ReasonErrVMOPFailed,
-			"Failed to enter maintenance mode: "+err.Error(),
-		)
+		s.recorder.Event(s.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}

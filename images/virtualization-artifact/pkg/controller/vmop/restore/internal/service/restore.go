@@ -69,12 +69,7 @@ func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) b
 }
 
 func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
-	return vmopcondition.ReasonRestoreInProgress
-}
-
-func (o RestoreOperation) IsFinalState() bool {
-	// return isFinalState(o.vmop)
-	return false
+	return vmopcondition.ReasonCompleted(vmopcondition.ReasonRestoreOperationInProgress)
 }
 
 func (o RestoreOperation) IsComplete(ctx context.Context) (bool, string, error) {

@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -48,7 +47,7 @@ func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecord
 }
 
 func (r VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
-	cb := conditions.NewConditionBuilder(vmrestorecondition.VirtualMachineRestoreReadyType)
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(r.vmop.Generation), &r.vmop.Status.Conditions) }()
 
 	if r.vmop.Spec.Restore == nil {

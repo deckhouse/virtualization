@@ -23,7 +23,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -31,11 +30,11 @@ func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VM
 	*phase = virtv2.VMOPPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
-		Reason(vmrestorecondition.VirtualMachineRestoreFailed).
+		Reason(vmopcondition.ReasonRestoreOperationFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonCompleted, msg string) {
+func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
 	*phase = virtv2.VMOPPhasePending
 	cb.
 		Status(metav1.ConditionFalse).
@@ -43,7 +42,7 @@ func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.V
 		Message(service.CapitalizeFirstLetter(msg) + ".")
 }
 
-func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonCompleted, msg string) {
+func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
 	*phase = virtv2.VMOPPhaseCompleted
 	cb.
 		Status(metav1.ConditionTrue).

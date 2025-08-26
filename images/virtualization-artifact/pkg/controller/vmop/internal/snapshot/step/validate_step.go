@@ -94,9 +94,8 @@ func (s ValidateStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*rec
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
+	common.FillResourcesStatuses(s.vmop, statuses)
 	if err != nil {
-		common.FillResourcesStatuses(s.vmop, statuses)
-
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
@@ -106,8 +105,7 @@ func (s ValidateStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*rec
 		return nil, nil
 	}
 
-	common.FillResourcesStatuses(s.vmop, statuses)
-	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreCompleted, "The virtual machine can be restored from the snapshot")
+	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine can be restored from the snapshot")
 
 	return &reconcile.Result{}, nil
 }
