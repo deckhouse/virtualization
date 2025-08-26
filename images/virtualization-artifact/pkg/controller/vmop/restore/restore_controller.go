@@ -36,6 +36,7 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, controllerName)
 	baseSvc := genericservice.NewBaseVMOPService(client, recorder)
 	svcOpCreator := handler.NewSvcOpCreator(client, recorder)
+
 	return &Controller{
 		watchers: []reconciler.Watcher{
 			watcher.NewVMWatcher(),

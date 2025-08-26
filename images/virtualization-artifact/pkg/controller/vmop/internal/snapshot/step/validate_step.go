@@ -57,7 +57,7 @@ func NewValidateStep(
 	}
 }
 
-func (s ValidateStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
+func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 

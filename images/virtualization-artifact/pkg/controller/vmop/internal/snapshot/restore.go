@@ -21,9 +21,11 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -47,7 +49,7 @@ func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecord
 	}
 }
 
-func (r VMSnapshotRestore) Sync(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
+func (r VMSnapshotRestore) Sync(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(r.vmop.Generation), &r.vmop.Status.Conditions) }()
 
@@ -62,6 +64,15 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vm *v1alpha2.VirtualMachine
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
+
+	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+	vm, err := object.FetchObject(ctx, vmKey, r.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		return reconcile.Result{}, err
+	}
+
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
@@ -75,5 +86,5 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vm *v1alpha2.VirtualMachine
 		step.NewBestEffortRestoreStep(r.client, r.recorder, cb, r.vmop),
 		step.NewStrictRestoreStep(r.client, r.recorder, cb, r.vmop),
 		step.NewExitMaintenanceStep(r.client, r.recorder, cb, r.vmop),
-	).Run(ctx, vm)
+	).Run(ctx, r.vmop)
 }

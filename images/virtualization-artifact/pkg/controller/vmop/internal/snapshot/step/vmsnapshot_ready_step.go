@@ -51,7 +51,7 @@ func NewVMSnapshotReadyStep(
 	}
 }
 
-func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
+func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	if s.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("the virtual machine snapshot name is empty")
 		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)

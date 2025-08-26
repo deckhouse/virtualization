@@ -57,7 +57,7 @@ func NewBestEffortRestoreStep(
 	}
 }
 
-func (s BestEffortRestoreStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
+func (s BestEffortRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	if s.vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeBestEffort {
 		return nil, nil
 	}

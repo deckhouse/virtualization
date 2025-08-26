@@ -18,12 +18,15 @@ package step
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -53,13 +56,19 @@ func NewExitMaintenanceStep(
 	}
 }
 
-func (s ExitMaintenanceStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachine) (*reconcile.Result, error) {
+func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	if s.vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
+
+	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
+	}
 
 	restoreCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, s.vmop.Status.Conditions)
 	if restoreCondition.Status != metav1.ConditionTrue {
@@ -73,7 +82,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vm *v1alpha2.VirtualMachi
 
 	conditions.RemoveCondition(vmcondition.TypeMaintenance, &vm.Status.Conditions)
 
-	err := s.client.Status().Update(ctx, vm)
+	err = s.client.Status().Update(ctx, vm)
 	if err != nil {
 		s.recorder.Event(
 			s.vmop,

@@ -29,7 +29,7 @@ import (
 )
 
 type restorer interface {
-	Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error)
+	Sync(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error)
 }
 
 func NewRestoreOperation(client client.Client, restorer restorer, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
@@ -47,13 +47,7 @@ type RestoreOperation struct {
 }
 
 func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
-	vm := &virtv2.VirtualMachine{}
-	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), vm)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return o.restore.Sync(ctx, vm)
+	return o.restore.Sync(ctx, o.vmop)
 }
 
 func (o RestoreOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
