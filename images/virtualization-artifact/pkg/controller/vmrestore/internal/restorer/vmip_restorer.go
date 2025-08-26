@@ -99,6 +99,10 @@ func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context)
 		return nil
 	}
 
+	if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+		return nil
+	}
+
 	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached || existed.Status.VirtualMachine != "" {
 		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
 	}

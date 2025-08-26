@@ -19,15 +19,14 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
-	"time"
+	context "context"
 
 	scheme "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/scheme"
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // ClusterVirtualImagesGetter has a method to return a ClusterVirtualImageInterface.
@@ -38,147 +37,34 @@ type ClusterVirtualImagesGetter interface {
 
 // ClusterVirtualImageInterface has methods to work with ClusterVirtualImage resources.
 type ClusterVirtualImageInterface interface {
-	Create(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.CreateOptions) (*v1alpha2.ClusterVirtualImage, error)
-	Update(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (*v1alpha2.ClusterVirtualImage, error)
-	UpdateStatus(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (*v1alpha2.ClusterVirtualImage, error)
+	Create(ctx context.Context, clusterVirtualImage *corev1alpha2.ClusterVirtualImage, opts v1.CreateOptions) (*corev1alpha2.ClusterVirtualImage, error)
+	Update(ctx context.Context, clusterVirtualImage *corev1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (*corev1alpha2.ClusterVirtualImage, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, clusterVirtualImage *corev1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (*corev1alpha2.ClusterVirtualImage, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha2.ClusterVirtualImage, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha2.ClusterVirtualImageList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1alpha2.ClusterVirtualImage, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1alpha2.ClusterVirtualImageList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.ClusterVirtualImage, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1alpha2.ClusterVirtualImage, err error)
 	ClusterVirtualImageExpansion
 }
 
 // clusterVirtualImages implements ClusterVirtualImageInterface
 type clusterVirtualImages struct {
-	client rest.Interface
+	*gentype.ClientWithList[*corev1alpha2.ClusterVirtualImage, *corev1alpha2.ClusterVirtualImageList]
 }
 
 // newClusterVirtualImages returns a ClusterVirtualImages
 func newClusterVirtualImages(c *VirtualizationV1alpha2Client) *clusterVirtualImages {
 	return &clusterVirtualImages{
-		client: c.RESTClient(),
+		gentype.NewClientWithList[*corev1alpha2.ClusterVirtualImage, *corev1alpha2.ClusterVirtualImageList](
+			"clustervirtualimages",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *corev1alpha2.ClusterVirtualImage { return &corev1alpha2.ClusterVirtualImage{} },
+			func() *corev1alpha2.ClusterVirtualImageList { return &corev1alpha2.ClusterVirtualImageList{} },
+		),
 	}
-}
-
-// Get takes name of the clusterVirtualImage, and returns the corresponding clusterVirtualImage object, and an error if there is any.
-func (c *clusterVirtualImages) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	result = &v1alpha2.ClusterVirtualImage{}
-	err = c.client.Get().
-		Resource("clustervirtualimages").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of ClusterVirtualImages that match those selectors.
-func (c *clusterVirtualImages) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.ClusterVirtualImageList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha2.ClusterVirtualImageList{}
-	err = c.client.Get().
-		Resource("clustervirtualimages").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested clusterVirtualImages.
-func (c *clusterVirtualImages) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("clustervirtualimages").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a clusterVirtualImage and creates it.  Returns the server's representation of the clusterVirtualImage, and an error, if there is any.
-func (c *clusterVirtualImages) Create(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.CreateOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	result = &v1alpha2.ClusterVirtualImage{}
-	err = c.client.Post().
-		Resource("clustervirtualimages").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(clusterVirtualImage).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a clusterVirtualImage and updates it. Returns the server's representation of the clusterVirtualImage, and an error, if there is any.
-func (c *clusterVirtualImages) Update(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	result = &v1alpha2.ClusterVirtualImage{}
-	err = c.client.Put().
-		Resource("clustervirtualimages").
-		Name(clusterVirtualImage.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(clusterVirtualImage).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *clusterVirtualImages) UpdateStatus(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	result = &v1alpha2.ClusterVirtualImage{}
-	err = c.client.Put().
-		Resource("clustervirtualimages").
-		Name(clusterVirtualImage.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(clusterVirtualImage).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the clusterVirtualImage and deletes it. Returns an error if one occurs.
-func (c *clusterVirtualImages) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("clustervirtualimages").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *clusterVirtualImages) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("clustervirtualimages").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched clusterVirtualImage.
-func (c *clusterVirtualImages) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.ClusterVirtualImage, err error) {
-	result = &v1alpha2.ClusterVirtualImage{}
-	err = c.client.Patch(pt).
-		Resource("clustervirtualimages").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

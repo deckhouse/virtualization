@@ -107,11 +107,18 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, err
 	}
 
+	var sc *storagev1.StorageClass
+	sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
+		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	}
 
 	switch {
@@ -291,6 +298,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
@@ -298,6 +308,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
 		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).

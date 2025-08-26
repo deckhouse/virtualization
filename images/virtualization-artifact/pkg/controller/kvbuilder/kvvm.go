@@ -501,6 +501,7 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 			Type: "q35",
 		}
 		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = nil
 		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
 			ACPI: virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
@@ -530,9 +531,12 @@ func (b *KVVM) GetOSSettings() map[string]interface{} {
 	}
 }
 
-func (b *KVVM) SetNetworkInterface(name string) {
-	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+func (b *KVVM) ClearNetworkInterfaces() {
+	b.Resource.Spec.Template.Spec.Networks = nil
+	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = nil
+}
 
+func (b *KVVM) SetNetworkInterface(name, macAddress string) {
 	net := virtv1.Network{
 		Name: name,
 		NetworkSource: virtv1.NetworkSource{
@@ -546,17 +550,28 @@ func (b *KVVM) SetNetworkInterface(name string) {
 		}, true,
 	)
 
+	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
+
 	iface := virtv1.Interface{
 		Name:  name,
 		Model: devPreset.InterfaceModel,
 	}
 	iface.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
-	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = array.SetArrayElem(
-		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface,
-		func(v1, v2 virtv1.Interface) bool {
-			return v1.Name == v2.Name
-		}, true,
-	)
+	if macAddress != "" {
+		iface.MacAddress = macAddress
+	}
+
+	ifaceExists := false
+	for _, i := range b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces {
+		if i.Name == name {
+			ifaceExists = true
+			break
+		}
+	}
+
+	if !ifaceExists {
+		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = append(b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface)
+	}
 }
 
 func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {

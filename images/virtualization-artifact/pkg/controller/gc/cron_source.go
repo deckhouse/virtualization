@@ -28,19 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
-
-var _ source.Source = &CronSource{}
 
 const sourceName = "CronSource"
 
@@ -58,6 +53,8 @@ func NewCronSource(c client.Client,
 		log:          log.With("WatchSource", sourceName),
 	}
 }
+
+var _ source.Source = &CronSource{}
 
 type CronSource struct {
 	client.Client
@@ -115,7 +112,7 @@ func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, maxCount int, lo
 	}
 }
 
-func (c *CronSource) Start(ctx context.Context, _ handler.EventHandler, queue workqueue.RateLimitingInterface, predicates ...predicate.Predicate) error {
+func (c *CronSource) Start(ctx context.Context, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) error {
 	schedule, err := cron.ParseStandard(c.standardSpec)
 	if err != nil {
 		return fmt.Errorf("parsing standard spec %q: %w", c.standardSpec, err)
@@ -142,14 +139,8 @@ func (c *CronSource) Start(ctx context.Context, _ handler.EventHandler, queue wo
 				c.log.Error(fmt.Sprintf("%s's type isn't metav1.Object", object.GetObjectKind().GroupVersionKind().String()))
 				return nil
 			}
-			genericEvent := event.GenericEvent{Object: obj}
-			for _, p := range predicates {
-				if !p.Generic(genericEvent) {
-					c.log.Debug(fmt.Sprintf("skip enqueue object %s/%s due to the predicate.", obj.GetNamespace(), obj.GetName()))
-					return nil
-				}
-			}
-			queue.Add(ctrl.Request{
+
+			queue.Add(reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: obj.GetNamespace(),
 					Name:      obj.GetName(),

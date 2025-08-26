@@ -76,6 +76,19 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 		})
+
+		It("should fill empty virtualMachineClassName with the default class name", func() {
+			defaultVMLabels := testCaseLabel
+			defaultVMLabels["vm"] = "default"
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Output:    "jsonpath='{.items[*].spec.virtualMachineClassName}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+			Expect(res.StdOut()).Should(ContainSubstring(config.DefaultVirtualMachineClassName), "should fill empty .spec.virtualMachineClassName value")
+		})
 	})
 
 	Context("When virtual images are applied", func() {

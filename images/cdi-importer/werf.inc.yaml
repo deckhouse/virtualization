@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   before: setup
@@ -31,9 +31,9 @@ binaries:
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -43,7 +43,7 @@ import:
   - sbin/blockdev
   - bin/mount
   - bin/umount
-- image: cdi-artifact
+- image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   before: setup
@@ -51,14 +51,12 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup
-- image: packages/binaries/nbdkit
-  add: /nbdkit
-  to: /nbdkit
-  before: install
+{{- $images := list "nbdkit" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -68,8 +66,12 @@ shell:
       {{ $cdiImporterDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   - |
-    cp -a /nbdkit/. /
-    rm -rf /nbdkit
+    echo "Install packages"
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   setup:
   - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate

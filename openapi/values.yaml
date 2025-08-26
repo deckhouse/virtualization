@@ -122,3 +122,11 @@ properties:
         properties:
           nodeCount:
             type: integer
+      moduleConfig:
+        type: object
+        additionalProperties: true
+      moduleConfigValidation:
+        type: object
+        properties:
+          error:
+            type: string

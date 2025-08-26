@@ -26,8 +26,6 @@ type VirtualDiskSnapshotExpansion interface{}
 
 type VirtualImageExpansion interface{}
 
-type VirtualMachineExpansion interface{}
-
 type VirtualMachineBlockDeviceAttachmentExpansion interface{}
 
 type VirtualMachineClassExpansion interface{}

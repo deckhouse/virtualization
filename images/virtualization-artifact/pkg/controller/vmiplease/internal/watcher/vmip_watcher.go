@@ -49,23 +49,20 @@ func NewVirtualMachineIPAddressWatcher(client client.Client) *VirtualMachineIPAd
 }
 
 func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachineIPAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineIPAddress]) bool { return false },
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineIPAddress: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
-	if !ok {
-		return nil
-	}
-
+func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (requests []reconcile.Request) {
 	var leases virtv2.VirtualMachineIPAddressLeaseList
 	err := w.client.List(ctx, &leases, &client.ListOptions{})
 	if err != nil {
@@ -82,7 +79,7 @@ func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, obj
 		}
 
 		vmipRef := lease.Spec.VirtualMachineIPAddressRef
-		if vmipRef != nil && vmipRef.Name == obj.GetName() && vmipRef.Namespace == obj.GetNamespace() {
+		if vmipRef != nil && vmipRef.Name == vmip.GetName() && vmipRef.Namespace == vmip.GetNamespace() {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: lease.Name},
 			})

@@ -17,14 +17,23 @@ limitations under the License.
 package service
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 )
+
+func TestHandlers(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service")
+}
 
 var _ = Describe("VirtualImageStorageClassService", func() {
 	var (
@@ -189,6 +198,84 @@ var _ = Describe("VirtualImageStorageClassService", func() {
 			_, err := service.GetValidatedStorageClass(ptr.To("not-allowed-storage-class"), clusterDefaultStorageClass)
 
 			Expect(err).To(Equal(ErrStorageClassNotAllowed))
+		})
+	})
+
+	Context("StorageProfileValidation", func() {
+		BeforeEach(func() {
+			service = NewVirtualImageStorageClassService(nil, config.VirtualImageStorageClassSettings{})
+		})
+		When("a storage profile has the volume mode `Filesystem` and the access mode `ReadWriteMany`", func() {
+			It("returns an error", func() {
+				sp := &cdiv1.StorageProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "FilesystemStorageClass",
+					},
+					Spec: cdiv1.StorageProfileSpec{},
+					Status: cdiv1.StorageProfileStatus{
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{
+								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+								VolumeMode:  ptr.To(v1.PersistentVolumeFilesystem),
+							},
+						},
+					},
+				}
+				err := service.ValidateClaimPropertySets(sp)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+		When("a storage profile has the volume mode `Block` and the access mode `ReadWriteMany`", func() {
+			It("does not return an error", func() {
+				sp := &cdiv1.StorageProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "BlockStorageClass",
+					},
+					Spec: cdiv1.StorageProfileSpec{},
+					Status: cdiv1.StorageProfileStatus{
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{
+								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+								VolumeMode:  ptr.To(v1.PersistentVolumeFilesystem),
+							},
+							{
+								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+								VolumeMode:  ptr.To(v1.PersistentVolumeBlock),
+							},
+							{
+								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+								VolumeMode:  ptr.To(v1.PersistentVolumeBlock),
+							},
+						},
+					},
+				}
+				err := service.ValidateClaimPropertySets(sp)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+		When("a storage profile has the volume mode `Block` and the access mode `ReadWriteOnce`", func() {
+			It("returns an error", func() {
+				sp := &cdiv1.StorageProfile{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "BlockStorageClass",
+					},
+					Spec: cdiv1.StorageProfileSpec{},
+					Status: cdiv1.StorageProfileStatus{
+						ClaimPropertySets: []cdiv1.ClaimPropertySet{
+							{
+								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+								VolumeMode:  ptr.To(v1.PersistentVolumeBlock),
+							},
+							{
+								AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteMany},
+								VolumeMode:  ptr.To(v1.PersistentVolumeFilesystem),
+							},
+						},
+					},
+				}
+				err := service.ValidateClaimPropertySets(sp)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })

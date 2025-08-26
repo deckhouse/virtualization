@@ -1,4 +1,4 @@
-{{- if (.Values.global.enabledModules | has "cni-cilium") }}
+{{- if eq (include "vm-route-forge.isEnabled" .) "true"}}
 ---
 apiVersion: v1
 kind: ServiceAccount

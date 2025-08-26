@@ -75,7 +75,6 @@ func buildProxyCommandOption(cmd *cobra.Command, namespace, name string, port in
 	for i := 1; i <= len(parents); i++ {
 		pcmd.WriteString(parents[len(parents)-i])
 		pcmd.WriteString(" ")
-
 	}
 
 	proxyCommand := strings.Builder{}

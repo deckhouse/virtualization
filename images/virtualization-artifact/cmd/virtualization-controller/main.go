@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	"github.com/spf13/pflag"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -33,6 +33,7 @@ import (
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -57,6 +58,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
@@ -72,6 +74,7 @@ const (
 	logOutputEnv              = "LOG_OUTPUT"
 
 	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
+	healthProbeBindAddrEnv                     = "HEALTH_PROBE_BIND_ADDRESS"
 	podNamespaceEnv                            = "POD_NAMESPACE"
 	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
@@ -79,11 +82,14 @@ const (
 
 	FirmwareImageEnv      = "FIRMWARE_IMAGE"
 	VirtControllerNameEnv = "VIRT_CONTROLLER_NAME"
+
+	SdnEnabledEnv  = "SDN_ENABLED"
+	clusterUUIDEnv = "CLUSTER_UUID"
 )
 
 func main() {
 	var logLevel string
-	flag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
+	pflag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
 
 	var err error
 	var defaultDebugVerbosity int64
@@ -105,24 +111,36 @@ func main() {
 	}
 
 	var logDebugVerbosity int
-	flag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
+	pflag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
 
 	var logOutput string
-	flag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
+	pflag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
 
 	var pprofBindAddr string
-	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
+	pflag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
 
 	var metricsBindAddr string
-	flag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
+	pflag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
+
+	var healthProbeBindAddr string
+	pflag.StringVar(&healthProbeBindAddr, "health-probe-bind-address", getEnv(healthProbeBindAddrEnv, ":8083"), "health probe bind address")
 
 	var firmwareImage string
-	flag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
+	pflag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
 
 	var virtControllerName string
-	flag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
+	pflag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
 
-	flag.Parse()
+	var clusterUUID string
+	pflag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
+
+	var leaderElection bool
+	pflag.BoolVar(&leaderElection, "leader-election", true, "Leader election")
+
+	pflag.NewFlagSet("feature-gates", pflag.ExitOnError)
+	featuregates.AddFlags(pflag.CommandLine)
+
+	pflag.Parse()
 
 	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)
@@ -158,6 +176,12 @@ func main() {
 	}
 
 	gcSettings, err := appconfig.LoadGcSettings()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	clusterSubnets, err := appconfig.LoadClusterSubnetsFromEnvs()
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -201,9 +225,13 @@ func main() {
 		}
 	}
 
+	if !leaderElection {
+		log.Warn("Leader election is disabled, use only for development")
+	}
+
 	managerOpts := manager.Options{
 		// This controller watches resources in all namespaces.
-		LeaderElection:             true,
+		LeaderElection:             leaderElection,
 		LeaderElectionNamespace:    leaderElectionNS,
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
@@ -211,6 +239,7 @@ func main() {
 		Metrics: metricsserver.Options{
 			BindAddress: metricsBindAddr,
 		},
+		HealthProbeBindAddress: healthProbeBindAddr,
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
@@ -239,6 +268,11 @@ func main() {
 	virtClient, err := kubeclient.GetClientFromRESTConfig(cfg)
 	if err != nil {
 		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Error("Failed to add healthz check", logger.SlogErr(err))
 		os.Exit(1)
 	}
 
@@ -283,7 +317,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage); err != nil {
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage, clusterUUID); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -350,7 +384,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = mc.SetupWebhookWithManager(mgr); err != nil {
+	if err = mc.SetupWebhookWithManager(mgr, clusterSubnets); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

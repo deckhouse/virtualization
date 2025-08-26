@@ -88,6 +88,10 @@ const (
 	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
 	// VirtualDiskSnapshotNotReady indicates that the `VirtualDiskSnapshot` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskSnapshotNotReady DatasourceReadyReason = "VirtualDiskSnapshot"
+	// ImageNotFound indicates that the `VirtualImage` datasource is not found, which prevents the import process from starting.
+	ImageNotFound DatasourceReadyReason = "ImageNotFound"
+	// ClusterImageNotFound indicates that the `ClusterVirtualImage` datasource is not found, which prevents the import process from starting.
+	ClusterImageNotFound DatasourceReadyReason = "ClusterImageNotFound"
 
 	// WaitForUserUpload indicates that the `VirtualDisk` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
@@ -103,12 +107,16 @@ const (
 	Ready ReadyReason = "Ready"
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
 	Lost ReadyReason = "PVCLost"
+	// Exporting indicates that the VirtualDisk is being exported.
+	Exporting ReadyReason = "Exporting"
 	// QuotaExceeded indicates that the VirtualDisk is reached project quotas and can not be provisioned.
 	QuotaExceeded ReadyReason = "QuotaExceeded"
 	// ImagePullFailed indicates that there was an issue with importing from DVCR.
 	ImagePullFailed ReadyReason = "ImagePullFailed"
 	// DatasourceIsNotReady indicates that Datasource is not ready for provisioning.
 	DatasourceIsNotReady ReadyReason = "DatasourceIsNotReady"
+	// DatasourceIsNotFound indicates that Datasource is not found.
+	DatasourceIsNotFound ReadyReason = "DatasourceIsNotFound"
 	// StorageClassIsNotReady indicates that Storage class is not ready.
 	StorageClassIsNotReady ReadyReason = "StorageClassIsNotReady"
 
@@ -153,6 +161,8 @@ the `InUse` condition's reason to `AttachedToVirtualMachine`.
 const (
 	// UsedForImageCreation indicates that the VirtualDisk is used for create image.
 	UsedForImageCreation InUseReason = "UsedForImageCreation"
+	// UsedForDataExport indicates that the VirtualDisk is used for data export.
+	UsedForDataExport InUseReason = "UsedForDataExport"
 	// AttachedToVirtualMachine indicates that the VirtualDisk is attached to VirtualMachine.
 	AttachedToVirtualMachine InUseReason = "AttachedToVirtualMachine"
 	// NotInUse indicates that VirtualDisk free for use.

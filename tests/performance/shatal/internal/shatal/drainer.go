@@ -67,7 +67,7 @@ func (s *Drainer) Run(ctx context.Context) {
 	}
 
 	if s.once {
-		s.drainNode(node)
+		s.drainNode(ctx, node)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (s *Drainer) Run(ctx context.Context) {
 				return
 			}
 
-			s.drainNode(node)
+			s.drainNode(ctx, node)
 
 			select {
 			case <-time.After(s.interval):
@@ -107,29 +107,29 @@ func (s *Drainer) getNodeName() (string, error) {
 	return "", errors.New("no nodes to drain")
 }
 
-func (s *Drainer) drainNode(node string) {
+func (s *Drainer) drainNode(ctx context.Context, node string) {
 	s.nodes[node].Lock()
 	s.logger.Info(fmt.Sprintf("Drain: %s", node))
 
-	err := s.api.CordonNode(context.Background(), node)
+	err := s.api.CordonNode(ctx, node)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return
 	}
 
-	err = s.api.DrainNode(context.Background(), node)
+	err = s.api.DrainNode(ctx, node)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return
 	}
 
-	err = s.api.UnCordonNode(context.Background(), node)
+	err = s.api.UnCordonNode(ctx, node)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return
 	}
 
-	vms, err := s.api.GetVMs(context.Background())
+	vms, err := s.api.GetVMs(ctx)
 	if err != nil {
 		s.logger.Error(err.Error())
 		return

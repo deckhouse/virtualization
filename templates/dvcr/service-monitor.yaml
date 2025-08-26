@@ -1,3 +1,4 @@
+{{- if eq (include "dvcr.isEnabled" . ) "true"}}
 {{- if (.Values.global.enabledModules | has "operator-prometheus-crd") }}
 ---
 apiVersion: monitoring.coreos.com/v1
@@ -23,4 +24,5 @@ spec:
     matchLabels:
       app: "dvcr"
 
+{{- end }}
 {{- end }}

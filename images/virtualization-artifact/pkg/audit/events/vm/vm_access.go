@@ -17,6 +17,8 @@ limitations under the License.
 package vm
 
 import (
+	"fmt"
+
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -80,9 +82,7 @@ func (m *VMAccess) Fill() error {
 		m.eventLog.Name = "Access to VM via portforward"
 	}
 
-	if m.event.Stage == audit.StageRequestReceived {
-		m.eventLog.Name = "Request " + m.eventLog.Name
-	}
+	m.eventLog.Name = fmt.Sprintf("%s: %s", m.eventLog.Name, m.event.Stage)
 
 	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {

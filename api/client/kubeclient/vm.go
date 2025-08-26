@@ -45,16 +45,12 @@ type vm struct {
 	resource   string
 }
 
-type SerialConsoleOptions struct {
-	ConnectionTimeout time.Duration
-}
-
 type connectionStruct struct {
-	con StreamInterface
+	con virtualizationv1alpha2.StreamInterface
 	err error
 }
 
-func (v vm) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
+func (v vm) SerialConsole(name string, options *virtualizationv1alpha2.SerialConsoleOptions) (virtualizationv1alpha2.StreamInterface, error) {
 	if options != nil && options.ConnectionTimeout != 0 {
 		ticker := time.NewTicker(options.ConnectionTimeout)
 		connectionChan := make(chan connectionStruct)
@@ -96,11 +92,11 @@ func (v vm) SerialConsole(name string, options *SerialConsoleOptions) (StreamInt
 	}
 }
 
-func (v vm) VNC(name string) (StreamInterface, error) {
+func (v vm) VNC(name string) (virtualizationv1alpha2.StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
 }
 
-func (v vm) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error) {
+func (v vm) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error) {
 	params := url.Values{}
 	if opts.Port > 0 {
 		params.Add("port", strconv.Itoa(opts.Port))

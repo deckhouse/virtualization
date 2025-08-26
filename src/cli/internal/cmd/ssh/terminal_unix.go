@@ -39,7 +39,9 @@ func setupTerminal() (func(), error) {
 		return nil, err
 	}
 
-	return func() { term.Restore(fd, state) }, nil
+	return func() {
+		_ = term.Restore(fd, state)
+	}, nil
 }
 
 func requestPty(session *ssh.Session) error {
@@ -67,7 +69,7 @@ func resizeSessionOnWindowChange(session *ssh.Session, _ uintptr) {
 	signal.Notify(sigs, syscall.SIGWINCH)
 
 	for range sigs {
-		session.SendRequest("window-change", false, windowSizePayloadFor())
+		_, _ = session.SendRequest("window-change", false, windowSizePayloadFor())
 	}
 }
 

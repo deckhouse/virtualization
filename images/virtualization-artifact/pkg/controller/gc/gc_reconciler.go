@@ -96,6 +96,6 @@ func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, l
 			LogConstructor:   logger.NewConstructor(log),
 			CacheSyncTimeout: 10 * time.Minute,
 		}).
-		WatchesRawSource(r.watchSource, nil).
+		WatchesRawSource(r.watchSource).
 		Complete(r)
 }

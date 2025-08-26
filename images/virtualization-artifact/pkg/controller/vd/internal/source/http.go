@@ -104,6 +104,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
+		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+	}
+
+	var sc *storagev1.StorageClass
+	sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	switch {
@@ -245,11 +252,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		var sc *storagev1.StorageClass
-		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -264,6 +266,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
@@ -271,6 +276,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
 		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
@@ -302,7 +310,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
@@ -313,7 +320,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {

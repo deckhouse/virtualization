@@ -49,30 +49,28 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return w.hasVirtualImageRef(e.Object)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+					return w.hasVirtualImageRef(e.Object)
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool {
+					return w.hasVirtualImageRef(e.Object)
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+					return w.hasVirtualImageRef(e.ObjectOld) || w.hasVirtualImageRef(e.ObjectNew)
+				},
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return w.hasVirtualImageRef(e.Object)
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return w.hasVirtualImageRef(e.ObjectOld) || w.hasVirtualImageRef(e.ObjectNew)
-			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
-		return
-	}
-
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
 	for _, ref := range vm.Status.BlockDeviceRefs {
 		if ref.Kind != virtv2.ImageDevice {
 			continue
@@ -102,13 +100,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	return
 }
 
-func (w VirtualMachineWatcher) hasVirtualImageRef(obj client.Object) bool {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
-		return false
-	}
-
+func (w VirtualMachineWatcher) hasVirtualImageRef(vm *virtv2.VirtualMachine) bool {
 	for _, ref := range vm.Spec.BlockDeviceRefs {
 		if ref.Kind == virtv2.ImageDevice {
 			return true

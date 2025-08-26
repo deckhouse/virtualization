@@ -1,33 +1,22 @@
 {{- define "parse_base_images_map" }}
-  {{- $virtualizationImages := .Files.Get "base-images/virtualization_images.yml" | fromYaml }}
-  {{- $deckhouseImages := .Files.Get "base-images/deckhouse_images.yml" | fromYaml }}
-  
-  # virtualizationImages have image format:
-  # BASE_IMAGE: "<image_name>@sha256abcde12345
-  {{- range $k, $v := $virtualizationImages }}
-    {{ $baseImagePath := (printf "%s%s" $virtualizationImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $virtualizationImages $k $baseImagePath }}
-    {{- end }}
-  {{- end }}
-  {{- $_ := unset $virtualizationImages "REGISTRY_PATH" }}
-  
+{{-   $deckhouseImages := .Files.Get "build/base-images/deckhouse_images.yml" | fromYaml }}
+{{/*
   # deckhouse_images has a format
   # <prefix>/<name>: "sha256:abcde12345
-  {{- range $k, $v := $deckhouseImages }}
-    {{ $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $deckhouseImages $k $baseImagePath }}
-    {{- end }}
-  {{- end }}
-  {{- $_ := unset $deckhouseImages "REGISTRY_PATH" }}
-
-  {{- $_ := set . "Images" (mustMerge $virtualizationImages $deckhouseImages) }}
-  # base images artifacts
-  {{- range $k, $v := .Images }}
+*/}}
+{{-   range $k, $v := $deckhouseImages }}
+{{     $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
+{{-     if ne $k "REGISTRY_PATH" }}
+{{-       $_ := set $deckhouseImages $k $baseImagePath }}
+{{-     end }}
+{{-   end }}
+{{-   $_ := unset $deckhouseImages "REGISTRY_PATH" }}
+{{-   $_ := set . "Images" (mustMerge $deckhouseImages) }}
+{{/* # base images artifacts */}}
+{{-   range $k, $v := .Images }}
 ---
 image: {{ $k }}
 from: {{ $v }}
 final: false
-  {{- end }}
+{{-   end }}
 {{- end }}

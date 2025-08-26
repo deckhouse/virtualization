@@ -74,6 +74,9 @@ func (v *VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+			return nil
+		}
 		return fmt.Errorf("the virtual disk %q %w", vdKey.Name, ErrAlreadyExists)
 	}
 

@@ -90,6 +90,20 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	if moduleStorageClass != nil {
+		storageProfile, err := h.svc.GetStorageProfile(ctx, moduleStorageClass.Name)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("get storage profile for the storage profile specified in the module config: %w", err)
+		}
+
+		err = h.svc.ValidateClaimPropertySets(storageProfile)
+		if err != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.StorageClassNotReady).
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 		h.setFromModuleSettings(vi, moduleStorageClass, cb)
 		return reconcile.Result{}, nil
 	}
@@ -101,6 +115,20 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	if defaultStorageClass != nil {
+		storageProfile, err := h.svc.GetStorageProfile(ctx, defaultStorageClass.Name)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("get storage profile for the storage class specified in the global config: %w", err)
+		}
+
+		err = h.svc.ValidateClaimPropertySets(storageProfile)
+		if err != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.StorageClassNotReady).
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 		h.setFromDefault(vi, defaultStorageClass, cb)
 		return reconcile.Result{}, nil
 	}
@@ -126,7 +154,24 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 
 	sc, err := h.svc.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
 	if err != nil {
-		return fmt.Errorf("get storage class specified in spec: %w", err)
+		return fmt.Errorf("get storage class specified in the spec: %w", err)
+	}
+
+	if sc != nil {
+		sp, err := h.svc.GetStorageProfile(ctx, sc.Name)
+		if err != nil {
+			return fmt.Errorf("get storage profile for the storage class specified in the spec: %w", err)
+		}
+
+		err = h.svc.ValidateClaimPropertySets(sp)
+		if err != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.StorageClassNotReady).
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+			return nil
+		}
 	}
 
 	if h.svc.IsStorageClassDeprecated(sc) {

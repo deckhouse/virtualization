@@ -17,7 +17,6 @@ limitations under the License.
 package powerstate
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -112,18 +111,18 @@ func TestRestartVM(t *testing.T) {
 			require.NoError(t, err)
 
 			oldKVVM := &virtv1.VirtualMachine{}
-			err = c.Get(context.Background(), key, oldKVVM)
+			err = c.Get(t.Context(), key, oldKVVM)
 			require.NoError(t, err)
 
 			oldKVVMI := &virtv1.VirtualMachineInstance{}
-			err = c.Get(context.Background(), key, oldKVVMI)
+			err = c.Get(t.Context(), key, oldKVVMI)
 			require.NoError(t, err)
 
-			err = RestartVM(context.Background(), c, oldKVVM, oldKVVMI, tt.force)
+			err = RestartVM(t.Context(), c, oldKVVM, oldKVVMI, tt.force)
 			require.NoError(t, err)
 
 			newKVVM := &virtv1.VirtualMachine{}
-			err = c.Get(context.Background(), key, newKVVM)
+			err = c.Get(t.Context(), key, newKVVM)
 			require.NoError(t, err)
 
 			require.NotEmpty(t, newKVVM.Status.StateChangeRequests)
@@ -134,7 +133,7 @@ func TestRestartVM(t *testing.T) {
 			require.Equal(t, virtv1.StartRequest, newKVVM.Status.StateChangeRequests[1].Action)
 
 			pod := &corev1.Pod{}
-			err = c.Get(context.Background(), key, pod)
+			err = c.Get(t.Context(), key, pod)
 			if tt.force {
 				require.Error(t, err)
 				require.True(t, k8serrors.IsNotFound(err))

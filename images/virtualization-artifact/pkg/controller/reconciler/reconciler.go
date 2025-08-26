@@ -20,13 +20,25 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
+type Handler[T client.Object] interface {
+	Handle(ctx context.Context, obj T) (reconcile.Result, error)
+	Name() string
+}
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
 type ResourceUpdater func(ctx context.Context) error
 
 type HandlerExecutor[H any] func(ctx context.Context, h H) (reconcile.Result, error)
@@ -73,7 +85,7 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 		case err == nil: // OK.
 		case k8serrors.IsConflict(err):
 			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
-			result.Requeue = true
+			result.RequeueAfter = 100 * time.Microsecond
 		default:
 			log.Error("The handler failed with an error", logger.SlogErr(err))
 			errs = errors.Join(errs, err)
@@ -87,7 +99,7 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 	case err == nil: // OK.
 	case k8serrors.IsConflict(err):
 		logger.FromContext(ctx).Debug("Conflict occurred during resource update", logger.SlogErr(err))
-		result.Requeue = true
+		result.RequeueAfter = 100 * time.Microsecond
 	default:
 		logger.FromContext(ctx).Error("Failed to update resource", logger.SlogErr(err))
 		errs = errors.Join(errs, err)
@@ -98,6 +110,7 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 		return reconcile.Result{}, errs
 	}
 
+	//nolint:staticcheck // logging
 	logger.FromContext(ctx).Debug("Reconciliation was successfully completed", "requeue", result.Requeue, "after", result.RequeueAfter)
 
 	return result, nil

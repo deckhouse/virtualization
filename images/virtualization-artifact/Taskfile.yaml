@@ -52,7 +52,7 @@ tasks:
     desc: "Run go unit tests"
     cmds:
       - |
-        ginkgo -v -r pkg/
+        go tool ginkgo -v -r pkg/
 
   lint:
     desc: "Run linters locally"
@@ -65,7 +65,7 @@ tasks:
       - _ensure:golangci-lint
     cmds:
       - |
-        golangci-lint run --sort-results
+        golangci-lint run
 
   mirrord:run:controller:
     desc: "Run local virtualization-controller in cluster using a mirrord"

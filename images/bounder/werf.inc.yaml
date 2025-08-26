@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: {{ $.ImageName }}-cbuilder
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
     add: /bins
     to: /usr/local/bin
     after: setup
@@ -10,12 +10,12 @@ imageSpec:
   config:
     cmd: ["hello_bounder"]
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
-    to: /
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
+    to: /static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -26,6 +26,7 @@ shell:
   {{- include "debian packages clean" . | nindent 2 }}
   install:
   - |
+    cd /static_binaries
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello_bounder hello_bounder.c

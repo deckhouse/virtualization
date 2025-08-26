@@ -43,6 +43,8 @@ const (
 	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
 	// TypeNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	TypeNeedsEvict Type = "NeedsEvict"
+
+	TypeNetworkReady Type = "NetworkReady"
 )
 
 type Reason string
@@ -90,6 +92,7 @@ const (
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
 	ReasonPodNotStarted                  Reason = "PodNotStarted"
+	ReasonMigrationIsPending             Reason = "MigrationIsPending"
 
 	// 	ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
 	ReasonFilesystemFrozen Reason = "Frozen"
@@ -116,4 +119,8 @@ const (
 
 	// ReasonNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	ReasonNeedsEvict Reason = "NeedsEvict"
+
+	ReasonNetworkReady     Reason = "NetworkReady"
+	ReasonNetworkNotReady  Reason = "NetworkNotReady"
+	ReasonSDNModuleDisable Reason = "SDNModuleDisable"
 )

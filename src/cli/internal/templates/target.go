@@ -80,17 +80,18 @@ type RemoteSCPArgument struct {
 	Path      string
 }
 
-func ParseSCPArguments(arg1 string, arg2 string) (local LocalSCPArgument, remote RemoteSCPArgument, toRemote bool, err error) {
+func ParseSCPArguments(arg1, arg2 string) (local LocalSCPArgument, remote RemoteSCPArgument, toRemote bool, err error) {
 	remoteArg := arg1
 	localArg := arg2
 	toRemote = false
-	if strings.Contains(arg1, ":") && strings.Contains(arg2, ":") {
+	switch {
+	case strings.Contains(arg1, ":") && strings.Contains(arg2, ":"):
 		err = fmt.Errorf("copying from a remote location to another remote location is not supported: %q to %q", arg1, arg2)
 		return
-	} else if !strings.Contains(arg1, ":") && !strings.Contains(arg2, ":") {
+	case !strings.Contains(arg1, ":") && !strings.Contains(arg2, ":"):
 		err = fmt.Errorf("none of the two provided locations seems to be a remote location: %q to %q", arg1, arg2)
 		return
-	} else if strings.Contains(localArg, ":") {
+	case strings.Contains(localArg, ":"):
 		remoteArg = arg2
 		localArg = arg1
 		toRemote = true

@@ -42,3 +42,23 @@ spec:
   {{- else -}}4
   {{- end -}}
 {{- end -}}
+
+{{- define "kubevirt.delve_strategic_patch" -}}
+{{- $image := index . 0 }}
+spec:
+  template:
+    spec:
+      containers:
+      - name: {{ printf "%s" ( split "/" $image)._1 }}
+        command: null
+        livenessProbe: null
+        readinessProbe: null
+        ports:
+        - containerPort: 2345
+          name: tcp-dlv-2345
+          protocol: TCP
+{{- end -}}
+
+{{- define "kubevirt.delve_strategic_patch_json" -}}
+'{{ include "kubevirt.delve_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}

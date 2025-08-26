@@ -18,10 +18,10 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -41,48 +42,43 @@ func NewVirtualMachinesWatcher() *VirtualMachinesWatcher {
 }
 
 func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			vm, ok := obj.(*virtv2.VirtualMachine)
-			if !ok {
-				return nil
-			}
+	mgrClient := mgr.GetClient()
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+				vmClassName := vm.Spec.VirtualMachineClassName
+				vmc, err := object.FetchObject(ctx, types.NamespacedName{
+					Name: vmClassName,
+				}, mgrClient, &virtv2.VirtualMachineClass{})
 
-			c := mgr.GetClient()
+				if vmc == nil {
+					return nil
+				}
 
-			vmClassName := vm.Spec.VirtualMachineClassName
-			vmc, err := object.FetchObject(ctx, types.NamespacedName{
-				Name: vmClassName,
-			}, c, &virtv2.VirtualMachineClass{})
+				if err != nil {
+					slog.Default().Error("failed to fetch virtual machine class", slog.String("vmClassName", vmClassName), logger.SlogErr(err))
+					return nil
+				}
 
-			if vmc == nil {
-				return nil
-			}
-
-			if err != nil {
-				slog.Default().Error("failed to fetch virtual machine class %s: %q", vmClassName, err)
-				return nil
-			}
-
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name: vmc.Name,
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name: vmc.Name,
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+					return false
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(createEvent event.CreateEvent) bool {
-				return false
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+					return false
+				},
 			},
-			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
-				return false
-			},
-			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-				return true
-			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VMs: %w", err)
+	}
+	return nil
 }

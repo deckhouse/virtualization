@@ -1,0 +1,86 @@
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc gcc-c++
+- git pkg-config meson cmake
+- libunwind-devel libelf-devel libffi-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "GNOME/glib.git" }}
+
+{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
+{{- if eq .ModuleNamePrefix "" }}
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /glib2
+  before: setup
+
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2}}
+  - apt-get install -y meson
+  {{- include "alt packages clean" . | nindent 2}}
+
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    if [[ ! "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      # Clone meson wraps with url rewrite.
+      # Configure script options require only 3 subprojects.
+      cd /src
+      for subproj in gvdb libffi sysprof ; do
+        echo "Rewrite url for ${subproj} subproject."
+        wrapfile="subprojects/${subproj}.wrap"
+        # Rewrite https://HOSTNAME/ to SOURCE_REPO secret in the wrap file.
+        sed -i '/^#/n ; /^url/ s|\(url\ \?=\ \?\)\(.*:\/\/[^\/]*\/\)|\1'$(cat /run/secrets/SOURCE_REPO)'\/|' ${wrapfile}
+        meson subprojects download ${subproj}
+      done
+    fi
+
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+
+    cd /src
+
+    meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
+    meson compile -C _build
+    meson install -C _build
+
+{{- end}}

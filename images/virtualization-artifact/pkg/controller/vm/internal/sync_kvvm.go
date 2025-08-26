@@ -47,11 +47,12 @@ import (
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
-func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder eventrecord.EventRecorderLogger) *SyncKvvmHandler {
+func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder eventrecord.EventRecorderLogger, clusterUUID string) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
 		dvcrSettings: dvcrSettings,
 		client:       client,
 		recorder:     recorder,
+		clusterUUID:  clusterUUID,
 	}
 }
 
@@ -59,6 +60,7 @@ type SyncKvvmHandler struct {
 	client       client.Client
 	recorder     eventrecord.EventRecorderLogger
 	dvcrSettings *dvcr.Settings
+	clusterUUID  string
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -383,7 +385,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address, h.clusterUUID)
 	if err != nil {
 		return nil, err
 	}

@@ -20,7 +20,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 const (
 	VirtualMachineIPAddressLeaseKind     = "VirtualMachineIPAddressLease"
-	VirtualMachineIPAddressLeaseResource = "virtualmachineipaddresleases"
+	VirtualMachineIPAddressLeaseResource = "virtualmachineipaddressleases"
 )
 
 // VirtualMachineIPAddressLease defines fact of issued lease for `VirtualMachineIPAddress`.

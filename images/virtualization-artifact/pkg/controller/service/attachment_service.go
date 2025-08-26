@@ -149,8 +149,8 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
-	if vm == nil {
+func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
+	if vm == nil || kvvm == nil {
 		return false
 	}
 

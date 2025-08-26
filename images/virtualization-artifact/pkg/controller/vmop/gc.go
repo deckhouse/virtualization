@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -56,11 +57,7 @@ func SetupGC(
 			if !ok {
 				return false
 			}
-			return vmopIsFinal(vmop)
+			return commonvmop.IsFinished(vmop)
 		},
 	)
-}
-
-func vmopIsFinal(vmop *virtv2.VirtualMachineOperation) bool {
-	return vmop.Status.Phase == virtv2.VMOPPhaseCompleted || vmop.Status.Phase == virtv2.VMOPPhaseFailed
 }

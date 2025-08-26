@@ -24,7 +24,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . EventRecorder BlockDeviceService
+//go:generate go tool moq -rm -out mock.go . EventRecorder BlockDeviceService
 
 type EventRecorder = record.EventRecorder
 

@@ -53,9 +53,6 @@ const (
 	// ReasonNotReadyToBeExecuted is a ReasonCompleted indicating that the operation is not ready to be executed.
 	ReasonNotReadyToBeExecuted ReasonCompleted = "NotReadyToBeExecuted"
 
-	// ReasonReadyToBeExecuted is a ReasonCompleted indicating that the operation is ready to be executed.
-	ReasonReadyToBeExecuted ReasonCompleted = "ReadyToBeExecuted"
-
 	// ReasonRestartInProgress is a ReasonCompleted indicating that the restart signal has been sent and restart is in progress.
 	ReasonRestartInProgress ReasonCompleted = "RestartInProgress"
 
@@ -79,6 +76,9 @@ const (
 
 	// ReasonOtherMigrationInProgress is a ReasonCompleted indicating that there are other migrations in progress.
 	ReasonOtherMigrationInProgress ReasonCompleted = "OtherMigrationInProgress"
+
+	// ReasonQuotaExceeded is a completed reason that indicates the project's quota has been exceeded and the migration has been paused.
+	ReasonQuotaExceeded ReasonCompleted = "QuotaExceeded"
 
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
 	ReasonOperationFailed ReasonCompleted = "OperationFailed"

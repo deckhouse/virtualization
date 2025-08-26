@@ -1,0 +1,9 @@
+core:
+  fixes:
+    - summary: Refactor build libidn and libidn2
+      pull_request: https://github.com/deckhouse/virtualization/pull/1347
+    - summary: use self-build packages instead alt package
+      pull_request: https://github.com/deckhouse/virtualization/pull/1342
+    - summary: enable packages for deckhouse embeded build
+      pull_request: https://github.com/deckhouse/virtualization/pull/1341
+

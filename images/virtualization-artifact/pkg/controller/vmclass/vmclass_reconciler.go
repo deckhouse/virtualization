@@ -58,10 +58,13 @@ type Reconciler struct {
 	handlers            []Handler
 }
 
-func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(),
-		&virtv2.VirtualMachineClass{}),
-		&handler.EnqueueRequestForObject{}); err != nil {
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(),
+			&virtv2.VirtualMachineClass{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineClass]{},
+		),
+	); err != nil {
 		return fmt.Errorf("error setting watch on VMClass: %w", err)
 	}
 

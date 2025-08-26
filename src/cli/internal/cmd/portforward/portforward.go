@@ -26,13 +26,11 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 
-	"github.com/spf13/cobra"
-
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
-
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
@@ -145,7 +143,7 @@ func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPo
 	}
 
 	klog.V(3).Infof("forwarding to %s/%s:%d", namespace, name, port.remote)
-	if err := streamer.Stream(kubeclient.StreamOptions{
+	if err := streamer.Stream(virtualizationv1alpha2.StreamOptions{
 		In:  os.Stdin,
 		Out: os.Stdout,
 	}); err != nil {

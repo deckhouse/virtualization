@@ -10,4 +10,4 @@ patches:
         value: Automatic
     target:
       kind: VirtualMachine
-      name: vm-exists
+      name: vm

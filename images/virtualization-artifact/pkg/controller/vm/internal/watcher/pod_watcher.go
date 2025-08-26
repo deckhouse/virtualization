@@ -22,7 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -30,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 func NewPodWatcher() *PodWatcher {
@@ -42,31 +43,33 @@ func (w *PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error
 	// Watch for Pods created on behalf of VMs. Handle only changes in status.phase.
 	// Pod tracking is required to detect when Pod becomes Completed after guest initiated reset or shutdown.
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &corev1.Pod{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, pod client.Object) []reconcile.Request {
-			vmName, hasLabel := pod.GetLabels()["vm.kubevirt.io/name"]
-			if !hasLabel {
-				return nil
-			}
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.Pod{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, pod *corev1.Pod) []reconcile.Request {
+				vmName, hasLabel := pod.GetLabels()["vm.kubevirt.io/name"]
+				if !hasLabel {
+					return nil
+				}
 
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      vmName,
-						Namespace: pod.GetNamespace(),
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmName,
+							Namespace: pod.GetNamespace(),
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*corev1.Pod]{
+				CreateFunc: func(e event.TypedCreateEvent[*corev1.Pod]) bool { return true },
+				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Pod]) bool { return true },
+				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Pod]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
+						e.ObjectOld.Annotations[annotations.AnnNetworksStatus] != e.ObjectNew.Annotations[annotations.AnnNetworksStatus]
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldPod := e.ObjectOld.(*corev1.Pod)
-				newPod := e.ObjectNew.(*corev1.Pod)
-				return oldPod.Status.Phase != newPod.Status.Phase
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}

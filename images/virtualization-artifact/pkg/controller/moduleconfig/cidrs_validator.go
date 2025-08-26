@@ -25,31 +25,44 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
 
 type cidrsValidator struct {
-	client client.Client
+	client         client.Client
+	clusterSubnets *appconfig.ClusterSubnets
 }
 
-func newCIDRsValidator(client client.Client) *cidrsValidator {
+func newCIDRsValidator(client client.Client, clusterSubnets *appconfig.ClusterSubnets) *cidrsValidator {
 	return &cidrsValidator{
-		client: client,
+		client:         client,
+		clusterSubnets: clusterSubnets,
 	}
 }
 
 func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
-	CIDRs, err := parseCIDRs(newMC.Spec.Settings)
+	cidrs, err := ParseCIDRs(newMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
 
-	err = checkOverlapsCIDRs(CIDRs)
+	err = CheckCIDRsOverlap(cidrs)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
 
-	err = v.checkNodeSubnets(ctx, CIDRs)
+	err = v.checkOverlapWithNodeAddresses(ctx, cidrs)
+	if err != nil {
+		return admission.Warnings{}, err
+	}
+
+	err = CheckCIDRsOverlapWithPodSubnet(cidrs, v.clusterSubnets.PodSubnet)
+	if err != nil {
+		return admission.Warnings{}, err
+	}
+
+	err = CheckCIDRsOverlapWithServiceSubnet(cidrs, v.clusterSubnets.ServiceSubnet)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
@@ -57,11 +70,11 @@ func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.Modu
 	return admission.Warnings{}, nil
 }
 
-func (v cidrsValidator) checkNodeSubnets(ctx context.Context, excludedPrefixes []netip.Prefix) error {
+func (v cidrsValidator) checkOverlapWithNodeAddresses(ctx context.Context, cidrs []netip.Prefix) error {
 	nodes := &corev1.NodeList{}
 	err := v.client.List(ctx, nodes)
 	if err != nil {
 		return fmt.Errorf("internal error: unable to retrieve nodes at the moment, please try again later. Details: %w", err)
 	}
-	return checkNodeAddressesOverlap(nodes.Items, excludedPrefixes)
+	return CheckCIDRsOverlapWithNodeAddresses(cidrs, nodes.Items)
 }

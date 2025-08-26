@@ -10,6 +10,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sync"
 )
 
@@ -323,11 +324,17 @@ var _ StorageClassService = &StorageClassServiceMock{}
 //			GetStorageClassFunc: func(ctx context.Context, sc string) (*storagev1.StorageClass, error) {
 //				panic("mock out the GetStorageClass method")
 //			},
+//			GetStorageProfileFunc: func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+//				panic("mock out the GetStorageProfile method")
+//			},
 //			IsStorageClassAllowedFunc: func(sc string) bool {
 //				panic("mock out the IsStorageClassAllowed method")
 //			},
 //			IsStorageClassDeprecatedFunc: func(sc *storagev1.StorageClass) bool {
 //				panic("mock out the IsStorageClassDeprecated method")
+//			},
+//			ValidateClaimPropertySetsFunc: func(sp *cdiv1.StorageProfile) error {
+//				panic("mock out the ValidateClaimPropertySets method")
 //			},
 //		}
 //
@@ -348,11 +355,17 @@ type StorageClassServiceMock struct {
 	// GetStorageClassFunc mocks the GetStorageClass method.
 	GetStorageClassFunc func(ctx context.Context, sc string) (*storagev1.StorageClass, error)
 
+	// GetStorageProfileFunc mocks the GetStorageProfile method.
+	GetStorageProfileFunc func(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
+
 	// IsStorageClassAllowedFunc mocks the IsStorageClassAllowed method.
 	IsStorageClassAllowedFunc func(sc string) bool
 
 	// IsStorageClassDeprecatedFunc mocks the IsStorageClassDeprecated method.
 	IsStorageClassDeprecatedFunc func(sc *storagev1.StorageClass) bool
+
+	// ValidateClaimPropertySetsFunc mocks the ValidateClaimPropertySets method.
+	ValidateClaimPropertySetsFunc func(sp *cdiv1.StorageProfile) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -380,6 +393,13 @@ type StorageClassServiceMock struct {
 			// Sc is the sc argument value.
 			Sc string
 		}
+		// GetStorageProfile holds details about calls to the GetStorageProfile method.
+		GetStorageProfile []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+		}
 		// IsStorageClassAllowed holds details about calls to the IsStorageClassAllowed method.
 		IsStorageClassAllowed []struct {
 			// Sc is the sc argument value.
@@ -390,13 +410,20 @@ type StorageClassServiceMock struct {
 			// Sc is the sc argument value.
 			Sc *storagev1.StorageClass
 		}
+		// ValidateClaimPropertySets holds details about calls to the ValidateClaimPropertySets method.
+		ValidateClaimPropertySets []struct {
+			// Sp is the sp argument value.
+			Sp *cdiv1.StorageProfile
+		}
 	}
-	lockGetDefaultStorageClass   sync.RWMutex
-	lockGetModuleStorageClass    sync.RWMutex
-	lockGetPersistentVolumeClaim sync.RWMutex
-	lockGetStorageClass          sync.RWMutex
-	lockIsStorageClassAllowed    sync.RWMutex
-	lockIsStorageClassDeprecated sync.RWMutex
+	lockGetDefaultStorageClass    sync.RWMutex
+	lockGetModuleStorageClass     sync.RWMutex
+	lockGetPersistentVolumeClaim  sync.RWMutex
+	lockGetStorageClass           sync.RWMutex
+	lockGetStorageProfile         sync.RWMutex
+	lockIsStorageClassAllowed     sync.RWMutex
+	lockIsStorageClassDeprecated  sync.RWMutex
+	lockValidateClaimPropertySets sync.RWMutex
 }
 
 // GetDefaultStorageClass calls GetDefaultStorageClassFunc.
@@ -535,6 +562,42 @@ func (mock *StorageClassServiceMock) GetStorageClassCalls() []struct {
 	return calls
 }
 
+// GetStorageProfile calls GetStorageProfileFunc.
+func (mock *StorageClassServiceMock) GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+	if mock.GetStorageProfileFunc == nil {
+		panic("StorageClassServiceMock.GetStorageProfileFunc: method is nil but StorageClassService.GetStorageProfile was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Name string
+	}{
+		Ctx:  ctx,
+		Name: name,
+	}
+	mock.lockGetStorageProfile.Lock()
+	mock.calls.GetStorageProfile = append(mock.calls.GetStorageProfile, callInfo)
+	mock.lockGetStorageProfile.Unlock()
+	return mock.GetStorageProfileFunc(ctx, name)
+}
+
+// GetStorageProfileCalls gets all the calls that were made to GetStorageProfile.
+// Check the length with:
+//
+//	len(mockedStorageClassService.GetStorageProfileCalls())
+func (mock *StorageClassServiceMock) GetStorageProfileCalls() []struct {
+	Ctx  context.Context
+	Name string
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Name string
+	}
+	mock.lockGetStorageProfile.RLock()
+	calls = mock.calls.GetStorageProfile
+	mock.lockGetStorageProfile.RUnlock()
+	return calls
+}
+
 // IsStorageClassAllowed calls IsStorageClassAllowedFunc.
 func (mock *StorageClassServiceMock) IsStorageClassAllowed(sc string) bool {
 	if mock.IsStorageClassAllowedFunc == nil {
@@ -596,5 +659,37 @@ func (mock *StorageClassServiceMock) IsStorageClassDeprecatedCalls() []struct {
 	mock.lockIsStorageClassDeprecated.RLock()
 	calls = mock.calls.IsStorageClassDeprecated
 	mock.lockIsStorageClassDeprecated.RUnlock()
+	return calls
+}
+
+// ValidateClaimPropertySets calls ValidateClaimPropertySetsFunc.
+func (mock *StorageClassServiceMock) ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error {
+	if mock.ValidateClaimPropertySetsFunc == nil {
+		panic("StorageClassServiceMock.ValidateClaimPropertySetsFunc: method is nil but StorageClassService.ValidateClaimPropertySets was just called")
+	}
+	callInfo := struct {
+		Sp *cdiv1.StorageProfile
+	}{
+		Sp: sp,
+	}
+	mock.lockValidateClaimPropertySets.Lock()
+	mock.calls.ValidateClaimPropertySets = append(mock.calls.ValidateClaimPropertySets, callInfo)
+	mock.lockValidateClaimPropertySets.Unlock()
+	return mock.ValidateClaimPropertySetsFunc(sp)
+}
+
+// ValidateClaimPropertySetsCalls gets all the calls that were made to ValidateClaimPropertySets.
+// Check the length with:
+//
+//	len(mockedStorageClassService.ValidateClaimPropertySetsCalls())
+func (mock *StorageClassServiceMock) ValidateClaimPropertySetsCalls() []struct {
+	Sp *cdiv1.StorageProfile
+} {
+	var calls []struct {
+		Sp *cdiv1.StorageProfile
+	}
+	mock.lockValidateClaimPropertySets.RLock()
+	calls = mock.calls.ValidateClaimPropertySets
+	mock.lockValidateClaimPropertySets.RUnlock()
 	return calls
 }

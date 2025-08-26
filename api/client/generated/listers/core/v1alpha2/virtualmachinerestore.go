@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualMachineRestoreLister helps list VirtualMachineRestores.
@@ -30,7 +30,7 @@ import (
 type VirtualMachineRestoreLister interface {
 	// List lists all VirtualMachineRestores in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineRestore, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineRestore, err error)
 	// VirtualMachineRestores returns an object that can list and get VirtualMachineRestores.
 	VirtualMachineRestores(namespace string) VirtualMachineRestoreNamespaceLister
 	VirtualMachineRestoreListerExpansion
@@ -38,25 +38,17 @@ type VirtualMachineRestoreLister interface {
 
 // virtualMachineRestoreLister implements the VirtualMachineRestoreLister interface.
 type virtualMachineRestoreLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineRestore]
 }
 
 // NewVirtualMachineRestoreLister returns a new VirtualMachineRestoreLister.
 func NewVirtualMachineRestoreLister(indexer cache.Indexer) VirtualMachineRestoreLister {
-	return &virtualMachineRestoreLister{indexer: indexer}
-}
-
-// List lists all VirtualMachineRestores in the indexer.
-func (s *virtualMachineRestoreLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineRestore, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineRestore))
-	})
-	return ret, err
+	return &virtualMachineRestoreLister{listers.New[*corev1alpha2.VirtualMachineRestore](indexer, corev1alpha2.Resource("virtualmachinerestore"))}
 }
 
 // VirtualMachineRestores returns an object that can list and get VirtualMachineRestores.
 func (s *virtualMachineRestoreLister) VirtualMachineRestores(namespace string) VirtualMachineRestoreNamespaceLister {
-	return virtualMachineRestoreNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualMachineRestoreNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualMachineRestore](s.ResourceIndexer, namespace)}
 }
 
 // VirtualMachineRestoreNamespaceLister helps list and get VirtualMachineRestores.
@@ -64,36 +56,15 @@ func (s *virtualMachineRestoreLister) VirtualMachineRestores(namespace string) V
 type VirtualMachineRestoreNamespaceLister interface {
 	// List lists all VirtualMachineRestores in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineRestore, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineRestore, err error)
 	// Get retrieves the VirtualMachineRestore from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineRestore, error)
+	Get(name string) (*corev1alpha2.VirtualMachineRestore, error)
 	VirtualMachineRestoreNamespaceListerExpansion
 }
 
 // virtualMachineRestoreNamespaceLister implements the VirtualMachineRestoreNamespaceLister
 // interface.
 type virtualMachineRestoreNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualMachineRestores in the indexer for a given namespace.
-func (s virtualMachineRestoreNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineRestore, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineRestore))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineRestore from the indexer for a given namespace and name.
-func (s virtualMachineRestoreNamespaceLister) Get(name string) (*v1alpha2.VirtualMachineRestore, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualmachinerestore"), name)
-	}
-	return obj.(*v1alpha2.VirtualMachineRestore), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineRestore]
 }

@@ -24,6 +24,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 )
 
 type wsStreamer struct {
@@ -35,7 +37,7 @@ func (ws *wsStreamer) streamDone() {
 	close(ws.done)
 }
 
-func (ws *wsStreamer) Stream(options StreamOptions) error {
+func (ws *wsStreamer) Stream(options virtualizationv1alpha2.StreamOptions) error {
 	copyErr := make(chan error, 1)
 
 	go func() {

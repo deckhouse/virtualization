@@ -1,4 +1,4 @@
-FROM golang:1.23.9-bookworm@sha256:26ca07ec0684ebe2154ad45a3a03710edb90b9cfc3769bead74ebcf6644dc759 AS builder
+FROM golang:1.24.5-bookworm@sha256:ef8c5c733079ac219c77edab604c425d748c740d8699530ea6aced9de79aea40 AS builder
 ARG TARGETOS
 ARG TARGETARCH
 

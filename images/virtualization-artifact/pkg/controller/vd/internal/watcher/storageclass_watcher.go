@@ -52,40 +52,32 @@ func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 }
 
 func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &storagev1.StorageClass{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(event event.CreateEvent) bool { return true },
-			DeleteFunc: func(event event.DeleteEvent) bool { return true },
-			UpdateFunc: func(event event.UpdateEvent) bool {
-				oldSC, oldOk := event.ObjectOld.(*storagev1.StorageClass)
-				newSC, newOk := event.ObjectNew.(*storagev1.StorageClass)
-				if !oldOk || !newOk {
-					return false
-				}
-				oldIsDefault, oldIsDefaultOk := oldSC.Annotations[annotations.AnnDefaultStorageClass]
-				newIsDefault, newIsDefaultOk := newSC.Annotations[annotations.AnnDefaultStorageClass]
-				switch {
-				case oldIsDefaultOk && newIsDefaultOk:
-					return oldIsDefault != newIsDefault
-				case !oldIsDefaultOk && newIsDefaultOk:
-					return newIsDefault == "true"
-				default:
-					return false
-				}
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &storagev1.StorageClass{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*storagev1.StorageClass]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*storagev1.StorageClass]) bool {
+					oldIsDefault, oldIsDefaultOk := e.ObjectOld.Annotations[annotations.AnnDefaultStorageClass]
+					newIsDefault, newIsDefaultOk := e.ObjectNew.Annotations[annotations.AnnDefaultStorageClass]
+					switch {
+					case oldIsDefaultOk && newIsDefaultOk:
+						return oldIsDefault != newIsDefault
+					case !oldIsDefaultOk && newIsDefaultOk:
+						return newIsDefault == "true"
+					default:
+						return false
+					}
+				},
 			},
-		},
-	)
-}
-
-func (w StorageClassWatcher) enqueueRequests(ctx context.Context, object client.Object) []reconcile.Request {
-	sc, ok := object.(*storagev1.StorageClass)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a StorageClass but got %T", object))
-		return []reconcile.Request{}
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on StorageClass: %w", err)
 	}
 
+	return nil
+}
+
+func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.StorageClass) []reconcile.Request {
 	var vds virtv2.VirtualDiskList
 	err := w.client.List(ctx, &vds, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, sc.Name),

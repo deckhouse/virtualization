@@ -66,6 +66,9 @@ const (
 	AnnVirtualDiskAccessMode  = AnnVirtualDisk + "/access-mode"
 	AnnVirtualDiskBindingMode = AnnVirtualDisk + "/binding-mode"
 
+	AnnVirtualMachineClass        = "virtualmachineclass." + AnnAPIGroupV
+	AnnVirtualMachineClassDefault = AnnVirtualMachineClass + "/is-default-class"
+
 	// AnnVMLastAppliedSpec is an annotation on KVVM. It contains a JSON with VM spec.
 	AnnVMLastAppliedSpec = AnnAPIGroup + "/vm.last-applied-spec"
 
@@ -93,6 +96,7 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
@@ -127,6 +131,20 @@ const (
 	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
+	// AnnDataExportRequest is the annotation for indicating that export requested.
+	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
+
+	// TODO: remove deprecated annotations in the v1 version.
+	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
+	AnnStorageClassName           = AnnAPIGroupV + "/storage-class-name"
+	AnnStorageClassNameDeprecated = "storageClass"
+	// AnnVolumeMode is the annotation for indicating that volume mode.  (USED IN STORAGE sds controllers)
+	AnnVolumeMode           = AnnAPIGroupV + "/volume-mode"
+	AnnVolumeModeDeprecated = "volumeMode"
+	// AnnAccessMode is the annotation for indicating that access mode.  (USED IN STORAGE sds controllers)
+	AnnAccessModes           = AnnAPIGroupV + "/access-mode"
+	AnnAccessModesDeprecated = "accessModes"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.
@@ -136,6 +154,11 @@ const (
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
+
+	// AnnNetworksSpec is the annotation for request network configuration into Pod.
+	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
+	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
+	AnnNetworksStatus = "network.deckhouse.io/networks-status"
 )
 
 // AddAnnotation adds an annotation to an object

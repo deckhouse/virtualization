@@ -1,3 +1,4 @@
+{{- if eq (include "virtualization-api.isEnabled" .) "true" }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -38,3 +39,4 @@ subjects:
   - kind: ServiceAccount
     name: virtualization-api
     namespace: d8-{{ .Chart.Name }}
+{{- end }}

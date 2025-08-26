@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.4
+    controller-gen.kubebuilder.io/version: v0.18.0
   labels:
     heritage: deckhouse
     module: virtualization
@@ -381,6 +381,7 @@ spec:
                     * `Resizing`: The process of resource resizing is in progress.
                     * `Failed`: There was an error when creating the resource.
                     * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
+                    * `Exporting`: The child PV of the resource is in the process of exporting.
                     * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
@@ -391,6 +392,7 @@ spec:
                     - Resizing
                     - Failed
                     - PVCLost
+                    - Exporting
                     - Terminating
                   type: string
                 progress:

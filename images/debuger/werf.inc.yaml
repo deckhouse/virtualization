@@ -1,0 +1,27 @@
+---
+image: {{ $.ImageName }}
+fromImage: distroless
+final: false
+import:
+- image: {{ $.ImageName }}-builder
+  add: /out
+  to: /app
+  before: setup
+---
+image: {{ $.ImageName }}-builder
+final: false
+fromImage: base-alt-p11-binaries
+shell:
+  install:
+  - |
+    apt-get update && apt-get install --yes \
+      musl-devel-static gcc golang git 
+    
+    export CGO_ENABLED=0
+    export GOOS=linux
+    export GOARCH=amd64 
+
+    mkdir -p /out
+    git clone --depth=1 --branch v1.25.1 https://github.com/go-delve/delve.git /src
+    cd /src
+    go build -o /out/dlv -ldflags "-s -w" github.com/go-delve/delve/cmd/dlv

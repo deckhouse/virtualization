@@ -37,11 +37,11 @@ func InteractiveHostKeyCallback(knownHostsFilePath string) (ssh.HostKeyCallback,
 	if _, err := os.Stat(knownHostsFilePath); errors.Is(err, os.ErrNotExist) {
 		f, err := os.Create(knownHostsFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed creating known hosts file %q: %v", knownHostsFilePath, err)
+			return nil, fmt.Errorf("failed creating known hosts file %q: %w", knownHostsFilePath, err)
 		}
 		_ = f.Close()
 	} else if err != nil {
-		return nil, fmt.Errorf("failed reading known host file %q: %v", knownHostsFilePath, err)
+		return nil, fmt.Errorf("failed reading known host file %q: %w", knownHostsFilePath, err)
 	}
 	validator, err := knownhosts.New(knownHostsFilePath)
 	if err != nil {
@@ -96,7 +96,7 @@ Are you sure you want to continue connecting (yes/no)? `,
 }
 
 func addHostKey(knownHostsFilePath, hostname string, key ssh.PublicKey) error {
-	f, err := os.OpenFile(knownHostsFilePath, os.O_APPEND|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(knownHostsFilePath, os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}

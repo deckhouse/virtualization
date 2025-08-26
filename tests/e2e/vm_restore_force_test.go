@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -45,7 +45,6 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 		ctx                 context.Context
 		cancel              context.CancelFunc
 		storageClass        *storagev1.StorageClass
-		volumeSnapshotClass string
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
@@ -119,6 +118,16 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 					Timeout:   MaxWaitTimeout,
 				})
 			})
+			By("`VirtualMachineBlockDeviceAttachment` should be attached", func() {
+				WaitPhaseByLabel(
+					virtv2.VirtualMachineBlockDeviceAttachmentKind,
+					string(virtv2.BlockDeviceAttachmentPhaseAttached),
+					kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: namespace,
+						Timeout:   LongWaitDuration,
+					})
+			})
 		})
 	})
 
@@ -140,7 +149,6 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 					vmsnapshot := NewVirtualMachineSnapshot(
 						vm.Name, vm.Namespace,
 						storageClass.Name,
-						volumeSnapshotClass,
 						true,
 						virtv2.KeepIPAddressAlways,
 						testCaseLabel,
@@ -274,7 +282,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 })
 
 func NewVirtualMachineSnapshot(
-	vmName, vmNamespace, storageClass, volumeSnapshotClass string,
+	vmName, vmNamespace, storageClass string,
 	requiredConsistency bool,
 	keepIPaddress virtv2.KeepIPAddress,
 	labels map[string]string,

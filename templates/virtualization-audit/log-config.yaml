@@ -1,6 +1,4 @@
-{{- if ((.Values.virtualization.audit).enabled) }}
-{{- if (.Values.global.enabledModules | has "log-shipper") }}
-{{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
+{{- if eq (include "audit.isEnabled" .) "true" }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ClusterLoggingConfig
@@ -78,6 +76,4 @@ spec:
           crtFile: {{ .Values.virtualization.internal.audit.cert.crt | b64enc }}
           keyFile: {{ .Values.virtualization.internal.audit.cert.key | b64enc }}
   type: Socket
-{{- end }}
-{{- end }}
 {{- end }}

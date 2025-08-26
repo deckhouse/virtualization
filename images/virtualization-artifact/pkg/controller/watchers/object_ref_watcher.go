@@ -27,14 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type ObjectRefWatcher struct {
 	filter   UpdateEventsFilter
 	enqueuer RequestEnqueuer
-	logger   *log.Logger
 }
 
 type RequestEnqueuer interface {
@@ -53,18 +50,19 @@ func NewObjectRefWatcher(
 	return &ObjectRefWatcher{
 		filter:   filter,
 		enqueuer: enqueuer,
-		logger:   log.Default().With("watcher", "cvi"),
 	}
 }
 
 func (w ObjectRefWatcher) Run(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), w.enqueuer.GetEnqueueFrom()),
-		handler.EnqueueRequestsFromMapFunc(w.enqueuer.EnqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filter.FilterUpdateEvents,
-		},
+		source.Kind(mgr.GetCache(),
+			w.enqueuer.GetEnqueueFrom(),
+			handler.EnqueueRequestsFromMapFunc(w.enqueuer.EnqueueRequests),
+			predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool { return true },
+				DeleteFunc: func(e event.DeleteEvent) bool { return true },
+				UpdateFunc: w.filter.FilterUpdateEvents,
+			},
+		),
 	)
 }

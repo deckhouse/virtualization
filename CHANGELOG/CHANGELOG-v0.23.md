@@ -13,6 +13,7 @@
 ## Fixes
 
 
+ - **[api]** A virtual machine with the `AlwaysOn` run policy can be restored with the `forced` mode. [#1294](https://github.com/deckhouse/virtualization/pull/1294)
  - **[core]** Fixed the placement of the virtualization management component on system nodes when they are present in the cluster. If there are no system nodes in the cluster, it will be placed on master nodes. [#1260](https://github.com/deckhouse/virtualization/pull/1260)
  - **[vd]** For a virtual disk in `Filesystem` mode, fixed the ability to dynamically attach (hotplug) to a virtual machine. [#1241](https://github.com/deckhouse/virtualization/pull/1241)
  - **[vd]** Fixed the creation of virtual disks using NFS storage with the `no_root_squash` option. [#1210](https://github.com/deckhouse/virtualization/pull/1210)

@@ -30,6 +30,7 @@ import (
 	"golang.org/x/term"
 	"k8s.io/klog/v2"
 
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
@@ -206,7 +207,7 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 	return nil
 }
 
-func (o *NativeSSHConnection) prepareSSHTunnel(namespace, name string) (kubeclient.StreamInterface, error) {
+func (o *NativeSSHConnection) prepareSSHTunnel(namespace, name string) (virtualizationv1alpha2.StreamInterface, error) {
 	opts := v1alpha2.VirtualMachinePortForward{
 		Port:     o.options.SSHPort,
 		Protocol: "tcp",

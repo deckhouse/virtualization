@@ -40,11 +40,11 @@ func newRemoveCIDRsValidator(client client.Client) *removeCIDRsValidator {
 }
 
 func (v removeCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
-	oldCIDRs, err := parseCIDRs(oldMC.Spec.Settings)
+	oldCIDRs, err := ParseCIDRs(oldMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
-	newCIDRs, err := parseCIDRs(newMC.Spec.Settings)
+	newCIDRs, err := ParseCIDRs(newMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
 	}

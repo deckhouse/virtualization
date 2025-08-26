@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle/vmop"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
@@ -111,7 +110,7 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
 	if msg != "" {
-		cmd.Printf(msg)
+		cmd.Printf("%s", msg)
 	}
 	return err
 }
@@ -119,14 +118,14 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 func (l *Lifecycle) Usage() string {
 	opts := DefaultOptions()
 	usage := fmt.Sprintf(` # %s VirtualMachine 'myvm':`, cases.Title(language.English).String(string(l.cmd)))
-	usage += strings.Replace(fmt.Sprintf(`
+	usage += strings.ReplaceAll(fmt.Sprintf(`
   {{ProgramName}} {{operation}} myvm
   {{ProgramName}} {{operation}} myvm.mynamespace
   {{ProgramName}} {{operation}} myvm -n mynamespace
   # Configure one minute timeout (default: timeout=%v)
   {{ProgramName}} {{operation}} --%s=1m myvm
   # Configure wait vm phase (default: wait=%v)
-  {{ProgramName}} {{operation}} --%s myvm`, opts.Timeout, timeoutFlag, opts.WaitComplete, waitFlag), "{{operation}}", string(l.cmd), -1)
+  {{ProgramName}} {{operation}} --%s myvm`, opts.Timeout, timeoutFlag, opts.WaitComplete, waitFlag), "{{operation}}", string(l.cmd))
 	if l.cmd != Start && l.cmd != Evict {
 		usage += fmt.Sprintf(`
   # Configure shutdown policy (default: force=%v)

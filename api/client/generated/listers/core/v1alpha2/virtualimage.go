@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualImageLister helps list VirtualImages.
@@ -30,7 +30,7 @@ import (
 type VirtualImageLister interface {
 	// List lists all VirtualImages in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualImage, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualImage, err error)
 	// VirtualImages returns an object that can list and get VirtualImages.
 	VirtualImages(namespace string) VirtualImageNamespaceLister
 	VirtualImageListerExpansion
@@ -38,25 +38,17 @@ type VirtualImageLister interface {
 
 // virtualImageLister implements the VirtualImageLister interface.
 type virtualImageLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualImage]
 }
 
 // NewVirtualImageLister returns a new VirtualImageLister.
 func NewVirtualImageLister(indexer cache.Indexer) VirtualImageLister {
-	return &virtualImageLister{indexer: indexer}
-}
-
-// List lists all VirtualImages in the indexer.
-func (s *virtualImageLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualImage, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualImage))
-	})
-	return ret, err
+	return &virtualImageLister{listers.New[*corev1alpha2.VirtualImage](indexer, corev1alpha2.Resource("virtualimage"))}
 }
 
 // VirtualImages returns an object that can list and get VirtualImages.
 func (s *virtualImageLister) VirtualImages(namespace string) VirtualImageNamespaceLister {
-	return virtualImageNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualImageNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualImage](s.ResourceIndexer, namespace)}
 }
 
 // VirtualImageNamespaceLister helps list and get VirtualImages.
@@ -64,36 +56,15 @@ func (s *virtualImageLister) VirtualImages(namespace string) VirtualImageNamespa
 type VirtualImageNamespaceLister interface {
 	// List lists all VirtualImages in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualImage, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualImage, err error)
 	// Get retrieves the VirtualImage from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualImage, error)
+	Get(name string) (*corev1alpha2.VirtualImage, error)
 	VirtualImageNamespaceListerExpansion
 }
 
 // virtualImageNamespaceLister implements the VirtualImageNamespaceLister
 // interface.
 type virtualImageNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualImages in the indexer for a given namespace.
-func (s virtualImageNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualImage, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualImage))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualImage from the indexer for a given namespace and name.
-func (s virtualImageNamespaceLister) Get(name string) (*v1alpha2.VirtualImage, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualimage"), name)
-	}
-	return obj.(*v1alpha2.VirtualImage), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualImage]
 }

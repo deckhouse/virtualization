@@ -47,21 +47,33 @@ func NewVirtualImageWatcherr(client client.Client) *VirtualImageWatcher {
 }
 
 func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualImage]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualImage]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
+					oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					return oldReadyCondition.Status != newReadyCondition.Status
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VIs: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *virtv2.VirtualImage) (requests []reconcile.Request) {
 	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: vi.GetNamespace(),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
@@ -69,7 +81,7 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualImage && vmbda.Spec.BlockDeviceRef.Name != obj.GetName() {
+		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualImage && vmbda.Spec.BlockDeviceRef.Name != vi.GetName() {
 			continue
 		}
 
@@ -82,27 +94,4 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 	}
 
 	return
-}
-
-func (w VirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVI, ok := e.ObjectOld.(*virtv2.VirtualImage)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualImage but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVI, ok := e.ObjectNew.(*virtv2.VirtualImage)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualImage but got a %T", e.ObjectNew))
-		return false
-	}
-
-	if oldVI.Status.Phase != newVI.Status.Phase {
-		return true
-	}
-
-	oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, oldVI.Status.Conditions)
-	newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
-
-	return oldReadyCondition.Status != newReadyCondition.Status
 }

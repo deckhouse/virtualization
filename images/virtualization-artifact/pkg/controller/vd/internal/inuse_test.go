@@ -18,10 +18,10 @@ package internal
 
 import (
 	"context"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -29,6 +29,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -602,7 +603,6 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualMachine after create image", func() {
 		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
-			startTime := metav1.Time{Time: time.Now()}
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -611,10 +611,9 @@ var _ = Describe("InUseHandler", func() {
 				Status: virtv2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:               vdcondition.InUseType.String(),
-							Reason:             vdcondition.UsedForImageCreation.String(),
-							Status:             metav1.ConditionTrue,
-							LastTransitionTime: startTime,
+							Type:   vdcondition.InUseType.String(),
+							Reason: vdcondition.UsedForImageCreation.String(),
+							Status: metav1.ConditionTrue,
 						},
 					},
 				},
@@ -647,7 +646,6 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
-			Expect(cond.LastTransitionTime).ToNot(Equal(startTime))
 		})
 	})
 
@@ -765,6 +763,46 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(vdcondition.NotInUse.String()))
+		})
+	})
+	Context("when VirtualDisk is used by DataExport", func() {
+		It("must set status True and reason UsedForDataExport", func() {
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vd",
+					Namespace: "default",
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{},
+					Target: virtv2.DiskTarget{
+						PersistentVolumeClaim: "test-pvc",
+					},
+				},
+			}
+			pvc := &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pvc",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotations.AnnDataExportRequest: "true",
+					},
+				},
+				Status: corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
+				},
+			}
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, pvc).Build()
+			handler = NewInUseHandler(k8sClient)
+
+			result, err := handler.Handle(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+
+			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.UsedForDataExport.String()))
 		})
 	})
 })

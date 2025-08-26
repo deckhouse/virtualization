@@ -81,8 +81,11 @@ spec:
       {{- include "kube_api_rewriter.sidecar_container" . | nindent 6 }}
       {{- $kubeRbacProxySettings := dict }}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+      {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+          (dict "upstream" "http://127.0.0.1:9090/healthz" "path" "/proxy/healthz" "name" "kube-api-rewriter")
+          (dict "upstream" "http://127.0.0.1:9090/readyz" "path" "/proxy/readyz" "name" "kube-api-rewriter")
       ) }}
       {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       - name: cdi-operator
@@ -101,13 +104,28 @@ spec:
         - name: MONITORING_NAMESPACE
         args:
         - -metrics_address
-        - 127.0.0.1:8080
+        - :8080
         image: {{ include "helm_lib_module_image" (list . "cdiOperator") }}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 10
         resources:
           requests:
             {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}

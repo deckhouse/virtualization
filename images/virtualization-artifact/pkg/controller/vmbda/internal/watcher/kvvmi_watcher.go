@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -41,8 +40,6 @@ type KVVMIWatcher struct {
 	client client.Client
 }
 
-var _ handler.EventHandler = &KVVMIEventHandler{}
-
 func NewKVVMIWatcher(client client.Client) *KVVMIWatcher {
 	return &KVVMIWatcher{
 		client: client,
@@ -50,10 +47,16 @@ func NewKVVMIWatcher(client client.Client) *KVVMIWatcher {
 }
 
 func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
-		NewKVVMIEventHandler(w.client),
-	)
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&virtv1.VirtualMachineInstance{},
+			NewKVVMIEventHandler(w.client),
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on KVVMI: %w", err)
+	}
+	return nil
 }
 
 type KVVMIEventHandler struct {
@@ -66,26 +69,26 @@ func NewKVVMIEventHandler(client client.Client) *KVVMIEventHandler {
 	}
 }
 
-func (eh KVVMIEventHandler) Create(ctx context.Context, e event.CreateEvent, q workqueue.RateLimitingInterface) {
+func (eh KVVMIEventHandler) Create(ctx context.Context, e event.TypedCreateEvent[*virtv1.VirtualMachineInstance], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	eh.enqueueRequests(ctx, e.Object.GetNamespace(), eh.getHotPluggedVolumeStatuses(e.Object), q)
 }
 
-func (eh KVVMIEventHandler) Delete(ctx context.Context, e event.DeleteEvent, q workqueue.RateLimitingInterface) {
+func (eh KVVMIEventHandler) Delete(ctx context.Context, e event.TypedDeleteEvent[*virtv1.VirtualMachineInstance], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	eh.enqueueRequests(ctx, e.Object.GetNamespace(), eh.getHotPluggedVolumeStatuses(e.Object), q)
 }
 
-func (eh KVVMIEventHandler) Update(ctx context.Context, e event.UpdateEvent, q workqueue.RateLimitingInterface) {
+func (eh KVVMIEventHandler) Update(ctx context.Context, e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance], q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	oldVolumeStatuses := eh.getHotPluggedVolumeStatuses(e.ObjectOld)
 	newVolumeStatuses := eh.getHotPluggedVolumeStatuses(e.ObjectNew)
 
 	eh.enqueueRequests(ctx, e.ObjectNew.GetNamespace(), getVolumeStatusesToReconcile(oldVolumeStatuses, newVolumeStatuses), q)
 }
 
-func (eh KVVMIEventHandler) Generic(_ context.Context, _ event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (eh KVVMIEventHandler) Generic(_ context.Context, _ event.TypedGenericEvent[*virtv1.VirtualMachineInstance], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// Not implemented.
 }
 
-func (eh KVVMIEventHandler) enqueueRequests(ctx context.Context, ns string, vsToReconcile map[string]virtv1.VolumeStatus, q workqueue.RateLimitingInterface) {
+func (eh KVVMIEventHandler) enqueueRequests(ctx context.Context, ns string, vsToReconcile map[string]virtv1.VolumeStatus, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	if len(vsToReconcile) == 0 {
 		return
 	}

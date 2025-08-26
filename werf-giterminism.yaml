@@ -1,8 +1,9 @@
 giterminismConfigVersion: 1
 config:
-  goTemplateRendering:	# The rules for the Go-template functions
+  goTemplateRendering:  # The rules for the Go-template functions
     allowEnvVariables: 
     - /CI_.+/
+    - GOPROXY
     - MODULES_MODULE_TAG
     - SOURCE_REPO
     - SOURCE_REPO_GIT
@@ -11,6 +12,7 @@ config:
     - SVACE_ENABLED
     - SVACE_ANALYZE_HOST
     - SVACE_ANALYZE_SSH_USER
+    - DEBUG_COMPONENT
   stapel:
     mount:
       allowBuildDir: true
@@ -19,6 +21,7 @@ config:
   secrets:
     allowValueIds:
     - SOURCE_REPO
+    - GOPROXY
 helm:
   allowUncommittedFiles:
   - "Chart.lock"

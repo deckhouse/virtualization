@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -36,7 +36,7 @@ const unacceptableCount = -1000
 
 var APIVersion = virtv2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDisAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
@@ -258,7 +258,7 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 		},
 	}
 
-	err := WriteYamlObject(filePath, vmbda)
+	err := helper.WriteYamlObject(filePath, vmbda)
 	if err != nil {
 		return err
 	}

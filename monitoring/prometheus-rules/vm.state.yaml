@@ -15,8 +15,10 @@
         description: |
           The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has outdated firmware.
           Outdated firmware may expose the VM to security vulnerabilities or compatibility issues after virtualization updates.
+
           ### Why This Happens
           Firmware (QEMU/KVM) used by a VM is tied to the version provided by the node where the VM is running. After updating the virtualization module (via Deckhouse), new firmware becomes available, but already running VMs continue using the old version until restarted or migrated.
+
           ### Diagnosis
           Inspect the VM status to confirm the firmware issue:
           ```bash
