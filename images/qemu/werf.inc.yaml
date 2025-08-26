@@ -136,6 +136,20 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 import:
+- image: {{ .ModuleNamePrefix }}packages/lzo
+  add: /lzo
+  to: /
+  before: install
+  includePaths:
+  - usr/lib64/liblzo2.a
+  - usr/lib64/pkgconfig/lzo2.pc
+  - usr/include
+- image: {{ .ModuleNamePrefix }}packages/lz4
+  add: /lz4
+  to: /
+  before: install
+  includePaths:
+  - usr/lib64/liblz4.a
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
@@ -333,7 +347,7 @@ shell:
       --enable-vnc-sasl \
       --enable-werror \
       --enable-xkbcommon \
-      --enable-zstd
+      --enable-zstd && cat /qemu-9.2.0/build/meson-logs/meson-log.txt
 
     {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}

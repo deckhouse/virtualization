@@ -47,6 +47,12 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
+- image: {{ .ModuleNamePrefix }}packages/krb5
+  add: /krb5
+  to: /relocate
+  after: setup
+  includePaths:
+  - usr/lib64/libkrb5support.a
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
