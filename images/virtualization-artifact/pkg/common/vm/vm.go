@@ -17,7 +17,7 @@ limitations under the License.
 package vm
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
@@ -53,9 +53,9 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 	return sockets, coresPerSocket
 }
 
-func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
+func ApprovalMode(vm *v1alpha2.VirtualMachine) v1alpha2.RestartApprovalMode {
 	if vm.Spec.Disruptions == nil {
-		return virtv2.Manual
+		return v1alpha2.Manual
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
 }

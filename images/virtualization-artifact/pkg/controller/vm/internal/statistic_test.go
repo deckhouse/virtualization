@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("TestStatisticHandler", func() {
@@ -44,15 +44,15 @@ var _ = Describe("TestStatisticHandler", func() {
 		podUID      types.UID = "test-pod-uid"
 	)
 
-	newVM := func(cores int, coreFraction *string, memorySize string) *virtv2.VirtualMachine {
+	newVM := func(cores int, coreFraction *string, memorySize string) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.New(
 			vmbuilder.WithName(vmName),
 			vmbuilder.WithNamespace(vmNamespace),
 			vmbuilder.WithCPU(cores, coreFraction),
 			vmbuilder.WithMemory(resource.MustParse(memorySize)),
 		)
-		vm.Status = virtv2.VirtualMachineStatus{
-			Phase: virtv2.MachineRunning,
+		vm.Status = v1alpha2.VirtualMachineStatus{
+			Phase: v1alpha2.MachineRunning,
 		}
 
 		return vm
@@ -109,7 +109,7 @@ var _ = Describe("TestStatisticHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.Client
-		vmResource *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		vmResource *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
 	)
 
@@ -141,11 +141,11 @@ var _ = Describe("TestStatisticHandler", func() {
 	}
 
 	DescribeTable("Check Generated .status.resources",
-		func(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, expect expectedValues) {
+		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, expect expectedValues) {
 			fakeClient, vmResource, vmState = setupEnvironment(vm, kvvmi, pod)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 

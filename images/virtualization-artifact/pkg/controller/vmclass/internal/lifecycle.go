@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
@@ -48,21 +48,21 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 	current := s.VirtualMachineClass().Current()
 	changed := s.VirtualMachineClass().Changed()
 	if isDeletion(current) {
-		changed.Status.Phase = virtv2.ClassPhaseTerminating
+		changed.Status.Phase = v1alpha2.ClassPhaseTerminating
 		return reconcile.Result{}, nil
 	}
 
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeReady).
 		Generation(current.GetGeneration())
-	var phase virtv2.VirtualMachineClassPhase
+	var phase v1alpha2.VirtualMachineClassPhase
 
 	switch current.Spec.CPU.Type {
-	case virtv2.CPUTypeHostPassthrough, virtv2.CPUTypeHost:
+	case v1alpha2.CPUTypeHostPassthrough, v1alpha2.CPUTypeHost:
 		cb.Message("").
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
-		phase = virtv2.ClassPhaseReady
-	case virtv2.CPUTypeDiscovery:
+		phase = v1alpha2.ClassPhaseReady
+	case v1alpha2.CPUTypeDiscovery:
 		var notReady bool
 		if len(changed.Status.AvailableNodes) == 0 {
 			cb.Message("No matching nodes found.")
@@ -75,23 +75,23 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 			notReady = true
 		}
 		if notReady {
-			phase = virtv2.ClassPhasePending
+			phase = v1alpha2.ClassPhasePending
 			cb.Status(metav1.ConditionFalse)
 			break
 		}
-		phase = virtv2.ClassPhaseReady
+		phase = v1alpha2.ClassPhaseReady
 		cb.Message("").
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 	default:
 		if len(changed.Status.AvailableNodes) == 0 {
-			phase = virtv2.ClassPhasePending
+			phase = v1alpha2.ClassPhasePending
 			cb.Message("No matching nodes found.").
 				Reason(vmclasscondition.ReasonNoSuitableNodesFound).
 				Status(metav1.ConditionFalse)
 			break
 		}
-		phase = virtv2.ClassPhaseReady
+		phase = v1alpha2.ClassPhaseReady
 		cb.Message("").
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)

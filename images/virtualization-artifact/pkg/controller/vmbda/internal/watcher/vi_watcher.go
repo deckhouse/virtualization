@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -48,11 +48,11 @@ func NewVirtualImageWatcherr(client client.Client) *VirtualImageWatcher {
 
 func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualImage{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualImage]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualImage]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualImage]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualImage]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualImage]) bool {
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 						return true
 					}
@@ -70,8 +70,8 @@ func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	return nil
 }
 
-func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *virtv2.VirtualImage) (requests []reconcile.Request) {
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *v1alpha2.VirtualImage) (requests []reconcile.Request) {
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: vi.GetNamespace(),
 	})
@@ -81,7 +81,7 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, vi *virtv2.Vir
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualImage && vmbda.Spec.BlockDeviceRef.Name != vi.GetName() {
+		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualImage && vmbda.Spec.BlockDeviceRef.Name != vi.GetName() {
 			continue
 		}
 

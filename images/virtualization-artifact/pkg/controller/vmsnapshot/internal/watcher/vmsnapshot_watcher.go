@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineSnapshotWatcher struct {
@@ -42,10 +42,10 @@ func NewVirtualMachineSnapshotWatcher(client client.Client) *VirtualMachineSnaps
 
 func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineSnapshot]{},
-			predicate.TypedFuncs[*virtv2.VirtualMachineSnapshot]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineSnapshot]) bool {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineSnapshot{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineSnapshot]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
 					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 				},
 			},

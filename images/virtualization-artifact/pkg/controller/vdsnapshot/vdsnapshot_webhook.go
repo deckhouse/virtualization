@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct {
@@ -44,12 +44,12 @@ func (v *Validator) ValidateCreate(_ context.Context, _ runtime.Object) (admissi
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVDS, ok := oldObj.(*virtv2.VirtualDiskSnapshot)
+	oldVDS, ok := oldObj.(*v1alpha2.VirtualDiskSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualDiskSnapshot but got a %T", newObj)
 	}
 
-	newVDS, ok := newObj.(*virtv2.VirtualDiskSnapshot)
+	newVDS, ok := newObj.(*v1alpha2.VirtualDiskSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualDiskSnapshot but got a %T", newObj)
 	}

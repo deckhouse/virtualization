@@ -30,11 +30,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error)
+	Handle(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -100,10 +100,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddress {
-	return &virtv2.VirtualMachineIPAddress{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachineIPAddress {
+	return &v1alpha2.VirtualMachineIPAddress{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineIPAddress) virtv2.VirtualMachineIPAddressStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineIPAddress) v1alpha2.VirtualMachineIPAddressStatus {
 	return obj.Status
 }

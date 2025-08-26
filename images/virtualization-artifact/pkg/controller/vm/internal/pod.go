@@ -25,7 +25,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const namePodHandler = "PodHandler"
@@ -33,7 +33,7 @@ const namePodHandler = "PodHandler"
 func NewPodHandler(client client.Client) *PodHandler {
 	return &PodHandler{
 		client:     client,
-		protection: service.NewProtectionService(client, virtv2.FinalizerPodProtection),
+		protection: service.NewProtectionService(client, v1alpha2.FinalizerPodProtection),
 	}
 }
 

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type NameValidator struct{}
@@ -33,7 +33,7 @@ func NewNameValidator() *NameValidator {
 	return &NameValidator{}
 }
 
-func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *NameValidator) ValidateCreate(_ context.Context, vd *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	if strings.Contains(vd.Name, ".") {
 		return nil, fmt.Errorf("the VirtualDisk name %q is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]", vd.Name)
 	}
@@ -45,7 +45,7 @@ func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk
 	return nil, nil
 }
 
-func (v *NameValidator) ValidateUpdate(_ context.Context, _, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *NameValidator) ValidateUpdate(_ context.Context, _, newVD *v1alpha2.VirtualDisk) (admission.Warnings, error) {
 	var warnings admission.Warnings
 
 	if strings.Contains(newVD.Name, ".") {

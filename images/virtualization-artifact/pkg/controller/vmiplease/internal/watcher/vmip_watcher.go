@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineIPAddressWatcher struct {
@@ -43,17 +43,17 @@ type VirtualMachineIPAddressWatcher struct {
 
 func NewVirtualMachineIPAddressWatcher(client client.Client) *VirtualMachineIPAddressWatcher {
 	return &VirtualMachineIPAddressWatcher{
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineIPAddressKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineIPAddressKind)),
 		client: client,
 	}
 }
 
 func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineIPAddress{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualMachineIPAddress]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineIPAddress]) bool { return false },
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineIPAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineIPAddress]) bool { return false },
 			},
 		),
 	); err != nil {
@@ -62,8 +62,8 @@ func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controlle
 	return nil
 }
 
-func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (requests []reconcile.Request) {
-	var leases virtv2.VirtualMachineIPAddressLeaseList
+func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (requests []reconcile.Request) {
+	var leases v1alpha2.VirtualMachineIPAddressLeaseList
 	err := w.client.List(ctx, &leases, &client.ListOptions{})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))

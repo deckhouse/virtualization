@@ -33,7 +33,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -63,7 +63,7 @@ type LogEntry struct {
 
 type LogStream struct {
 	Cancel             context.CancelFunc
-	ContainerStartedAt v1.Time
+	ContainerStartedAt metav1.Time
 	LogStreamCmd       *exec.Cmd
 	LogStreamWaitGroup *sync.WaitGroup
 	PodName            string

@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -60,7 +60,7 @@ func (h *FirmwareHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	return reconcile.Result{}, nil
 }
 
-func (h *FirmwareHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+func (h *FirmwareHandler) syncFirmwareUpToDate(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
 	if vm == nil {
 		return
 	}
@@ -70,7 +70,7 @@ func (h *FirmwareHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpToDate).Generation(vm.GetGeneration())
 	defer func() {
 		switch vm.Status.Phase {
-		case virtv2.MachinePending, virtv2.MachineStarting, virtv2.MachineStopped:
+		case v1alpha2.MachinePending, v1alpha2.MachineStarting, v1alpha2.MachineStopped:
 			conditions.RemoveCondition(vmcondition.TypeFirmwareUpToDate, &vm.Status.Conditions)
 
 		default:

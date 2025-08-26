@@ -19,12 +19,12 @@ package indexer
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func IndexVMRestoreByVMSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineRestore{}, IndexFieldVMRestoreByVMSnapshot, func(object client.Object) []string {
-		vmRestore, ok := object.(*virtv2.VirtualMachineRestore)
+	return &v1alpha2.VirtualMachineRestore{}, IndexFieldVMRestoreByVMSnapshot, func(object client.Object) []string {
+		vmRestore, ok := object.(*v1alpha2.VirtualMachineRestore)
 		if !ok || vmRestore == nil {
 			return nil
 		}

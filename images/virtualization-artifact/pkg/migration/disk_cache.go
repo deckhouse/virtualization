@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type diskCache struct {
@@ -32,7 +32,7 @@ type diskCache struct {
 }
 
 func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
-	cviList := &virtv2.ClusterVirtualImageList{}
+	cviList := &v1alpha2.ClusterVirtualImageList{}
 	if err := c.List(ctx, cviList, &client.ListOptions{}); err != nil {
 		return diskCache{}, err
 	}
@@ -41,7 +41,7 @@ func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
 		cviNameUIDMap[cviList.Items[i].Name] = cviList.Items[i].UID
 	}
 
-	viList := &virtv2.VirtualImageList{}
+	viList := &v1alpha2.VirtualImageList{}
 	if err := c.List(ctx, viList, &client.ListOptions{}); err != nil {
 		return diskCache{}, err
 	}
@@ -53,7 +53,7 @@ func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
 		}] = viList.Items[i].UID
 	}
 
-	vdList := &virtv2.VirtualDiskList{}
+	vdList := &v1alpha2.VirtualDiskList{}
 	if err := c.List(ctx, vdList, &client.ListOptions{}); err != nil {
 		return diskCache{}, err
 	}

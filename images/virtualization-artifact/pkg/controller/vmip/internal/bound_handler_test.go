@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
@@ -44,8 +44,8 @@ var _ = Describe("BoundHandler", func() {
 	var (
 		scheme       *runtime.Scheme
 		ctx          context.Context
-		vmip         *virtv2.VirtualMachineIPAddress
-		lease        *virtv2.VirtualMachineIPAddressLease
+		vmip         *v1alpha2.VirtualMachineIPAddress
+		lease        *v1alpha2.VirtualMachineIPAddressLease
 		svc          *IPAddressServiceMock
 		recorderMock *eventrecord.EventRecorderLoggerMock
 	)
@@ -53,22 +53,22 @@ var _ = Describe("BoundHandler", func() {
 	BeforeEach(func() {
 		scheme = runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 
 		ctx = context.TODO()
 
-		vmip = &virtv2.VirtualMachineIPAddress{
+		vmip = &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "vmip",
 				Namespace: "ns",
 			},
-			Spec: virtv2.VirtualMachineIPAddressSpec{
-				Type: virtv2.VirtualMachineIPAddressTypeAuto,
+			Spec: v1alpha2.VirtualMachineIPAddressSpec{
+				Type: v1alpha2.VirtualMachineIPAddressTypeAuto,
 			},
 		}
 
-		lease = &virtv2.VirtualMachineIPAddressLease{
+		lease = &v1alpha2.VirtualMachineIPAddressLease{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
 					annotations.LabelVirtualMachineIPAddressUID: string(vmip.UID),
@@ -79,7 +79,7 @@ var _ = Describe("BoundHandler", func() {
 		}
 
 		svc = &IPAddressServiceMock{
-			GetLeaseFunc: func(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+			GetLeaseFunc: func(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 				return nil, nil
 			},
 			GetAllocatedIPsFunc: func(ctx context.Context) (ip.AllocatedIPs, error) {
@@ -105,7 +105,7 @@ var _ = Describe("BoundHandler", func() {
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
-						_, ok := obj.(*virtv2.VirtualMachineIPAddressLease)
+						_, ok := obj.(*v1alpha2.VirtualMachineIPAddressLease)
 						Expect(ok).To(BeTrue())
 						leaseCreated = true
 						return nil
@@ -130,14 +130,14 @@ var _ = Describe("BoundHandler", func() {
 
 		It("takes existing released lease", func() {
 			var leaseUpdated bool
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 				lease.Spec.VirtualMachineIPAddressRef = nil
 				return lease, nil
 			}
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().
 				WithInterceptorFuncs(interceptor.Funcs{
 					Update: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.UpdateOption) error {
-						updatedLease, ok := obj.(*virtv2.VirtualMachineIPAddressLease)
+						updatedLease, ok := obj.(*v1alpha2.VirtualMachineIPAddressLease)
 						Expect(ok).To(BeTrue())
 						Expect(updatedLease.Spec.VirtualMachineIPAddressRef).NotTo(BeNil())
 						Expect(updatedLease.Spec.VirtualMachineIPAddressRef.Name).To(Equal(vmip.Name))
@@ -159,8 +159,8 @@ var _ = Describe("BoundHandler", func() {
 		})
 
 		It("cannot take existing lease: it's bound to another vmip", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
-				lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
+				lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 					Namespace: vmip.Namespace,
 					Name:      "another-vmip",
 				}
@@ -176,8 +176,8 @@ var _ = Describe("BoundHandler", func() {
 		})
 
 		It("cannot take existing lease: it belongs to different namespace", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
-				lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
+				lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 					Namespace: vmip.Namespace + "-different",
 				}
 				return lease, nil
@@ -192,7 +192,7 @@ var _ = Describe("BoundHandler", func() {
 		})
 
 		It("is lost", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 				return nil, nil
 			}
 			h := NewBoundHandler(svc, nil, recorderMock)
@@ -207,8 +207,8 @@ var _ = Describe("BoundHandler", func() {
 
 	Context("Binding", func() {
 		It("has non-bound lease with ref", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
-				lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
+				lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 					Namespace: vmip.Namespace,
 					Name:      vmip.Name,
 				}
@@ -225,8 +225,8 @@ var _ = Describe("BoundHandler", func() {
 		})
 
 		It("has bound lease", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
-				lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
+				lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 					Namespace: vmip.Namespace,
 					Name:      vmip.Name,
 				}
@@ -250,7 +250,7 @@ var _ = Describe("BoundHandler", func() {
 	})
 })
 
-func ExpectCondition(vmip *virtv2.VirtualMachineIPAddress, status metav1.ConditionStatus, reason vmipcondition.BoundReason, msgExists bool) {
+func ExpectCondition(vmip *v1alpha2.VirtualMachineIPAddress, status metav1.ConditionStatus, reason vmipcondition.BoundReason, msgExists bool) {
 	ready, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

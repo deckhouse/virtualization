@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestMigrationSuite(t *testing.T) {
@@ -106,10 +106,10 @@ const (
 )
 
 var (
-	vdQemu36 = &virtv2.VirtualDisk{
+	vdQemu36 = &v1alpha2.VirtualDisk{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: virtv2.SchemeGroupVersion.String(),
-			Kind:       virtv2.VirtualDiskKind,
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			Kind:       v1alpha2.VirtualDiskKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vdQemu36Name,
@@ -117,10 +117,10 @@ var (
 			UID:       vdQemu36UID,
 		},
 	}
-	viQemu36 = &virtv2.VirtualImage{
+	viQemu36 = &v1alpha2.VirtualImage{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: virtv2.SchemeGroupVersion.String(),
-			Kind:       virtv2.VirtualImageKind,
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			Kind:       v1alpha2.VirtualImageKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      viQemu36Name,
@@ -128,10 +128,10 @@ var (
 			UID:       viQemu36UID,
 		},
 	}
-	cviQemu36 = &virtv2.ClusterVirtualImage{
+	cviQemu36 = &v1alpha2.ClusterVirtualImage{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: virtv2.SchemeGroupVersion.String(),
-			Kind:       virtv2.ClusterVirtualImageKind,
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			Kind:       v1alpha2.ClusterVirtualImageKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cviQemu36Name,

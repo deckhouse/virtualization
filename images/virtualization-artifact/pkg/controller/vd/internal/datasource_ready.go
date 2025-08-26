@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -47,7 +47,7 @@ func NewDatasourceReadyHandler(recorder eventrecord.EventRecorderLogger, blank s
 	}
 }
 
-func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if vd.DeletionTimestamp != nil {
 		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
@@ -86,7 +86,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDContainerRegistrySecretNotFound,
+			v1alpha2.ReasonVDContainerRegistrySecretNotFound,
 			"Container registry secret not found",
 		)
 

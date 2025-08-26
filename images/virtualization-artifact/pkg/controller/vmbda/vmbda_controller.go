@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmbdametrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmbda"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ControllerName = "vmbda-controller"
@@ -72,7 +72,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualMachineBlockDeviceAttachment{}).
+		For(&v1alpha2.VirtualMachineBlockDeviceAttachment{}).
 		WithValidator(NewValidator(attacher, blockDeviceService, lg)).
 		Complete(); err != nil {
 		return nil, err

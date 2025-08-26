@@ -25,9 +25,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -62,7 +62,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
-		virtualDiskWithoutConsumer := virtv2.VirtualDisk{}
+		virtualDiskWithoutConsumer := v1alpha2.VirtualDisk{}
 		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
 		err = helper.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
@@ -172,7 +172,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
 		It("creates snapshots with `requiredConsistency` of attached VDs", func() {
-			vmObjects := virtv2.VirtualMachineList{}
+			vmObjects := v1alpha2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: ns})
 			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
 
@@ -191,7 +191,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 				blockDevices := vm.Status.BlockDeviceRefs
 				for _, blockDevice := range blockDevices {
-					if blockDevice.Kind == virtv2.VirtualDiskKind {
+					if blockDevice.Kind == v1alpha2.VirtualDiskKind {
 						By(fmt.Sprintf("Create snapshot for %q", blockDevice.Name))
 						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, ns, true, attachedVirtualDiskLabel)
 						Expect(err).NotTo(HaveOccurred(), "%s", err)
@@ -213,7 +213,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 		})
 
 		It("creates `vdSnapshots` concurrently", func() {
-			vmObjects := virtv2.VirtualMachineList{}
+			vmObjects := v1alpha2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{
 				Namespace: ns,
 				Labels:    vmAutomaticWithHotplug,
@@ -235,7 +235,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 				blockDevices := vm.Status.BlockDeviceRefs
 				for _, blockDevice := range blockDevices {
-					if blockDevice.Kind == virtv2.VirtualDiskKind {
+					if blockDevice.Kind == v1alpha2.VirtualDiskKind {
 						By(fmt.Sprintf("Create five snapshots for %q of %q", blockDevice.Name, vm.Name))
 						errs := make([]error, 0, 5)
 						wg := sync.WaitGroup{}
@@ -295,7 +295,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 		It("checks `FileSystemFrozen` status of VMs", func() {
 			By("Status should not be `Frozen`")
-			vmObjects := virtv2.VirtualMachineList{}
+			vmObjects := v1alpha2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: ns})
 			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
 
@@ -339,17 +339,17 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredConsistency bool, labels map[string]string) error {
 	GinkgoHelper()
-	vdSnapshot := virtv2.VirtualDiskSnapshot{
-		TypeMeta: v1.TypeMeta{
+	vdSnapshot := v1alpha2.VirtualDiskSnapshot{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: APIVersion,
-			Kind:       virtv2.VirtualDiskSnapshotKind,
+			Kind:       v1alpha2.VirtualDiskSnapshotKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Labels:    labels,
 			Name:      snapshotName,
 			Namespace: namespace,
 		},
-		Spec: virtv2.VirtualDiskSnapshotSpec{
+		Spec: v1alpha2.VirtualDiskSnapshotSpec{
 			RequiredConsistency: requiredConsistency,
 			VirtualDiskName:     vdName,
 		},
@@ -372,7 +372,7 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredC
 }
 
 func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
-	vmObj := virtv2.VirtualMachine{}
+	vmObj := v1alpha2.VirtualMachine{}
 	err := GetObject(kc.ResourceVM, vmName, &vmObj, kc.GetOptions{Namespace: vmNamespace})
 	if err != nil {
 		return false, fmt.Errorf("cannot get `VirtualMachine`: %q\nstderr: %w", vmName, err)
@@ -380,7 +380,7 @@ func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
 
 	for _, condition := range vmObj.Status.Conditions {
 		if condition.Type == vmcondition.TypeFilesystemFrozen.String() {
-			return condition.Status == v1.ConditionTrue, nil
+			return condition.Status == metav1.ConditionTrue, nil
 		}
 	}
 

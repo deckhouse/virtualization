@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -48,9 +48,9 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
 				UpdateFunc: w.filterUpdateEvents,
 			},
 		),
@@ -60,10 +60,10 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
 	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
@@ -74,7 +74,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 		return
 	}
 
-	var vdSnapshots virtv2.VirtualDiskSnapshotList
+	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
 	err := w.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: vm.GetNamespace(),
 	})
@@ -100,7 +100,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 	return
 }
 
-func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 	if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 		return true
 	}

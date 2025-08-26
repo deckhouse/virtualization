@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -47,7 +47,7 @@ func NewStatsHandler(stat *service.StatService, importer *service.ImporterServic
 	}
 }
 
-func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
@@ -90,7 +90,7 @@ func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	var err error
 
 	switch vd.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
+	case v1alpha2.DataSourceTypeUpload:
 		pod, err = h.uploader.GetPod(ctx, supgen)
 		if err != nil {
 			return reconcile.Result{}, err

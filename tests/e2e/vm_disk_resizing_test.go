@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	cfg "github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -40,7 +40,7 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 		vmCount   = 1
 		diskCount = 3
 	)
-	var vmObj *virtv2.VirtualMachine
+	var vmObj *v1alpha2.VirtualMachine
 	var ns string
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
@@ -73,8 +73,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 
 	Context("When the virtual images are applied", func() {
 		It("checks `VirtualImages` phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phases", virtv2.ImageReady), func() {
-				WaitPhaseByLabel(kc.ResourceVI, string(virtv2.ImageReady), kc.WaitOptions{
+			By(fmt.Sprintf("`VirtualImages` should be in the %q phases", v1alpha2.ImageReady), func() {
+				WaitPhaseByLabel(kc.ResourceVI, string(v1alpha2.ImageReady), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -85,8 +85,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 
 	Context("When the virtual disks are applied", func() {
 		It("checks `VirtualDisks` phase", func() {
-			By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", virtv2.DiskReady), func() {
-				WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
+			By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", v1alpha2.DiskReady), func() {
+				WaitPhaseByLabel(kc.ResourceVD, string(v1alpha2.DiskReady), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -108,8 +108,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 
 		It("retrieves the test objects", func() {
 			By("`VirtualMachine`", func() {
-				vmObjs := &virtv2.VirtualMachineList{}
-				err := GetObjects(virtv2.VirtualMachineResource, vmObjs, kc.GetOptions{
+				vmObjs := &v1alpha2.VirtualMachineList{}
+				err := GetObjects(v1alpha2.VirtualMachineResource, vmObjs, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 				})
@@ -123,8 +123,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 
 	Context("When the virtual machine block device attachment is applied", func() {
 		It("checks `VirtualMachineBlockDeviceAttachment` phase", func() {
-			By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachment` should be in the %q phases", virtv2.BlockDeviceAttachmentPhaseAttached), func() {
-				WaitPhaseByLabel(kc.ResourceVMBDA, string(virtv2.BlockDeviceAttachmentPhaseAttached), kc.WaitOptions{
+			By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachment` should be in the %q phases", v1alpha2.BlockDeviceAttachmentPhaseAttached), func() {
+				WaitPhaseByLabel(kc.ResourceVMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -163,8 +163,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
-					By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", virtv2.DiskResizing), func() {
-						WaitPhaseByLabel(virtv2.VirtualDiskResource, string(virtv2.DiskResizing), kc.WaitOptions{
+					By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", v1alpha2.DiskResizing), func() {
+						WaitPhaseByLabel(v1alpha2.VirtualDiskResource, string(v1alpha2.DiskResizing), kc.WaitOptions{
 							Labels:    testCaseLabel,
 							Namespace: ns,
 							Timeout:   MaxWaitTimeout,
@@ -180,8 +180,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 			})
 
 			It("checks `VirtualDisks`, `VirtualMachine` and `VirtualMachineBlockDeviceAttachment` phases", func() {
-				By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", virtv2.DiskReady), func() {
-					WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
+				By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", v1alpha2.DiskReady), func() {
+					WaitPhaseByLabel(kc.ResourceVD, string(v1alpha2.DiskReady), kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: ns,
 						Timeout:   MaxWaitTimeout,
@@ -194,8 +194,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 						Timeout:   MaxWaitTimeout,
 					})
 				})
-				By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachment` should be in the %q phases", virtv2.BlockDeviceAttachmentPhaseAttached), func() {
-					WaitPhaseByLabel(kc.ResourceVMBDA, string(virtv2.BlockDeviceAttachmentPhaseAttached), kc.WaitOptions{
+				By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachment` should be in the %q phases", v1alpha2.BlockDeviceAttachmentPhaseAttached), func() {
+					WaitPhaseByLabel(kc.ResourceVMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: ns,
 						Timeout:   MaxWaitTimeout,
@@ -267,8 +267,8 @@ func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 	GinkgoHelper()
 	Eventually(func() error {
 		for _, vmName := range vms {
-			vm := virtv2.VirtualMachine{}
-			err := GetObject(virtv2.VirtualMachineResource, vmName, &vm, kc.GetOptions{Namespace: namespace})
+			vm := v1alpha2.VirtualMachine{}
+			err := GetObject(v1alpha2.VirtualMachineResource, vmName, &vm, kc.GetOptions{Namespace: namespace})
 			if err != nil {
 				return fmt.Errorf("virtualMachine: %s\nstderr: %w", vmName, err)
 			}
@@ -290,7 +290,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, ns string, vi
 		go func() {
 			defer GinkgoRecover()
 			defer wg.Done()
-			diskObject := virtv2.VirtualDisk{}
+			diskObject := v1alpha2.VirtualDisk{}
 			err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: ns})
 			Expect(err).NotTo(HaveOccurred(), "%v", err)
 			newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
@@ -304,7 +304,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, ns string, vi
 
 func GetSizeFromObject(vdName, namespace string) (*resource.Quantity, error) {
 	GinkgoHelper()
-	vd := virtv2.VirtualDisk{}
+	vd := v1alpha2.VirtualDisk{}
 	err := GetObject(kc.ResourceVD, vdName, &vd, kc.GetOptions{Namespace: namespace})
 	if err != nil {
 		return nil, err
@@ -370,9 +370,9 @@ func GetDiskIDPath(vdName string, vmi *virtv1.VirtualMachineInstance) string {
 // Refactor this flow when `target` field will be fixed for `VirtualMachine.Status.BlockDeviceRefs`
 func GetVirtualMachineDisks(vmNamespace, vmName string) (VirtualMachineDisks, error) {
 	GinkgoHelper()
-	var vmObject virtv2.VirtualMachine
+	var vmObject v1alpha2.VirtualMachine
 	disks := make(map[string]DiskMetaData, 0)
-	err := GetObject(virtv2.VirtualMachineResource, vmName, &vmObject, kc.GetOptions{
+	err := GetObject(v1alpha2.VirtualMachineResource, vmName, &vmObject, kc.GetOptions{
 		Namespace: vmNamespace,
 	})
 	if err != nil {
@@ -389,7 +389,7 @@ func GetVirtualMachineDisks(vmNamespace, vmName string) (VirtualMachineDisks, er
 
 	for _, device := range vmObject.Status.BlockDeviceRefs {
 		disk := DiskMetaData{}
-		if device.Kind != virtv2.DiskDevice {
+		if device.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 		diskIDPath := GetDiskIDPath(device.Name, intVirtVmi)

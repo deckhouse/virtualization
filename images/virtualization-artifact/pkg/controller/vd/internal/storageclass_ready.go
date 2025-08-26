@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -44,7 +44,7 @@ func NewStorageClassReadyHandler(svc StorageClassService) *StorageClassReadyHand
 	}
 }
 
-func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdcondition.StorageClassReadyType).Generation(vd.Generation)
 
 	if vd.DeletionTimestamp != nil {
@@ -101,7 +101,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	return reconcile.Result{}, nil
 }
 
-func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *virtv2.VirtualDisk, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *v1alpha2.VirtualDisk, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
 	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
 		return fmt.Errorf("pvc does not have storage class")
 	}
@@ -139,7 +139,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) error {
 	vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 
 	sc, err := h.svc.GetStorageClass(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
@@ -191,7 +191,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+func (h StorageClassReadyHandler) setFromModuleSettings(vd *v1alpha2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vd.Status.StorageClassName = moduleStorageClass.Name
 
 	if h.svc.IsStorageClassDeprecated(moduleStorageClass) {
@@ -220,7 +220,7 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, 
 	}
 }
 
-func (h StorageClassReadyHandler) setFromDefault(vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+func (h StorageClassReadyHandler) setFromDefault(vd *v1alpha2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vd.Status.StorageClassName = defaultStorageClass.Name
 
 	if h.svc.IsStorageClassDeprecated(defaultStorageClass) {

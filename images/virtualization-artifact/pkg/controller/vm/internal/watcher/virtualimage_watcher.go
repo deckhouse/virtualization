@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVirtualImageWatcher() *VirtualImageWatcher {
@@ -44,10 +44,10 @@ func (w *VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controll
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualImage{},
-			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.VirtualImage](mgr.GetClient())),
-			predicate.TypedFuncs[*virtv2.VirtualImage]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+			&v1alpha2.VirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*v1alpha2.VirtualImage](mgr.GetClient())),
+			predicate.TypedFuncs[*v1alpha2.VirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualImage]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
@@ -62,16 +62,16 @@ func enqueueRequestsBlockDevice[T client.Object](cl client.Client) func(ctx cont
 	return func(ctx context.Context, obj T) []reconcile.Request {
 		var opts []client.ListOption
 		switch obj.GetObjectKind().GroupVersionKind().Kind {
-		case virtv2.VirtualImageKind:
+		case v1alpha2.VirtualImageKind:
 			opts = append(opts,
 				client.InNamespace(obj.GetNamespace()),
 				client.MatchingFields{indexer.IndexFieldVMByVI: obj.GetName()},
 			)
-		case virtv2.ClusterVirtualImageKind:
+		case v1alpha2.ClusterVirtualImageKind:
 			opts = append(opts,
 				client.MatchingFields{indexer.IndexFieldVMByCVI: obj.GetName()},
 			)
-		case virtv2.VirtualDiskKind:
+		case v1alpha2.VirtualDiskKind:
 			opts = append(opts,
 				client.InNamespace(obj.GetNamespace()),
 				client.MatchingFields{indexer.IndexFieldVMByVD: obj.GetName()},
@@ -79,7 +79,7 @@ func enqueueRequestsBlockDevice[T client.Object](cl client.Client) func(ctx cont
 		default:
 			return nil
 		}
-		var vms virtv2.VirtualMachineList
+		var vms v1alpha2.VirtualMachineList
 		if err := cl.List(ctx, &vms, opts...); err != nil {
 			return nil
 		}

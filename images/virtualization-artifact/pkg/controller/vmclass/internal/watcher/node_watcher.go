@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type NodesWatcher struct{}
@@ -50,7 +50,7 @@ func (w *NodesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, node *corev1.Node) []reconcile.Request {
 				var result []reconcile.Request
 
-				classList := &virtv2.VirtualMachineClassList{}
+				classList := &v1alpha2.VirtualMachineClassList{}
 				err := mgr.GetClient().List(ctx, classList)
 				if err != nil {
 					log.Error("failed to list VMClasses", "error", err)

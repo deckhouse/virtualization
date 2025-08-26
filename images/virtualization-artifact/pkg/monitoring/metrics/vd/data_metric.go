@@ -20,20 +20,20 @@ import (
 	"strings"
 
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
 	Name        string
 	Namespace   string
 	UID         string
-	Phase       virtv2.DiskPhase
+	Phase       v1alpha2.DiskPhase
 	Labels      map[string]string
 	Annotations map[string]string
 }
 
 // DO NOT mutate VirtualDisk!
-func newDataMetric(vd *virtv2.VirtualDisk) *dataMetric {
+func newDataMetric(vd *v1alpha2.VirtualDisk) *dataMetric {
 	if vd == nil {
 		return nil
 	}

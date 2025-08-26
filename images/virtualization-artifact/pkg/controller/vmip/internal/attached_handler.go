@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
@@ -46,7 +46,7 @@ func NewAttachedHandler(recorder eventrecord.EventRecorderLogger, client client.
 	}
 }
 
-func (h *AttachedHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error) {
+func (h *AttachedHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmipcondition.AttachedType).Generation(vmip.GetGeneration())
 
 	vm, err := h.getAttachedVirtualMachine(ctx, vmip)
@@ -66,7 +66,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachin
 			Reason(vmipcondition.VirtualMachineNotFound).
 			Message("VirtualMachineIPAddress is not attached to any virtual machine.")
 		conditions.SetCondition(cb, &vmip.Status.Conditions)
-		h.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonNotAttached, "VirtualMachineIPAddress is not attached to any virtual machine.")
+		h.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonNotAttached, "VirtualMachineIPAddress is not attached to any virtual machine.")
 		return reconcile.Result{}, nil
 	}
 
@@ -76,13 +76,13 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachin
 		Reason(vmipcondition.Attached).
 		Message("")
 	conditions.SetCondition(cb, &vmip.Status.Conditions)
-	h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonAttached, "VirtualMachineIPAddress is attached to \"%s/%s\".", vm.Namespace, vm.Name)
+	h.recorder.Eventf(vmip, corev1.EventTypeNormal, v1alpha2.ReasonAttached, "VirtualMachineIPAddress is attached to \"%s/%s\".", vm.Namespace, vm.Name)
 
 	return reconcile.Result{}, nil
 }
 
-func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachine, error) {
-	var vms virtv2.VirtualMachineList
+func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachine, error) {
+	var vms v1alpha2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{Namespace: vmip.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("list vms: %w", err)
@@ -90,7 +90,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 
 	// Return the first one for which the status matches.
 	// If no status matches, return the first one for which the spec matches.
-	var attachedVM *virtv2.VirtualMachine
+	var attachedVM *v1alpha2.VirtualMachine
 	for _, vm := range vms.Items {
 		if vm.Status.VirtualMachineIPAddress == vmip.Name {
 			attachedVM = &vm
@@ -109,7 +109,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	// If there's no match for the spec either, then try to find the vm by ownerRef.
 	var vmName string
 	for _, ownerRef := range vmip.OwnerReferences {
-		if ownerRef.Kind == virtv2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
+		if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
 			vmName = ownerRef.Name
 			break
 		}
@@ -120,7 +120,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 	}
 
 	vmKey := types.NamespacedName{Name: vmName, Namespace: vmip.Namespace}
-	attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &virtv2.VirtualMachine{})
+	attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
 	}

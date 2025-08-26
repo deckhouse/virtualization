@@ -24,7 +24,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -38,7 +38,7 @@ func NewSnapshottingHandler(diskService *service.DiskService) *SnapshottingHandl
 	}
 }
 
-func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h SnapshottingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdcondition.SnapshottingType).Generation(vd.Generation)
 
 	defer func() {
@@ -68,7 +68,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			continue
 		}
 
-		if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseReady || vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseTerminating {
+		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseTerminating {
 			continue
 		}
 

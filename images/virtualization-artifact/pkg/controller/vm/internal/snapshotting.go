@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -50,7 +50,7 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 		return reconcile.Result{}, nil
 	}
 
-	var vmSnapshots virtv2.VirtualMachineSnapshotList
+	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
 	err := h.client.List(ctx, &vmSnapshots, client.InNamespace(vm.Namespace))
 	if err != nil {
 		return reconcile.Result{}, err
@@ -74,12 +74,12 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 
 		switch vmSnapshot.Status.Phase {
-		case virtv2.VirtualMachineSnapshotPhasePending:
+		case v1alpha2.VirtualMachineSnapshotPhasePending:
 			cb.Status(metav1.ConditionTrue).
 				Message("The virtual machine is selected for taking a snapshot.").
 				Reason(vmcondition.WaitingForTheSnapshotToStart)
 			continue
-		case virtv2.VirtualMachineSnapshotPhaseInProgress:
+		case v1alpha2.VirtualMachineSnapshotPhaseInProgress:
 			cb.Status(metav1.ConditionTrue).
 				Message("The virtual machine is in the process of snapshotting.").
 				Reason(vmcondition.ReasonSnapshottingInProgress)

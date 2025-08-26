@@ -28,18 +28,18 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ReasonPVCNotFound = "PVC not found"
 
 type VirtualMachineOverrideValidator struct {
-	vm           *virtv2.VirtualMachine
+	vm           *v1alpha2.VirtualMachine
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client client.Client, vmRestoreUID string) *VirtualMachineOverrideValidator {
+func NewVirtualMachineOverrideValidator(vmTmpl *v1alpha2.VirtualMachine, client client.Client, vmRestoreUID string) *VirtualMachineOverrideValidator {
 	if vmTmpl.Annotations != nil {
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -48,7 +48,7 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 	}
 
 	return &VirtualMachineOverrideValidator{
-		vm: &virtv2.VirtualMachine{
+		vm: &v1alpha2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmTmpl.Kind,
 				APIVersion: vmTmpl.APIVersion,
@@ -66,15 +66,15 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 	}
 }
 
-func (v *VirtualMachineOverrideValidator) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualMachineOverrideValidator) Override(rules []v1alpha2.NameReplacement) {
 	v.vm.Name = overrideName(v.vm.Kind, v.vm.Name, rules)
-	v.vm.Spec.VirtualMachineIPAddress = overrideName(virtv2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
+	v.vm.Spec.VirtualMachineIPAddress = overrideName(v1alpha2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
 
 	if v.vm.Spec.Provisioning != nil {
 		if v.vm.Spec.Provisioning.UserDataRef != nil {
-			if v.vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
+			if v.vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
 				v.vm.Spec.Provisioning.UserDataRef.Name = overrideName(
-					string(virtv2.UserDataRefKindSecret),
+					string(v1alpha2.UserDataRefKindSecret),
 					v.vm.Spec.Provisioning.UserDataRef.Name,
 					rules,
 				)
@@ -83,17 +83,17 @@ func (v *VirtualMachineOverrideValidator) Override(rules []virtv2.NameReplacemen
 	}
 
 	for i := range v.vm.Spec.BlockDeviceRefs {
-		if v.vm.Spec.BlockDeviceRefs[i].Kind != virtv2.DiskDevice {
+		if v.vm.Spec.BlockDeviceRefs[i].Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
-		v.vm.Spec.BlockDeviceRefs[i].Name = overrideName(virtv2.VirtualDiskKind, v.vm.Spec.BlockDeviceRefs[i].Name, rules)
+		v.vm.Spec.BlockDeviceRefs[i].Name = overrideName(v1alpha2.VirtualDiskKind, v.vm.Spec.BlockDeviceRefs[i].Name, rules)
 	}
 }
 
 func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
-	existed, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
+	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (v *VirtualMachineOverrideValidator) ValidateWithForce(ctx context.Context)
 
 func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
-	vmObj, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
+	vmObj, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
 	}

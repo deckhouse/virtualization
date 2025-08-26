@@ -25,21 +25,21 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
 
 var _ = Describe("VirtualDiskReady handler", func() {
 	var snapshotter *VirtualDiskReadySnapshotterMock
-	var vd *virtv2.VirtualDisk
-	var vdSnapshot *virtv2.VirtualDiskSnapshot
+	var vd *v1alpha2.VirtualDisk
+	var vdSnapshot *v1alpha2.VirtualDiskSnapshot
 
 	BeforeEach(func() {
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-01"},
-			Status: virtv2.VirtualDiskStatus{
-				Phase: virtv2.DiskReady,
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase: v1alpha2.DiskReady,
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.SnapshottingType.String(),
@@ -49,13 +49,13 @@ var _ = Describe("VirtualDiskReady handler", func() {
 			},
 		}
 
-		vdSnapshot = &virtv2.VirtualDiskSnapshot{
+		vdSnapshot = &v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{Name: "vdsnapshot"},
-			Spec:       virtv2.VirtualDiskSnapshotSpec{VirtualDiskName: vd.Name},
+			Spec:       v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: vd.Name},
 		}
 
 		snapshotter = &VirtualDiskReadySnapshotterMock{
-			GetVirtualDiskFunc: func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
+			GetVirtualDiskFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 				return vd, nil
 			},
 		}
@@ -76,7 +76,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 
 	Context("condition VirtualDiskReady is False", func() {
 		It("The virtual disk not found", func() {
-			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 				return nil, nil
 			}
 			h := NewVirtualDiskReadyHandler(snapshotter)
@@ -90,7 +90,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 		})
 
 		It("The virtual disk is in process of deletion", func() {
-			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 				vd.DeletionTimestamp = ptr.To(metav1.Now())
 				return vd, nil
 			}
@@ -105,8 +105,8 @@ var _ = Describe("VirtualDiskReady handler", func() {
 		})
 
 		It("The virtual disk is not Ready", func() {
-			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
-				vd.Status.Phase = virtv2.DiskPending
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				vd.Status.Phase = v1alpha2.DiskPending
 				return vd, nil
 			}
 			h := NewVirtualDiskReadyHandler(snapshotter)
@@ -120,7 +120,7 @@ var _ = Describe("VirtualDiskReady handler", func() {
 		})
 
 		It("The virtual disk is not ready for snapshot taking yet", func() {
-			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
 				vd.Status.Conditions = nil
 				vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
 					Type:    vdcondition.SnapshottingType.String(),

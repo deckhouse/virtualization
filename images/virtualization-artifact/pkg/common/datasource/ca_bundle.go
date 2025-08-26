@@ -19,12 +19,12 @@ package datasource
 import (
 	"k8s.io/apimachinery/pkg/types"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type CABundle struct {
-	Type           virtv2.DataSourceType
-	HTTP           *virtv2.DataSourceHTTP
+	Type           v1alpha2.DataSourceType
+	HTTP           *v1alpha2.DataSourceHTTP
 	ContainerImage *ContainerRegistry
 }
 
@@ -34,14 +34,14 @@ type ContainerRegistry struct {
 	CABundle        []byte
 }
 
-func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
+func NewCABundleForCVMI(ds v1alpha2.ClusterVirtualImageDataSource) *CABundle {
 	switch ds.Type {
-	case virtv2.DataSourceTypeHTTP:
+	case v1alpha2.DataSourceTypeHTTP:
 		return &CABundle{
 			Type: ds.Type,
 			HTTP: ds.HTTP,
 		}
-	case virtv2.DataSourceTypeContainerImage:
+	case v1alpha2.DataSourceTypeContainerImage:
 		return &CABundle{
 			Type: ds.Type,
 			ContainerImage: &ContainerRegistry{
@@ -58,14 +58,14 @@ func NewCABundleForCVMI(ds virtv2.ClusterVirtualImageDataSource) *CABundle {
 	return &CABundle{Type: ds.Type}
 }
 
-func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABundle {
+func NewCABundleForVMI(namespace string, ds v1alpha2.VirtualImageDataSource) *CABundle {
 	switch ds.Type {
-	case virtv2.DataSourceTypeHTTP:
+	case v1alpha2.DataSourceTypeHTTP:
 		return &CABundle{
 			Type: ds.Type,
 			HTTP: ds.HTTP,
 		}
-	case virtv2.DataSourceTypeContainerImage:
+	case v1alpha2.DataSourceTypeContainerImage:
 		return &CABundle{
 			Type: ds.Type,
 			ContainerImage: &ContainerRegistry{
@@ -82,14 +82,14 @@ func NewCABundleForVMI(namespace string, ds virtv2.VirtualImageDataSource) *CABu
 	return &CABundle{Type: ds.Type}
 }
 
-func NewCABundleForVMD(namespace string, ds *virtv2.VirtualDiskDataSource) *CABundle {
+func NewCABundleForVMD(namespace string, ds *v1alpha2.VirtualDiskDataSource) *CABundle {
 	switch ds.Type {
-	case virtv2.DataSourceTypeHTTP:
+	case v1alpha2.DataSourceTypeHTTP:
 		return &CABundle{
 			Type: ds.Type,
 			HTTP: ds.HTTP,
 		}
-	case virtv2.DataSourceTypeContainerImage:
+	case v1alpha2.DataSourceTypeContainerImage:
 		return &CABundle{
 			Type: ds.Type,
 			ContainerImage: &ContainerRegistry{
@@ -115,11 +115,11 @@ func (ds *CABundle) GetCABundle() string {
 		return ""
 	}
 	switch ds.Type {
-	case virtv2.DataSourceTypeHTTP:
+	case v1alpha2.DataSourceTypeHTTP:
 		if ds.HTTP != nil {
 			return string(ds.HTTP.CABundle)
 		}
-	case virtv2.DataSourceTypeContainerImage:
+	case v1alpha2.DataSourceTypeContainerImage:
 		if ds.ContainerImage != nil {
 			return string(ds.ContainerImage.CABundle)
 		}

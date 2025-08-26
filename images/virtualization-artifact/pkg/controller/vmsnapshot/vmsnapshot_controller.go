@@ -34,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmsnapshotcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmsnapshot"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ControllerName = "vmsnapshot-controller"
@@ -45,7 +45,7 @@ func NewController(
 	log *log.Logger,
 	virtClient kubeclient.Client,
 ) error {
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVMSnapshotProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVMSnapshotProtection)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	snapshotter := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 
@@ -71,7 +71,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualMachineSnapshot{}).
+		For(&v1alpha2.VirtualMachineSnapshot{}).
 		WithValidator(NewValidator()).
 		Complete(); err != nil {
 		return err

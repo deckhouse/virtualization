@@ -35,7 +35,7 @@ import (
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
@@ -46,7 +46,7 @@ type Allocator interface {
 }
 
 type CreateLeaseStep struct {
-	lease     *virtv2.VirtualMachineIPAddressLease
+	lease     *v1alpha2.VirtualMachineIPAddressLease
 	allocator Allocator
 	client    client.Client
 	cb        *conditions.ConditionBuilder
@@ -54,7 +54,7 @@ type CreateLeaseStep struct {
 }
 
 func NewCreateLeaseStep(
-	lease *virtv2.VirtualMachineIPAddressLease,
+	lease *v1alpha2.VirtualMachineIPAddressLease,
 	allocator Allocator,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
@@ -69,7 +69,7 @@ func NewCreateLeaseStep(
 	}
 }
 
-func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*reconcile.Result, error) {
+func (s CreateLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*reconcile.Result, error) {
 	if s.lease != nil {
 		err := fmt.Errorf("the VirtualMachineIPAddressLease %q already exists, no need to create a new one, please report this as a bug", vmip.Name)
 		s.cb.
@@ -85,7 +85,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
 			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IPToLeaseName(vmip.Status.Address)))
-		s.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonFailed, fmt.Sprintf("The VirtualMachineIPAddressLease %q is lost.", ip.IPToLeaseName(vmip.Status.Address)))
+		s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonFailed, fmt.Sprintf("The VirtualMachineIPAddressLease %q is lost.", ip.IPToLeaseName(vmip.Status.Address)))
 		return &reconcile.Result{}, nil
 	}
 
@@ -101,7 +101,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 
 	// 2. Allocate a new IP address or use the IP address provided in the spec.
 	var ipAddress string
-	if vmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeStatic {
+	if vmip.Spec.Type == v1alpha2.VirtualMachineIPAddressTypeStatic {
 		ipAddress = vmip.Spec.StaticIP
 	} else {
 		ipAddress, err = s.allocator.AllocateNewIP(allocatedIPs)
@@ -124,7 +124,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 				Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressIsOutOfTheValidRange).
 				Message(msg)
-			s.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonFailed, msg)
+			s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonFailed, msg)
 			return &reconcile.Result{}, nil
 		}
 
@@ -143,7 +143,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
 			Message(msg)
-		s.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonBound, msg)
+		s.recorder.Event(vmip, corev1.EventTypeWarning, v1alpha2.ReasonBound, msg)
 		return &reconcile.Result{}, nil
 	}
 
@@ -158,7 +158,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 			Message(msg)
-		s.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, msg)
+		s.recorder.Event(vmip, corev1.EventTypeNormal, v1alpha2.ReasonBound, msg)
 		return &reconcile.Result{}, nil
 	case k8serrors.IsAlreadyExists(err):
 		// The cache is outdated and not keeping up with the state in the cluster.
@@ -179,16 +179,16 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 	}
 }
 
-func buildVirtualMachineIPAddressLease(vmip *virtv2.VirtualMachineIPAddress, ipAddress string) *virtv2.VirtualMachineIPAddressLease {
-	return &virtv2.VirtualMachineIPAddressLease{
+func buildVirtualMachineIPAddressLease(vmip *v1alpha2.VirtualMachineIPAddress, ipAddress string) *v1alpha2.VirtualMachineIPAddressLease {
+	return &v1alpha2.VirtualMachineIPAddressLease{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID()),
 			},
 			Name: ip.IPToLeaseName(ipAddress),
 		},
-		Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
-			VirtualMachineIPAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+		Spec: v1alpha2.VirtualMachineIPAddressLeaseSpec{
+			VirtualMachineIPAddressRef: &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 				Name:      vmip.Name,
 				Namespace: vmip.Namespace,
 			},

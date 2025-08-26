@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineIPAddressWatcher struct{}
@@ -35,8 +35,8 @@ func NewVirtualMachineIPAddressWatcher() *VirtualMachineIPAddressWatcher {
 
 func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineIPAddress]{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineIPAddress{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineIPAddress]{},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineIPAddress: %w", err)

@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
@@ -47,7 +47,7 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 
 		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
-		virtualDisk := virtv2.VirtualDisk{}
+		virtualDisk := v1alpha2.VirtualDisk{}
 		vdFilePath := fmt.Sprintf("%s/vd/vd-alpine-http.yaml", conf.TestData.ImagesCreation)
 		err = helper.UnmarshalResource(vdFilePath, &virtualDisk)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdFilePath, err)
@@ -56,7 +56,7 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 		err = helper.WriteYamlObject(vdFilePath, &virtualDisk)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdFilePath, err)
 
-		virtualDiskSnapshot := virtv2.VirtualDiskSnapshot{}
+		virtualDiskSnapshot := v1alpha2.VirtualDiskSnapshot{}
 		vdSnapshotFilePath := fmt.Sprintf("%s/vdsnapshot/vdsnapshot.yaml", conf.TestData.ImagesCreation)
 		err = helper.UnmarshalResource(vdSnapshotFilePath, &virtualDiskSnapshot)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdSnapshotFilePath, err)
@@ -83,8 +83,8 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 
 	Context("When base virtual resources are ready", func() {
 		It("checks VD phase", func() {
-			By(fmt.Sprintf("VD should be in %s phase", virtv2.DiskReady))
-			WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
+			By(fmt.Sprintf("VD should be in %s phase", v1alpha2.DiskReady))
+			WaitPhaseByLabel(kc.ResourceVD, string(v1alpha2.DiskReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -92,8 +92,8 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 		})
 
 		It("checks VDSnapshot phase", func() {
-			By(fmt.Sprintf("VDSnapshot should be in %s phase", virtv2.VirtualDiskSnapshotPhaseReady))
-			WaitPhaseByLabel(kc.ResourceVDSnapshot, string(virtv2.VirtualDiskSnapshotPhaseReady), kc.WaitOptions{
+			By(fmt.Sprintf("VDSnapshot should be in %s phase", v1alpha2.VirtualDiskSnapshotPhaseReady))
+			WaitPhaseByLabel(kc.ResourceVDSnapshot, string(v1alpha2.VirtualDiskSnapshotPhaseReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -103,8 +103,8 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 
 	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", virtv2.ImageReady))
-			WaitPhaseByLabel(kc.ResourceVI, string(virtv2.ImageReady), kc.WaitOptions{
+			By(fmt.Sprintf("VIs should be in %s phases", v1alpha2.ImageReady))
+			WaitPhaseByLabel(kc.ResourceVI, string(v1alpha2.ImageReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -112,8 +112,8 @@ var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), f
 		})
 
 		It("checks CVIs phases", func() {
-			By(fmt.Sprintf("CVIs should be in %s phases", virtv2.ImageReady))
-			WaitPhaseByLabel(kc.ResourceCVI, string(virtv2.ImageReady), kc.WaitOptions{
+			By(fmt.Sprintf("CVIs should be in %s phases", v1alpha2.ImageReady))
+			WaitPhaseByLabel(kc.ResourceCVI, string(v1alpha2.ImageReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,

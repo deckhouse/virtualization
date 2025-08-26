@@ -34,7 +34,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -67,10 +67,10 @@ func (p pather) Path(namespace, name string) string {
 	return fmt.Sprintf(p.template, namespace, name, p.subresource)
 }
 
-type preconditionVirtualMachine func(vm *virtv2.VirtualMachine) error
+type preconditionVirtualMachine func(vm *v1alpha2.VirtualMachine) error
 
-func virtualMachineNeedRunning(vm *virtv2.VirtualMachine) error {
-	if vm == nil || vm.Status.Phase != virtv2.MachineRunning {
+func virtualMachineNeedRunning(vm *v1alpha2.VirtualMachine) error {
+	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning {
 		return fmt.Errorf("VirtualMachine is not Running")
 	}
 	return nil

@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
@@ -43,7 +43,7 @@ func NewValidator(logger *log.Logger) *Validator {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
+	cvi, ok := obj.(*v1alpha2.ClusterVirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected a new ClusterVirtualImage but got a %T", obj)
 	}
@@ -60,12 +60,12 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldCVI, ok := oldObj.(*virtv2.ClusterVirtualImage)
+	oldCVI, ok := oldObj.(*v1alpha2.ClusterVirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected an old ClusterVirtualImage but got a %T", newObj)
 	}
 
-	newCVI, ok := newObj.(*virtv2.ClusterVirtualImage)
+	newCVI, ok := newObj.(*v1alpha2.ClusterVirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected a new ClusterVirtualImage but got a %T", newObj)
 	}
@@ -79,7 +79,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 
 	ready, _ := conditions.GetCondition(cvicondition.ReadyType, newCVI.Status.Conditions)
-	if newCVI.Status.Phase == virtv2.ImageReady || ready.Status == metav1.ConditionTrue {
+	if newCVI.Status.Phase == v1alpha2.ImageReady || ready.Status == metav1.ConditionTrue {
 		return nil, fmt.Errorf("ClusterVirtualImage is in a Ready state: configuration changes are not available")
 	}
 

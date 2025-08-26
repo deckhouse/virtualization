@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -45,9 +45,9 @@ func NewWaitForPVCStep(
 	}
 }
 
-func (s WaitForPVCStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s WaitForPVCStep) Take(_ context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	if s.pvc == nil {
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -60,7 +60,7 @@ func (s WaitForPVCStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*recon
 		return nil, nil
 	}
 
-	vi.Status.Phase = virtv2.ImageProvisioning
+	vi.Status.Phase = v1alpha2.ImageProvisioning
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).

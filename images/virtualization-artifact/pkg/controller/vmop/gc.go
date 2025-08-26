@@ -26,7 +26,7 @@ import (
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const gcControllerName = "vmop-gc-controller"
@@ -45,15 +45,15 @@ func SetupGC(
 		log,
 		gc.NewCronSource(mgr.GetClient(),
 			gcSettings.Schedule,
-			&virtv2.VirtualMachineOperationList{},
-			gc.NewDefaultCronSourceOption(&virtv2.VirtualMachineOperationList{}, ttl, log),
+			&v1alpha2.VirtualMachineOperationList{},
+			gc.NewDefaultCronSourceOption(&v1alpha2.VirtualMachineOperationList{}, ttl, log),
 			log.With("resource", "vmop"),
 		),
 		func() client.Object {
-			return &virtv2.VirtualMachineOperation{}
+			return &v1alpha2.VirtualMachineOperation{}
 		},
 		func(obj client.Object) bool {
-			vmop, ok := obj.(*virtv2.VirtualMachineOperation)
+			vmop, ok := obj.(*v1alpha2.VirtualMachineOperation)
 			if !ok {
 				return false
 			}

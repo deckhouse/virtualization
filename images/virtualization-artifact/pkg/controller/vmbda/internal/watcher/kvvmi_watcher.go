@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type KVVMIWatcher struct {
@@ -93,7 +93,7 @@ func (eh KVVMIEventHandler) enqueueRequests(ctx context.Context, ns string, vsTo
 		return
 	}
 
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := eh.client.List(ctx, &vmbdas, &client.ListOptions{
 		Namespace: ns,
 	})

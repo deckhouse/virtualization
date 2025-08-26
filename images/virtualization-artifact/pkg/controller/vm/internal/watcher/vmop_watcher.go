@@ -31,7 +31,7 @@ import (
 
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -45,8 +45,8 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineOperation{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmop *virtv2.VirtualMachineOperation) []reconcile.Request {
+			&v1alpha2.VirtualMachineOperation{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -56,11 +56,11 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 					},
 				}
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineOperation]{
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineOperation]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineOperation]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineOperation]) bool {
 					return commonvmop.IsMigration(e.Object)
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineOperation]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineOperation]) bool {
 					oldCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectOld.Status.Conditions)
 					newCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectNew.Status.Conditions)
 

@@ -33,16 +33,16 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 var _ = Describe("StorageClassHandler Run", func() {
 	Describe("Check for the storage ContainerRegistry", func() {
-		var vi *virtv2.VirtualImage
+		var vi *v1alpha2.VirtualImage
 
 		BeforeEach(func() {
-			vi = newVI(nil, virtv2.StorageContainerRegistry)
+			vi = newVI(nil, v1alpha2.StorageContainerRegistry)
 		})
 
 		It("doest not have StorageClass", func() {
@@ -76,7 +76,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be false because no storage class can be return",
 			handlerTestArgs{
 				StorageClassServiceMock: newStorageClassServiceMock(nil, false),
-				VI:                      newVI(nil, virtv2.StoragePersistentVolumeClaim),
+				VI:                      newVI(nil, v1alpha2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 					Reason: vicondition.StorageClassNotFound.String(),
@@ -87,7 +87,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be true because storage class from spec found",
 			handlerTestArgs{
 				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc"), false),
-				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
+				VI:                      newVI(ptr.To("sc"), v1alpha2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -98,7 +98,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be true because default storage class found",
 			handlerTestArgs{
 				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc"), false),
-				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
+				VI:                      newVI(ptr.To("sc"), v1alpha2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -109,7 +109,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be false because storage class is not supported",
 			handlerTestArgs{
 				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc"), true),
-				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
+				VI:                      newVI(ptr.To("sc"), v1alpha2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 					Reason: vicondition.StorageClassNotReady.String(),
@@ -121,7 +121,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 
 type handlerTestArgs struct {
 	StorageClassServiceMock *StorageClassServiceMock
-	VI                      *virtv2.VirtualImage
+	VI                      *v1alpha2.VirtualImage
 	ExpectedCondition       metav1.Condition
 }
 
@@ -186,15 +186,15 @@ func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageC
 	return &storageClassServiceMock
 }
 
-func newVI(specSC *string, storageType virtv2.StorageType) *virtv2.VirtualImage {
-	return &virtv2.VirtualImage{
-		Spec: virtv2.VirtualImageSpec{
-			PersistentVolumeClaim: virtv2.VirtualImagePersistentVolumeClaim{
+func newVI(specSC *string, storageType v1alpha2.StorageType) *v1alpha2.VirtualImage {
+	return &v1alpha2.VirtualImage{
+		Spec: v1alpha2.VirtualImageSpec{
+			PersistentVolumeClaim: v1alpha2.VirtualImagePersistentVolumeClaim{
 				StorageClass: specSC,
 			},
 			Storage: storageType,
 		},
-		Status: virtv2.VirtualImageStatus{
+		Status: v1alpha2.VirtualImageStatus{
 			StorageClassName: "",
 		},
 	}

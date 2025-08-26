@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewClusterVirtualImageWatcher() *CLusterVirtualImageWatcher {
@@ -39,10 +39,10 @@ func (w *CLusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.C
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.ClusterVirtualImage{},
-			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.ClusterVirtualImage](mgr.GetClient())),
-			predicate.TypedFuncs[*virtv2.ClusterVirtualImage]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.ClusterVirtualImage]) bool {
+			&v1alpha2.ClusterVirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*v1alpha2.ClusterVirtualImage](mgr.GetClient())),
+			predicate.TypedFuncs[*v1alpha2.ClusterVirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.ClusterVirtualImage]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},

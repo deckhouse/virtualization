@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ClusterVirtualImageFilter struct {
@@ -36,13 +36,13 @@ func NewClusterVirtualImageFilter() *ClusterVirtualImageFilter {
 }
 
 func (f ClusterVirtualImageFilter) FilterUpdateEvents(e event.UpdateEvent) bool {
-	oldCVI, ok := e.ObjectOld.(*virtv2.ClusterVirtualImage)
+	oldCVI, ok := e.ObjectOld.(*v1alpha2.ClusterVirtualImage)
 	if !ok {
 		f.logger.Error(fmt.Sprintf("expected an old ClusterVirtualImage but got a %T", e.ObjectOld))
 		return false
 	}
 
-	newCVI, ok := e.ObjectNew.(*virtv2.ClusterVirtualImage)
+	newCVI, ok := e.ObjectNew.(*v1alpha2.ClusterVirtualImage)
 	if !ok {
 		f.logger.Error(fmt.Sprintf("expected a new ClusterVirtualImage but got a %T", e.ObjectNew))
 		return false

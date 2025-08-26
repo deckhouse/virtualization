@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // UsageTemplate returns the usage template for all subcommands
@@ -97,7 +97,7 @@ func PrintWarningForPausedVM(ctx context.Context, virtCli kubeclient.Client, vmN
 	if err != nil {
 		return
 	}
-	if vm.Status.Phase == virtv2.MachinePause {
+	if vm.Status.Phase == v1alpha2.MachinePause {
 		_, _ = fmt.Fprintf(os.Stderr, "\rWarning: %s is paused. Console will be active after unpause.\n", vmName)
 	}
 }

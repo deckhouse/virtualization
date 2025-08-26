@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -49,9 +49,9 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
-		vm         *virtv2.VirtualMachine
+		vm         *v1alpha2.VirtualMachine
 		vmPod      *corev1.Pod
 	)
 
@@ -67,13 +67,13 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			Spec: corev1.PodSpec{},
 		}
 
-		vm = &virtv2.VirtualMachine{
+		vm = &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 			},
-			Spec:   virtv2.VirtualMachineSpec{},
-			Status: virtv2.VirtualMachineStatus{},
+			Spec:   v1alpha2.VirtualMachineSpec{},
+			Status: v1alpha2.VirtualMachineStatus{},
 		}
 	})
 
@@ -103,7 +103,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -117,16 +117,16 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 
 		Describe("NetworkSpec have only 'Main' interface", func() {
 			It("Network status is not exist; Condition should have status 'False'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 				}
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -140,12 +140,12 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 
 		Describe("NetworkSpec have many interfaces", func() {
 			It("Network status is not exist; Condition should have status 'False'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network",
 					},
 				}
@@ -153,7 +153,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -165,12 +165,12 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 
 			It("Network status is exist; Condition should have status 'True'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network",
 					},
 				}
@@ -226,7 +226,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -238,12 +238,12 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 
 			It("Network status is exist; Condition should have status 'False'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network",
 					},
 				}
@@ -300,7 +300,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 

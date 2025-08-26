@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -44,7 +44,7 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 	)
 
 	var (
-		vmObj         virtv2.VirtualMachine
+		vmObj         v1alpha2.VirtualMachine
 		disksBefore   Disks
 		disksAfter    Disks
 		testCaseLabel = map[string]string{"testcase": "image-hotplug"}
@@ -75,19 +75,19 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
 				err := CheckReusableResources(ReusableResources{
-					virtv2.VirtualMachineResource: &Counter{
+					v1alpha2.VirtualMachineResource: &Counter{
 						Expected: vmCount,
 					},
-					virtv2.VirtualDiskResource: &Counter{
+					v1alpha2.VirtualDiskResource: &Counter{
 						Expected: vdCount,
 					},
-					virtv2.VirtualImageResource: &Counter{
+					v1alpha2.VirtualImageResource: &Counter{
 						Expected: viCount,
 					},
-					virtv2.ClusterVirtualImageResource: &Counter{
+					v1alpha2.ClusterVirtualImageResource: &Counter{
 						Expected: cviCount,
 					},
-					virtv2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
+					v1alpha2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
 						Expected: vmbdaCount,
 					},
 				}, kc.GetOptions{
@@ -108,21 +108,21 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		It("checks the resources phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
+			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", v1alpha2.ImageReady), func() {
 				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-			By(fmt.Sprintf("`ClusterVirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
+			By(fmt.Sprintf("`ClusterVirtualImages` should be in the %q phase", v1alpha2.ImageReady), func() {
 				WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-			By(fmt.Sprintf("`VirtualDisk` should be in the %q phase", virtv2.DiskReady), func() {
+			By(fmt.Sprintf("`VirtualDisk` should be in the %q phase", v1alpha2.DiskReady), func() {
 				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
@@ -144,8 +144,8 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		It("retrieves the test objects", func() {
 			By("`VirtualMachine`", func() {
-				vmObjs := &virtv2.VirtualMachineList{}
-				err := GetObjects(virtv2.VirtualMachineResource, vmObjs, kc.GetOptions{
+				vmObjs := &v1alpha2.VirtualMachineList{}
+				err := GetObjects(v1alpha2.VirtualMachineResource, vmObjs, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 				})
@@ -154,8 +154,8 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 				vmObj = vmObjs.Items[0]
 			})
 			By("`VirtualImages`", func() {
-				viObjs := &virtv2.VirtualImageList{}
-				err := GetObjects(virtv2.VirtualImageResource, viObjs, kc.GetOptions{
+				viObjs := &v1alpha2.VirtualImageList{}
+				err := GetObjects(v1alpha2.VirtualImageResource, viObjs, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 				})
@@ -169,8 +169,8 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 				}
 			})
 			By("`ClusterVirtualImages`", func() {
-				cviObjs := &virtv2.ClusterVirtualImageList{}
-				err := GetObjects(virtv2.ClusterVirtualImageResource, cviObjs, kc.GetOptions{
+				cviObjs := &v1alpha2.ClusterVirtualImageList{}
+				err := GetObjects(v1alpha2.ClusterVirtualImageResource, cviObjs, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 				})
@@ -194,13 +194,13 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		It("attaches the images into the `VirtualMachine`", func() {
 			for _, bd := range imageBlockDevices {
 				By(bd.Name, func() {
-					AttachBlockDevice(ns, vmObj.Name, bd.Name, virtv2.VMBDAObjectRefKind(bd.Kind), testCaseLabel, conf.TestData.ImageHotplug)
+					AttachBlockDevice(ns, vmObj.Name, bd.Name, v1alpha2.VMBDAObjectRefKind(bd.Kind), testCaseLabel, conf.TestData.ImageHotplug)
 				})
 			}
 		})
 
 		It("checks the `VirtualMachine` and the `VirtualMachineBlockDeviceAttachments` phases", func() {
-			By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachments` should be in the %q phase", virtv2.BlockDeviceAttachmentPhaseAttached), func() {
+			By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachments` should be in the %q phase", v1alpha2.BlockDeviceAttachmentPhaseAttached), func() {
 				WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,

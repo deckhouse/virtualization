@@ -30,12 +30,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineClassState interface {
-	VirtualMachineClass() *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
-	VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, error)
+	VirtualMachineClass() *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus]
+	VirtualMachines(ctx context.Context) ([]v1alpha2.VirtualMachine, error)
 	Nodes(ctx context.Context) ([]corev1.Node, error)
 	AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error)
 }
@@ -43,23 +43,23 @@ type VirtualMachineClassState interface {
 type state struct {
 	controllerNamespace string
 	client              client.Client
-	vmClass             *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
+	vmClass             *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus]
 }
 
-func New(c client.Client, controllerNamespace string, vmClass *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
+func New(c client.Client, controllerNamespace string, vmClass *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus]) VirtualMachineClassState {
 	return &state{client: c, controllerNamespace: controllerNamespace, vmClass: vmClass}
 }
 
-func (s *state) VirtualMachineClass() *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus] {
+func (s *state) VirtualMachineClass() *reconciler.Resource[*v1alpha2.VirtualMachineClass, v1alpha2.VirtualMachineClassStatus] {
 	return s.vmClass
 }
 
-func (s *state) VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, error) {
+func (s *state) VirtualMachines(ctx context.Context) ([]v1alpha2.VirtualMachine, error) {
 	if s.vmClass == nil || s.vmClass.IsEmpty() {
 		return nil, nil
 	}
 	name := s.vmClass.Current().GetName()
-	vms := &virtv2.VirtualMachineList{}
+	vms := &v1alpha2.VirtualMachineList{}
 	err := s.client.List(ctx, vms, client.MatchingFields{
 		indexer.IndexFieldVMByClass: name,
 	})
@@ -94,16 +94,16 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	}
 
 	switch curr.Spec.CPU.Type {
-	case virtv2.CPUTypeHost, virtv2.CPUTypeHostPassthrough:
+	case v1alpha2.CPUTypeHost, v1alpha2.CPUTypeHostPassthrough:
 		// Node is always has the "Host" CPU type, no additional filters required.
-	case virtv2.CPUTypeDiscovery:
+	case v1alpha2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
 		filters = append(filters, func(node *corev1.Node) bool {
 			return annotations.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
 		})
-	case virtv2.CPUTypeModel:
+	case v1alpha2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}
-	case virtv2.CPUTypeFeatures:
+	case v1alpha2.CPUTypeFeatures:
 		ml := make(map[string]string, len(curr.Spec.CPU.Features))
 		for _, feature := range curr.Spec.CPU.Features {
 			ml[virtv1.CPUFeatureLabel+feature] = "true"

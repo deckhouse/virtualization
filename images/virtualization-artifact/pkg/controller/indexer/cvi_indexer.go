@@ -20,21 +20,21 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func IndexCVIByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVDSnapshot, func(object client.Object) []string {
-		cvi, ok := object.(*virtv2.ClusterVirtualImage)
+	return &v1alpha2.ClusterVirtualImage{}, IndexFieldCVIByVDSnapshot, func(object client.Object) []string {
+		cvi, ok := object.(*v1alpha2.ClusterVirtualImage)
 		if !ok || cvi == nil {
 			return nil
 		}
 
-		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		if cvi.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 			return nil
 		}
 
-		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
+		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != v1alpha2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
 			return nil
 		}
 
