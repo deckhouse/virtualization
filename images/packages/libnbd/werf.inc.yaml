@@ -71,12 +71,13 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-    
+
+    # We don't need man
+    rm -rf $OUTDIR/usr/share/man
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
 
-    # We don't need man
-    rm -rf $OUTDIR/usr/share/man
