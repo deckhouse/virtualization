@@ -56,10 +56,6 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	return o.restore.Sync(ctx, vm)
 }
 
-func (o RestoreOperation) Cancel(_ context.Context) (bool, error) {
-	return false, nil
-}
-
 func (o RestoreOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
 	return phase == virtv2.MachineStopped || phase == virtv2.MachineRunning || phase == virtv2.MachinePending
 }
@@ -72,7 +68,7 @@ func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 	return vmopcondition.ReasonCompleted(vmopcondition.ReasonRestoreOperationInProgress)
 }
 
-func (o RestoreOperation) IsComplete(ctx context.Context) (bool, string, error) {
+func (o RestoreOperation) IsComplete() (bool, string, error) {
 	c, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
 	return ok && c.Status == metav1.ConditionTrue, "", nil
 }
