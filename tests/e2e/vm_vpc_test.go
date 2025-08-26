@@ -91,13 +91,15 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Timeout:   MaxWaitTimeout,
 			})
 		})
-		It("checks network status", func() {
-			By("Network should be true")
-			WaitVMNetworkReady(kc.WaitOptions{
+		It("checks network availability", func() {
+			By("Network condition should be true")
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
+
+			CheckVMConnectivityToTargetIPs(kubectl, ns, testCaseLabel)
 		})
 	})
 
@@ -141,17 +143,21 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
+			Expect(vms).NotTo(BeEmpty())
+
 			CheckCiliumAgents(kubectl, ns, vms...)
 			CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 		})
 
-		It("checks network status after migrations", func() {
-			By("Network should be true")
+		It("checks network availability after migrations", func() {
+			By("Network condition should be true")
 			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
+
+			CheckVMConnectivityToTargetIPs(kubectl, ns, testCaseLabel)
 		})
 	})
 
@@ -170,56 +176,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				resourcesToDelete.KustomizationDir = conf.TestData.VMVpc
 			}
 
-			Eventually(func() error {
-				return tryDeleteTestCaseResources(ns, resourcesToDelete)
-			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
+			DeleteTestCaseResources(ns, resourcesToDelete)
 		})
 	})
 })
-
-func tryDeleteTestCaseResources(ns string, resources ResourcesToDelete) error {
-	const errMessage = "cannot delete test case resources"
-
-	if resources.KustomizationDir != "" {
-		kustomizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
-		err := kustomize.ExcludeResource(kustomizationFile, "ns.yaml")
-		if err != nil {
-			return fmt.Errorf("%s\nkustomizationDir: %s\nstderr: %w", errMessage, resources.KustomizationDir, err)
-		}
-
-		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       []string{resources.KustomizationDir},
-			FilenameOption: kc.Kustomize,
-			IgnoreNotFound: true,
-		})
-		if res.Error() != nil {
-			return fmt.Errorf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr())
-		}
-	}
-
-	for _, r := range resources.AdditionalResources {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Labels:    r.Labels,
-			Namespace: ns,
-			Resource:  r.Resource,
-		})
-		if res.Error() != nil {
-			return fmt.Errorf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr())
-		}
-	}
-
-	if len(resources.Files) != 0 {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       resources.Files,
-			FilenameOption: kc.Filename,
-		})
-		if res.Error() != nil {
-			return fmt.Errorf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr())
-		}
-	}
-
-	return nil
-}
 
 func isSdnModuleEnabled() (bool, error) {
 	sdnModule, err := config.GetModuleConfig("sdn")
@@ -228,4 +188,26 @@ func isSdnModuleEnabled() (bool, error) {
 	}
 
 	return sdnModule.Spec.Enabled, nil
+}
+
+func CheckVMConnectivityToTargetIPs(kubectl kc.Kubectl, ns string, testCaseLabel map[string]string) {
+	res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+		Labels:    testCaseLabel,
+		Namespace: ns,
+		Output:    "jsonpath='{.items[*].metadata.name}'",
+	})
+	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+
+	vms := strings.Split(res.StdOut(), " ")
+	Expect(vms).NotTo(BeEmpty())
+
+	for _, vm := range vms {
+		if strings.Contains(vm, "foo") {
+			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.10 (target: vm-bar)", vm))
+			CheckResultSSHCommand(ns, vm, `ping -c 2 -W 2 -w 5 -q 192.168.1.10 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
+		} else if strings.Contains(vm, "bar") {
+			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.11 (target: vm-foo)", vm))
+			CheckResultSSHCommand(ns, vm, `ping -c 2 -W 2 -w 5 -q 192.168.1.11 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
+		}
+	}
 }

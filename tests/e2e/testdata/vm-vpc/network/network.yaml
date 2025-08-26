@@ -1,9 +1,0 @@
-apiVersion: network.deckhouse.io/v1alpha1
-kind: Network
-metadata:
-  name: network
-spec:
-  networkClass: network-class
-  type: Vlan
-  vlan:
-    id: 302
