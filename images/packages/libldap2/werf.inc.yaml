@@ -33,7 +33,7 @@ packages:
 - libsystemd-devel
 - libevent-devel libuuid-devel
 - liblmdb-devel
-- libargon2-devel
+- libargon2-devel libsasl2-devel
 - tree
 {{- end -}}
 
@@ -89,7 +89,6 @@ shell:
       --enable-backends=mod \
       --enable-mdb=yes \
       --disable-wt \
-      --disable-docs \
       --enable-balancer=mod \
       --enable-argon2 \
       --with-yielding-select \
@@ -108,6 +107,6 @@ shell:
       --with-gnu-ld
 
     make -j$(nproc)
-    DESTDIR=$OUTDIR make install-strip
+    DESTDIR=$OUTDIR make install
     tree -hp $OUTDIR
 
