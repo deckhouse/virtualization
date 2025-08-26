@@ -65,7 +65,7 @@ packages:
 - python3-tools python3-module-pip
 - python3-module-black
 - mdevctl tshark
-- util-linux dmsetup pm-utils
+- dmsetup pm-utils
 libraries:
 - libudev-devel
 - libpciaccess-devel
@@ -78,20 +78,18 @@ libraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libnuma-devel libcap-ng-devel
-- libcurl-devel
 - libfuse-devel libnbd-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
-- libsystemd-devel libuuid-devel
+- libsystemd-devel
 - libjson-c-devel systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
 - libgio-devel libxml2-devel
 - libtirpc-devel libsasl2-devel
 - wireshark-devel
 - zlib-devel libclocale
-- libnuma libslirp-devel
+- libslirp-devel
 - libyajl-devel libselinux-devel
 {{- end -}}
 
@@ -112,7 +110,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
@@ -141,10 +139,9 @@ shell:
     PKGS="{{ $images | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /
+      cp -af /$pkg/. /
       rm -rf /$pkg
     done
-
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
