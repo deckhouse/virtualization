@@ -37,36 +37,46 @@ packages:
 - glibc-devel-static
 - glibc
 - golang
+dvppackages:
+- libmnl
 {{- end -}}
 
-{{ $virtArtifactDependencies := include "$name" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
-import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /kubevirt
-  to: /kubevirt
-  before: install
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 - id: GOPROXY
   value: {{ .GOPROXY }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /kubevirt
+  to: /kubevirt
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $virtArtifactDependencies.packages | join " " }}
+      {{ $builderDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config

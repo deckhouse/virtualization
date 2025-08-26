@@ -36,6 +36,8 @@ packages:
 - dmsetup udev-rules-sgutils sg3_utils
 - libaio-devel libdevmapper-devel libreadline-devel libudev-devel libsystemd-devel
 - libuserspace-rcu-devel libjson-c-devel
+dvppackages:
+- util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -48,8 +50,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "util-linux" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -62,7 +63,7 @@ shell:
   install:
   - |
     echo "Install packages"
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
