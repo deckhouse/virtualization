@@ -74,11 +74,9 @@ shell:
     
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
-        echo "Stripped: $execfile"
-      else
-        continue
-      fi
+      echo "Stripped: $execfile"
+    fi
     done
-    
+
     # We don't need man
     rm -rf $OUTDIR/usr/share/man
