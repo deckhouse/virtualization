@@ -1,4 +1,5 @@
 {{- $priorityClassName := include "priorityClassName" . }}
+{{- $delve := (include "delve" . | fromYaml) -}}
 
 {{- define "virtualization_controller_resources" }}
 cpu: 10m
@@ -98,6 +99,7 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
+            {{- include "delvePorts" (list $delve "delve/virtualization-controller") | nindent 12 }}
             - containerPort: 8083
               name: health
               protocol: TCP
@@ -110,6 +112,7 @@ spec:
           env:
             {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
             {{- include "virtualization-controller.envs" . | nindent 12 }}
+          {{- if ne "delve/virtualization-controller" ($delve | dig "debug" "component" "<missing>") }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -122,6 +125,7 @@ spec:
               port: health
               scheme: HTTP
             initialDelaySeconds: 10
+          {{- end }}
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
