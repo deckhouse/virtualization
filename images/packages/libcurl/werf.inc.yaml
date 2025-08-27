@@ -32,7 +32,7 @@ packages:
 - libssh2-devel
 - glibc-devel-static
 - groff-base
-- libkrb5-devel libgsasl-devel
+- libgsasl-devel
 - zlib-devel libzstd-devel libpsl-devel libbrotli-devel
 - python3-base
 - libnghttp2-tools
