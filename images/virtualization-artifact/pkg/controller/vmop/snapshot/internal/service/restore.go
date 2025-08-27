@@ -53,6 +53,8 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(o.vmop.Generation), &o.vmop.Status.Conditions) }()
 
+	cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationInProgress)
+
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
@@ -101,7 +103,12 @@ func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 	return vmopcondition.ReasonRestoreInProgress
 }
 
-func (o RestoreOperation) IsComplete() (bool, string, error) {
+func (o RestoreOperation) IsComplete() (bool, string) {
 	c, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
-	return ok && c.Status == metav1.ConditionTrue, "", nil
+
+	if c.Reason == string(vmopcondition.ReasonOperationFailed) {
+		return true, c.Message
+	}
+
+	return ok && c.Status == metav1.ConditionTrue, ""
 }

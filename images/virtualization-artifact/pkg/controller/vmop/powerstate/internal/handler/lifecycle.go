@@ -265,5 +265,5 @@ func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.Virtua
 func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
 	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
+	return sent.Status == metav1.ConditionTrue || completed.Status != metav1.ConditionTrue
 }

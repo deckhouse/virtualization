@@ -34,14 +34,6 @@ func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
-	*phase = v1alpha2.VMOPPhasePending
-	cb.
-		Status(metav1.ConditionFalse).
-		Reason(reason).
-		Message(service.CapitalizeFirstLetter(msg) + ".")
-}
-
 func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
 	*phase = v1alpha2.VMOPPhaseCompleted
 	cb.
