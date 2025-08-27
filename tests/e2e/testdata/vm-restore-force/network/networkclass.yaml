@@ -1,0 +1,13 @@
+apiVersion: network.deckhouse.io/v1alpha1
+kind: ClusterNetwork
+metadata:
+  name: cn-1001-for-e2e-test
+spec:
+  parentNodeNetworkInterfaces:
+    labelSelector:
+      matchLabels:
+        network.deckhouse.io/interface-type: NIC
+        network.deckhouse.io/node-role: worker
+  type: Vlan
+  vlan:
+    id: 1003
