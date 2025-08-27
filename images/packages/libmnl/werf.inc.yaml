@@ -29,6 +29,8 @@ shell:
 altPackages:
 - gcc make git autoconf libtool gettext-tools
 - automake pkgconf glibc-devel systemd-devel
+- texinfo indent glibc-gconv-modules 
+- libabigail-devel libunistring-devel cvs
 - tree
 {{- end -}}
 

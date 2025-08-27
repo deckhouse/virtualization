@@ -17,7 +17,7 @@ package:
   glib2: 2.84.2
   glibc: glibc-2.38
   libgmp: 6.3.0
-  gnutls: 3.8.6
+  gnutls: 3.8.10
   libattr: v2.5.2
   libaudit: v4.0.3
   libbrotli: v1.1.0

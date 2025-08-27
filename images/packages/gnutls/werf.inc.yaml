@@ -21,8 +21,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
     cd /src
@@ -42,7 +40,7 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc gcc-c++ git gperf glibc-devel-static pkgconfig
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
@@ -54,7 +52,9 @@ packages:
 - libev4 libev-devel libopencdk-devel
 - liboqs-devel libzstd-devel libreadline-devel
 - openssl libssl-devel iproute2-devel
-- libnettle-devel
+packages:
+- libbrotli libidn2 libgcrypt libgmp
+- nettle
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -67,31 +67,40 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install -y {{ $builderDependencies.packages | join " " }}
+    apt-get install -y {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
-    # Install packages
-    PKGS="{{ $images | join " " }}"
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /
+      cp -a /$pkg/. /packages
       rm -rf /$pkg
     done
 
+    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/packages/lib/pkgconfig:/packages/lib64/pkgconfig:/usr/lib64:/usr/lib
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/packages/lib:/packages/usr/lib:/packages/lib64:/packages/usr/lib64
+    
     OUTDIR=/out
 
     cd /src
 
-    ./bootstrap --skip-po
+    # --with-nettle-mini \
+    # --enable-openssl-compatibility \
 
+    echo "=====Bootstrap======"
+    # Fake distcheck-hook that checks bootstrap is called without --skip-po
+    mkdir -p po/.reference
+    echo "./bootstrap --skip-po"
+    
+    ./bootstrap --skip-po
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
