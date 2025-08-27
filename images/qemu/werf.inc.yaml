@@ -149,7 +149,7 @@ import:
   to: /
   before: install
   includePaths:
-  - usr/lib64/liblz4.a
+  - usr/lib64/liblz4.so.1
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
