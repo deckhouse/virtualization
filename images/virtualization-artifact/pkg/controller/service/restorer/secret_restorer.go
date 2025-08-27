@@ -105,19 +105,19 @@ func (r SecretRestorer) RestoreVirtualMachineIPAddress(_ context.Context, secret
 	return get[*v1alpha2.VirtualMachineIPAddress](secret, virtualMachineIPAddressKey)
 }
 
-func (r SecretRestorer) RestoreVirtualMachineMACAddresses(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineMACAddress, error) {
-	return get[[]*virtv2.VirtualMachineMACAddress](secret, virtualMachineMACAddressesKey)
+func (r SecretRestorer) RestoreVirtualMachineMACAddresses(_ context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineMACAddress, error) {
+	return get[[]*v1alpha2.VirtualMachineMACAddress](secret, virtualMachineMACAddressesKey)
 }
 
 func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1.Secret) ([]string, error) {
-	vm, err := get[*virtv2.VirtualMachine](secret, virtualMachineKey)
+	vm, err := get[*v1alpha2.VirtualMachine](secret, virtualMachineKey)
 	if err != nil {
 		return nil, err
 	}
 
 	var macAddressOrder []string
 	for _, ns := range vm.Status.Networks {
-		if ns.Type == virtv2.NetworksTypeMain {
+		if ns.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 		macAddressOrder = append(macAddressOrder, ns.MAC)
@@ -125,8 +125,8 @@ func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1
 	return macAddressOrder, nil
 }
 
-func (r SecretRestorer) RestoreVirtualMachineBlockDeviceAttachments(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
-	return get[[]*virtv2.VirtualMachineBlockDeviceAttachment](secret, virtualMachineBlockDeviceAttachmentKey)
+func (r SecretRestorer) RestoreVirtualMachineBlockDeviceAttachments(_ context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
+	return get[[]*v1alpha2.VirtualMachineBlockDeviceAttachment](secret, virtualMachineBlockDeviceAttachmentKey)
 }
 
 func (r SecretRestorer) setVirtualMachine(secret *corev1.Secret, vm *v1alpha2.VirtualMachine) error {
@@ -250,17 +250,17 @@ func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *
 	return nil
 }
 
-func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secret *corev1.Secret, vm *virtv2.VirtualMachine) error {
-	var vmmacs []virtv2.VirtualMachineMACAddress
+func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secret *corev1.Secret, vm *v1alpha2.VirtualMachine) error {
+	var vmmacs []v1alpha2.VirtualMachineMACAddress
 	for _, ns := range vm.Status.Networks {
-		if ns.Type == virtv2.NetworksTypeMain {
+		if ns.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 
 		vmmac, err := object.FetchObject(ctx, types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      ns.VirtualMachineMACAddressName,
-		}, r.client, &virtv2.VirtualMachineMACAddress{})
+		}, r.client, &v1alpha2.VirtualMachineMACAddress{})
 		if err != nil {
 			return err
 		}
@@ -282,7 +282,7 @@ func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secre
 	return nil
 }
 
-func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secret, vm *virtv2.VirtualMachine) error {
+func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secret, vm *v1alpha2.VirtualMachine) error {
 	var secretName string
 
 	if vm.Spec.Provisioning == nil {

@@ -32,11 +32,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func NewRestoreOperation(client client.Client, eventRecorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
+func NewRestoreOperation(client client.Client, eventRecorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) *RestoreOperation {
 	return &RestoreOperation{
 		vmop:     vmop,
 		client:   client,
@@ -45,7 +44,7 @@ func NewRestoreOperation(client client.Client, eventRecorder eventrecord.EventRe
 }
 
 type RestoreOperation struct {
-	vmop     *virtv2.VirtualMachineOperation
+	vmop     *v1alpha2.VirtualMachineOperation
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 }
@@ -90,12 +89,12 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	).Run(ctx, o.vmop)
 }
 
-func (o RestoreOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
-	return phase == virtv2.MachineStopped || phase == virtv2.MachineRunning || phase == virtv2.MachinePending
+func (o RestoreOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool {
+	return phase == v1alpha2.MachineStopped || phase == v1alpha2.MachineRunning || phase == v1alpha2.MachinePending
 }
 
-func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
-	return runPolicy == virtv2.ManualPolicy || runPolicy == virtv2.AlwaysOnUnlessStoppedManually || runPolicy == virtv2.AlwaysOffPolicy
+func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
+	return runPolicy == v1alpha2.ManualPolicy || runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually || runPolicy == v1alpha2.AlwaysOffPolicy
 }
 
 func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
