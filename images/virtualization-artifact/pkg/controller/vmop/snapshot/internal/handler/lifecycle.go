@@ -111,7 +111,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	// 5. The Operation is valid, and can be executed.
-	h.execute(ctx, vmop, vm, svcOp)
+	h.execute(ctx, vmop, svcOp)
 
 	return reconcile.Result{}, err
 }
@@ -120,7 +120,7 @@ func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
 }
 
-func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine, svcOp service.Operation) (rec reconcile.Result) {
+func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, svcOp service.Operation) (rec reconcile.Result) {
 	log := logger.FromContext(ctx)
 
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
