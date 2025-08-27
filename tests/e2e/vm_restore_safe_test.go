@@ -48,6 +48,7 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-safe"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-safe"}
+		originalVMNetworks  map[string][]virtv2.NetworksStatus
 	)
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
@@ -112,6 +113,47 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				})
 			})
 		})
+
+		It("add additional interface to virtual machines", func() {
+			sdnEnabled, err := isSdnModuleEnabled()
+			if err != nil || !sdnEnabled {
+				Skip("Module SDN is disabled. Skipping part of tests.")
+			}
+			By("patch virtual machine for add additional network interface", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vmNames := strings.Split(res.StdOut(), " ")
+				Expect(vmNames).NotTo(BeEmpty())
+
+				cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"networks\":[{\"type\":\"Main\"},{\"type\":\"ClusterNetwork\",\"name\":\"cn-1003-for-e2e-test\"}]}}'", kc.ResourceVM, namespace, res.StdOut())
+				patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
+				Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
+
+				RebootVirtualMachinesByVMOP(testCaseLabel, namespace, vmNames...)
+			})
+			By("`VirtualMachine` agent should be ready after patching", func() {
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+			By("remembering the .status.networks of each VM after patching", func() {
+				vms := &virtv2.VirtualMachineList{}
+				err := GetObjects(virtv2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				Expect(err).NotTo(HaveOccurred())
+
+				originalVMNetworks = make(map[string][]virtv2.NetworksStatus, len(vms.Items))
+				for _, vm := range vms.Items {
+					originalVMNetworks[vm.Name] = vm.Status.Networks
+				}
+			})
+		})
 	})
 
 	Context("When the resources are ready to use", func() {
@@ -174,9 +216,9 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				result := kubectl.Delete(kc.DeleteOptions{
 					Labels:    testCaseLabel,
 					Namespace: namespace,
-					Resource:  virtv2.VirtualMachineResource,
+					Resource:  kc.ResourceVM,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					AllFlag:        true,
@@ -184,21 +226,21 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 					Namespace:      namespace,
 					Resource:       virtv2.VirtualMachineIPAddressResource,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					ExcludedLabels: []string{"additionalDisk"},
 					Namespace:      namespace,
 					Resource:       virtv2.VirtualDiskResource,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					Labels:    testCaseLabel,
 					Namespace: namespace,
 					Resource:  virtv2.VirtualMachineBlockDeviceAttachmentResource,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				vmipls, err := GetVMIPLByNamespace(namespace)
 				Expect(err).NotTo(HaveOccurred())
@@ -292,6 +334,28 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 					}
 				}
 			})
+		})
+
+		It("check the .status.networks of each VM after restore", func() {
+			sdnEnabled, err := isSdnModuleEnabled()
+			if err != nil || !sdnEnabled {
+				Skip("Module SDN is disabled. Skipping part of tests.")
+			}
+
+			vmrestores := &virtv2.VirtualMachineRestoreList{}
+			err = GetObjects(virtv2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+			Expect(err).NotTo(HaveOccurred())
+
+			for _, restore := range vmrestores.Items {
+				vmsnapshot := &virtv2.VirtualMachineSnapshot{}
+				err := GetObject(virtv2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
+				Expect(err).NotTo(HaveOccurred())
+
+				vm := &virtv2.VirtualMachine{}
+				err = GetObject(virtv2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
+			}
 		})
 	})
 

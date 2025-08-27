@@ -111,7 +111,23 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
 	}
 
-	// 4. VMOP is not in progress.
+	// 4. Check migration, if exists, that means previous reconcile finished with error and SignalSent condition is not synced.
+	// Do it now.
+	mig, err := h.migration.GetMigration(ctx, vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if mig != nil {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
+				Generation(vmop.GetGeneration()).
+				Reason(vmopcondition.ReasonSignalSentSuccess).
+				Status(metav1.ConditionTrue),
+			&vmop.Status.Conditions)
+		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
+	}
+
+	// 5. VMOP is not in progress.
 	// All operations must be performed in course, check it and set phase if operation cannot be executed now.
 	should, err := h.base.ShouldExecuteOrSetFailedPhase(ctx, vmop)
 	if err != nil {
@@ -121,13 +137,13 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
-	// 5. Check if the operation is applicable for executed.
+	// 6. Check if the operation is applicable for executed.
 	isApplicable := h.base.IsApplicableOrSetFailedPhase(h.migration, vmop, vm)
 	if !isApplicable {
 		return reconcile.Result{}, nil
 	}
 
-	// 5.1 Check if force flag is applicable for effective liveMigrationPolicy.
+	// 6.1 Check if force flag is applicable for effective liveMigrationPolicy.
 	msg, isApplicable := h.isApplicableForLiveMigrationPolicy(vmop, vm)
 	if !isApplicable {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
@@ -143,7 +159,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPStarted, msg)
 	}
 
-	// 5.2 Fail if there is at least one other migration in progress.
+	// 6.2 Fail if there is at least one other migration in progress.
 	found, err := h.otherMigrationsAreInProgress(ctx, vmop)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -160,7 +176,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
-	// 6. The Operation is valid, and can be executed.
+	// 7. The Operation is valid, and can be executed.
 	err = h.execute(ctx, vmop, vm)
 
 	return reconcile.Result{}, err
@@ -291,7 +307,7 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 		return false, err
 	}
 	for _, mig := range migList.Items {
-		if !mig.IsFinal() && mig.Spec.VMIName == vmop.Spec.VirtualMachine {
+		if mig.Spec.VMIName == vmop.Spec.VirtualMachine && !mig.IsFinal() && !metav1.IsControlledBy(&mig, vmop) {
 			return true, nil
 		}
 	}

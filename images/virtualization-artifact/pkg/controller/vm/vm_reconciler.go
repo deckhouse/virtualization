@@ -72,6 +72,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualMachineClassWatcher(),
 		watcher.NewVirtualMachineSnapshotWatcher(),
 		watcher.NewVMOPWatcher(),
+		watcher.NewVMMACWatcher(),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
