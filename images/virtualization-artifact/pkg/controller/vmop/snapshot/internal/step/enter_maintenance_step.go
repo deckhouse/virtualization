@@ -32,7 +32,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type EnterMaintenanceStep struct {
@@ -57,9 +56,6 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
-
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(vmop.Generation), &vmop.Status.Conditions) }()
 
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
@@ -88,7 +84,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 	err = s.client.Status().Update(ctx, vm)
 	if err != nil {
 		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
-		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
