@@ -197,7 +197,7 @@ jobs:
             STATUS=":x: FAIL!"
           fi
           MESSAGE="
-          ### :gear: **DVP $DATE Weekly Svace Analyze Job**
+          ### :gear: **DVP $DATE Weekly Svace Analyze Report**
 
           **Branch:** \`$GITHUB_REF_NAME\`
           **Status: ${STATUS}**
