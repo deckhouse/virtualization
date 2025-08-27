@@ -26,8 +26,8 @@ import (
 
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/restore/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"

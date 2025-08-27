@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	restorercommon "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"

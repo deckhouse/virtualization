@@ -30,26 +30,26 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	restorercommon "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type StrictRestoreStep struct {
+type ValidateStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
 	vmop     *v1alpha2.VirtualMachineOperation
 }
 
-func NewStrictRestoreStep(
+func NewValidateStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vmop *v1alpha2.VirtualMachineOperation,
-) *StrictRestoreStep {
-	return &StrictRestoreStep{
+) *ValidateStep {
+	return &ValidateStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
@@ -57,11 +57,7 @@ func NewStrictRestoreStep(
 	}
 }
 
-func (s StrictRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if s.vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeStrict {
-		return nil, nil
-	}
-
+func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
@@ -89,7 +85,7 @@ func (s StrictRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachi
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, restorercommon.StrictRestoreMode, restorerSecret, vmSnapshot, string(s.vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, restorercommon.DryRunMode, restorerSecret, vmSnapshot, string(s.vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
@@ -98,21 +94,18 @@ func (s StrictRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
-	if err != nil {
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
-		common.FillResourcesStatuses(s.vmop, statuses)
-		return &reconcile.Result{}, err
-	}
-
-	statuses, err = snapshotResources.Process(ctx)
-	if err != nil {
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
-		common.FillResourcesStatuses(s.vmop, statuses)
-		return &reconcile.Result{}, err
-	}
-
 	common.FillResourcesStatuses(s.vmop, statuses)
-	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine has been restored from the snapshot")
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	// if not DryRun continue restore
+	if s.vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeDryRun {
+		return nil, nil
+	}
+
+	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine can be restored from the snapshot")
 
 	return &reconcile.Result{}, nil
 }

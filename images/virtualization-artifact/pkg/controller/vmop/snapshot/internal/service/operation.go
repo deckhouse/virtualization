@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -40,7 +39,7 @@ type Operation interface {
 func NewOperationService(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) (Operation, error) {
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeRestore:
-		return NewRestoreOperation(snapshot.NewVMSnapshotRestore(client, recorder, vmop), vmop), nil
+		return NewRestoreOperation(NewVMSnapshotRestore(client, recorder, vmop), vmop), nil
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
 	}

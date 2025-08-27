@@ -19,7 +19,7 @@ package handler
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/restore/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )

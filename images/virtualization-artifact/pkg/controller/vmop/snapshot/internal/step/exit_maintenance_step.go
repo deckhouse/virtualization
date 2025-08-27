@@ -28,27 +28,27 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type EnterMaintenanceStep struct {
+type ExitMaintenanceStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
 	vmop     *v1alpha2.VirtualMachineOperation
 }
 
-func NewEnterMaintenanceStep(
+func NewExitMaintenanceStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vmop *v1alpha2.VirtualMachineOperation,
-) *EnterMaintenanceStep {
-	return &EnterMaintenanceStep{
+) *ExitMaintenanceStep {
+	return &ExitMaintenanceStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
@@ -56,12 +56,12 @@ func NewEnterMaintenanceStep(
 	}
 }
 
-func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	if s.vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
@@ -70,12 +70,13 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 	}
 
-	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
-	if found && maintenanceCondition.Status == metav1.ConditionTrue && maintenanceCondition.Reason == vmcondition.ReasonMaintenanceRestore.String() {
-		if vm.Status.Phase != v1alpha2.MachineStopped {
-			return &reconcile.Result{}, nil
-		}
+	restoreCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, s.vmop.Status.Conditions)
+	if restoreCondition.Status != metav1.ConditionTrue {
+		return nil, nil
+	}
 
+	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
+	if !found || maintenanceCondition.Status != metav1.ConditionTrue || maintenanceCondition.Reason != vmcondition.ReasonMaintenanceRestore.String() {
 		return nil, nil
 	}
 
@@ -83,23 +84,23 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
 			Generation(vm.GetGeneration()).
 			Reason(vmcondition.ReasonMaintenanceRestore).
-			Status(metav1.ConditionTrue).
-			Message("VM is in maintenance mode for restore operation"),
+			Status(metav1.ConditionFalse).
+			Message("VM exited maintenance mode after restore completion"),
 		&vm.Status.Conditions,
 	)
 
 	err = s.client.Status().Update(ctx, vm)
 	if err != nil {
-		s.recorder.Event(s.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
+		s.recorder.Event(
+			s.vmop,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonErrVMOPFailed,
+			"Failed to exit maintenance mode: "+err.Error(),
+		)
 		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	s.recorder.Event(s.vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM entered maintenance mode for restore operation")
-
-	if vm.Status.Phase != v1alpha2.MachineStopped {
-		return &reconcile.Result{}, nil
-	}
-
+	s.recorder.Event(s.vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM exited maintenance mode after restore completion")
 	return nil, nil
 }

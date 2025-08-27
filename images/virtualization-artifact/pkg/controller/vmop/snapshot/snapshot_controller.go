@@ -14,22 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package restore
+package snapshot
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/restore/internal/handler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/restore/internal/watcher"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/handler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	controllerName = "vmop-restore-controller"
+	controllerName = "vmop-snapshot-controller"
 )
 
 func NewController(client client.Client, mgr manager.Manager) *Controller {
