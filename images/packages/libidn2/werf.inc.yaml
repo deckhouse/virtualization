@@ -21,7 +21,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
     cd /src
@@ -29,7 +28,6 @@ shell:
     git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
     cd gnulib
     git checkout $GNULIB_REVISION
-    cd /
 
 ---
 

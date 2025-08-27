@@ -33,26 +33,26 @@ final: false
 fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /
+  to: /src
   includePaths: build.sh
   stageDependencies:
     install:
       - build.sh
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
-  to: /
+  to: /src
   includePaths: Logo.bmp
   stageDependencies:
     install:
       - '**/*'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
-  to: /FIRMWARE
+  to: /src/FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     install:
       - '*.json'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
-  to: /FIRMWARE
+  to: /src/FIRMWARE
   includePaths:
   - '*.bin'
   stageDependencies:
@@ -64,16 +64,15 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
+    cd /src
     echo "Git clone Edk2 repository..."
     git clone \
       --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
-      --branch {{ $gitRepoName }}-{{ $version }} /{{ $gitRepoName }}-{{ $version }}
+      --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
     git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
 
-    cd /{{ $gitRepoName }}-{{ $version }}
+    cd {{ $gitRepoName }}-{{ $version }}
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
@@ -95,25 +94,15 @@ final: false
 fromImage: builder/alt
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /{{ $gitRepoName }}-{{ $version }}
-  to: /{{ $gitRepoName }}-{{ $version }}
+  add: /src
+  to: /
   before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /edk2-platforms
-  to: /edk2-platforms
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /FIRMWARE
-  to: /FIRMWARE
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /Logo.bmp
-  to: /Logo.bmp
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /build.sh
-  to: /build.sh
-  before: install
+  includePaths:
+  - "{{ $gitRepoName }}-{{ $version }}"
+  - edk2-platforms
+  - FIRMWARE
+  - Logo.bmp
+  - build.sh
 {{- $images := list "libisoburn" "libburn" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
@@ -156,4 +145,3 @@ shell:
   setup:
   - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
-

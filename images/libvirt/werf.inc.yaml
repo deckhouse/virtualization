@@ -5,7 +5,7 @@
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/src" "builder/alt-go-svace" }}
+fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /
@@ -23,11 +23,9 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /{{ $gitRepoName }}-{{ $version }}
-
-    cd /{{ $gitRepoName }}-{{ $version }}
+    cd /src/{{ $gitRepoName }}-{{ $version }}
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
@@ -101,7 +99,7 @@ final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /{{ $gitRepoName }}-{{ $version }}
+  add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
