@@ -38,7 +38,7 @@ func SetupGC(
 ) error {
 	mgrClient := mgr.GetClient()
 	vmimGCMgr := newVMIMGCManager(mgrClient, gcSettings.TTL.Duration, 10)
-	source, err := gc.NewCronSource(gcSettings.Schedule, mgrClient, vmimGCMgr, log.With("resource", "vmi-migration"))
+	source, err := gc.NewCronSource(gcSettings.Schedule, vmimGCMgr, log.With("resource", "vmi-migration"))
 	if err != nil {
 		return err
 	}

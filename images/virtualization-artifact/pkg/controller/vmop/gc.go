@@ -34,7 +34,7 @@ const gcControllerName = "vmop-gc-controller"
 
 func SetupGC(mgr manager.Manager, log *log.Logger, gcSettings config.BaseGcSettings) error {
 	vmopGCMgr := newVMOPGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 10)
-	source, err := gc.NewCronSource(gcSettings.Schedule, mgr.GetClient(), vmopGCMgr, log.With("resource", "vmop"))
+	source, err := gc.NewCronSource(gcSettings.Schedule, vmopGCMgr, log.With("resource", "vmop"))
 	if err != nil {
 		return err
 	}

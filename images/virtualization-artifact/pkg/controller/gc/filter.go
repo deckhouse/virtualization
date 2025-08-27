@@ -64,6 +64,7 @@ func DefaultFilter(objs []client.Object, isCandidate IsCandidate, ttl time.Durat
 		return cmp.Compare(getAge(a, now), getAge(b, now))
 	})
 
+	// Keep maxCount first items (most recently created) for each common index. Index example: virtual machine name.
 	indexed := make(map[string]int)
 	for _, obj := range nonExpired {
 		index := indexFunc(obj)

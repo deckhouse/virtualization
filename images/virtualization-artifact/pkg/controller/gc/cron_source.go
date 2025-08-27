@@ -41,7 +41,7 @@ type SourceGCManager interface {
 	ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error)
 }
 
-func NewCronSource(scheduleSpec string, client client.Client, mgr SourceGCManager, log *log.Logger) (*CronSource, error) {
+func NewCronSource(scheduleSpec string, mgr SourceGCManager, log *log.Logger) (*CronSource, error) {
 	schedule, err := cron.ParseStandard(scheduleSpec)
 	if err != nil {
 		return nil, fmt.Errorf("parsing standard spec %q: %w", scheduleSpec, err)
@@ -49,7 +49,6 @@ func NewCronSource(scheduleSpec string, client client.Client, mgr SourceGCManage
 
 	return &CronSource{
 		schedule: schedule,
-		client:   client,
 		mgr:      mgr,
 		log:      log.With("WatchSource", sourceName),
 		clock:    &clock.RealClock{},
@@ -58,7 +57,6 @@ func NewCronSource(scheduleSpec string, client client.Client, mgr SourceGCManage
 
 type CronSource struct {
 	schedule cron.Schedule
-	client   client.Client
 	mgr      SourceGCManager
 	log      *log.Logger
 	clock    clock.Clock
