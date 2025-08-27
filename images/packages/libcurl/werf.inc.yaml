@@ -63,8 +63,7 @@ import:
   to: /
   before: install
   includePaths:
-  - usr/lib64/libldap.a
-  - usr/lib64/pkgconfig/ldap.pc
+  - usr/lib64/libldap.so.2
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
