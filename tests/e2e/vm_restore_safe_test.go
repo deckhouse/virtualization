@@ -115,8 +115,8 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 		})
 
 		It("add additional interface to virtual machines", func() {
-			sbdEnabled, err := isSdnModuleEnabled()
-			if err != nil || !sbdEnabled {
+			sdnEnabled, err := isSdnModuleEnabled()
+			if err != nil || !sdnEnabled {
 				Skip("Module SDN is disabled. Skipping part of tests.")
 			}
 			By("patch virtual machine for add additional network interface", func() {
@@ -127,12 +127,13 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"networks\":[{\"type\":\"Main\"},{\"type\":\"ClusterNetwork\",\"name\":\"cn-1001-for-e2e-test\"}]}}'", kc.ResourceVM, namespace, res.StdOut())
+				vmNames := strings.Split(res.StdOut(), " ")
+				Expect(vmNames).NotTo(BeEmpty())
+
+				cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"networks\":[{\"type\":\"Main\"},{\"type\":\"ClusterNetwork\",\"name\":\"cn-1003-for-e2e-test\"}]}}'", kc.ResourceVM, namespace, res.StdOut())
 				patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
 				Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
 
-				vmNames := strings.Split(res.StdOut(), " ")
-				Expect(vmNames).NotTo(BeEmpty())
 				RebootVirtualMachinesByVMOP(testCaseLabel, namespace, vmNames...)
 			})
 			By("`VirtualMachine` agent should be ready after patching", func() {
@@ -336,8 +337,8 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 		})
 
 		It("check the .status.networks of each VM after restore", func() {
-			sbdEnabled, err := isSdnModuleEnabled()
-			if err != nil || !sbdEnabled {
+			sdnEnabled, err := isSdnModuleEnabled()
+			if err != nil || !sdnEnabled {
 				Skip("Module SDN is disabled. Skipping part of tests.")
 			}
 
@@ -353,11 +354,7 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				vm := &virtv2.VirtualMachine{}
 				err = GetObject(virtv2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
 				Expect(err).NotTo(HaveOccurred())
-
-				originalNetworks, exists := originalVMNetworks[vm.Name]
-				Expect(exists).To(BeTrue())
-
-				Expect(vm.Status.Networks).To(Equal(originalNetworks))
+				Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
 			}
 		})
 	})

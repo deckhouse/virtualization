@@ -1,7 +1,7 @@
 apiVersion: network.deckhouse.io/v1alpha1
 kind: ClusterNetwork
 metadata:
-  name: cn-1001-for-e2e-test
+  name: cn-1003-for-e2e-test
 spec:
   parentNodeNetworkInterfaces:
     labelSelector:
