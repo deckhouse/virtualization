@@ -225,13 +225,6 @@ import:
   includePaths:
   - sbin/hwclock
 
-- image: {{ .ModuleNamePrefix }}packages/lzo
-  add: /lzo
-  to: /relocate
-  after: setup
-  includePaths:
-  - usr/lib64/liblzo2.so.2
-
 # GNU utilities
 - image: tools/coreutils
   add: /
