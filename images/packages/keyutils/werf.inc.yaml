@@ -63,13 +63,17 @@ shell:
       NO_ARLIB=1 \
       PREFIX=/usr \
       LIBDIR=/usr/lib64 \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin \
       NO_GLIBC_KEYERR=1 \
       'CFLAGS=-Werror'
 
     make DESTDIR=$OUTDIR install \
       NO_ARLIB=1 \
       PREFIX=/usr \
-      LIBDIR=/usr/lib64
+      LIBDIR=/usr/lib64 \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin
 
     rm -rf $OUTDIR/usr/share/man
     tree -hp $OUTDIR
