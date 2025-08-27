@@ -98,7 +98,7 @@ func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy)
 }
 
 func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
-	return vmopcondition.ReasonCompleted(vmopcondition.ReasonRestoreOperationInProgress)
+	return vmopcondition.ReasonRestoreInProgress
 }
 
 func (o RestoreOperation) IsComplete() (bool, string, error) {

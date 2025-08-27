@@ -65,6 +65,9 @@ const (
 	// ReasonStopInProgress is a ReasonCompleted indicating that the stop signal has been sent and stop is in progress.
 	ReasonStopInProgress ReasonCompleted = "StopInProgress"
 
+	// ReasonRestoreInProgress is a ReasonCompleted indicating that the stop signal has been sent and stop is in progress.
+	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
+
 	// ReasonMigrationPending is a ReasonCompleted indicating that the migration process has been initiated but not yet started.
 	ReasonMigrationPending ReasonCompleted = "MigrationPending"
 
