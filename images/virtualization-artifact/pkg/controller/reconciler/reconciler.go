@@ -104,7 +104,6 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 	case k8serrors.IsForbidden(err) && strings.Contains(err.Error(), "finalizer"):
 		logger.FromContext(ctx).Warn("Forbidden to add finalizers", logger.SlogErr(err))
 		result.RequeueAfter = 1 * time.Second
-		err = nil
 	default:
 		logger.FromContext(ctx).Error("Failed to update resource", logger.SlogErr(err))
 		errs = errors.Join(errs, err)
