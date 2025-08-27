@@ -43,7 +43,7 @@ package:
   libjansson4: v2.14.1
   libjson-c5: json-c-0.17
   libjson-glib: 1.10.6
-  libldap2: OPENLDAP_REL_ENG_2_6_9
+  openldap: OPENLDAP_REL_ENG_2_6_9
   libmd: 1.1.0
   lvm2: v2_03_32
   nbdkit: v1.39.5
