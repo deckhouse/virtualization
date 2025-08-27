@@ -29,23 +29,16 @@ altPackages:
 - git gcc
 - automake autoconf-archive make libtool
 - bash-completion
-- curl
-- qemu
-- expect
-- libgnutls30
+- curl qemu expect
 - filesystem
-- socat
-- jq
+- socat xz jq 
 - iproute2
-- xz
-- zlib-ng
+- zlib-ng zlib
 - zstd
-- zlib
-- libblkio
-- libtorrent-rasterbar-devel
-- libssh
+- libblkio libtorrent-rasterbar-devel libssh
 packages:
 - libisoburn libnbd e2fsprogs
+- gnutls libidn2 libgmp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -73,7 +66,7 @@ shell:
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /
+      cp -af /$pkg/. /
       rm -rf /$pkg
     done
 
@@ -81,8 +74,7 @@ shell:
 
     cd /src
 
-    autoreconf -i
-
+    autoreconf -if
     ./configure \
       --disable-static \
       --prefix=/usr \
