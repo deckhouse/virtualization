@@ -132,8 +132,6 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
-				status.Status = "Ignored"
-				status.Message = err.Error()
 			default:
 				hasErrors = true
 				status.Status = "Failed"
@@ -175,8 +173,6 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
-				status.Status = "Ignored"
-				status.Message = err.Error()
 			default:
 				hasErrors = true
 				status.Status = "Failed"
