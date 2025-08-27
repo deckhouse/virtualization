@@ -124,7 +124,15 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	// 7. The Operation is valid, and can be executed.
-	return h.execute(ctx, vmop, svcOp)
+	rec, err := h.execute(ctx, vmop, svcOp)
+
+	// 8. Check if complete for one shot operation
+	isComplete, failureMessage = svcOp.IsComplete()
+	if isComplete {
+		h.setCompletedCondition(vmop, failureMessage)
+	}
+
+	return rec, err
 }
 
 func (h LifecycleHandler) Name() string {

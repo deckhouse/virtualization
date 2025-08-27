@@ -107,6 +107,9 @@ const (
 	// ReasonRestoreOperationCompleted is a ReasonRestoreCompleted indicating that the restore operation has completed successfully.
 	ReasonRestoreOperationCompleted ReasonRestoreCompleted = "RestoreCompleted"
 
+	// ReasonDryRunOperationCompleted is a ReasonRestoreCompleted indicating that the restore dry run operation has completed successfully.
+	ReasonDryRunOperationCompleted ReasonRestoreCompleted = "RestoreDryRunCompleted"
+
 	// ReasonRestoreOperationFailed is a ReasonRestoreCompleted indicating that operation has failed.
 	ReasonRestoreOperationFailed ReasonRestoreCompleted = "RestoreFailed"
 )

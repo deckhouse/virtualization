@@ -99,7 +99,7 @@ func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOpe
 		return nil, nil
 	}
 
-	common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine can be restored from the snapshot")
+	common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
 
 	return &reconcile.Result{}, nil
 }
