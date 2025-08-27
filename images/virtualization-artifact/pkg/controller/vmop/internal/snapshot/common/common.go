@@ -51,6 +51,8 @@ func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2
 }
 
 func FillResourcesStatuses(vmop *v1alpha2.VirtualMachineOperation, statuses []restorer.SnapshotResourceStatus) {
+	vmop.Status.Resources = nil
+
 	for _, status := range statuses {
 		vmop.Status.Resources = append(vmop.Status.Resources, v1alpha2.VirtualMachineOperationResource{
 			APIVersion: status.APIVersion,

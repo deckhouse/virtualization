@@ -4955,10 +4955,9 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreSpec(
 				Properties: map[string]spec.Schema{
 					"mode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Mode defines the restore mode.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 					"virtualMachineSnapshotName": {

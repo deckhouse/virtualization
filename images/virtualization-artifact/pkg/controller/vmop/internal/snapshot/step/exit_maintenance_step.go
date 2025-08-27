@@ -61,7 +61,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return nil, nil
 	}
 
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
 	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
@@ -80,7 +80,14 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return nil, nil
 	}
 
-	conditions.RemoveCondition(vmcondition.TypeMaintenance, &vm.Status.Conditions)
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(vm.GetGeneration()).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Status(metav1.ConditionFalse).
+			Message("VM exited maintenance mode after restore completion"),
+		&vm.Status.Conditions,
+	)
 
 	err = s.client.Status().Update(ctx, vm)
 	if err != nil {

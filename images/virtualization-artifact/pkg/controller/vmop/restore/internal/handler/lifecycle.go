@@ -123,8 +123,6 @@ func (h LifecycleHandler) Name() string {
 func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine, svcOp service.Operation) (rec reconcile.Result) {
 	log := logger.FromContext(ctx)
 
-	h.recordEvent(ctx, vm)
-
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(vmop.GetGeneration())
 	// 1. Execute the operation.
@@ -211,19 +209,8 @@ func (h LifecycleHandler) syncOperationComplete(changed *v1alpha2.VirtualMachine
 	return err
 }
 
-func (h LifecycleHandler) recordEvent(ctx context.Context, vm *v1alpha2.VirtualMachine) {
-	log := logger.FromContext(ctx)
-
-	h.recorder.WithLogging(log).Event(
-		vm,
-		corev1.EventTypeNormal,
-		v1alpha2.ReasonVMStarted,
-		"Restore initiated with VirtualMachineOperation",
-	)
-}
-
 func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
-	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	restore, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmop.Status.Conditions)
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
+	return restore.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }

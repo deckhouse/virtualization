@@ -83,7 +83,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
 			Generation(vm.GetGeneration()).
 			Reason(vmcondition.ReasonMaintenanceRestore).
-			Status(metav1.ConditionTrue). // v i/a "/w/
+			Status(metav1.ConditionTrue).
 			Message("VM is in maintenance mode for restore operation"),
 		&vm.Status.Conditions,
 	)

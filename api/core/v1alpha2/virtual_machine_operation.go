@@ -61,13 +61,12 @@ type VirtualMachineOperationSpec struct {
 
 // VirtualMachineOperationRestoreSpec defines the restore operation.
 type VirtualMachineOperationRestoreSpec struct {
-	// Mode defines the restore mode.
 	Mode VMOPRestoreMode `json:"mode"`
 	// VirtualMachineSnapshotName defines the source of the restore operation.
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 }
 
-// VMOPRestoreKind defines the kind of the restore operation.
+// VMOPRestoreMode defines the kind of the restore operation.
 // * `DryRun`: DryRun run without any changes. Compatability shows in status.
 // * `Strict`: Strict restore as is in the snapshot.
 // * `BestEffort`: BestEffost restore without deleted external missing dependencies.
@@ -111,7 +110,7 @@ const (
 	VMOPResourceClusterNetwork                      VMOPResourceKind = "ClusterNetwork"
 	VMOPResourceClusterVirtualImage                 VMOPResourceKind = "ClusterVirtualImage"
 	VMOPResourceVirtualMachineIPAddress             VMOPResourceKind = "VirtualMachineIPAddress"
-	VMOPResourceVirtualMachineMacAddress            VMOPResourceKind = "VirtualMachineIPAddress"
+	VMOPResourceVirtualMachineMacAddress            VMOPResourceKind = "VirtualMachineMacAddress"
 	VMOPResourceVirtualMachineBlockDeviceAttachment VMOPResourceKind = "VirtualMachineBlockDeviceAttachment"
 )
 
