@@ -30,6 +30,11 @@ var (
 	ErrRestoring                   = errors.New("will be restored")
 	ErrUpdating                    = errors.New("will be updated")
 	ErrIncomplete                  = errors.New("still incomplete")
+	ErrVMNotInMaintenance          = errors.New("the virtual machine is not in maintenance mode")
+	ErrVMMaintenanceCondNotFound   = errors.New("the virtual machine maintenance condition is not found")
+	ErrVirtualImageNotFound        = errors.New("the virtual image is not found")
+	ErrClusterVirtualImageNotFound = errors.New("the virtual image is not found")
+	ErrSecretHasDifferentData      = errors.New("the secret has different data")
 )
 
 type OperationMode string

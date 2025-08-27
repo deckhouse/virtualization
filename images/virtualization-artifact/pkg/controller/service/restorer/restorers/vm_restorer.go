@@ -108,11 +108,11 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 
 		cond, found := conditions.GetCondition(vmcondition.TypeMaintenance, existed.Status.Conditions)
 		if !found {
-			return fmt.Errorf("failed to get the `VirtualMachine` %s condition: %s", existed.Name, vmcondition.TypeMaintenance)
+			return fmt.Errorf("failed to get the `VirtualMachine` %s  %s condition: %w", existed.Name, vmcondition.TypeMaintenance, common.ErrVMMaintenanceCondNotFound)
 		}
 
 		if cond.Status != metav1.ConditionTrue {
-			return fmt.Errorf("the `VirtualMachine` %s is not in maintenance mode", existed.Name)
+			return fmt.Errorf("the `VirtualMachine` %s is not in maintenance mode: %w", existed.Name, common.ErrVMNotInMaintenance)
 		}
 	}
 

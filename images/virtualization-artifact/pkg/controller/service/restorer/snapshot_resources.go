@@ -128,30 +128,18 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 		}
 
 		if r.kind == common.RestoreKind {
-			err := ov.ValidateClone(ctx)
-			if err != nil {
-				hasErrors = true
-				status.Status = "Conflict"
-				status.Message = err.Error()
-			}
-		}
-
-		if r.kind == common.RestoreKind {
 			err := ov.ValidateRestore(ctx)
-			if err != nil {
-				hasErrors = true
-				status.Status = "Conflict"
+			switch {
+			case err == nil:
+			case shouldIgnoreError(r.mode, err):
+				status.Status = "Ignored"
 				status.Message = err.Error()
-			}
-		} else {
-			err := ov.ValidateClone(ctx)
-			if err != nil {
+			default:
 				hasErrors = true
-				status.Status = "Conflict"
+				status.Status = "Failed"
 				status.Message = err.Error()
 			}
 		}
-
 		r.statuses = append(r.statuses, status)
 	}
 
@@ -184,22 +172,17 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 
 		if r.kind == common.RestoreKind {
 			err := ov.ProcessRestore(ctx)
-			if err != nil {
+			switch {
+			case err == nil:
+			case shouldIgnoreError(r.mode, err):
+				status.Status = "Ignored"
+				status.Message = err.Error()
+			default:
 				hasErrors = true
 				status.Status = "Failed"
 				status.Message = err.Error()
-				r.statuses = append(r.statuses, status)
-			}
-		} else {
-			err := ov.ProcessClone(ctx)
-			if err != nil {
-				hasErrors = true
-				status.Status = "Failed"
-				status.Message = err.Error()
-				r.statuses = append(r.statuses, status)
 			}
 		}
-
 		r.statuses = append(r.statuses, status)
 	}
 
@@ -208,6 +191,36 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 	}
 
 	return r.statuses, nil
+}
+
+var DryRunIgnoredErrors = []error{
+	common.ErrVMMaintenanceCondNotFound,
+	common.ErrVMNotInMaintenance,
+}
+
+var BestEffortIgnoredErrors = []error{
+	common.ErrVirtualImageNotFound,
+	common.ErrClusterVirtualImageNotFound,
+	common.ErrSecretHasDifferentData,
+}
+
+func shouldIgnoreError(mode common.OperationMode, err error) bool {
+	switch mode {
+	case common.DryRunMode:
+		for _, e := range DryRunIgnoredErrors {
+			if errors.Is(err, e) {
+				return true
+			}
+		}
+	case common.BestEffortRestorerMode:
+		for _, e := range BestEffortIgnoredErrors {
+			if errors.Is(err, e) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1alpha2.VirtualMachineSnapshot) ([]*v1alpha2.VirtualDisk, error) {
