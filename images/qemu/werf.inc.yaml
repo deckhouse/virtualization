@@ -211,6 +211,8 @@ shell:
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
 
+    ln /usr/lib64/liblzo2.so.2 /usr/lib64/liblzo2.so
+
     ./configure \
       --target-list="x86_64-softmmu" \
       --with-pkgversion="-dvp" \
