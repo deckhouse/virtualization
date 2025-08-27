@@ -27,6 +27,7 @@ shell:
 {{- define "$name" -}}
 packages:
 - gcc gcc-c++ git make libtool gettext-tools
+- rpmspec
 - tree
 {{- end -}}
 
