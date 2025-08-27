@@ -23,16 +23,13 @@ import (
 )
 
 var (
-	ErrVirtualDiskSnapshotNotFound = errors.New("not found")
-	ErrAlreadyExists               = errors.New("already exists")
-	ErrAlreadyExistsAndHasDiff     = errors.New("already exists and does not have the same data content")
 	ErrAlreadyInUse                = errors.New("already in use")
 	ErrRestoring                   = errors.New("will be restored")
 	ErrUpdating                    = errors.New("will be updated")
-	ErrIncomplete                  = errors.New("still incomplete")
 	ErrVMNotInMaintenance          = errors.New("the virtual machine is not in maintenance mode")
 	ErrVMMaintenanceCondNotFound   = errors.New("the virtual machine maintenance condition is not found")
 	ErrVirtualImageNotFound        = errors.New("the virtual image is not found")
+	ErrVirtualDiskSnapshotNotFound = errors.New("not found")
 	ErrClusterVirtualImageNotFound = errors.New("the virtual image is not found")
 	ErrSecretHasDifferentData      = errors.New("the secret has different data")
 )

@@ -88,7 +88,7 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
-		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, common.ErrAlreadyExistsAndHasDiff)
+		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, common.ErrSecretHasDifferentData)
 	}
 
 	return nil
