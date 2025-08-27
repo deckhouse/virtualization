@@ -61,8 +61,7 @@ shell:
     make \
       -j$(nproc) \
       NO_ARLIB=1 \
-      LIBDIR=/lib64 \
-      USRLIBDIR=/usr/lib64 \
+      LIBDIR=/usr/lib64 \
       NO_GLIBC_KEYERR=1 \
       'CFLAGS=-Werror'
 
