@@ -179,16 +179,25 @@ jobs:
           svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
           svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
+  notify:
+    name: Notify Loop
+    runs-on: ubuntu-latest
+    needs:
+      - set_vars
+      - dev_setup_build
+      - analyze_build
+    if: always()
+    steps:
       - name: Send results to Loop
-        if: always()
         run: |
-          if [ "${{ steps.analyze.outcome }}" == "success" ]; then
+          DATE=$(date '+%Y-%m-%d')
+          if [ "${{ needs.analyze_build.result }}" == "success" ]; then
             STATUS=":white_check_mark: SUCCESS!"
           else
             STATUS=":x: FAIL!"
           fi
-          SUMMARY="
-          ### :gear: **DVP $DATE Weekly analyze**
+          MESSAGE="
+          ### :gear: **DVP $DATE Weekly Svace Analyze Report**
 
           **Branch:** \`$GITHUB_REF_NAME\`
           **Status: ${STATUS}**
