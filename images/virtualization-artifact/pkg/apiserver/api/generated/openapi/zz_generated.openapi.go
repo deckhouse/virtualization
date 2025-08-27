@@ -4476,7 +4476,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLease(ref c
 						},
 					},
 				},
-				Required: []string{"status"},
 			},
 		},
 		Dependencies: []string{
