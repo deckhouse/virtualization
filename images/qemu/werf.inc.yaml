@@ -1,6 +1,6 @@
 ---
 {{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $version := (split "v" (get $.Firmware $gitRepoName))._1 }}
 {{- $gitRepoUrl := "qemu/qemu.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
