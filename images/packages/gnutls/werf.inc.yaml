@@ -52,6 +52,7 @@ altPackages:
 - libev4 libev-devel libopencdk-devel
 - liboqs-devel libzstd-devel libreadline-devel
 - openssl libssl-devel iproute2-devel
+- wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
 - nettle
@@ -81,12 +82,13 @@ shell:
     echo "Install packages"
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      cp -a /$pkg/. /packages
+      # cp -a /$pkg/. /packages
+      cp -af /$pkg/. /
       rm -rf /$pkg
     done
 
-    export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/packages/lib/pkgconfig:/packages/lib64/pkgconfig:/usr/lib64:/usr/lib
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/packages/lib:/packages/usr/lib:/packages/lib64:/packages/usr/lib64
+    # export PKG_CONFIG_PATH=/packages/lib/pkgconfig:/packages/lib64/pkgconfig:/usr/lib64:/usr/lib:$PKG_CONFIG_PATH
+    # export LD_LIBRARY_PATH=/packages/lib:/packages/usr/lib:/packages/lib64:/packages/usr/lib64:$LD_LIBRARY_PATH
     
     OUTDIR=/out
 
@@ -98,15 +100,41 @@ shell:
     echo "=====Bootstrap======"
     # Fake distcheck-hook that checks bootstrap is called without --skip-po
     mkdir -p po/.reference
-    echo "./bootstrap --skip-po"
     
+    echo "./bootstrap --skip-po"
     ./bootstrap --skip-po
+
+    ls -la
+
+    echo "=====Configure======"
+    
     ./configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
+      --bindir=/usr/bin \
+      --sbindir=/usr/sbin \
       --libdir=/usr/lib64 \
+      --libexecdir=/usr/libexec \
+      --disable-rpath \
+      --disable-static \
+      --disable-silent-rules \
+      --disable-libdane  \
+      --disable-gtk-doc \
+      --disable-doc \
+      --without-tpm \
+      --with-default-trust-store-pkcs11='pkcs11:' \
       --with-default-trust-store-file=/usr/share/ca-certificates/ca-bundle.crt \
-      --disable-tests \
-      --disable-doc
+      --with-included-libtasn1=no \
+      --enable-openssl-compatibility \
+      --with-tpm2 \
+      --enable-gost --enable-sha1-support
+      
+      # --enable-openssl-compatibility \
+      # --with-default-trust-store-pkcs11='pkcs11:' \
+      # --with-default-trust-store-file=/usr/share/ca-certificates/ca-bundle.crt \
+      # --disable-tests \
+      # --disable-doc
+      # --disable-openssl-compatibility
 
     make -j$(nproc)
 
