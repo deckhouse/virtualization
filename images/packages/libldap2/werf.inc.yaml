@@ -109,6 +109,6 @@ shell:
     make -j$(nproc)
     DESTDIR=$OUTDIR make install
     rm -rf $OUTDIR/usr/share
-    rm -rf $OUTDIR/var
+    rm -rf $OUTDIR/usr/var
     tree -hp $OUTDIR
 
