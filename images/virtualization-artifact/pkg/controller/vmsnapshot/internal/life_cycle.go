@@ -676,6 +676,30 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 		})
 	}
 
+	if len(vm.Spec.Networks) > 1 {
+		for _, ns := range vm.Status.Networks {
+			if ns.Type == virtv2.NetworksTypeMain {
+				continue
+			}
+
+			vmmac, err := object.FetchObject(ctx, types.NamespacedName{
+				Namespace: vm.Namespace,
+				Name:      ns.VirtualMachineMACAddressName,
+			}, h.client, &virtv2.VirtualMachineMACAddress{})
+			if err != nil {
+				return err
+			}
+			if vmmac == nil {
+				return fmt.Errorf("the virtual machine mac address %q not found", ns.VirtualMachineMACAddressName)
+			}
+			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+				Kind:       vmmac.Kind,
+				ApiVersion: vmmac.APIVersion,
+				Name:       vmmac.Name,
+			})
+		}
+	}
+
 	provisioner, err := h.getProvisionerFromVM(ctx, vm)
 	if err != nil {
 		return err

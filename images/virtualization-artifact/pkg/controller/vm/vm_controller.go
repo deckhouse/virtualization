@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -48,7 +48,6 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
-	clusterUUID string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
@@ -56,9 +55,11 @@ func SetupController(
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
 	handlers := []Handler{
+		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
-		internal.NewIPAMHandler(ipam.New(), client, recorder),
+		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
+		internal.NewMACHandler(netmanager.NewMACManager(), client, recorder),
 		internal.NewBlockDeviceHandler(client, blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
@@ -67,7 +68,7 @@ func SetupController(
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
-		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, clusterUUID),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
@@ -94,7 +95,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
+		WithValidator(NewValidator(client, blockDeviceService, log)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err

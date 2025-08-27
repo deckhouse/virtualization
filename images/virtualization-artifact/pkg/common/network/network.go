@@ -35,6 +35,7 @@ type InterfaceSpec struct {
 	Type          string `json:"type"`
 	Name          string `json:"name"`
 	InterfaceName string `json:"ifName"`
+	MAC           string `json:"-"`
 }
 
 type InterfaceStatus struct {
@@ -47,21 +48,59 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec) InterfaceSpecList {
-	var networksSpec InterfaceSpecList
-	for id, network := range vmSpec.Networks {
-		if network.Type == virtv2.NetworksTypeMain {
+func CreateNetworkSpec(vm *virtv2.VirtualMachine, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
+	var (
+		all     []string
+		status  []struct{ Name, MAC string }
+		taken   = make(map[string]bool)
+		free    []string
+		res     InterfaceSpecList
+		freeIdx int
+	)
+
+	for _, v := range vmmacs {
+		if mac := v.Status.Address; mac != "" {
+			all = append(all, mac)
+		}
+	}
+	for _, n := range vm.Status.Networks {
+		if n.Type == virtv2.NetworksTypeMain {
 			continue
 		}
-
-		networksSpec = append(networksSpec, InterfaceSpec{
-			Type:          network.Type,
-			Name:          network.Name,
-			InterfaceName: generateInterfaceName(id, network.Type),
-		})
+		status = append(status, struct{ Name, MAC string }{n.Name, n.MAC})
+		taken[n.MAC] = true
 	}
-
-	return networksSpec
+	for _, mac := range all {
+		if !taken[mac] {
+			free = append(free, mac)
+		}
+	}
+	for _, n := range vm.Spec.Networks {
+		if n.Type == virtv2.NetworksTypeMain {
+			continue
+		}
+		var mac string
+		for i, s := range status {
+			if s.Name == n.Name {
+				mac = s.MAC
+				status = append(status[:i], status[i+1:]...)
+				break
+			}
+		}
+		if mac == "" && freeIdx < len(free) {
+			mac = free[freeIdx]
+			freeIdx++
+		}
+		if mac != "" {
+			res = append(res, InterfaceSpec{
+				Type:          n.Type,
+				Name:          n.Name,
+				InterfaceName: generateInterfaceName(mac, n.Type),
+				MAC:           mac,
+			})
+		}
+	}
+	return res
 }
 
 func (c InterfaceSpecList) ToString() (string, error) {
@@ -72,10 +111,10 @@ func (c InterfaceSpecList) ToString() (string, error) {
 	return string(data), nil
 }
 
-func generateInterfaceName(id int, networkType string) string {
+func generateInterfaceName(macAddress, networkType string) string {
 	name := ""
 
-	hash := md5.Sum([]byte(fmt.Sprintf("%d", id)))
+	hash := md5.Sum([]byte(macAddress))
 	hashHex := hex.EncodeToString(hash[:])
 
 	switch networkType {
