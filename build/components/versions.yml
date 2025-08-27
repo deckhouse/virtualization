@@ -1,6 +1,6 @@
 firmware:
-  qemu: 9.2.0
-  libvirt: 10.9.0
+  qemu: v9.2.0
+  libvirt: v10.9.0
   edk2: stable202411
 core:
   3p-kubevirt: v1.3.1-v12n.10

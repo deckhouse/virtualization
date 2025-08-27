@@ -34,7 +34,7 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /{{ $gitRepoName }}-{{ $version }}
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /{{ $gitRepoName }}-{{ $version }}
 
     cd /{{ $gitRepoName }}-{{ $version }}
 
