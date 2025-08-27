@@ -27,7 +27,6 @@ libs:
   - libgvnc-devel
   - libfdt-devel
   - libpixman-devel
-  - libkeyutils-devel
   - libuuid-devel
   - libpam0-devel
   - libtasn1-devel
@@ -214,7 +213,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" "libjson-c5" -}}
+{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" "libjson-c5" "keyutils" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded

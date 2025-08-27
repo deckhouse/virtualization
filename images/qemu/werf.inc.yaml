@@ -105,7 +105,6 @@ libraries:
 - glibc-kernheaders
 - libfdt-devel
 - libpixman-devel
-- libkeyutils-devel
 - libuuid-devel libpam0-devel
 - libtasn1-devel libslirp-devel
 - libdrm-devel
@@ -151,7 +150,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" "openldap" -}}
+{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" "openldap" "keyutils" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO
