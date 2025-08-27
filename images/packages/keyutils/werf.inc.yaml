@@ -66,6 +66,6 @@ shell:
       NO_GLIBC_KEYERR=1 \
       'CFLAGS=-Werror'
 
-    DESTDIR=$OUTDIR make install
+    make DESTDIR=$OUTDIR install
     tree -hp $OUTDIR
 
