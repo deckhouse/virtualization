@@ -61,12 +61,14 @@ func SetupController(
 	}
 
 	for _, ctr := range controllers {
+		l := log.With("controller", ctr.Name())
 		r := NewReconciler(client, ctr)
+
 		c, err := controller.New(ctr.Name(), mgr, controller.Options{
 			Reconciler:       r,
 			RateLimiter:      workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Second, 32*time.Second),
 			RecoverPanic:     ptr.To(true),
-			LogConstructor:   logger.NewConstructor(log),
+			LogConstructor:   logger.NewConstructor(l),
 			CacheSyncTimeout: 10 * time.Minute,
 		})
 		if err != nil {
