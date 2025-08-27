@@ -67,5 +67,6 @@ shell:
       'CFLAGS=-Werror'
 
     make DESTDIR=$OUTDIR install
+    rm -rf $OUTDIR/usr/share/man
     tree -hp $OUTDIR
 
