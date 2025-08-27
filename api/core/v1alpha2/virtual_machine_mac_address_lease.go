@@ -32,7 +32,7 @@ type VirtualMachineMACAddressLease struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   VirtualMachineMACAddressLeaseSpec   `json:"spec,omitempty"`
-	Status VirtualMachineMACAddressLeaseStatus `json:"status,omiMACmpty"`
+	Status VirtualMachineMACAddressLeaseStatus `json:"status,omitempty"`
 }
 
 // VirtualMachineMACAddressLeaseList contains a list of VirtualMachineMACAddressLease
