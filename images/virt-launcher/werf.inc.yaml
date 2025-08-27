@@ -256,7 +256,6 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    # apt-get update
     apt-get install -y \
       {{ $builderDependencies.altLibs | join " " }} \
       {{ $builderDependencies.altPackages | join " " }}
@@ -348,7 +347,7 @@ shell:
 
   - |
     convert_version() {
-      local version="$1"
+      local version="${1#v}"
       IFS='.' read -r major minor patch <<< "$version"
       printf "%d%03d\n" "$major" "$minor"
     }
