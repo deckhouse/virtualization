@@ -141,8 +141,8 @@ import:
   to: /
   before: install
   includePaths:
-  - usr/lib64/liblzo2.a
-  - usr/lib64/pkgconfig/lzo2.pc
+  - usr/lib64/liblzo2.so.2
+  - usr/lib64/liblzo2.so.2.0.0
   - usr/include
 - image: {{ .ModuleNamePrefix }}packages/lz4
   add: /lz4
