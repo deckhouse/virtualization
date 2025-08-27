@@ -164,14 +164,14 @@ func (s WaitForDVStep) checkRunningCondition(vd *virtv2.VirtualDisk) (ok bool) {
 	dvRunningCondition, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	switch {
 	case dvRunningCondition.Reason == conditions.DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
 		return false
 	case strings.Contains(dvRunningCondition.Reason, "Error"):
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
@@ -200,7 +200,7 @@ func (s WaitForDVStep) checkImporterPrimePod(ctx context.Context, vd *virtv2.Vir
 	if cdiImporterPrime != nil {
 		podInitializedCond, _ := conditions.GetPodCondition(corev1.PodInitialized, cdiImporterPrime.Status.Conditions)
 		if podInitializedCond.Status == corev1.ConditionFalse && strings.Contains(podInitializedCond.Reason, "Error") {
-			vd.Status.Phase = virtv2.DiskPending
+			vd.Status.Phase = virtv2.DiskFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ImagePullFailed).
@@ -210,7 +210,7 @@ func (s WaitForDVStep) checkImporterPrimePod(ctx context.Context, vd *virtv2.Vir
 
 		podScheduledCond, _ := conditions.GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
 		if podScheduledCond.Status == corev1.ConditionFalse && strings.Contains(podScheduledCond.Reason, "Error") {
-			vd.Status.Phase = virtv2.DiskPending
+			vd.Status.Phase = virtv2.DiskFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ImagePullFailed).
