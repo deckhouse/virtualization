@@ -39,7 +39,7 @@ type Operation interface {
 func NewOperationService(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) (Operation, error) {
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeRestore:
-		return NewRestoreOperation(NewVMSnapshotRestore(client, recorder, vmop), vmop), nil
+		return NewRestoreOperation(client, recorder, vmop), nil
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
 	}

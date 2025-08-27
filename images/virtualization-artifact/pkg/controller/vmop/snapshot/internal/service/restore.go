@@ -32,41 +32,42 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type VMSnapshotRestore struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
-	vmop     *v1alpha2.VirtualMachineOperation
-}
-
-func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) *VMSnapshotRestore {
-	return &VMSnapshotRestore{
-		client:   client,
-		recorder: recorder,
+func NewRestoreOperation(client client.Client, eventRecorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
+	return &RestoreOperation{
 		vmop:     vmop,
+		client:   client,
+		recorder: eventRecorder,
 	}
 }
 
-func (r VMSnapshotRestore) Sync(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(r.vmop.Generation), &r.vmop.Status.Conditions) }()
+type RestoreOperation struct {
+	vmop     *virtv2.VirtualMachineOperation
+	client   client.Client
+	recorder eventrecord.EventRecorderLogger
+}
 
-	if r.vmop.Spec.Restore == nil {
+func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error) {
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
+	defer func() { conditions.SetCondition(cb.Generation(o.vmop.Generation), &o.vmop.Status.Conditions) }()
+
+	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
-	if r.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
+	if o.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
-	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
-	vm, err := object.FetchObject(ctx, vmKey, r.client, &v1alpha2.VirtualMachine{})
+	vmKey := types.NamespacedName{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}
+	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
@@ -80,11 +81,28 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	}
 
 	return steptaker.NewStepTakers(
-		step.NewVMSnapshotReadyStep(r.client, cb, r.vmop),
-		step.NewValidateStep(r.client, r.recorder, cb, r.vmop),
-		step.NewEnterMaintenanceStep(r.client, r.recorder, cb, r.vmop),
-		step.NewBestEffortRestoreStep(r.client, r.recorder, cb, r.vmop),
-		step.NewStrictRestoreStep(r.client, r.recorder, cb, r.vmop),
-		step.NewExitMaintenanceStep(r.client, r.recorder, cb, r.vmop),
-	).Run(ctx, r.vmop)
+		step.NewVMSnapshotReadyStep(o.client, cb, o.vmop),
+		step.NewValidateStep(o.client, o.recorder, cb, o.vmop),
+		step.NewEnterMaintenanceStep(o.client, o.recorder, cb, o.vmop),
+		step.NewBestEffortRestoreStep(o.client, o.recorder, cb, o.vmop),
+		step.NewStrictRestoreStep(o.client, o.recorder, cb, o.vmop),
+		step.NewExitMaintenanceStep(o.client, o.recorder, cb, o.vmop),
+	).Run(ctx, o.vmop)
+}
+
+func (o RestoreOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
+	return phase == virtv2.MachineStopped || phase == virtv2.MachineRunning || phase == virtv2.MachinePending
+}
+
+func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
+	return runPolicy == virtv2.ManualPolicy || runPolicy == virtv2.AlwaysOnUnlessStoppedManually || runPolicy == virtv2.AlwaysOffPolicy
+}
+
+func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
+	return vmopcondition.ReasonCompleted(vmopcondition.ReasonRestoreOperationInProgress)
+}
+
+func (o RestoreOperation) IsComplete() (bool, string, error) {
+	c, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
+	return ok && c.Status == metav1.ConditionTrue, "", nil
 }
