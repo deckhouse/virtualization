@@ -31,7 +31,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     echo "Git clone CDI repository..."
     git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
@@ -70,11 +69,10 @@ shell:
       cp -af /$pkg/. /
       rm -rf /$pkg
     done
-  - |
-    export GOPROXY=$(cat /run/secrets/GOPROXY)
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
   - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+    
     echo Download Go modules.
     cd /containerized-data-importer
     go mod download

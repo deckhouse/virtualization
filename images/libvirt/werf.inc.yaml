@@ -1,6 +1,6 @@
 ---
 {{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Firmware $gitRepoName }}
+{{- $version := (split "v" (get $.Firmware $gitRepoName))._1 }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -23,8 +23,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /{{ $gitRepoName }}-{{ $version }}
 
     cd /{{ $gitRepoName }}-{{ $version }}
