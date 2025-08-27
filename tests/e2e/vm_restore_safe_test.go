@@ -174,9 +174,9 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				result := kubectl.Delete(kc.DeleteOptions{
 					Labels:    testCaseLabel,
 					Namespace: namespace,
-					Resource:  virtv2.VirtualMachineResource,
+					Resource:  kc.ResourceVM,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					AllFlag:        true,
@@ -184,21 +184,21 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 					Namespace:      namespace,
 					Resource:       virtv2.VirtualMachineIPAddressResource,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					ExcludedLabels: []string{"additionalDisk"},
 					Namespace:      namespace,
 					Resource:       virtv2.VirtualDiskResource,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				result = kubectl.Delete(kc.DeleteOptions{
 					Labels:    testCaseLabel,
 					Namespace: namespace,
 					Resource:  virtv2.VirtualMachineBlockDeviceAttachmentResource,
 				})
-				Expect(result.Error()).NotTo(HaveOccurred())
+				Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
 
 				vmipls, err := GetVMIPLByNamespace(namespace)
 				Expect(err).NotTo(HaveOccurred())
