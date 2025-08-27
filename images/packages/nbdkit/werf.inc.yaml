@@ -54,8 +54,7 @@ import:
   to: /
   before: install
   includePaths:
-  - usr/lib64/liblzma.a
-  - usr/lib64/pkgconfig/liblzma.pc
+  - usr/lib64/liblzma.so.5
   - usr/include
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src

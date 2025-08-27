@@ -45,6 +45,13 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
+- image: {{ .ModuleNamePrefix }}packages/xz
+  add: /xz
+  to: /
+  before: install
+  includePaths:
+  - usr/lib64/liblzma.so.5
+  - usr/include
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
