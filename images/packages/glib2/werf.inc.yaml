@@ -1,10 +1,10 @@
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc gcc-c++
 - git pkg-config meson cmake
 - libunwind-devel libelf-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
-dvppackages:
+packages:
 - libffi
 {{- end -}}
 
@@ -64,20 +64,20 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     echo "Install packages"
-    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -af /$pkg/. /
       rm -rf /$pkg

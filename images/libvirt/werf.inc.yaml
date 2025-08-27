@@ -1,6 +1,6 @@
 ---
 {{- $gitRepoName := $.ImageName }}
-{{- $version := (split "v" (get $.Firmware $gitRepoName))._1 }}
+{{- $version := get $.Firmware $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -76,7 +76,6 @@ libraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libnuma-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel

@@ -29,9 +29,11 @@ shell:
 altPackages:
 - gcc gcc-c++ make git autoconf libtool gettext-tools
 - automake pkgconf glibc-devel
-- bash-completion hardlink libfuse3-devel libgnutls-devel
+- bash-completion hardlink libfuse3-devel
 - libublksrv-devel liburing-devel libxml2-devel perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
+packages:
+- gnutls
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -44,6 +46,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -54,6 +57,13 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
+  - |
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   - |
     OUTDIR=/out
 
