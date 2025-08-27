@@ -70,10 +70,14 @@
     |       `-- system
     |           `-- slapd.service
     |-- lib64
-    |   |-- liblber.a
     |   |-- liblber.la
-    |   |-- libldap.a
+    |   |-- liblber.so -> liblber.so.2.0.200
+    |   |-- liblber.so.2 -> liblber.so.2.0.200
+    |   |-- liblber.so.2.0.200
     |   |-- libldap.la
+    |   |-- libldap.so -> libldap.so.2.0.200
+    |   |-- libldap.so.2 -> libldap.so.2.0.200
+    |   |-- libldap.so.2.0.200
     |   `-- pkgconfig
     |       |-- lber.pc
     |       `-- ldap.pc

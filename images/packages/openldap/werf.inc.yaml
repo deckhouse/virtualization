@@ -62,8 +62,8 @@ shell:
     ./configure \
         --prefix=/usr \
         --libdir=/usr/lib64 \
-        --disable-shared \
-        --enable-static \
+        --enable-shared \
+        --disable-static \
         --with-tls=openssl
     
     make -j$(nproc)
