@@ -204,7 +204,6 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	jsonPatch := client.RawPatch(types.JSONPatchType, metadataPatchBytes)
 	if err = r.client.Patch(ctx, r.changedObj, jsonPatch); err != nil {
 		if r.changedObj.GetDeletionTimestamp() != nil && len(r.changedObj.GetFinalizers()) == 0 && kerrors.IsNotFound(err) {

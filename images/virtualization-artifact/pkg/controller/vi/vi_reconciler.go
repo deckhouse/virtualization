@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -70,7 +69,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	time.Sleep(5 * time.Second)
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
 		return h.Handle(ctx, vi.Changed())
