@@ -35,49 +35,46 @@ import (
 type VMSnapshotReadyStep struct {
 	client client.Client
 	cb     *conditions.ConditionBuilder
-	vmop   *v1alpha2.VirtualMachineOperation
 }
 
 func NewVMSnapshotReadyStep(
 	client client.Client,
 	cb *conditions.ConditionBuilder,
-	vmop *v1alpha2.VirtualMachineOperation,
 ) *VMSnapshotReadyStep {
 	return &VMSnapshotReadyStep{
 		client: client,
 		cb:     cb,
-		vmop:   vmop,
 	}
 }
 
 func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if s.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
+	if vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("the virtual machine snapshot name is empty")
-		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
+	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		s.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
 		err := fmt.Errorf("failed to fetch the virtual machine snapshot %q: %w", vmSnapshotKey.Name, err)
-		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if !exist {
-		s.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		err := fmt.Errorf("virtual machine snapshot %q is not ready to use", s.vmop.Spec.Restore.VirtualMachineSnapshotName)
-		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		err := fmt.Errorf("virtual machine snapshot %q is not ready to use", vmop.Spec.Restore.VirtualMachineSnapshotName)
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		s.vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
-		err := fmt.Errorf("virtual machine snapshot %q is not ready to use", s.vmop.Spec.Restore.VirtualMachineSnapshotName)
-		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		err := fmt.Errorf("virtual machine snapshot %q is not ready to use", vmop.Spec.Restore.VirtualMachineSnapshotName)
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 

@@ -39,30 +39,27 @@ type EnterMaintenanceStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vmop     *v1alpha2.VirtualMachineOperation
 }
 
 func NewEnterMaintenanceStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vmop *v1alpha2.VirtualMachineOperation,
 ) *EnterMaintenanceStep {
 	return &EnterMaintenanceStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
-		vmop:     vmop,
 	}
 }
 
 func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if s.vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb.Generation(vmop.Generation), &vmop.Status.Conditions) }()
 
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
@@ -90,12 +87,12 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 
 	err = s.client.Status().Update(ctx, vm)
 	if err != nil {
-		s.recorder.Event(s.vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		s.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Failed to enter maintenance mode: "+err.Error())
+		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	s.recorder.Event(s.vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM entered maintenance mode for restore operation")
+	s.recorder.Event(vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM entered maintenance mode for restore operation")
 
 	if vm.Status.Phase != v1alpha2.MachineStopped {
 		return &reconcile.Result{}, nil

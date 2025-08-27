@@ -40,72 +40,69 @@ type ValidateStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vmop     *v1alpha2.VirtualMachineOperation
 }
 
 func NewValidateStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vmop *v1alpha2.VirtualMachineOperation,
 ) *ValidateStep {
 	return &ValidateStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
-		vmop:     vmop,
 	}
 }
 
 func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb.Generation(vmop.Generation), &vmop.Status.Conditions) }()
 
-	if conditions.HasCondition(cb.GetType(), s.vmop.Status.Conditions) && cb.Condition().Status == metav1.ConditionTrue {
+	if conditions.HasCondition(cb.GetType(), vmop.Status.Conditions) && cb.Condition().Status == metav1.ConditionTrue {
 		return nil, nil
 	}
 
-	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
+	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
 		err := fmt.Errorf("snapshot secret name is empty")
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, restorercommon.DryRunMode, restorerSecret, vmSnapshot, string(s.vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, restorercommon.DryRunMode, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
-	common.FillResourcesStatuses(s.vmop, statuses)
+	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
-		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	// if not DryRun continue restore
-	if s.vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 
-	common.SetPhaseConditionCompleted(cb, &s.vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine can be restored from the snapshot")
+	common.SetPhaseConditionCompleted(cb, &vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine can be restored from the snapshot")
 
 	return &reconcile.Result{}, nil
 }
