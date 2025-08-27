@@ -18,7 +18,7 @@ imageSpec:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-libs:
+altLibs:
   - libssh-devel
   - libssh2-devel
   - libxfs-devel
@@ -103,7 +103,7 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libisofs
-packages:
+altPackages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -134,7 +134,7 @@ binaries:
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Iproute2
   - /usr/sbin/tc
-dvppackages:
+packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
 - gnutls acl libbsd libgcrypt libmd
@@ -220,7 +220,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 
 # Statically builded
 - image: {{ .ModuleNamePrefix }}packages/openssl
@@ -258,14 +258,14 @@ shell:
   - |
     # apt-get update
     apt-get install -y \
-      {{ $builderDependencies.libs | join " " }} \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altLibs | join " " }} \
+      {{ $builderDependencies.altPackages | join " " }}
 
     {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     echo "Install packages"
-    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

@@ -29,14 +29,14 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc make git autoconf libtool gettext-tools
 - gcc-c++ makeinfo
 - libmultipath kpartx
 - dmsetup udev-rules-sgutils sg3_utils
 - libaio-devel libdevmapper-devel libreadline-devel libudev-devel libsystemd-devel
 - libuserspace-rcu-devel libjson-c-devel
-dvppackages:
+packages:
 - util-linux
 {{- end -}}
 
@@ -50,20 +50,20 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     echo "Install packages"
-    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

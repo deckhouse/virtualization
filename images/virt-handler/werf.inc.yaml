@@ -61,7 +61,7 @@ imageSpec:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - libnftnl
 - libjansson4
 binaries:
@@ -73,7 +73,7 @@ binaries:
 - /usr/bin/osirrox
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
-dvppackages:
+packages:
 - libisoburn nftables acl libmnl 
 {{- end -}}
 
@@ -90,7 +90,7 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
@@ -100,12 +100,12 @@ shell:
     {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
     # Install packages
-    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
