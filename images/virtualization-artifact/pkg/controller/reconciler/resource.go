@@ -206,14 +206,13 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 		return err
 	}
 
-	logger.FromContext(ctx).Info(fmt.Sprintf("DeletionTimestamp before patch: %v", r.changedObj.GetDeletionTimestamp()))
 	jsonPatch := client.RawPatch(types.JSONPatchType, metadataPatchBytes)
 	if err = r.client.Patch(ctx, r.changedObj, jsonPatch); err != nil {
 		if r.changedObj.GetDeletionTimestamp() != nil && len(r.changedObj.GetFinalizers()) == 0 && kerrors.IsNotFound(err) {
 			return nil
 		}
 
-		return fmt.Errorf("error patching metadata (changedObj.DeletionTimestamp: %v) (%s): %w", r.currentObj.GetDeletionTimestamp(), string(metadataPatchBytes), err)
+		return fmt.Errorf("error patching metadata (%s): %w", string(metadataPatchBytes), err)
 	}
 
 	return nil

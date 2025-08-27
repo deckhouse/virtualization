@@ -101,7 +101,7 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 	case k8serrors.IsConflict(err):
 		logger.FromContext(ctx).Debug("Conflict occurred during resource update", logger.SlogErr(err))
 		result.RequeueAfter = 100 * time.Microsecond
-	case strings.Contains(err.Error(), "finalizer"):
+	case strings.Contains(err.Error(), "no new finalizers can be added if the object is being deleted"):
 		logger.FromContext(ctx).Warn("Forbidden to add finalizers", logger.SlogErr(err))
 		result.RequeueAfter = 1 * time.Second
 	default:
