@@ -61,11 +61,18 @@ shell:
     make \
       -j$(nproc) \
       NO_ARLIB=1 \
-      LIBDIR=/usr/lib64 \
+      PREFIX=/usr \
+      LIBDIR=/lib64 \
+      USRLIBDIR=/usr/lib64 \
       NO_GLIBC_KEYERR=1 \
       'CFLAGS=-Werror'
 
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR install \
+      NO_ARLIB=1 \
+      PREFIX=/usr \
+      LIBDIR=/lib64 \
+      USRLIBDIR=/usr/lib64
+
     rm -rf $OUTDIR/usr/share/man
     tree -hp $OUTDIR
 
