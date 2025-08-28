@@ -134,20 +134,6 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 import:
-- image: {{ .ModuleNamePrefix }}packages/lzo
-  add: /lzo
-  to: /
-  before: install
-  includePaths:
-  - usr/lib64/liblzo2.so.2
-  - usr/lib64/liblzo2.so.2.0.0
-  - usr/include
-- image: {{ .ModuleNamePrefix }}packages/lz4
-  add: /lz4
-  to: /
-  before: install
-  includePaths:
-  - usr/lib64/liblz4.so.1
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
@@ -163,7 +149,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
+{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" "lzo" "lz4" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO
@@ -211,8 +197,6 @@ shell:
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
-
-    ln /usr/lib64/liblzo2.so.2 /usr/lib64/liblzo2.so
 
     ./configure \
       --target-list="x86_64-softmmu" \
@@ -350,7 +334,7 @@ shell:
       --enable-vnc-sasl \
       --enable-werror \
       --enable-xkbcommon \
-      --enable-zstd && cat /qemu-9.2.0/build/meson-logs/meson-log.txt
+      --enable-zstd
 
     {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
