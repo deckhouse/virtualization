@@ -1,27 +1,17 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- gcc
-- git make libtool gettext-devel
-- bison flex
-{{- end -}}
-
-{{- $builderDependencies := include "$name" . | fromYaml }}
-
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "util-linux/util-linux.git" }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /libblkid
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "libmnl.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -30,13 +20,22 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc make git autoconf libtool gettext-tools
+- automake pkgconf glibc-devel systemd-devel
+- texinfo indent glibc-gconv-modules 
+- libabigail-devel libunistring-devel cvs
+- tree
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
@@ -45,15 +44,12 @@ import:
   add: /src
   to: /src
   before: install
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -62,19 +58,18 @@ shell:
     OUTDIR=/out
 
     cd /src
+
     ./autogen.sh
     ./configure \
       --prefix=/usr \
-      --exec-prefix=/usr \
-      --libdir=/usr/lib64 \
-      --enable-libblkid \
-      --enable-libmount \
-      --disable-all-programs \
-      --enable-shared \
-      --disable-static \
-      --disable-examples
+      --libdir=/usr/lib64
+
     make -j$(nproc)
+
     make DESTDIR=$OUTDIR install
 
-    rm -rf $OUTDIR/{bin,sbin}
-
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
