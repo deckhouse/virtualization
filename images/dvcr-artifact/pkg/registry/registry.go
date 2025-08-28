@@ -365,7 +365,8 @@ func (p DataProcessor) uploadLayersAndImage(
 // populateCommonConfigFields adds some required fields according to the document:
 // https://github.com/opencontainers/image-spec/blob/main/config.md
 func populateCommonConfigFields(cnf *v1.ConfigFile) {
-	cnf.Created = v1.Time{Time: time.Now().UTC()}
+	now := time.Now().UTC()
+	cnf.Created = v1.Time{Time: now}
 	cnf.Architecture = imageArchitecture
 	cnf.OS = imageOS
 	cnf.Author = imageAuthor
@@ -375,6 +376,13 @@ func populateCommonConfigFields(cnf *v1.ConfigFile) {
 	cnf.Config.Labels[imageLabelEROFSCompatible] = "true"
 
 	cnf.Config.WorkingDir = imageWorkingDir
+
+	cnf.History = append(cnf.History, v1.History{
+		Author:     imageAuthor,
+		Created:    v1.Time{Time: now},
+		Comment:    "streamed from the datasource",
+		EmptyLayer: false,
+	})
 }
 
 func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, error) {
