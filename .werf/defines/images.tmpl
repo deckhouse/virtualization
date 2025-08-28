@@ -35,9 +35,15 @@ Result:
 {{-     $stage = index . 2 }}
 {{-   end }}
 {{-   range $imageName := $ImageNameList }}
-- image: {{ $context.ModuleNamePrefix }}packages/{{ $imageName }}
-  add: /{{ $imageName }}
-  to: /{{ $imageName }}
+{{-     $packages := splitList " " $imageName -}}
+{{-     range $packages -}}
+{{-       $image := trim . -}}
+{{-       if ne $image "" }}
+- image: packages/{{ $image }}
+  add: /{{ $image }}
+  to: /{{ $image }}
   before: {{ $stage }}
+{{-       end }}
+{{-     end -}}
 {{-   end }}
 {{ end }}

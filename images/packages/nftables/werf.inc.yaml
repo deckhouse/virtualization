@@ -28,12 +28,12 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
 - flex bison asciidoc-a2x
-- libmnl-devel libnftnl-devel libreadline-devel
+- libnftnl-devel libreadline-devel
 - gmp-devel libedit-devel
 - python3-devel python3-module-setuptools
 {{- end -}}
@@ -48,14 +48,14 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" "libjansson4" -}}
+{{- $images := list "libgmp" "libmnl" "libjansson4" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |

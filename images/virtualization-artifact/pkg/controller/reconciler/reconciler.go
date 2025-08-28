@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -107,6 +108,9 @@ handlersLoop:
 	case k8serrors.IsConflict(err):
 		logger.FromContext(ctx).Debug("Conflict occurred during resource update", logger.SlogErr(err))
 		result.RequeueAfter = 100 * time.Microsecond
+	case strings.Contains(err.Error(), "no new finalizers can be added if the object is being deleted"):
+		logger.FromContext(ctx).Warn("Forbidden to add finalizers", logger.SlogErr(err))
+		result.RequeueAfter = 1 * time.Second
 	default:
 		logger.FromContext(ctx).Error("Failed to update resource", logger.SlogErr(err))
 		errs = errors.Join(errs, err)

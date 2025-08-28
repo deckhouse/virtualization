@@ -18,7 +18,7 @@ imageSpec:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-libs:
+altLibs:
   - libssh-devel
   - libssh2-devel
   - libxfs-devel
@@ -89,7 +89,6 @@ libs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libnbd-devel
   - libp11-kit-devel
   - libreadline-devel
   - libsystemd-devel
@@ -101,8 +100,6 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libffi-devel
-packages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -133,6 +130,13 @@ binaries:
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Iproute2
   - /usr/sbin/tc
+packages:
+- swtpm libtpms numactl dmidecode
+- libisoburn libburn libattr libaudit
+- gnutls acl libbsd libgcrypt libmd
+- util-linux libfuse3 nettle libgsasl
+- libnbd libcap-ng libcapstone libcurl
+- libjson-c5 keyutils libisofs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -213,8 +217,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" "libjson-c5" "keyutils" "libisofs" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 
 # Statically builded
 - image: {{ .ModuleNamePrefix }}packages/openssl
@@ -250,16 +253,15 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    # apt-get update
     apt-get install -y \
-      {{ $builderDependencies.libs | join " " }} \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altLibs | join " " }} \
+      {{ $builderDependencies.altPackages | join " " }}
 
     {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     echo "Install packages"
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -342,7 +344,7 @@ shell:
 
   - |
     convert_version() {
-      local version="$1"
+      local version="${1#v}"
       IFS='.' read -r major minor patch <<< "$version"
       printf "%d%03d\n" "$major" "$minor"
     }

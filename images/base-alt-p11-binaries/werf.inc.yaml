@@ -1,12 +1,13 @@
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - glibc-utils
 - mount xfsprogs xfstests util-linux
-- libffi-devel
-libraries:
+altLibraries:
 - libssh-devel libssh2-devel
+packages:
+- libffi e2fsprogs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -18,20 +19,19 @@ git:
   - add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
     to: /relocate_binaries.sh
 import:
-{{- $images := list "e2fsprogs" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   install:
-  - |
-    # Install packages
-    PKGS="{{ $images | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-        {{ $builderDependencies.packages | join " " }} \
-        {{ $builderDependencies.libraries | join " " }}
+        {{ $builderDependencies.altPackages | join " " }} \
+        {{ $builderDependencies.altLibraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -af /$pkg/. /
+      rm -rf /$pkg
+    done

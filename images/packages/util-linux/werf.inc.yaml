@@ -1,28 +1,31 @@
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++
-- git pkg-config meson cmake
-- libunwind-devel libelf-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
+- gcc
+- git make libtool gettext-devel
+- bison flex
+- pkgconf asciidoctor
+- python3-devel python3-module-setuptools
+- zlib-devel glibc-devel-static
+- libncursesw-devel libpopt-devel
+- klibc-devel libsqlite3
 packages:
-- libffi
+- libcap-ng
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "GNOME/glib.git" }}
+{{- $gitRepoUrl := "util-linux/util-linux.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
----
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /glib2
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -33,32 +36,17 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2}}
-  - apt-get install -y meson
-  {{- include "alt packages clean" . | nindent 2}}
-
   install:
-  - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
-    if [[ ! "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
-      # Clone meson wraps with url rewrite.
-      # Configure script options require only 3 subprojects.
-      cd /src
-      for subproj in gvdb libffi sysprof ; do
-        echo "Rewrite url for ${subproj} subproject."
-        wrapfile="subprojects/${subproj}.wrap"
-        # Rewrite https://HOSTNAME/ to SOURCE_REPO secret in the wrap file.
-        sed -i '/^#/n ; /^url/ s|\(url\ \?=\ \?\)\(.*:\/\/[^\/]*\/\)|\1'$(cat /run/secrets/SOURCE_REPO)'\/|' ${wrapfile}
-        meson subprojects download ${subproj}
-      done
-    fi
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
@@ -86,9 +74,25 @@ shell:
     OUTDIR=/out
 
     cd /src
+    ./autogen.sh
+    ./configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --bindir=/usr/bin \
+      --sbindir=/usr/sbin \
+      --libdir=/usr/lib64 \
+      --enable-all-programs \
+      --enable-shared \
+      --disable-static \
+      --disable-asciidoc
+    
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
 
-    meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
-    meson compile -C _build
-    meson install -C _build
+    rm -rf $OUTDIR/usr/share
 
-{{- end}}
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done

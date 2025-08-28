@@ -1,42 +1,39 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-altPackages:
-- flex gcc gcc-c++ libtool pkgconf gettext-tools
-- make makeinfo autoconf automake
-- git
-{{- end -}}
-
-{{- $builderDependencies := include "$name" . | fromYaml }}
-
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "gmp/gmp" }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /libgmp
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "libffi/libffi.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     
-
 ---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc make git autoconf libtool gettext-tools
+- gcc-c++ makeinfo
+- tree
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
@@ -60,17 +57,18 @@ shell:
 
     cd /src
 
+    ./autogen.sh
     ./configure \
       --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --enable-cxx
+      --libdir=/usr/lib64
 
     make -j$(nproc)
+
     make DESTDIR=$OUTDIR install
     
     # We don't need man
     rm -rf $OUTDIR/usr/share
-    
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
