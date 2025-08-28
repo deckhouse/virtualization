@@ -1,4 +1,4 @@
-namespaceSuffix: "testcases"
+namespaceSuffix: "end-to-end"
 
 clusterTransport:
   kubeConfig: ""

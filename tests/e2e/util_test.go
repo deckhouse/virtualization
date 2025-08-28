@@ -760,3 +760,19 @@ func DeleteResource(ctx context.Context, obj client.Object) {
 	err := crClient.Delete(ctx, obj)
 	Expect(err).NotTo(HaveOccurred())
 }
+
+func CreateNamespace(name string) {
+	GinkgoHelper()
+
+	result := kubectl.RawCommand(fmt.Sprintf("create namespace %s", name), ShortTimeout)
+	Expect(result.Error()).NotTo(HaveOccurred(), result.GetCmd())
+
+	WaitResourcesByPhase(
+		[]string{name},
+		kc.ResourceNamespace,
+		string(corev1.NamespaceActive),
+		kc.WaitOptions{
+			Timeout: ShortTimeout,
+		},
+	)
+}

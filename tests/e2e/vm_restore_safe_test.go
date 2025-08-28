@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -44,12 +43,21 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 	var (
 		ctx                 context.Context
 		cancel              context.CancelFunc
-		storageClass        *storagev1.StorageClass
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-safe"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-safe"}
 		originalVMNetworks  map[string][]virtv2.NetworksStatus
 	)
+
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMRestoreSafe, "kustomization.yaml")
+		var err error
+		namespace, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(namespace)
+	})
+
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
 	})
@@ -60,16 +68,6 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 		}
 
 		cancel()
-	})
-
-	BeforeAll(func() {
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMRestoreSafe, "kustomization.yaml")
-		var err error
-		namespace, err = kustomize.GetNamespace(kustomization)
-		Expect(err).NotTo(HaveOccurred(), "%w", err)
-
-		storageClass, err = GetDefaultStorageClass()
-		Expect(err).NotTo(HaveOccurred(), "failed to get the `DefaultStorageClass`")
 	})
 
 	Context("When the virtualization resources are applied", func() {
@@ -173,7 +171,6 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), ginkgoutil.Commo
 				for _, vm := range vms.Items {
 					vmsnapshot := NewVirtualMachineSnapshot(
 						vm.Name, vm.Namespace,
-						storageClass.Name,
 						true,
 						virtv2.KeepIPAddressAlways,
 						testCaseLabel,

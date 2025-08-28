@@ -45,14 +45,13 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 		}
 	})
 
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			Expect(ns).NotTo(BeEmpty())
-		})
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
 	})
 
 	Context("When virtualization resources are applied", func() {

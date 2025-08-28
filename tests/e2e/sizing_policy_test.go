@@ -35,12 +35,6 @@ import (
 )
 
 var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string
@@ -54,25 +48,31 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		ns                             string
 	)
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
-	Context("Preparing the environment", func() {
+	BeforeAll(func() {
 		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassChanging["vm"])
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassCreating["vm"])
 		vmClassDiscovery = fmt.Sprintf("%s-sizing-policy-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-sizing-policy-discovery-copy", namePrefix)
 		newVMClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
 	})
 
 	Context("When resources are applied", func() {
