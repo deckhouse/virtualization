@@ -28,7 +28,7 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-.altPackages:
+altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - libev-devel libevent-devel
@@ -71,12 +71,11 @@ shell:
 
     cd /src
     
-    ./autoreconf -i
-    ./automake
-    ./autoconf
+    autoreconf -i
+    automake
+    autoconf
     ./configure \
       --prefix=/usr \
-      --eprefix=/usr \
       --libdir=/usr/lib64
 
     make -j$(nproc)
