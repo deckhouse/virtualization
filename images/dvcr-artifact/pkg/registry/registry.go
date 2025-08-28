@@ -362,6 +362,8 @@ func (p DataProcessor) uploadLayersAndImage(
 	return nil
 }
 
+// populateCommonConfigFields adds some required fields according to the document:
+// https://github.com/opencontainers/image-spec/blob/main/config.md
 func populateCommonConfigFields(cnf *v1.ConfigFile) {
 	cnf.Created = v1.Time{Time: time.Now().UTC()}
 	cnf.Architecture = imageArchitecture
