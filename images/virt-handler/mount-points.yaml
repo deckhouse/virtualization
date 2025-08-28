@@ -1,3 +1,8 @@
+# A list of pre-created mount points for containerd strict mode.
+#
+# Some volume mounts are ignored:
+# - /tmp - already in the 'distroless' base image.
+
 dirs:
   - /etc/virt-handler/clientcertificates
   - /etc/virt-handler/servercertificates
@@ -9,9 +14,8 @@ dirs:
   - /var/lib/kubelet/device-plugins
   - /var/lib/kubelet/pods
   - /var/lib/kubevirt-node-labeller
-  # Create dirs in /run, as /var/run is s symlink to /run.
+  # Create dirs in /run, as /var/run is a symlink to /run.
   - /run/kubevirt
   - /run/kubevirt-libvirt-runtimes
   - /run/kubevirt-private
-  # Other mount points used in Pod, but created by containerd.
-  # - /tmp
+

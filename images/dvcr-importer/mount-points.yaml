@@ -1,7 +1,7 @@
+# A list of pre-created mount points for containerd strict mode.
+
 dirs:
   - /dvcr-src-auth
   - /dvcr-auth
   - /certs
   - /proxycerts
-  # It seems dvcr-importer not supports extraheaders yet. Either way, leave it here to be in sync with `(imp *Importer) addVolumes`
-  # - /extraheaders/0

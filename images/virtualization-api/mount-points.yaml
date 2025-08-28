@@ -1,3 +1,5 @@
+# A list of pre-created mount points for containerd strict mode.
+
 dirs:
   - /etc/virtualization-api/certificates
   - /etc/virtualization-api-proxy/certificates
