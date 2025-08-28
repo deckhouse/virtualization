@@ -26,6 +26,7 @@ var (
 	ErrAlreadyInUse                = errors.New("already in use")
 	ErrRestoring                   = errors.New("will be restored")
 	ErrUpdating                    = errors.New("will be updated")
+	ErrWaitingForDeletion          = errors.New("waiting for deletion to complete")
 	ErrVMNotInMaintenance          = errors.New("the virtual machine is not in maintenance mode")
 	ErrVMMaintenanceCondNotFound   = errors.New("the virtual machine maintenance condition is not found")
 	ErrVirtualImageNotFound        = errors.New("the virtual image is not found")

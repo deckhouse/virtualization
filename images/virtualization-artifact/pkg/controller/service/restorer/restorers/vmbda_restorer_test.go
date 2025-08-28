@@ -18,6 +18,7 @@ package restorer
 
 import (
 	"context"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -157,10 +158,10 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			vmbdaUsedByDiffVM: false,
 
 			failValidation: false,
-			failProcess:    false,
+			failProcess:    true,
 
 			shouldBeDeleted: true,
-			shouldBeCreated: true,
+			shouldBeCreated: false,
 		}),
 		Entry("vmbda doesn't exist", VMBlockDeviceAttachmentTestArgs{
 			mode: common.StrictRestoreMode,
@@ -174,7 +175,36 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: true,
 		}),
+		Entry("vmbda deletion completed; ready to create", VMBlockDeviceAttachmentTestArgs{
+			mode: common.StrictRestoreMode,
+
+			vmbdaExists:       false,
+			vmbdaUsedByDiffVM: false,
+
+			failValidation: false,
+			failProcess:    false,
+
+			shouldBeDeleted: false,
+			shouldBeCreated: true,
+		}),
 	)
+
+	Describe("Two-phase deletion behavior", func() {
+		It("should return ErrWaitingForDeletion on first call when VMBDA needs replacement", func() {
+			objects = append(objects, &vmbda)
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept, objects...)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVMBlockDeviceAttachmentHandler(fakeClient, vmbda, uid)
+
+			err = handler.ProcessRestore(ctx)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, common.ErrWaitingForDeletion)).To(BeTrue())
+			Expect(vmbdaDeleted).To(BeTrue())
+			Expect(vmbdaCreated).To(BeFalse())
+		})
+	})
 
 	Describe("Override", func() {
 		var rules []v1alpha2.NameReplacement

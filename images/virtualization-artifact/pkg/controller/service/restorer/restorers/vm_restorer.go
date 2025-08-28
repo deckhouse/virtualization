@@ -102,7 +102,7 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value != v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 
@@ -136,6 +136,13 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if vm != nil {
+		// Early return if VM is already fully processed by this restore operation
+		if value, ok := vm.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			if equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
+				return nil
+			}
+		}
+
 		var (
 			vmHasCorrectVMRestoreUID = true
 			vmHasVMSnapshotSpec      = true

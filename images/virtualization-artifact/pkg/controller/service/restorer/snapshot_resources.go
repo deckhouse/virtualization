@@ -150,6 +150,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 
 func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStatus, error) {
 	var hasErrors bool
+	var hasRetryErrors bool
 
 	r.statuses = make([]SnapshotResourceStatus, 0, len(r.objectHandlers))
 
@@ -173,6 +174,10 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
+			case isRetryError(err):
+				hasRetryErrors = true
+				status.Status = "InProgress"
+				status.Message = err.Error()
 			default:
 				hasErrors = true
 				status.Status = "Failed"
@@ -184,6 +189,10 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 
 	if hasErrors {
 		return r.statuses, errors.New("fail to process the resources: check the status")
+	}
+
+	if hasRetryErrors {
+		return r.statuses, errors.New("processing in progress: waiting for resources to be ready")
 	}
 
 	return r.statuses, nil
@@ -198,6 +207,12 @@ var BestEffortIgnoredErrors = []error{
 	common.ErrVirtualImageNotFound,
 	common.ErrClusterVirtualImageNotFound,
 	common.ErrSecretHasDifferentData,
+}
+
+var RetryErrors = []error{
+	common.ErrRestoring,
+	common.ErrUpdating,
+	common.ErrWaitingForDeletion,
 }
 
 func shouldIgnoreError(mode common.OperationMode, err error) bool {
@@ -216,6 +231,15 @@ func shouldIgnoreError(mode common.OperationMode, err error) bool {
 		}
 	}
 
+	return false
+}
+
+func isRetryError(err error) bool {
+	for _, e := range RetryErrors {
+		if errors.Is(err, e) {
+			return true
+		}
+	}
 	return false
 }
 

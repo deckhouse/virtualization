@@ -106,7 +106,7 @@ func (s BestEffortRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 	}
 
 	common.FillResourcesStatuses(vmop, statuses)
-	common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine has been restored from the snapshot")
+	s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonWaitExitFromMaintenance).Message("The virtual machine has been restored from the snapshot, waiting to exit maintenance mode")
 
 	return &reconcile.Result{}, nil
 }

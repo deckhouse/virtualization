@@ -18,6 +18,7 @@ package restorer
 
 import (
 	"context"
+	"errors"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -170,10 +172,10 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			diskUsedByDiffVM: false,
 
 			failValidation: false,
-			failProcess:    false,
+			failProcess:    true,
 
 			shouldBeDeleted: true,
-			shouldBeCreated: true,
+			shouldBeCreated: false,
 		}),
 		Entry("disk doesn't exist", VirtualDiskTestArgs{
 			diskExists:       false,
@@ -185,7 +187,34 @@ var _ = Describe("VirtualDiskRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: true,
 		}),
+		Entry("disk deletion completed; ready to create", VirtualDiskTestArgs{
+			diskExists:       false,
+			diskUsedByDiffVM: false,
+
+			failValidation: false,
+			failProcess:    false,
+
+			shouldBeDeleted: false,
+			shouldBeCreated: true,
+		}),
 	)
+
+	Describe("Two-phase deletion behavior", func() {
+		It("should return ErrWaitingForDeletion on first call when disk needs replacement", func() {
+			objects = append(objects, &disk)
+
+			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept, objects...)
+			Expect(err).ToNot(HaveOccurred())
+
+			handler = NewVirtualDiskHandler(fakeClient, disk, uid)
+
+			err = handler.ProcessRestore(ctx)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, common.ErrWaitingForDeletion)).To(BeTrue())
+			Expect(diskDeleted).To(BeTrue())
+			Expect(diskCreated).To(BeFalse())
+		})
+	})
 
 	Describe("Override", func() {
 		var rules []v1alpha2.NameReplacement

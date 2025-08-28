@@ -121,15 +121,16 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 			return nil
 		}
 
-		err = v.client.Delete(ctx, vmbdaObj)
-		if err != nil {
-			return fmt.Errorf("failed to delete the `VirtualMachineBlockDeviceAttachment`: %w", err)
+		// Phase 1: Initiate deletion and wait for completion
+		if !object.IsTerminating(vmbdaObj) {
+			err = v.client.Delete(ctx, vmbdaObj)
+			if err != nil {
+				return fmt.Errorf("failed to delete the `VirtualMachineBlockDeviceAttachment`: %w", err)
+			}
 		}
 
-		err = v.client.Create(ctx, v.vmbda)
-		if err != nil {
-			return fmt.Errorf("failed to create the `VirtualMachineBlockDeviceAttachment`: %w", err)
-		}
+		// Phase 2: Wait for deletion to complete before creating new VMBDA
+		return fmt.Errorf("waiting for deletion of VirtualMachineBlockDeviceAttachment %s %w", vmbdaObj.Name, common.ErrWaitingForDeletion)
 	} else {
 		err = v.client.Create(ctx, v.vmbda)
 		if err != nil {

@@ -104,6 +104,9 @@ const (
 	// ReasonRestoreInProgress is a ReasonRestoreCompleted indicating that the restore operation is in progress.
 	ReasonRestoreOperationInProgress ReasonRestoreCompleted = "RestoreInProgress"
 
+	// ReasonWaitExitFromMaintenance is a ReasonRestoreCompleted indicating that the restore operation has completed and is waiting to exit maintenance mode.
+	ReasonWaitExitFromMaintenance ReasonRestoreCompleted = "WaitExitFromMaintenance"
+
 	// ReasonRestoreOperationCompleted is a ReasonRestoreCompleted indicating that the restore operation has completed successfully.
 	ReasonRestoreOperationCompleted ReasonRestoreCompleted = "RestoreCompleted"
 

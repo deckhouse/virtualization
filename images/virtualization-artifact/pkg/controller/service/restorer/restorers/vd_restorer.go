@@ -116,15 +116,16 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 			return nil
 		}
 
-		err := v.client.Delete(ctx, vdObj)
-		if err != nil {
-			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+		// Phase 1: Initiate deletion and wait for completion
+		if !object.IsTerminating(vdObj) {
+			err := v.client.Delete(ctx, vdObj)
+			if err != nil {
+				return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+			}
 		}
 
-		err = v.client.Create(ctx, v.vd)
-		if err != nil {
-			return fmt.Errorf("failed to create the `VirtualDisk`: %w", err)
-		}
+		// Phase 2: Wait for deletion to complete before creating new disk
+		return fmt.Errorf("waiting for deletion of VirtualDisk %s %w", vdObj.Name, common.ErrWaitingForDeletion)
 	} else {
 		err = v.client.Create(ctx, v.vd)
 		if err != nil {

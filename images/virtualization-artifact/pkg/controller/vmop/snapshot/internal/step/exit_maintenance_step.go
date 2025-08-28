@@ -65,7 +65,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	restoreCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmop.Status.Conditions)
-	if restoreCondition.Status != metav1.ConditionTrue {
+	if restoreCondition.Status != metav1.ConditionFalse || restoreCondition.Reason != string(vmopcondition.ReasonWaitExitFromMaintenance) {
 		return nil, nil
 	}
 
@@ -96,5 +96,9 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	s.recorder.Event(vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM exited maintenance mode after restore completion")
+
+	// Update the restore condition to indicate final completion
+	common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine restore operation completed successfully")
+
 	return nil, nil
 }

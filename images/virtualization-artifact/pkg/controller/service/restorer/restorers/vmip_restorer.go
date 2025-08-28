@@ -99,7 +99,7 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 		if vmip.Status.Address == v.vmip.Spec.StaticIP || vmip.Spec.StaticIP == v.vmip.Spec.StaticIP {
 			return fmt.Errorf(
 				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
-				v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmips.Items[0].Name,
+				v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmip.Name,
 			)
 		}
 	}

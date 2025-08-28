@@ -19,20 +19,29 @@ package handler
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const deletionHandlerName = "DeletionHandler"
 
 // DeletionHandler manages finalizers on VirtualMachineOperation resource.
-type DeletionHandler struct{}
+type DeletionHandler struct {
+	client client.Client
+}
 
-func NewDeletionHandler() *DeletionHandler {
-	return &DeletionHandler{}
+func NewDeletionHandler(client client.Client) *DeletionHandler {
+	return &DeletionHandler{client: client}
 }
 
 func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
@@ -42,6 +51,33 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachine
 		log.Debug("Add cleanup finalizer while in the InProgress phase")
 		controllerutil.AddFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
 		return reconcile.Result{}, nil
+	}
+
+	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+	vm, err := object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		log.Error("Failed to fetch VirtualMachine", logger.SlogErr(err))
+	}
+
+	// Clean up maintenance mode if VM is in maintenance for restore operation
+	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
+	if found && maintenanceCondition.Status == metav1.ConditionTrue && maintenanceCondition.Reason == vmcondition.ReasonMaintenanceRestore.String() {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+				Generation(vm.GetGeneration()).
+				Reason(vmcondition.ReasonMaintenanceRestore).
+				Status(metav1.ConditionFalse).
+				Message("VM exited maintenance mode due to vmop deletion"),
+			&vm.Status.Conditions,
+		)
+
+		err = h.client.Status().Update(ctx, vm)
+		if err != nil {
+			log.Error("Failed to exit maintenance mode during deletion", logger.SlogErr(err))
+			return reconcile.Result{}, err
+		}
+
+		log.Info("VM exited maintenance mode due to vmop deletion")
 	}
 
 	// Remove finalizer when VirtualMachineOperation is in deletion state or not in progress.
