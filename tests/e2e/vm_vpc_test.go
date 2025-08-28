@@ -41,14 +41,16 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 	var ns string
 
 	BeforeAll(func() {
-		sbdEnabled, err := isSdnModuleEnabled()
-		if err != nil || !sbdEnabled {
+		sdnEnabled, err := isSdnModuleEnabled()
+		if err != nil || !sdnEnabled {
 			Skip("Module SDN is disabled. Skipping all tests for module SDN.")
 		}
 
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMVpc, "kustomization.yaml")
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
 	})
 
 	AfterAll(func() {

@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -45,12 +44,21 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 	var (
 		ctx                 context.Context
 		cancel              context.CancelFunc
-		storageClass        *storagev1.StorageClass
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
 		originalVMNetworks  map[string][]virtv2.NetworksStatus
 	)
+
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMRestoreForce, "kustomization.yaml")
+		var err error
+		namespace, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(namespace)
+	})
+
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
 	})
@@ -61,23 +69,6 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 		}
 
 		cancel()
-	})
-
-	BeforeAll(func() {
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMRestoreForce, "kustomization.yaml")
-		var err error
-		namespace, err = kustomize.GetNamespace(kustomization)
-		Expect(err).NotTo(HaveOccurred(), "%w", err)
-
-		storageClass, err = GetDefaultStorageClass()
-		Expect(err).NotTo(HaveOccurred(), "failed to get the `DefaultStorageClass`")
-
-		res := kubectl.Delete(kc.DeleteOptions{
-			IgnoreNotFound: true,
-			Labels:         testCaseLabel,
-			Resource:       kc.ResourceCVI,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred())
 	})
 
 	Context("When the virtualization resources are applied", func() {
@@ -194,7 +185,6 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 				for _, vm := range vms.Items {
 					vmsnapshot := NewVirtualMachineSnapshot(
 						vm.Name, vm.Namespace,
-						storageClass.Name,
 						true,
 						virtv2.KeepIPAddressAlways,
 						testCaseLabel,
@@ -352,7 +342,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 })
 
 func NewVirtualMachineSnapshot(
-	vmName, vmNamespace, storageClass string,
+	vmName, vmNamespace string,
 	requiredConsistency bool,
 	keepIPaddress virtv2.KeepIPAddress,
 	labels map[string]string,

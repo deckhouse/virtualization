@@ -51,6 +51,8 @@ var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred())
 
+		CreateNamespace(ns)
+
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{conf.TestData.IPAM},
 			FilenameOption: kc.Kustomize,

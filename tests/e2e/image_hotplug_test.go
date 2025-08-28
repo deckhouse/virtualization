@@ -51,12 +51,6 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		ns            string
 	)
 
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml")
 		var err error
@@ -69,6 +63,14 @@ var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 			Resource:       kc.ResourceCVI,
 		})
 		Expect(res.Error()).NotTo(HaveOccurred())
+
+		CreateNamespace(ns)
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
 	})
 
 	Context("When the virtualization resources are applied", func() {

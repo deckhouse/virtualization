@@ -29,28 +29,28 @@ import (
 )
 
 var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(), func() {
+	testCaseLabel := map[string]string{"testcase": "vm-versions"}
+	var ns string
+
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMVersions, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
 	})
 
-	testCaseLabel := map[string]string{"testcase": "vm-versions"}
-	var ns string
-
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMVersions, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
 	})
 
 	Context("When virtualization resources are applied:", func() {

@@ -32,9 +32,11 @@ var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), 
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
 	var ns string
 
-	AfterAll(func() {
-		By("Delete manifests")
-		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
 	})
 
 	BeforeEach(func() {
@@ -43,21 +45,19 @@ var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), 
 		}
 	})
 
+	AfterAll(func() {
+		By("Delete manifests")
+		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
-
-		It("project apply", func() {
+	Context("Project", func() {
+		It("creates project", func() {
 			config.PrepareProject(conf.TestData.ImporterNetworkPolicy)
 
 			res := kubectl.Apply(kc.ApplyOptions{

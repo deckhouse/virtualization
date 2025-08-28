@@ -46,20 +46,19 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 		ns             string
 	)
 
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMConfiguration, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMConfiguration, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			Expect(ns).NotTo(BeEmpty())
-		})
 	})
 
 	Context("When resources are applied", func() {

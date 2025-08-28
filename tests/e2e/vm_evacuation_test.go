@@ -38,12 +38,16 @@ var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
 	var ns string
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMEvacuation, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{conf.TestData.VMEvacuation},
 			FilenameOption: kc.Kustomize,

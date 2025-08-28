@@ -37,12 +37,6 @@ const unacceptableCount = -1000
 var APIVersion = virtv2.SchemeGroupVersion.String()
 
 var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
 	var (
 		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
@@ -54,22 +48,28 @@ var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), 
 		ns                 string
 	)
 
+	BeforeAll(func() {
+		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
+		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMDiskAttachment, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
-		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
-
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMDiskAttachment, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
 	})
 
 	Context("When resources are applied", func() {
