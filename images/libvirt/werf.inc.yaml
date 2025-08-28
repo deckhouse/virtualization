@@ -116,6 +116,8 @@ import:
   add: /qemu-img
   to: /qemu-img
   before: install
+{{- $images := list "krb5" "xz" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

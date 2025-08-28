@@ -54,7 +54,7 @@ import:
   add: /qemu-img
   to: /relocate
   before: setup
-{{- $images := list "nbdkit" "libnbd" -}}
+{{- $images := list "nbdkit" "libnbd" "xz" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
