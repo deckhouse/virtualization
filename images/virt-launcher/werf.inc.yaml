@@ -213,7 +213,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" "libjson-c5" "keyutils" -}}
+{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" "libjson-c5" "keyutils" "libisofs" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded
@@ -410,7 +410,7 @@ git:
       install:
       - '**/*'
 import:
-{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" "libisofs" "libjson-c5" -}}
+{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" "libisofs" "libjson-c5" "acl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: GOPROXY
