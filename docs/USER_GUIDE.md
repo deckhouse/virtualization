@@ -1389,6 +1389,63 @@ How to perform the operation in the web interface:
 - Select the desired virtual machine from the list and click the ellipsis button.
 - In the pop-up menu, you can select possible operations for the VM.
 
+### VMOP Restore Operations
+
+The `VirtualMachineOperation` with `type: Restore` provides advanced restore capabilities beyond the basic `VirtualMachineRestore` resource, offering real-time monitoring and enhanced control during restore operations.
+
+#### Basic Restore Operation
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  generateName: restore-linux-vm-
+spec:
+  virtualMachineName: linux-vm
+  type: Restore
+  restoreSpec:
+    virtualMachineSnapshotName: linux-vm-snapshot
+    restoreMode: Strict
+```
+
+#### Restore Modes
+
+**Strict Mode** (default) - Ensures complete validation and consistency:
+- All referenced resources must exist
+- Operation fails if any dependency is missing
+- VM is automatically placed in maintenance mode during restore
+- Use for production environments
+
+**BestEffort Mode** - Provides flexible restore with graceful degradation:
+- Skips missing non-critical resources
+- Continues restore even with missing dependencies
+- Higher success rate in complex environments
+- Use for development/testing environments
+
+```yaml
+spec:
+  type: Restore
+  restoreSpec:
+    restoreMode: BestEffort
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+#### Monitoring Restore Progress
+
+```bash
+# Check operation status
+kubectl get vmop
+
+# View detailed progress
+kubectl describe vmop restore-linux-vm-abc123
+```
+
+Operations progress through phases: `Pending` → `InProgress` → `Completed`/`Failed`.
+
+{{< alert level="info" >}}
+During VMOP Restore operations, the target VM is automatically placed in maintenance mode to ensure safe restore operations. The maintenance mode is automatically removed when the operation completes.
+{{< /alert >}}
+
 ### Change virtual machine configuration
 
 You can change the configuration of a virtual machine at any time after the `VirtualMachine` resource has been created. However, how these changes are applied depends on the current phase of the virtual machine and the nature of the changes made.
@@ -2682,13 +2739,13 @@ spec:
 To restore a virtual machine in `Safe` mode, you must delete its current configuration and all associated disks. This is because the restoration process returns the virtual machine and its disks to the state recorded at the snapshot's creation time.
 {{< /alert >}}
 
-The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot. 
+The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot.
 
 {{< alert level="warning" >}}
 `Forced` may disrupt the operation of the existing virtual machine because it will be stopped during restoration, and `VirtualDisks` and `VirtualMachineBlockDeviceAttachments` resources will be deleted for subsequent restoration.
-{{< /alert >}} 
+{{< /alert >}}
 
-Example manifest for restoring a virtual machine from a snapshot in `Safe` mode: 
+Example manifest for restoring a virtual machine from a snapshot in `Safe` mode:
 
 ```yaml
 d8 k apply -f - <<EOF
