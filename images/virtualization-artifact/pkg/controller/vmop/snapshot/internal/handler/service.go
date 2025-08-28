@@ -21,13 +21,13 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SvcOpCreator func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error)
+type SvcOpCreator func(vmop *v1alpha2.VirtualMachineOperation) (service.Operation, error)
 
 func NewSvcOpCreator(client client.Client, recorder eventrecord.EventRecorderLogger) SvcOpCreator {
-	return func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error) {
+	return func(vmop *v1alpha2.VirtualMachineOperation) (service.Operation, error) {
 		return service.NewOperationService(client, recorder, vmop)
 	}
 }

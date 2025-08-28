@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -44,12 +43,12 @@ func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{client: client}
 }
 
-func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	if vmop.DeletionTimestamp.IsZero() && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+	if vmop.DeletionTimestamp.IsZero() && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 		log.Debug("Add cleanup finalizer while in the InProgress phase")
-		controllerutil.AddFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
+		controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 		return reconcile.Result{}, nil
 	}
 
@@ -86,7 +85,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachine
 	} else {
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineOperation", "phase", vmop.Status.Phase)
 	}
-	controllerutil.RemoveFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
+	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 
 	return reconcile.Result{}, nil
 }

@@ -100,4 +100,3 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	}
 	return nil
 }
-
