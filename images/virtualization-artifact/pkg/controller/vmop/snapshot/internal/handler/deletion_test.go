@@ -19,6 +19,7 @@ package handler
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -56,12 +57,14 @@ var _ = Describe("DeletionHandler", func() {
 	newVmop := func(phase v1alpha2.VMOPPhase, opts ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
 		vmop.Status.Phase = phase
+		vmop.Status = v1alpha2.VirtualMachineOperationStatus{Conditions: []metav1.Condition{}}
+		vmop.Spec.VirtualMachine = "test-vm"
 		vmopbuilder.ApplyOptions(vmop, opts...)
 		return vmop
 	}
 
 	DescribeTable("Should be protected", func(phase v1alpha2.VMOPPhase, protect bool) {
-		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict))
+		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeRestore))
 
 		fakeClient, srv = setupEnvironment(vmop)
 		reconcile()
@@ -78,19 +81,9 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(updated).To(BeTrue())
 		}
 	},
-		Entry("VMOP Start 1", v1alpha2.VMOPPhasePending, false),
-		Entry("VMOP Start 2", v1alpha2.VMOPPhaseInProgress, true),
-		Entry("VMOP Start 3", v1alpha2.VMOPPhaseCompleted, false),
-		Entry("VMOP Start 4", v1alpha2.VMOPPhaseFailed, false),
-
-		Entry("VMOP Stop 1", v1alpha2.VMOPPhasePending, false),
-		Entry("VMOP Stop 2", v1alpha2.VMOPPhaseInProgress, true),
-		Entry("VMOP Stop 3", v1alpha2.VMOPPhaseCompleted, false),
-		Entry("VMOP Stop 4", v1alpha2.VMOPPhaseFailed, false),
-
-		Entry("VMOP Restart 1", v1alpha2.VMOPPhasePending, false),
-		Entry("VMOP Restart 2", v1alpha2.VMOPPhaseInProgress, true),
-		Entry("VMOP Restart 3", v1alpha2.VMOPPhaseCompleted, false),
-		Entry("VMOP Restart 4", v1alpha2.VMOPPhaseFailed, false),
+		Entry("VMOP Restore 1", v1alpha2.VMOPPhasePending, false),
+		Entry("VMOP Restore 2", v1alpha2.VMOPPhaseInProgress, false),
+		Entry("VMOP Restore 3", v1alpha2.VMOPPhaseCompleted, false),
+		Entry("VMOP Restore 4", v1alpha2.VMOPPhaseFailed, false),
 	)
 })

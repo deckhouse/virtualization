@@ -58,6 +58,12 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 		log.Error("Failed to fetch VirtualMachine", logger.SlogErr(err))
 	}
 
+	if vm == nil {
+		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+
+		return reconcile.Result{}, nil
+	}
+
 	// Clean up maintenance mode if VM is in maintenance for restore operation
 	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
 	if found && maintenanceCondition.Status == metav1.ConditionTrue && maintenanceCondition.Reason == vmcondition.ReasonMaintenanceRestore.String() {
