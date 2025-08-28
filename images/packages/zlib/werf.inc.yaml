@@ -59,7 +59,6 @@ shell:
       --prefix=/usr \
       --eprefix=/usr \
       --libdir=/usr/lib64 \
-      --disable-static
 
     make -j$(nproc)
 
