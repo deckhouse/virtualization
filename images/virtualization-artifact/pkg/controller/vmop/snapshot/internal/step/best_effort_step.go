@@ -63,6 +63,10 @@ func (s BestEffortRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualM
 		return nil, nil
 	}
 
+	if conditions.HasCondition(s.cb.GetType(), vmop.Status.Conditions) && s.cb.Condition().Reason == string(vmopcondition.ReasonWaitExitFromMaintenance) {
+		return nil, nil
+	}
+
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {

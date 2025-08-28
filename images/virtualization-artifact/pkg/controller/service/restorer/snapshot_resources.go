@@ -106,7 +106,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(r.client, *provisioner, r.uuid))
 	}
 
-	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, string(r.vmSnapshot.UID)))
+	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, string(r.vmSnapshot.UID), r.mode))
 
 	return nil
 }
@@ -175,7 +175,6 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
 			case isRetryError(err):
-				hasRetryErrors = true
 				status.Status = "InProgress"
 				status.Message = err.Error()
 			default:

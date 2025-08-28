@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,9 +41,10 @@ type VirtualMachineHandler struct {
 	vm         *v1alpha2.VirtualMachine
 	client     client.Client
 	restoreUID string
+	mode       common.OperationMode
 }
 
-func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string) *VirtualMachineHandler {
+func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string, mode common.OperationMode) *VirtualMachineHandler {
 	if vmTmpl.Annotations != nil {
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	} else {
@@ -66,6 +68,7 @@ func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachi
 		},
 		client:     client,
 		restoreUID: vmopRestoreUID,
+		mode:       mode,
 	}
 }
 
@@ -116,6 +119,14 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
+	if err := v.validateImageDependencies(ctx); err != nil {
+		return err
+	}
+
+	if err := v.validateProvisionerDependencies(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -126,6 +137,13 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	err := v.ValidateRestore(ctx)
 	if err != nil {
+		return err
+	}
+
+	if err := v.validateImageDependencies(ctx); err != nil {
+		return err
+	}
+	if err := v.validateProvisionerDependencies(ctx); err != nil {
 		return err
 	}
 
@@ -187,6 +205,87 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
+	return nil
+}
+
+func (v *VirtualMachineHandler) validateImageDependencies(ctx context.Context) error {
+	var indicesToRemove []int
+
+	for i, ref := range v.vm.Spec.BlockDeviceRefs {
+		var missing bool
+		var err error
+
+		switch ref.Kind {
+		case v1alpha2.ImageDevice:
+			missing, err = v.validateVirtualImageRef(ctx, &ref)
+		case v1alpha2.ClusterImageDevice:
+			missing, err = v.validateClusterVirtualImageRef(ctx, &ref)
+		default:
+			continue
+		}
+
+		if err != nil {
+			return err
+		}
+		if missing {
+			indicesToRemove = append(indicesToRemove, i)
+		}
+	}
+
+	for i := len(indicesToRemove) - 1; i >= 0; i-- {
+		idx := indicesToRemove[i]
+		v.vm.Spec.BlockDeviceRefs = append(v.vm.Spec.BlockDeviceRefs[:idx], v.vm.Spec.BlockDeviceRefs[idx+1:]...)
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineHandler) validateVirtualImageRef(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) (bool, error) {
+	key := types.NamespacedName{Namespace: v.vm.Namespace, Name: ref.Name}
+	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.VirtualImage{})
+	return v.handleMissingResource(obj, err, ref.Kind, ref.Name)
+}
+
+func (v *VirtualMachineHandler) validateClusterVirtualImageRef(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) (bool, error) {
+	key := types.NamespacedName{Name: ref.Name}
+	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.ClusterVirtualImage{})
+	return v.handleMissingResource(obj, err, ref.Kind, ref.Name)
+}
+
+func (v *VirtualMachineHandler) handleMissingResource(obj client.Object, err error, resourceType v1alpha2.BlockDeviceKind, name string) (bool, error) {
+	if err != nil {
+		return false, err
+	}
+	if obj == nil {
+		if v.mode == common.BestEffortRestorerMode {
+			return true, nil
+		}
+		return false, fmt.Errorf("%s %q not found", resourceType, name)
+	}
+	return false, nil
+}
+
+func (v *VirtualMachineHandler) validateProvisionerDependencies(ctx context.Context) error {
+	if v.vm.Spec.Provisioning == nil || v.vm.Spec.Provisioning.UserDataRef == nil ||
+		v.vm.Spec.Provisioning.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
+		return nil
+	}
+
+	userDataRef := v.vm.Spec.Provisioning.UserDataRef
+	key := types.NamespacedName{Namespace: v.vm.Namespace, Name: userDataRef.Name}
+	secret, err := object.FetchObject(ctx, key, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if secret == nil {
+		if v.mode == common.BestEffortRestorerMode {
+			v.vm.Spec.Provisioning.UserDataRef = nil
+		} else {
+			return fmt.Errorf("provisioner secret %q not found", userDataRef.Name)
+		}
+	}
+
 	return nil
 }
 

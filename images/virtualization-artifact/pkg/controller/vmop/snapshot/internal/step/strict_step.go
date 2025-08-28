@@ -59,8 +59,15 @@ func (s StrictRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachi
 		return nil, nil
 	}
 
-	if conditions.HasCondition(s.cb.GetType(), vmop.Status.Conditions) && s.cb.Condition().Status == metav1.ConditionTrue {
-		return nil, nil
+	c, exist := conditions.GetCondition(s.cb.GetType(), vmop.Status.Conditions)
+	if exist {
+		if c.Status == metav1.ConditionTrue {
+			return nil, nil
+		}
+
+		if c.Reason == string(vmopcondition.ReasonWaitExitFromMaintenance) {
+			return nil, nil
+		}
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}

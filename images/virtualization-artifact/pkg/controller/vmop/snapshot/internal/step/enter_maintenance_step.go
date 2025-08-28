@@ -65,7 +65,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 
 	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
 	if found && maintenanceCondition.Status == metav1.ConditionTrue && maintenanceCondition.Reason == vmcondition.ReasonMaintenanceRestore.String() {
-		if vm.Status.Phase != v1alpha2.MachineStopped {
+		if vm.Status.Phase != v1alpha2.MachineStopped && vm.Status.Phase != v1alpha2.MachinePending {
 			return &reconcile.Result{}, nil
 		}
 

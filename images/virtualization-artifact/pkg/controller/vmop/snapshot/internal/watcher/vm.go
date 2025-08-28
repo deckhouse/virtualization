@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -68,7 +69,7 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
-					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || e.ObjectNew.Status.MigrationState != nil
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || !equality.Semantic.DeepEqual(e.ObjectOld.Status.Conditions, e.ObjectNew.Status.Conditions)
 				},
 			},
 		),

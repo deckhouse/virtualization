@@ -59,6 +59,11 @@ func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOpe
 		return nil, nil
 	}
 
+	// If validation already passed, skip
+	if len(vmop.Status.Resources) > 0 {
+		return nil, nil
+	}
+
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
