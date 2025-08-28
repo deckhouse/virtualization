@@ -85,8 +85,7 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 		step.NewVMSnapshotReadyStep(o.client, cb),
 		step.NewValidateStep(o.client, o.recorder, cb),
 		step.NewEnterMaintenanceStep(o.client, o.recorder, cb),
-		step.NewBestEffortRestoreStep(o.client, o.recorder, cb),
-		step.NewStrictRestoreStep(o.client, o.recorder, cb),
+		step.NewProcessRestoreStep(o.client, o.recorder, cb),
 		step.NewExitMaintenanceStep(o.client, o.recorder, cb),
 	).Run(ctx, o.vmop)
 }

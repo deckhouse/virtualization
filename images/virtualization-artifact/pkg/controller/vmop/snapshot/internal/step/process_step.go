@@ -36,26 +36,26 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type StrictRestoreStep struct {
+type ProcessRestoreStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
 }
 
-func NewStrictRestoreStep(
+func NewProcessRestoreStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-) *StrictRestoreStep {
-	return &StrictRestoreStep{
+) *ProcessRestoreStep {
+	return &ProcessRestoreStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
 	}
 }
 
-func (s StrictRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.Mode != v1alpha2.VMOPRestoreModeStrict {
+func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		return nil, nil
 	}
 
@@ -90,7 +90,7 @@ func (s StrictRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachi
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, restorercommon.StrictRestoreMode, restorerSecret, vmSnapshot, string(vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {

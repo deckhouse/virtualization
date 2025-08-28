@@ -27,7 +27,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -215,7 +214,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fakeClient).ToNot(BeNil())
 
-			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, common.StrictRestoreMode)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.VMOPRestoreModeStrict)
 			Expect(handler).ToNot(BeNil())
 
 			// Verify that restore annotation was added
@@ -376,7 +375,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, common.StrictRestoreMode)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.VMOPRestoreModeStrict)
 		})
 
 		It("should override VM name", func() {

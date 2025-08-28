@@ -40,7 +40,7 @@ type SnapshotResources struct {
 	vmSnapshot     *v1alpha2.VirtualMachineSnapshot
 	objectHandlers []ObjectHandler
 	statuses       []SnapshotResourceStatus
-	mode           common.OperationMode
+	mode           v1alpha2.VMOPRestoreMode
 	kind           common.OperationKind
 }
 
@@ -52,7 +52,7 @@ type SnapshotResourceStatus struct {
 	Message    string
 }
 
-func NewSnapshotResources(client client.Client, kind common.OperationKind, mode common.OperationMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
+func NewSnapshotResources(client client.Client, kind common.OperationKind, mode v1alpha2.VMOPRestoreMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
 	return SnapshotResources{
 		mode:           mode,
 		kind:           kind,
@@ -154,7 +154,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 
 	r.statuses = make([]SnapshotResourceStatus, 0, len(r.objectHandlers))
 
-	if r.mode == common.DryRunMode {
+	if r.mode == v1alpha2.VMOPRestoreModeDryRun {
 		return r.statuses, errors.New("cannot Process with DryRun operation")
 	}
 
@@ -214,15 +214,15 @@ var RetryErrors = []error{
 	common.ErrWaitingForDeletion,
 }
 
-func shouldIgnoreError(mode common.OperationMode, err error) bool {
+func shouldIgnoreError(mode v1alpha2.VMOPRestoreMode, err error) bool {
 	switch mode {
-	case common.DryRunMode:
+	case v1alpha2.VMOPRestoreModeDryRun:
 		for _, e := range DryRunIgnoredErrors {
 			if errors.Is(err, e) {
 				return true
 			}
 		}
-	case common.BestEffortRestorerMode:
+	case v1alpha2.VMOPRestoreModeBestEffort:
 		for _, e := range BestEffortIgnoredErrors {
 			if errors.Is(err, e) {
 				return true

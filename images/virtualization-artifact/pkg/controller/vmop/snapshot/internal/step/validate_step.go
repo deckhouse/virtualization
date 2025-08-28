@@ -84,7 +84,7 @@ func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOpe
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, restorercommon.DryRunMode, restorerSecret, vmSnapshot, string(vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {

@@ -35,15 +35,9 @@ var (
 	ErrSecretHasDifferentData      = errors.New("the secret has different data")
 )
 
-type OperationMode string
-
 type OperationKind string
 
 const (
-	BestEffortRestorerMode OperationMode = "BestEffort"
-	StrictRestoreMode      OperationMode = "Strict"
-	DryRunMode             OperationMode = "DryRun"
-
 	RestoreKind OperationKind = "Restore"
 	CloneKind   OperationKind = "Clone"
 )

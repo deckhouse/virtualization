@@ -26,12 +26,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMIPTestArgs struct {
-	mode     common.OperationMode
+	mode     v1alpha2.VMOPRestoreMode
 	vmipType v1alpha2.VirtualMachineIPAddressType
 
 	vmipExists           bool
@@ -172,7 +171,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			Expect(vmipCreated).To(Equal(args.shouldBeCreated))
 		},
 		Entry("vmip exists; vmip has Auto type; vmip used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           true,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeAuto,
 			vmipUsedByDiffVM:     true,
@@ -185,7 +184,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmip exists; vmip has Auto type; vmip doesn't used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           true,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeAuto,
 			vmipUsedByDiffVM:     false,
@@ -198,7 +197,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmip exists; vmip has StaticIP type; vmip used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           true,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     true,
@@ -211,7 +210,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmip exists; vmip has StaticIP type; staticIP used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           true,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
@@ -224,7 +223,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmip exists; vmip has StaticIP type; vmip doesn't used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           true,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
@@ -238,7 +237,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 		}),
 
 		Entry("vmip doesn't exist; vmip has Auto type", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           false,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeAuto,
 			vmipUsedByDiffVM:     false,
@@ -251,7 +250,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: true,
 		}),
 		Entry("vmip doesn't exist; vmip has StaticIP type; staticIP used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           false,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,
@@ -264,7 +263,7 @@ var _ = Describe("VirtualMachineIPAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmip doesn't exist; vmip has StaticIP type; staticIP doesn't used by different VM", VMIPTestArgs{
-			mode:                 common.StrictRestoreMode,
+			mode:                 v1alpha2.VMOPRestoreModeStrict,
 			vmipExists:           false,
 			vmipType:             v1alpha2.VirtualMachineIPAddressTypeStatic,
 			vmipUsedByDiffVM:     false,

@@ -41,10 +41,10 @@ type VirtualMachineHandler struct {
 	vm         *v1alpha2.VirtualMachine
 	client     client.Client
 	restoreUID string
-	mode       common.OperationMode
+	mode       v1alpha2.VMOPRestoreMode
 }
 
-func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string, mode common.OperationMode) *VirtualMachineHandler {
+func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string, mode v1alpha2.VMOPRestoreMode) *VirtualMachineHandler {
 	if vmTmpl.Annotations != nil {
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	} else {
@@ -258,7 +258,7 @@ func (v *VirtualMachineHandler) handleMissingResource(obj client.Object, err err
 		return false, err
 	}
 	if obj == nil {
-		if v.mode == common.BestEffortRestorerMode {
+		if v.mode == v1alpha2.VMOPRestoreModeBestEffort {
 			return true, nil
 		}
 		return false, fmt.Errorf("%s %q not found", resourceType, name)
@@ -280,7 +280,7 @@ func (v *VirtualMachineHandler) validateProvisionerDependencies(ctx context.Cont
 	}
 
 	if secret == nil {
-		if v.mode == common.BestEffortRestorerMode {
+		if v.mode == v1alpha2.VMOPRestoreModeBestEffort {
 			v.vm.Spec.Provisioning.UserDataRef = nil
 		} else {
 			return fmt.Errorf("provisioner secret %q not found", userDataRef.Name)
