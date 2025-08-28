@@ -28,11 +28,13 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc-c++ gcc git
 - make autoconf automake libtool
 - libssl-devel makeinfo
 - tree
+packages:
+- libgmp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -45,21 +47,20 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

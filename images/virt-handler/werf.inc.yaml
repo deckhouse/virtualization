@@ -61,7 +61,7 @@ imageSpec:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - libnftnl
 - libjansson4
 binaries:
@@ -73,9 +73,11 @@ binaries:
 - /usr/bin/osirrox
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
+packages:
+- libisoburn nftables acl libmnl 
 {{- end -}}
 
-{{ $virtHandlerDependencies := include "$name" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
@@ -88,8 +90,7 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-{{- $images := list "libisoburn" "nftables" "acl" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
@@ -99,12 +100,12 @@ shell:
     {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes \
-      {{ $virtHandlerDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -112,7 +113,7 @@ shell:
 
   setup:
   - |
-    /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
 
     mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
