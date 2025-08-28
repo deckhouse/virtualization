@@ -83,7 +83,7 @@ shell:
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       # cp -a /$pkg/. /packages
-      cp -af /$pkg/. /
+      cp -a /$pkg/. /
       rm -rf /$pkg
     done
 

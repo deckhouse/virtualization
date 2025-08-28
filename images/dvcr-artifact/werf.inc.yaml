@@ -40,7 +40,7 @@ shell:
     # Install packages
     PKGS="{{ $builderDeps.packages | join " " }}"
     for pkg in $PKGS; do
-      cp -af /$pkg/. /
+      cp -a /$pkg/. /
       rm -rf /$pkg
     done
   - cd /src

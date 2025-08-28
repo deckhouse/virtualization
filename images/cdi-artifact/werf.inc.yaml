@@ -66,7 +66,7 @@ shell:
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      cp -af /$pkg/. /
+      cp -a /$pkg/. /
       rm -rf /$pkg
     done
 
