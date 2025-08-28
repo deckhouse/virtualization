@@ -3,6 +3,16 @@
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $version := get $.Core $gitRepoName }}
 
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+binaries:
+- /cdi-binaries/cdi-importer
+- /cdi-binaries/cdi-source-update-poller
+packages:
+- libnbd
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
@@ -21,7 +31,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     echo "Git clone CDI repository..."
     git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
@@ -30,38 +39,40 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 mount:
-  - fromPath: ~/go-pkg-cache
-    to: /go/pkg
-import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/containerized-data-importer
-  to: /containerized-data-importer
-  before: install
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 - id: GOPROXY
   value: {{ .GOPROXY }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/containerized-data-importer
+  to: /containerized-data-importer
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
-{{- if eq $.SVACE_ENABLED "false" }}
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get install --yes libnbd-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
   {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y libnbd-devel
+  - |
+    apt-get -qq install -y libxml2-devel \
+      git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
   {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
-
   install:
   - |
-    export GOPROXY=$(cat /run/secrets/GOPROXY)
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
   - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+    
     echo Download Go modules.
     cd /containerized-data-importer
     go mod download
@@ -132,7 +143,6 @@ shell:
   - |
     {{- $_ := set $ "ProjectName" (list $.ImageName "cdi-source-update-poller" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller`) | nindent 6 }}
-
 
   - chown -R 64535:64535 /cdi-binaries/*
   - ls -la /cdi-binaries

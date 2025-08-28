@@ -20,34 +20,25 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - git gcc
 - automake autoconf-archive make libtool
 - bash-completion
-- curl
-- qemu
-- expect
-- libgnutls30
+- curl qemu expect
 - filesystem
-- socat
-- jq
+- socat xz jq 
 - iproute2
-- xz
-- zlib-ng
+- zlib-ng zlib
 - zstd
-- zlib
-- libblkio
-- libnbd
-- libtorrent-rasterbar-devel
-- libssh
+- libblkio libtorrent-rasterbar-devel libssh
+packages:
+- libisoburn libnbd e2fsprogs
+- gnutls libidn2 libgmp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -60,21 +51,20 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libisoburn" "e2fsprogs" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -84,8 +74,7 @@ shell:
 
     cd /src
 
-    autoreconf -i
-
+    autoreconf -if
     ./configure \
       --disable-static \
       --prefix=/usr \
@@ -97,7 +86,3 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install-strip
-
-    # We don't need man, test and samples files
-    rm -rf $OUTDIR/usr/include
-    rm -rf $OUTDIR/usr/share
