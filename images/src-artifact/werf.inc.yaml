@@ -1,4 +1,0 @@
----
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
-final: false
-fromImage: builder/src

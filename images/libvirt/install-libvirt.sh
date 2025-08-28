@@ -27,7 +27,7 @@ EOF
     exit 0
 }
 convert_version() {
-    local version="$1"
+    local version="${1#v}"
 
     # Split the version string into major, minor, and patch parts
     # and construct the compact version by combining major and zero-padded minor

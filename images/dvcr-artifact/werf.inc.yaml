@@ -1,7 +1,19 @@
 ---
+{{- $nameDeps := print $.ImageName "-dependencies" -}}
+{{- define "$nameDeps" -}}
+altPackages:
+- gcc glibc-pthread glibc-devel glibc-devel-static
+- git golang make binutils
+- libxml2-devel
+packages:
+- libnbd
+{{- end -}}
+
+{{ $builderDeps := include "$nameDeps" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
@@ -14,18 +26,23 @@ git:
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
+import:
+{{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
   beforeInstall:
-{{- if eq $.SVACE_ENABLED "false" }}
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y --no-install-recommends libnbd-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
   {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y libnbd-devel
+  - |
+    apt-get -qq install -y \
+      {{ $builderDeps.altPackages | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
   install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDeps.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   - cd /src
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - go mod download
@@ -51,8 +68,8 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-libraries:
-- libnbd
+altPackages:
+- libxml2-devel
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
@@ -65,9 +82,11 @@ binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
+packages:
+- bzip2 file nbdkit libnbd
 {{- end -}}
 
-{{ $dvcrDependencies := include "$name" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
@@ -84,8 +103,7 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
-{{- $images := list "bzip2" "file" "nbdkit" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
@@ -95,14 +113,12 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $dvcrDependencies.libraries | join " " }}
-
+      {{ $builderDependencies.altPackages | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
-
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
@@ -111,4 +127,4 @@ shell:
 
   setup:
   - |
-    /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
