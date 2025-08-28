@@ -154,6 +154,12 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if vm != nil {
+		// Always clean up VMBDAs first, regardless of VM state
+		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx, vm.Name, vm.Namespace, v.restoreUID)
+		if err != nil {
+			return err
+		}
+
 		// Early return if VM is already fully processed by this restore operation
 		if value, ok := vm.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
 			if equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
@@ -172,11 +178,6 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 				vm.Annotations = make(map[string]string)
 			}
 			vm.Annotations[annotations.AnnVMRestore] = v.restoreUID
-		}
-
-		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx, vm.Name, vm.Namespace, v.restoreUID)
-		if err != nil {
-			return err
 		}
 
 		if !equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {

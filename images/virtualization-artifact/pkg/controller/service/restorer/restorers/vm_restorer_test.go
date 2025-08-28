@@ -104,12 +104,6 @@ var _ = Describe("VirtualMachineRestorer", func() {
 						Name: "test-disk-2",
 					},
 				},
-				Provisioning: &v1alpha2.Provisioning{
-					UserDataRef: &v1alpha2.UserDataRef{
-						Kind: v1alpha2.UserDataRefKindSecret,
-						Name: "test-secret",
-					},
-				},
 			},
 			Status: v1alpha2.VirtualMachineStatus{
 				Conditions: []metav1.Condition{
@@ -248,9 +242,9 @@ var _ = Describe("VirtualMachineRestorer", func() {
 				expectedDeletes := 0
 				if args.hasVMBDAs {
 					if !args.vmbdasHaveCorrectUID {
-						expectedDeletes = 2 // Both VMBDAs should be deleted
+						expectedDeletes = 2
 					} else {
-						expectedDeletes = 0 // VMBDAs with correct UID should not be deleted
+						expectedDeletes = 0
 					}
 				}
 				Expect(vmbdasDeleted).To(Equal(expectedDeletes))
@@ -402,6 +396,12 @@ var _ = Describe("VirtualMachineRestorer", func() {
 		})
 
 		It("should override Secret name in UserDataRef", func() {
+			handler.vm.Spec.Provisioning = &v1alpha2.Provisioning{
+				UserDataRef: &v1alpha2.UserDataRef{
+					Kind: v1alpha2.UserDataRefKindSecret,
+					Name: "test-secret",
+				},
+			}
 			handler.Override(rules)
 			Expect(handler.vm.Spec.Provisioning.UserDataRef.Name).To(Equal("new-test-secret"))
 		})
