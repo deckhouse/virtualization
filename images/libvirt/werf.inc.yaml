@@ -41,7 +41,7 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - binutils
 - gcc-c++
 - git gettext
@@ -64,7 +64,7 @@ packages:
 - python3-module-black
 - mdevctl tshark
 - dmsetup pm-utils
-libraries:
+altLibraries:
 - libudev-devel
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
@@ -88,7 +88,7 @@ libraries:
 - zlib-devel libclocale
 - libslirp-devel
 - libyajl-devel libselinux-devel
-dvppackages:
+packages:
 - dmidecode lvm2 libattr libbsd libmd util-linux 
 - libgcrypt libfuse3 libaudit libnbd libcap-ng 
 - openssl libcurl e2fsprogs libxcrypt numactl
@@ -111,7 +111,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.dvppackages "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
@@ -121,8 +121,8 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }} \
-      {{ $builderDependencies.libraries | join " " }}
+      {{ $builderDependencies.altPackages | join " " }} \
+      {{ $builderDependencies.altLibraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -136,7 +136,7 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="{{ $builderDependencies.dvppackages | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -af /$pkg/. /
