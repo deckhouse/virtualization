@@ -13,13 +13,12 @@ spec:
   group: virtualization.deckhouse.io
   names:
     categories:
-      - virtualization
+      - virtualization-cluster
     kind: ClusterVirtualImage
     listKind: ClusterVirtualImageList
     plural: clustervirtualimages
     shortNames:
       - cvi
-      - cvis
     singular: clustervirtualimage
   scope: Cluster
   versions:

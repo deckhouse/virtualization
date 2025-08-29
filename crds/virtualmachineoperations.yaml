@@ -13,13 +13,11 @@ spec:
   names:
     categories:
       - virtualization
-      - all
     kind: VirtualMachineOperation
     listKind: VirtualMachineOperationList
     plural: virtualmachineoperations
     shortNames:
       - vmop
-      - vmops
     singular: virtualmachineoperation
   scope: Namespaced
   versions:

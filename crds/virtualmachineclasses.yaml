@@ -13,15 +13,13 @@ spec:
   group: virtualization.deckhouse.io
   names:
     categories:
-      - virtualization
+      - virtualization-cluster
     kind: VirtualMachineClass
     listKind: VirtualMachineClassList
     plural: virtualmachineclasses
     shortNames:
       - vmc
-      - vmcs
       - vmclass
-      - vmclasses
     singular: virtualmachineclass
   scope: Cluster
   versions:

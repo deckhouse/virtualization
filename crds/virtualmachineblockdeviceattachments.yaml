@@ -12,14 +12,12 @@ spec:
   group: virtualization.deckhouse.io
   names:
     categories:
-      - all
       - virtualization
     kind: VirtualMachineBlockDeviceAttachment
     listKind: VirtualMachineBlockDeviceAttachmentList
     plural: virtualmachineblockdeviceattachments
     shortNames:
       - vmbda
-      - vmbdas
     singular: virtualmachineblockdeviceattachment
   scope: Namespaced
   versions:

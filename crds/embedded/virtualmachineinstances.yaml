@@ -17,7 +17,6 @@ spec:
     plural: internalvirtualizationvirtualmachineinstances
     shortNames:
     - intvirtvmi
-    - intvirtvmsi
     singular: internalvirtualizationvirtualmachineinstance
   scope: Namespaced
   versions:

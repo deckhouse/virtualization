@@ -17,7 +17,6 @@ spec:
     plural: internalvirtualizationvirtualmachines
     shortNames:
     - intvirtvm
-    - intvirtvms
     singular: internalvirtualizationvirtualmachine
   scope: Namespaced
   versions:

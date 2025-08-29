@@ -18,7 +18,6 @@ spec:
     plural: virtualmachinerestores
     shortNames:
       - vmrestore
-      - vmrestores
     singular: virtualmachinerestore
   scope: Namespaced
   versions:

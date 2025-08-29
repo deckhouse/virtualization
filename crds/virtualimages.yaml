@@ -13,13 +13,11 @@ spec:
   names:
     categories:
       - virtualization
-      - all
     kind: VirtualImage
     listKind: VirtualImageList
     plural: virtualimages
     shortNames:
       - vi
-      - vis
     singular: virtualimage
   scope: Namespaced
   versions:

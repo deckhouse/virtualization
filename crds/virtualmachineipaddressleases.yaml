@@ -10,15 +10,13 @@ spec:
   scope: Cluster
   names:
     categories:
-      - virtualization
+      - virtualization-cluster
     plural: virtualmachineipaddressleases
     singular: virtualmachineipaddresslease
     kind: VirtualMachineIPAddressLease
     shortNames:
       - vmipl
-      - vmipls
       - vmiplease
-      - vmipleases
   versions:
     - name: v1alpha2
       schema:

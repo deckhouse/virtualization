@@ -18,7 +18,6 @@ spec:
     plural: internalvirtualizationdatavolumes
     shortNames:
       - intvirtdv
-      - intvirtdvs
     singular: internalvirtualizationdatavolume
   scope: Namespaced
   versions:
