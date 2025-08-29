@@ -860,25 +860,6 @@ Method #2:
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
 
-### Changing the disk StorageClass
-
-In the DVP commercial editions, it is possible to change the StorageClass for existing disks. At the moment, this is only supported for running VMs (`Phase` should be `Running`).
-
-Example:
-
-```bash
-d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
-```
-
-After the disk configuration is updated, a live migration of the VM will be initiated, during which the VM’s disk will be migrated to the new storage.
-
-If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
-
-```bash
-d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
-d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
-```
-
 ## Virtual machines
 
 The `VirtualMachine` resource is used to create a virtual machine, its parameters allow you to configure:
