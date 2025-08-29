@@ -17,6 +17,7 @@ spec:
     listKind: VirtualMachineSnapshotList
     plural: virtualmachinesnapshots
     shortNames:
+      - vmsnapshot
       - vms
     singular: virtualmachinesnapshot
   scope: Namespaced
