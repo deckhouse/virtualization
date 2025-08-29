@@ -29,14 +29,21 @@ shell:
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
-      git submodule update --init --recursive --depth=1
+      git submodule update --init --depth=1
     else
       echo "Checkout submodules with URL rewrite"
       git \
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive --depth=1
+
+        cd ./third-party/urlparse
+        git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --depth=1
     fi
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
