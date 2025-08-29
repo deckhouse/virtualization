@@ -15,6 +15,7 @@ spec:
     singular: virtualdisksnapshot
     kind: VirtualDiskSnapshot
     shortNames:
+      - vdsnapshot
       - vds
   preserveUnknownFields: false
   versions:
