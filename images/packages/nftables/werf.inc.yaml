@@ -36,6 +36,8 @@ altPackages:
 - libnftnl-devel libreadline-devel
 - gmp-devel libedit-devel
 - python3-devel python3-module-setuptools
+packages:
+- libgmp libmnl libjansson4
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -48,8 +50,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" "libmnl" "libjansson4" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -60,7 +61,7 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
