@@ -27,6 +27,8 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 import:
+{{- $images := list "xz" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 {{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
   beforeInstall:
