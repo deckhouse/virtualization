@@ -1,0 +1,130 @@
+api:
+  fixes:
+    - summary: increase buffer size for local e2e run when loglevel is debug
+      pull_request: https://github.com/deckhouse/virtualization/pull/1393
+    - summary: Enqueue stucked by quota entities when resource quota updated.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1323
+ci:
+  fixes:
+    - summary: fix helm_templates action
+      pull_request: https://github.com/deckhouse/virtualization/pull/1391
+    - summary: Add liveness and readiness probes
+      pull_request: https://github.com/deckhouse/virtualization/pull/1301
+core:
+  features:
+    - summary: >-
+        In version v0.25.0, support for the module's operation with CRI Containerd V2 has been
+        added.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1395
+      impact: >-
+        In version v0.25.0, support for the module's operation with CRI Containerd V2 has been
+        added.
+
+        After upgrading CRI from Containerd v1 to Containerd v2, it is necessary to recreate the
+        images that were created using virtualization module version v0.24.0 and earlier.
+  fixes:
+    - summary: debuger image should not be final
+      pull_request: https://github.com/deckhouse/virtualization/pull/1392
+    - summary: bump kubevirt to v1.3.1-v12n.10
+      pull_request: https://github.com/deckhouse/virtualization/pull/1386
+    - summary: Controller no longer logs errors when trying to add finalizers to resources being deleted
+      pull_request: https://github.com/deckhouse/virtualization/pull/1373
+    - summary: Add SELinux type spc_t to InternalVirtualizationKubeVirt
+      pull_request: https://github.com/deckhouse/virtualization/pull/1321
+module:
+  features:
+    - summary: fix helm templates after PR#1324
+      pull_request: https://github.com/deckhouse/virtualization/pull/1346
+  fixes:
+    - summary: >-
+        Added validation to ensure that virtual machine subnets do not overlap with system subnets
+        (podSubnetCIDR and serviceSubnetCIDR).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1324
+observability:
+  features:
+    - summary: >-
+        New Prometheus metrics have been added to track the phase of resources such as
+        `VirtualMachineSnapshot`, `VirtualDiskSnapshot`, `VirtualImage`, and `ClusterVirtualImage`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1356
+vdsnapshot:
+  fixes:
+    - summary: >-
+        The VirtualDiskSnapshot retains its Ready status even if the VirtualDisk is simultaneously
+        attached to another VirtualMachine after a successful snapshotting process.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1370
+vi:
+  fixes:
+    - summary: >-
+        To create a virtual image on a `PersistentVolumeClaim`, the storage must support the RWX and
+        Block modes; otherwise, a warning will be displayed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1289
+vm:
+  features:
+    - summary: >-
+        MAC address management for additional network interfaces has been added using the
+        `VirtualMachineMACAddress` and `VirtualMachineMACAddressLease` resources.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1350
+    - summary: Added Maintenance condition for VirtualMachine
+      pull_request: https://github.com/deckhouse/virtualization/pull/1316
+    - summary: >-
+        auto recreate pod with virtual machine if resource requirements updated. Watch project quota
+        update and delete to enqueue VMI
+      pull_request: https://github.com/deckhouse/virtualization/pull/1296
+    - summary: >-
+        Added the ability to attach additional network interfaces to a virtual machine for networks
+        provided by the SDN module. For this, the SDN module must be enabled in the cluster.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1253
+    - summary: add the management of virtual machine MAC addresses
+      pull_request: https://github.com/deckhouse/virtualization/pull/846
+  fixes:
+    - summary: Make provisioning type spec field required.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1365
+    - summary: >-
+        Fixed an issue where changing the operating system type caused the machine to enter a reboot
+        loop.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1358
+    - summary: A VMBDA should be correctly deleted when a VM is in the stopped phase.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1351
+    - summary: >-
+        Fixed an issue where a virtual machine would hang in the Starting phase when project quotas
+        were insufficient. A quota shortage message will now be displayed in the virtual machine's
+        status. To allow the machine to continue starting, the project quotas need to be increased.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1314
+vmbda:
+  fixes:
+    - summary: Fix "failed to unplug" error while deletion unplug.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1355
+vmclass:
+  features:
+    - summary: >-
+        An annotation has been added to set the default VirtualMachineClass.
+
+        To designate a `VirtualMachineClass` as the default, you need to add the annotation 
+
+        `virtualmachineclass.virtualization.deckhouse.io/is-default-class=true` to it.
+
+        This allows creating VMs with an empty `spec.virtualMachineClassName` field, which will be
+        automatically filled with the default class.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1305
+vmop:
+  features:
+    - summary: Surface "quota exceeded" error during migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1310
+  fixes:
+    - summary: >-
+        check the migration if the previous reconciliation failed and the SignalSent condition is
+        not synchronized
+      pull_request: https://github.com/deckhouse/virtualization/pull/1389
+    - summary: remove finalaizer if migration does not exists
+      pull_request: https://github.com/deckhouse/virtualization/pull/1385
+vmrestore:
+  fixes:
+    - summary: This fix VMRestore end-to-end tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1398
+    - summary: Resource validation works properly when a virtual machine is restored in Safe mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1357
+vmsnapshot:
+  fixes:
+    - summary: The Virtual Machine Snapshot controller correctly watches for the phase of virtual disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1331
+
