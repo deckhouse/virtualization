@@ -2446,6 +2446,7 @@ To avoid changing the order of network interfaces inside the guest OS, always ad
 {{< /alert >}}
 
 Conditions and limitations:
+
 - The `d8-sdn` module is required to work with additional networks.
 - The order of networks in `.spec.networks` determines the sequence in which interfaces are attached to the VM bus.
 - Configuration of network parameters (IP addresses, gateways, DNS, etc.) in additional networks must be performed manually inside the guest OS (for example, via cloud-init).
@@ -2467,9 +2468,9 @@ spec:
   networks:
     - type: Main # Must always be specified first
     - type: Network
-      name: user-net # <--
+      name: user-net # Network name
     - type: Network
-      name: user-net # <--
+      name: user-net # Network name
 ```
 
 Example of connecting to the cluster network `corp-net`:
@@ -2483,7 +2484,7 @@ spec:
     - type: Network
       name: user-net
     - type: ClusterNetwork
-      name: corp-net # <--
+      name: corp-net # Network name
 ```
 
 You can view information about connected networks and their MAC addresses in the VM status:
