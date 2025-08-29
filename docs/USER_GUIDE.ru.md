@@ -2790,3 +2790,61 @@ d8 k vm get <vmname> -o json | jq '.status.conditions'
 ```
 
 Проверьте вывод на наличие ошибок, связанных с отсутствующими или изменёнными ресурсами. Вручную обновите конфигурацию ВМ, чтобы устранить зависимости, которые больше не доступны в кластере.
+
+### Virtual Machine Restore Operations
+
+The `VirtualMachineOperation` with `type: Restore` provides advanced restore capabilities beyond the basic `VirtualMachineRestore` resource, offering real-time monitoring and enhanced control during restore operations.
+
+#### Basic Restore Operation
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  generateName: restore-linux-vm-
+spec:
+  virtualMachineName: linux-vm
+  type: Restore
+  restoreSpec:
+    virtualMachineSnapshotName: linux-vm-snapshot
+    restoreMode: Strict
+```
+
+#### Restore Modes
+
+**Strict Mode** (default) - Ensures complete validation and consistency:
+- All referenced resources must exist
+- Operation fails if any dependency is missing
+- VM is automatically placed in maintenance mode during restore
+- Use for production environments
+
+**BestEffort Mode** - Provides flexible restore with graceful degradation:
+- Skips missing non-critical resources
+- Continues restore even with missing dependencies
+- Higher success rate in complex environments
+- Use for development/testing environments
+
+```yaml
+spec:
+  type: Restore
+  restoreSpec:
+    restoreMode: BestEffort
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+#### Monitoring Restore Progress
+
+```bash
+# Check operation status
+kubectl get vmop
+
+# View detailed progress
+kubectl describe vmop restore-linux-vm-abc123
+```
+
+Operations progress through phases: `Pending` → `InProgress` → `Completed`/`Failed`.
+
+{{< alert level="info" >}}
+During VMOP Restore operations, the target VM is automatically placed in maintenance mode to ensure safe restore operations. The maintenance mode is automatically removed when the operation completes.
+{{< /alert >}}
+
