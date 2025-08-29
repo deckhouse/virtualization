@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -123,10 +122,6 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 		return err
 	}
 
-	if err := v.validateProvisionerDependencies(ctx); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -141,9 +136,6 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if err := v.validateImageDependencies(ctx); err != nil {
-		return err
-	}
-	if err := v.validateProvisionerDependencies(ctx); err != nil {
 		return err
 	}
 
@@ -264,30 +256,6 @@ func (v *VirtualMachineHandler) handleMissingResource(obj client.Object, err err
 		return false, fmt.Errorf("%s %q not found", resourceType, name)
 	}
 	return false, nil
-}
-
-func (v *VirtualMachineHandler) validateProvisionerDependencies(ctx context.Context) error {
-	if v.vm.Spec.Provisioning == nil || v.vm.Spec.Provisioning.UserDataRef == nil ||
-		v.vm.Spec.Provisioning.UserDataRef.Kind != v1alpha2.UserDataRefKindSecret {
-		return nil
-	}
-
-	userDataRef := v.vm.Spec.Provisioning.UserDataRef
-	key := types.NamespacedName{Namespace: v.vm.Namespace, Name: userDataRef.Name}
-	secret, err := object.FetchObject(ctx, key, v.client, &corev1.Secret{})
-	if err != nil {
-		return err
-	}
-
-	if secret == nil {
-		if v.mode == v1alpha2.VMOPRestoreModeBestEffort {
-			v.vm.Spec.Provisioning.UserDataRef = nil
-		} else {
-			return fmt.Errorf("provisioner secret %q not found", userDataRef.Name)
-		}
-	}
-
-	return nil
 }
 
 func (v *VirtualMachineHandler) Object() client.Object {
