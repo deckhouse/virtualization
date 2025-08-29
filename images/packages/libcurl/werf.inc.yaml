@@ -48,7 +48,7 @@ altPackages:
 - python3-module-psutil
 - python3-module-filelock
 - libnghttp2-tools
-- gnutls-utils libnghttp3-devel libngtcp2-devel
+- libnghttp3-devel libngtcp2-devel
 - tree nettle
 packages:
 - openssl libidn2 libgmp gnutls nettle openldap
@@ -74,7 +74,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
