@@ -122,7 +122,6 @@ shell:
 
   install:
   - |
-    cd /{{ $gitRepoName }}-{{ $version }}
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
@@ -130,10 +129,8 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
-    echo "List files in /"
-    ls -la /
-    cd {{ $gitRepoName }}-{{ $version }}
+
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
