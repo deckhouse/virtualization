@@ -1115,7 +1115,7 @@ spec:
 
 VM1:
 
-```
+```yaml
 spec:
   cpu:
     cores: 1
@@ -1124,7 +1124,7 @@ spec:
 
 VM2:
 
-```
+```yaml
 spec:
   cpu:
     cores: 1

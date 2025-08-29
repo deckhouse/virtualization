@@ -1103,7 +1103,7 @@ Visualization on the example of virtual machines with the following CPU configur
 
 VM1:
 
-```
+```yaml
 spec:
   cpu:
     cores: 1
