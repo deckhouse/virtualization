@@ -73,8 +73,9 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
       {{ $builderDependencies.altPackages | join " " }}
+    apt-get remove gnutls -y
 
   {{- include "alt packages clean" . | nindent 2 }}
 
