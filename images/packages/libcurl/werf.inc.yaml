@@ -49,7 +49,6 @@ packages:
 - python3-module-pytest-xdist
 - python3-module-psutil
 - python3-module-filelock
-- libnghttp2-tools
 - gnutls-utils libnghttp3-devel libngtcp2-devel
 - tree nettle
 {{- end -}}
