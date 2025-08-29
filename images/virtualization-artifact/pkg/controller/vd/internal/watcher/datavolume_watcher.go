@@ -74,7 +74,7 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					}
 
 					dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, e.ObjectNew.Status.Conditions)
-					return dvRunning != nil && dvRunning.Reason == "Error"
+					return dvRunning != nil && (dvRunning.Reason == "Error" || dvRunning.Reason == "ImagePullFailed")
 				},
 			},
 		),

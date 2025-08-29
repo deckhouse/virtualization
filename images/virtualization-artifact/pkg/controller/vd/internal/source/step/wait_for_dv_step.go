@@ -164,14 +164,14 @@ func (s WaitForDVStep) checkRunningCondition(vd *virtv2.VirtualDisk) (ok bool) {
 	dvRunningCondition, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	switch {
 	case dvRunningCondition.Reason == conditions.DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
 		return false
 	case strings.Contains(dvRunningCondition.Reason, "Error"):
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
