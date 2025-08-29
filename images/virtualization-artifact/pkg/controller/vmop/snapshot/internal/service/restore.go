@@ -57,13 +57,13 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 
 	if o.vmop.Spec.Restore == nil {
 		err := fmt.Errorf("restore specification is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if o.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
 		err := fmt.Errorf("virtual machine snapshot name is required")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
@@ -71,13 +71,13 @@ func (o RestoreOperation) Execute(ctx context.Context) (reconcile.Result, error)
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		err := fmt.Errorf("virtual machine is nil")
-		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonRestoreOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
 
@@ -105,7 +105,7 @@ func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 func (o RestoreOperation) IsComplete() (bool, string) {
 	c, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
 
-	if c.Reason == string(vmopcondition.ReasonOperationFailed) {
+	if c.Reason == string(vmopcondition.ReasonRestoreOperationFailed) {
 		return true, c.Message
 	}
 
