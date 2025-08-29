@@ -79,14 +79,16 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// 1.Initialize new VMOP resource: set phase to Pending and all conditions to Unknown.
 	h.base.Init(vmop)
 
-	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
-			Generation(vmop.GetGeneration()).
-			Reason(conditions.ReasonUnknown).
-			Status(metav1.ConditionUnknown).
-			Message(""),
-		&vmop.Status.Conditions,
-	)
+	if vmop.Status.Phase == "" {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
+				Generation(vmop.GetGeneration()).
+				Reason(conditions.ReasonUnknown).
+				Status(metav1.ConditionUnknown).
+				Message(""),
+			&vmop.Status.Conditions,
+		)
+	}
 
 	// 2. Get VirtualMachine for validation vmop.
 	vm, err := h.base.FetchVirtualMachineOrSetFailedPhase(ctx, vmop)
@@ -265,5 +267,5 @@ func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.Virtua
 func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
 	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return sent.Status == metav1.ConditionTrue || completed.Status != metav1.ConditionTrue
+	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }
