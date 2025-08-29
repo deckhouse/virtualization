@@ -78,7 +78,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Filename:       []string{conf.TestData.VMVpc},
 				FilenameOption: kc.Kustomize,
 			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 		})
 	})
 
@@ -93,7 +93,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 		})
 		It("checks network availability", func() {
 			By("Network condition should be true")
-			WaitVMAgentReady(kc.WaitOptions{
+			WaitVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -110,7 +110,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
 			MigrateVirtualMachines(testCaseLabel, ns, vms...)
@@ -140,7 +140,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
 			Expect(vms).NotTo(BeEmpty())
@@ -151,7 +151,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 		It("checks network availability after migrations", func() {
 			By("Network condition should be true")
-			WaitVMAgentReady(kc.WaitOptions{
+			WaitVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -191,23 +191,21 @@ func isSdnModuleEnabled() (bool, error) {
 }
 
 func CheckVMConnectivityToTargetIPs(kubectl kc.Kubectl, ns string, testCaseLabel map[string]string) {
-	res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+	var vmList virtv2.VirtualMachineList
+	err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 		Labels:    testCaseLabel,
 		Namespace: ns,
-		Output:    "jsonpath='{.items[*].metadata.name}'",
 	})
-	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+	Expect(err).ShouldNot(HaveOccurred())
 
-	vms := strings.Split(res.StdOut(), " ")
-	Expect(vms).NotTo(BeEmpty())
-
-	for _, vm := range vms {
-		if strings.Contains(vm, "foo") {
-			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.10 (target: vm-bar)", vm))
-			CheckResultSSHCommand(ns, vm, `ping -c 2 -W 2 -w 5 -q 192.168.1.10 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
-		} else if strings.Contains(vm, "bar") {
-			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.11 (target: vm-foo)", vm))
-			CheckResultSSHCommand(ns, vm, `ping -c 2 -W 2 -w 5 -q 192.168.1.11 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
+	for _, vm := range vmList.Items {
+		switch {
+		case strings.Contains(vm.Name, "foo"):
+			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.10 (target: vm-bar)", vm.Name))
+			CheckResultSSHCommand(ns, vm.Name, `ping -c 2 -W 2 -w 5 -q 192.168.1.10 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
+		case strings.Contains(vm.Name, "bar"):
+			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.11 (target: vm-foo)", vm.Name))
+			CheckResultSSHCommand(ns, vm.Name, `ping -c 2 -W 2 -w 5 -q 192.168.1.11 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
 		}
 	}
 }
