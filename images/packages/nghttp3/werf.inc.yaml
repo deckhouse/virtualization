@@ -24,6 +24,19 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -31,10 +44,7 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
-- libev-devel libevent-devel
-- libjansson-devel libssl-devel libjemalloc-devel libcares-devel
-- CUnit-devel libsystemd-devel libicu-devel
-- gnustep-base-devel
+- CUnit-devel gnustep-base-devel
 packages:
 - zlib libxml2
 {{- end -}}
