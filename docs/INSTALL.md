@@ -9,6 +9,10 @@ Module components must be deployed on physical servers (bare-metal).
 Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the module is deployed on virtual machines, technical support is not provided.
 {{< /alert >}}
 
+{{< alert level="warning" >}}
+Currently, for the module to work, containerd v1 must be used on all cluster nodes.
+{{< /alert >}}
+
 ## Scaling options
 
 The module supports the following configuration:
