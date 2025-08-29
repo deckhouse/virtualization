@@ -22,7 +22,6 @@ altLibs:
   - libssh-devel
   - libssh2-devel
   - libxfs-devel
-  - zlib-devel
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
@@ -140,6 +139,7 @@ packages:
 - gnutls acl libbsd libgcrypt libmd
 - util-linux libfuse3 nettle libgsasl 
 - libnbd libcap-ng libcapstone libcurl
+- zlib
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

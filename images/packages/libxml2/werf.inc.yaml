@@ -31,7 +31,9 @@ altPackages:
 - libssl-devel 
 - python3-devel python3-module-setuptools
 - gettext-devel
-- zlib-devel xz
+- xz
+packages:
+- zlib
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -44,6 +46,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -55,6 +58,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
 
     cd /src
