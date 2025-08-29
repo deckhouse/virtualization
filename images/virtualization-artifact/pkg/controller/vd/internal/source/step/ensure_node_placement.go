@@ -38,7 +38,7 @@ import (
 
 type EnsureNodePlacementStepDiskService interface {
 	CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 // EnsureNodePlacementStep supports changing the node placement only if the PVC is created using a DataVolume.

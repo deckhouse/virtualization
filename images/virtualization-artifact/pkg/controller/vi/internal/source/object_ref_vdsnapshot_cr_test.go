@@ -83,7 +83,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		}
 
 		importer = &ImporterMock{
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 		}
@@ -109,7 +109,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		}
 
 		diskService = &DiskMock{
-			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
 				return false, nil
 			},
 		}
@@ -186,10 +186,10 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			var pvcCreated bool
 			var podCreated bool
 
-			importer.GetPodSettingsWithPVCFunc = func(_ *metav1.OwnerReference, _ *supplements.Generator, _, _ string) *importer2.PodSettings {
+			importer.GetPodSettingsWithPVCFunc = func(_ *metav1.OwnerReference, _ supplements.Generator, _, _ string) *importer2.PodSettings {
 				return nil
 			}
-			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ *supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings) error {
+			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings) error {
 				podCreated = true
 				return nil
 			}

@@ -29,18 +29,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type CreateDataVolumeStepDiskService interface {
-	Start(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator, opts ...service.Option) error
+	Start(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj client.Object, sup supplements.DataVolumeSupplement, opts ...service.Option) error
 }
 
 type CreateDataVolumeStep struct {
@@ -75,9 +75,8 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) 
 		return nil, nil
 	}
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
-	vd.Status.Target.PersistentVolumeClaim = supgen.PersistentVolumeClaim().Name
 	vd.Status.Progress = "0%"
 
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})

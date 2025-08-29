@@ -42,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -85,7 +86,8 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
+
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -342,7 +344,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
 		log.Info("Ready", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
 	default:
@@ -355,7 +357,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
@@ -421,7 +423,7 @@ func (ds UploadDataSource) Name() string {
 	return uploadDataSource
 }
 
-func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
@@ -434,7 +436,7 @@ func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supple
 	return &settings
 }
 
-func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

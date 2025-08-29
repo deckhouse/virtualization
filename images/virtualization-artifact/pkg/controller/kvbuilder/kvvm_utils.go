@@ -31,8 +31,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -136,6 +138,8 @@ func ApplyVirtualMachineSpec(
 		}
 	}
 
+	updateVolumesStrategy := virtv1.UpdateVolumesStrategyReplacement
+
 	kvvm.ClearDisks()
 	bootOrder := uint(1)
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -194,14 +198,23 @@ func ApplyVirtualMachineSpec(
 			// VirtualDisk is attached as a regular disk.
 
 			vd := vdByName[bd.Name]
+
+			pvcName := vd.Status.Target.PersistentVolumeClaim
+
+			migrating, _ := conditions.GetCondition(vdcondition.MigrationType, vd.Status.Conditions)
+			if migrating.Status == metav1.ConditionTrue && vd.Status.MigrationInfo.TargetPVC != "" {
+				pvcName = vd.Status.MigrationInfo.TargetPVC
+				updateVolumesStrategy = virtv1.UpdateVolumesStrategyMigration
+			}
+
 			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
-			if vd.Status.Target.PersistentVolumeClaim == "" {
+			if pvcName == "" {
 				continue
 			}
 
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
+				PersistentVolumeClaim: pointer.GetPointer(pvcName),
 				Serial:                GenerateSerialFromObject(vd),
 				BootOrder:             bootOrder,
 			}); err != nil {
@@ -212,6 +225,8 @@ func ApplyVirtualMachineSpec(
 			return fmt.Errorf("unknown block device kind %q. %w", bd.Kind, common.ErrUnknownType)
 		}
 	}
+
+	kvvm.SetUpdateVolumesStrategy(updateVolumesStrategy)
 
 	for _, device := range hotpluggedDevices {
 		switch {

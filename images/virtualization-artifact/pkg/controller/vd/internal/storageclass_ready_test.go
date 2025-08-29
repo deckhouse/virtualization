@@ -46,7 +46,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 		ctx = context.TODO()
 
 		svc = &StorageClassServiceMock{
-			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil
 			},
 		}
@@ -82,7 +82,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 
 	Context("PVC is already exists", func() {
 		BeforeEach(func() {
-			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			}
 		})
