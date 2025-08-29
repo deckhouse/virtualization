@@ -43,10 +43,10 @@ func TestNetworksValidate(t *testing.T) {
 			valid:      true,
 		},
 		{
-			name:       "single main network",
+			name:       "single main network - SDN disabled should fail",
 			networks:   []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}},
 			sdnEnabled: false,
-			valid:      true,
+			valid:      false,
 		},
 		{
 			name:       "single main network with SDN",
