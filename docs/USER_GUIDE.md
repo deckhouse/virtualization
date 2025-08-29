@@ -2886,7 +2886,7 @@ d8 k vm get <vmname> -o json | jq ‘.status.conditions’
 
 Check the output for errors related to missing or changed resources. Manually update the VM configuration to remove dependencies that are no longer available in the cluster.
 
-### Vitrual Machine Restore Operations
+### Virtual Machine Restore Operations
 
 The `VirtualMachineOperation` with `type: Restore` provides advanced restore capabilities beyond the basic `VirtualMachineRestore` resource, offering real-time monitoring and enhanced control during restore operations.
 
@@ -2900,7 +2900,7 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   type: Restore
-  restoreSpec:
+  restore:
     virtualMachineSnapshotName: linux-vm-snapshot
     restoreMode: Strict
 ```
@@ -2916,7 +2916,7 @@ spec:
 ```yaml
 spec:
   type: Restore
-  restoreSpec:
+  restore:
     restoreMode: DryRun
     virtualMachineSnapshotName: my-vm-snapshot
 ```
@@ -2930,7 +2930,7 @@ spec:
 ```yaml
 spec:
   type: Restore
-  restoreSpec:
+  restore:
     restoreMode: Strict
     virtualMachineSnapshotName: my-vm-snapshot
 ```
@@ -2944,7 +2944,7 @@ spec:
 ```yaml
 spec:
   type: Restore
-  restoreSpec:
+  restore:
     restoreMode: BestEffort
     virtualMachineSnapshotName: my-vm-snapshot
 ```

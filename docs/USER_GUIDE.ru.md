@@ -2933,7 +2933,7 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   type: Restore
-  restoreSpec:
+  restore:
     virtualMachineSnapshotName: linux-vm-snapshot
     restoreMode: Strict
 ```
@@ -2949,7 +2949,7 @@ spec:
 ```yaml
 spec:
   type: Restore
-  restoreSpec:
+  restore:
     restoreMode: DryRun
     virtualMachineSnapshotName: my-vm-snapshot
 ```
@@ -2963,7 +2963,7 @@ spec:
 ```yaml
 spec:
   type: Restore
-  restoreSpec:
+  restore:
     restoreMode: Strict
     virtualMachineSnapshotName: my-vm-snapshot
 ```
@@ -2977,7 +2977,7 @@ spec:
 ```yaml
 spec:
   type: Restore
-  restoreSpec:
+  restore:
     restoreMode: BestEffort
     virtualMachineSnapshotName: my-vm-snapshot
 ```
