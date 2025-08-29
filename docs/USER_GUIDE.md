@@ -2907,17 +2907,39 @@ spec:
 
 #### Restore Modes
 
-**Strict Mode** (default) - Ensures complete validation and consistency:
+**DryRun Mode**
+
+- Validates compatibility and dependencies
+- Shows results in operation status
+- No actual changes to resources
+
+```yaml
+spec:
+  type: Restore
+  restoreSpec:
+    restoreMode: DryRun
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**Strict Mode** (default)
+
 - All referenced resources must exist
 - Operation fails if any dependency is missing
 - VM is automatically placed in maintenance mode during restore
-- Use for production environments
 
-**BestEffort Mode** - Provides flexible restore with graceful degradation:
+```yaml
+spec:
+  type: Restore
+  restoreSpec:
+    restoreMode: Strict
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**BestEffort Mode**
+
+- Provides flexible restore with graceful degradation:
 - Skips missing non-critical resources
 - Continues restore even with missing dependencies
-- Higher success rate in complex environments
-- Use for development/testing environments
 
 ```yaml
 spec:

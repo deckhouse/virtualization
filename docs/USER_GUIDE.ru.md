@@ -2940,17 +2940,39 @@ spec:
 
 #### Restore Modes
 
-**Strict Mode** (default) - Ensures complete validation and consistency:
-- All referenced resources must exist
-- Operation fails if any dependency is missing
-- VM is automatically placed in maintenance mode during restore
-- Use for production environments
+**DryRun Mode**
 
-**BestEffort Mode** - Provides flexible restore with graceful degradation:
-- Skips missing non-critical resources
-- Continues restore even with missing dependencies
-- Higher success rate in complex environments
-- Use for development/testing environments
+- Проверяет совместимость и зависимости
+- Показывает результаты в статусе операции
+- Без фактических изменений в ресурсах
+
+```yaml
+spec:
+  type: Restore
+  restoreSpec:
+    restoreMode: DryRun
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**Strict Mode** (по умолчанию)
+
+- Все ссылочные ресурсы должны существовать
+- Операция завершается неудачей, если какая-либо зависимость отсутствует
+- ВМ автоматически помещается в режим обслуживания во время восстановления
+
+```yaml
+spec:
+  type: Restore
+  restoreSpec:
+    restoreMode: Strict
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**BestEffort Mode**
+
+- Продолжает восстановление даже при отсутствующих зависимостях
+- Более высокий уровень успеха в сложных средах
+- Используйте для сред разработки/тестирования
 
 ```yaml
 spec:
