@@ -20,27 +20,36 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestNetworksValidate(t *testing.T) {
 	tests := []struct {
-		networks []v1alpha2.NetworksSpec
-		valid    bool
+		networks   []v1alpha2.NetworksSpec
+		sdnEnabled bool
+		valid      bool
 	}{
-		{[]v1alpha2.NetworksSpec{}, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeMain}}, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeMain}}, false},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true},
-		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork}}, false},
+		{[]v1alpha2.NetworksSpec{}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeMain}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeMain}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, false, false},
 	}
 
 	for i, test := range tests {
 		t.Run(fmt.Sprintf("TestCase%d", i), func(t *testing.T) {
 			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: test.networks}}
-			networkValidator := NewNetworksValidator()
+
+			// Create feature gate with SDN
+			featureGate, _, setFromMap, _ := featuregates.New()
+			if test.sdnEnabled {
+				_ = setFromMap(map[string]bool{string(featuregates.SDN): true})
+			}
+			networkValidator := NewNetworksValidator(featureGate)
 
 			_, err := networkValidator.Validate(vm)
 			if test.valid && err != nil {

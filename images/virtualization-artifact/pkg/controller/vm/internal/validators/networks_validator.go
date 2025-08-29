@@ -20,15 +20,21 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type NetworksValidator struct{}
+type NetworksValidator struct {
+	featureGate featuregate.FeatureGate
+}
 
-func NewNetworksValidator() *NetworksValidator {
-	return &NetworksValidator{}
+func NewNetworksValidator(featureGate featuregate.FeatureGate) *NetworksValidator {
+	return &NetworksValidator{
+		featureGate: featureGate,
+	}
 }
 
 func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
@@ -44,6 +50,10 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 
 	if len(networksSpec) == 0 {
 		return nil, nil
+	}
+
+	if !v.featureGate.Enabled(featuregates.SDN) {
+		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
 	if networksSpec[0].Type != v1alpha2.NetworksTypeMain {

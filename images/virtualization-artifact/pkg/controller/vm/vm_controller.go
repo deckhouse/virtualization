@@ -95,7 +95,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(client, blockDeviceService, log)).
+		WithValidator(NewValidator(client, blockDeviceService, featuregates.Default(), log)).
 		WithDefaulter(NewDefaulter(client, vmClassService, log)).
 		Complete(); err != nil {
 		return err

@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -41,7 +42,7 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(client client.Client, service *service.BlockDeviceService, log *log.Logger) *Validator {
+func NewValidator(client client.Client, service *service.BlockDeviceService, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
 			validators.NewMaintenanceValidator(),
@@ -53,7 +54,7 @@ func NewValidator(client client.Client, service *service.BlockDeviceService, log
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
 			validators.NewCPUCountValidator(),
-			validators.NewNetworksValidator(),
+			validators.NewNetworksValidator(featureGate),
 		},
 		log: log.With("webhook", "validation"),
 	}
