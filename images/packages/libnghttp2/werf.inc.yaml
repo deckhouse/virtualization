@@ -34,6 +34,7 @@ altPackages:
 - libev-devel libevent-devel
 - libjansson-devel libssl-devel libjemalloc-devel libcares-devel
 - CUnit-devel libsystemd-devel libicu-devel
+- gnustep-base-devel
 packages:
 - zlib libxml2
 {{- end -}}
