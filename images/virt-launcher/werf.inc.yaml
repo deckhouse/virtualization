@@ -68,7 +68,6 @@ altLibs:
   - libdaxctl-devel
   - rdma-core-devel
   - bzlib-devel
-  - liblzo2-devel
   - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
@@ -415,7 +414,7 @@ git:
       install:
       - '**/*'
 import:
-{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" -}}
+{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" "xz" "krb5" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: GOPROXY

@@ -1,15 +1,16 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /krb5
   before: setup
+
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "file/file.git" }}
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "krb5/krb5.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -23,23 +24,20 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
 ---
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git libtool
-- make automake autoconf libtool makeinfo
-- pkg-config
-- bison
-- bzlib-devel libseccomp-devel libcap-devel libzstd-devel zlib-devel lzip ncompress strace
-- tree
+- git gcc automake make
+- flex libcom_err-devel libkeyutils-devel bison
+- libncurses-devel libss-devel libssl-devel libtinfo-devel
+- libpam-devel
 {{- end -}}
-
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
@@ -47,8 +45,6 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "xz" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -61,11 +57,23 @@ shell:
   install:
   - |
     OUTDIR=/out
-    cd /src
 
-    autoreconf -f -i
-    ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
+    cd /src/src
+    export YACC="bison -y"
+    export CFLAGS="-O2 -fcommon"
 
-    make install -j $(nproc) DESTDIR=$OUTDIR
+    autoreconf
 
-    rm -rf $OUTDIR/share/man
+    ./configure \
+        --prefix=/usr \
+        --libdir=/usr/lib64 \
+        --disable-shared --enable-static \
+        --enable-dns-for-realm \
+        --enable-pkinit \
+        --with-system-et \
+        --with-system-ss \
+        --with-pkinit-crypto-impl=openssl \
+        --with-tls-impl=openssl
+    
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install

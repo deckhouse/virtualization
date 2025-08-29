@@ -51,3 +51,8 @@ package:
   openssl: openssl-3.4.1
   swtpm: v0.10.0
   util-linux: v2.41.1
+  krb5: krb5-1.21.3-final
+  lz4: v1.9.4
+  lzo: lzo-2.10
+  xz: v5.4.5
+  openldap: OPENLDAP_REL_ENG_2_6_9
