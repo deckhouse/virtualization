@@ -23,7 +23,6 @@ packages:
 - libssl-devel
 - libssl-devel libdwarf-devel libuuid-devel
 - bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
-- libisofs-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -114,7 +113,7 @@ import:
   add: /build.sh
   to: /build.sh
   before: install
-{{- $images := list "libisoburn" "libburn" -}}
+{{- $images := list "libisoburn" "libisofs" "libburn" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
@@ -139,7 +138,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     echo "List files in /"
     ls -la /
     cd /{{ $gitRepoName }}-{{ $version }}
