@@ -138,7 +138,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				Expect(exists).To(BeTrue())
 				Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
 				Expect(cond.Reason).To(Equal(conditions.ReasonUnknown.String()))
-				Expect(newVM.Status.Networks).To(BeNil())
+				Expect(newVM.Status.Networks).NotTo(BeNil())
 			})
 		})
 
