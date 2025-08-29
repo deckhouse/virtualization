@@ -10,14 +10,12 @@ spec:
   scope: Namespaced
   names:
     categories:
-      - all
       - virtualization
     plural: virtualdisksnapshots
     singular: virtualdisksnapshot
     kind: VirtualDiskSnapshot
     shortNames:
-      - vdsnapshot
-      - vdsnapshots
+      - vds
   preserveUnknownFields: false
   versions:
     - name: v1alpha2
