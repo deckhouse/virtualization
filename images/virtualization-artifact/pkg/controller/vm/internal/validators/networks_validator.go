@@ -53,7 +53,7 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 	}
 
 	if !v.featureGate.Enabled(featuregates.SDN) {
-		return nil, fmt.Errorf("network configuration requires SDN module to be enabled")
+		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
 	if networksSpec[0].Type != v1alpha2.NetworksTypeMain {
