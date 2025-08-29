@@ -75,7 +75,6 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.altPackages | join " " }}
-    apt-get remove libgnutls-devel -y
 
   {{- include "alt packages clean" . | nindent 2 }}
 
