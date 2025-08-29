@@ -50,13 +50,3 @@ nameReference:
     fieldSpecs:
       - path: spec/virtualMachineClassName
         kind: VirtualMachine
-  - kind: Network
-    version: v1alpha1
-    fieldSpecs:
-      - path: spec/networks/name
-        kind: VirtualMachine
-  - kind: NetworkClass
-    version: v1alpha1
-    fieldSpecs:
-      - path: spec/networkClass
-        kind: Network

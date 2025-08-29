@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: vm
+  name: vm-foo
 spec:
   bootloader: EFI
   virtualMachineClassName: generic
@@ -16,13 +16,11 @@ spec:
     type: UserDataRef
     userDataRef:
       kind: Secret
-      name: cloud-init
+      name: cloud-init-foo
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: vd-root
-    - kind: VirtualDisk
-      name: vd-blank
+      name: vd-foo-root
   networks:
     - type: Main
-    - type: Network
-      name: network
+    - type: ClusterNetwork
+      name: cn-1003-for-e2e-test

@@ -78,7 +78,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Filename:       []string{conf.TestData.VMVpc},
 				FilenameOption: kc.Kustomize,
 			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 		})
 	})
 
@@ -91,13 +91,15 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Timeout:   MaxWaitTimeout,
 			})
 		})
-		It("checks network status", func() {
-			By("Network should be true")
+		It("checks network availability", func() {
+			By("Network condition should be true")
 			WaitVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
+
+			CheckVMConnectivityToTargetIPs(kubectl, ns, testCaseLabel)
 		})
 	})
 
@@ -108,7 +110,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
 			MigrateVirtualMachines(testCaseLabel, ns, vms...)
@@ -138,20 +140,24 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
+			Expect(vms).NotTo(BeEmpty())
+
 			CheckCiliumAgents(kubectl, ns, vms...)
 			CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 		})
 
-		It("checks network status after migrations", func() {
-			By("Network should be true")
-			WaitVMAgentReady(kc.WaitOptions{
+		It("checks network availability after migrations", func() {
+			By("Network condition should be true")
+			WaitVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
+
+			CheckVMConnectivityToTargetIPs(kubectl, ns, testCaseLabel)
 		})
 	})
 
@@ -170,56 +176,10 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 				resourcesToDelete.KustomizationDir = conf.TestData.VMVpc
 			}
 
-			Eventually(func() error {
-				return tryDeleteTestCaseResources(ns, resourcesToDelete)
-			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
+			DeleteTestCaseResources(ns, resourcesToDelete)
 		})
 	})
 })
-
-func tryDeleteTestCaseResources(ns string, resources ResourcesToDelete) error {
-	const errMessage = "cannot delete test case resources"
-
-	if resources.KustomizationDir != "" {
-		kustomizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
-		err := kustomize.ExcludeResource(kustomizationFile, "ns.yaml")
-		if err != nil {
-			return fmt.Errorf("%s\nkustomizationDir: %s\nstderr: %w", errMessage, resources.KustomizationDir, err)
-		}
-
-		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       []string{resources.KustomizationDir},
-			FilenameOption: kc.Kustomize,
-			IgnoreNotFound: true,
-		})
-		if res.Error() != nil {
-			return fmt.Errorf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr())
-		}
-	}
-
-	for _, r := range resources.AdditionalResources {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Labels:    r.Labels,
-			Namespace: ns,
-			Resource:  r.Resource,
-		})
-		if res.Error() != nil {
-			return fmt.Errorf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr())
-		}
-	}
-
-	if len(resources.Files) != 0 {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       resources.Files,
-			FilenameOption: kc.Filename,
-		})
-		if res.Error() != nil {
-			return fmt.Errorf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr())
-		}
-	}
-
-	return nil
-}
 
 func isSdnModuleEnabled() (bool, error) {
 	sdnModule, err := config.GetModuleConfig("sdn")
@@ -228,4 +188,24 @@ func isSdnModuleEnabled() (bool, error) {
 	}
 
 	return sdnModule.Spec.Enabled, nil
+}
+
+func CheckVMConnectivityToTargetIPs(kubectl kc.Kubectl, ns string, testCaseLabel map[string]string) {
+	var vmList virtv2.VirtualMachineList
+	err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
+		Labels:    testCaseLabel,
+		Namespace: ns,
+	})
+	Expect(err).ShouldNot(HaveOccurred())
+
+	for _, vm := range vmList.Items {
+		switch {
+		case strings.Contains(vm.Name, "foo"):
+			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.10 (target: vm-bar)", vm.Name))
+			CheckResultSSHCommand(ns, vm.Name, `ping -c 2 -W 2 -w 5 -q 192.168.1.10 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
+		case strings.Contains(vm.Name, "bar"):
+			By(fmt.Sprintf("VM %q should have connectivity to 192.168.1.11 (target: vm-foo)", vm.Name))
+			CheckResultSSHCommand(ns, vm.Name, `ping -c 2 -W 2 -w 5 -q 192.168.1.11 2>&1 | grep -o "[0-9]\+%\s*packet loss"`, "0% packet loss")
+		}
+	}
 }
