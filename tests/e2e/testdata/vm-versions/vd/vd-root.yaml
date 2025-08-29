@@ -1,10 +1,11 @@
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
+kind: VirtualDisk
 metadata:
-  name: vi-alpine-http
+  name: vd-root
 spec:
-  storage: ContainerRegistry
+  persistentVolumeClaim:
+    size: 512Mi
   dataSource:
     type: HTTP
     http:
