@@ -196,7 +196,7 @@ func CheckVMConnectivityToTargetIPs(kubectl kc.Kubectl, ns string, testCaseLabel
 		Namespace: ns,
 		Output:    "jsonpath='{.items[*].metadata.name}'",
 	})
-	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 	vms := strings.Split(res.StdOut(), " ")
 	Expect(vms).NotTo(BeEmpty())
