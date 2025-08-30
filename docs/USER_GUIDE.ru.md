@@ -2918,3 +2918,83 @@ d8 k vm get <vmname> -o json | jq '.status.conditions'
 ```
 
 Проверьте вывод на наличие ошибок, связанных с отсутствующими или изменёнными ресурсами. Вручную обновите конфигурацию ВМ, чтобы устранить зависимости, которые больше не доступны в кластере.
+
+### Virtual Machine Restore Operations
+
+The `VirtualMachineOperation` with `type: Restore` provides advanced restore capabilities beyond the basic `VirtualMachineRestore` resource, offering real-time monitoring and enhanced control during restore operations.
+
+#### Basic Restore Operation
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  generateName: restore-linux-vm-
+spec:
+  virtualMachineName: linux-vm
+  type: Restore
+  restore:
+    virtualMachineSnapshotName: linux-vm-snapshot
+    restoreMode: Strict
+```
+
+#### Restore Modes
+
+**DryRun Mode**
+
+- Проверяет совместимость и зависимости
+- Показывает результаты в статусе операции
+- Без фактических изменений в ресурсах
+
+```yaml
+spec:
+  type: Restore
+  restore:
+    restoreMode: DryRun
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**Strict Mode** (по умолчанию)
+
+- Все ссылочные ресурсы должны существовать
+- Операция завершается неудачей, если какая-либо зависимость отсутствует
+- ВМ автоматически помещается в режим обслуживания во время восстановления
+
+```yaml
+spec:
+  type: Restore
+  restore:
+    restoreMode: Strict
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**BestEffort Mode**
+
+- Продолжает восстановление даже при отсутствующих зависимостях
+- Более высокий уровень успеха в сложных средах
+- Используйте для сред разработки/тестирования
+
+```yaml
+spec:
+  type: Restore
+  restore:
+    restoreMode: BestEffort
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+#### Monitoring Restore Progress
+
+```bash
+# Check operation status
+kubectl get vmop
+
+# View detailed progress
+kubectl describe vmop restore-linux-vm-abc123
+```
+
+Operations progress through phases: `Pending` → `InProgress` → `Completed`/`Failed`.
+
+{{< alert level="info" >}}
+During VMOP Restore operations, the target VM is automatically placed in maintenance mode to ensure safe restore operations. The maintenance mode is automatically removed when the operation completes.
+{{< /alert >}}
+

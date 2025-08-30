@@ -1389,6 +1389,7 @@ How to perform the operation in the web interface:
 - Select the desired virtual machine from the list and click the ellipsis button.
 - In the pop-up menu, you can select possible operations for the VM.
 
+
 ### Change virtual machine configuration
 
 You can change the configuration of a virtual machine at any time after the `VirtualMachine` resource has been created. However, how these changes are applied depends on the current phase of the virtual machine and the nature of the changes made.
@@ -2884,3 +2885,82 @@ d8 k vm get <vmname> -o json | jq ‘.status.conditions’
 ```
 
 Check the output for errors related to missing or changed resources. Manually update the VM configuration to remove dependencies that are no longer available in the cluster.
+
+### Virtual Machine Restore Operations
+
+The `VirtualMachineOperation` with `type: Restore` provides advanced restore capabilities beyond the basic `VirtualMachineRestore` resource, offering real-time monitoring and enhanced control during restore operations.
+
+#### Basic Restore Operation
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  generateName: restore-linux-vm-
+spec:
+  virtualMachineName: linux-vm
+  type: Restore
+  restore:
+    virtualMachineSnapshotName: linux-vm-snapshot
+    restoreMode: Strict
+```
+
+#### Restore Modes
+
+**DryRun Mode**
+
+- Validates compatibility and dependencies
+- Shows results in operation status
+- No actual changes to resources
+
+```yaml
+spec:
+  type: Restore
+  restore:
+    restoreMode: DryRun
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**Strict Mode** (default)
+
+- All referenced resources must exist
+- Operation fails if any dependency is missing
+- VM is automatically placed in maintenance mode during restore
+
+```yaml
+spec:
+  type: Restore
+  restore:
+    restoreMode: Strict
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+**BestEffort Mode**
+
+- Provides flexible restore with graceful degradation:
+- Skips missing non-critical resources
+- Continues restore even with missing dependencies
+
+```yaml
+spec:
+  type: Restore
+  restore:
+    restoreMode: BestEffort
+    virtualMachineSnapshotName: my-vm-snapshot
+```
+
+#### Monitoring Restore Progress
+
+```bash
+# Check operation status
+kubectl get vmop
+
+# View detailed progress
+kubectl describe vmop restore-linux-vm-abc123
+```
+
+Operations progress through phases: `Pending` → `InProgress` → `Completed`/`Failed`.
+
+{{< alert level="info" >}}
+During VMOP Restore operations, the target VM is automatically placed in maintenance mode to ensure safe restore operations. The maintenance mode is automatically removed when the operation completes.
+{{< /alert >}}
