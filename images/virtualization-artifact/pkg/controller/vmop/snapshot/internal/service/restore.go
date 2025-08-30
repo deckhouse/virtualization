@@ -104,10 +104,13 @@ func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 
 func (o RestoreOperation) IsComplete() (bool, string) {
 	c, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
+	if !ok {
+		return false, ""
+	}
 
 	if c.Reason == string(vmopcondition.ReasonRestoreOperationFailed) {
 		return true, c.Message
 	}
 
-	return ok && c.Status == metav1.ConditionTrue, ""
+	return c.Status == metav1.ConditionTrue, ""
 }

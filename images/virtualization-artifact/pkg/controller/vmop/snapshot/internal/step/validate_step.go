@@ -61,7 +61,16 @@ func (s ValidateStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOpe
 
 	// If validation already passed, skip
 	if len(vmop.Status.Resources) > 0 {
-		return nil, nil
+		allValid := true
+		for _, resource := range vmop.Status.Resources {
+			if resource.Status == "Failed" {
+				allValid = false
+				break
+			}
+		}
+		if allValid {
+			return nil, nil
+		}
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}

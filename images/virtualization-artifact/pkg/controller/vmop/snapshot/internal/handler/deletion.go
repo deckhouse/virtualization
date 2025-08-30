@@ -55,12 +55,12 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
 	vm, err := object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
-		log.Error("Failed to fetch VirtualMachine", logger.SlogErr(err))
+		log.Debug("Failed to fetch VirtualMachine", logger.SlogErr(err))
+		return reconcile.Result{}, err
 	}
 
 	if vm == nil {
 		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
-
 		return reconcile.Result{}, nil
 	}
 

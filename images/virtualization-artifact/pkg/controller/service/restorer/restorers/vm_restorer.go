@@ -181,7 +181,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			updErr := v.client.Update(ctx, vm)
 			if updErr != nil {
 				if apierrors.IsConflict(updErr) {
-					return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
+					return fmt.Errorf("waiting for the `VirtualMachine` %w: %v", common.ErrUpdating, updErr)
 				} else {
 					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 				}
