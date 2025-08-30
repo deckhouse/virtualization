@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type EnterMaintenanceStep struct {
@@ -87,6 +88,15 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
+
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeMaintenanceMode).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonMaintenanceModeEnabled).
+			Status(metav1.ConditionTrue).
+			Message("VMOP has enabled maintenance mode on VM for restore operation"),
+		&vmop.Status.Conditions,
+	)
 
 	s.recorder.Event(vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM entered maintenance mode for restore operation")
 

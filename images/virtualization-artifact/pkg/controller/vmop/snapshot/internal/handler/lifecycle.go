@@ -185,5 +185,14 @@ func (h LifecycleHandler) setCompletedCondition(vmop *v1alpha2.VirtualMachineOpe
 }
 
 func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
-	return len(vmop.Status.Resources) > 0
+	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
+	if found && maintenanceModeCondition.Status == metav1.ConditionTrue {
+		return true
+	}
+
+	if len(vmop.Status.Resources) > 0 {
+		return true
+	}
+
+	return false
 }

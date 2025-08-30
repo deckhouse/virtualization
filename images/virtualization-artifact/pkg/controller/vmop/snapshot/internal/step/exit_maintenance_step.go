@@ -64,13 +64,18 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 	}
 
-	restoreCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmop.Status.Conditions)
-	if restoreCondition.Status != metav1.ConditionFalse || restoreCondition.Reason != string(vmopcondition.ReasonWaitExitFromMaintenance) {
+	maintenanceVMOPCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
+	if !found || maintenanceVMOPCondition.Status == metav1.ConditionFalse {
 		return nil, nil
 	}
 
-	maintenanceCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
-	if !found || maintenanceCondition.Status != metav1.ConditionTrue || maintenanceCondition.Reason != vmcondition.ReasonMaintenanceRestore.String() {
+	restoreCondition, found := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmop.Status.Conditions)
+	if !found || restoreCondition.Status == metav1.ConditionFalse {
+		return nil, nil
+	}
+
+	maintenanceVMCondition, found := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
+	if !found || maintenanceVMCondition.Status != metav1.ConditionTrue {
 		return nil, nil
 	}
 
@@ -95,10 +100,14 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, err
 	}
 
-	s.recorder.Event(vmop, corev1.EventTypeNormal, "MaintenanceMode", "VM exited maintenance mode after restore completion")
-
-	// Update the restore condition to indicate final completion
-	common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonRestoreOperationCompleted, "The virtual machine restore operation completed successfully")
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeMaintenanceMode).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonMaintenanceModeDisabled).
+			Status(metav1.ConditionFalse).
+			Message("VMOP has disabled maintenance mode on VM"),
+		&vmop.Status.Conditions,
+	)
 
 	return nil, nil
 }

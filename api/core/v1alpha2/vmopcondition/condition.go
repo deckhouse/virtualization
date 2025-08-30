@@ -31,6 +31,9 @@ const (
 
 	// TypeRestoreCompleted is a type for condition that indicates success of restore.
 	TypeRestoreCompleted Type = "RestoreCompleted"
+
+	// TypeMaintenanceMode is a type for condition that indicates VMOP has put VM in maintenance mode.
+	TypeMaintenanceMode Type = "MaintenanceMode"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -104,9 +107,6 @@ const (
 	// ReasonRestoreInProgress is a ReasonRestoreCompleted indicating that the restore operation is in progress.
 	ReasonRestoreOperationInProgress ReasonRestoreCompleted = "RestoreInProgress"
 
-	// ReasonWaitExitFromMaintenance is a ReasonRestoreCompleted indicating that the restore operation has completed and is waiting to exit maintenance mode.
-	ReasonWaitExitFromMaintenance ReasonRestoreCompleted = "WaitExitFromMaintenance"
-
 	// ReasonRestoreOperationCompleted is a ReasonRestoreCompleted indicating that the restore operation has completed successfully.
 	ReasonRestoreOperationCompleted ReasonRestoreCompleted = "RestoreCompleted"
 
@@ -130,4 +130,22 @@ const (
 
 	// ReasonSignalSentSuccess is a ReasonCompleted indicating that signal is sent to the VM.
 	ReasonSignalSentSuccess ReasonSignalSent = "SignalSentSuccess"
+)
+
+// ReasonMaintenanceMode represents specific reasons for the 'MaintenanceMode' condition type.
+type ReasonMaintenanceMode string
+
+func (r ReasonMaintenanceMode) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonMaintenanceModeEnabled is a ReasonMaintenanceMode indicating that VM is in maintenance mode for restore operation.
+	ReasonMaintenanceModeEnabled ReasonMaintenanceMode = "MaintenanceModeEnabled"
+
+	// ReasonMaintenanceModeDisabled is a ReasonMaintenanceMode indicating that VM has exited maintenance mode.
+	ReasonMaintenanceModeDisabled ReasonMaintenanceMode = "MaintenanceModeDisabled"
+
+	// ReasonMaintenanceModeFailure is a ReasonMaintenanceMode indicating that maintenance mode operation failed.
+	ReasonMaintenanceModeFailure ReasonMaintenanceMode = "MaintenanceModeFailure"
 )

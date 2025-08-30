@@ -65,7 +65,8 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 			return nil, nil
 		}
 
-		if c.Reason == string(vmopcondition.ReasonWaitExitFromMaintenance) {
+		maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
+		if found && maintenanceModeCondition.Status == metav1.ConditionFalse {
 			return nil, nil
 		}
 	}
@@ -113,7 +114,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	common.FillResourcesStatuses(vmop, statuses)
-	s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonWaitExitFromMaintenance).Message("The virtual machine has been restored from the snapshot, waiting to exit maintenance mode")
+	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonRestoreOperationCompleted).Message("The virtual machine has been restored from the snapshot successfully")
 
 	return &reconcile.Result{}, nil
 }

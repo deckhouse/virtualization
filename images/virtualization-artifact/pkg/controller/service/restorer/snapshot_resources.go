@@ -175,6 +175,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
 			case isRetryError(err):
+				hasRetryErrors = true
 				status.Status = "InProgress"
 				status.Message = err.Error()
 			default:
