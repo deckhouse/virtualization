@@ -153,6 +153,10 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 	var errorMessages []string
 
+	if len(pods.Items) == 0 {
+		return "Waiting for the pod to be created.", nil
+	}
+
 	for _, pod := range pods.Items {
 		if pod.Status.Phase == corev1.PodSucceeded {
 			continue
@@ -160,7 +164,7 @@ func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 
 		networkStatusAnnotation, found := pod.Annotations[annotations.AnnNetworksStatus]
 		if !found {
-			errorMessages = append(errorMessages, fmt.Sprintf("Annotation %s is not found", annotations.AnnNetworksStatus))
+			errorMessages = append(errorMessages, "Cannot determine the status of additional interfaces, waiting for a response from the SDN module")
 			continue
 		}
 
