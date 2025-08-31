@@ -68,11 +68,6 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 	}()
 
-	if vm.Spec.Networks == nil {
-		vm.Status.Networks = nil
-		return reconcile.Result{}, nil
-	}
-
 	if len(vm.Spec.Networks) > 1 {
 		if !h.featureGate.Enabled(featuregates.SDN) {
 			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisable).Message("For additional network interfaces, please enable SDN module")
