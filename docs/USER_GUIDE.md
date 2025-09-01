@@ -269,6 +269,10 @@ Project image two storage options are supported:
 - `ContainerRegistry` - the default type in which the image is stored in `DVCR`.
 - `PersistentVolumeClaim` - the type that uses `PVC` as the storage for the image. This option is preferred if you are using storage that supports `PVC` fast cloning, which allows you to create disks from images faster.
 
+{{< alert level="warning" >}}
+Using an image with the `storage: PersistentVolumeClaim` parameter is allowed for creating disks that belong to the same storage class (StorageClass).
+{{< /alert >}}
+
 A full description of the `VirtualImage` resource configuration settings can be found at [link](cr.html#virtualimage).
 
 ### Creating image from HTTP server
