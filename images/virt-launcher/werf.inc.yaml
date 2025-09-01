@@ -129,6 +129,7 @@ packages:
 - zlib zstd p11-kit linux-pam
 - libssh libssh2
 - libpixman libqpl rdma-core
+- krb5 xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -208,8 +209,6 @@ import:
   includePaths:
   - node-labeller
   - vlctl
-
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 
 # Statically builded
 - image: {{ .ModuleNamePrefix }}packages/openssl
@@ -404,7 +403,8 @@ git:
       install:
       - '**/*'
 import:
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" "xz" "krb5" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}

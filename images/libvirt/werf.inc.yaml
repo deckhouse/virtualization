@@ -92,6 +92,7 @@ packages:
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
+- krb5 xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -116,8 +117,6 @@ import:
   add: /qemu-img
   to: /qemu-img
   before: install
-{{- $images := list "krb5" "xz" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

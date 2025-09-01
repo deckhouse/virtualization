@@ -27,8 +27,6 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 import:
-{{- $images := list "xz" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
 {{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
   beforeInstall:
@@ -85,7 +83,7 @@ binaries:
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
 packages:
-- bzip2 file nbdkit libnbd
+- bzip2 file nbdkit libnbd xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

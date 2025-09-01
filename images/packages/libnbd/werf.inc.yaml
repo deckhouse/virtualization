@@ -7,8 +7,6 @@ import:
   add: /out
   to: /{{ $.ImageName }}
   before: setup
-{{- $images := list "xz" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
@@ -35,7 +33,7 @@ altPackages:
 - liburing-devel libxml2-devel perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
-- gnutls libidn2 libgmp ubdsrv
+- gnutls libidn2 libgmp ubdsrv xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
