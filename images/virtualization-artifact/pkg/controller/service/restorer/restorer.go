@@ -135,8 +135,7 @@ func (r SecretRestorer) setVirtualMachine(secret *corev1.Secret, vm *virtv2.Virt
 		return err
 	}
 
-	secret.Data[virtualMachineKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
-
+	secret.Data[virtualMachineKey] = JSON
 	return nil
 }
 
@@ -172,8 +171,7 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 		return err
 	}
 
-	secret.Data[virtualMachineBlockDeviceAttachmentKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
-
+	secret.Data[virtualMachineBlockDeviceAttachmentKey] = JSON
 	return nil
 }
 
@@ -245,8 +243,7 @@ func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *
 		return err
 	}
 
-	secret.Data[virtualMachineIPAddressKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
-
+	secret.Data[virtualMachineIPAddressKey] = JSON
 	return nil
 }
 
@@ -273,12 +270,16 @@ func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secre
 		vmmacs = append(vmmacs, *vmmac)
 	}
 
+	if len(vmmacs) == 0 {
+		return nil
+	}
+
 	JSON, err := json.Marshal(vmmacs)
 	if err != nil {
 		return err
 	}
 
-	secret.Data[virtualMachineMACAddressesKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
+	secret.Data[virtualMachineMACAddressesKey] = JSON
 	return nil
 }
 
@@ -331,9 +332,17 @@ func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secr
 		return err
 	}
 
-	secret.Data[provisionerKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
-
+	secret.Data[provisionerKey] = JSON
 	return nil
+}
+
+func extractJSON(data []byte) []byte {
+	jsonData, err := base64.StdEncoding.DecodeString(string(data))
+	if err != nil {
+		return data
+	}
+
+	return jsonData
 }
 
 func get[T any](secret *corev1.Secret, key string) (T, error) {
@@ -344,12 +353,8 @@ func get[T any](secret *corev1.Secret, key string) (T, error) {
 		return t, nil
 	}
 
-	JSON, err := base64.StdEncoding.DecodeString(string(data))
-	if err != nil {
-		return t, err
-	}
-
-	err = json.Unmarshal(JSON, &t)
+	jsonData := extractJSON(data)
+	err := json.Unmarshal(jsonData, &t)
 	if err != nil {
 		return t, err
 	}
