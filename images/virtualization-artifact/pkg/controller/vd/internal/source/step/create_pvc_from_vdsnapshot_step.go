@@ -123,10 +123,16 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 }
 
 func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
-	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
-	if storageClassName == "" {
-		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+	var storageClassName string
+	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
+		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
+	} else {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassName]
+		if storageClassName == "" {
+			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+		}
 	}
+
 	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
 	if volumeMode == "" {
 		volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
