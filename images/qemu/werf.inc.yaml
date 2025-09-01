@@ -64,6 +64,22 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
+packages:
+- dmidecode
+- libgcrypt
+- nettle
+- libcap-ng
+- libcapstone
+- openssl
+- libcurl
+- e2fsprogs
+- libxcrypt
+- numactl
+- lzo
+- lz4
+- krb5
+- openldap
+- xz
 altPackages:
 - binutils
 - pkgconfig pkg-config
@@ -151,7 +167,6 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -176,6 +191,7 @@ shell:
   install:
   - |
     # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /

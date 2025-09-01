@@ -10,6 +10,7 @@ binaries:
 - /cdi-binaries/cdi-source-update-poller
 packages:
 - libnbd
+- xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

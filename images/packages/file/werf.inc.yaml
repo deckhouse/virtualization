@@ -35,6 +35,8 @@ altPackages:
 - bzlib-devel libseccomp-devel libcap-devel libzstd-devel lzip ncompress strace
 - tree
 packages:
+- xz
+packages:
 - zlib
 {{- end -}}
 
@@ -60,6 +62,14 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
