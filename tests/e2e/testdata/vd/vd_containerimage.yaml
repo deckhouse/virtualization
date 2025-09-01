@@ -7,6 +7,7 @@ metadata:
     virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
 spec:
   persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 200Mi
   dataSource:
     type: ContainerImage

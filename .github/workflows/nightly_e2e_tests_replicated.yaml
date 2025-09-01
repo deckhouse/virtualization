@@ -1,4 +1,4 @@
-# Copyright 2024 Flant JSC
+# Copyright 2025 Flant JSC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,17 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Nightly E2E tests(main)
+name: End-to-End tests + Replicated storage
 
 env:
+  CSI: replicated.csi.storage.deckhouse.io
+  STORAGE_CLASS_NAME: linstor-thin-r1-immediate
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
-  GO_VERSION: "1.24.6"
+  GO_VERSION: "1.24.5"
   TIMEOUT: "2h"
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 3 * * *"
 
 defaults:
   run:
@@ -81,21 +83,42 @@ jobs:
           path: /tmp/e2e_failed__*
           if-no-files-found: ignore
 
-      - name: Send results to Loop
+      - name: Save results
         working-directory: ./tests/e2e/
         if: always()
         run: |
           if [ -z "$SUMMARY" ]; then
-            SUMMARY="
-            ### :dvp: **DVP $DATE Nightly e2e Tests**
-
-            **Branch:** \`$GITHUB_REF_NAME\`
-            **Status: :question: UNKNOWN**
-
-            [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
-            "
+            SUMMARY=$(jq -n \
+              --arg csi "$CSI" \
+              --arg date "$DATE" \
+              --arg startTime "$START_TIME" \
+              --arg branch "$GITHUB_REF_NAME" \
+              --arg status ":question: UNKNOWN" \
+              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+              '{
+                CSI: $csi,
+                Date: $date,
+                StartTime: $startTime,
+                Branch: $branch,
+                Status: $status,
+                Link: $link
+              }'
+            )
           fi
           echo $SUMMARY
-          curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
-        env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+
+          hash=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 | md5sum | awk '{print $1}')
+
+          kubectl apply --filename - <<EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "end-to-end-tests-report-$STORAGE_CLASS_NAME-$DATE-${hash:0:8}"
+            namespace: default
+            labels:
+              storageClass: "$STORAGE_CLASS_NAME"
+          type: Opaque
+          stringData:
+            summary: |
+          $(echo "$SUMMARY" | sed 's/^/    /')
+          EOF
