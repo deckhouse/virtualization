@@ -87,5 +87,10 @@ shell:
     make -j$(nproc)
     DESTDIR=$OUTDIR make install
     rm -rf $OUTDIR/usr/lib64/cmake
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
     tree -sp $OUTDIR
 

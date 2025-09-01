@@ -5,7 +5,7 @@
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc gcc-c++
 - git curl
 - bash-completion
@@ -23,6 +23,8 @@ packages:
 - libssl-devel
 - libssl-devel libdwarf-devel libuuid-devel
 - bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
+packages:
+- libisoburn libburn libisofs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -63,8 +65,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     echo "Git clone Edk2 repository..."
     git clone \
       --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
@@ -124,7 +124,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -132,7 +132,7 @@ shell:
   - |
     cd /{{ $gitRepoName }}-{{ $version }}
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /

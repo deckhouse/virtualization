@@ -67,5 +67,10 @@ shell:
     ninja-build -j$(nproc) -C _build
     DESTDIR=$OUTDIR ninja-build install -C _build
     rm -rf $OUTDIR/usr/share
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
     tree -hp $OUTDIR
 

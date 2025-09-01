@@ -67,6 +67,10 @@ shell:
 
     make -j$(nproc)
     make DESTDIR=$OUTDIR install-strip
+    find $OUTDIR -type f -executable | while read -r execfile; do
+      if strip "$execfile"; then
+        echo "Stripped: $execfile"
+      fi
+    done
 
     tree $OUTDIR
-
