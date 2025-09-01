@@ -53,6 +53,9 @@ package:
   nghttp3: v1.11.0
   numactl: v2.0.19
   openssl: openssl-3.4.1
+  p11-kit: v0.25.5
+  linux-pam: v1.6.0
+  libssh: v0.11.0
   swtpm: v0.10.0
   zlib: v1.3.1
   util-linux: v2.41.1
