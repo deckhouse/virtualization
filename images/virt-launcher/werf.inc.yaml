@@ -240,6 +240,7 @@ import:
   before: setup
   includePaths:
   - temp_pod
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
