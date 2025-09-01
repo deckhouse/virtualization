@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /p11-kit
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -26,10 +26,9 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc gcc-c++ make meson 
-- ninja pkg-config 
-- glib2-devel libffi-devel libtasn1-devel libnss-devel
-- gettext-devel openssl-devel ca-certificates
+- git gcc gcc-c++ make meson ninja-build pkg-config 
+- glib2-devel libffi-devel libtasn1-devel gettext-devel 
+- openssl-devel ca-certificates
 - tree
 # packages:
 {{- end -}}
@@ -59,20 +58,25 @@ shell:
 
     cd /src
 
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --libdir=lib64 \
-      --sysconfdir=/etc \
-      --localstatedir=/var \
-      --enable-shared \
-      --disable-static \
-      --disable-doc
+    meson setup builddir --prefix=/usr --buildtype=release
+    ninja -C builddir
+    DESTDIR=${OUTDIR} meson install -C builddir
 
-    make -j $(nproc)
-    make install DESTDIR=$OUTDIR
-    strip $OUTDIR/usr/bin/p11-kit
-    strip $OUTDIR/usr/lib64/libp11-kit.so.*
-    tree -sp $OUTDIR
+
+    # ./autogen.sh
+    # ./configure \
+    #   --prefix=/usr \
+    #   --libdir=lib64 \
+    #   --sysconfdir=/etc \
+    #   --localstatedir=/var \
+    #   --enable-shared \
+    #   --disable-static \
+    #   --disable-doc
+
+    # make -j $(nproc)
+    # make install DESTDIR=$OUTDIR
+    # strip $OUTDIR/usr/bin/p11-kit
+    # strip $OUTDIR/usr/lib64/libp11-kit.so.*
+    # tree -sp $OUTDIR
 
     # DESTDIR=$OUTDIR ninja install

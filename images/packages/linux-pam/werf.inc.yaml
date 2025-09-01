@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /linux-pam
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -27,10 +27,13 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config
-- meson ninja flex
-- libselinux-devel audit-libs-devel byacc libxcrypt-devel
-- gettext-devel 
+- meson ninja-build flex
+- libdb4-devel docbook5-schemas docbook5-style-xsl xsltproc w3m
+- libselinux-devel libaudit-devel byacc
+- gettext-devel
 - tree
+packages:
+- libxcrypt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -43,6 +46,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -54,23 +58,25 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
 
     cd /src
 
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --libdir=lib64 \
-      --sysconfdir=/etc \
-      --localstatedir=/var \
-      --enable-shared \
-      --enable-static \
-      --disable-doc
+    meson setup build --prefix=/usr --buildtype=release
+    ninja -C build
+    DESTDIR=${OUTDIR} meson install -C build
 
-    make -j $(nproc)
-    make install -j $(nproc) DESTDIR=$OUTDIR
-    strip $OUTDIR/usr/lib64/libpam.so.*
-    strip $OUTDIR/usr/lib64/libpamc.so.*
-    strip $OUTDIR/usr/lib64/libpam_misc.so.*
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
     tree -sp $OUTDIR

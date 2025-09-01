@@ -56,6 +56,7 @@ package:
   p11-kit: 0.25.5
   linux-pam: v1.7.1
   libssh: libssh-0.11.2
+  libssh2: libssh2-1.11.1
   swtpm: v0.10.0
   zlib: v1.3.1
   util-linux: v2.41.1

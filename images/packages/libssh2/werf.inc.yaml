@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libssh.git" }}
+{{- $gitRepoUrl := "libssh2/libssh2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -27,8 +27,8 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel libzstd-devel
-- python3
+- openssl-devel libgcrypt-devel libkrb5-devel libzstd-devel libmbedtls-devel
+- ca-certificates
 - tree
 {{- end -}}
 
@@ -62,17 +62,18 @@ shell:
       -DCMAKE_INSTALL_LIBDIR=lib64 \
       -DCMAKE_BUILD_TYPE=Release \
       -DBUILD_SHARED_LIBS=ON \
-      -DWITH_ZLIB=ON \
-      -DWITH_GSSAPI=ON \
-      -DWITH_SERVER=ON
+      -DBUILD_STATIC_LIBS=OFF \
+      -DBUILD_EXAMPLES=OFF \
+      -DBUILD_TESTS=OFF \
+      -DUNIT_TESTING=OFF
 
     cmake --build build -j$(nproc)
     DESTDIR=${OUTDIR} cmake --install build
-
+    
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
-
+    
     tree -sp $OUTDIR
