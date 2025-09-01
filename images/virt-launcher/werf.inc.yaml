@@ -422,7 +422,7 @@ shell:
 {{- end }}
   - |
     # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
+    PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
