@@ -20,18 +20,14 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make glibc-devel-static musl-devel-static
-- autoconf automake libtool makeinfo
-- autoconf libtool makeinfo gettext-devel po4a
+- gcc git make autoconf automake libtool makeinfo
+- gettext-devel po4a
 - zlib-devel
 - tree
 {{- end -}}
