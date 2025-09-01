@@ -2818,37 +2818,40 @@ Important: resources are created only if they were present in the VM configurati
 
 #### Restore a virtual machine
 
-There are two modes used for restoring a virtual machine. They are defined by the restoreMode parameter of the VirtualMachineRestore resource:
+Для восстановления ВМ из снимка используется ресурс `VirtualMachineOperation` с типом `restore`.
+
+Пример:
 
 ```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: restore-vm
 spec:
-  restoreMode: Safe | Forced
+  type: Restore
+  virtualMachineName: <название ВМ, которую требуюется восстановить>
+  restore:
+    mode: DryRun | Strict | BestEffort
+    virtualMachineSnapshotName: <название снимка ВМ из которого требуюется восстановить>
 ```
 
-`Safe` is used by default.
+Для данной операции возможно использовать один из трех режимов:
 
-{{< alert level="warning">}}
-To restore a virtual machine in `Safe` mode, you must delete its current configuration and all associated disks. This is because the restoration process returns the virtual machine and its disks to the state recorded at the snapshot's creation time.
-{{< /alert >}}
+- `DryRun` - холостой запуск операции восстановления, необходим для проверки возможных конфликтов, которые будут отображены в статусе ресурса.
+- `Strict` - режим строго восстановления, когда требуется восстановление ВМ "как в снимке", отсутствующие внешние зависимости потенциально могут привести ктому, что ВМ после восстановления будет в Pending.
+- `BestEffort` - отсутствующие внешние зависимости (ClusterVirtualImage, VirtualImage, Secret) удаляются из конфигурации ВМ.
 
-The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot.
+Восстановление виртуальной машины (ВМ) из снимка возможно только при выплнении следующих условий:
+- Восстанавливаемая ВМ доступна в кластере (существует ресурс `VirtualMachine`).
+- Восстанавливаемые диски не подключены к другой ВМ или отсутствуют в кластере.
+- Восстанавливаемый IP-адрес не используется другой ВМ или является свободным.
+- Восстанавливаемые MAC-адреса не используется другой ВМ или являются свободным.
 
-{{< alert level="warning" >}}
-`Forced` may disrupt the operation of the existing virtual machine because it will be stopped during restoration, and `VirtualDisks` and `VirtualMachineBlockDeviceAttachments` resources will be deleted for subsequent restoration.
-{{< /alert >}}
-
-Example manifest for restoring a virtual machine from a snapshot in `Safe` mode:
+Информацию о конфликтах при восстановлении ВМ из снимка можно посмотреть в статусе ресурса:
 
 ```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineRestore
-metadata:
-  name: <restore name>
-spec:
-  restoreMode: Safe
-  virtualMachineSnapshotName: <virtual machine snapshot name>
-EOF
+status:
+  resources: []
 ```
 
 #### Creating a VM clone / Using a VM snapshot as a template for creating a VM
