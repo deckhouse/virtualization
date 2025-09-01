@@ -10,15 +10,13 @@ spec:
   scope: Cluster
   names:
     categories:
-      - virtualization
+      - virtualization-cluster
     plural: virtualmachinemacaddressleases
     singular: virtualmachinemacaddresslease
     kind: VirtualMachineMACAddressLease
     shortNames:
       - vmmacl
-      - vmmacls
       - vmmaclease
-      - vmmacleases
   versions:
     - name: v1alpha2
       schema:
