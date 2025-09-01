@@ -113,8 +113,7 @@ import:
   add: /build.sh
   to: /build.sh
   before: install
-{{- $images := list "libisoburn" "libisofs" "libburn" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
