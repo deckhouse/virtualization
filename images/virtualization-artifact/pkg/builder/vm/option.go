@@ -49,3 +49,10 @@ func WithMemory(size resource.Quantity) Option {
 		vm.Spec.Memory.Size = size
 	}
 }
+
+func WithBlockDeviceRefs(bdRefs ...v1alpha2.BlockDeviceSpecRef) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{}
+		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, bdRefs...)
+	}
+}
