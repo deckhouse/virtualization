@@ -25,10 +25,10 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
-- gcc git make autoconf automake libtool makeinfo
-- gettext-devel po4a
-- zlib-devel
+altPackages:
+- git gcc gcc-c++ make cmake pkg-config zlib-devel
+- openssl-devel libgcrypt-devel libkrb5-devel libzstd-devel
+- python3
 - tree
 {{- end -}}
 
@@ -47,7 +47,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 

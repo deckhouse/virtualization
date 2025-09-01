@@ -25,12 +25,13 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
-- gcc git make glibc-devel-static musl-devel-static
-- autoconf automake libtool makeinfo
-- gettext-devel po4a
-- zlib-devel
+altPackages:
+- git gcc gcc-c++ make meson 
+- ninja pkg-config 
+- glib2-devel libffi-devel libtasn1-devel libnss-devel
+- gettext-devel openssl-devel ca-certificates
 - tree
+# packages:
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -48,7 +49,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -65,11 +66,13 @@ shell:
       --sysconfdir=/etc \
       --localstatedir=/var \
       --enable-shared \
-      --enable-static \
+      --disable-static \
       --disable-doc
 
     make -j $(nproc)
-    make install -j $(nproc) DESTDIR=$OUTDIR
+    make install DESTDIR=$OUTDIR
     strip $OUTDIR/usr/bin/p11-kit
     strip $OUTDIR/usr/lib64/libp11-kit.so.*
     tree -sp $OUTDIR
+
+    # DESTDIR=$OUTDIR ninja install
