@@ -620,8 +620,6 @@ AccessMode:
 - `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with such disks is possible only in the DVP commercial editions.
 - `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
 
-![vd-rwo-vs-rwx](images/vd-rwo-vs-rwx.png)
-
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
 Attention: It is impossible to create disks from iso-images!
