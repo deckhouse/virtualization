@@ -42,10 +42,7 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *virtv2.VirtualMachine, 
 
 	sizePolicy := getVMSizePolicy(vm, vmClass)
 	if sizePolicy == nil {
-		return fmt.Errorf(
-			"virtual machine %q resources do not match any sizing policies in class %q",
-			vm.Name, vm.Spec.VirtualMachineClassName,
-		)
+		return NewNoSizingPolicyMatchError(vm.Name, vm.Spec.VirtualMachineClassName)
 	}
 
 	var errorsArray []error
@@ -76,7 +73,7 @@ func getVMSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineCl
 }
 
 func validateCoreFraction(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
-	if sp.CoreFractions == nil {
+	if len(sp.CoreFractions) == 0 {
 		return
 	}
 
