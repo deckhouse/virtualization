@@ -29,8 +29,7 @@ altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - meson ninja-build
-- libssl-devel 
-# - python3-devel python3-module-setuptools
+- libssl-devel
 - gettext-devel liblzma-devel
 - xz git
 packages:
