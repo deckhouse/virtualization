@@ -56,6 +56,31 @@ func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *virtv2
 				*newVD.Spec.PersistentVolumeClaim.StorageClass,
 			)
 		}
+		if !v.scService.IsStorageClassAllowed(*newVD.Spec.PersistentVolumeClaim.StorageClass) {
+			return nil, fmt.Errorf(
+				"the storage class %q is not allowed; please check the module settings",
+				*newVD.Spec.PersistentVolumeClaim.StorageClass,
+			)
+		}
+	} else {
+		mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
+		if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
+			return nil, fmt.Errorf("failed to fetch a default storage class from module config: %w", err)
+		}
+
+		if mcDefaultStorageClass == nil {
+			defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
+			if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
+				return nil, fmt.Errorf("failed to fetch default storage class: %w", err)
+			}
+
+			if defaultStorageClass != nil && !v.scService.IsStorageClassAllowed(defaultStorageClass.Name) {
+				return nil, fmt.Errorf(
+					"the default storage class %q is not allowed; please check the module settings or specify a storage class name explicitly in the spec",
+					defaultStorageClass.Name,
+				)
+			}
+		}
 	}
 
 	return nil, nil
@@ -91,6 +116,32 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 					"the provisioner of the %q storage class is deprecated; please use a different one",
 					*newVD.Spec.PersistentVolumeClaim.StorageClass,
 				)
+			}
+			if !v.scService.IsStorageClassAllowed(*newVD.Spec.PersistentVolumeClaim.StorageClass) {
+				return nil, fmt.Errorf(
+					"the storage class %q is not allowed; please check the module settings",
+					*newVD.Spec.PersistentVolumeClaim.StorageClass,
+				)
+			}
+		} else {
+			// Check if default storage class is allowed when no storage class is specified
+			mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
+			if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
+				return nil, fmt.Errorf("failed to fetch a default storage class from module config: %w", err)
+			}
+
+			if mcDefaultStorageClass == nil {
+				defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
+				if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
+					return nil, fmt.Errorf("failed to fetch default storage class: %w", err)
+				}
+
+				if defaultStorageClass != nil && !v.scService.IsStorageClassAllowed(defaultStorageClass.Name) {
+					return nil, fmt.Errorf(
+						"the default storage class %q is not allowed; please check the module settings or specify a storage class name explicitly in the spec",
+						defaultStorageClass.Name,
+					)
+				}
 			}
 		}
 	}
