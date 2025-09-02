@@ -89,7 +89,6 @@ altLibs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libp11-kit-devel
   - libreadline-devel
   - libsystemd-devel
   - libjson-c-devel
@@ -139,7 +138,7 @@ packages:
 - gnutls acl libbsd libgcrypt libmd
 - util-linux libfuse3 nettle libgsasl 
 - libnbd libcap-ng libcapstone libcurl
-- zlib
+- zlib p11-kit
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
