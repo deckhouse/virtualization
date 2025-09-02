@@ -38,13 +38,6 @@ altPackages:
 - openssh-server
 - openssh-clients
 - caddy
-- pytest3
-- python3-module-cryptography
-- apache2-httpd-worker
-- apache2-devel
-- apache2-mod_ssl
-- apache2-mod_http2
-- vsftpd
 - python3-module-pytest-xdist
 - python3-module-psutil
 - python3-module-filelock
@@ -110,8 +103,6 @@ shell:
       --with-gssapi \
       --enable-websockets \
       --enable-versioned-symbols \
-      --with-test-httpd \
-      --with-test-vsftpd=/usr/sbin/vsftpd \
       --with-libssh2
 
     make -j$(nproc)

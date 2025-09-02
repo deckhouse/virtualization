@@ -28,10 +28,11 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
+- meson ninja-build
 - libssl-devel 
 - python3-devel python3-module-setuptools
-- gettext-devel
-- xz
+- gettext-devel liblzma-devel
+- xz git
 packages:
 - zlib
 {{- end -}}
@@ -69,34 +70,19 @@ shell:
 
     cd /src
     
-    ./autogen.sh \
-    --prefix=/usr/local \
-    --without-python \
-    --without-debug \
-    --without-legacy \
-    --without-catalog \
-    --without-docbook \
-    --without-ftp \
-    --without-html \
-    --without-http \
-    --without-iconv \
-    --without-iso8859x \
-    --without-modules \
-    --without-output \
-    --without-pattern \
-    --without-push \
-    --without-regexps \
-    --without-sax1 \
-    --without-schemas \
-    --without-schematron \
-    --without-trio \
-    --without-valid \
-    --without-xinclude \
-    --without-xpath \
-    --without-xptr \
-    --without-zlib \
-    --without-lzma
+    meson setup _build . \
+    -Dprefix=/usr \
+    -Dlibdir=/usr/lib64 \
+    -Dzlib=enabled \
+    -Dlzma=enabled \
+    -Dpython=disabled
 
-    make -j$(nproc)
+    DESTDIR=${OUTDIR} meson install -C _build
 
-    make DESTDIR=$OUTDIR install
+    rm -rf $OUTDIR/usr/share
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
