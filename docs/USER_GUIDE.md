@@ -2854,59 +2854,57 @@ status:
   resources: []
 ```
 
-#### Creating a VM clone / Using a VM snapshot as a template for creating a VM
+#### Creating a VM clone
 
-A snapshot of a virtual machine can be used both to create its exact copy (clone) and as a template for deploying new VMs with a similar configuration.
-
-This requires creating a `VirtualMachineRestore` resource and setting the renaming parameters in the `.spec.nameReplacements` block to avoid name conflicts.
-
-The list of resources and their names are available in the VM snapshot status in the `status.resources` block.
-
-Example manifest for restoring a VM from a snapshot:
+Клонирование виртуальной машины выполняется с использованием ресурса `VirtualMachineOperation` с типом операции `clone`.
 
 ```yaml
-d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineRestore
+kind: VirtualMachineOperation
 metadata:
-  name: <name>
+  name: <vmop-name>
 spec:
-  virtualMachineSnapshotName: <virtual machine snapshot name>
-  nameReplacements:
-    - From:
-        kind: VirtualMachine
-        name: <old vm name>
-      to: <new vm name>
-    - from:
-        kind: VirtualDisk
-        name: <old disk name>
-      to: <new disk name>
-    - from:
-        kind: VirtualDisk
-        name: <old secondary disk name>
-      to: <new secondary disk name>
-    - from:
-        kind: VirtualMachineBlockDeviceAttachment
-        name: <old attachment name>
-      to: <new attachment name>
-EOF
+  type: Clone
+  virtualMachineName: <название ВМ, которую требуюется клонировать>
+  clone:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
 ```
 
-When restoring a virtual machine from a snapshot, it is important to consider the following conditions:
+{{< alert level="warning">}}
+Клонируемой виртуальной машине будут назначены новый IP-адрес и MAC-адреса, поэтому после клонирования потребуется перенастроить сетевые параметры гостевой ОС.
+{{< /alert >}}
 
-1. If the `VirtualMachineIPAddress` resource already exists in the cluster, it must not be assigned to another VM .
-2. For static IP addresses (`type: Static`) the value must be exactly the same as what was captured in the snapshot.
-3. Automation-related secrets (such as cloud-init or sysprep configuration) must exactly match the configuration being restored.
+Клонирование создает копию существующей ВМ, поэтому ресурсы новой ВМ должны иметь уникальные имена. Для этого используются параметры `.spec.clone.nameReplacements` и/или `.spec.clone.customization`.
 
-Failure to do so will result in a restore error, and the VirtualMachineRestore resource will enter the `Failed` state. This is because the system checks the integrity of the configuration and the uniqueness of the resources to prevent conflicts in the cluster.
+`.spec.clone.nameReplacements` — позволяет заменить старые имена ресурсов на новые.
+`.spec.clone.customization` — задает префикс или суффикс для имен всех клонируемых ресурсов ВМ (дисков, IP-адресов и т. д.).
 
-When restoring or cloning a virtual machine, the operation may be successful, but the VM will remain in `Pending` state.
-This occurs if the VM depends on resources (such as disk images or virtual machine classes) or their configurations that have been changed or deleted at the time of restoration.
+Пример конфигурации:
 
-Check the VM's conditions block using the command:
+```yaml
+spec:
+  clone:
+    nameReplacements:
+      - from:
+          kind: <тип ресурса>
+          name: <старое имя>
+      - to:
+          name: <новое имя>
+    customization:
+      namePrefix: <префикс- >
+      nameSuffix: < -суффикс>
+```
+
+Для операции клонирования возможно использовать один из трех режимов:
+
+- `DryRun` — тестовый запуск для проверки возможных конфликтов. Результаты отображаются в поле `status.resources` ресурса VirtualMachineOperation.
+- `Strict` — строгий режим, требующий наличия всех ресурсов с новыми именами и их зависимостей (например, образов) в клонируемой ВМ.
+- `BestEffort` — режим, при котором отсутствующие внешние зависимости (например, ClusterVirtualImage, VirtualImage, Secret) автоматически удаляются из конфигурации клонируемой ВМ.
+
+Информацию о конфликтах, возникших при клонировании, можно просмотреть в статусе ресурса:
 
 ```bash
-d8 k vm get <vmname> -o json | jq ‘.status.conditions’
+d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 ```
-
-Check the output for errors related to missing or changed resources. Manually update the VM configuration to remove dependencies that are no longer available in the cluster.
