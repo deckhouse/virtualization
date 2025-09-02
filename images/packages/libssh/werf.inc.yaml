@@ -69,6 +69,8 @@ shell:
     cmake --build build -j$(nproc)
     DESTDIR=${OUTDIR} cmake --install build
 
+    rm -rf $OUTDIR/usr/share
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
