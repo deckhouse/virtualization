@@ -49,7 +49,7 @@ altPackages:
 - python3-module-psutil
 - python3-module-filelock
 - gnutls-utils libngtcp2-devel
-- tree nettle
+- tree
 packages:
 - openssl libidn2 libgmp gnutls nettle
 - nghttp2 nghttp3
