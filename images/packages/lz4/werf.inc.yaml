@@ -5,7 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /lz4
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
@@ -28,8 +28,8 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
-- git gcc automake make
+altPackages:
+- git gcc automake make tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -47,7 +47,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -60,3 +60,6 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     mv /out/usr/local/lib/ /out/usr/lib64
+
+    rm -rf $OUTDIR/usr/local
+    tree $OUTDIR
