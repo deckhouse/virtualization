@@ -19,8 +19,6 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altLibs:
-  - libssh-devel
-  - libssh2-devel
   - libxfs-devel
   - libpci-devel
   - libgvnc-devel
@@ -138,6 +136,7 @@ packages:
 - util-linux libfuse3 nettle libgsasl 
 - libnbd libcap-ng libcapstone libcurl
 - zlib p11-kit linux-pam
+- libssh libssh2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

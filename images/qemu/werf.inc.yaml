@@ -94,8 +94,6 @@ libraries:
 - libatomic-devel-static
 - libdw-devel
 - perl-devel
-- libssh-devel
-- libssh2-devel
 - libxfs-devel
 - libpci-devel
 - libgvnc-devel
@@ -129,6 +127,7 @@ packages:
 - dmidecode libgcrypt nettle libcap-ng libcapstone 
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib linux-pam
+- libssh libssh2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
