@@ -82,5 +82,4 @@ shell:
     fi
     done
 
-    tree -sph $OUTDIR > /out/etc/linux-pam_files.md
     tree -sph $OUTDIR
