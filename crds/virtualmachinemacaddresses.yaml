@@ -10,14 +10,12 @@ spec:
   scope: Namespaced
   names:
     categories:
-      - all
       - virtualization
     plural: virtualmachinemacaddresses
     singular: virtualmachinemacaddress
     kind: VirtualMachineMACAddress
     shortNames:
       - vmmac
-      - vmmacs
   versions:
     - name: v1alpha2
       schema:

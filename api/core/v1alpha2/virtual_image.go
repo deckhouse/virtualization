@@ -34,7 +34,7 @@ const (
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
-// +kubebuilder:resource:categories={virtualization,all},scope=Namespaced,shortName={vi,vis},singular=virtualimage
+// +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vi},singular=virtualimage
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="CDROM",type=boolean,JSONPath=`.status.cdrom`

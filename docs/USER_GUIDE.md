@@ -6,7 +6,7 @@ weight: 50
 
 ## Introduction
 
-This guide is intended for users of Deckhouse Virtualization Platform and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
+This guide is intended for users of Deckhouse Virtualization Platform (DVP) and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
 
 ## Quick start on creating a VM
 
@@ -32,12 +32,12 @@ Example of creating a virtual machine with Ubuntu 22.04.
    How to create a virtual machine image from an external source in the web interface:
 
    - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" -> "Disk Images" section.
+   - Go to the "Virtualization" → "Disk Images" section.
    - Click "Create Image".
    - Select "Load data from link (HTTP)" from the list.
    - In the form that opens, enter `ubuntu` in the "Image Name" field.
    - Select `ContainerRegistry` in the "Storage" field.
-   - In the "URL" field, paste `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img>`.
+   - In the "URL" field, paste `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img`.
    - Click the "Create" button.
    - The image status is displayed at the top left, under the image name.
 
@@ -61,12 +61,12 @@ Example of creating a virtual machine with Ubuntu 22.04.
    How to create a virtual machine disk from the image created in the previous step in the web interface (this step can be skipped and performed when creating a VM):
 
    - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" section -> "VM Disks".
+   - Go to the "Virtualization" section → "VM Disks".
    - Click "Create Disk".
    - In the form that opens, enter `linux-disk` in the "Disk Name" field.
    - In the "Source" field, make sure that the "Project" checkbox is selected.
    - Select `ubuntu` from the drop-down list
-   - In the "Size" field, you can change the size to a larger. one, for example, `5Gi`.
+   - In the "Size" field, you can change the size to a larger one, for example, `5Gi`.
    - In the "StorageClass Name" field, you can select StorageClass or leave the default selection.
    - Click the "Create" button.
    - The disk status is displayed at the top left, under the disk name.
@@ -95,7 +95,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    Create a virtual machine from the following specification:
 
    ```yaml
-   d8 k apply -f - <<"EOF"
+   d8 k apply -f - <<EOF
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualMachine
    metadata:
@@ -112,11 +112,11 @@ Example of creating a virtual machine with Ubuntu 22.04.
          #cloud-config
          ssh_pwauth: True
          users:
-         - name: cloud
-           passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-           shell: /bin/bash
-           sudo: ALL=(ALL) NOPASSWD:ALL
-           lock_passwd: False
+           - name: cloud
+             passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+             shell: /bin/bash
+             sudo: ALL=(ALL) NOPASSWD:ALL
+             lock_passwd: False
      blockDeviceRefs:
        - kind: VirtualDisk
          name: linux-disk
@@ -126,7 +126,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    How to create a virtual machine in the web interface:
 
    - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" -> "Virtual Machines" section.
+   - Go to the "Virtualization" → "Virtual Machines" section.
    - Click "Create".
    - In the form that opens, enter `linux-vm` in the "Name" field.
    - In the "Machine Parameters" section, you can leave the settings at their default values.
@@ -154,11 +154,11 @@ Example of creating a virtual machine with Ubuntu 22.04.
      #cloud-config
      ssh_pwauth: True
      users:
-     - name: cloud
-       passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-       shell: /bin/bash
-       sudo: ALL=(ALL) NOPASSWD:ALL
-       lock_passwd: False
+       - name: cloud
+         passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+         shell: /bin/bash
+         sudo: ALL=(ALL) NOPASSWD:ALL
+         lock_passwd: False
      ```
 
    - Click the "Create" button.
@@ -208,7 +208,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    How to connect to a virtual machine using the console in the web interface:
 
    - Go to the "Projects" tab and select the desired project.
-   - Go to the "Virtualization" -> "Virtual Machines" section.
+   - Go to the "Virtualization" → "Virtual Machines" section.
    - Select the required VM from the list and click on its name.
    - In the form that opens, go to the "TTY" tab.
    - Go to the console window that opens. Here you can connect to the VM.
@@ -223,7 +223,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 ## Images
 
-The `VirtualImage` resource is designed to load virtual machine images and then use them to create virtual machine disks. This resource is available only in the nymspace or project in which it was created.
+The `VirtualImage` resource is designed to load virtual machine images and then use them to create virtual machine disks. This resource is available only in the namespace or project in which it was created.
 
 When connected to a virtual machine, the image is accessed in read-only mode.
 
@@ -348,7 +348,7 @@ d8 k describe vi ubuntu-22-04
 How to create an image from an HTTP server in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Disk Images" section.
+- Go to the "Virtualization" → "Disk Images" section.
 - Click "Create Image".
 - Select "Load data from link (HTTP)" from the list.
 - In the form that opens, enter the image name in the "Image name" field.
@@ -396,7 +396,7 @@ If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified
 How to create an image and store it in PVC in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Disk Images" section.
+- Go to the "Virtualization" → "Disk Images" section.
 - Click "Create Image".
 - Select "Load data from link (HTTP)" from the list.
 - In the form that opens, enter the image name in the "mage name" field.
@@ -457,7 +457,7 @@ EOF
 How to create an image from Container Registry in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Disk Images" section.
+- Go to the "Virtualization" → "Disk Images" section.
 - Click "Create Image".
 - Select "Upload data from container image" from the list.
 - In the form that opens, enter the image name in the "Image Name" field.
@@ -564,7 +564,7 @@ EOF
 How to create an image from a disk in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Disk Images" section.
+- Go to the "Virtualization" → "Disk Images" section.
 - Click "Create Image".
 - Select "Write data from disk" from the list.
 - In the form that opens, enter `linux-vm-root` in the "Image Name" field.
@@ -597,9 +597,9 @@ EOF
 
 ## Disks
 
-Disks in virtual machines are necessary for writing and storing data, ensuring that applications and operating systems can fully function. Under the hood of these disks is the storage provided by the platform (PVC).
+Disks in virtual machines are necessary for writing and storing data, ensuring that applications and operating systems can fully function. DVP provides the storage for these disks.
 
-Depending on the storage properties, the behavior of disks during creation and virtual machines during operation may differ:
+Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
 VolumeBindingMode property:
 
@@ -613,7 +613,7 @@ VolumeBindingMode property:
 
 AccessMode:
 
-- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with these disks is not possible.
+- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with such disks is possible only in the DVP commercial editions.
 - `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
 
 ![vd-rwo-vs-rwx](images/vd-rwo-vs-rwx.png)
@@ -622,7 +622,7 @@ When creating a disk, the controller will independently determine the most optim
 
 Attention: It is impossible to create disks from iso-images!
 
-To find out the available storage options on the platform, run the following command:
+To find out the available storage options, run the following command:
 
 ```bash
 d8 k get storageclass
@@ -643,9 +643,9 @@ nfs-4-1-wffc                         nfs.csi.k8s.io                        Delet
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-How to find out the available storage options on the platform in the web interface:
+How to find out the available storage options in the DVP web interface:
 
-- Go to the "System" tab, then to the "Storage" section -> "Storage Classes".
+- Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
 ## Create an empty disk
 
@@ -702,7 +702,7 @@ blank-disk   Ready   100Mi      1m2s
 How to create an empty disk in the web interface (this step can be skipped and performed when creating a VM):
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "VM Disks" section.
+- Go to the "Virtualization" → "VM Disks" section.
 - Click "Create Disk".
 - In the form that opens, enter `blank-disk` in the "Disk Name" field.
 - In the "Size" field, set the size with the measurement units `100Mi`.
@@ -794,7 +794,7 @@ linux-vm-root-2  Ready   2590Mi     7m15s
 How to create a disk from an image in the web interface (this step can be skipped and performed when creating a VM):
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "VM Disks" section.
+- Go to the "Virtualization" → "VM Disks" section.
 - Click "Create Disk".
 - In the form that opens, enter `linux-vm-root` in the "Disk Name" field.
 - In the "Source" field, make sure that the "Project" checkbox is selected.
@@ -845,7 +845,7 @@ How to change the disk size in the web interface:
 Method #1:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "VM Disks" section.
+- Go to the "Virtualization" → "VM Disks" section.
 - Select the desired disk and click on the pencil icon in the "Size" column.
 - In the pop-up window, you can change the size to a larger one.
 - Click on the "Apply" button.
@@ -854,7 +854,7 @@ Method #1:
 Method #2:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "VM Disks" section.
+- Go to the "Virtualization" → "VM Disks" section.
 - Select the desired disk and click on its name.
 - In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
 - Click on the "Save" button that appears.
@@ -867,7 +867,7 @@ The `VirtualMachine` resource is used to create a virtual machine, its parameter
 - [virtual machine class](admin_guide.html#virtual-machine-classes)
 - resources required for virtual machine operation (processor, memory, disks and images);
 - rules of virtual machine placement on cluster nodes;
-- boot loader settings and optimal parameters for the guest OS;
+- bootloader settings and optimal parameters for the guest OS;
 - virtual machine startup policy and policy for applying changes;
 - initial configuration scenarios (cloud-init);
 - list of block devices.
@@ -883,7 +883,7 @@ The password in the example was generated using the command `mkpasswd --method=S
 Create a virtual machine with the disk created [previously](#creating-a-disk-from-an-image):
 
 ```yaml
-d8 k apply -f - <<"EOF"
+d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
@@ -907,11 +907,11 @@ spec:
         - systemctl enable --now qemu-guest-agent.service
       ssh_pwauth: True
       users:
-      - name: cloud
-        passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        lock_passwd: False
+        - name: cloud
+          passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+          shell: /bin/bash
+          sudo: ALL=(ALL) NOPASSWD:ALL
+          lock_passwd: False
       final_message: "The system is finally up, after $UPTIME seconds"
   # VM resource settings.
   cpu:
@@ -948,7 +948,7 @@ After creation, the virtual machine will automatically get an IP address from th
 How to create a virtual machine in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Click "Create".
 - In the form that opens, enter `linux-vm` in the "Name" field.
 - In the "Machine Parameters" section, set `1` in the "Cores" field.
@@ -973,11 +973,11 @@ How to create a virtual machine in the web interface:
     - systemctl enable --now qemu-guest-agent.service
   ssh_pwauth: True
   users:
-  - name: cloud
-    passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-    shell: /bin/bash
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    lock_passwd: False
+    - name: cloud
+      passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+      shell: /bin/bash
+      sudo: ALL=(ALL) NOPASSWD:ALL
+      lock_passwd: False
   final_message: "The system is finally up, after $UPTIME seconds"
   ```
 
@@ -1103,7 +1103,7 @@ Visualization on the example of virtual machines with the following CPU configur
 
 VM1:
 
-```
+```yaml
 spec:
   cpu:
     cores: 1
@@ -1315,7 +1315,7 @@ d8 v ssh cloud@linux-vm --local-ssh
 How to connect to a virtual machine in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - In the form that opens, go to the "TTY" tab to work with the serial console.
 - In the form that opens, go to the "VNC" tab to connect via VNC.
@@ -1333,7 +1333,7 @@ The virtual machine startup policy is intended for automated virtual machine sta
 How to select a VM startup policy in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the desired VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Additional Settings" section.
 - Select the desired policy from the Startup Policy combo box.
@@ -1385,7 +1385,7 @@ A list of possible operations is given in the table below:
 How to perform the operation in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the desired virtual machine from the list and click the ellipsis button.
 - In the pop-up menu, you can select possible operations for the VM.
 
@@ -1416,7 +1416,7 @@ If the virtual machine is running (`.status.phase: Running`), the way the change
 How to change the VM configuration in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - You are now on the "Configuration" tab, where you can make changes.
 - The list of changed parameters and a warning if the VM needs to be restarted are displayed at the top of the page.
@@ -1524,7 +1524,7 @@ spec:
 How to perform the operation in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines”"section.
+- Go to the "Virtualization" → "Virtual Machines”"section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Additional Settings" section.
 - Enable the "Auto-apply changes" switch.
@@ -1639,7 +1639,7 @@ When changing placement parameters:
 How to manage VM placement parameters by nodes in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Placement" section.
 
@@ -1795,7 +1795,7 @@ spec:
 How to work with static block devices in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
 - You can add, extract, delete, resize, and reorder static block devices in the "Boot Disks" section.
@@ -1886,7 +1886,7 @@ EOF
 How to work with dynamic block devices in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
 - You can add, extract, delete, and resize dynamic block devices in the "Additional Disks" section.
@@ -1928,7 +1928,7 @@ virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 How to add labels and annotations to VMs in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the desired VM from the list and click on its name.
 - Go to the "Meta" tab.
 - You can add labels in the "Labels" section.
@@ -1985,7 +1985,7 @@ EOF
 How to perform the operation in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Network" -> "Services" section.
+- Go to the "Network" → "Services" section.
 - In the window that opens, configure the service settings.
 - Click on the "Create" button.
 
@@ -2099,7 +2099,7 @@ EOF
 How to publish a VM service using Ingress in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Network" -> "Ingresses" section.
+- Go to the "Network" → "Ingresses" section.
 - Click the "Create Ingress" button.
 - In the window that opens, configure the service settings.
 - Click the "Create" button.
@@ -2219,7 +2219,7 @@ You can interrupt any live migration while it is in the `Pending`, `InProgress` 
 How to view active operations in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - Go to the "Events" tab.
 
@@ -2284,7 +2284,7 @@ linux-vm                              Running     virtlab-pt-2   10.66.10.14   7
 How to perform a live VM migration in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the desired virtual machine from the list and click the ellipsis button.
 - Select "Migrate" from the pop-up menu.
 - Confirm or cancel the migration in the pop-up window.
@@ -2315,7 +2315,9 @@ spec:
 
 Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
 
-## IP addresses of virtual machines
+## Network configuration
+
+### IP addresses of virtual machines
 
 The `.spec.settings.virtualMachineCIDRs` block in the virtualization module configuration specifies a list of subnets to assign ip addresses to virtual machines (a shared pool of ip addresses). All addresses in these subnets are available for use except the first (network address) and the last (broadcast address).
 
@@ -2363,7 +2365,7 @@ The full description of `vmip` and `vmipl` machine resource configuration parame
 - [`VirtualMachineIPAddress`](cr.html#virtualmachineipaddress)
 - [`VirtualMachineIPAddressLease`](cr.html#virtualmachineipaddresslease)
 
-### How to request a required ip address?
+#### How to request a required ip address?
 
 Task: request a specific ip address from the `virtualMachineCIDRs` subnets.
 
@@ -2388,7 +2390,7 @@ spec:
   virtualMachineIPAddressName: linux-vm-custom-ip
 ```
 
-### How to save the ip address assigned to the virtual machine?
+#### How to save the ip address assigned to the virtual machine?
 
 Objective: to save the ip address issued to a virtual machine for reuse after the virtual machine is deleted.
 
@@ -2415,7 +2417,7 @@ spec:
   virtualMachineIPAddressName: linux-vm-7prpx
 ```
 
-Even if the `vmip` resource is deleted, IP adress remains rented for the current project/namespace for another 10 minutes. Therefore, it is possible to reoccupy it on request:
+Even if the `vmip` resource is deleted, IP address remains rented for the current project/namespace for another 10 minutes. Therefore, it is possible to reoccupy it on request:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2428,6 +2430,127 @@ spec:
   type: Static
 EOF
 ```
+
+### Additional network interfaces
+
+Virtual machines can be connected not only to the main cluster network interface but also to additional networks provided by the `d8-sdn` module. Such networks include project Networks and ClusterNetworks.
+
+Additional networks are defined in the `.spec.networks` configuration block. If this block is absent (default value), the VM is connected only to the main cluster network.
+
+{{< alert level=“warning” >}}
+Changes to the list of additional networks (adding or removing) take effect only after the VM is rebooted.
+{{< /alert >}}
+
+{{< alert level=“info” >}}
+To avoid changing the order of network interfaces inside the guest OS, always add new networks to the end of the `.spec.networks` list.
+{{< /alert >}}
+
+Conditions and limitations:
+
+- The `d8-sdn` module is required to work with additional networks.
+- The order of networks in `.spec.networks` determines the sequence in which interfaces are attached to the VM bus.
+- Configuration of network parameters (IP addresses, gateways, DNS, etc.) in additional networks must be performed manually inside the guest OS (for example, via cloud-init).
+
+Example of connecting a VM to the project network `user-net`:
+
+```yaml
+spec:
+  networks:
+    - type: Main # Must always be specified first
+    - type: Network # Network type (Network \ ClusterNetwork)
+      name: user-net # Network name
+```
+
+It is allowed to connect a VM to the same network multiple times. Example:
+
+```yaml
+spec:
+  networks:
+    - type: Main # Must always be specified first
+    - type: Network
+      name: user-net # Network name
+    - type: Network
+      name: user-net # Network name
+```
+
+Example of connecting to the cluster network `corp-net`:
+
+```yaml
+spec:
+  networks:
+    - type: Main # Must always be specified first
+    - type: Network
+      name: user-net
+    - type: Network
+      name: user-net
+    - type: ClusterNetwork
+      name: corp-net # Network name
+```
+
+You can view information about connected networks and their MAC addresses in the VM status:
+
+```yaml
+status:
+  networks:
+    - type: Main
+    - type: Network
+      name: user-net
+      macAddress: aa:bb:cc:dd:ee:01
+    - type: Network
+      name: user-net
+      macAddress: aa:bb:cc:dd:ee:02
+    - type: ClusterNetwork
+      name: corp-net
+      macAddress: aa:bb:cc:dd:ee:03
+```
+
+For each additional network interface, a unique MAC address is automatically generated and reserved to avoid collisions. The following resources are used for this: `VirtualMachineMACAddress` (`vmmac`) and `VirtualMachineMACAddressLease` (`vmmacl`).
+
+The MAC address is generated randomly from the allowed ranges:
+
+- Ranges: `x2-xx-xx-xx-xx-xx`, `x6-xx-xx-xx-xx-xx`, `xA-xx-xx-xx-xx-xx`, `xE-xx-xx-xx-xx-xx`.
+- The first three octets (OUI) are formed based on the cluster UUID, the last three (NIC) are chosen randomly from 16 million possible combinations.
+
+`VirtualMachineMACAddressLease` (`vmmacl`) is a cluster resource that manages the lease of MAC addresses from the shared MAC address pool.
+
+To see the list of MAC address leases (`vmmacl`), use the command:
+
+```bash
+d8 k get vmmacl
+```
+
+Example output:
+
+```txt
+NAME                    VIRTUALMACHINEMACADDRESS                      STATUS   AGE
+mac-5e-e6-19-22-0f-d8   {"name":"vm-01-fz9cr","namespace":"pr-sdn"}   Bound    45s
+mac-5e-e6-19-29-89-cf   {"name":"vm-01-99qj6","namespace":"pr-sdn"}   Bound    45s
+mac-5e-e6-19-54-f9-be   {"name":"vm-01-5jqxg","namespace":"pr-sdn"}   Bound    45s
+```
+
+`VirtualMachineMACAddress` (`vmmac`) is a project-level resource that is responsible for reserving leased MAC addresses and binding them to virtual machines.
+
+MAC addresses are automatically assigned to each additional VM interface from the shared address pool and remain assigned until the VM is deleted.
+
+You can check the assigned MAC addresses using the command:
+
+```bash
+d8 k get vmmac
+```
+
+Example output:
+
+```txt
+NAME          ADDRESS             STATUS     VM      AGE
+vm-01-5jqxg   5e:e6:19:54:f9:be   Attached   vm-01   5m42s
+vm-01-99qj6   5e:e6:19:29:89:cf   Attached   vm-01   5m42s
+vm-01-fz9cr   5e:e6:19:22:0f:d8   Attached   vm-01   5m42s
+```
+
+When a network is removed from the VM configuration:
+
+- The MAC address of the interface is released.
+- The associated `VirtualMachineMACAddress` and `VirtualMachineMACAddressLease` resources are automatically deleted.
 
 ## Snapshots
 
@@ -2442,7 +2565,7 @@ To ensure data integrity, a disk snapshot can be created in the following cases:
 - The disk is not attached to any virtual machine.
 - The VM is powered off.
 - The VM is running, but qemu-guest-agent is installed in the guest OS.
-The file system has been successfully "frozen”"(fsfreeze operation).
+The file system has been successfully "frozen" (fsfreeze operation).
 
 If data consistency is not required (for example, for test scenarios), a snapshot can be created:
 
@@ -2473,7 +2596,7 @@ EOF
 To view a list of disk snapshots, run the following command:
 
 ```bash
-d k get vdsnapshot
+d8 k get vdsnapshot
 ```
 
 Example output:
@@ -2498,7 +2621,7 @@ A full description of the `VirtualDiskSnapshot` resource configuration parameter
 How to create a disk image in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Disk Images" section.
+- Go to the "Virtualization" → "Disk Images" section.
 - Click "Create Disk Snapshot".
 - In the "Disk Snapshot Name" field, enter a name for the snapshot.
 - On the "Configuration" tab, in the "Disk Name" field, select the disk from which the snapshot will be created.
@@ -2532,7 +2655,7 @@ EOF
 How to restore a disk from a previously created snapshot in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "VM Disks" section.
+- Go to the "Virtualization" → "VM Disks" section.
 - Click "Create Disk""
 - In the form that opens, enter a name for the disk in the "Disk Name" field.
 - In the "Source" field, make sure the "Snapshots" checkbox is selected.
@@ -2646,7 +2769,7 @@ status:
 How to create a VM snapshot in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" -> "Virtual Machines" section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - Go to the "Snapshots" tab.
 - Click the "Create" button.
@@ -2661,34 +2784,37 @@ How to create a VM snapshot in the web interface:
 
 The `VirtualMachineRestore` resource is used to restore a virtual machine from a snapshot. During the restore process, the following objects are automatically created in the cluster:
 
-- VirtualMachine - the main VM resource with the configuration from the snapshot.
-- VirtualDisk - disks connected to the VM at the moment of snapshot creation.
-- VirtualBlockDeviceAttachment - disk connections to the VM (if they existed in the original configuration).
-- VirtualMachineIPAddress — the IP address of the virtual machine (if the `keepIPAddress: Always` parameter was specified at the time of snapshot creation).
-- Secret - secrets with cloud-init or sysprep settings (if they were involved in the original VM).
+- VirtualMachine: The main VM resource with the configuration from the snapshot.
+- VirtualDisk: Disks connected to the VM at the moment of snapshot creation.
+- VirtualBlockDeviceAttachment: Disk connections to the VM (if they existed in the original configuration).
+- VirtualMachineIPAddress: The IP address of the virtual machine (if the `keepIPAddress: Always` parameter was specified at the time of snapshot creation).
+- VirtualMachineMACAddress: The MAC address of additional network interfaces when a VM is connected to additional networks.
+- Secret: Secrets with cloud-init or sysprep settings (if they were involved in the original VM).
 
 Important: resources are created only if they were present in the VM configuration at the time the snapshot was created. This ensures that an exact copy of the environment is restored, including all dependencies and settings.
 
 #### Restore a virtual machine
 
 There are two modes used for restoring a virtual machine. They are defined by the restoreMode parameter of the VirtualMachineRestore resource:
+
 ```yaml
 spec:
   restoreMode: Safe | Forced
 ```
+
 `Safe` is used by default.
 
 {{< alert level="warning">}}
 To restore a virtual machine in `Safe` mode, you must delete its current configuration and all associated disks. This is because the restoration process returns the virtual machine and its disks to the state recorded at the snapshot's creation time.
 {{< /alert >}}
 
-The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot. 
+The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot.
 
 {{< alert level="warning" >}}
 `Forced` may disrupt the operation of the existing virtual machine because it will be stopped during restoration, and `VirtualDisks` and `VirtualMachineBlockDeviceAttachments` resources will be deleted for subsequent restoration.
-{{< /alert >}} 
+{{< /alert >}}
 
-Example manifest for restoring a virtual machine from a snapshot in `Safe` mode: 
+Example manifest for restoring a virtual machine from a snapshot in `Safe` mode:
 
 ```yaml
 d8 k apply -f - <<EOF
