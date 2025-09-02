@@ -75,7 +75,7 @@ shell:
       BINDIR=/usr/bin \
       SBINDIR=/usr/sbin
 
-    rm -rf $OUTDIR/usr/share/man
+    rm -rf $OUTDIR/usr/share/
     find $OUTDIR -type f -executable | while read -r execfile; do  
     if strip "$execfile"; then  
       echo "Stripped: $execfile"  
