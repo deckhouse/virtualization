@@ -62,21 +62,10 @@ shell:
     ninja -C builddir
     DESTDIR=${OUTDIR} meson install -C builddir
 
+    rm -rf $OUTDIR/usr/share
 
-    # ./autogen.sh
-    # ./configure \
-    #   --prefix=/usr \
-    #   --libdir=lib64 \
-    #   --sysconfdir=/etc \
-    #   --localstatedir=/var \
-    #   --enable-shared \
-    #   --disable-static \
-    #   --disable-doc
-
-    # make -j $(nproc)
-    # make install DESTDIR=$OUTDIR
-    # strip $OUTDIR/usr/bin/p11-kit
-    # strip $OUTDIR/usr/lib64/libp11-kit.so.*
-    # tree -sp $OUTDIR
-
-    # DESTDIR=$OUTDIR ninja install
+    find $OUTDIR -type f -executable | while read -r execfile; do
+      if strip "$execfile"; then
+        echo "Stripped: $execfile"
+      fi
+    done
