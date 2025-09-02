@@ -28,7 +28,7 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - git gcc automake make tree
 - flex libcom_err-devel libkeyutils-devel bison
 - libncurses-devel libss-devel libssl-devel libtinfo-devel
@@ -50,7 +50,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
