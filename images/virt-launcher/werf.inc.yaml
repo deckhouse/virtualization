@@ -28,7 +28,6 @@ altLibs:
   - libpixman-devel
   - libkeyutils-devel
   - libuuid-devel
-  - libpam0-devel
   - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
@@ -138,7 +137,7 @@ packages:
 - gnutls acl libbsd libgcrypt libmd
 - util-linux libfuse3 nettle libgsasl 
 - libnbd libcap-ng libcapstone libcurl
-- zlib p11-kit
+- zlib p11-kit linux-pam
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
