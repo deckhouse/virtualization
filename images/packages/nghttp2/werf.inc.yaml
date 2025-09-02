@@ -5,11 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
+
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "file/file.git" }}
+{{- $gitRepoUrl := "nghttp2/nghttp2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -20,24 +21,41 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+
+        cd ./third-party/urlparse
+        git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --depth=1
+    fi
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git libtool
-- make automake autoconf libtool makeinfo
-- pkg-config
-- bison
-- bzlib-devel liblzma-devel libseccomp-devel libcap-devel libzstd-devel lzip ncompress strace
-- tree
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
+- libev-devel libevent-devel
+- libjansson-devel libssl-devel libjemalloc-devel libcares-devel
+- CUnit-devel libsystemd-devel libicu-devel
+- gnustep-base-devel
 packages:
-- zlib
+- zlib libxml2
 {{- end -}}
-
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
@@ -67,13 +85,28 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
+
     cd /src
+    
+    autoreconf -if
+    automake
+    autoconf
+    ./configure \
+    --prefix=/usr \
+    --exec-prefix=/usr \
+    --libdir=/usr/lib64 \
+    --disable-static
 
-    autoreconf -f -i
-    ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
+    make -j$(nproc)
 
-    make install -j $(nproc) DESTDIR=$OUTDIR
+    make DESTDIR=$OUTDIR install
 
-    rm -rf $OUTDIR/share/man
+    rm -rf ${OUTDIR}/usr/share
+    
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done

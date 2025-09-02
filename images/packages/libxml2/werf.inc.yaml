@@ -1,24 +1,4 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-altPackages:
-- gcc
-- git make libtool gettext-devel
-- bison flex
-- pkgconf asciidoctor
-- python3-devel python3-module-setuptools
-- glibc-devel-static
-- libncursesw-devel libpopt-devel
-- klibc-devel libsqlite3
-packages:
-- libcap-ng zlib
-{{- end -}}
-
-{{- $builderDependencies := include "$name" . | fromYaml }}
-
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "util-linux/util-linux.git" }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
@@ -29,6 +9,9 @@ import:
   before: setup
 
 ---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "GNOME/libxml2.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -38,15 +21,26 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
-
 ---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
+- meson ninja-build
+- libssl-devel
+- gettext-devel liblzma-devel
+- xz git
+packages:
+- zlib
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
@@ -64,30 +58,25 @@ shell:
 
   install:
   - |
-    echo "Install packages"
+    # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+    
     OUTDIR=/out
 
     cd /src
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --exec-prefix=/usr \
-      --bindir=/usr/bin \
-      --sbindir=/usr/sbin \
-      --libdir=/usr/lib64 \
-      --enable-all-programs \
-      --enable-shared \
-      --disable-static \
-      --disable-asciidoc
     
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    meson setup _build . \
+    -Dprefix=/usr \
+    -Dlibdir=/usr/lib64 \
+    -Dzlib=enabled \
+    -Dlzma=enabled \
+    -Dpython=disabled
+
+    DESTDIR=${OUTDIR} meson install -C _build
 
     rm -rf $OUTDIR/usr/share
 
