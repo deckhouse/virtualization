@@ -28,7 +28,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vmbda,vmbdas},singular=virtualmachineblockdeviceattachment
+// +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmbda},singular=virtualmachineblockdeviceattachment
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="VirtualMachineBlockDeviceAttachment phase."
 // +kubebuilder:printcolumn:name="BLOCKDEVICE KIND",type=string,JSONPath=`.spec.blockDeviceRef.kind`,priority=1,description="Attached blockdevice kind."
 // +kubebuilder:printcolumn:name="BLOCKDEVICE NAME",type=string,JSONPath=`.spec.blockDeviceRef.name`,priority=1,description="Attached blockdevice name."

@@ -34,7 +34,7 @@ const (
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
-// +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={cvi,cvis},singular=clustervirtualimage
+// +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={cvi},singular=clustervirtualimage
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="CDROM",type=boolean,JSONPath=`.status.cdrom`
