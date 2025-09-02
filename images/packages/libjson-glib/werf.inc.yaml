@@ -68,7 +68,7 @@ shell:
     /usr/bin/meson setup _build  \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --wrap-mode=nodownload \
+      --wrap-mode=nofallback \
       -Ddocumentation=disabled \
       -Dman=false
 
