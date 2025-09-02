@@ -33,7 +33,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools meson ninja-build
-- glib2 glib2-devel libgio-devel
+- glib2-devel 
 - tree
 {{- end -}}
 
