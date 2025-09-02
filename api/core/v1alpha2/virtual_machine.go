@@ -39,7 +39,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm,vms},singular=virtualmachine
+// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm},singular=virtualmachine
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
 // +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
 // +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range."

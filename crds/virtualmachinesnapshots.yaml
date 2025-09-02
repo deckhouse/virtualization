@@ -12,14 +12,13 @@ spec:
   group: virtualization.deckhouse.io
   names:
     categories:
-      - all
       - virtualization
     kind: VirtualMachineSnapshot
     listKind: VirtualMachineSnapshotList
     plural: virtualmachinesnapshots
     shortNames:
       - vmsnapshot
-      - vmsnapshots
+      - vms
     singular: virtualmachinesnapshot
   scope: Namespaced
   versions:

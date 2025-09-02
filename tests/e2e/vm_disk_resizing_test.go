@@ -53,6 +53,8 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		CreateNamespace(ns)
 	})
 
 	AfterEach(func() {

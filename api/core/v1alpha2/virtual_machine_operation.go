@@ -27,7 +27,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories={virtualization,all},scope=Namespaced,shortName={vmop,vmops},singular=virtualmachineoperation
+// +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmop},singular=virtualmachineoperation
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineOperation phase."
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="VirtualMachineOperation type."
 // +kubebuilder:printcolumn:name="VirtualMachine",type="string",JSONPath=".spec.virtualMachineName",description="VirtualMachine name."

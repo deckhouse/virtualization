@@ -31,9 +31,11 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -54,6 +56,11 @@ const (
 	imageLabelSourceImageSize        = "source-image-size"
 	imageLabelSourceImageVirtualSize = "source-image-virtual-size"
 	imageLabelSourceImageFormat      = "source-image-format"
+	imageLabelEROFSCompatible        = "erofs-compatible-layers"
+	imageArchitecture                = "amd64"
+	imageOS                          = "linux"
+	imageAuthor                      = "DVCR client"
+	imageWorkingDir                  = "/"
 )
 
 type ImportRes struct {
@@ -171,16 +178,36 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 ) error {
 	var tarWriter *tar.Writer
 	{
+		now := time.Now()
+
 		tarWriter = tar.NewWriter(pipeWriter)
+		dirHeader := &tar.Header{
+			Name:       "disk",
+			Mode:       0o755,
+			Uid:        107,
+			Gid:        107,
+			AccessTime: now,
+			ChangeTime: now,
+			Typeflag:   tar.TypeDir,
+		}
+		if err := tarWriter.WriteHeader(dirHeader); err != nil {
+			return fmt.Errorf("error writing tar header [disk]: %w", err)
+		}
+
+		imagePath := path.Join("disk", sourceImageFilename)
 		header := &tar.Header{
-			Name:     path.Join("disk", sourceImageFilename),
-			Size:     int64(sourceImageSize),
-			Mode:     0o644,
-			Typeflag: tar.TypeReg,
+			Name:       imagePath,
+			Size:       int64(sourceImageSize),
+			Mode:       0o644,
+			Uid:        107,
+			Gid:        107,
+			AccessTime: now,
+			ChangeTime: now,
+			Typeflag:   tar.TypeReg,
 		}
 
 		if err := tarWriter.WriteHeader(header); err != nil {
-			return fmt.Errorf("error writing tar header: %w", err)
+			return fmt.Errorf("error writing tar header [%s]: %w", imagePath, err)
 		}
 	}
 
@@ -247,6 +274,12 @@ func (p DataProcessor) inspectAndStreamSourceImage(
 			}
 		}
 
+		// Append end-of-file marker for tar archive.
+		err = writeTarEOFMarker(pipeWriter)
+		if err != nil {
+			return fmt.Errorf("adding tar EOF marker: %w", err)
+		}
+
 		klog.Infoln("Source streaming completed")
 
 		return nil
@@ -305,7 +338,8 @@ func (p DataProcessor) uploadLayersAndImage(
 
 	klog.Infof("Got image info: virtual size: %d, format: %s", informer.GetVirtualSize(), informer.GetFormat())
 
-	cnf.Config.Labels = map[string]string{}
+	populateCommonConfigFields(cnf)
+
 	cnf.Config.Labels[imageLabelSourceImageVirtualSize] = fmt.Sprintf("%d", informer.GetVirtualSize())
 	cnf.Config.Labels[imageLabelSourceImageSize] = fmt.Sprintf("%d", sourceImageSize)
 	cnf.Config.Labels[imageLabelSourceImageFormat] = informer.GetFormat()
@@ -326,6 +360,29 @@ func (p DataProcessor) uploadLayersAndImage(
 	}
 
 	return nil
+}
+
+// populateCommonConfigFields adds some required fields according to the document:
+// https://github.com/opencontainers/image-spec/blob/main/config.md
+func populateCommonConfigFields(cnf *v1.ConfigFile) {
+	now := time.Now().UTC()
+	cnf.Created = v1.Time{Time: now}
+	cnf.Architecture = imageArchitecture
+	cnf.OS = imageOS
+	cnf.Author = imageAuthor
+
+	// Initialize labels, add label to distinguish from previous images with non-complete tar archives.
+	cnf.Config.Labels = make(map[string]string)
+	cnf.Config.Labels[imageLabelEROFSCompatible] = "true"
+
+	cnf.Config.WorkingDir = imageWorkingDir
+
+	cnf.History = append(cnf.History, v1.History{
+		Author:     imageAuthor,
+		Created:    v1.Time{Time: now},
+		Comment:    "streamed from the datasource",
+		EmptyLayer: false,
+	})
 }
 
 func getImageInfo(ctx context.Context, sourceReader io.ReadCloser) (ImageInfo, error) {

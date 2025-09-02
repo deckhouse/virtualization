@@ -97,7 +97,6 @@ altLibraries:
 - libssh-devel
 - libssh2-devel
 - libxfs-devel
-- zlib-devel
 - libpci-devel
 - libgvnc-devel
 - glibc-kernheaders
@@ -126,7 +125,10 @@ altLibraries:
 - libvdeplug-devel
 - glib2-devel
 packages:
-- dmidecode libgcrypt nettle libcap-ng libcapstone openssl libcurl e2fsprogs libxcrypt numactl openldap keyutils
+- dmidecode libgcrypt nettle libcap-ng libcapstone 
+- openssl libcurl e2fsprogs libxcrypt numactl
+- zlib
+- openldap keyutils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

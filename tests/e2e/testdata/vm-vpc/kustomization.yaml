@@ -4,9 +4,9 @@ namespace: testcases
 namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
-  - vm
+  - vm-foo
+  - vm-bar
   - vi
-  - network
 configurations:
   - transformer.yaml
 labels:

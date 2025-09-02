@@ -32,7 +32,7 @@ const (
 // Once a VirtualDisk is created, only the disk size field `.spec.persistentVolumeClaim.size` can be changed. All other fields are immutable.
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
-// +kubebuilder:resource:categories={virtualization,all},scope=Namespaced,shortName={vd,vds},singular=virtualdisk
+// +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vd},singular=virtualdisk
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Capacity",type=string,JSONPath=`.status.capacity`

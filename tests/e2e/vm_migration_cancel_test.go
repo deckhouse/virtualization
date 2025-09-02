@@ -36,12 +36,16 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.Com
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 	var ns string
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigrationCancel, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+		CreateNamespace(ns)
+	})
+
+	BeforeEach(func() {
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{conf.TestData.VMMigrationCancel},
 			FilenameOption: kc.Kustomize,

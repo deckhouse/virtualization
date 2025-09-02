@@ -27,13 +27,15 @@ shell:
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc git libtool
 - make automake autoconf libtool makeinfo
 - pkg-config
 - bison
-- bzlib-devel liblzma-devel libseccomp-devel libcap-devel libzstd-devel zlib-devel lzip ncompress strace
+- bzlib-devel liblzma-devel libseccomp-devel libcap-devel libzstd-devel lzip ncompress strace
 - tree
+packages:
+- zlib
 {{- end -}}
 
 
@@ -47,17 +49,25 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
     cd /src
 

@@ -18,7 +18,6 @@ spec:
     kind: VirtualMachine
     shortNames:
       - vm
-      - vms
   preserveUnknownFields: false
   versions:
     - name: v1alpha2

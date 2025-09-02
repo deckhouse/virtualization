@@ -31,27 +31,21 @@ altPackages:
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- zlib-devel libzstd-devel libpsl-devel libldap-devel libbrotli-devel
+- libzstd-devel libpsl-devel libbrotli-devel
 - python3-base
-- libnghttp2-tools
 - openssh-server
 - openssh-clients
 - caddy
-- pytest3
-- python3-module-cryptography
-- apache2-httpd-worker
-- apache2-devel
-- apache2-mod_ssl
-- apache2-mod_http2
-- vsftpd
 - python3-module-pytest-xdist
 - python3-module-psutil
 - python3-module-filelock
-- libnghttp2-tools
-- libnghttp3-devel libngtcp2-devel
-- tree nettle
+- libngtcp2-devel
+- tree
 packages:
-- openssl libidn2 libgmp gnutls nettle openldap
+- openssl libidn2 libgmp gnutls nettle
+- nghttp2 nghttp3
+- zlib
+- openldap
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -108,8 +102,6 @@ shell:
       --with-gssapi \
       --enable-websockets \
       --enable-versioned-symbols \
-      --with-test-httpd \
-      --with-test-vsftpd=/usr/sbin/vsftpd \
       --with-libssh2
 
     make -j$(nproc)
