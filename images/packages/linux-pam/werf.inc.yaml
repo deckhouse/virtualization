@@ -82,4 +82,4 @@ shell:
     fi
     done
 
-    tree -sp $OUTDIR
+    tree -sph $OUTDIR
