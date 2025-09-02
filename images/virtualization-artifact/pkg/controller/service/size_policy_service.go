@@ -76,7 +76,7 @@ func getVMSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineCl
 }
 
 func validateCoreFraction(vm *virtv2.VirtualMachine, sp *virtv2.SizingPolicy) (errorsArray []error) {
-	if sp.CoreFractions == nil {
+	if len(sp.CoreFractions) == 0 {
 		return
 	}
 
