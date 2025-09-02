@@ -74,7 +74,8 @@ shell:
     DESTDIR=${OUTDIR} meson install -C build
 
     rm -rf $OUTDIR/usr/share
-    
+    rm -rf $OUTDIR/var
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
