@@ -54,9 +54,7 @@ shell:
 
     cd /src
 
+    export PREFIX=/usr
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-    mv /out/usr/local/lib/ /out/usr/lib64
-
-    rm -rf $OUTDIR/usr/local
     tree -sp $OUTDIR
