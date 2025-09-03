@@ -36,7 +36,6 @@ altPackages:
 - tree
 packages:
 - xz
-packages:
 - zlib
 {{- end -}}
 
@@ -71,13 +70,6 @@ shell:
     done
 
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-    
     OUTDIR=/out
     cd /src
 
