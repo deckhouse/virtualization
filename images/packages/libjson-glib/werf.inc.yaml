@@ -64,6 +64,7 @@ shell:
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --wrap-mode=nofallback \
+      --wrap-mode=nodownload \
       -Ddocumentation=disabled \
       -Dman=false
 
