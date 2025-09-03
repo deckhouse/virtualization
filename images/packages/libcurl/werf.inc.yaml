@@ -58,12 +58,6 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
-- image: {{ .ModuleNamePrefix }}packages/openldap
-  add: /openldap
-  to: /
-  before: install
-  includePaths:
-  - usr/lib64/libldap.so.2
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
