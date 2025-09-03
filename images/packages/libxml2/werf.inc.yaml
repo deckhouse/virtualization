@@ -29,11 +29,11 @@ altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - meson ninja-build
-- libssl-devel
 - gettext-devel liblzma-devel
 - xz git
 packages:
 - zlib
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -64,11 +64,11 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
 
     cd /src
-    
+
     meson setup _build . \
     -Dprefix=/usr \
     -Dlibdir=/usr/lib64 \

@@ -31,10 +31,11 @@ shell:
 altPackages:
 - gcc-c++ gcc git
 - make autoconf automake libtool
-- libssl-devel makeinfo
+- makeinfo
 - tree
 packages:
 - libgmp
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

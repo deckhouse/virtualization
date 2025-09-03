@@ -72,7 +72,6 @@ altLibs:
   - libiscsi-devel
   - libaio-devel
   - libselinux-devel
-  - libqpl-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -133,7 +132,7 @@ packages:
 - libjson-c5 keyutils libisofs
 - zlib p11-kit linux-pam
 - libssh libssh2
-- libpixman
+- libpixman libqpl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
