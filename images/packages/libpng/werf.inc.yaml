@@ -75,6 +75,7 @@ shell:
 
     make -j$(nproc)
     DESTDIR=$OUTDIR make install
+    rm -rf $OUTDIR/usr/share
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
