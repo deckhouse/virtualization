@@ -63,4 +63,4 @@ shell:
     make DESTDIR=$OUTDIR install
 
     rm -rf $OUTDIR/usr/share
-    tree $OUTDIR
+    tree -sp $OUTDIR

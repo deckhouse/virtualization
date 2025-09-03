@@ -58,6 +58,7 @@ shell:
     cd /src
 
     ./autogen.sh
+    
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
