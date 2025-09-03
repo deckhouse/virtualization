@@ -54,7 +54,8 @@ import:
   add: /qemu-img
   to: /relocate
   before: setup
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+{{- $images := list "nbdkit" "libnbd" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
