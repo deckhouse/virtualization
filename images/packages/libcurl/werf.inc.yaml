@@ -30,7 +30,7 @@ altPackages:
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- libzstd-devel libpsl-devel libbrotli-devel
+- libpsl-devel libbrotli-devel
 - python3-base
 - openssh-server
 - openssh-clients
@@ -43,7 +43,7 @@ altPackages:
 packages:
 - openssl libidn2 libgmp gnutls nettle
 - nghttp2 nghttp3
-- zlib
+- zlib zstd
 - libssh2
 - openldap
 {{- end -}}

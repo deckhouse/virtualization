@@ -54,7 +54,6 @@ altLibs:
   - libspice-server-devel
   - ceph-devel
   - libnfs-devel
-  - libzstd-devel
   - libseccomp-devel
   - libudev-devel
   - libmultipath-devel
@@ -132,7 +131,7 @@ packages:
 - util-linux libfuse3 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
-- zlib p11-kit linux-pam
+- zlib zstd p11-kit linux-pam
 - libssh libssh2
 {{- end -}}
 

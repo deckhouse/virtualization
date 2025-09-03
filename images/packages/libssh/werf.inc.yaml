@@ -27,7 +27,8 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel libzstd-devel
+- openssl-devel libgcrypt-devel libkrb5-devel
+- zstd
 - python3
 - tree
 {{- end -}}

@@ -30,11 +30,11 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git gcc-c++ flex make makeinfo  glibc-devel-static libtool autoconf_2.60
-- libelf-devel libmpc-devel perl-Pod-Parser zlib-devel libzstd-devel
+- libelf-devel libmpc-devel perl-Pod-Parser
 - libstdc++-devel libstdc++-devel-static
 - gcc-go i586-glibc-devel i586-glibc-gconv-modules i586-glibc-nss i586-glibc-devel-static
 packages:
-- zlib
+- zlib zstd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

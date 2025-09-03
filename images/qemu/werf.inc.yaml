@@ -111,7 +111,7 @@ altLibraries:
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
-- libnfs-devel libzstd-devel libseccomp-devel
+- libnfs-devel libseccomp-devel
 - libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
 - libdaxctl-devel rdma-core-devel
@@ -125,7 +125,7 @@ altLibraries:
 packages:
 - dmidecode libgcrypt nettle libcap-ng libcapstone 
 - openssl libcurl e2fsprogs libxcrypt numactl
-- zlib linux-pam
+- zlib zstd linux-pam
 - libssh libssh2
 - openldap keyutils
 {{- end -}}
