@@ -66,7 +66,7 @@ shell:
     -DQPL_LIBRARY_TYPE=SHARED \
     -DQPL_BUILD_TESTS=OFF \
     -DQPL_BUILD_EXAMPLES=OFF \
-    -GNinja
+    -GNinja \
     /src
 
     ninja-build -j$(nproc) -C /build
