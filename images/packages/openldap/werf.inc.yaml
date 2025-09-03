@@ -10,8 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "stevegrubb/libcap-ng.git" }}
-
+{{- $gitRepoUrl := "openldap/openldap.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -22,18 +21,24 @@ shell:
   install:
   - |
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
 ---
+
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools
-- glibc-kernheaders libattr-devel
-- rpm-build-python3 python3-devel
+- chrooted groff-base libltdl-devel shtool
+- libsystemd-devel
+- libevent-devel libuuid-devel
+- liblmdb-devel
+- libargon2-devel libsasl2-devel
 - tree
+packages:
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
+
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
@@ -46,6 +51,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -57,15 +63,56 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
     cd /src
-    ./autogen.sh
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --with-python=no \
-      --with-python3=no
+      --enable-syslog \
+      --enable-dynamic \
+      --enable-versioning \
+      --enable-dynacl \
+      --enable-cleartext \
+      --enable-crypt \
+      --with-tls=openssl \
+      --with-threads \
+      --enable-slapd \
+      --enable-modules \
+      --enable-backends=mod \
+      --enable-mdb=yes \
+      --disable-wt \
+      --enable-balancer=mod \
+      --enable-argon2 \
+      --with-yielding-select \
+      --enable-aci \
+      --disable-slapi \
+      --disable-slp \
+      --disable-sql \
+      --with-cyrus-sasl \
+      --enable-spasswd \
+      --disable-perl \
+      --enable-overlays=mod \
+      --with-systemd \
+      --without-fetch \
+      --with-threads \
+      --with-pic \
+      --with-gnu-ld
+
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install-strip
-    tree -sp $OUTDIR
+    DESTDIR=$OUTDIR make install
+    rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/var
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR
 

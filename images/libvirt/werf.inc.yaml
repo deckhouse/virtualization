@@ -80,7 +80,7 @@ altLibraries:
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
 - libsystemd-devel
-- libjson-c-devel systemtap-sdt-devel
+- systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
 - libgio-devel libxml2-devel
 - libtirpc-devel libsasl2-devel
@@ -89,10 +89,10 @@ altLibraries:
 - libslirp-devel
 - libyajl-devel libselinux-devel
 packages:
-- dmidecode lvm2 libattr libbsd libmd util-linux 
-- libgcrypt libfuse3 libaudit libnbd libcap-ng 
+- dmidecode lvm2 libattr libbsd libmd util-linux
+- libgcrypt libfuse3 libaudit libnbd libcap-ng
 - openssl libcurl e2fsprogs libxcrypt numactl
-- zlib
+- zlib libjson-c5 keyutils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

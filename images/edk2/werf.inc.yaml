@@ -23,9 +23,8 @@ altPackages:
 - libssl-devel
 - libssl-devel libdwarf-devel libuuid-devel
 - bc perl-PathTools perl-IPC-Cmd perl-JSON
-- libisofs-devel
 packages:
-- zlib libisoburn libburn
+- zlib libisoburn libburn libisofs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

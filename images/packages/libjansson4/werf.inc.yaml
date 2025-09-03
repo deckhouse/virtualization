@@ -10,30 +10,41 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "stevegrubb/libcap-ng.git" }}
-
+{{- $gitRepoUrl := "akheron/jansson.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  stageDependencies:
+    install:
+      - '**/*'
 shell:
   install:
   - |
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
+    cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 ---
+
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools
-- glibc-kernheaders libattr-devel
-- rpm-build-python3 python3-devel
+- gcc git make libtool gettext-tools cmake
 - tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
+
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
@@ -59,13 +70,24 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --with-python=no \
-      --with-python3=no
+    cmake \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
+      -DLIB_INSTALL_DIR:PATH=/usr/lib64 \
+      -DJANSSON_INSTALL_LIB_DIR=/usr/lib64 \
+      -DLIB_DESTINATION=lib64 \
+      -DLIB_SUFFIX=64 \
+      -DJANSSON_BUILD_SHARED_LIBS=ON \
+      -DJANSSON_BUILD_DOCS=OFF
+
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install-strip
+    DESTDIR=$OUTDIR make install
+    rm -rf $OUTDIR/usr/lib64/cmake
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
     tree -sp $OUTDIR
 

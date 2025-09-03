@@ -10,8 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "stevegrubb/libcap-ng.git" }}
-
+{{- $gitRepoUrl := "gnome/json-glib.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -24,16 +23,17 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
+
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools
-- glibc-kernheaders libattr-devel
-- rpm-build-python3 python3-devel
+- gcc git make libtool gettext-tools meson ninja-build
+- glib2-devel libgio-devel
 - tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
+
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
@@ -59,13 +59,23 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    ./autogen.sh
-    ./configure \
+    mkdir _build
+    /usr/bin/meson setup _build  \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --with-python=no \
-      --with-python3=no
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install-strip
-    tree -sp $OUTDIR
+      --wrap-mode=nofallback \
+      --wrap-mode=nodownload \
+      -Ddocumentation=disabled \
+      -Dman=false
+
+    ninja-build -j$(nproc) -C _build
+    DESTDIR=$OUTDIR ninja-build install -C _build
+    rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/libexec
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR
 
