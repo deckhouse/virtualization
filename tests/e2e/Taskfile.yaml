@@ -38,7 +38,11 @@ tasks:
       - d8
     cmds:
       - |
-        bash -c 'GINKGO_RESULT=$(mktemp)
+        GINKGO_RESULT=$(mktemp)
+        DATE=$(date +"%Y-%m-%d")
+        echo "DATE=$DATE" >> $GITHUB_ENV
+        START_TIME=$(date +"%H:%M:%S")
+        echo "START_TIME=$START_TIME" >> $GITHUB_ENV
         go tool ginkgo -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
         EXIT_CODE="${PIPESTATUS[0]}"
         RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
@@ -50,30 +54,40 @@ tasks:
           RESULT_STATUS=":question: UNKNOWN"
           EXIT_CODE=1
         fi
-        DATE=$(date +"%Y-%m-%d")
 
         PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
         FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
         PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
         SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
 
-        SUMMARY="
-        ### :dvp: **DVP $DATE Nightly e2e Tests**
+        SUMMARY=$(jq -n \
+          --arg csi "$CSI" \
+          --arg date "$DATE" \
+          --arg startTime "$START_TIME" \
+          --arg branch "$GITHUB_REF_NAME" \
+          --arg status "$RESULT_STATUS" \
+          --argjson passed "$PASSED" \
+          --argjson failed "$FAILED" \
+          --argjson pending "$PENDING" \
+          --argjson skipped "$SKIPPED" \
+          --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+          '{
+            CSI: $csi,
+            Date: $date,
+            StartTime: $startTime,
+            Branch: $branch,
+            Status: $status,
+            Passed: $passed,
+            Failed: $failed,
+            Pending: $pending,
+            Skipped: $skipped,
+            Link: $link
+          }'
+        )
 
-        **Branch:** \`$GITHUB_REF_NAME\`
-        **Status: $RESULT_STATUS**
-
-        - ${PASSED:-0} Passed
-        - ${FAILED:-0} Failed
-        - ${PENDING:-0} Pending
-        - ${SKIPPED:-0} Skipped
-
-        [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
-        "
-        echo "SUMMARY<<EOF" >> $GITHUB_ENV
-        echo "$SUMMARY" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-        exit $EXIT_CODE'
+        echo "$SUMMARY"
+        echo "SUMMARY=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_ENV
+        exit $EXIT_CODE
 
   runp:
     desc: "Run e2e tests"

@@ -25,9 +25,11 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -346,6 +348,47 @@ func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions
 	}
 	wg.Wait()
 	Expect(waitErr).To(BeEmpty())
+}
+
+func GetStorageClassFromEnv(envName string) (*storagev1.StorageClass, error) {
+	sc := &storagev1.StorageClass{}
+	scName, ok := os.LookupEnv(envName)
+	if ok {
+		err := GetObject(kc.ResourceStorageClass, scName, sc, kc.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return sc, nil
+	}
+
+	return nil, nil
+}
+
+func SetStorageClass(tmplRoot string, storageClasse map[string]string) error {
+	return filepath.Walk(tmplRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("failed to set a storage class: %w", err)
+		}
+
+		if !info.IsDir() {
+			tmpl, err := template.ParseFiles(path)
+			if err != nil {
+				return err
+			}
+
+			file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, info.Mode())
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			err = tmpl.Execute(file, storageClasse)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
