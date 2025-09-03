@@ -127,7 +127,7 @@ packages:
 - zlib linux-pam
 - libssh libssh2
 - openldap keyutils
-- libpixman
+- libpixman libpsl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

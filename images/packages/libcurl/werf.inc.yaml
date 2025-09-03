@@ -30,7 +30,7 @@ altPackages:
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- libzstd-devel libpsl-devel libbrotli-devel
+- libzstd-devel libbrotli-devel
 - python3-base
 - openssh-server
 - openssh-clients
@@ -46,6 +46,7 @@ packages:
 - zlib
 - libssh2
 - openldap
+- libpsl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
