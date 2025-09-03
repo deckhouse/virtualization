@@ -99,7 +99,6 @@ altLibraries:
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
-- libpixman-devel
 - libuuid-devel
 - libtasn1-devel libslirp-devel
 - libdrm-devel
@@ -123,11 +122,12 @@ altLibraries:
 - libvdeplug-devel
 - glib2-devel
 packages:
-- dmidecode libgcrypt nettle libcap-ng libcapstone 
+- dmidecode libgcrypt nettle libcap-ng libcapstone
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib linux-pam
 - libssh libssh2
 - openldap keyutils
+- libpixman
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

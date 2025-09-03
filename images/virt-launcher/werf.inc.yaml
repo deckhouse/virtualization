@@ -23,7 +23,6 @@ altLibs:
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
-  - libpixman-devel
   - libuuid-devel
   - libtasn1-devel
   - libslirp-devel
@@ -134,6 +133,7 @@ packages:
 - libjson-c5 keyutils libisofs
 - zlib p11-kit linux-pam
 - libssh libssh2
+- libpixman
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
