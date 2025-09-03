@@ -70,4 +70,3 @@ package:
   lz4: v1.9.4
   lzo: lzo-2.10
   xz: v5.4.5
-  openldap: OPENLDAP_REL_ENG_2_6_9
