@@ -69,6 +69,9 @@ shell:
     done
     
     OUTDIR=/out
+    echo "================="
+    ls -la /usr/lib
+    echo "================="
 
     cd /src
     
