@@ -59,4 +59,4 @@ shell:
     mv /out/usr/local/lib/ /out/usr/lib64
 
     rm -rf $OUTDIR/usr/local
-    tree $OUTDIR
+    tree -sp $OUTDIR
