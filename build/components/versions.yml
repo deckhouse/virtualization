@@ -42,6 +42,7 @@ package:
   libjansson4: v2.14.1
   libjson-c5: json-c-0.17
   libjson-glib: 1.10.6
+  libpixman: pixman-0.43.4
   openldap: OPENLDAP_REL_ENG_2_6_9
   keyutils: v1.6.3
   libmd: 1.1.0
