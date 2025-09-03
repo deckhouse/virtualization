@@ -82,13 +82,18 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src
 
-    meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
+    meson setup _build \
+      -Dprefix=/usr \
+      -Dlibdir=/usr/lib64 \
+      -Dgtk_doc=false \
+      -Dbuildtype=release \
+      -Dstrip=true
     meson compile -C _build
-    meson install -C _build
+    DESTDIR=${OUTDIR} meson install -C _build
 
 {{- end}}
