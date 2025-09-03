@@ -65,21 +65,10 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- dmidecode
-- libgcrypt
-- nettle
-- libcap-ng
-- libcapstone
-- openssl
-- libcurl
-- e2fsprogs
-- libxcrypt
-- numactl
-- lzo
-- lz4
-- krb5
-- openldap
-- xz
+- dmidecode libgcrypt nettle libcap-ng libcapstone 
+- openssl libcurl e2fsprogs libxcrypt numactl
+- zlib
+- lzo lz4 krb5 openldap xz
 altPackages:
 - binutils
 - pkgconfig pkg-config
