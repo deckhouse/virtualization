@@ -20,8 +20,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
@@ -32,7 +30,7 @@ altPackages:
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- libzstd-devel libpsl-devel libldap-devel libbrotli-devel
+- libzstd-devel libpsl-devel libbrotli-devel
 - python3-base
 - openssh-server
 - openssh-clients
@@ -40,13 +38,14 @@ altPackages:
 - python3-module-pytest-xdist
 - python3-module-psutil
 - python3-module-filelock
-- gnutls-utils libngtcp2-devel
+- libngtcp2-devel
 - tree
 packages:
 - openssl libidn2 libgmp gnutls nettle
 - nghttp2 nghttp3
 - zlib
 - libssh2
+- openldap
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -63,7 +62,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages  "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

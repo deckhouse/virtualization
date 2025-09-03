@@ -85,7 +85,7 @@ altPackages:
 - python3-module-sphinx
 - python3-module-sphinx_rtd_theme
 - python3-module-black
-libraries:
+altLibraries:
 - glibc-devel-static
 - zlib-devel-static
 - libpcre2-devel-static
@@ -100,7 +100,6 @@ libraries:
 - glibc-kernheaders
 - libfdt-devel
 - libpixman-devel
-- libkeyutils-devel
 - libuuid-devel
 - libtasn1-devel libslirp-devel
 - libdrm-devel
@@ -128,6 +127,7 @@ packages:
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib linux-pam
 - libssh libssh2
+- openldap keyutils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -161,7 +161,7 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.altPackages | join " " }} \
-      {{ $builderDependencies.libraries | join " " }}
+      {{ $builderDependencies.altLibraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -181,8 +181,6 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"

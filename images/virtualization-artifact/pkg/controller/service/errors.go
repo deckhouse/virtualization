@@ -18,6 +18,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 )
 
 var (
@@ -26,3 +27,19 @@ var (
 	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
 	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
 )
+
+type NoSizingPolicyMatchError struct {
+	VMName    string
+	ClassName string
+}
+
+func NewNoSizingPolicyMatchError(vmName, className string) *NoSizingPolicyMatchError {
+	return &NoSizingPolicyMatchError{
+		VMName:    vmName,
+		ClassName: className,
+	}
+}
+
+func (e *NoSizingPolicyMatchError) Error() string {
+	return fmt.Sprintf("virtual machine %q resources do not match any sizing policies in class %q", e.VMName, e.ClassName)
+}

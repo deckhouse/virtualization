@@ -10,8 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "stevegrubb/libcap-ng.git" }}
-
+{{- $gitRepoUrl := "dhowells/keyutils.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -22,18 +21,18 @@ shell:
   install:
   - |
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
 ---
+
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools
-- glibc-kernheaders libattr-devel
-- rpm-build-python3 python3-devel
+- gcc gcc-c++ git make libtool gettext-tools
+- rpmspec
 - tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
+
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
@@ -59,13 +58,28 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --with-python=no \
-      --with-python3=no
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install-strip
-    tree -sp $OUTDIR
+    make \
+      -j$(nproc) \
+      NO_ARLIB=1 \
+      PREFIX=/usr \
+      LIBDIR=/usr/lib64 \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin \
+      NO_GLIBC_KEYERR=1 \
+      'CFLAGS=-Werror'
+
+    make DESTDIR=$OUTDIR install \
+      NO_ARLIB=1 \
+      PREFIX=/usr \
+      LIBDIR=/usr/lib64 \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin
+
+    rm -rf $OUTDIR/usr/share/
+    find $OUTDIR -type f -executable | while read -r execfile; do  
+    if strip "$execfile"; then  
+      echo "Stripped: $execfile"  
+    fi  
+    done  
+    tree -hp $OUTDIR
 
