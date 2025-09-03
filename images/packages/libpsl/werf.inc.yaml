@@ -27,6 +27,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools meson ninja-build
+- rpm-build-python3
 - libicu-devel
 - glib2-devel libgio-devel
 - libunistring-devel
@@ -77,6 +78,10 @@ shell:
     /usr/bin/meson setup _build  \
       --prefix=/usr \
       --libdir=/usr/lib64 \
+      -Dbuiltin=false \
+      -Dpsl_distfile=/usr/share/publicsuffix/public_suffix_list.dafsa \
+      -Dpsl_file=/usr/share/publicsuffix/effective_tld_names.dat \
+      -Dpsl_testfile=/usr/share/publicsuffix/test_psl.txt \
     	-Druntime=libidn2 \
       -Ddocs=false \
       -Dtests=false \
