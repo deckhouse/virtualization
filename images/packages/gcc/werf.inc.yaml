@@ -33,8 +33,10 @@ altPackages:
 - libelf-devel libmpc-devel perl-Pod-Parser
 - libstdc++-devel libstdc++-devel-static
 - gcc-go i586-glibc-devel i586-glibc-gconv-modules i586-glibc-nss i586-glibc-devel-static
+- libzstd-devel
 packages:
-- zlib zstd
+- zlib 
+# - zstd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
