@@ -2,7 +2,7 @@
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++
-- git pkg-config meson cmake
+- git pkg-config meson ninja-build cmake
 - libunwind-devel libelf-devel libpcre2-devel sysprof-devel libgvdb-devel
 packages:
 - libffi zlib
@@ -22,7 +22,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /glib2
+  to: /{{ .ImageName }}
   before: setup
 
 ---
