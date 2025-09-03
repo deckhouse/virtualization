@@ -76,8 +76,6 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     
-    rm -rf $OUTDIR/usr/bin
     rm -rf $OUTDIR/usr/share
-    rm -rf $OUTDIR/usr/sbin
     rm -rf $OUTDIR/usr/var
     tree -sp $OUTDIR
