@@ -69,64 +69,79 @@ shell:
     done
     
     OUTDIR=/out
-    echo "================="
-    ls -la /usr/lib
-    echo "================="
 
     cd /src
-    
-    export LD_LIBRARY_PATH="/usr/lib64:/usr/lib:$LD_LIBRARY_PATH"
-    export AUTOCONF_VERSION=2.60
-
-    libtoolize --copy --install --force
-    set -ex \
-        && install -pm644 /usr/share/libtool/aclocal/*.m4 .
-
-    autoreconf -fvi
-
-    # taken from alt linux specfile: https://packages.altlinux.org/ru/sisyphus/srpms/gcc14/specfiles/3135719547156898666
-    set -eux; \
-        for f in */aclocal.m4; do \
-            d="${f%%/*}"; \
-            grep '^m4_include' "$d/aclocal.m4" \
-              | grep -E -v '\[(libltdl/)?acinclude\.m4\]' \
-              > acinclude.m4~ || :; \
-            touch "$d/acinclude.m4"; \
-            cat  "$d/acinclude.m4" >> acinclude.m4~; \
-            mv   acinclude.m4~ "$d/acinclude.m4"; \
-            autoreconf -fvi "$d"; \
-            sh -n "$d/configure"; \
-        done
-
-    export CFLAGS="-O2 -pipe -fexceptions -g"
-    export CXXFLAGS="-O2 -pipe -fexceptions -g"
-    export ac_cv_func_fprintf_unlocked="no"
 
     ./configure \
-      --enable-languages=c \
+      --enable-languages=c,c++ \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --enable-shared \
-      --with-bugurl=http://bugzilla.altlinux.org \
-      --enable-__cxa_atexit \
-      --enable-threads=posix \
+      --build=x86_64-linux-gnu \
+      --host=x86_64-linux-gnu \
+      --target=x86_64-linux-gnu \
+      --enable-languages=c,c++ \
+      --disable-multilib \
+      --disable-nls \
       --enable-checking=release \
+      --enable-shared \
+      --enable-threads=posix \
+      --enable-__cxa_atexit \
+      --enable-clocale=gnu \
       --with-system-zlib \
-      --with-zstd \
-      --without-included-gettext \
-      --enable-default-pie \
-      --enable-gnu-unique-object \
-      --enable-linker-build-id \
-      --with-arch_32=i586 --with-tune_32=generic \
-      --with-multilib-list=m64,m32 \
-      --enable-multilib \
-      --enable-bootstrap \
-      --with-build-config=bootstrap-lto \
-      --enable-link-serialization=1 \
-      --disable-cet
+      --program-suffix=-14.2.0
+    
+    # export LD_LIBRARY_PATH="/usr/lib64:/usr/lib:$LD_LIBRARY_PATH"
+    # export AUTOCONF_VERSION=2.60
+
+    # libtoolize --copy --install --force
+    # set -ex \
+    #     && install -pm644 /usr/share/libtool/aclocal/*.m4 .
+
+    # autoreconf -fvi
+
+    # # taken from alt linux specfile: https://packages.altlinux.org/ru/sisyphus/srpms/gcc14/specfiles/3135719547156898666
+    # set -eux; \
+    #     for f in */aclocal.m4; do \
+    #         d="${f%%/*}"; \
+    #         grep '^m4_include' "$d/aclocal.m4" \
+    #           | grep -E -v '\[(libltdl/)?acinclude\.m4\]' \
+    #           > acinclude.m4~ || :; \
+    #         touch "$d/acinclude.m4"; \
+    #         cat  "$d/acinclude.m4" >> acinclude.m4~; \
+    #         mv   acinclude.m4~ "$d/acinclude.m4"; \
+    #         autoreconf -fvi "$d"; \
+    #         sh -n "$d/configure"; \
+    #     done
+
+    # export CFLAGS="-O2 -pipe -fexceptions -g"
+    # export CXXFLAGS="-O2 -pipe -fexceptions -g"
+    # export ac_cv_func_fprintf_unlocked="no"
+
+    # ./configure \
+    #   --enable-languages=c \
+    #   --prefix=/usr \
+    #   --libdir=/usr/lib64 \
+    #   --enable-shared \
+    #   --with-bugurl=http://bugzilla.altlinux.org \
+    #   --enable-__cxa_atexit \
+    #   --enable-threads=posix \
+    #   --enable-checking=release \
+    #   --with-system-zlib \
+    #   --with-zstd \
+    #   --without-included-gettext \
+    #   --enable-default-pie \
+    #   --enable-gnu-unique-object \
+    #   --enable-linker-build-id \
+    #   --with-arch_32=i586 --with-tune_32=generic \
+    #   --with-multilib-list=m64,m32 \
+    #   --enable-multilib \
+    #   --enable-bootstrap \
+    #   --with-build-config=bootstrap-lto \
+    #   --enable-link-serialization=1 \
+    #   --disable-cet
 
     make -j$(nproc)
 
     make install-strip
     mkdir $OUTDIR
-    cp x86_64-pc-linux-gnu/libgcc/libgcc_s.so.1 /out
+    # cp x86_64-pc-linux-gnu/libgcc/libgcc_s.so.1 /out
