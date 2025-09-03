@@ -45,7 +45,7 @@ altPackages:
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
-- libp11-kit-devel libunistring-devel
+- libunistring-devel
 - libtpm2-tss-devel libtrousers-devel
 - libtasn1-devel libtasn1-utils
 - libunbound-devel bison gtk-doc texinfo texlive
@@ -55,7 +55,7 @@ altPackages:
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
-- nettle zlib
+- nettle zlib p11-kit
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

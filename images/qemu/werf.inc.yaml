@@ -94,15 +94,13 @@ altLibraries:
 - libatomic-devel-static
 - libdw-devel
 - perl-devel
-- libssh-devel
-- libssh2-devel
 - libxfs-devel
 - libpci-devel
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
 - libpixman-devel
-- libuuid-devel libpam0-devel
+- libuuid-devel
 - libtasn1-devel libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
@@ -127,7 +125,8 @@ altLibraries:
 packages:
 - dmidecode libgcrypt nettle libcap-ng libcapstone 
 - openssl libcurl e2fsprogs libxcrypt numactl
-- zlib
+- zlib linux-pam
+- libssh libssh2
 - openldap keyutils
 {{- end -}}
 

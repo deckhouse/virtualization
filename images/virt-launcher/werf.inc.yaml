@@ -19,15 +19,12 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altLibs:
-  - libssh-devel
-  - libssh2-devel
   - libxfs-devel
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
   - libpixman-devel
   - libuuid-devel
-  - libpam0-devel
   - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
@@ -88,7 +85,6 @@ altLibs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libp11-kit-devel
   - libreadline-devel
   - libsystemd-devel
   - systemtap-sdt-devel
@@ -136,7 +132,8 @@ packages:
 - util-linux libfuse3 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
-- zlib
+- zlib p11-kit linux-pam
+- libssh libssh2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

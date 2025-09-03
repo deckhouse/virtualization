@@ -70,13 +70,11 @@ altLibraries:
 - libyajl-devel sanlock-devel
 - libpcap-devel libnl-devel
 - libselinux-devel libsasl2-devel
-- libssh-devel
-- libssh2-devel
 - libparted-devel
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libgnutls-devel libp11-kit-devel
+- libgnutls-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
 - libsystemd-devel
@@ -92,7 +90,8 @@ packages:
 - dmidecode lvm2 libattr libbsd libmd util-linux
 - libgcrypt libfuse3 libaudit libnbd libcap-ng
 - openssl libcurl e2fsprogs libxcrypt numactl
-- zlib libjson-c5 keyutils
+- zlib p11-kit
+- libssh libssh2 libjson-c5 keyutils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
