@@ -64,6 +64,7 @@ shell:
     ./configure \
         --prefix=/usr \
         --libdir=/usr/lib64 \
+        --exec-prefix=/usr
         --disable-shared --enable-static \
         --enable-dns-for-realm \
         --enable-pkinit \
