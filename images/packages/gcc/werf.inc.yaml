@@ -33,10 +33,10 @@ altPackages:
 - libelf-devel libmpc-devel perl-Pod-Parser
 - libstdc++-devel libstdc++-devel-static
 - gcc-go i586-glibc-devel i586-glibc-gconv-modules i586-glibc-nss i586-glibc-devel-static
-- libzstd-devel
+# - libzstd-devel
 packages:
 - zlib 
-# - zstd
+- zstd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -71,7 +71,8 @@ shell:
     OUTDIR=/out
 
     cd /src
-
+    
+    export LD_LIBRARY_PATH="/usr/lib64:/usr/lib:$LD_LIBRARY_PATH"
     export AUTOCONF_VERSION=2.60
 
     libtoolize --copy --install --force
