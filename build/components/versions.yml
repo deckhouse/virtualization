@@ -43,6 +43,9 @@ package:
   libjson-c5: json-c-0.17
   libjson-glib: 1.10.6
   libpixman: pixman-0.43.4
+  libpng: v1.6.50
+  libpsl: 0.21.5
+  libqpl: v1.6.0
   openldap: OPENLDAP_REL_ENG_2_6_9
   keyutils: v1.6.3
   libmd: 1.1.0
