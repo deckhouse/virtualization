@@ -10,6 +10,7 @@ altPackages:
 - libsystemd-devel pandoc
 - python3-module-Cython python3-devel python3-module-docutils
 - libpcap-devel libibumad libnl3 libnl-devel
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
