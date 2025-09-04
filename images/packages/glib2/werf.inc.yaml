@@ -3,9 +3,9 @@
 altPackages:
 - gcc gcc-c++
 - git pkg-config meson ninja-build cmake
-- libunwind-devel libelf-devel libpcre2-devel sysprof-devel libgvdb-devel
+- libunwind-devel libelf-devel sysprof-devel libgvdb-devel
 packages:
-- libffi zlib
+- libffi zlib pcre2
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}

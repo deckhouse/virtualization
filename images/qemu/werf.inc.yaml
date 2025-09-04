@@ -88,7 +88,6 @@ altPackages:
 altLibraries:
 - glibc-devel-static
 - zlib-devel-static
-# - libpcre2-devel-static
 - libattr-devel-static
 - libdw-devel-static
 - libatomic-devel-static
