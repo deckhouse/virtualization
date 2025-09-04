@@ -27,17 +27,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type SpecChangesValidator struct {
 	client    client.Client
-	scService *intsvc.VirtualDiskStorageClassService
+	scService *service.VirtualDiskStorageClassService
 }
 
-func NewSpecChangesValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService) *SpecChangesValidator {
+func NewSpecChangesValidator(client client.Client, scService *service.VirtualDiskStorageClassService) *SpecChangesValidator {
 	return &SpecChangesValidator{
 		client:    client,
 		scService: scService,
@@ -54,32 +54,6 @@ func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *virtv2
 			return nil, fmt.Errorf(
 				"the provisioner of the %q storage class is deprecated; please use a different one",
 				*newVD.Spec.PersistentVolumeClaim.StorageClass,
-			)
-		}
-		if !v.scService.IsStorageClassAllowed(*newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf(
-				"the storage class %q is not allowed; please check the module settings",
-				*newVD.Spec.PersistentVolumeClaim.StorageClass,
-			)
-		}
-	} else {
-		mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
-		if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
-			return nil, fmt.Errorf("failed to fetch a default storage class from module config: %w", err)
-		}
-		if mcDefaultStorageClass != nil {
-			return nil, nil
-		}
-
-		defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
-		if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
-			return nil, fmt.Errorf("failed to fetch default storage class: %w", err)
-		}
-
-		if defaultStorageClass != nil && !v.scService.IsStorageClassAllowed(defaultStorageClass.Name) {
-			return nil, fmt.Errorf(
-				"the default storage class %q is not allowed; please check the module settings or specify a storage class name explicitly in the spec",
-				defaultStorageClass.Name,
 			)
 		}
 	}
@@ -116,32 +90,6 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 				return nil, fmt.Errorf(
 					"the provisioner of the %q storage class is deprecated; please use a different one",
 					*newVD.Spec.PersistentVolumeClaim.StorageClass,
-				)
-			}
-			if !v.scService.IsStorageClassAllowed(*newVD.Spec.PersistentVolumeClaim.StorageClass) {
-				return nil, fmt.Errorf(
-					"the storage class %q is not allowed; please check the module settings",
-					*newVD.Spec.PersistentVolumeClaim.StorageClass,
-				)
-			}
-		} else {
-			mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
-			if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
-				return nil, fmt.Errorf("failed to fetch a default storage class from module config: %w", err)
-			}
-			if mcDefaultStorageClass != nil {
-				return nil, nil
-			}
-
-			defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
-			if err != nil && !errors.Is(err, intsvc.ErrStorageClassNotFound) {
-				return nil, fmt.Errorf("failed to fetch default storage class: %w", err)
-			}
-
-			if defaultStorageClass != nil && !v.scService.IsStorageClassAllowed(defaultStorageClass.Name) {
-				return nil, fmt.Errorf(
-					"the default storage class %q is not allowed; please check the module settings or specify a storage class name explicitly in the spec",
-					defaultStorageClass.Name,
 				)
 			}
 		}

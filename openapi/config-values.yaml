@@ -213,6 +213,7 @@ properties:
             type: array
             items:
               type: string
+              minLength: 1
             x-examples: ["sc-1", "sc-2"]
   virtualDisks:
     type: object
@@ -232,6 +233,7 @@ properties:
             type: array
             items:
               type: string
+              minLength: 1
             x-examples: ["sc-1", "sc-2"]
   logLevel:
     type: string

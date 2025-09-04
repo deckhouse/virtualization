@@ -86,13 +86,6 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 				)
 			}
 
-			if !v.scService.IsStorageClassAllowed(*vi.Spec.PersistentVolumeClaim.StorageClass) {
-				return nil, fmt.Errorf(
-					"the storage class %q is not allowed; please check the module settings",
-					*vi.Spec.PersistentVolumeClaim.StorageClass,
-				)
-			}
-
 			if sc != nil {
 				sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
 				if err != nil {
@@ -227,12 +220,6 @@ func (v *Validator) validateDefaultStorageClass(ctx context.Context) error {
 
 		if defaultStorageClass != nil {
 			sc = defaultStorageClass
-			if !v.scService.IsStorageClassAllowed(sc.Name) {
-				return fmt.Errorf(
-					"the default storage class %q is not allowed; please check the module settings or specify a storage class name explicitly in the spec",
-					sc.Name,
-				)
-			}
 		}
 	}
 
