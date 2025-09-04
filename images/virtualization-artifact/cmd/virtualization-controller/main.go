@@ -189,6 +189,15 @@ func main() {
 	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
 	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
+	if vdAllowed, exists := os.LookupEnv(appconfig.VirtualDiskAllowedStorageClasses); exists && vdAllowed == "" {
+		log.Error("%s is empty. Specify valid StorageClass names or remove the restriction.", appconfig.VirtualDiskAllowedStorageClasses)
+		os.Exit(1)
+	}
+	if viAllowed, exists := os.LookupEnv(appconfig.VirtualImageAllowedStorageClasses); exists && viAllowed == "" {
+		log.Error("%s is empty. Specify valid StorageClass names or remove the restriction.", appconfig.VirtualImageAllowedStorageClasses)
+		os.Exit(1)
+	}
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
