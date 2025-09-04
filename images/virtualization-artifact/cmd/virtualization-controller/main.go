@@ -186,15 +186,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
-	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
-
-	if vdAllowed, exists := os.LookupEnv(appconfig.VirtualDiskAllowedStorageClasses); exists && vdAllowed == "" {
-		log.Error("%s is empty. Specify valid StorageClass names or remove the restriction.", appconfig.VirtualDiskAllowedStorageClasses)
+	_, exists := os.LookupEnv(appconfig.VirtualDiskAllowedStorageClasses)
+	log.Error("test: %v", exists)
+	viStorageClassSettings, err := appconfig.LoadVirtualImageStorageClassSettings()
+	if err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
-	if viAllowed, exists := os.LookupEnv(appconfig.VirtualImageAllowedStorageClasses); exists && viAllowed == "" {
-		log.Error("%s is empty. Specify valid StorageClass names or remove the restriction.", appconfig.VirtualImageAllowedStorageClasses)
+
+	vdStorageClassSettings, err := appconfig.LoadVirtualDiskStorageClassSettings()
+	if err != nil {
+		log.Error(err.Error())
 		os.Exit(1)
 	}
 
