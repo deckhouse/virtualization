@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v3.5.2
       - name: Check Changelog entry
         id: entry-check
-        uses: deckhouse/changelog-action@v2.5.0
+        uses: deckhouse/changelog-action@v2.6.0
         with:
           validate_only: true
           allowed_sections: |
