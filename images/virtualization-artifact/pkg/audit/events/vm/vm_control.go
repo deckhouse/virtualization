@@ -25,6 +25,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
+	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 )
 
 func NewVMControl(options events.EventLoggerOptions) *VMControl {
@@ -73,7 +74,7 @@ func (m *VMControl) Fill() error {
 
 	var terminatedStatuses string
 	for _, status := range pod.Status.ContainerStatuses {
-		if status.Name == "compute" && status.State.Terminated != nil {
+		if vmutil.IsComputeContainer(status.Name) && status.State.Terminated != nil {
 			terminatedStatuses = status.State.Terminated.Message
 		}
 	}
