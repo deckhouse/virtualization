@@ -15,9 +15,6 @@ altPackages:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 
-{{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
-{{- $build := "false" }}
-{{- if eq $build "true" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
@@ -72,5 +69,3 @@ shell:
 
     ninja -j$(nproc)
     DESTDIR=$OUTDIR ninja install
-
-{{- end }}

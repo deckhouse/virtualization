@@ -60,7 +60,6 @@ altLibs:
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - rdma-core-devel
   - bzlib-devel
   - liblzo2-devel
   - libsnappy-devel
@@ -132,7 +131,7 @@ packages:
 - libjson-c5 keyutils libisofs
 - zlib p11-kit linux-pam
 - libssh libssh2
-- libpixman libqpl
+- libpixman libqpl rdma-core
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
