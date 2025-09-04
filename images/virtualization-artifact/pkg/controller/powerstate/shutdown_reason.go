@@ -22,14 +22,13 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	kvv1 "kubevirt.io/api/core/v1"
+
+	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 )
 
 type GuestSignalReason string
 
 const (
-	// DefaultVMContainerName - a container name with virt-launcher, libvirt and qemu processes.
-	DefaultVMContainerName = "compute"
-
 	// GuestResetReason - a reboot command was issued from inside the VM.
 	GuestResetReason GuestSignalReason = "guest-reset"
 
@@ -65,10 +64,9 @@ func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) 
 		return ShutdownInfo{}
 	}
 
-	// Extract termination mesage from the "compute" container.
+	// Extract termination message from the container with VM.
 	for _, contStatus := range recentPod.Status.ContainerStatuses {
-		// "compute" is a default container name for VM Pod.
-		if contStatus.Name != DefaultVMContainerName {
+		if !vmutil.IsComputeContainer(contStatus.Name) {
 			continue
 		}
 		msg := ""

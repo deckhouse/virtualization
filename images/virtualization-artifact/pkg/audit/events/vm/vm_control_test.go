@@ -86,7 +86,7 @@ var _ = Describe("VMOP Events", func() {
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  "compute",
+						Name:  "d8v-compute",
 						Image: "test-image",
 					},
 				},
@@ -95,7 +95,7 @@ var _ = Describe("VMOP Events", func() {
 			Status: corev1.PodStatus{
 				ContainerStatuses: []corev1.ContainerStatus{
 					{
-						Name:  "compute",
+						Name:  "d8v-compute",
 						State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Message: "guest-shutdown"}},
 					},
 				},

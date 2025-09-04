@@ -23,11 +23,11 @@ const (
 	OwnerUID = "OWNER_UID"
 
 	// BounderContainerName provides a constant to use as a name for bounder Container
-	BounderContainerName = "bounder"
+	BounderContainerName = "d8v-dvcr-bounder"
 	// ImporterContainerName provides a constant to use as a name for importer Container
-	ImporterContainerName = "importer"
+	ImporterContainerName = "d8v-dvcr-importer"
 	// UploaderContainerName provides a constant to use as a name for uploader Container
-	UploaderContainerName = "uploader"
+	UploaderContainerName = "d8v-dvcr-uploader"
 	// UploaderPortName provides a constant to use as a port name for uploader Service
 	UploaderPortName = "uploader"
 	// UploaderPort provides a constant to use as a port for uploader Service
