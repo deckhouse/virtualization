@@ -57,6 +57,7 @@ shell:
     OUTDIR=/out
 
     export PREFIX=/usr
+    export LIBDIR=/usr/lib64
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 

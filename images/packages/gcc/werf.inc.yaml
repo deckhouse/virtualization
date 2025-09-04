@@ -79,7 +79,6 @@ shell:
       --build=x86_64-linux-gnu \
       --host=x86_64-linux-gnu \
       --target=x86_64-linux-gnu \
-      --enable-languages=c,c++ \
       --disable-multilib \
       --disable-nls \
       --enable-checking=release \
@@ -142,6 +141,6 @@ shell:
 
     make -j$(nproc)
 
-    make install-strip
-    mkdir $OUTDIR
+    make DESTDIR=$OUTDIR install-strip
+    # mkdir $OUTDIR
     # cp x86_64-pc-linux-gnu/libgcc/libgcc_s.so.1 /out
