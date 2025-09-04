@@ -77,6 +77,13 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
+			vmClassFilePath := fmt.Sprintf("%s/vmc.yaml", conf.TestData.SizingPolicy)
+			vmcRes := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{vmClassFilePath},
+				FilenameOption: kc.Filename,
+			})
+			Expect(vmcRes.Error()).NotTo(HaveOccurred(), "failed to apply virtual class resource")
+
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.SizingPolicy},
 				FilenameOption: kc.Kustomize,
