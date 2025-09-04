@@ -4,6 +4,7 @@ metadata:
   name: vd
 spec:
   persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 512Mi
   dataSource:
     type: HTTP
@@ -16,6 +17,7 @@ metadata:
   name: vd-cvi
 spec:
   persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 512Mi
   dataSource:
     type: ObjectRef

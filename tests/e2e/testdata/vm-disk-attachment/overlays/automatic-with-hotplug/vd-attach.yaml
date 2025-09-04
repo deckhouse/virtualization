@@ -6,4 +6,5 @@ metadata:
     hasNoConsumer: "vm-disk-attachment"
 spec:
   persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 100Mi

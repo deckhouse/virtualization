@@ -5,7 +5,7 @@
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc gcc-c++
 - git curl
 - bash-completion
@@ -22,8 +22,9 @@ packages:
 - python3-modules-sqlite3 python3-module-virt-firmware libuuid-devel
 - libssl-devel
 - libssl-devel libdwarf-devel libuuid-devel
-- bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
-- libisofs-devel
+- bc perl-PathTools perl-IPC-Cmd perl-JSON
+packages:
+- zlib libisoburn libburn libisofs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -33,26 +34,26 @@ final: false
 fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /
+  to: /src
   includePaths: build.sh
   stageDependencies:
     install:
       - build.sh
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo
-  to: /
+  to: /src
   includePaths: Logo.bmp
   stageDependencies:
     install:
       - '**/*'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
-  to: /FIRMWARE
+  to: /src/FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     install:
       - '*.json'
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
-  to: /FIRMWARE
+  to: /src/FIRMWARE
   includePaths:
   - '*.bin'
   stageDependencies:
@@ -64,16 +65,16 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    cd /src
 
     echo "Git clone Edk2 repository..."
     git clone \
       --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
-      --branch {{ $gitRepoName }}-{{ $version }} /{{ $gitRepoName }}-{{ $version }}
+      --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
     git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
 
-    cd /{{ $gitRepoName }}-{{ $version }}
+    cd {{ $gitRepoName }}-{{ $version }}
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
@@ -95,27 +96,16 @@ final: false
 fromImage: builder/alt
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /{{ $gitRepoName }}-{{ $version }}
-  to: /{{ $gitRepoName }}-{{ $version }}
+  add: /src
+  to: /
   before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /edk2-platforms
-  to: /edk2-platforms
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /FIRMWARE
-  to: /FIRMWARE
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /Logo.bmp
-  to: /Logo.bmp
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /build.sh
-  to: /build.sh
-  before: install
-{{- $images := list "libisoburn" "libburn" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+  includePaths:
+  - "{{ $gitRepoName }}-{{ $version }}"
+  - edk2-platforms
+  - FIRMWARE
+  - Logo.bmp
+  - build.sh
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
@@ -125,25 +115,21 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
-    cd /{{ $gitRepoName }}-{{ $version }}
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
-    echo "List files in /"
-    ls -la /
+
     cd /{{ $gitRepoName }}-{{ $version }}
-    echo "========"
 
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools

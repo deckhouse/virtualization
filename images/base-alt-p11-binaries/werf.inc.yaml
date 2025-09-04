@@ -4,9 +4,8 @@
 altPackages:
 - glibc-utils
 - mount xfsprogs xfstests util-linux
-altLibraries:
-- libssh-devel libssh2-devel
 packages:
+- libssh libssh2
 - libffi e2fsprogs
 {{- end -}}
 
@@ -25,8 +24,8 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-        {{ $builderDependencies.altPackages | join " " }} \
-        {{ $builderDependencies.altLibraries | join " " }}
+        {{ $builderDependencies.altPackages | join " " }}
+
   {{- include "alt packages clean" . | nindent 2 }}
   - |
     # Install packages

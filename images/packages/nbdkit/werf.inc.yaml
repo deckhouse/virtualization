@@ -33,12 +33,14 @@ altPackages:
 - filesystem
 - socat xz jq 
 - iproute2
-- zlib-ng zlib
+- zlib-ng
 - zstd
-- libblkio libtorrent-rasterbar-devel libssh
+- libblkio libtorrent-rasterbar-devel
 packages:
 - libisoburn libnbd e2fsprogs
 - gnutls libidn2 libgmp
+- zlib
+- libssh
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

@@ -64,7 +64,7 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - binutils
 - pkgconfig pkg-config
 - gcc-c++ clang git
@@ -85,7 +85,7 @@ packages:
 - python3-module-sphinx
 - python3-module-sphinx_rtd_theme
 - python3-module-black
-libraries:
+altLibraries:
 - glibc-devel-static
 - zlib-devel-static
 - libpcre2-devel-static
@@ -94,17 +94,13 @@ libraries:
 - libatomic-devel-static
 - libdw-devel
 - perl-devel
-- libssh-devel
-- libssh2-devel
 - libxfs-devel
-- zlib-devel
 - libpci-devel
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
 - libpixman-devel
-- libkeyutils-devel
-- libuuid-devel libpam0-devel
+- libuuid-devel
 - libtasn1-devel libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
@@ -126,6 +122,12 @@ libraries:
 - libglusterfs11-api-devel
 - libvdeplug-devel
 - glib2-devel
+packages:
+- dmidecode libgcrypt nettle libcap-ng libcapstone 
+- openssl libcurl e2fsprogs libxcrypt numactl
+- zlib linux-pam
+- libssh libssh2
+- openldap keyutils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -149,8 +151,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -159,8 +160,8 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }} \
-      {{ $builderDependencies.libraries | join " " }}
+      {{ $builderDependencies.altPackages | join " " }} \
+      {{ $builderDependencies.altLibraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -175,13 +176,11 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"

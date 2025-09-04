@@ -28,11 +28,13 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - git gcc-c++ flex make makeinfo  glibc-devel-static libtool autoconf_2.60
 - libelf-devel libmpc-devel perl-Pod-Parser zlib-devel libzstd-devel
 - libstdc++-devel libstdc++-devel-static
 - gcc-go i586-glibc-devel i586-glibc-gconv-modules i586-glibc-nss i586-glibc-devel-static
+packages:
+- zlib
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -45,17 +47,25 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
 
     cd /src

@@ -1,0 +1,97 @@
+# Copyright 2025 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Nightly End-to-End tests report
+
+env:
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  GO_VERSION: "1.24.5"
+  TIMEOUT: "2h"
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  show_dev_manifest:
+    runs-on: ubuntu-latest
+    name: End-to-End tests report
+    steps:
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: https://api.e2e.virtlab.flant.com
+          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+
+      - name: Send results to channel
+        if: always()
+        run: |
+          markdown_table=""
+
+          header="| CSI | Status | Passed | Failed	| Pending	| Skipped	| Date | Time | Branch|\n"
+          separator="|---|---|---|---|---|---|---|---|\n"
+
+          markdown_table+="$header"
+          markdown_table+="$separator"
+
+          LABEL_KEY="storageClass"
+          LABEL_VALUES=("ceph-pool-r2-csi-rbd-immediate" "linstor-thin-r1-immediate")
+
+          DATE=$(date +"%Y-%m-%d")
+          COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n"
+
+          get_latest_summary() {
+            local label_key=$1
+            local label_value=$2
+            kubectl get secrets --namespace default -l ${label_key}=${label_value} --output json | \
+            jq --raw-output '.items | sort_by(.metadata.creationTimestamp) | last(.[]).data.summary // ""' | \
+            base64 --decode
+          }
+
+          for value in "${LABEL_VALUES[@]}"; do
+            latest=$(get_latest_summary $LABEL_KEY $value)
+            if [ -n "$latest" ]; then
+              csi=$(echo $latest | jq --raw-output .CSI)
+              date=$(echo $latest | jq --raw-output .Date)
+              time=$(echo $latest | jq --raw-output .StartTime)
+              branch=$(echo $latest | jq --raw-output .Branch)
+              status=$(echo $latest | jq --raw-output .Status)
+              passed=$(echo $latest | jq --raw-output .Passed)
+              failed=$(echo $latest | jq --raw-output .Failed)
+              pending=$(echo $latest | jq --raw-output .Pending)
+              skipped=$(echo $latest | jq --raw-output .Skipped)
+              link=$(echo $latest | jq --raw-output .Link)
+
+              current_date=$(date +"%Y-%m-%d")
+              ts1=$(date -d "$current_date" +%s)
+              ts2=$(date -d "$date" +%s)
+              if (( ts1 > ts2 )); then
+                status=":x: WRONG REPORT DATE!"
+              fi
+
+              markdown_table+="| [:link: $csi]($link) | $status | $passed | $failed	| $pending	| $skipped	| $date | $time | $branch |\n"
+            fi
+          done
+
+          COMBINED_SUMMARY+="${markdown_table}\n"
+
+          echo -e "$COMBINED_SUMMARY"
+          curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" $LOOP_WEBHOOK_URL
+        env:
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}

@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -64,6 +65,8 @@ const (
 	PhaseWaitForFirstConsumer = "WaitForFirstConsumer"
 	VirtualizationController  = "virtualization-controller"
 	VirtualizationNamespace   = "d8-virtualization"
+	storageClassName          = "STORAGE_CLASS_NAME"
+	testDataDir               = "/tmp/testdata"
 )
 
 var (
@@ -79,6 +82,8 @@ var (
 	namePrefix                   string
 	phaseByVolumeBindingMode     string
 	logStreamByV12nControllerPod = make(map[string]*el.LogStream, 0)
+	scFromEnv                    *storagev1.StorageClass
+	storageClass                 *storagev1.StorageClass
 )
 
 func init() {
@@ -131,13 +136,29 @@ func init() {
 	if git, err = gt.NewGit(); err != nil {
 		log.Fatal(err)
 	}
+
 	if conf.StorageClass.DefaultStorageClass, err = GetDefaultStorageClass(); err != nil {
 		log.Fatal(err)
 	}
+
 	if !config.SkipImmediateStorageClassCheck() {
 		if conf.StorageClass.ImmediateStorageClass, err = GetImmediateStorageClass(conf.StorageClass.DefaultStorageClass.Provisioner); err != nil {
 			log.Fatal(err)
 		}
+	}
+
+	if scFromEnv, err = GetStorageClassFromEnv(storageClassName); err != nil {
+		log.Fatal(err)
+	}
+
+	if scFromEnv != nil {
+		storageClass = scFromEnv
+	} else {
+		storageClass = conf.StorageClass.DefaultStorageClass
+	}
+
+	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: storageClass.Name}); err != nil {
+		log.Fatal(err)
 	}
 
 	err = config.CheckDefaultVMClass(virtClient)
@@ -149,7 +170,7 @@ func init() {
 		log.Fatal(err)
 	}
 	ChmodFile(conf.TestData.Sshkey, 0o600)
-	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf.StorageClass.DefaultStorageClass)
+	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(storageClass)
 }
 
 func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {

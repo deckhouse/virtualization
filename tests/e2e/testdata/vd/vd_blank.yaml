@@ -5,4 +5,5 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 100Mi

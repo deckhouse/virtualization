@@ -20,38 +20,32 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc git make libtool gettext-tools
-- libssh2-devel
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- zlib-devel libzstd-devel libpsl-devel libldap-devel libbrotli-devel
+- libzstd-devel libpsl-devel libbrotli-devel
 - python3-base
-- libnghttp2-tools
 - openssh-server
 - openssh-clients
 - caddy
-- pytest3
-- python3-module-cryptography
-- apache2-httpd-worker
-- apache2-devel
-- apache2-mod_ssl
-- apache2-mod_http2
-- vsftpd
 - python3-module-pytest-xdist
 - python3-module-psutil
 - python3-module-filelock
-- libnghttp2-tools
-- gnutls-utils libnghttp3-devel libngtcp2-devel
-- tree nettle
+- libngtcp2-devel
+- tree
+packages:
+- openssl libidn2 libgmp gnutls nettle
+- nghttp2 nghttp3
+- zlib
+- libssh2
+- openldap
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -68,21 +62,20 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "openssl" "libidn2" "libgmp" "gnutls" "nettle" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -109,8 +102,6 @@ shell:
       --with-gssapi \
       --enable-websockets \
       --enable-versioned-symbols \
-      --with-test-httpd \
-      --with-test-vsftpd=/usr/sbin/vsftpd \
       --with-libssh2
 
     make -j$(nproc)
