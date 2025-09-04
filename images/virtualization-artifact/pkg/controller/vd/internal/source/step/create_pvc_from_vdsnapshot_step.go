@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -119,7 +120,41 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
 	vd.Status.Target.PersistentVolumeClaim = pvc.Name
 
+	s.AddOriginalMetadata(vd, vs)
 	return nil, nil
+}
+
+// AddOriginalMetadata adds original annotations and labels from VolumeSnapshot to VirtualDisk,
+// without overwriting existing values
+func (s CreatePVCFromVDSnapshotStep) AddOriginalMetadata(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) {
+	if vd.Annotations == nil {
+		vd.Annotations = make(map[string]string)
+	}
+	if vd.Labels == nil {
+		vd.Labels = make(map[string]string)
+	}
+
+	if annotationsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]; annotationsJSON != "" {
+		var originalAnnotations map[string]string
+		if err := json.Unmarshal([]byte(annotationsJSON), &originalAnnotations); err == nil {
+			for key, value := range originalAnnotations {
+				if _, exists := vd.Annotations[key]; !exists {
+					vd.Annotations[key] = value
+				}
+			}
+		}
+	}
+
+	if labelsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]; labelsJSON != "" {
+		var originalLabels map[string]string
+		if err := json.Unmarshal([]byte(labelsJSON), &originalLabels); err == nil {
+			for key, value := range originalLabels {
+				if _, exists := vd.Labels[key]; !exists {
+					vd.Labels[key] = value
+				}
+			}
+		}
+	}
 }
 
 func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {

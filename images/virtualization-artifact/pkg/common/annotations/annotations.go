@@ -164,9 +164,9 @@ const (
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
 
 	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
-	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd.original-annotations"
+	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
 	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
-	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd.original-labels"
+	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
 )
 
 // AddAnnotation adds an annotation to an object
