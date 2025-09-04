@@ -65,11 +65,11 @@ shell:
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DCMAKE_INSTALL_SYSCONFDIR=/etc \
-      -DCMAKE_INSTALL_INCLUDEDIR:PATH=/usr/include \
       -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
       -DNO_MAN_PAGES=ON
 
     ninja -j$(nproc)
     DESTDIR=$OUTDIR ninja install
+    cp -r kernel-headers/rdma $OUTDIR/usr/include/
     rm -rf $OUTDIR/etc/init.d
     tree -hp $OUTDIR
