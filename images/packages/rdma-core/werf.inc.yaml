@@ -65,16 +65,28 @@ shell:
   install:
   - |
     OUTDIR=/out
+    BUILDDIR=/src/build
 
     cd /src
-    cmake -GNinja \
+    mkdir -p "$BUILDDIR"
+    cmake -GNinja -B build \
+      -DCMAKE_POLICY_DEFAULT_CMP0177=NEW \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DCMAKE_INSTALL_SYSCONFDIR=/etc \
       -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
-      -DNO_MAN_PAGES=ON
+      -DNO_MAN_PAGES=1 \
+      -DENABLE_STATIC=1
 
-    ninja -j$(nproc)
-    DESTDIR=$OUTDIR ninja install
+    ninja -j$(nproc) -C $BUILDDIR
+    DESTDIR=$OUTDIR ninja -C $BUILDDIR install
+    
+    rm -rf $OUTDIR/usr/share
+    
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
 
 {{- end }}
