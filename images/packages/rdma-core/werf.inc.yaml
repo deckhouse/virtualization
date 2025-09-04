@@ -65,6 +65,7 @@ shell:
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+      -DCMAKE_INSTALL_INCLUDEDIR:PATH=/usr/include \
       -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
       -DNO_MAN_PAGES=ON
 
