@@ -70,4 +70,5 @@ shell:
 
     ninja -j$(nproc)
     DESTDIR=$OUTDIR ninja install
-    tree $OUTDIR
+    rm -rf $OUTDIR/etc/init.d
+    tree -hp $OUTDIR
