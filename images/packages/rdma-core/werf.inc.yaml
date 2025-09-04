@@ -69,3 +69,4 @@ shell:
 
     ninja -j$(nproc)
     DESTDIR=$OUTDIR ninja install
+    tree $OUTDIR
