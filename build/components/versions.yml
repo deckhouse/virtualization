@@ -70,4 +70,4 @@ package:
   ubdsrv: v1.6
   util-linux: v2.41.1
   zlib: v1.3.1
-  zstd: zstd-0.4.2
+  zstd: v1.5.7
