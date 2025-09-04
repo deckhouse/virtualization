@@ -157,13 +157,6 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 					)
 				}
 
-				if !v.scService.IsStorageClassAllowed(*newVI.Spec.PersistentVolumeClaim.StorageClass) {
-					return nil, fmt.Errorf(
-						"the storage class %q is not allowed; please check the module settings",
-						*newVI.Spec.PersistentVolumeClaim.StorageClass,
-					)
-				}
-
 				if sc != nil {
 					sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
 					if err != nil {

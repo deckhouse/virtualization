@@ -27,17 +27,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type SpecChangesValidator struct {
 	client    client.Client
-	scService *service.VirtualDiskStorageClassService
+	scService *intsvc.VirtualDiskStorageClassService
 }
 
-func NewSpecChangesValidator(client client.Client, scService *service.VirtualDiskStorageClassService) *SpecChangesValidator {
+func NewSpecChangesValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService) *SpecChangesValidator {
 	return &SpecChangesValidator{
 		client:    client,
 		scService: scService,
