@@ -186,8 +186,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, exists := os.LookupEnv(appconfig.VirtualDiskAllowedStorageClasses)
-	log.Error("test: %v", exists)
 	viStorageClassSettings, err := appconfig.LoadVirtualImageStorageClassSettings()
 	if err != nil {
 		log.Error(err.Error())
