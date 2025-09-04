@@ -4,19 +4,21 @@
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc git make libtool libnl-devel ninja-build
 - binutils cmake libudev-devel pkgconfig
 - libsystemd-devel pandoc
 - python3-module-Cython python3-devel python3-module-docutils
-- libpcap-devel libibumad libnl3 libnl-devel
+- libpcap-devel libibumad libnl-devel
+packages:
+- libnl3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 
 {{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
-{{- $build := "false" }}
+{{- $build := "true" }}
 {{- if eq $build "true" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
@@ -34,8 +36,8 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
-  # value: {{ $.SOURCE_REPO_GIT }}
+  # value: {{ $.SOURCE_REPO }}
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
   - |
@@ -56,7 +58,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 

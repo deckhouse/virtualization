@@ -90,7 +90,6 @@ altLibs:
   - glib2-devel
   - libgio-devel
   - libxml2-devel
-  - libgcc1
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
@@ -132,7 +131,7 @@ packages:
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
 - zlib zstd p11-kit linux-pam
-- libssh libssh2
+- libssh libssh2 libgcc1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
