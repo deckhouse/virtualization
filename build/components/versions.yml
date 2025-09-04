@@ -33,7 +33,7 @@ package:
   libxcrypt: v4.4.36
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
-  rdma-core: v57.0
+  rdma-core: v53.0
   libgsasl: v2.2.2
   libidn: v1.43
   libidn2: v2.3.8
