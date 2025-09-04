@@ -29,10 +29,10 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc-c++ flex make makeinfo  glibc-devel-static libtool autoconf_2.60
-- libelf-devel libmpc-devel perl-Pod-Parser
-- libstdc++-devel libstdc++-devel-static
-- gcc-go i586-glibc-devel i586-glibc-gconv-modules i586-glibc-nss i586-glibc-devel-static
+- git gcc-c++ flex make makeinfo libtool autoconf_2.60
+- libelf-devel libmpc-devel libmpfr-devel perl-Pod-Parser
+- libgc-devel coreutils
+- autogen dejagnu glibc-devel-static
 # - libzstd-devel
 packages:
 - zlib 
