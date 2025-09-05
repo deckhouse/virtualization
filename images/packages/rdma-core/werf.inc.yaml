@@ -25,6 +25,8 @@ import:
   add: /out
   to: /{{ .ImageName }}
   before: setup
+  excludePaths:
+  - etc/init.d
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
@@ -35,8 +37,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
@@ -71,5 +72,4 @@ shell:
     ninja -j$(nproc)
     DESTDIR=$OUTDIR ninja install
     cp -r kernel-headers/rdma $OUTDIR/usr/include/
-    rm -rf $OUTDIR/etc/init.d
     tree -hp $OUTDIR
