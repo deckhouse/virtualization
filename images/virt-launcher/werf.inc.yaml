@@ -35,7 +35,6 @@ altLibs:
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
-  - libsasl2-devel
   - libjpeg-devel
   - libpng-devel
   - libxkbcommon-devel
@@ -60,7 +59,6 @@ altLibs:
   - libdaxctl-devel
   - bzlib-devel
   - liblzo2-devel
-  - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
@@ -68,7 +66,6 @@ altLibs:
   - libvitastor-devel
   - libiscsi-devel
   - libaio-devel
-  - libselinux-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -80,7 +77,6 @@ altLibs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libreadline-devel
   - libsystemd-devel
   - systemtap-sdt-devel
   - glib2-devel
@@ -125,9 +121,14 @@ packages:
 - util-linux libfuse3 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
-- zlib zstd p11-kit linux-pam
+- zlib zstd p11-kit
 - libssh libssh2
 - libpixman libqpl rdma-core
+- readline
+- selinux
+- linux-pam
+- cyrus-sasl2
+- snappy
 - libtasn1 libtirpc
 {{- end -}}
 

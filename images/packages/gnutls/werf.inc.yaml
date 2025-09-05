@@ -49,13 +49,14 @@ altPackages:
 - libtpm2-tss-devel libtrousers-devel
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
-- liboqs-devel libreadline-devel
+- liboqs-devel
 - libssl-devel iproute2-devel
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
 - nettle zlib zstd p11-kit
 - openssl
+- readline
 - libtasn1
 {{- end -}}
 

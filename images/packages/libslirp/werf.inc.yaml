@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "readline/readline.git" }}
+{{- $gitRepoUrl := "slirp/libslirp.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -27,8 +27,10 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config
-- libtinfo-devel libncursesw-devel makeinfo
+- meson ninja-build
 - tree
+packages:
+- glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -41,6 +43,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -52,22 +55,23 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
 
     cd /src
 
-    autoconf
-    ./configure \
-      --prefix=/usr \
-      --exec-prefix=/usr \
-      --libdir=/usr/lib64 \
-      --enable-shared \
-      --disable-static
-
-    make -j$(nproc) SHLIB_LIBS="-lncursesw -ltinfo"
-    make DESTDIR=$OUTDIR install
+    meson setup build --prefix=/usr --buildtype=release
+    ninja -C build
+    DESTDIR=${OUTDIR} meson install -C build
 
     rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/var
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then

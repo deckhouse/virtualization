@@ -45,6 +45,7 @@ packages:
 - libssh2
 - openldap
 - libpsl
+- cyrus-sasl2
 - ngtcp2 libtasn1
 {{- end -}}
 

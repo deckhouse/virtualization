@@ -7,10 +7,13 @@ import:
   add: /out
   to: /{{ .ImageName }}
   before: setup
+  excludePaths:
+  - var
+  - etc
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "cyrusimap/cyrus-sasl.git" }}
+{{- $gitRepoUrl := "SELinuxProject/selinux.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -26,32 +29,31 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++ autoconf automake libtool make pkg-config
-- meson ninja-build flex
-- libsphinxclient-devel libsphinxclient
-- libsphinxbase-devel libgdbm-devel
-- libcom_err-devel libdb4-devel libkrb5-devel
-- groff-base openssl-devel
-- perl-Pod-POM-View-Restructured
-- python3-module-sphinx
-- python3-module-sphinx-devel
-- python3-module-six
+- gcc gcc-c++ autoconf automake libtool make makeinfo pkg-config
+- bison flex
+- CUnit-devel
+- diffutils swig
+- gettext gettext-tools
+- libsystemd-devel
+- libsepol-devel libsepol-devel-static
+- xmlto
+- python3 python3-devel
+- python3-module-pip
 - python3-module-setuptools
-- python3-module-sphinx-sphinx-build-symlink
-- libMySQL-devel postgresql-devel libsqlite3-devel
-- libldap-devel
-- m4
-- groff-base gettext-tools
-- libssl-devel
-- libdb4-devel
-- libkrb5-devel
-- libsqlite3-devel
+- python3-module-pyproject-installer
+- python3-module-wheel
+- python3-module-distro
+- ruby-devel
+- libgio-devel
+- libustr-devel libustr 
+- policycoreutils-restorecond policycoreutils
 - tree
-# libpam-devel
 packages:
-- libxcrypt
-- zlib
-- linux-pam
+- libaudit
+- glib2 bzip2
+- pcre2
+- libcap libcap-ng
+# - linux-pam-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -82,36 +84,26 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
-    OUTDIR=/out
 
     cd /src
+    OUTDIR=/out
 
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --exec-prefix=/usr \
-      --libdir=/usr/lib64 \
-      --enable-sample=no \
-      --disable-static \
-      --enable-shared \
-      --disable-static \
-      --disable-krb4 \
-      --enable-login \
-      --enable-ntlm \
-      --with-ldap \
-      --with-openssl \
-      --with-pam \
-      --with-dblib=berkeley \
-      --with-sqlite3 \
-      --disable-macos-framework
-    
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    make -j$(nproc) clean distclean
 
-    rm -rf $OUTDIR/usr/share
+    make -j$(nproc) \
+      DESTDIR=$OUTDIR \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin \
+      LIBDIR=/usr/lib64 \
+      SHLIBDIR=/usr/lib64 \
+      PKG_CONFIG_PATH=$OUTDIR/usr/lib64/pkgconfig:$PKG_CONFIG_PATH \
+      LD_LIBRARY_PATH=$OUTDIR/usr/lib64:$LD_LIBRARY_PATH \
+      LDFLAGS+="-L$OUTDIR/usr/lib64" \
+      install install-pywrap
 
-    find $OUTDIR -type f -executable | while read -r execfile; do
+    rm -rf $OUTDIR/usr/share/{applications,bash-completion,dbus-1,icons,pixmaps,locale,man}
+   
+    find ${OUTDIR} -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi

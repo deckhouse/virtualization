@@ -81,7 +81,7 @@ shell:
       -Dpsl_distfile=/usr/share/publicsuffix/public_suffix_list.dafsa \
       -Dpsl_file=/usr/share/publicsuffix/effective_tld_names.dat \
       -Dpsl_testfile=/usr/share/publicsuffix/test_psl.txt \
-    	-Druntime=libidn2 \
+      -Druntime=libidn2 \
       -Ddocs=false \
       -Dtests=false \
       --wrap-mode=nofallback \

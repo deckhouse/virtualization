@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "cyrusimap/cyrus-sasl.git" }}
+{{- $gitRepoUrl := "google/snappy.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -20,38 +20,32 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config
-- meson ninja-build flex
-- libsphinxclient-devel libsphinxclient
-- libsphinxbase-devel libgdbm-devel
-- libcom_err-devel libdb4-devel libkrb5-devel
-- groff-base openssl-devel
-- perl-Pod-POM-View-Restructured
-- python3-module-sphinx
-- python3-module-sphinx-devel
-- python3-module-six
-- python3-module-setuptools
-- python3-module-sphinx-sphinx-build-symlink
-- libMySQL-devel postgresql-devel libsqlite3-devel
-- libldap-devel
-- m4
-- groff-base gettext-tools
-- libssl-devel
-- libdb4-devel
-- libkrb5-devel
-- libsqlite3-devel
+- cmake libgflags-devel
+- libgtest-devel liblzo2-devel
+- llvm-devel
 - tree
-# libpam-devel
 packages:
-- libxcrypt
 - zlib
-- linux-pam
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -87,29 +81,36 @@ shell:
 
     cd /src
 
-    ./autogen.sh
-    ./configure \
-      --prefix=/usr \
-      --exec-prefix=/usr \
-      --libdir=/usr/lib64 \
-      --enable-sample=no \
-      --disable-static \
-      --enable-shared \
-      --disable-static \
-      --disable-krb4 \
-      --enable-login \
-      --enable-ntlm \
-      --with-ldap \
-      --with-openssl \
-      --with-pam \
-      --with-dblib=berkeley \
-      --with-sqlite3 \
-      --disable-macos-framework
-    
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    mkdir build
+    cd build
+    cmake -S /src \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DBUILD_SHARED_LIBS=ON
 
-    rm -rf $OUTDIR/usr/share
+      
+
+    make -j$(nproc)
+    make -j$(nproc) DESTDIR=$OUTDIR PREFIX=/usr install
+
+    prefix=/usr
+    exec_prefix=${prefix}
+    libdir=${exec_prefix}/lib64
+    includedir=${prefix}/include
+    
+    cat << EOF >$OUTDIR/usr/lib64/pkgconfig/snappy.pc
+    prefix=${prefix}
+    exec_prefix=${prefix}
+    libdir=${exec_prefix}/lib64
+    includedir=${prefix}/include
+
+    Name: {{ .ImageName }}
+    Description: A fast compression/decompression library
+    Version: {{ $version }}
+    URL: https://github.com/google/snappy
+    Libs: -L${libdir} -lsnappy
+    Cflags: -I${includedir}
+    EOF
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
