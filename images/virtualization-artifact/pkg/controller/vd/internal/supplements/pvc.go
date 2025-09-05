@@ -16,10 +16,22 @@ limitations under the License.
 
 package supplements
 
-import "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	"log/slog"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
 
 func SetPVCName(vd *v1alpha2.VirtualDisk, pvcName string) {
-	if vd != nil && pvcName != "" {
+	switch {
+	case vd == nil:
+		slog.Error("Set nil vd detected. Please report a bug.", slog.String("pvcName", pvcName))
+		return
+	case pvcName == "":
+		slog.Error("Set empty pvcName detected. Please report a bug.", slog.String("vdName", vd.Name), slog.String("vdNamespace", vd.Namespace))
+		return
+	default:
 		vd.Status.Target.PersistentVolumeClaim = pvcName
+		return
 	}
 }

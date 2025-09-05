@@ -74,11 +74,13 @@ func (h MigrationHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{}, nil
 	}
 
-	action, err := h.getAction(ctx, vd)
+	// TODO: check vm migration
+
+	expectedAction, err := h.getAction(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	switch action {
+	switch expectedAction {
 	case none:
 		return reconcile.Result{}, nil
 	case migrate:
@@ -198,7 +200,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 
 	// check resizing condition
 	resizing, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-	if resizing.Status == metav1.ConditionTrue && conditions.IsLastUpdated(resizing, vd) {
+	if resizing.Status == metav1.ConditionTrue {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.PendingMigratingReason).
@@ -209,7 +211,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 
 	// check snapshotting condition
 	snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
-	if snapshotting.Status == metav1.ConditionTrue && conditions.IsLastUpdated(resizing, vd) {
+	if snapshotting.Status == metav1.ConditionTrue {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.PendingMigratingReason).
