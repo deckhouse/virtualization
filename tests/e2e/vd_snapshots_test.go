@@ -19,6 +19,7 @@ package e2e
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -147,7 +148,10 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 			for _, vdName := range vds {
 				By(fmt.Sprintf("Create snapshot for %q", vdName))
-				err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, hasNoConsumerLabel)
+				labels := make(map[string]string)
+				maps.Copy(labels, hasNoConsumerLabel)
+				maps.Copy(labels, testCaseLabel)
+				err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, labels)
 				Expect(err).NotTo(HaveOccurred(), "%s", err)
 			}
 		})
@@ -195,7 +199,10 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 				for _, blockDevice := range blockDevices {
 					if blockDevice.Kind == virtv2.VirtualDiskKind {
 						By(fmt.Sprintf("Create snapshot for %q", blockDevice.Name))
-						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, ns, true, attachedVirtualDiskLabel)
+						labels := make(map[string]string)
+						maps.Copy(labels, attachedVirtualDiskLabel)
+						maps.Copy(labels, testCaseLabel)
+						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, ns, true, labels)
 						Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 						Eventually(func() error {
@@ -246,7 +253,11 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 							go func(index int) {
 								defer wg.Done()
 								snapshotName := fmt.Sprintf("%s-%d", blockDevice.Name, index)
-								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, ns, true, attachedVirtualDiskLabel)
+
+								labels := make(map[string]string)
+								maps.Copy(labels, attachedVirtualDiskLabel)
+								maps.Copy(labels, testCaseLabel)
+								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, ns, true, labels)
 								if err != nil {
 									errs = append(errs, err)
 								}
@@ -303,12 +314,12 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+					frozen, err := CheckFileSystemFrozen(vm.Name, vm.Namespace)
 					if err != nil {
 						return nil
 					}
 					if frozen {
-						return errors.New("Filesystem of the Virtual Machine is frozen")
+						return fmt.Errorf("the filesystem of the virtual machine %s/%s is frozen", vm.Namespace, vm.Name)
 					}
 					return nil
 				}).WithTimeout(
