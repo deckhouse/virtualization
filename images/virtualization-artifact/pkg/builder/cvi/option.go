@@ -14,6 +14,8 @@ limitations under the License.
 package cvi
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -34,8 +36,20 @@ func WithPhase(phase v1alpha2.ImagePhase) func(vi *v1alpha2.ClusterVirtualImage)
 	}
 }
 
-func WithCDROM(cdrom bool) func(vi *v1alpha2.ClusterVirtualImage) {
-	return func(vi *v1alpha2.ClusterVirtualImage) {
-		vi.Status.CDROM = cdrom
+func WithCDROM(cdrom bool) func(cvi *v1alpha2.ClusterVirtualImage) {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Status.CDROM = cdrom
+	}
+}
+
+func WithDatasource(datasource v1alpha2.ClusterVirtualImageDataSource) func(cvi *v1alpha2.ClusterVirtualImage) {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Spec.DataSource = datasource
+	}
+}
+
+func WithCondition(condition metav1.Condition) func(cvi *v1alpha2.ClusterVirtualImage) {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Status.Conditions = append(cvi.Status.Conditions, condition)
 	}
 }

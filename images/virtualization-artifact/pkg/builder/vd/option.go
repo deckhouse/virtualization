@@ -14,6 +14,8 @@ limitations under the License.
 package vd
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -28,3 +30,15 @@ var (
 	WithAnnotation  = meta.WithAnnotation[*v1alpha2.VirtualDisk]
 	WithAnnotations = meta.WithAnnotations[*v1alpha2.VirtualDisk]
 )
+
+func WithDatasource(datasource *v1alpha2.VirtualDiskDataSource) func(vd *v1alpha2.VirtualDisk) {
+	return func(vd *v1alpha2.VirtualDisk) {
+		vd.Spec.DataSource = datasource
+	}
+}
+
+func WithCondition(condition metav1.Condition) func(vi *v1alpha2.VirtualDisk) {
+	return func(vd *v1alpha2.VirtualDisk) {
+		vd.Status.Conditions = append(vd.Status.Conditions, condition)
+	}
+}

@@ -151,7 +151,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
+		SetPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
@@ -505,7 +505,9 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 		}
 
 		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
-			if viRef.Status.Phase != virtv2.ImageReady {
+			readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, viRef.Status.Conditions)
+
+			if readyCondition.Status != metav1.ConditionTrue {
 				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 			}
 			return nil

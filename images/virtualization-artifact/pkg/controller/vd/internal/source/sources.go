@@ -98,7 +98,7 @@ func IsDiskProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vdcondition.Ready.String() || c.Reason == vdcondition.Lost.String()
 }
 
-func setPhaseConditionForFinishedDisk(
+func SetPhaseConditionForFinishedDisk(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *virtv2.DiskPhase,

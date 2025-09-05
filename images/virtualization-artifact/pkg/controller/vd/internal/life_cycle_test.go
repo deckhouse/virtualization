@@ -86,7 +86,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
-			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil, nil)
 
 			ctx := logger.ToContext(context.TODO(), slog.Default())
 
@@ -188,7 +188,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
 
-			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil, nil)
 
 			ctx := logger.ToContext(context.TODO(), slog.Default())
 
@@ -267,7 +267,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 					return reconcile.Result{}, nil
 				}}, true
 			}
-			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil, nil)
 			_, _ = handler.Handle(ctx, &vd)
 			readyCond, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			Expect(readyCond.Reason).Should(Equal(expectedReadyReason))

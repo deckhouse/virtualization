@@ -33,37 +33,35 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-type VirtualDiskWatcher struct {
+type VirtualImageWatcher struct {
 	logger *log.Logger
 	client client.Client
 }
 
-func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
-	return &VirtualDiskWatcher{
-		logger: log.Default().With("watcher", "vd"),
+func NewVirtualImageWatcher(client client.Client) *VirtualImageWatcher {
+	return &VirtualImageWatcher{
+		logger: log.Default().With("watcher", "vi"),
 		client: client,
 	}
 }
 
-func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
-			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequestsFromVDs),
-			predicate.TypedFuncs[*virtv2.VirtualDisk]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
-					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
-					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	return ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+					if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+						return true
+					}
 
-					oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectOld.Status.Conditions)
-					newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectNew.Status.Conditions)
+					oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, e.ObjectNew.Status.Conditions)
 
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
-						len(e.ObjectOld.Status.AttachedToVirtualMachines) != len(e.ObjectNew.Status.AttachedToVirtualMachines) ||
-						oldInUseCondition != newInUseCondition ||
-						oldReadyCondition.Status != newReadyCondition.Status {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
 						return true
 					}
 
@@ -71,28 +69,26 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 				},
 			},
 		),
-	); err != nil {
-		return fmt.Errorf("error setting watch on VDs: %w", err)
-	}
-	return nil
+	)
 }
 
-func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
+func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj *virtv2.VirtualImage) (requests []reconcile.Request) {
 	var viList virtv2.VirtualImageList
 	err := w.client.List(ctx, &viList, &client.ListOptions{
-		Namespace: vd.GetNamespace(),
+		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vi: %s", err))
 		return
 	}
 
+	// We need to trigger reconcile for the vi resources that use changed image as a datasource so they can continue provisioning.
 	for _, vi := range viList.Items {
 		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
 			continue
 		}
 
-		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || vi.Spec.DataSource.ObjectRef.Name != vd.GetName() {
+		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind || vi.Spec.DataSource.ObjectRef.Name != vi.GetName() {
 			continue
 		}
 
@@ -104,17 +100,24 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 		})
 	}
 
-	if vd.Spec.DataSource != nil && vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
-		if vd.Spec.DataSource.ObjectRef != nil && vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+	if obj.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if obj.Spec.DataSource.ObjectRef != nil && obj.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
 			// Need to trigger reconcile for update InUse condition.
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
-					Name:      vd.Spec.DataSource.ObjectRef.Name,
-					Namespace: vd.Namespace,
+					Name:      obj.Spec.DataSource.ObjectRef.Name,
+					Namespace: obj.Namespace,
 				},
 			})
 		}
 	}
+
+	requests = append(requests, reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: obj.Namespace,
+			Name:      obj.Name,
+		},
+	})
 
 	return
 }
