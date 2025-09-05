@@ -118,6 +118,13 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	common.FillResourcesStatuses(vmop, statuses)
+
+	for _, status := range statuses {
+		if status.Status == "InProgress" {
+			return &reconcile.Result{}, nil
+		}
+	}
+
 	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonRestoreOperationCompleted).Message("The virtual machine has been restored from the snapshot successfully")
 
 	return &reconcile.Result{}, nil

@@ -98,7 +98,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	// 3. Operation already in progress. Check if the operation is completed.
 	// Run execute until the operation is completed.
-	if isOperationInProgress(vmop) {
+	if svcOp.IsInProgress() {
 		rec, err := h.execute(ctx, vmop, svcOp)
 
 		// 3.1 Check if complete
@@ -182,17 +182,4 @@ func (h LifecycleHandler) setCompletedCondition(vmop *v1alpha2.VirtualMachineOpe
 	h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
 
 	conditions.SetCondition(cb.Reason(vmopcondition.ReasonOperationCompleted).Message("VirtualMachineOperation succeeded").Status(metav1.ConditionTrue), &vmop.Status.Conditions)
-}
-
-func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
-	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
-	if found && maintenanceModeCondition.Status == metav1.ConditionTrue {
-		return true
-	}
-
-	if len(vmop.Status.Resources) > 0 {
-		return true
-	}
-
-	return false
 }
