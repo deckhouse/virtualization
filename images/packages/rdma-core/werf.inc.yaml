@@ -4,14 +4,12 @@
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-altPackages:
+packages:
 - gcc git make libtool libnl-devel ninja-build
 - binutils cmake libudev-devel pkgconfig
 - libsystemd-devel pandoc
 - python3-module-Cython python3-devel python3-module-docutils
-- libpcap-devel libibumad libnl-devel
-packages:
-- libnl3
+- libpcap-devel libibumad libnl3 libnl-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -36,8 +34,8 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  # value: {{ $.SOURCE_REPO }}
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
+  # value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
   - |
@@ -58,35 +56,23 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.altPackages | join " " }}
+      {{ $builderDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     OUTDIR=/out
-    BUILDDIR=/src/build
 
     cd /src
-    mkdir -p "$BUILDDIR"
-    cmake -GNinja -B build \
-      -DCMAKE_POLICY_DEFAULT_CMP0177=NEW \
+    cmake -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DCMAKE_INSTALL_SYSCONFDIR=/etc \
       -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
-      -DNO_MAN_PAGES=1 \
-      -DENABLE_STATIC=1
+      -DNO_MAN_PAGES=ON
 
-    ninja -j$(nproc) -C $BUILDDIR
-    DESTDIR=$OUTDIR ninja -C $BUILDDIR install
-    
-    rm -rf $OUTDIR/usr/share
-    
-    find $OUTDIR -type f -executable | while read -r execfile; do
-    if strip "$execfile"; then
-      echo "Stripped: $execfile"
-    fi
-    done
+    ninja -j$(nproc)
+    DESTDIR=$OUTDIR ninja install
 
 {{- end }}
