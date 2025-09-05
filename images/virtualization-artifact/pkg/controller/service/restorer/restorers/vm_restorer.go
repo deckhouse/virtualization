@@ -156,6 +156,10 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		if vm.Annotations == nil {
 			vm.Annotations = make(map[string]string)
 		}
+
+		vm.Spec = v.vm.Spec
+		vm.Labels = v.vm.Labels
+		vm.Annotations = v.vm.Annotations
 		vm.Annotations[annotations.AnnVMRestore] = v.restoreUID
 
 		updErr := v.client.Update(ctx, vm)
@@ -168,10 +172,10 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		}
 
 		// Always clean up VMBDAs first, regardless of VM state
-		// err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx)
-		// if err != nil {
-		// 	return err
-		// }
+		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx)
+		if err != nil {
+			return err
+		}
 	} else {
 		err := v.client.Create(ctx, v.vm)
 		if err != nil {
