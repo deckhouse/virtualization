@@ -51,7 +51,7 @@ jobs:
           markdown_table+="$separator"
 
           LABEL_KEY="storageClass"
-          LABEL_VALUES=("ceph-pool-r2-csi-rbd-immediate" "linstor-thin-r1-immediate")
+          LABEL_VALUES=("ceph-pool-r2-csi-rbd-immediate" "linstor-thin-r1")
 
           DATE=$(date +"%Y-%m-%d")
           COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n"
