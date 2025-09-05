@@ -114,6 +114,7 @@ properties:
             type: array
             items:
               type: string
+              minLength: 1
   virtualDisks:
     type: object
     description: |
@@ -132,6 +133,7 @@ properties:
             type: array
             items:
               type: string
+              minLength: 1
   audit:
     type: object
     description: |
