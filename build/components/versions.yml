@@ -50,6 +50,7 @@ package:
   libtpms: v0.10.0
   libxml2: v2.14.5
   libmnl: libmnl-1.0.5
+  libntlm: v1.8
   libnbd: v1.23.6
   lvm2: v2_03_32
   multipath-tools: 0.11.1
@@ -60,9 +61,13 @@ package:
   numactl: v2.0.19
   openssl: openssl-3.4.1
   p11-kit: 0.25.5
+  pcre2: pcre2-10.46
   linux-pam: v1.7.1
   libssh: libssh-0.11.2
   libssh2: libssh2-1.11.1
+  libnl3: libnl3_11_0
   swtpm: v0.10.0
-  zlib: v1.3.1
+  ubdsrv: v1.6
   util-linux: v2.41.1
+  zlib: v1.3.1
+  zstd: v1.5.7

@@ -50,12 +50,12 @@ altPackages:
 - libtasn1-devel libtasn1-utils
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
-- liboqs-devel libzstd-devel libreadline-devel
+- liboqs-devel libreadline-devel
 - openssl libssl-devel iproute2-devel
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
-- nettle zlib p11-kit
+- nettle zlib zstd p11-kit
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
