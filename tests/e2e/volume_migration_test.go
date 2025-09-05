@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 
 		lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
-		// lvmWithStorageClassShouldBeSuccessful(namespace, testCaseLabel)
+		// lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
 
 	When("LocalDiskRoot", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
@@ -127,7 +127,7 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 
 		lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
-		lvmWithStorageClassShouldBeSuccessful(namespace, testCaseLabel)
+		lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
 
 	When("LocalDisks", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
@@ -149,7 +149,7 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 
 		lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
-		lvmWithStorageClassShouldBeSuccessful(namespace, testCaseLabel)
+		lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
 })
 
@@ -204,21 +204,7 @@ func lvmShouldBeSuccessful(namespace *string, labels map[string]string) {
 			For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 		})
 
-		vds, err := virtClient.VirtualDisks(ns).List(context.Background(), listOptions)
-		Expect(err).NotTo(HaveOccurred())
-
-		for _, vd := range vds.Items {
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
-			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
-
-			if vd.Status.MigrationState.StartTimestamp.IsZero() {
-				// Skip the disks that are not migrated
-				continue
-			}
-
-			Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal(vd.Status.MigrationState.TargetPVC))
-			Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
-		}
+		waitVirtualDisksMigrationsSucceeded(ns, listOptions)
 	})
 }
 
@@ -256,101 +242,14 @@ func lvmShouldBeReverted(namespace *string, labels map[string]string) {
 			vmNames[i] = vm.GetName()
 		}
 
-		for _, name := range vmNames {
-			By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", ns, name))
-			res := d8Virtualization.SSHCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SSHOptions{
-				Namespace:   ns,
-				Username:    conf.TestData.SSHUser,
-				IdenityFile: conf.TestData.Sshkey,
-				Timeout:     ShortTimeout,
-			})
-			Expect(res.WasSuccess()).To(BeTrue(), res.StdErr())
-		}
-
-		By("Wait until stress-ng loads the memory more heavily")
-		time.Sleep(20 * time.Second)
+		execStressNG(vmNames, ns)
 
 		By("Starting migrations for virtual machines")
 		MigrateVirtualMachines(labels, ns, vmNames...)
 
-		someCompleted := false
+		waitVirtualMachinesWillBeStartMigratingAndCancelImmediately(ns, listOptions)
 
-		Eventually(func() error {
-			vmops, err := virtClient.VirtualMachineOperations(ns).List(context.Background(), listOptions)
-			if err != nil {
-				return err
-			}
-
-			if len(vmops.Items) == 0 {
-				// All migrations were be canceled
-				return nil
-			}
-
-			vms, err := virtClient.VirtualMachines(ns).List(context.Background(), listOptions)
-			if err != nil {
-				return err
-			}
-
-			vmsByName := make(map[string]*v1alpha2.VirtualMachine, len(vms.Items))
-			for _, vm := range vms.Items {
-				vmsByName[vm.Name] = &vm
-			}
-
-			migrationReady := make(map[string]struct{})
-			for _, vmop := range vmops.Items {
-				if vm := vmsByName[vmop.Spec.VirtualMachine]; vm != nil {
-					if vm.Status.MigrationState != nil && !vm.Status.MigrationState.StartTimestamp.IsZero() && vm.Status.MigrationState.EndTimestamp.IsZero() {
-						migrationReady[vmop.Name] = struct{}{}
-					}
-				}
-			}
-
-			for _, vmop := range vmops.Items {
-				switch vmop.Status.Phase {
-				case v1alpha2.VMOPPhaseInProgress:
-					_, readyToDelete := migrationReady[vmop.Name]
-
-					if readyToDelete && vmop.GetDeletionTimestamp().IsZero() {
-						err = virtClient.VirtualMachineOperations(vmop.GetNamespace()).Delete(context.Background(), vmop.GetName(), metav1.DeleteOptions{})
-						if err != nil {
-							return err
-						}
-					}
-				case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted:
-					someCompleted = true
-					return nil
-				}
-			}
-			return fmt.Errorf("retry because not all vmops canceled")
-		}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
-
-		Expect(someCompleted).Should(BeFalse())
-
-		var vds *v1alpha2.VirtualDiskList
-		Eventually(func() error {
-			vds, err = virtClient.VirtualDisks(ns).List(context.Background(), listOptions)
-			if err != nil {
-				return err
-			}
-
-			for _, vd := range vds.Items {
-				if vd.Status.MigrationState.EndTimestamp.IsZero() {
-					return fmt.Errorf("migration is not completed for vd %s", vd.Name)
-				}
-			}
-			return nil
-		}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
-
-		Expect(vds).ShouldNot(BeNil())
-		Expect(vds.Items).ShouldNot(BeEmpty())
-
-		for _, vd := range vds.Items {
-			Expect(vd.Status.MigrationState.EndTimestamp.IsZero()).Should(BeFalse())
-			Expect(vd.Status.MigrationState.SourcePVC).Should(Equal(vd.Status.Target.PersistentVolumeClaim))
-			Expect(vd.Status.MigrationState.TargetPVC).ShouldNot(BeEmpty())
-			Expect(vd.Status.MigrationState.Result).Should(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
-		}
-
+		waitVirtualDisksMigrationsFailed(ns, listOptions)
 	})
 }
 
@@ -388,9 +287,8 @@ func lvmShouldBeRevertedLiveMigrationNotStarted(namespace *string, labels map[st
 
 		By("Patch VMs with doesn't exist nodeSelector")
 		for _, vm := range vms.Items {
-			bytesPatch, err := patch.NewJSONPatch(patch.WithAdd("/spec/nodeSelector/notExistNodeSelector", "true")).Bytes()
-			Expect(err).NotTo(HaveOccurred())
-			_, err = virtClient.VirtualMachines(vm.GetNamespace()).Patch(context.Background(), vm.GetName(), types.JSONPatchType, bytesPatch, metav1.PatchOptions{})
+			mergePatch := []byte(`{"spec":{"nodeSelector":{"notExistNodeSelector":"true"}}}`)
+			_, err = virtClient.VirtualMachines(vm.GetNamespace()).Patch(context.Background(), vm.GetName(), types.MergePatchType, mergePatch, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		}
 
@@ -422,17 +320,25 @@ func lvmShouldBeRevertedLiveMigrationNotStarted(namespace *string, labels map[st
 		Expect(err).NotTo(HaveOccurred())
 		vmopsByName := make(map[string]*v1alpha2.VirtualMachineOperation, len(vmops.Items))
 		for _, vmop := range vmops.Items {
-			vmopsByName[vmop.Spec.VirtualMachine] = &vmop
+			vmopsByName[vmop.Name] = &vmop
 		}
 
 		By("Wait when migrations will be created")
 		Eventually(func() error {
-			migList, err := listMigrations(ns, listOptions)
+			migList, err := listMigrations(ns, metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
 
-			if len(migList.Items) != len(vmops.Items) {
+			migrationCount := 0
+			for _, mig := range migList.Items {
+				owner := metav1.GetControllerOf(&mig)
+				if _, ok := vmopsByName[owner.Name]; ok {
+					migrationCount++
+				}
+			}
+
+			if migrationCount != len(vmops.Items) {
 				return fmt.Errorf("unexpected number of migrations, expected %d, got %d", len(vmops.Items), len(migList.Items))
 			}
 
@@ -442,7 +348,7 @@ func lvmShouldBeRevertedLiveMigrationNotStarted(namespace *string, labels map[st
 
 		By("Cancel migrations immediately")
 		Eventually(func() error {
-			migList, err := listMigrations(ns, listOptions)
+			migList, err := listMigrations(ns, metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -468,35 +374,11 @@ func lvmShouldBeRevertedLiveMigrationNotStarted(namespace *string, labels map[st
 
 		}).WithPolling(time.Second).WithTimeout(ShortWaitDuration).Should(Succeed())
 
-		By("Wait when virtual disks finished migration")
-		var vds *v1alpha2.VirtualDiskList
-		Eventually(func() error {
-			vds, err = virtClient.VirtualDisks(ns).List(context.Background(), listOptions)
-			if err != nil {
-				return err
-			}
-
-			for _, vd := range vds.Items {
-				if vd.Status.MigrationState.EndTimestamp.IsZero() {
-					return fmt.Errorf("migration %s is not finished", vd.Name)
-				}
-			}
-
-			return nil
-		}).WithPolling(time.Second).WithTimeout(LongWaitDuration).Should(Succeed())
-
-		Expect(vds.Items).NotTo(BeEmpty())
-
-		for _, vd := range vds.Items {
-			Expect(vd.Status.MigrationState.EndTimestamp.IsZero()).Should(BeFalse())
-			Expect(vd.Status.MigrationState.SourcePVC).Should(Equal(vd.Status.Target.PersistentVolumeClaim))
-			Expect(vd.Status.MigrationState.TargetPVC).ShouldNot(BeEmpty())
-			Expect(vd.Status.MigrationState.Result).Should(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
-		}
+		waitVirtualDisksMigrationsFailed(ns, listOptions)
 	})
 }
 
-func lvmWithStorageClassShouldBeSuccessful(namespace *string, labels map[string]string) {
+func lvmStorageClassChangedContext(namespace *string, labels map[string]string) {
 	GinkgoHelper()
 
 	// namespace should be dereferencing only in It() block
@@ -573,21 +455,7 @@ func lvmWithStorageClassShouldBeSuccessful(namespace *string, labels map[string]
 				For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 			})
 
-			vds, err = virtClient.VirtualDisks(ns).List(context.Background(), listOptions)
-			Expect(err).NotTo(HaveOccurred())
-
-			for _, vd := range vds.Items {
-				Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
-				Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
-
-				if vd.Status.MigrationState.StartTimestamp.IsZero() {
-					// Skip the disks that are not migrated
-					continue
-				}
-
-				Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal(vd.Status.MigrationState.TargetPVC))
-				Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
-			}
+			waitVirtualDisksMigrationsSucceeded(ns, listOptions)
 
 			newVdForPatch, err := virtClient.VirtualDisks(ns).Get(ctx, vdForPatch.GetName(), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
@@ -596,6 +464,53 @@ func lvmWithStorageClassShouldBeSuccessful(namespace *string, labels map[string]
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc.Spec.StorageClassName).To(Equal(nextStorageClass))
 			Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
+		})
+
+		It("should be reverted", func(ctx context.Context) {
+
+			ns := *namespace
+			Expect(ns).NotTo(BeEmpty())
+
+			listOptions := metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(&metav1.LabelSelector{
+					MatchLabels: labels,
+				}),
+			}
+
+			By("Virtual machine agents should be ready")
+			WaitVMAgentReady(kc.WaitOptions{
+				Labels:    labels,
+				Namespace: ns,
+				Timeout:   LongWaitDuration,
+			})
+
+			vms, err := virtClient.VirtualMachines(ns).List(ctx, listOptions)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vms.Items).NotTo(BeEmpty())
+
+			vmNames := make([]string, len(vms.Items))
+			for i, vm := range vms.Items {
+				vmNames[i] = vm.GetName()
+			}
+
+			execStressNG(vmNames, ns)
+
+			vds, err := virtClient.VirtualDisks(ns).List(ctx, listOptions)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vds.Items).NotTo(BeEmpty())
+
+			vdForPatch := vds.Items[0]
+
+			By("Patch VD with new storage class")
+			patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", nextStorageClass)).Bytes()
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = virtClient.VirtualDisks(vdForPatch.GetNamespace()).Patch(ctx, vdForPatch.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			waitVirtualMachinesWillBeStartMigratingAndCancelImmediately(ns, listOptions)
+
+			waitVirtualDisksMigrationsFailed(ns, listOptions)
 		})
 	})
 }
@@ -606,4 +521,135 @@ func listMigrations(namespace string, listOptions metav1.ListOptions) (*unstruct
 		Version:  "v1",
 		Resource: "internalvirtualizationvirtualmachineinstancemigrations",
 	}).Namespace(namespace).List(context.Background(), listOptions)
+}
+
+func waitVirtualMachinesWillBeStartMigratingAndCancelImmediately(namespace string, listOptions metav1.ListOptions) {
+	GinkgoHelper()
+
+	someCompleted := false
+
+	By("wait when migrations will be start migrating")
+	Eventually(func() error {
+		vmops, err := virtClient.VirtualMachineOperations(namespace).List(context.Background(), listOptions)
+		if err != nil {
+			return err
+		}
+
+		if len(vmops.Items) == 0 {
+			// All migrations were be canceled
+			return nil
+		}
+
+		vms, err := virtClient.VirtualMachines(namespace).List(context.Background(), listOptions)
+		if err != nil {
+			return err
+		}
+
+		vmsByName := make(map[string]*v1alpha2.VirtualMachine, len(vms.Items))
+		for _, vm := range vms.Items {
+			vmsByName[vm.Name] = &vm
+		}
+
+		migrationReady := make(map[string]struct{})
+		for _, vmop := range vmops.Items {
+			if vm := vmsByName[vmop.Spec.VirtualMachine]; vm != nil {
+				if vm.Status.MigrationState != nil && !vm.Status.MigrationState.StartTimestamp.IsZero() && vm.Status.MigrationState.EndTimestamp.IsZero() {
+					migrationReady[vmop.Name] = struct{}{}
+				}
+			}
+		}
+
+		for _, vmop := range vmops.Items {
+			switch vmop.Status.Phase {
+			case v1alpha2.VMOPPhaseInProgress:
+				_, readyToDelete := migrationReady[vmop.Name]
+
+				if readyToDelete && vmop.GetDeletionTimestamp().IsZero() {
+					err = virtClient.VirtualMachineOperations(vmop.GetNamespace()).Delete(context.Background(), vmop.GetName(), metav1.DeleteOptions{})
+					if err != nil {
+						return err
+					}
+				}
+			case v1alpha2.VMOPPhaseFailed, v1alpha2.VMOPPhaseCompleted:
+				someCompleted = true
+				return nil
+			}
+		}
+		return fmt.Errorf("retry because not all vmops canceled")
+	}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
+
+	Expect(someCompleted).Should(BeFalse())
+}
+
+func waitVirtualDisksMigrationsFailed(namespace string, listOptions metav1.ListOptions) {
+	GinkgoHelper()
+
+	var (
+		vds *v1alpha2.VirtualDiskList
+		err error
+	)
+
+	By("Wait until VirtualDisks migrations failed")
+	Eventually(func() error {
+		vds, err = virtClient.VirtualDisks(namespace).List(context.Background(), listOptions)
+		if err != nil {
+			return err
+		}
+
+		for _, vd := range vds.Items {
+			if vd.Status.MigrationState.EndTimestamp.IsZero() {
+				return fmt.Errorf("migration is not completed for vd %s", vd.Name)
+			}
+		}
+		return nil
+	}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
+
+	Expect(vds).ShouldNot(BeNil())
+	Expect(vds.Items).ShouldNot(BeEmpty())
+
+	for _, vd := range vds.Items {
+		Expect(vd.Status.MigrationState.EndTimestamp.IsZero()).Should(BeFalse())
+		Expect(vd.Status.MigrationState.SourcePVC).Should(Equal(vd.Status.Target.PersistentVolumeClaim))
+		Expect(vd.Status.MigrationState.TargetPVC).ShouldNot(BeEmpty())
+		Expect(vd.Status.MigrationState.Result).Should(Equal(v1alpha2.VirtualDiskMigrationResultFailed))
+	}
+}
+
+func waitVirtualDisksMigrationsSucceeded(namespace string, listOptions metav1.ListOptions) {
+	GinkgoHelper()
+
+	By("Wait until VirtualDisks migrations succeeded")
+	vds, err := virtClient.VirtualDisks(namespace).List(context.Background(), listOptions)
+	Expect(err).NotTo(HaveOccurred())
+
+	for _, vd := range vds.Items {
+		Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
+		Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
+
+		if vd.Status.MigrationState.StartTimestamp.IsZero() {
+			// Skip the disks that are not migrated
+			continue
+		}
+
+		Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal(vd.Status.MigrationState.TargetPVC))
+		Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
+	}
+}
+
+func execStressNG(vmNames []string, namespace string) {
+	GinkgoHelper()
+
+	for _, name := range vmNames {
+		By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", namespace, name))
+		res := d8Virtualization.SSHCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SSHOptions{
+			Namespace:   namespace,
+			Username:    conf.TestData.SSHUser,
+			IdenityFile: conf.TestData.Sshkey,
+			Timeout:     ShortTimeout,
+		})
+		Expect(res.WasSuccess()).To(BeTrue(), res.StdErr())
+	}
+
+	By("Wait until stress-ng loads the memory more heavily")
+	time.Sleep(20 * time.Second)
 }
