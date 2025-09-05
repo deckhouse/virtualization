@@ -105,6 +105,7 @@ git:
       - build/components/README.md
       - docs/images/*.drawio
       - docs/images/*.sh
+      - docs/internal
       - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
