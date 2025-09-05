@@ -89,7 +89,7 @@ var _ = Describe("TestStatisticHandler", func() {
 			NodeName: nodeName,
 			Containers: []corev1.Container{
 				{
-					Name: "compute",
+					Name: "d8v-compute",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse(requestCPU),
