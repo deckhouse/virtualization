@@ -250,6 +250,13 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 			})
 
 			By("Checking the result of restoration", func() {
+				const (
+					testLabelKey        = "test-label"
+					testLabelValue      = "test-label-value"
+					testAnnotationKey   = "test-annotation"
+					testAnnotationValue = "test-annotation-value"
+				)
+
 				vmrestores := &virtv2.VirtualMachineRestoreList{}
 				err := GetObjects(virtv2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
@@ -273,6 +280,9 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 							err := GetObject(virtv2.VirtualDiskKind, bd.Name, vd, kc.GetOptions{Namespace: vm.Namespace})
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vd.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
+
+							Expect(vd.Annotations).To(HaveKeyWithValue(testAnnotationKey, testAnnotationValue))
+							Expect(vd.Labels).To(HaveKeyWithValue(testLabelKey, testLabelValue))
 						}
 
 						if bd.VirtualMachineBlockDeviceAttachmentName != "" {
