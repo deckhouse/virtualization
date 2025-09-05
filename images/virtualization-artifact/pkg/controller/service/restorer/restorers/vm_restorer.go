@@ -146,12 +146,6 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			return common.ErrVMNotInMaintenance
 		}
 
-		// Always clean up VMBDAs first, regardless of VM state
-		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx)
-		if err != nil {
-			return err
-		}
-
 		// Early return if VM is already fully processed by this restore operation
 		if value, ok := vm.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
 			if equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
@@ -172,6 +166,12 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 				return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 			}
 		}
+
+		// Always clean up VMBDAs first, regardless of VM state
+		// err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx)
+		// if err != nil {
+		// 	return err
+		// }
 	} else {
 		err := v.client.Create(ctx, v.vm)
 		if err != nil {
@@ -255,9 +255,9 @@ func (v *VirtualMachineHandler) deleteCurrentVirtualMachineBlockDeviceAttachment
 	}
 
 	// Create a set of block device names that should exist based on the VM from snapshot
-	expectedBlockDevices := make(map[string]bool)
+	expectedBlockDevices := make(map[string]struct{})
 	for _, ref := range v.vm.Spec.BlockDeviceRefs {
-		expectedBlockDevices[ref.Name] = true
+		expectedBlockDevices[ref.Name] = struct{}{}
 	}
 
 	vmbdasToDelete := make([]*v1alpha2.VirtualMachineBlockDeviceAttachment, 0, len(vmbdas.Items))
@@ -267,7 +267,7 @@ func (v *VirtualMachineHandler) deleteCurrentVirtualMachineBlockDeviceAttachment
 		}
 
 		// Delete VMBDA if it's not in the expected block devices from the snapshot
-		if !expectedBlockDevices[vmbda.Spec.BlockDeviceRef.Name] {
+		if _, ok := expectedBlockDevices[vmbda.Spec.BlockDeviceRef.Name]; !ok {
 			vmbdasToDelete = append(vmbdasToDelete, &vmbda)
 		}
 	}
