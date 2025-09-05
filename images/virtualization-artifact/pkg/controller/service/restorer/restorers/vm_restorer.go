@@ -146,7 +146,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			return common.ErrVMNotInMaintenance
 		}
 
-		// // Always clean up VMBDAs first, regardless of VM state
+		// Always clean up VMBDAs first, regardless of VM state
 		err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx)
 		if err != nil {
 			return err
@@ -159,32 +159,17 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 			}
 		}
 
-		var (
-			vmHasCorrectVMRestoreUID = true
-			vmHasVMSnapshotSpec      = true
-		)
-
-		if value, ok := vm.Annotations[annotations.AnnVMRestore]; !ok || value != v.restoreUID {
-			vmHasCorrectVMRestoreUID = false
-			if vm.Annotations == nil {
-				vm.Annotations = make(map[string]string)
-			}
-			vm.Annotations[annotations.AnnVMRestore] = v.restoreUID
+		if vm.Annotations == nil {
+			vm.Annotations = make(map[string]string)
 		}
+		vm.Annotations[annotations.AnnVMRestore] = v.restoreUID
 
-		if !equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
-			vmHasVMSnapshotSpec = false
-			vm.Spec = v.vm.Spec
-		}
-
-		if !vmHasCorrectVMRestoreUID || !vmHasVMSnapshotSpec {
-			updErr := v.client.Update(ctx, vm)
-			if updErr != nil {
-				if apierrors.IsConflict(updErr) {
-					return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
-				} else {
-					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
-				}
+		updErr := v.client.Update(ctx, vm)
+		if updErr != nil {
+			if apierrors.IsConflict(updErr) {
+				return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
+			} else {
+				return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 			}
 		}
 	} else {
