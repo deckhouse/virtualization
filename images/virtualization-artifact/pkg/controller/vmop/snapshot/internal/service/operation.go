@@ -34,7 +34,6 @@ type Operation interface {
 	IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool
 	GetInProgressReason() vmopcondition.ReasonCompleted
 	IsComplete() (bool, string)
-	IsInProgress() bool
 }
 
 func NewOperationService(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) (Operation, error) {
