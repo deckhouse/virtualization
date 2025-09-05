@@ -1,6 +1,6 @@
 
 {{- $version := get $.PackageVersion $.ImageName }}
-{{- $gitRepoUrl := "linux-rdma/linux-rdma.git" }}
+{{- $gitRepoUrl := "linux-rdma/rdma-core.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
