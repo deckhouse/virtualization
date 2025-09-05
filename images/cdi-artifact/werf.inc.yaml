@@ -34,6 +34,9 @@ shell:
     echo "Git clone CDI repository..."
     git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
+    cd /src/containerized-data-importer
+    git log -n 5
+
     rm -rf /src/containerized-data-importer/.git
 
 ---
@@ -62,6 +65,7 @@ shell:
       git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
   {{- include "alt packages clean" . | nindent 2 }}
   install:
+  - echo "qweqweqwe"
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
@@ -72,7 +76,7 @@ shell:
 
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
-    
+
     echo Download Go modules.
     cd /containerized-data-importer
     go mod download
