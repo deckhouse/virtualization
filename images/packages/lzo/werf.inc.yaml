@@ -1,16 +1,16 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /{{ $.ImageName }}
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/libnbd.git" }}
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "oberhumer/lzo.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -23,22 +23,15 @@ shell:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     
 ---
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++ make git autoconf libtool gettext-tools
-- automake pkgconf glibc-devel
-- bash-completion hardlink libfuse3-devel
-- libublksrv-devel liburing-devel libxml2-devel perl-podlators
-- ocaml ocaml-findlib ocaml-ocamldoc
-packages:
-- gnutls libidn2 libgmp xz
+- git gcc make tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
@@ -46,7 +39,6 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -58,34 +50,17 @@ shell:
 
   install:
   - |
-    echo "Install packages"
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-  - |
     OUTDIR=/out
 
     cd /src
 
-    autoreconf -i
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --disable-ocaml \
-      --disable-static
-
+      --enable-shared \
+      --disable-silent-rules
     make -j$(nproc)
-
     make DESTDIR=$OUTDIR install
 
-    # We don't need man
     rm -rf $OUTDIR/usr/share
-
-    find $OUTDIR -type f -executable | while read -r execfile; do
-    if strip "$execfile"; then
-      echo "Stripped: $execfile"
-    fi
-    done
-
+    tree -sp $OUTDIR

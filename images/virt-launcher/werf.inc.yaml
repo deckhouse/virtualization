@@ -63,7 +63,6 @@ altLibs:
   - libdaxctl-devel
   - rdma-core-devel
   - bzlib-devel
-  - liblzo2-devel
   - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
@@ -134,6 +133,7 @@ packages:
 - libjson-c5 keyutils libisofs
 - zlib p11-kit linux-pam
 - libssh libssh2
+- krb5 xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

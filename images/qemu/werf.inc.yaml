@@ -115,7 +115,7 @@ altLibraries:
 - libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
 - libdaxctl-devel rdma-core-devel
-- bzlib-devel liblzo2-devel libsnappy-devel
+- bzlib-devel libsnappy-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
 - libaio-devel libselinux-devel libqpl-devel
@@ -128,6 +128,7 @@ packages:
 - zlib linux-pam
 - libssh libssh2
 - openldap keyutils
+- xz lz4 lzo krb5
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -151,7 +152,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+  {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
