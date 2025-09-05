@@ -51,11 +51,12 @@ altPackages:
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
 - liboqs-devel libreadline-devel
-- openssl libssl-devel iproute2-devel
+- libssl-devel iproute2-devel
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
 - nettle zlib zstd p11-kit
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -93,9 +94,9 @@ shell:
 
     # Fake distcheck-hook that checks bootstrap is called without --skip-po
     mkdir -p po/.reference
-    
+
     ./bootstrap --skip-po
-    
+
     ./configure \
       --prefix=/usr \
       --exec-prefix=/usr \

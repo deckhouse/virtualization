@@ -98,7 +98,6 @@ altLibraries:
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
-- libpixman-devel
 - libuuid-devel
 - libtasn1-devel libslirp-devel
 - libdrm-devel
@@ -106,27 +105,28 @@ altLibraries:
 - libncursesw-devel libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
 - libsoundio-devel libsasl2-devel
-- libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel
+- libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
 - libnfs-devel libseccomp-devel
 - libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
-- libdaxctl-devel rdma-core-devel
+- libdaxctl-devel
 - bzlib-devel liblzo2-devel libsnappy-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
-- libaio-devel libselinux-devel libqpl-devel
+- libaio-devel libselinux-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
 - glib2-devel
 packages:
-- dmidecode libgcrypt nettle libcap-ng libcapstone 
+- dmidecode libgcrypt nettle libcap-ng libcapstone
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib zstd linux-pam
 - libssh libssh2
 - openldap keyutils
+- libpixman libpsl libpng libqpl rdma-core
 - pcre2
 {{- end -}}
 

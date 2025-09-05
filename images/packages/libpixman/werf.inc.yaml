@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "curl/curl.git" }}
+{{- $gitRepoUrl := "pixman/pixman.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -25,27 +25,10 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools
-- glibc-devel-static
-- groff-base
-- libkrb5-devel libgsasl-devel
-- libbrotli-devel
-- python3-base
-- openssh-server
-- openssh-clients
-- caddy
-- python3-module-pytest-xdist
-- python3-module-psutil
-- python3-module-filelock
-- libngtcp2-devel
+- gcc git make libtool gettext-tools meson ninja-build
 - tree
 packages:
-- openssl libidn2 libgmp gnutls nettle
-- nghttp2 nghttp3
-- zlib zstd
-- libssh2
-- openldap
-- libpsl
+- libpng
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -83,29 +66,19 @@ shell:
 
     OUTDIR=/out
     cd /src
-    autoreconf -f -i
-    ./configure \
+
+    mkdir _build
+    /usr/bin/meson setup _build  \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --disable-dependency-tracking \
-      --disable-silent-rules \
-      --without-included-gettext \
-      --disable-static \
-      --with-gnutls \
-      --with-ngtcp2 \
-      --with-nghttp3 \
-      --with-libidn2 \
-      --enable-ipv6 \
-      --enable-ldap \
-      --enable-threaded-resolver \
-      --enable-openssl-auto-load-config \
-      --with-gssapi \
-      --enable-websockets \
-      --enable-versioned-symbols \
-      --with-libssh2
+      --wrap-mode=nofallback \
+      --wrap-mode=nodownload
 
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install-strip
-    rm -rf $OUTDIR/usr/share/man
-    tree -sp $OUTDIR
-
+    ninja-build -j$(nproc) -C _build
+    DESTDIR=$OUTDIR ninja-build install -C _build
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR

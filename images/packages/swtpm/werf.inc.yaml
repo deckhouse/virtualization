@@ -20,8 +20,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 
@@ -31,10 +30,10 @@ altPackages:
 - expect socat twisted-core-tools gcc
 - git pkg-config trousers
 - automake autoconf make libtool
-- openssl cryptote
+- cryptote
 - net-tools softhsm
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
-- glib2-devel libgnutls-openssl-devel libssl-devel
+- glib2-devel libgnutls-openssl-devel
 - libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
 - libtasn1 libtasn1-devel
 - libseccomp-devel libseccomp

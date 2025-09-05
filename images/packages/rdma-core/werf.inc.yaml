@@ -4,20 +4,18 @@
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc git make libtool libnl-devel ninja-build
 - binutils cmake libudev-devel pkgconfig
 - libsystemd-devel pandoc
 - python3-module-Cython python3-devel python3-module-docutils
 - libpcap-devel libibumad libnl3 libnl-devel
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 
-{{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
-{{- $build := "false" }}
-{{- if eq $build "true" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
@@ -25,8 +23,10 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /rdma-core
+  to: /{{ .ImageName }}
   before: setup
+  excludePaths:
+  - etc/init.d
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
@@ -34,13 +34,10 @@ final: false
 fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
-  # value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
@@ -56,7 +53,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -74,5 +71,5 @@ shell:
 
     ninja -j$(nproc)
     DESTDIR=$OUTDIR ninja install
-
-{{- end }}
+    cp -r kernel-headers/rdma $OUTDIR/usr/include/
+    tree -hp $OUTDIR

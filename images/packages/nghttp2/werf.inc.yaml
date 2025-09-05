@@ -50,11 +50,12 @@ altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - libev-devel libevent-devel
-- libjansson-devel libssl-devel libjemalloc-devel libcares-devel
+- libjansson-devel libjemalloc-devel libcares-devel
 - CUnit-devel libsystemd-devel libicu-devel
 - gnustep-base-devel
 packages:
 - zlib libxml2
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -89,7 +90,7 @@ shell:
     OUTDIR=/out
 
     cd /src
-    
+
     autoreconf -if
     automake
     autoconf
@@ -104,7 +105,7 @@ shell:
     make DESTDIR=$OUTDIR install
 
     rm -rf ${OUTDIR}/usr/share
-    
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
