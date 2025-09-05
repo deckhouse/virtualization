@@ -178,7 +178,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 				return err
 			}
 
-			// 6.1 Check if virtual disks can be migrated or ready to migrate
+			// 3.1 Check if virtual disks can be migrated or ready to migrate
 			if err := h.syncWaitingForVMToBeReadyMigrate(ctx, s, cb, kvvmi); err != nil {
 				return err
 			}
@@ -200,13 +200,16 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 
 			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 			return nil
+		}
 
-		default:
-			if commonvmop.IsTerminating(vmop) {
-				h.finalizers = append(h.finalizers, func(ctx context.Context) error {
-					return h.vmopProtection.RemoveProtection(ctx, vmop)
-				})
+		if commonvmop.IsTerminating(vmop) {
+			h.finalizers = append(h.finalizers, func(ctx context.Context) error {
+				return h.vmopProtection.RemoveProtection(ctx, vmop)
+			})
 
+			switch completed.Reason {
+			case vmopcondition.ReasonOperationFailed.String(), vmopcondition.ReasonOperationCompleted.String():
+			default:
 				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("VMOP was being terminated before migration was completed.")
 			}
 		}
