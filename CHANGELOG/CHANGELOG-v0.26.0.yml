@@ -1,0 +1,27 @@
+api:
+  fixes:
+    - summary: Fixed kubebuilder annotations to generate CRDs with correct categories and short names.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1421
+core:
+  fixes:
+    - summary: fix CVE-2025-47907
+      pull_request: https://github.com/deckhouse/virtualization/pull/1413
+vd:
+  fixes:
+    - summary: Set disk to failed when image pull fails from registry
+      pull_request: https://github.com/deckhouse/virtualization/pull/1400
+vm:
+  fixes:
+    - summary: fix `cores` and `coreFraction` validation in sizing policy
+      pull_request: https://github.com/deckhouse/virtualization/pull/1420
+    - summary: >-
+        fix incorrect data encoding during snapshot creation and restoration by removing redundant
+        base64 encoding when storing JSON in Kubernetes Secrets.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1419
+    - summary: fix message in NetworkReady condition
+      pull_request: https://github.com/deckhouse/virtualization/pull/1414
+    - summary: Add display of `.status.network` if `.spec.network` is empty
+      pull_request: https://github.com/deckhouse/virtualization/pull/1412
+    - summary: Block network spec changes when SDN feature gate is disabled
+      pull_request: https://github.com/deckhouse/virtualization/pull/1408
+
