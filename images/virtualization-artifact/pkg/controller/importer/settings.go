@@ -61,7 +61,6 @@ type Settings struct {
 	NoProxy                string
 	CertConfigMapProxy     string
 	ExtraHeaders           []string
-	SecretExtraHeaders     []string
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string

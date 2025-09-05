@@ -1,0 +1,5 @@
+# A list of pre-created mount points for containerd strict mode.
+
+dirs:
+  - /tmp/k8s-webhook-server/serving-certs
+  - /kubeconfig.local

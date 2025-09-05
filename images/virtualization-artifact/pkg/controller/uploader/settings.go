@@ -25,7 +25,6 @@ import (
 // Fields from this struct are passed via environment variables.
 type Settings struct {
 	Verbose                string
-	SecretExtraHeaders     []string
 	DestinationEndpoint    string
 	DestinationInsecureTLS string
 	DestinationAuthSecret  string

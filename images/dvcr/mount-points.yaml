@@ -1,0 +1,7 @@
+# A list of pre-created mount points for containerd strict mode.
+
+dirs:
+  - /etc/docker/registry
+  - /etc/ssl/docker
+  - /var/lib/registry
+  - /auth
