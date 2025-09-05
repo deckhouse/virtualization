@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
@@ -50,6 +51,7 @@ func init() {
 }
 
 type Client interface {
+	kubernetes.Interface
 	ClusterVirtualImages() virtualizationv1alpha2.ClusterVirtualImageInterface
 	VirtualMachines(namespace string) virtualizationv1alpha2.VirtualMachineInterface
 	VirtualImages(namespace string) virtualizationv1alpha2.VirtualImageInterface
@@ -63,6 +65,7 @@ type Client interface {
 	VirtualMachineMACAddressLeases() virtualizationv1alpha2.VirtualMachineMACAddressLeaseInterface
 }
 type client struct {
+	kubernetes.Interface
 	config      *rest.Config
 	shallowCopy *rest.Config
 	restClient  *rest.RESTClient
