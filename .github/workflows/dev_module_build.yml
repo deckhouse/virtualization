@@ -462,6 +462,7 @@ jobs:
       - uses: deckhouse/modules-actions/cve_scan@v5
         with:
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          tag_type: dev
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}

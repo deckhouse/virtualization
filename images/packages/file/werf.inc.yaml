@@ -32,10 +32,10 @@ altPackages:
 - make automake autoconf libtool makeinfo
 - pkg-config
 - bison
-- bzlib-devel liblzma-devel libseccomp-devel libcap-devel libzstd-devel lzip ncompress strace
+- bzlib-devel liblzma-devel libseccomp-devel libcap-devel lzip ncompress strace
 - tree
 packages:
-- zlib
+- zlib zstd
 {{- end -}}
 
 

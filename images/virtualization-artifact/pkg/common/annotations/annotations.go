@@ -162,6 +162,11 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+
+	// AnnVirtualDiskOriginalAnnotations is the annotation for storing original VirtualDisk annotations.
+	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
+	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
+	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
 )
 
 // AddAnnotation adds an annotation to an object

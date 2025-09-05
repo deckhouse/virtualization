@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libssh.git" }}
+{{- $gitRepoUrl := "facebook/zstd.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,16 +21,14 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel
-- zstd
-- python3
-- tree
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -43,6 +41,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -54,21 +53,13 @@ shell:
 
   install:
   - |
+    cd /src
     OUTDIR=/out
 
-    cd /src
-
-    cmake -B build -S . \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      -DCMAKE_INSTALL_LIBDIR=lib64 \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_SHARED_LIBS=ON \
-      -DWITH_ZLIB=ON \
-      -DWITH_GSSAPI=ON \
-      -DWITH_SERVER=ON
-
-    cmake --build build -j$(nproc)
-    DESTDIR=${OUTDIR} cmake --install build
+    export PREFIX=/usr
+    export LIBDIR=/usr/lib64
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
 
     rm -rf $OUTDIR/usr/share
 
@@ -77,5 +68,3 @@ shell:
       echo "Stripped: $execfile"
     fi
     done
-
-    tree -sp $OUTDIR

@@ -30,10 +30,10 @@ altPackages:
 - gcc gcc-c++ make git autoconf libtool gettext-tools
 - automake pkgconf glibc-devel
 - bash-completion hardlink libfuse3-devel
-- libublksrv-devel liburing-devel libxml2-devel perl-podlators
+- liburing-devel libxml2-devel perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
-- gnutls libidn2 libgmp
+- gnutls libidn2 libgmp ubdsrv
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -64,7 +64,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src
