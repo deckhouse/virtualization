@@ -38,14 +38,15 @@ var APIVersion = virtv2.SchemeGroupVersion.String()
 
 var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
-		nameSuffix         = "automatic-with-hotplug-standalone"
-		disksBefore        Disks
-		disksAfter         Disks
-		vdAttach           string
-		vmName             string
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
+		nameSuffix               = "automatic-with-hotplug-standalone"
+		disksBefore              Disks
+		disksAfter               Disks
+		vdAttach                 string
+		vmName                   string
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	BeforeAll(func() {

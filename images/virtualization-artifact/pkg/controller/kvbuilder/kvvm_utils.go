@@ -31,8 +31,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -136,6 +138,8 @@ func ApplyVirtualMachineSpec(
 		}
 	}
 
+	kvvm.SetUpdateVolumesStrategy(virtv1.UpdateVolumesStrategyReplacement)
+
 	kvvm.ClearDisks()
 	bootOrder := uint(1)
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -194,14 +198,16 @@ func ApplyVirtualMachineSpec(
 			// VirtualDisk is attached as a regular disk.
 
 			vd := vdByName[bd.Name]
+
+			pvcName := vd.Status.Target.PersistentVolumeClaim
 			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
-			if vd.Status.Target.PersistentVolumeClaim == "" {
+			if pvcName == "" {
 				continue
 			}
 
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
+				PersistentVolumeClaim: pointer.GetPointer(pvcName),
 				Serial:                GenerateSerialFromObject(vd),
 				BootOrder:             bootOrder,
 			}); err != nil {
@@ -249,6 +255,44 @@ func ApplyVirtualMachineSpec(
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func ApplyMigrationVolumes(kvvm *KVVM, vm *virtv2.VirtualMachine, vdByName map[string]*virtv2.VirtualDisk) error {
+	bootOrder := uint(1)
+	updateVolumesStrategy := virtv1.UpdateVolumesStrategyReplacement
+
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if bd.Kind != virtv2.DiskDevice {
+			bootOrder++
+			continue
+		}
+
+		vd := vdByName[bd.Name]
+
+		var pvcName string
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue && conditions.IsLastUpdated(migrating, vd) && vd.Status.MigrationState.TargetPVC != "" {
+			pvcName = vd.Status.MigrationState.TargetPVC
+			updateVolumesStrategy = virtv1.UpdateVolumesStrategyMigration
+		}
+		if pvcName == "" {
+			continue
+		}
+
+		name := GenerateVMDDiskName(bd.Name)
+		if err := kvvm.SetDisk(name, SetDiskOptions{
+			PersistentVolumeClaim: pointer.GetPointer(pvcName),
+			Serial:                GenerateSerialFromObject(vd),
+			BootOrder:             bootOrder,
+		}); err != nil {
+			return err
+		}
+		bootOrder++
+	}
+
+	kvvm.SetUpdateVolumesStrategy(updateVolumesStrategy)
+
 	return nil
 }
 

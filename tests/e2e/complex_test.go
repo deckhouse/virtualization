@@ -32,11 +32,12 @@ import (
 
 var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "complex-test"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
-		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
-		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "complex-test"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
+		alwaysOnLabel            = map[string]string{"alwaysOn": "complex-test"}
+		notAlwaysOnLabel         = map[string]string{"notAlwaysOn": "complex-test"}
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	AfterEach(func() {

@@ -14,8 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package supplements
 
-func GetEdition() string {
-	return edition
+import (
+	"log/slog"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+func SetPVCName(vd *v1alpha2.VirtualDisk, pvcName string) {
+	switch {
+	case vd == nil:
+		slog.Error("Set nil vd detected. Please report a bug.", slog.String("pvcName", pvcName))
+		return
+	case pvcName == "":
+		slog.Error("Set empty pvcName detected. Please report a bug.", slog.String("vdName", vd.Name), slog.String("vdNamespace", vd.Namespace))
+		return
+	default:
+		vd.Status.Target.PersistentVolumeClaim = pvcName
+		return
+	}
 }

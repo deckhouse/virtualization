@@ -82,6 +82,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage":                  schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                      schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskList":                            schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState":                  schema_virtualization_api_core_v1alpha2_VirtualDiskMigrationState(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                       schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":           schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshot":                        schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshot(ref),
@@ -2492,6 +2493,56 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref common.Referenc
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualDiskMigrationState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sourcePVC": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source PersistentVolumeClaim name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"targetPVC": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Target PersistentVolumeClaim name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"result": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"startTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"endTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2909,11 +2960,18 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 							Format:      "",
 						},
 					},
+					"migrationState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migration information.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

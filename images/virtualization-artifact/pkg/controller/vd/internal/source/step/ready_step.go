@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -39,7 +40,7 @@ const readyStep = "ready"
 
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
 	Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
@@ -78,7 +79,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 		return nil, nil
 	}
 
-	vd.Status.Target.PersistentVolumeClaim = s.pvc.Name
+	vdsupplements.SetPVCName(vd, s.pvc.Name)
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:
@@ -113,7 +114,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 		}
 
 		if object.ShouldCleanupSubResources(vd) {
-			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+			supgen := vdsupplements.NewGenerator(vd)
 			_, err = s.diskService.CleanUpSupplements(ctx, supgen)
 			if err != nil {
 				return nil, fmt.Errorf("clean up supplements: %w", err)

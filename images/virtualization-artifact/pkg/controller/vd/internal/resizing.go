@@ -29,10 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -68,7 +67,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	}
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 	pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
@@ -116,6 +115,16 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	if isResizeNeeded(vdSpecSize, &pvcSpecSize) {
+		if isMigrationInProgress(vd) {
+			// Skip resizing check if the disk is being migrated.
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ResizingNotAvailable).
+				Message("The virtual disk cannot be selected for resizing as it is currently being migrated.")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+
 		// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
 		return h.ResizeNeeded(ctx, vd, pvc, cb, log)
 	} else {

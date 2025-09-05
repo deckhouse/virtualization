@@ -229,3 +229,24 @@ spec:
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.
+                migrationState:
+                  description: Информация о происходящей миграции диска.
+                  properties:
+                    endTimestamp:
+                      description: Время окончания миграции.
+                    message:
+                      description: Подробное сообщение об ошибке миграции.
+                    result:
+                      description: Результат миграции.
+                      enum:
+                        - Succeeded
+                        - Failed
+                      type: string
+                    sourcePVC:
+                      description: Имя исходного PersistentVolumeClaim.
+                    startTimestamp:
+                      description: Время начала миграции.
+                    targetPVC:
+                      description: Имя целевого PersistentVolumeClaim.
+                      type: string
+                  type: object

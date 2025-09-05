@@ -20,19 +20,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -185,12 +186,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
-	case errs != nil:
+	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message(service.CapitalizeFirstLetter(errs.Error()) + ".")
+			Message(service.CapitalizeFirstLetter(kvvmSyncErr.Error()) + ".")
 	case len(changed.Status.RestartAwaitingChanges) > 0:
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "The virtual machine configuration successfully synced")
 		cbConfApplied.
@@ -216,6 +217,23 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
 	default:
 		log.Error("Unexpected case during kvvm sync, please report a bug")
+	}
+
+	// 5. Set RestartRequired from KVVM condition.
+	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
+		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
+		if cond.Status == corev1.ConditionTrue {
+			cbAwaitingRestart.
+				Status(metav1.ConditionTrue).
+				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
+				Message("VirtualMachine has some unexpected state. Restart is required for syncing the configuration.")
+		}
+	}
+
+	// 6. Sync migrating volumes if needed.
+	_, migrateVolumesErr := h.syncMigrateVolumes(ctx, s)
+	if migrateVolumesErr != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
 	}
 
 	return reconcile.Result{}, errs
@@ -349,11 +367,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	current := s.VirtualMachine().Current()
 	kvvmName := object.NamespacedName(current)
 
-	kvvmOpts := kvbuilder.KVVMOptions{
-		EnableParavirtualization: current.Spec.EnableParavirtualization,
-		OsType:                   current.Spec.OsType,
-		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
-	}
+	kvvmOpts := kvbuilder.DefaultOptions(current)
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -533,6 +547,94 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 	}
 
 	return !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
+}
+
+func (h *SyncKvvmHandler) syncMigrateVolumes(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+	if kvvm == nil {
+		return false, nil
+	}
+
+	newKvvm, err := h.makeKVVMFromVMSpec(ctx, s)
+	if err != nil {
+		return false, err
+	}
+	kvvmBuilder := kvbuilder.NewKVVM(newKvvm, kvbuilder.DefaultOptions(s.VirtualMachine().Current()))
+	vdByName, err := s.VirtualDisksByName(ctx)
+	if err != nil {
+		return false, err
+	}
+	err = kvbuilder.ApplyMigrationVolumes(kvvmBuilder, s.VirtualMachine().Changed(), vdByName)
+	if err != nil {
+		return false, err
+	}
+	newKvvm = kvvmBuilder.GetResource()
+
+	nonMigratableDisks, err := s.NonMigratableVirtualDisks(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	pvcKvvmVolumes := make(map[string]*virtv1.VolumeSource)
+	for _, v := range kvvm.Spec.Template.Spec.Volumes {
+		pvcKvvmVolumes[v.Name] = &v.VolumeSource
+	}
+
+	newPvcKvvmVolumes := make(map[string]*virtv1.VolumeSource)
+	for _, v := range newKvvm.Spec.Template.Spec.Volumes {
+		newPvcKvvmVolumes[v.Name] = &v.VolumeSource
+	}
+
+	if len(newPvcKvvmVolumes) == 0 {
+		return false, nil
+	}
+
+	newPatchPVCNames := make(map[string]struct{})
+	for pvcName, pvcVolume := range pvcKvvmVolumes {
+		newPvcVolume, ok := newPvcKvvmVolumes[pvcName]
+		if !ok {
+			continue
+		}
+		if pvcVolume.PersistentVolumeClaim != nil && newPvcVolume.PersistentVolumeClaim != nil {
+			if pvcVolume.PersistentVolumeClaim.ClaimName != newPvcVolume.PersistentVolumeClaim.ClaimName {
+				newPatchPVCNames[newPvcVolume.PersistentVolumeClaim.ClaimName] = struct{}{}
+				continue
+			}
+		}
+		// Should check that other volumes has the same spec
+		if !equality.Semantic.DeepEqual(pvcVolume, newPvcVolume) {
+			return false, nil
+		}
+	}
+
+	if len(newPatchPVCNames) == 0 {
+		return true, nil
+	}
+
+	// we should sync disks with one patch. Check all non-migratable disks have target pvc.
+	for _, vd := range nonMigratableDisks {
+		if _, ok := newPatchPVCNames[vd.Status.MigrationState.TargetPVC]; !ok {
+			return false, nil
+		}
+	}
+
+	patchBytes, err := patch.NewJSONPatch(
+		patch.WithReplace("/spec/updateVolumesStrategy", newKvvm.Spec.UpdateVolumesStrategy),
+		patch.WithReplace("/spec/template/spec/volumes", newKvvm.Spec.Template.Spec.Volumes),
+	).Bytes()
+	if err != nil {
+		return false, err
+	}
+
+	err = h.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.

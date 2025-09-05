@@ -91,7 +91,7 @@ var _ = Describe("MigratingHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewMigratingHandler()
+		h := NewMigratingHandler(fakeClient)
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
@@ -116,7 +116,7 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingInProgress.String()))
 		})
 
 		It("Should display condition for last unsuccessful migration", func() {
@@ -178,7 +178,7 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsNotMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
 			Expect(cond.Message).To(Equal("Migration is awaiting start."))
 		})
 
@@ -197,7 +197,7 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsNotMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingPending.String()))
 			Expect(cond.Message).To(Equal("Migration is awaiting execution."))
 		})
 
@@ -216,7 +216,7 @@ var _ = Describe("MigratingHandler", func() {
 			cond, exists := conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
 			Expect(exists).To(BeTrue())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vmcondition.ReasonVmIsMigrating.String()))
+			Expect(cond.Reason).To(Equal(vmcondition.ReasonMigratingInProgress.String()))
 		})
 	})
 })

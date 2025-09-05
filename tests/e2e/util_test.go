@@ -42,7 +42,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -445,6 +444,20 @@ func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, erro
 	)
 }
 
+func GetWaitForFirstConsumerStorageClass() (*storagev1.StorageClass, error) {
+	scList := storagev1.StorageClassList{}
+	err := GetObjects(kc.ResourceStorageClass, &scList, kc.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, sc := range scList.Items {
+		if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+			return &sc, nil
+		}
+	}
+	return nil, nil
+}
+
 func toIPNet(prefix netip.Prefix) *net.IPNet {
 	return &net.IPNet{
 		IP:   prefix.Masked().Addr().AsSlice(),
@@ -553,6 +566,10 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
 }
 
+func GetPhaseByVolumeBindingModeForTemplateSc() string {
+	return GetPhaseByVolumeBindingMode(conf.StorageClass.TemplateStorageClass)
+}
+
 func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
 	switch *sc.VolumeBindingMode {
 	case storagev1.VolumeBindingImmediate:
@@ -634,32 +651,32 @@ func StartVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmN
 }
 
 func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
+	GinkgoHelper()
+
 	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, vmNamespace, vmNames...)
 }
 
 func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
-	for _, vmName := range vmNames {
-		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vmName, suffix, label, vmopType))
-		Expect(err).NotTo(HaveOccurred())
-		var cmd strings.Builder
-		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", vmNamespace))
-		cmd.Write(vmop)
-		cmd.WriteString("EOF\n")
+	GinkgoHelper()
 
-		res := kubectl.RawCommand(cmd.String(), ShortWaitDuration)
-		Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
+	for _, vmName := range vmNames {
+		vmop := GenerateVMOPWithSuffix(vmName, vmNamespace, suffix, label, vmopType)
+		_, err := virtClient.VirtualMachineOperations(vmNamespace).Create(context.TODO(), vmop, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+
 	}
 }
 
-func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+func GenerateVMOP(vmName, vmNamespace string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
 	return &virtv2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv2.SchemeGroupVersion.String(),
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
-			Labels: labels,
+			Name:      fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
+			Namespace: vmNamespace,
+			Labels:    labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
 			Type:           vmopType,
@@ -668,8 +685,8 @@ func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPT
 	}
 }
 
-func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
-	res := GenerateVMOP(vmName, labels, vmopType)
+func GenerateVMOPWithSuffix(vmName, vmNamespace, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	res := GenerateVMOP(vmName, vmNamespace, labels, vmopType)
 	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
 	return res
 }

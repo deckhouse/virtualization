@@ -46,6 +46,7 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		existingVMClass                = map[string]string{"vm": "existing-vmclass"}
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 		ns                             string
+		phaseByVolumeBindingMode       = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	BeforeAll(func() {

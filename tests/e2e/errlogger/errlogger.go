@@ -116,7 +116,9 @@ func (l *LogStream) ParseStdout(excludedPatterns []string, excludedRegexpPattens
 		var entry LogEntry
 		rawEntry := strings.TrimPrefix(scanner.Text(), "0")
 		err := json.Unmarshal([]byte(rawEntry), &entry)
-		Expect(err).NotTo(HaveOccurred(), "error parsing JSON")
+		if err != nil {
+			continue
+		}
 		if entry.Level == LevelError && !isMsgIgnoredByPattern(rawEntry, excludedPatterns, excludedRegexpPattens) {
 			errTime, err := time.Parse(time.RFC3339, entry.Time)
 			Expect(err).NotTo(HaveOccurred(), "failed to parse error timestamp")

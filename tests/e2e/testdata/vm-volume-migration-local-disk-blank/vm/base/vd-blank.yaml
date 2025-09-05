@@ -1,0 +1,10 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  annotations:
+    virtualdisk.virtualization.deckhouse.io/access-mode: ReadWriteOnce
+  name: vd-blank
+spec:
+  persistentVolumeClaim:
+    size: 100Mi
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
