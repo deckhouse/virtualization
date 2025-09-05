@@ -269,6 +269,10 @@ Project image two storage options are supported:
 - `ContainerRegistry` - the default type in which the image is stored in `DVCR`.
 - `PersistentVolumeClaim` - the type that uses `PVC` as the storage for the image. This option is preferred if you are using storage that supports `PVC` fast cloning, which allows you to create disks from images faster.
 
+{{< alert level="warning" >}}
+Using an image with the `storage: PersistentVolumeClaim` parameter is allowed for creating disks that belong to the same storage class (StorageClass).
+{{< /alert >}}
+
 A full description of the `VirtualImage` resource configuration settings can be found at [link](cr.html#virtualimage).
 
 ### Creating image from HTTP server
@@ -616,8 +620,6 @@ AccessMode:
 - `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with such disks is possible only in the DVP commercial editions.
 - `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
 
-![vd-rwo-vs-rwx](images/vd-rwo-vs-rwx.png)
-
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
 Attention: It is impossible to create disks from iso-images!
@@ -859,6 +861,25 @@ Method #2:
 - In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
+
+### Changing the disk StorageClass
+
+In the DVP commercial editions, it is possible to change the StorageClass for existing disks. At the moment, this is only supported for running VMs (`Phase` should be `Running`).
+
+Example:
+
+```bash
+d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+After the disk configuration is updated, a live migration of the VM will be initiated, during which the VM’s disk will be migrated to the new storage.
+
+If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
+
+```bash
+d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
 
 ## Virtual machines
 
@@ -2795,92 +2816,93 @@ Important: resources are created only if they were present in the VM configurati
 
 #### Restore a virtual machine
 
-There are two modes used for restoring a virtual machine. They are defined by the restoreMode parameter of the VirtualMachineRestore resource:
+Для восстановления ВМ из снимка используется ресурс `VirtualMachineOperation` с типом `restore`.
+
+Пример:
 
 ```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: restore-vm
 spec:
-  restoreMode: Safe | Forced
+  type: Restore
+  virtualMachineName: <название ВМ, которую требуюется восстановить>
+  restore:
+    mode: DryRun | Strict | BestEffort
+    virtualMachineSnapshotName: <название снимка ВМ из которого требуюется восстановить>
 ```
 
-`Safe` is used by default.
+Для данной операции возможно использовать один из трех режимов:
+
+- `DryRun` - холостой запуск операции восстановления, необходим для проверки возможных конфликтов, которые будут отображены в статусе ресурса.
+- `Strict` - режим строго восстановления, когда требуется восстановление ВМ "как в снимке", отсутствующие внешние зависимости потенциально могут привести ктому, что ВМ после восстановления будет в Pending.
+- `BestEffort` - отсутствующие внешние зависимости (ClusterVirtualImage, VirtualImage, Secret) удаляются из конфигурации ВМ.
+
+Восстановление виртуальной машины (ВМ) из снимка возможно только при выплнении следующих условий:
+- Восстанавливаемая ВМ доступна в кластере (существует ресурс `VirtualMachine`).
+- Восстанавливаемые диски не подключены к другой ВМ или отсутствуют в кластере.
+- Восстанавливаемый IP-адрес не используется другой ВМ или является свободным.
+- Восстанавливаемые MAC-адреса не используется другой ВМ или являются свободным.
+
+Информацию о конфликтах при восстановлении ВМ из снимка можно посмотреть в статусе ресурса:
+
+```yaml
+status:
+  resources: []
+```
+
+#### Creating a VM clone
+
+Клонирование виртуальной машины выполняется с использованием ресурса `VirtualMachineOperation` с типом операции `clone`.
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: <vmop-name>
+spec:
+  type: Clone
+  virtualMachineName: <название ВМ, которую требуюется клонировать>
+  clone:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
+```
 
 {{< alert level="warning">}}
-To restore a virtual machine in `Safe` mode, you must delete its current configuration and all associated disks. This is because the restoration process returns the virtual machine and its disks to the state recorded at the snapshot's creation time.
+Клонируемой виртуальной машине будут назначены новый IP-адрес и MAC-адреса, поэтому после клонирования потребуется перенастроить сетевые параметры гостевой ОС.
 {{< /alert >}}
 
-The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot.
+Клонирование создает копию существующей ВМ, поэтому ресурсы новой ВМ должны иметь уникальные имена. Для этого используются параметры `.spec.clone.nameReplacements` и/или `.spec.clone.customization`.
 
-{{< alert level="warning" >}}
-`Forced` may disrupt the operation of the existing virtual machine because it will be stopped during restoration, and `VirtualDisks` and `VirtualMachineBlockDeviceAttachments` resources will be deleted for subsequent restoration.
-{{< /alert >}}
+`.spec.clone.nameReplacements` — позволяет заменить старые имена ресурсов на новые.
+`.spec.clone.customization` — задает префикс или суффикс для имен всех клонируемых ресурсов ВМ (дисков, IP-адресов и т. д.).
 
-Example manifest for restoring a virtual machine from a snapshot in `Safe` mode:
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineRestore
-metadata:
-  name: <restore name>
-spec:
-  restoreMode: Safe
-  virtualMachineSnapshotName: <virtual machine snapshot name>
-EOF
-```
-
-#### Creating a VM clone / Using a VM snapshot as a template for creating a VM
-
-A snapshot of a virtual machine can be used both to create its exact copy (clone) and as a template for deploying new VMs with a similar configuration.
-
-This requires creating a `VirtualMachineRestore` resource and setting the renaming parameters in the `.spec.nameReplacements` block to avoid name conflicts.
-
-The list of resources and their names are available in the VM snapshot status in the `status.resources` block.
-
-Example manifest for restoring a VM from a snapshot:
+Пример конфигурации:
 
 ```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineRestore
-metadata:
-  name: <name>
 spec:
-  virtualMachineSnapshotName: <virtual machine snapshot name>
-  nameReplacements:
-    - From:
-        kind: VirtualMachine
-        name: <old vm name>
-      to: <new vm name>
-    - from:
-        kind: VirtualDisk
-        name: <old disk name>
-      to: <new disk name>
-    - from:
-        kind: VirtualDisk
-        name: <old secondary disk name>
-      to: <new secondary disk name>
-    - from:
-        kind: VirtualMachineBlockDeviceAttachment
-        name: <old attachment name>
-      to: <new attachment name>
-EOF
+  clone:
+    nameReplacements:
+      - from:
+          kind: <тип ресурса>
+          name: <старое имя>
+      - to:
+          name: <новое имя>
+    customization:
+      namePrefix: <префикс- >
+      nameSuffix: < -суффикс>
 ```
 
-When restoring a virtual machine from a snapshot, it is important to consider the following conditions:
+Для операции клонирования возможно использовать один из трех режимов:
 
-1. If the `VirtualMachineIPAddress` resource already exists in the cluster, it must not be assigned to another VM .
-2. For static IP addresses (`type: Static`) the value must be exactly the same as what was captured in the snapshot.
-3. Automation-related secrets (such as cloud-init or sysprep configuration) must exactly match the configuration being restored.
+- `DryRun` — тестовый запуск для проверки возможных конфликтов. Результаты отображаются в поле `status.resources` ресурса VirtualMachineOperation.
+- `Strict` — строгий режим, требующий наличия всех ресурсов с новыми именами и их зависимостей (например, образов) в клонируемой ВМ.
+- `BestEffort` — режим, при котором отсутствующие внешние зависимости (например, ClusterVirtualImage, VirtualImage, Secret) автоматически удаляются из конфигурации клонируемой ВМ.
 
-Failure to do so will result in a restore error, and the VirtualMachineRestore resource will enter the `Failed` state. This is because the system checks the integrity of the configuration and the uniqueness of the resources to prevent conflicts in the cluster.
-
-When restoring or cloning a virtual machine, the operation may be successful, but the VM will remain in `Pending` state.
-This occurs if the VM depends on resources (such as disk images or virtual machine classes) or their configurations that have been changed or deleted at the time of restoration.
-
-Check the VM's conditions block using the command:
+Информацию о конфликтах, возникших при клонировании, можно просмотреть в статусе ресурса:
 
 ```bash
-d8 k vm get <vmname> -o json | jq ‘.status.conditions’
+d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 ```
-
-Check the output for errors related to missing or changed resources. Manually update the VM configuration to remove dependencies that are no longer available in the cluster.
