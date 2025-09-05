@@ -124,7 +124,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 			APIVersion: obj.GetObjectKind().GroupVersionKind().Version,
 			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
 			Name:       obj.GetName(),
-			Status:     "ReadyForRestore",
+			Status:     "Ready",
 			Message:    obj.GetName() + " is valid for restore",
 		}
 
@@ -165,7 +165,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			APIVersion: obj.GetObjectKind().GroupVersionKind().Version,
 			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
 			Name:       obj.GetName(),
-			Status:     "Restored",
+			Status:     "Completed",
 			Message:    "Successfully processed",
 		}
 
