@@ -27,11 +27,11 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel libmbedtls-devel
+- libkrb5-devel libmbedtls-devel
 - ca-certificates
 - tree
 packages:
-- zstd
+- zstd openssl libgcrypt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
