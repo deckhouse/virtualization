@@ -225,14 +225,14 @@ var _ = SynchronizedBeforeSuite(func() {
 	for _, filePath := range kustomizationFiles {
 		err := kustomize.SetParams(filePath, ns, namePrefix)
 		if err != nil {
-			log.Fatal(err)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	}
 
 	if !config.IsReusable() {
 		err := Cleanup()
 		if err != nil {
-			log.Fatal(err)
+			Expect(err).NotTo(HaveOccurred())
 		}
 	} else {
 		log.Println("Run test in REUSABLE mode")
@@ -243,7 +243,7 @@ var _ = SynchronizedBeforeSuite(func() {
 		if config.IsCleanUpNeeded() {
 			err := Cleanup()
 			if err != nil {
-				log.Fatal(err)
+				Expect(err).NotTo(HaveOccurred())
 			}
 		}
 	})
