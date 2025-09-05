@@ -99,6 +99,8 @@ func NewCommand(programName string) *cobra.Command {
 	ctxWithClient := clientconfig.NewContext(ctx, kubeclient.DefaultClientConfig(virtCmd.PersistentFlags()))
 
 	virtCmd.SetContext(ctxWithClient)
+	_ = virtCmd.RegisterFlagCompletionFunc("namespace", comp.NamespaceFlagCompletionFunc)
+
 	for _, cmd := range virtCmd.Commands() {
 		cmd.SetContext(ctxWithClient)
 		cmd.ValidArgsFunction = comp.VirtualMachineNameCompletionFunc
