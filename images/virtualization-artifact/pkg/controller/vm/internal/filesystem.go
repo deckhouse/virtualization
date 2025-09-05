@@ -69,7 +69,6 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, changed.Status.Conditions)
 	if agentReady.Status != metav1.ConditionTrue {
-		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return reconcile.Result{}, nil
 	}
 
