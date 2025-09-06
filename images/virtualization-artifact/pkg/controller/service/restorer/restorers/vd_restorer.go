@@ -174,16 +174,6 @@ func (v *VirtualDiskHandler) ProcessClone(ctx context.Context) error {
 		return err
 	}
 
-	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
-	}
-
-	if vdObj != nil {
-		return fmt.Errorf("VirtualDisk with name %s already exists", v.vd.Name)
-	}
-
 	err = v.client.Create(ctx, v.vd)
 	if err != nil {
 		return fmt.Errorf("failed to create the `VirtualDisk`: %w", err)

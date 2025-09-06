@@ -176,16 +176,6 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessClone(ctx context.Context) error
 		return err
 	}
 
-	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
-	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch the `VirtualMachineBlockDeviceAttachment`: %w", err)
-	}
-
-	if vmbdaObj != nil {
-		return fmt.Errorf("VirtualMachineBlockDeviceAttachment with name %s already exists", v.vmbda.Name)
-	}
-
 	err = v.client.Create(ctx, v.vmbda)
 	if err != nil {
 		return fmt.Errorf("failed to create the `VirtualMachineBlockDeviceAttachment`: %w", err)

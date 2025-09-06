@@ -209,16 +209,6 @@ func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
 		return err
 	}
 
-	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
-	vm, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
-	if err != nil {
-		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
-	}
-
-	if vm != nil {
-		return fmt.Errorf("VirtualMachine with name %s already exists", v.vm.Name)
-	}
-
 	err = v.client.Create(ctx, v.vm)
 	if err != nil {
 		return fmt.Errorf("failed to create the `VirtualMachine`: %w", err)
