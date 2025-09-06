@@ -33,6 +33,7 @@ type Operation interface {
 	IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool
 	IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool
 	GetInProgressReason() vmopcondition.ReasonCompleted
+	IsInProgress() bool
 	IsComplete() (bool, string)
 }
 

@@ -109,24 +109,19 @@ func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
 	return vmopcondition.ReasonRestoreInProgress
 }
 
-// func (o RestoreOperation) IsInProgress() bool {
-// 	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
-// 	if found && maintenanceModeCondition.Status == metav1.ConditionTrue {
-// 		return true
-// 	}
+func (o RestoreOperation) IsInProgress() bool {
+	maintenanceModeCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
+	if found && maintenanceModeCondition.Status != metav1.ConditionUnknown {
+		return true
+	}
 
-// 	if len(o.vmop.Status.Resources) > 0 {
-// 		return true
-// 	}
+	completedCondition, found := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
+	if found && completedCondition.Status != metav1.ConditionUnknown {
+		return true
+	}
 
-// 	for _, r := range o.vmop.Status.Resources {
-// 		if r.Status == "InProgress" {
-// 			return true
-// 		}
-// 	}
-
-// 	return false
-// }
+	return false
+}
 
 func (o RestoreOperation) IsComplete() (bool, string) {
 	rc, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
