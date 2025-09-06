@@ -106,14 +106,6 @@ func (s *BaseVMOPService) Init(vmop *v1alpha2.VirtualMachineOperation) {
 				Message(""),
 			&vmop.Status.Conditions,
 		)
-		conditions.SetCondition(
-			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
-				Generation(vmop.GetGeneration()).
-				Reason(conditions.ReasonUnknown).
-				Status(metav1.ConditionUnknown).
-				Message(""),
-			&vmop.Status.Conditions,
-		)
 	}
 }
 
