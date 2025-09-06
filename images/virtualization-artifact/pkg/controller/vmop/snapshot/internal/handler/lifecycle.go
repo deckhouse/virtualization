@@ -98,7 +98,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	// 3. Operation already in progress. Check if the operation is completed.
 	// Run execute until the operation is completed.
-	if ok, _ := svcOp.IsComplete(); !ok {
+	if svcOp.IsInProgress() {
 		rec, err := h.execute(ctx, vmop, svcOp)
 
 		// 3.1 Check if complete
