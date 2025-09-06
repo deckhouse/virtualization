@@ -162,6 +162,11 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+
+	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.
+	AnnVMOPUID = AnnAPIGroupV + "/vmop-uid"
+	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
+	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 )
 
 // AddAnnotation adds an annotation to an object

@@ -117,6 +117,20 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		return common.FormatVirtualMachineConflictError(v.vm.Name)
+	}
+
+	if err := v.validateImageDependenciesForClone(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -187,6 +201,41 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := v.validateImageDependencies(ctx); err != nil {
+		return err
+	}
+
+	err = v.client.Create(ctx, v.vm)
+	if err != nil {
+		return fmt.Errorf("failed to create the `VirtualMachine`: %w", err)
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineHandler) validateImageDependenciesForClone(ctx context.Context) error {
+	for _, ref := range v.vm.Spec.BlockDeviceRefs {
+		var err error
+
+		switch ref.Kind {
+		case v1alpha2.ImageDevice:
+			err = v.validateVirtualImageRefForClone(ctx, &ref)
+		case v1alpha2.ClusterImageDevice:
+			err = v.validateClusterVirtualImageRefForClone(ctx, &ref)
+		default:
+			continue
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -226,6 +275,30 @@ func (v *VirtualMachineHandler) validateVirtualImageRef(ctx context.Context, ref
 	key := types.NamespacedName{Namespace: v.vm.Namespace, Name: ref.Name}
 	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.VirtualImage{})
 	return v.handleMissingResource(obj, err, ref.Kind, ref.Name)
+}
+
+func (v *VirtualMachineHandler) validateVirtualImageRefForClone(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) error {
+	key := types.NamespacedName{Namespace: v.vm.Namespace, Name: ref.Name}
+	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.VirtualImage{})
+	if err != nil {
+		return err
+	}
+	if obj == nil {
+		return common.FormatImageResourceNotFoundError("VirtualImage", ref.Name, v.vm.Name)
+	}
+	return nil
+}
+
+func (v *VirtualMachineHandler) validateClusterVirtualImageRefForClone(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) error {
+	key := types.NamespacedName{Name: ref.Name}
+	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.ClusterVirtualImage{})
+	if err != nil {
+		return err
+	}
+	if obj == nil {
+		return common.FormatImageResourceNotFoundError("ClusterVirtualImage", ref.Name, v.vm.Name)
+	}
+	return nil
 }
 
 func (v *VirtualMachineHandler) validateClusterVirtualImageRef(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) (bool, error) {
