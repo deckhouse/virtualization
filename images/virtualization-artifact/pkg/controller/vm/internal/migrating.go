@@ -207,9 +207,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 				return h.vmopProtection.RemoveProtection(ctx, vmop)
 			})
 
-			switch completed.Reason {
-			case vmopcondition.ReasonOperationFailed.String(), vmopcondition.ReasonOperationCompleted.String():
-			default:
+			if vmopcondition.ReasonOperationFailed.String() != completed.Reason {
 				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("VMOP was being terminated before migration was completed.")
 			}
 		}
