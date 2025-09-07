@@ -127,7 +127,11 @@ func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
 		return err
 	}
 
-	if existed == nil {
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	} else {
 		err = v.client.Create(ctx, v.vmip)
 		if err != nil {
 			return fmt.Errorf("failed to create the `VirtualMachineIPAddress`: %w", err)
