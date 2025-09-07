@@ -164,6 +164,10 @@ func (v *VirtualMachineIPHandler) Object() client.Object {
 }
 
 func (v *VirtualMachineIPHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vmip.Name); err != nil {
+		return err
+	}
+
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})
 	if err != nil {

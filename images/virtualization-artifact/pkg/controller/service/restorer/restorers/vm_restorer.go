@@ -117,6 +117,10 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vm.Name); err != nil {
+		return err
+	}
+
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
 	if err != nil {

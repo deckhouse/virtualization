@@ -18,8 +18,15 @@ package common
 
 import (
 	"errors"
+	"fmt"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+const (
+	// MaxKubernetesResourceNameLength defines the maximum allowed length for Kubernetes resource names
+	// according to DNS label standard (RFC 1123) - 63 characters for labels
+	MaxKubernetesResourceNameLength = 63
 )
 
 var (
@@ -33,6 +40,7 @@ var (
 	ErrVirtualDiskSnapshotNotFound = errors.New("not found")
 	ErrClusterVirtualImageNotFound = errors.New("the virtual image is not found")
 	ErrSecretHasDifferentData      = errors.New("the secret has different data")
+	ErrResourceNameTooLong         = errors.New("resource name exceeds maximum allowed length")
 )
 
 // OverrideName overrides the name of the resource with the given rules
@@ -52,4 +60,14 @@ func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
 	}
 
 	return name
+}
+
+// ValidateResourceNameLength validates that the resource name does not exceed
+// the maximum allowed length for Kubernetes resources
+func ValidateResourceNameLength(resourceName string) error {
+	if len(resourceName) > MaxKubernetesResourceNameLength {
+		return fmt.Errorf("name %q too long (%d > %d): %w",
+			resourceName, len(resourceName), MaxKubernetesResourceNameLength, ErrResourceNameTooLong)
+	}
+	return nil
 }

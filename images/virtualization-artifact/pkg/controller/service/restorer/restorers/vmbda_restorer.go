@@ -98,6 +98,10 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) er
 }
 
 func (v *VMBlockDeviceAttachmentHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vmbda.Name); err != nil {
+		return err
+	}
+
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {

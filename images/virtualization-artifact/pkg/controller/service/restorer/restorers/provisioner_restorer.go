@@ -93,6 +93,10 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.secret.Name); err != nil {
+		return err
+	}
+
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {

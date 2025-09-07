@@ -93,6 +93,10 @@ func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vd.Name); err != nil {
+		return err
+	}
+
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
