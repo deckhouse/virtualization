@@ -28,6 +28,7 @@ var (
 	ErrVMBDAAlreadyExists               = errors.New("VirtualMachineBlockDeviceAttachment already exists")
 	ErrVMBDAAttachedToDifferentVM       = errors.New("VirtualMachineBlockDeviceAttachment is attached to different VirtualMachine")
 	ErrVMIPAttachedToDifferentVM        = errors.New("VirtualMachineIPAddress is attached to different VirtualMachine")
+	ErrVMMACAttachedToDifferentVM       = errors.New("VirtualMachineMACAddress is attached to different VirtualMachine")
 	ErrImageResourceNotFound            = errors.New("image resource is used by VirtualMachine but absent in cluster")
 	ErrSecretContentDifferent           = errors.New("secret content is different from that in the snapshot")
 )
@@ -54,6 +55,10 @@ func FormatVMBDAAttachedError(vmbdaName, attachedVM string) error {
 
 func FormatVMIPAttachedError(vmipName, attachedVM string) error {
 	return fmt.Errorf("VirtualMachineIPAddress with name %s already exists and attached to VirtualMachine %s", vmipName, attachedVM)
+}
+
+func FormatVMMACAttachedError(vmmacName, attachedVM string) error {
+	return fmt.Errorf("VirtualMachineMACAddress with name %s already exists and attached to VirtualMachine %s", vmmacName, attachedVM)
 }
 
 func FormatImageResourceNotFoundError(resourceType, resourceName, vmName string) error {
