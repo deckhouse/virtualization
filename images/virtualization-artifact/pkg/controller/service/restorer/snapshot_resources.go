@@ -147,6 +147,12 @@ func (r *SnapshotResources) Override(rules []v1alpha2.NameReplacement) {
 	}
 }
 
+func (r *SnapshotResources) Customize(prefix, suffix string) {
+	for _, ov := range r.objectHandlers {
+		ov.Customize(prefix, suffix)
+	}
+}
+
 func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceStatus, error) {
 	var hasErrors bool
 

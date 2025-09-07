@@ -74,6 +74,18 @@ type VirtualMachineOperationCloneSpec struct {
 	Mode VMOPRestoreMode `json:"mode"`
 	// NameReplacement defines rules for renaming resources during cloning.
 	NameReplacement []NameReplacement `json:"nameReplacement,omitempty"`
+	// Customization defines customization options for cloning.
+	Customization *VirtualMachineOperationCloneCustomization `json:"customization,omitempty"`
+}
+
+// VirtualMachineOperationCloneCustomization defines customization options for cloning.
+type VirtualMachineOperationCloneCustomization struct {
+	// NamePrefix adds a prefix to resource names during cloning.
+	// Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+	NamePrefix string `json:"namePrefix,omitempty"`
+	// NameSuffix adds a suffix to resource names during cloning.
+	// Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+	NameSuffix string `json:"nameSuffix,omitempty"`
 }
 
 // VMOPRestoreMode defines the kind of the restore operation.

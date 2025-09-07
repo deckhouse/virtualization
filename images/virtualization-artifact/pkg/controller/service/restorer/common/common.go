@@ -71,3 +71,11 @@ func ValidateResourceNameLength(resourceName string) error {
 	}
 	return nil
 }
+
+// ApplyNameCustomization applies prefix and suffix to a resource name for cloning operations
+func ApplyNameCustomization(name, prefix, suffix string) string {
+	if name == "" {
+		return ""
+	}
+	return prefix + name + suffix
+}

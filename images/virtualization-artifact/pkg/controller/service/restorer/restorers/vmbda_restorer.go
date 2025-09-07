@@ -77,6 +77,10 @@ func (v *VMBlockDeviceAttachmentHandler) Override(rules []v1alpha2.NameReplaceme
 	}
 }
 
+func (v *VMBlockDeviceAttachmentHandler) Customize(prefix, suffix string) {
+	v.vmbda.Name = common.ApplyNameCustomization(v.vmbda.Name, prefix, suffix)
+}
+
 func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) error {
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})

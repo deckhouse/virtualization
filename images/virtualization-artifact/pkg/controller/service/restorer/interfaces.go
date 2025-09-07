@@ -32,4 +32,5 @@ type ObjectHandler interface {
 	ValidateClone(ctx context.Context) error
 	ProcessClone(ctx context.Context) error
 	Override(rules []v1alpha2.NameReplacement)
+	Customize(prefix, suffix string)
 }

@@ -136,6 +136,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState":               schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperation":                    schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization":  schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneCustomization(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneSpec":           schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":                schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationResource":            schema_virtualization_api_core_v1alpha2_VirtualMachineOperationResource(ref),
@@ -4844,6 +4845,33 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref common.
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneCustomization(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineOperationCloneCustomization defines customization options for cloning.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namePrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NamePrefix adds a prefix to resource names during cloning. Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nameSuffix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NameSuffix adds a suffix to resource names during cloning. Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4860,7 +4888,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(re
 					},
 					"nameReplacement": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NameReplacement defines rules for renaming resources during cloning. Note: This references the NameReplacement type from virtual_machine_restore.go",
+							Description: "NameReplacement defines rules for renaming resources during cloning.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4872,12 +4900,18 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(re
 							},
 						},
 					},
+					"customization": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Customization defines customization options for cloning.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization"),
+						},
+					},
 				},
 				Required: []string{"mode"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization"},
 	}
 }
 

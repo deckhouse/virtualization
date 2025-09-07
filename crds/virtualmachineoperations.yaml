@@ -67,6 +67,20 @@ spec:
                 clone:
                   description: Clone defines the clone operation.
                   properties:
+                    customization:
+                      description: Customization defines customization options for cloning.
+                      properties:
+                        namePrefix:
+                          description: |-
+                            NamePrefix adds a prefix to resource names during cloning.
+                            Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+                          type: string
+                        nameSuffix:
+                          description: |-
+                            NameSuffix adds a suffix to resource names during cloning.
+                            Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+                          type: string
+                      type: object
                     mode:
                       description: |-
                         VMOPRestoreMode defines the kind of the restore operation.
@@ -79,9 +93,9 @@ spec:
                         - BestEffort
                       type: string
                     nameReplacement:
-                      description: |-
-                        NameReplacement defines rules for renaming resources during cloning.
-                        Note: This references the NameReplacement type from virtual_machine_restore.go
+                      description:
+                        NameReplacement defines rules for renaming resources
+                        during cloning.
                       items:
                         description:
                           NameReplacement represents a rule for redefining

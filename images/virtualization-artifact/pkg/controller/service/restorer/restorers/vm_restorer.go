@@ -96,6 +96,29 @@ func (v *VirtualMachineHandler) Override(rules []v1alpha2.NameReplacement) {
 	}
 }
 
+func (v *VirtualMachineHandler) Customize(prefix, suffix string) {
+	// Apply customization to VM name itself
+	v.vm.Name = common.ApplyNameCustomization(v.vm.Name, prefix, suffix)
+
+	// Apply customization to referenced resources
+	if v.vm.Spec.VirtualMachineIPAddress != "" {
+		v.vm.Spec.VirtualMachineIPAddress = common.ApplyNameCustomization(v.vm.Spec.VirtualMachineIPAddress, prefix, suffix)
+	}
+
+	if v.vm.Spec.Provisioning != nil && v.vm.Spec.Provisioning.UserDataRef != nil {
+		if v.vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
+			v.vm.Spec.Provisioning.UserDataRef.Name = common.ApplyNameCustomization(v.vm.Spec.Provisioning.UserDataRef.Name, prefix, suffix)
+		}
+	}
+
+	for i := range v.vm.Spec.BlockDeviceRefs {
+		if v.vm.Spec.BlockDeviceRefs[i].Kind != v1alpha2.DiskDevice {
+			continue
+		}
+		v.vm.Spec.BlockDeviceRefs[i].Name = common.ApplyNameCustomization(v.vm.Spec.BlockDeviceRefs[i].Name, prefix, suffix)
+	}
+}
+
 func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})

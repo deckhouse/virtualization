@@ -68,6 +68,10 @@ func (v *VirtualDiskHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vd.Name = common.OverrideName(v.vd.Kind, v.vd.Name, rules)
 }
 
+func (v *VirtualDiskHandler) Customize(prefix, suffix string) {
+	v.vd.Name = common.ApplyNameCustomization(v.vd.Name, prefix, suffix)
+}
+
 func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})

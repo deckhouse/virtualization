@@ -110,6 +110,14 @@ func (s ValidateCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	}
 
 	snapshotResources.Override(vmop.Spec.Clone.NameReplacement)
+
+	if vmop.Spec.Clone.Customization != nil {
+		snapshotResources.Customize(
+			vmop.Spec.Clone.Customization.NamePrefix,
+			vmop.Spec.Clone.Customization.NameSuffix,
+		)
+	}
+
 	statuses, err := snapshotResources.Validate(ctx)
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {

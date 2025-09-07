@@ -99,6 +99,14 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	snapshotResources.Override(vmop.Spec.Clone.NameReplacement)
+
+	if vmop.Spec.Clone.Customization != nil {
+		snapshotResources.Customize(
+			vmop.Spec.Clone.Customization.NamePrefix,
+			vmop.Spec.Clone.Customization.NameSuffix,
+		)
+	}
+
 	statuses, err := snapshotResources.Validate(ctx)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)

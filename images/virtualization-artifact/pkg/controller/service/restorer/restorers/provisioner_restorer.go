@@ -70,6 +70,10 @@ func (v *ProvisionerHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.secret.Name = common.OverrideName(v.secret.Kind, v.secret.Name, rules)
 }
 
+func (v *ProvisionerHandler) Customize(prefix, suffix string) {
+	v.secret.Name = common.ApplyNameCustomization(v.secret.Name, prefix, suffix)
+}
+
 func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
