@@ -32,10 +32,10 @@ import (
 type VMMACTestArgs struct {
 	mode v1alpha2.VMOPRestoreMode
 
-	vmmacExists           bool
-	vmmacUsedByDiffVM     bool
-	staticMACUsedByDiffVM bool
-	hasStaticMAC          bool
+	vmmacExists         bool
+	vmmacUsedByDiffVM   bool
+	addressUsedByDiffVM bool
+	hasAddress          bool
 
 	failValidation bool
 	failProcess    bool
@@ -49,11 +49,11 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 		err error
 		ctx context.Context
 
-		uid       string
-		vm        string
-		name      string
-		namespace string
-		staticMAC string
+		uid        string
+		vm         string
+		name       string
+		namespace  string
+		macAddress string
 
 		intercept    interceptor.Funcs
 		vmmacDeleted bool
@@ -69,7 +69,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 		ctx = context.Background()
 		name = "test-vmmac"
 		namespace = "default"
-		staticMAC = "10.0.0.1"
+		macAddress = "02:00:00:00:00:01"
 		vm = "test-vm"
 		uid = "0000-1111-2222-4444"
 
@@ -114,25 +114,25 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 
 	DescribeTable("Checking VMOP events",
 		func(args VMMACTestArgs) {
-			if args.hasStaticMAC {
-				vmmac.Spec.Address = staticMAC
-				vmmac.Status.Address = staticMAC
+			if args.hasAddress {
+				vmmac.Spec.Address = macAddress
+				vmmac.Status.Address = macAddress
 			}
 
 			if args.vmmacExists {
 				objects = append(objects, &vmmac)
 			}
 
-			if args.staticMACUsedByDiffVM {
+			if args.addressUsedByDiffVM {
 				objects = append(objects, &v1alpha2.VirtualMachineMACAddress{
 					ObjectMeta: metav1.ObjectMeta{Name: name + "-2", Namespace: namespace},
 					Spec: v1alpha2.VirtualMachineMACAddressSpec{
-						Address: staticMAC,
+						Address: macAddress,
 					},
 					Status: v1alpha2.VirtualMachineMACAddressStatus{
 						VirtualMachine: vm + "-2",
 						Phase:          v1alpha2.VirtualMachineMACAddressPhaseAttached,
-						Address:        staticMAC,
+						Address:        macAddress,
 					},
 				})
 			}
@@ -166,12 +166,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			Expect(vmmacDeleted).To(Equal(args.shouldBeDeleted))
 			Expect(vmmacCreated).To(Equal(args.shouldBeCreated))
 		},
-		Entry("vmmac exists; vmmac has auto MAC; vmmac used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           true,
-			hasStaticMAC:          false,
-			vmmacUsedByDiffVM:     true,
-			staticMACUsedByDiffVM: false,
+		Entry("vmmac exists; vmmac has auto address; vmmac used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         true,
+			hasAddress:          false,
+			vmmacUsedByDiffVM:   true,
+			addressUsedByDiffVM: false,
 
 			failValidation: true,
 			failProcess:    true,
@@ -179,12 +179,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: false,
 		}),
-		Entry("vmmac exists; vmmac has auto MAC; vmmac doesn't used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           true,
-			hasStaticMAC:          false,
-			vmmacUsedByDiffVM:     false,
-			staticMACUsedByDiffVM: false,
+		Entry("vmmac exists; vmmac has auto address; vmmac doesn't used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         true,
+			hasAddress:          false,
+			vmmacUsedByDiffVM:   false,
+			addressUsedByDiffVM: false,
 
 			failValidation: false,
 			failProcess:    false,
@@ -192,12 +192,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: false,
 		}),
-		Entry("vmmac exists; vmmac has static MAC; vmmac used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           true,
-			hasStaticMAC:          true,
-			vmmacUsedByDiffVM:     true,
-			staticMACUsedByDiffVM: false,
+		Entry("vmmac exists; vmmac has address; vmmac used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         true,
+			hasAddress:          true,
+			vmmacUsedByDiffVM:   true,
+			addressUsedByDiffVM: false,
 
 			failValidation: true,
 			failProcess:    true,
@@ -205,12 +205,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: false,
 		}),
-		Entry("vmmac exists; vmmac has static MAC; static MAC used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           true,
-			hasStaticMAC:          true,
-			vmmacUsedByDiffVM:     false,
-			staticMACUsedByDiffVM: true,
+		Entry("vmmac exists; vmmac has address; address used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         true,
+			hasAddress:          true,
+			vmmacUsedByDiffVM:   false,
+			addressUsedByDiffVM: true,
 
 			failValidation: true,
 			failProcess:    true,
@@ -218,12 +218,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: false,
 		}),
-		Entry("vmmac exists; vmmac has static MAC; vmmac doesn't used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           true,
-			hasStaticMAC:          true,
-			vmmacUsedByDiffVM:     false,
-			staticMACUsedByDiffVM: false,
+		Entry("vmmac exists; vmmac has address; vmmac doesn't used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         true,
+			hasAddress:          true,
+			vmmacUsedByDiffVM:   false,
+			addressUsedByDiffVM: false,
 
 			failValidation: false,
 			failProcess:    false,
@@ -232,12 +232,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 
-		Entry("vmmac doesn't exist; vmmac has auto MAC", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           false,
-			hasStaticMAC:          false,
-			vmmacUsedByDiffVM:     false,
-			staticMACUsedByDiffVM: false,
+		Entry("vmmac doesn't exist; vmmac has auto address", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         false,
+			hasAddress:          false,
+			vmmacUsedByDiffVM:   false,
+			addressUsedByDiffVM: false,
 
 			failValidation: false,
 			failProcess:    false,
@@ -245,12 +245,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: true,
 		}),
-		Entry("vmmac doesn't exist; vmmac has static MAC; static MAC used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           false,
-			hasStaticMAC:          true,
-			vmmacUsedByDiffVM:     false,
-			staticMACUsedByDiffVM: true,
+		Entry("vmmac doesn't exist; vmmac has address; address used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         false,
+			hasAddress:          true,
+			vmmacUsedByDiffVM:   false,
+			addressUsedByDiffVM: true,
 
 			failValidation: true,
 			failProcess:    true,
@@ -258,12 +258,12 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeDeleted: false,
 			shouldBeCreated: false,
 		}),
-		Entry("vmmac doesn't exist; vmmac has static MAC; static MAC doesn't used by different VM", VMMACTestArgs{
-			mode:                  v1alpha2.VMOPRestoreModeStrict,
-			vmmacExists:           false,
-			hasStaticMAC:          true,
-			vmmacUsedByDiffVM:     false,
-			staticMACUsedByDiffVM: false,
+		Entry("vmmac doesn't exist; vmmac has address; address doesn't used by different VM", VMMACTestArgs{
+			mode:                v1alpha2.VMOPRestoreModeStrict,
+			vmmacExists:         false,
+			hasAddress:          true,
+			vmmacUsedByDiffVM:   false,
+			addressUsedByDiffVM: false,
 
 			failValidation: false,
 			failProcess:    false,
