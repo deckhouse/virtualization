@@ -82,25 +82,27 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	var vmmacs v1alpha2.VirtualMachineMACAddressList
-	err = v.client.List(ctx, &vmmacs, &client.ListOptions{
-		Namespace:     v.vmmac.Namespace,
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMMACByAddress, v.vmmac.Spec.Address),
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, vmMac := range vmmacs.Items {
-		if vmMac.Status.VirtualMachine == v.vmmac.Status.VirtualMachine {
-			continue
+	if v.vmmac.Spec.Address != "" {
+		var vmmacs v1alpha2.VirtualMachineMACAddressList
+		err = v.client.List(ctx, &vmmacs, &client.ListOptions{
+			Namespace:     v.vmmac.Namespace,
+			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMMACByAddress, v.vmmac.Spec.Address),
+		})
+		if err != nil {
+			return err
 		}
 
-		if vmMac.Status.Address == v.vmmac.Spec.Address || vmMac.Spec.Address == v.vmmac.Spec.Address {
-			return fmt.Errorf(
-				"the set address %q is %w by the different virtual machine Mac address %q and cannot be used for the restored virtual machine",
-				v.vmmac.Spec.Address, common.ErrAlreadyInUse, vmMac.Name,
-			)
+		for _, vmMac := range vmmacs.Items {
+			if vmMac.Status.VirtualMachine == v.vmmac.Status.VirtualMachine {
+				continue
+			}
+
+			if vmMac.Status.Address == v.vmmac.Spec.Address || vmMac.Spec.Address == v.vmmac.Spec.Address {
+				return fmt.Errorf(
+					"the set address %q is %w by the different virtual machine Mac address %q and cannot be used for the restored virtual machine",
+					v.vmmac.Spec.Address, common.ErrAlreadyInUse, vmMac.Name,
+				)
+			}
 		}
 	}
 
@@ -127,7 +129,11 @@ func (v *VirtualMachineMACHandler) ProcessRestore(ctx context.Context) error {
 		return err
 	}
 
-	if existed == nil {
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	} else {
 		err = v.client.Create(ctx, v.vmmac)
 		if err != nil {
 			return fmt.Errorf("failed to create the `VirtualMachineMacAddress`: %w", err)
