@@ -319,7 +319,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 
 			shouldCreateVM:     false,
 			shouldUpdateVM:     false,
-			shouldDeleteVMBDAs: true,
+			shouldDeleteVMBDAs: false,
 		}),
 		Entry("VM exists with VMBDAs that should not be deleted", VirtualMachineTestArgs{
 			vmExists:               true,
