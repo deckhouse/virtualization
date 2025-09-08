@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nghttp2/nghttp2.git" }}
+{{- $gitRepoUrl := "ngtcp2/ngtcp2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
