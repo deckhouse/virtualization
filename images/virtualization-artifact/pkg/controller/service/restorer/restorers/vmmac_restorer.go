@@ -158,3 +158,11 @@ func (v *VirtualMachineMACHandler) Object() client.Object {
 		Spec: v.vmmac.Spec,
 	}
 }
+
+func (v *VirtualMachineMACHandler) ValidateClone(ctx context.Context) error {
+	return nil
+}
+
+func (v *VirtualMachineMACHandler) ProcessClone(ctx context.Context) error {
+	return nil
+}
