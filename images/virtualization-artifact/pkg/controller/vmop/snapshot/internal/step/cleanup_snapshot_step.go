@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,6 +59,23 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	if vmSnapshot == nil {
 		return nil, nil
+	}
+
+	for _, status := range vmop.Status.Resources {
+		if status.Kind != v1alpha2.VirtualDiskKind {
+			continue
+		}
+
+		if status.Status == "InProgress" {
+			return &reconcile.Result{}, nil
+		}
+	}
+
+	if !object.IsTerminating(vmSnapshot) {
+		err := s.client.Delete(ctx, vmSnapshot)
+		if err != nil {
+			return &reconcile.Result{}, fmt.Errorf("failed to delete the `VirtualMachineSnapshot`: %w", err)
+		}
 	}
 
 	return &reconcile.Result{}, nil
