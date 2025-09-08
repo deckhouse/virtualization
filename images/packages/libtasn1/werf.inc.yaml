@@ -90,6 +90,7 @@ shell:
 
     make DESTDIR=$OUTDIR install
 
+    rm -rf ${OUTDIR}/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
@@ -97,4 +98,4 @@ shell:
     fi
     done
 
-    tree -hp $OUTDIR
+    tree -hps $OUTDIR
