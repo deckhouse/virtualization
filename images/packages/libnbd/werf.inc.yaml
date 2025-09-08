@@ -33,7 +33,7 @@ altPackages:
 - liburing-devel perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
-- gnutls libidn2 libgmp ubdsrv xz
+- gnutls libidn2 libgmp ubdsrv xz libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
