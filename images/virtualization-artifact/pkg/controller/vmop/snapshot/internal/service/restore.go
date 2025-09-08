@@ -123,20 +123,20 @@ func (o RestoreOperation) IsInProgress() bool {
 	return false
 }
 
-func (o RestoreOperation) IsComplete() (bool, string) {
+func (o RestoreOperation) IsComplete() bool {
 	rc, ok := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, o.vmop.Status.Conditions)
 	if !ok {
-		return false, ""
+		return false
 	}
 
 	if o.vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
-		return rc.Status == metav1.ConditionTrue, ""
+		return rc.Status == metav1.ConditionTrue
 	}
 
 	mc, ok := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, o.vmop.Status.Conditions)
 	if !ok {
-		return false, ""
+		return false
 	}
 
-	return rc.Status == metav1.ConditionTrue && mc.Status == metav1.ConditionFalse, ""
+	return rc.Status == metav1.ConditionTrue && mc.Status == metav1.ConditionFalse
 }
