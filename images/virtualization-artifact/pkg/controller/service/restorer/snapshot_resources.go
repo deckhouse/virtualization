@@ -42,10 +42,10 @@ type SnapshotResources struct {
 	objectHandlers []ObjectHandler
 	statuses       []v1alpha2.VirtualMachineOperationResource
 	mode           v1alpha2.VMOPRestoreMode
-	kind           common.OperationKind
+	kind           v1alpha2.VMOPType
 }
 
-func NewSnapshotResources(client client.Client, kind common.OperationKind, mode v1alpha2.VMOPRestoreMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
+func NewSnapshotResources(client client.Client, kind v1alpha2.VMOPType, mode v1alpha2.VMOPRestoreMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
 	return SnapshotResources{
 		mode:           mode,
 		kind:           kind,
@@ -73,7 +73,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	if vmip != nil && r.kind == common.RestoreKind {
+	if vmip != nil && r.kind == v1alpha2.VMOPTypeRestore {
 		vm.Spec.VirtualMachineIPAddress = vmip.Name
 	} else {
 		vm.Spec.VirtualMachineIPAddress = ""
@@ -99,7 +99,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	if len(vmmacs) > 0 && r.kind == common.RestoreKind {
+	if len(vmmacs) > 0 && r.kind == v1alpha2.VMOPTypeRestore {
 		macAddressNamesByAddress := make(map[string]string)
 		for _, vmmac := range vmmacs {
 			r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineMACAddressHandler(r.client, vmmac, r.uuid))
@@ -153,7 +153,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.VirtualMac
 			Message:    obj.GetName() + " is valid for restore",
 		}
 
-		if r.kind == common.RestoreKind {
+		if r.kind == v1alpha2.VMOPTypeRestore {
 			err := ov.ValidateRestore(ctx)
 			switch {
 			case err == nil:
@@ -194,7 +194,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMach
 			Message:    "Successfully processed",
 		}
 
-		if r.kind == common.RestoreKind {
+		if r.kind == v1alpha2.VMOPTypeRestore {
 			err := ov.ProcessRestore(ctx)
 			switch {
 			case err == nil:

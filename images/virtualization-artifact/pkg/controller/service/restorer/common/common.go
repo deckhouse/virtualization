@@ -35,13 +35,7 @@ var (
 	ErrSecretHasDifferentData      = errors.New("the secret has different data")
 )
 
-type OperationKind string
-
-const (
-	RestoreKind OperationKind = "Restore"
-	CloneKind   OperationKind = "Clone"
-)
-
+// OverrideName overrides the name of the resource with the given rules
 func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
 	if name == "" {
 		return ""
