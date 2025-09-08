@@ -63,6 +63,13 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, err
 	}
 
+	if vmSnapshot == nil {
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		err := fmt.Errorf("virtual machine snapshot %q is not found", vmSnapshotKey.Name)
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
 	vmSnapshotReadyToUseCondition, exist := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 	if !exist {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
