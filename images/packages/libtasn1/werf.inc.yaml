@@ -38,7 +38,7 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
-- gtk-doc texinfo help2man
+- gtk-doc texinfo help2man bison patch git
 - tree
 packages:
 - openssl nghttp3 gnutls libidn2 libgmp
