@@ -27,9 +27,6 @@ func SetPVCName(vd *v1alpha2.VirtualDisk, pvcName string) {
 	case vd == nil:
 		slog.Error("Set nil vd detected. Please report a bug.", slog.String("pvcName", pvcName))
 		return
-	case pvcName == "":
-		slog.Error("Set empty pvcName detected. Please report a bug.", slog.String("vdName", vd.Name), slog.String("vdNamespace", vd.Namespace))
-		return
 	default:
 		vd.Status.Target.PersistentVolumeClaim = pvcName
 		return

@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"os"
 	"path"
 	"time"
 
@@ -26,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,7 +37,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -58,6 +59,18 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 			*namespace = ns
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 
+			// Wait until namespace is deleted
+			Eventually(func() error {
+				_, err := kubeClient.CoreV1().Namespaces().Get(context.Background(), *namespace, metav1.GetOptions{})
+				if err != nil {
+					if k8serrors.IsNotFound(err) {
+						return nil
+					}
+					return err
+				}
+				return fmt.Errorf("namespace %s is not deleted", *namespace)
+			}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
+
 			CreateNamespace(ns)
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{testdata},
@@ -74,6 +87,7 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 				SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 			}
 			resourcesToDelete := ResourcesToDelete{
+				KustomizationDir: testdata,
 				AdditionalResources: []AdditionalResource{
 					{
 						Resource: kc.ResourceVMOP,
@@ -82,10 +96,10 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 				},
 			}
 
-			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = testdata
-			}
 			DeleteTestCaseResources(*namespace, resourcesToDelete)
+
+			err := kubeClient.CoreV1().Namespaces().Delete(context.Background(), *namespace, metav1.DeleteOptions{})
+			Expect(err).NotTo(HaveOccurred())
 		})
 	}
 
@@ -101,17 +115,14 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 
 		lvmShouldBeSuccessful(namespace, testCaseLabel)
 
-		// lvmShouldBeReverted(namespace, testCaseLabel)
+		lvmShouldBeReverted(namespace, testCaseLabel)
 
 		// lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
-		// lvmStorageClassChangedContext(namespace, testCaseLabel)
+		lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
 
 	When("LocalDiskRoot", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
-		BeforeEach(func() {
-			Skip("")
-		})
 		var (
 			testCaseLabel = map[string]string{"testcase": "vm-volume-migration-local-disk-root"}
 			testdata      = conf.TestData.VMVolumeMigrationLocalDiskRoot
@@ -125,15 +136,12 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 
 		lvmShouldBeReverted(namespace, testCaseLabel)
 
-		lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
+		// lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
 		lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
 
 	When("LocalDisks", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
-		BeforeEach(func() {
-			Skip("")
-		})
 		var (
 			testCaseLabel = map[string]string{"testcase": "vm-volume-migration-local-disks"}
 			testdata      = conf.TestData.VMVolumeMigrationLocalDisks
@@ -147,7 +155,7 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 
 		lvmShouldBeReverted(namespace, testCaseLabel)
 
-		lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
+		// lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
 		lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
@@ -389,16 +397,20 @@ func lvmStorageClassChangedContext(namespace *string, labels map[string]string) 
 			nextStorageClass string
 		)
 		BeforeEach(func() {
-			scList, err := kubeClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
+			if env, ok := os.LookupEnv("E2E_VOLUME_MIGRATION_NEXT_STORAGE_CLASS"); ok {
+				nextStorageClass = env
+			} else {
+				scList, err := kubeClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
 
-			for _, sc := range scList.Items {
-				if sc.Name == usedStorageClass {
-					continue
-				}
-				if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
-					nextStorageClass = sc.Name
-					break
+				for _, sc := range scList.Items {
+					if sc.Name == usedStorageClass {
+						continue
+					}
+					if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+						nextStorageClass = sc.Name
+						break
+					}
 				}
 			}
 
@@ -462,7 +474,8 @@ func lvmStorageClassChangedContext(namespace *string, labels map[string]string) 
 
 			pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(ns).Get(ctx, newVdForPatch.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(pvc.Spec.StorageClassName).To(Equal(nextStorageClass))
+			Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
+			Expect(*pvc.Spec.StorageClassName).To(Equal(nextStorageClass))
 			Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
 		})
 
@@ -619,21 +632,31 @@ func waitVirtualDisksMigrationsSucceeded(namespace string, listOptions metav1.Li
 	GinkgoHelper()
 
 	By("Wait until VirtualDisks migrations succeeded")
-	vds, err := virtClient.VirtualDisks(namespace).List(context.Background(), listOptions)
-	Expect(err).NotTo(HaveOccurred())
-
-	for _, vd := range vds.Items {
-		Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
-		Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
-
-		if vd.Status.MigrationState.StartTimestamp.IsZero() {
-			// Skip the disks that are not migrated
-			continue
+	Eventually(func() error {
+		vds, err := virtClient.VirtualDisks(namespace).List(context.Background(), listOptions)
+		if err != nil {
+			return err
 		}
-
-		Expect(vd.Status.Target.PersistentVolumeClaim).To(Equal(vd.Status.MigrationState.TargetPVC))
-		Expect(vd.Status.MigrationState.Result).To(Equal(v1alpha2.VirtualDiskMigrationResultSucceeded))
-	}
+		for _, vd := range vds.Items {
+			if vd.Status.Phase != v1alpha2.DiskReady {
+				return fmt.Errorf("vd %s is not ready", vd.Name)
+			}
+			if vd.Status.Target.PersistentVolumeClaim == "" {
+				return fmt.Errorf("vd %s has no target PVC", vd.Name)
+			}
+			if vd.Status.MigrationState.StartTimestamp.IsZero() {
+				// Skip the disks that are not migrated
+				continue
+			}
+			if vd.Status.Target.PersistentVolumeClaim != vd.Status.MigrationState.TargetPVC {
+				return fmt.Errorf("vd %s target PVC is not equal to migration target PVC", vd.Name)
+			}
+			if vd.Status.MigrationState.Result != v1alpha2.VirtualDiskMigrationResultSucceeded {
+				return fmt.Errorf("vd %s migration failed", vd.Name)
+			}
+		}
+		return nil
+	}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
 }
 
 func execStressNG(vmNames []string, namespace string) {
