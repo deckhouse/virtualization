@@ -96,7 +96,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		},
 		Spec: v1alpha2.VirtualMachineSnapshotSpec{
 			VirtualMachineName:  vmop.Spec.VirtualMachine,
-			KeepIPAddress:       v1alpha2.KeepIPAddressAlways,
+			KeepIPAddress:       v1alpha2.KeepIPAddressNever,
 			RequiredConsistency: true,
 		},
 	}
