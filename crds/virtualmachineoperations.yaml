@@ -299,6 +299,10 @@ spec:
                         type: string
                       status:
                         description: Status of the resource.
+                        enum:
+                          - InProgress
+                          - Completed
+                          - Failed
                         type: string
                     required:
                       - apiVersion

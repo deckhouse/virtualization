@@ -48,7 +48,7 @@ func NewCleanupSnapshotStep(
 func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		return nil, nil
+		return &reconcile.Result{}, nil
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
@@ -58,7 +58,7 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	if vmSnapshot == nil {
-		return nil, nil
+		return &reconcile.Result{}, nil
 	}
 
 	for _, status := range vmop.Status.Resources {
@@ -66,7 +66,7 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			continue
 		}
 
-		if status.Status == "InProgress" {
+		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}

@@ -153,7 +153,7 @@ func (r *SnapshotResources) Customize(prefix, suffix string) {
 	}
 }
 
-func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceStatus, error) {
+func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.VirtualMachineOperationResource, error) {
 	var hasErrors bool
 
 	r.statuses = make([]v1alpha2.VirtualMachineOperationResource, 0, len(r.objectHandlers))
@@ -184,7 +184,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 			err := ov.ValidateClone(ctx)
 			if err != nil {
 				hasErrors = true
-				status.Status = "Failed"
+				status.Status = v1alpha2.VMOPResourceStatusFailed
 				status.Message = err.Error()
 			}
 		}
@@ -237,11 +237,11 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMach
 			switch {
 			case err == nil:
 			case isRetryError(err):
-				status.Status = "InProgress"
+				status.Status = v1alpha2.VMOPResourceStatusInProgress
 				status.Message = err.Error()
 			default:
 				hasErrors = true
-				status.Status = "Failed"
+				status.Status = v1alpha2.VMOPResourceStatusFailed
 				status.Message = err.Error()
 			}
 		}

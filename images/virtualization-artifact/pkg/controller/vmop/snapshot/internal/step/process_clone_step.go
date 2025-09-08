@@ -124,7 +124,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	common.FillResourcesStatuses(vmop, statuses)
 
 	for _, status := range statuses {
-		if status.Status == "InProgress" {
+		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}
