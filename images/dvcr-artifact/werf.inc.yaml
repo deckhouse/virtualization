@@ -80,6 +80,7 @@ binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
+- /usr/lib64/libxml2.s*
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
 {{- end -}}
