@@ -108,5 +108,5 @@ func (m *vmopGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
-	return types.NamespacedName{Namespace: vmop.GetNamespace(), Name: vmop.GetName()}.String()
+	return types.NamespacedName{Namespace: vmop.GetNamespace(), Name: vmop.Spec.VirtualMachine}.String()
 }

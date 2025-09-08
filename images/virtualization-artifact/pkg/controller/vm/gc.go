@@ -129,7 +129,7 @@ func (m *vmimGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
-	return types.NamespacedName{Namespace: vmim.GetNamespace(), Name: vmim.GetName()}.String()
+	return types.NamespacedName{Namespace: vmim.GetNamespace(), Name: vmim.Spec.VMIName}.String()
 }
 
 func vmiMigrationIsFinal(migration *virtv1.VirtualMachineInstanceMigration) bool {
