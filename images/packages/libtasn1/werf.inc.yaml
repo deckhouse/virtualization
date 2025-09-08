@@ -77,7 +77,7 @@ shell:
 
     cd /src
 
-    autoreconf -fisv
+    ./bootstrap --skip-po --no-git
     ./configure \
     --prefix=/usr \
     --libdir=/usr/lib64 \
