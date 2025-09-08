@@ -30,7 +30,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const (
@@ -55,15 +57,22 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		return reconcile.Result{}, nil
 	}
 
-	// If disk is migrating, do not start migration again.
-	// Wait until migration is completed.
-	if diskMigrating(vd) {
-		return reconcile.Result{}, nil
-	}
-
 	vm, err := h.getVirtualMachine(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	// Migration finished, byt virtual disk is not sync changes. Wait until virtual disk migration is completed.
+	if !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero() {
+		state := vm.Status.MigrationState
+		if state != nil && vm.Status.MigrationState.StartTimestamp.After(vd.Status.MigrationState.StartTimestamp.Time) && !state.EndTimestamp.IsZero() {
+			return reconcile.Result{}, nil
+		}
+	}
+
+	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() {
+		return reconcile.Result{}, nil
 	}
 
 	migratingVMOPs, finishedVMOPs, err := h.getMigrationVMOPs(ctx, vm)
@@ -72,6 +81,12 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 	}
 
 	if len(migratingVMOPs) > 0 {
+		return reconcile.Result{}, nil
+	}
+
+	// If disk is migrating, do not start migration again.
+	// Wait until migration is completed.
+	if diskMigrating(vd) {
 		return reconcile.Result{}, nil
 	}
 
@@ -109,6 +124,9 @@ func (h *MigrationHandler) Name() string {
 }
 
 func (h *MigrationHandler) shouldMigrate(vd *v1alpha2.VirtualDisk) bool {
+	if vd.Status.Phase != v1alpha2.DiskMigrating {
+		return false
+	}
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		return *sc != vd.Status.StorageClassName
 	}

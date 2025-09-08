@@ -43,6 +43,10 @@ func (w *VDWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualDisk]{},
 			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
+					if e.ObjectNew.Status.Phase != v1alpha2.DiskMigrating {
+						return false
+					}
+
 					if sc := e.ObjectNew.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 						return *sc != e.ObjectNew.Status.StorageClassName
 					}
