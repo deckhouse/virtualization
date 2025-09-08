@@ -30,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
-	restorercommon "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -92,7 +91,7 @@ func (s ValidateCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	}
 
 	// Create SnapshotResources for clone validation
-	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.CloneKind, v1alpha2.VMOPRestoreModeStrict, restorerSecret, vmSnapshot, string(vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, v1alpha2.VMOPRestoreModeStrict, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {

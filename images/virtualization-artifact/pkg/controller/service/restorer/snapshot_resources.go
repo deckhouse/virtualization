@@ -170,7 +170,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.VirtualMac
 		}
 
 		switch r.kind {
-		case common.RestoreKind:
+		case v1alpha2.VMOPTypeRestore:
 			err := ov.ValidateRestore(ctx)
 			switch {
 			case err == nil:
@@ -180,7 +180,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.VirtualMac
 				status.Status = v1alpha2.VMOPResourceStatusFailed
 				status.Message = err.Error()
 			}
-		case common.CloneKind:
+		case v1alpha2.VMOPTypeClone:
 			err := ov.ValidateClone(ctx)
 			if err != nil {
 				hasErrors = true
@@ -219,7 +219,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMach
 		}
 
 		switch r.kind {
-		case common.RestoreKind:
+		case v1alpha2.VMOPTypeRestore:
 			err := ov.ProcessRestore(ctx)
 			switch {
 			case err == nil:
@@ -232,7 +232,7 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMach
 				status.Status = v1alpha2.VMOPResourceStatusFailed
 				status.Message = err.Error()
 			}
-		case common.CloneKind:
+		case v1alpha2.VMOPTypeClone:
 			err := ov.ProcessClone(ctx)
 			switch {
 			case err == nil:
