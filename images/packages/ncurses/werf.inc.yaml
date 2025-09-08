@@ -75,7 +75,6 @@ shell:
       ac_cv_prog_MAKE_UPPER_TAGS=yes \
       ac_cv_prog_MAN=man \
 
-    autoreconf -if
     ./configure \
     --prefix=/usr \
     --libdir=/usr/lib64 \
