@@ -383,6 +383,9 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *virtv2.Virtual
 		return err
 	}
 
+	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
+		vd.Status.StorageClassName = *sc
+	}
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
 	vd.Status.MigrationState.Result = virtv2.VirtualDiskMigrationResultSucceeded
 	vd.Status.MigrationState.Message = "Migration completed."
