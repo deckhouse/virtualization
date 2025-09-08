@@ -114,6 +114,19 @@ const (
 	VMOPResourceVirtualMachineBlockDeviceAttachment VMOPResourceKind = "VirtualMachineBlockDeviceAttachment"
 )
 
+const (
+	VMOPResourceStatusInProgress VMOPResourceStatusPhase = "InProgress"
+	VMOPResourceStatusCompleted  VMOPResourceStatusPhase = "Completed"
+	VMOPResourceStatusFailed     VMOPResourceStatusPhase = "Failed"
+)
+
+// Current phase of the resource:
+// * `InProgress`: The operation for resource is in progress.
+// * `Completed`: The operation for resource has been completed successfully.
+// * `Failed`: The operation for resource failed. For details, refer to the `Message` field.
+// +kubebuilder:validation:Enum={InProgress,Completed,Failed}
+type VMOPResourceStatusPhase string
+
 // VirtualMachineOperationResource defines the resource affected by the operation.
 type VirtualMachineOperationResource struct {
 	// API version of the resource.
@@ -123,7 +136,7 @@ type VirtualMachineOperationResource struct {
 	// Kind of the resource.
 	Kind string `json:"kind"`
 	// Status of the resource.
-	Status string `json:"status"`
+	Status VMOPResourceStatusPhase `json:"status"`
 	// Message about the resource.
 	Message string `json:"message"`
 }

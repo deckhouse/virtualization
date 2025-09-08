@@ -21,7 +21,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -42,7 +41,7 @@ func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2
 		Message(service.CapitalizeFirstLetter(msg) + ".")
 }
 
-func FillResourcesStatuses(vmop *v1alpha2.VirtualMachineOperation, statuses []restorer.SnapshotResourceStatus) {
+func FillResourcesStatuses(vmop *v1alpha2.VirtualMachineOperation, statuses []v1alpha2.VirtualMachineOperationResource) {
 	vmop.Status.Resources = nil
 
 	for _, status := range statuses {
