@@ -122,6 +122,13 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	common.FillResourcesStatuses(vmop, statuses)
+
+	for _, status := range statuses {
+		if status.Status == "InProgress" {
+			return &reconcile.Result{}, nil
+		}
+	}
+
 	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine has been cloned successfully")
 
 	return &reconcile.Result{}, nil
