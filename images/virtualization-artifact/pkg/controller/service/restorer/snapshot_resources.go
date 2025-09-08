@@ -122,6 +122,10 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 
 			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i-1]]
 		}
+	} else {
+		for i := range vm.Spec.Networks {
+			vm.Spec.Networks[i].VirtualMachineMACAddressName = ""
+		}
 	}
 
 	for _, vd := range vds {
