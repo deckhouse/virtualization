@@ -49,7 +49,7 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
-- gcc-c++ CUnit-devel libev-devel gnutls
+- gcc-c++ CUnit-devel libev-devel gnutls-devel
 - tree
 packages:
 - openssl nghttp3
