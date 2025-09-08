@@ -20,7 +20,15 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+    GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
+    cd gnulib
+    git checkout $GNULIB_REVISION
+    cd /
 
 
 ---
