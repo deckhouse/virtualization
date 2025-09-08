@@ -59,10 +59,6 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return nil, nil
 	}
 
-	if s.cb.Condition().Status == metav1.ConditionTrue {
-		return nil, nil
-	}
-
 	c, exist := conditions.GetCondition(s.cb.GetType(), vmop.Status.Conditions)
 	if exist {
 		if c.Status == metav1.ConditionTrue {
