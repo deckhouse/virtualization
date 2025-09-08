@@ -96,7 +96,7 @@ func (o CloneOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bool
 }
 
 func (o CloneOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
-	return runPolicy == v1alpha2.ManualPolicy || runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually || runPolicy == v1alpha2.AlwaysOffPolicy
+	return true
 }
 
 func (o CloneOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
@@ -112,11 +112,11 @@ func (o CloneOperation) IsInProgress() bool {
 	return cc.Status != metav1.ConditionUnknown
 }
 
-func (o CloneOperation) IsComplete() (bool, string) {
+func (o CloneOperation) IsComplete() bool {
 	cc, ok := conditions.GetCondition(vmopcondition.TypeCloneCompleted, o.vmop.Status.Conditions)
 	if !ok {
-		return false, ""
+		return false
 	}
 
-	return cc.Status == metav1.ConditionTrue, ""
+	return cc.Status == metav1.ConditionTrue
 }
