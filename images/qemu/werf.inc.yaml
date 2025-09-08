@@ -152,7 +152,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-  {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
