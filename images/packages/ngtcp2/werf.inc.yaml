@@ -49,10 +49,10 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
-- gcc-c++ CUnit-devel libev-devel gnutls-devel
+- gcc-c++ CUnit-devel libev-devel
 - tree
 packages:
-- openssl nghttp3
+- openssl nghttp3 gnutls
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
