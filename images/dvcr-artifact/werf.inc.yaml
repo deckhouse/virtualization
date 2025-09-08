@@ -81,7 +81,7 @@ binaries:
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
 packages:
-- bzip2 file nbdkit libnbd xz
+- bzip2 file nbdkit libnbd xz libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
