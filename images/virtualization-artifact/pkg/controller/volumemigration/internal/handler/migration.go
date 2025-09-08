@@ -30,9 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const (
@@ -70,23 +68,12 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		}
 	}
 
-	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-	if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() {
-		return reconcile.Result{}, nil
-	}
-
 	migratingVMOPs, finishedVMOPs, err := h.getMigrationVMOPs(ctx, vm)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	if len(migratingVMOPs) > 0 {
-		return reconcile.Result{}, nil
-	}
-
-	// If disk is migrating, do not start migration again.
-	// Wait until migration is completed.
-	if diskMigrating(vd) {
 		return reconcile.Result{}, nil
 	}
 
