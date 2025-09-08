@@ -106,3 +106,5 @@ shell:
       echo "Stripped: $execfile"
     fi
     done
+
+    tree -hp $OUTDIR
