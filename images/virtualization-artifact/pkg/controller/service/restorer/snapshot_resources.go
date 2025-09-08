@@ -40,17 +40,9 @@ type SnapshotResources struct {
 	restorerSecret *corev1.Secret
 	vmSnapshot     *v1alpha2.VirtualMachineSnapshot
 	objectHandlers []ObjectHandler
-	statuses       []SnapshotResourceStatus
+	statuses       []v1alpha2.VirtualMachineOperationResource
 	mode           v1alpha2.VMOPRestoreMode
 	kind           common.OperationKind
-}
-
-type SnapshotResourceStatus struct {
-	APIVersion string
-	Kind       string
-	Name       string
-	Status     string
-	Message    string
 }
 
 func NewSnapshotResources(client client.Client, kind common.OperationKind, mode v1alpha2.VMOPRestoreMode, restorerSecret *corev1.Secret, vmSnapshot *v1alpha2.VirtualMachineSnapshot, uuid string) SnapshotResources {
@@ -145,19 +137,19 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	return nil
 }
 
-func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceStatus, error) {
+func (r *SnapshotResources) Validate(ctx context.Context) ([]v1alpha2.VirtualMachineOperationResource, error) {
 	var hasErrors bool
 
-	r.statuses = make([]SnapshotResourceStatus, 0, len(r.objectHandlers))
+	r.statuses = make([]v1alpha2.VirtualMachineOperationResource, 0, len(r.objectHandlers))
 
 	for _, ov := range r.objectHandlers {
 		obj := ov.Object()
 
-		status := SnapshotResourceStatus{
+		status := v1alpha2.VirtualMachineOperationResource{
 			APIVersion: obj.GetObjectKind().GroupVersionKind().Version,
 			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
 			Name:       obj.GetName(),
-			Status:     "Ready",
+			Status:     v1alpha2.VMOPResourceStatusCompleted,
 			Message:    obj.GetName() + " is valid for restore",
 		}
 
@@ -168,7 +160,7 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 			case shouldIgnoreError(r.mode, err):
 			default:
 				hasErrors = true
-				status.Status = "Failed"
+				status.Status = v1alpha2.VMOPResourceStatusFailed
 				status.Message = err.Error()
 			}
 		}
@@ -182,10 +174,10 @@ func (r *SnapshotResources) Validate(ctx context.Context) ([]SnapshotResourceSta
 	return r.statuses, nil
 }
 
-func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStatus, error) {
+func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMachineOperationResource, error) {
 	var hasErrors bool
 
-	r.statuses = make([]SnapshotResourceStatus, 0, len(r.objectHandlers))
+	r.statuses = make([]v1alpha2.VirtualMachineOperationResource, 0, len(r.objectHandlers))
 
 	if r.mode == v1alpha2.VMOPRestoreModeDryRun {
 		return r.statuses, errors.New("cannot Process with DryRun operation")
@@ -194,11 +186,11 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 	for _, ov := range r.objectHandlers {
 		obj := ov.Object()
 
-		status := SnapshotResourceStatus{
+		status := v1alpha2.VirtualMachineOperationResource{
 			APIVersion: obj.GetObjectKind().GroupVersionKind().Version,
 			Kind:       obj.GetObjectKind().GroupVersionKind().Kind,
 			Name:       obj.GetName(),
-			Status:     "Completed",
+			Status:     v1alpha2.VMOPResourceStatusCompleted,
 			Message:    "Successfully processed",
 		}
 
@@ -208,11 +200,11 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]SnapshotResourceStat
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
 			case isRetryError(err):
-				status.Status = "InProgress"
+				status.Status = v1alpha2.VMOPResourceStatusInProgress
 				status.Message = err.Error()
 			default:
 				hasErrors = true
-				status.Status = "Failed"
+				status.Status = v1alpha2.VMOPResourceStatusFailed
 				status.Message = err.Error()
 			}
 		}
