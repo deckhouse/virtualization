@@ -77,6 +77,7 @@ shell:
 
     cd /src
 
+    autoreconf -fisv
     ./configure \
     --prefix=/usr \
     --libdir=/usr/lib64 \
