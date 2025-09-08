@@ -11,6 +11,7 @@ binaries:
 packages:
 - libnbd
 - xz
+- libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
