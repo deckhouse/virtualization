@@ -102,7 +102,7 @@ func (o RestoreOperation) IsApplicableForVMPhase(phase v1alpha2.MachinePhase) bo
 }
 
 func (o RestoreOperation) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool {
-	return runPolicy == v1alpha2.ManualPolicy || runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually || runPolicy == v1alpha2.AlwaysOffPolicy
+	return true
 }
 
 func (o RestoreOperation) GetInProgressReason() vmopcondition.ReasonCompleted {
