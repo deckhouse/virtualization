@@ -52,7 +52,7 @@ altPackages:
 - gcc-c++ CUnit-devel libev-devel
 - tree
 packages:
-- openssl nghttp3 gnutls
+- openssl nghttp3 gnutls libidn2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
