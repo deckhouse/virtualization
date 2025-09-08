@@ -62,7 +62,7 @@ func SetupGCCompletedPods(
 	log *log.Logger,
 	gcSettings config.BaseGcSettings,
 ) error {
-	podGCMgr := newCompletedPodGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 10)
+	podGCMgr := newCompletedPodGCManager(mgr.GetClient(), 10)
 	source, err := gc.NewCronSource(gcSettings.Schedule, podGCMgr, log.With("resource", "pod"))
 	if err != nil {
 		return err
@@ -138,20 +138,15 @@ func vmiMigrationIsFinal(migration *virtv1.VirtualMachineInstanceMigration) bool
 
 type completedPodGCmanager struct {
 	client client.Client
-	ttl    time.Duration
 	max    int
 }
 
-func newCompletedPodGCManager(client client.Client, ttl time.Duration, max int) *completedPodGCmanager {
-	if ttl == 0 {
-		ttl = 24 * time.Hour
-	}
+func newCompletedPodGCManager(client client.Client, max int) *completedPodGCmanager {
 	if max == 0 {
 		max = 10
 	}
 	return &completedPodGCmanager{
 		client: client,
-		ttl:    ttl,
 		max:    max,
 	}
 }
@@ -178,12 +173,14 @@ func (m *completedPodGCmanager) ListForDelete(ctx context.Context, now time.Time
 		return nil, err
 	}
 
-	objs := make([]client.Object, 0, len(podList.Items))
+	var objs []client.Object
 	for _, pod := range podList.Items {
-		objs = append(objs, &pod)
+		if m.ShouldBeDeleted(&pod) {
+			objs = append(objs, &pod)
+		}
 	}
 
-	result := gc.DefaultFilter(objs, m.ShouldBeDeleted, m.ttl, m.getIndex, m.max, now)
+	result := gc.KeepLastRemoveOld(objs, m.getIndex, m.max, now)
 
 	return result, nil
 }

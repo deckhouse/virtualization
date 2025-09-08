@@ -29,7 +29,6 @@ const (
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
 	GcVMIMigrationTTLVar      = "GC_VMI_MIGRATION_TTL"
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
-	GcCompletedPodTTLVar      = "GC_COMPLETED_POD_TTL"
 	GcCompletedPodScheduleVar = "GC_COMPLETED_POD_SCHEDULE"
 )
 
@@ -58,7 +57,7 @@ func LoadGcSettings() (GCSettings, error) {
 	}
 	gcSettings.VMIMigration = base
 
-	base, err = GetBaseGCSettingsFromEnv(GcCompletedPodScheduleVar, GcCompletedPodTTLVar)
+	base, err = GetBaseGCSettingsFromEnv(GcCompletedPodScheduleVar, "")
 	if err != nil {
 		return gcSettings, err
 	}
