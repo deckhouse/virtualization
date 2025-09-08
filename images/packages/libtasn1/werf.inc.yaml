@@ -28,7 +28,8 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc make autoconf automake libtool pkgconfig
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
 - gtk-doc texinfo help2man
 - tree
 packages:
@@ -68,7 +69,6 @@ shell:
 
     cd /src
 
-    autoreconf -if
     ./configure \
     --prefix=/usr \
     --libdir=/usr/lib64 \
