@@ -4,9 +4,9 @@
 altPackages:
 - gcc glibc-pthread glibc-devel glibc-devel-static
 - git golang make binutils
-- libxml2-devel
 packages:
 - libnbd
+- libxml2
 {{- end -}}
 
 {{ $builderDeps := include "$nameDeps" . | fromYaml }}
@@ -68,8 +68,6 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-altPackages:
-- libxml2-devel
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
