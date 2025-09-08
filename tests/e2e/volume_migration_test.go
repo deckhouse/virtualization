@@ -99,11 +99,11 @@ var _ = Describe("VirtualMachineVolumeMigration", SIGMigration(), ginkgoutil.Fai
 		beforeEach(namespace, testCaseLabel, testdata)
 		afterEach(namespace, testCaseLabel, testdata)
 
-		// lvmShouldBeSuccessful(namespace, testCaseLabel)
+		lvmShouldBeSuccessful(namespace, testCaseLabel)
 
 		// lvmShouldBeReverted(namespace, testCaseLabel)
 
-		lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
+		// lvmShouldBeRevertedLiveMigrationNotStarted(namespace, testCaseLabel)
 
 		// lvmStorageClassChangedContext(namespace, testCaseLabel)
 	})
