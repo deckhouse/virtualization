@@ -81,8 +81,20 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		return err
 	}
 
-	if vmip != nil {
+	if vmip != nil && r.kind == common.RestoreKind {
 		vm.Spec.VirtualMachineIPAddress = vmip.Name
+	} else {
+		vm.Spec.VirtualMachineIPAddress = ""
+	}
+
+	vmmacs, err := r.restorer.RestoreVirtualMachineMACAddresses(ctx, r.restorerSecret)
+	if err != nil {
+		return err
+	}
+
+	macAddressOrder, err := r.restorer.RestoreMACAddressOrder(ctx, r.restorerSecret)
+	if err != nil {
+		return err
 	}
 
 	vds, err := getVirtualDisks(ctx, r.client, r.vmSnapshot)
@@ -93,6 +105,23 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 	vmbdas, err := r.restorer.RestoreVirtualMachineBlockDeviceAttachments(ctx, r.restorerSecret)
 	if err != nil {
 		return err
+	}
+
+	if len(vmmacs) > 0 && r.kind == common.RestoreKind {
+		macAddressNamesByAddress := make(map[string]string)
+		for _, vmmac := range vmmacs {
+			r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineMACAddressHandler(r.client, vmmac, r.uuid))
+			macAddressNamesByAddress[vmmac.Status.Address] = vmmac.Name
+		}
+
+		for i := range vm.Spec.Networks {
+			ns := &vm.Spec.Networks[i]
+			if ns.Type == v1alpha2.NetworksTypeMain {
+				continue
+			}
+
+			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i-1]]
+		}
 	}
 
 	for _, vd := range vds {
