@@ -55,6 +55,12 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		return reconcile.Result{}, nil
 	}
 
+	// If disk is migrating, do not start migration again.
+	// Wait until migration is completed.
+	if diskMigrating(vd) {
+		return reconcile.Result{}, nil
+	}
+
 	vm, err := h.getVirtualMachine(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -103,10 +109,6 @@ func (h *MigrationHandler) Name() string {
 }
 
 func (h *MigrationHandler) shouldMigrate(vd *v1alpha2.VirtualDisk) bool {
-	if vd == nil || vd.Status.Phase != v1alpha2.DiskMigrating {
-		return false
-	}
-
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		return *sc != vd.Status.StorageClassName
 	}
@@ -187,4 +189,8 @@ func newVolumeMigrationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOp
 		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
+}
+
+func diskMigrating(vd *v1alpha2.VirtualDisk) bool {
+	return vd != nil && !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
 }
