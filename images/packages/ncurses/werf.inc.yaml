@@ -1,0 +1,119 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "ncurses/ncurses.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc make autoconf automake libtool pkgconfig
+- gtk-doc texinfo help2man
+- tree
+packages:
+- openssl nghttp3 gnutls libidn2 libgmp
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+
+    export \
+      ac_cv_func_mkstemp=yes \
+      ac_cv_prog_AWK=gawk \
+      ac_cv_prog_MAKE_LOWER_TAGS=yes \
+      ac_cv_prog_MAKE_UPPER_TAGS=yes \
+      ac_cv_prog_MAN=man \
+
+    autoreconf -if
+    ./configure \
+    --prefix=/usr \
+    --libdir=/usr/lib64 \
+    --without-dlsym \
+    --with-termlib=tinfo \
+    --with-ticlib=tic \
+    --with-ospeed="unsigned int" \
+    --disable-termcap \
+    --enable-const \
+    --enable-hard-tabs \
+    --enable-no-padding \
+    --enable-sigwinch \
+    --enable-echo \
+    --enable-warnings \
+    --disable-rpath \
+    --disable-root-environ \
+    --disable-home-terminfo \
+    --disable-stripping \
+    --with-chtype=long \
+    --with-cxx-shared \
+    --with-shared \
+    --with-normal \
+    --without-debug \
+    --without-profile \
+    --without-ada \
+    --without-libtool \
+    --with-gpm
+
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install
+
+    rm -rf ${OUTDIR}/usr/share
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -hp $OUTDIR
