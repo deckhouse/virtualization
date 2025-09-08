@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -237,6 +238,24 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		}
 
 		anno[annotations.AnnAccessModes] = strings.Join(accessModes, ",")
+
+		if len(vd.Annotations) > 0 {
+			vdAnnotationsJSON, err := json.Marshal(vd.Annotations)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk annotations: %w", err)
+			} else {
+				anno[annotations.AnnVirtualDiskOriginalAnnotations] = string(vdAnnotationsJSON)
+			}
+		}
+
+		if len(vd.Labels) > 0 {
+			vdLabelsJSON, err := json.Marshal(vd.Labels)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to marshal VirtualDisk labels: %w", err)
+			} else {
+				anno[annotations.AnnVirtualDiskOriginalLabels] = string(vdLabelsJSON)
+			}
+		}
 
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{

@@ -23,7 +23,6 @@ altLibs:
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
-  - libpixman-devel
   - libuuid-devel
   - libtasn1-devel
   - libslirp-devel
@@ -54,14 +53,12 @@ altLibs:
   - libspice-server-devel
   - ceph-devel
   - libnfs-devel
-  - libzstd-devel
   - libseccomp-devel
   - libudev-devel
   - libmultipath-devel
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - rdma-core-devel
   - bzlib-devel
   - liblzo2-devel
   - libsnappy-devel
@@ -73,7 +70,6 @@ altLibs:
   - libiscsi-devel
   - libaio-devel
   - libselinux-devel
-  - libqpl-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -91,7 +87,6 @@ altLibs:
   - glib2-devel
   - libgio-devel
   - libxml2-devel
-  - libgcc1
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
@@ -132,8 +127,9 @@ packages:
 - util-linux libfuse3 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
-- zlib p11-kit linux-pam
+- zlib zstd p11-kit linux-pam
 - libssh libssh2
+- libpixman libqpl rdma-core
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

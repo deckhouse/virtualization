@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libssh.git" }}
+{{- $gitRepoUrl := "thom311/libnl.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -20,17 +20,17 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel
-- zstd
-- python3
-- tree
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
+- ninja-build bison flex
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -55,20 +55,17 @@ shell:
   install:
   - |
     OUTDIR=/out
-
     cd /src
-
-    cmake -B build -S . \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      -DCMAKE_INSTALL_LIBDIR=lib64 \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_SHARED_LIBS=ON \
-      -DWITH_ZLIB=ON \
-      -DWITH_GSSAPI=ON \
-      -DWITH_SERVER=ON
-
-    cmake --build build -j$(nproc)
-    DESTDIR=${OUTDIR} cmake --install build
+    
+    ./autogen.sh
+    ./configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static
+    
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
 
     rm -rf $OUTDIR/usr/share
 
@@ -77,5 +74,3 @@ shell:
       echo "Stripped: $execfile"
     fi
     done
-
-    tree -sp $OUTDIR

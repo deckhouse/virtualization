@@ -19,8 +19,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -30,7 +29,7 @@ altPackages:
 - glibc-devel-static
 - groff-base
 - libkrb5-devel libgsasl-devel
-- libzstd-devel libpsl-devel libbrotli-devel
+- libbrotli-devel
 - python3-base
 - openssh-server
 - openssh-clients
@@ -43,9 +42,10 @@ altPackages:
 packages:
 - openssl libidn2 libgmp gnutls nettle
 - nghttp2 nghttp3
-- zlib
+- zlib zstd
 - libssh2
 - openldap
+- libpsl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

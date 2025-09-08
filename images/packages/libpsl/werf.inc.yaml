@@ -5,13 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ .ImageName }}
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libssh.git" }}
-
+{{- $gitRepoUrl := "rockdaboot/libpsl.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -26,23 +25,34 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel
-- zstd
-- python3
+- gcc git make libtool gettext-tools meson ninja-build
+- rpm-build-python3
+- libicu-devel
+- glib2-devel libgio-devel
+- libunistring-devel
+- gtk-doc xsltproc
+- publicsuffix-list
+- publicsuffix-list-dafsa
 - tree
+packages:
+- libidn2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -54,28 +64,35 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
-
     cd /src
+    mkdir _build
+    /usr/bin/meson setup _build  \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      -Dbuiltin=false \
+      -Dpsl_distfile=/usr/share/publicsuffix/public_suffix_list.dafsa \
+      -Dpsl_file=/usr/share/publicsuffix/effective_tld_names.dat \
+      -Dpsl_testfile=/usr/share/publicsuffix/test_psl.txt \
+    	-Druntime=libidn2 \
+      -Ddocs=false \
+      -Dtests=false \
+      --wrap-mode=nofallback \
+      --wrap-mode=nodownload
 
-    cmake -B build -S . \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      -DCMAKE_INSTALL_LIBDIR=lib64 \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_SHARED_LIBS=ON \
-      -DWITH_ZLIB=ON \
-      -DWITH_GSSAPI=ON \
-      -DWITH_SERVER=ON
-
-    cmake --build build -j$(nproc)
-    DESTDIR=${OUTDIR} cmake --install build
-
+    ninja-build -j$(nproc) -C _build
+    DESTDIR=$OUTDIR ninja-build install -C _build
     rm -rf $OUTDIR/usr/share
-
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
-
-    tree -sp $OUTDIR
+    tree -hp $OUTDIR

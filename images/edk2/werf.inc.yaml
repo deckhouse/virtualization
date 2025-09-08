@@ -20,11 +20,11 @@ altPackages:
 - qemu-kvm-core
 - iasl
 - python3-modules-sqlite3 python3-module-virt-firmware libuuid-devel
-- libssl-devel
-- libssl-devel libdwarf-devel libuuid-devel
+- libdwarf-devel libuuid-devel
 - bc perl-PathTools perl-IPC-Cmd perl-JSON
 packages:
 - zlib libisoburn libburn libisofs
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
