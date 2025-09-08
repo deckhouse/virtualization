@@ -76,6 +76,8 @@ shell:
     OUTDIR=/out
 
     cd /src
+    export GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    export GNULIB_SRCDIR=$(pwd)/gnulib
 
     ./bootstrap --skip-po --no-git
     ./configure \
