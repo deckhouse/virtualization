@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
-	restorercommon "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -91,7 +90,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := restorer.NewSnapshotResources(s.client, restorercommon.RestoreKind, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeRestore, vmop.Spec.Restore.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
