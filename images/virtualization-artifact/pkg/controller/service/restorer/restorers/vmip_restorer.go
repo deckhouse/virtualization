@@ -82,11 +82,7 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	if existed == nil {
-		if v.vmip.Spec.StaticIP == "" {
-			return nil
-		}
-
+	if v.vmip.Spec.StaticIP != "" {
 		var vmips v1alpha2.VirtualMachineIPAddressList
 		err = v.client.List(ctx, &vmips, &client.ListOptions{
 			Namespace:     v.vmip.Namespace,
@@ -108,8 +104,10 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine != v.vmip.Status.VirtualMachine {
-		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, common.ErrAlreadyInUse)
+	if existed != nil {
+		if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine != v.vmip.Status.VirtualMachine {
+			return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, common.ErrAlreadyInUse)
+		}
 	}
 
 	return nil

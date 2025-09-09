@@ -82,11 +82,7 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	if existed == nil {
-		if v.vmmac.Spec.Address != "" {
-			return nil
-		}
-
+	if v.vmmac.Spec.Address != "" {
 		var vmmacs v1alpha2.VirtualMachineMACAddressList
 		err = v.client.List(ctx, &vmmacs, &client.ListOptions{
 			Namespace:     v.vmmac.Namespace,
@@ -108,8 +104,10 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine != v.vmmac.Status.VirtualMachine {
-		return fmt.Errorf("the virtual machine Mac address %q is %w and cannot be used for the restored virtual machine", vmMacKey.Name, common.ErrAlreadyInUse)
+	if existed != nil {
+		if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine != v.vmmac.Status.VirtualMachine {
+			return fmt.Errorf("the virtual machine Mac address %q is %w and cannot be used for the restored virtual machine", vmMacKey.Name, common.ErrAlreadyInUse)
+		}
 	}
 
 	return nil
