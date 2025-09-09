@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -127,7 +128,10 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 		vmbdaObj.Annotations[annotations.AnnVMRestore] = v.restoreUID
 		err := v.client.Update(ctx, vmbdaObj)
 		if err != nil {
-			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+			if apierrors.IsConflict(err) {
+				return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %w", common.ErrUpdating)
+			}
+			return fmt.Errorf("failed to update the `VirtualMachineBlockDeviceAttachment`: %w", err)
 		}
 
 		// Phase 1: Initiate deletion and wait for completion

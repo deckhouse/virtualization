@@ -166,9 +166,8 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		if updErr != nil {
 			if apierrors.IsConflict(updErr) {
 				return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
-			} else {
-				return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 			}
+			return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 		}
 
 		// Always clean up VMBDAs first, regardless of VM state
