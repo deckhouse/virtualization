@@ -67,7 +67,7 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
   - |
     echo "Install packages"
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

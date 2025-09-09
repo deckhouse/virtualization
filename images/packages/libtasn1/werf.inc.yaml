@@ -41,7 +41,7 @@ altPackages:
 - gtk-doc texinfo help2man bison patch git
 - tree
 packages:
-- openssl nghttp3 gnutls libidn2 libgmp
+- openssl nghttp3 libidn2 libgmp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
