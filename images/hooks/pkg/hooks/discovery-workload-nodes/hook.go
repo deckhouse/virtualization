@@ -64,7 +64,7 @@ var configDiscoveryService = &pkg.HookConfig{
 			Name:       kubevirtConfigSnapshot,
 			APIVersion: "internal.virtualization.deckhouse.io/v1",
 			Kind:       "InternalVirtualizationKubeVirt",
-			JqFilter:   `{ "phase" .status.phase, "parallelMigrationsPerCluster": .spec.configuration.migrations.parallelMigrationsPerCluster }`,
+			JqFilter:   `{ "phase": .status.phase, "parallelMigrationsPerCluster": .spec.configuration.migrations.parallelMigrationsPerCluster }`,
 			NamespaceSelector: &pkg.NamespaceSelector{
 				NameSelector: &pkg.NameSelector{
 					MatchNames: []string{"d8-virtualization"},
