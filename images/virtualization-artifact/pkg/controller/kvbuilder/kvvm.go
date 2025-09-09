@@ -45,7 +45,7 @@ const (
 	SysprepDiskName   = "sysprep"
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
-	GenericCPUModel = "kvm64"
+	GenericCPUModel = "qemu64"
 )
 
 type KVVMOptions struct {
