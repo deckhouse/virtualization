@@ -94,9 +94,7 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 					return nil, errors.New("cannot change storage class while the VirtualMachine is being migrated or awaiting migration")
 				}
 
-				specSc := newVD.Spec.PersistentVolumeClaim.StorageClass
-				statusSc := newVD.Status.StorageClassName
-				if specSc != nil && *specSc != statusSc && commonvd.IsMigrating(newVD) {
+				if commonvd.IsMigrating(newVD) {
 					return nil, errors.New("VirtualDisk is migrating. StorageClass can be changed only to the .status.storageClassName")
 				}
 
