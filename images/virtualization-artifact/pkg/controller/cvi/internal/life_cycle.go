@@ -55,6 +55,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 	}
 
 	if cvi.DeletionTimestamp != nil {
+		// It is necessary to update this condition in order to use this image as a data source.
+		cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+
+		if readyCondition.Status == metav1.ConditionTrue {
+			cb.
+				Status(metav1.ConditionTrue).
+				Reason(cvicondition.Ready).
+				Message("")
+		} else {
+			cb.
+				Status(readyCondition.Status).
+				Reason(conditions.ReasonUnknown).
+				Message("")
+		}
+
+		conditions.SetCondition(cb, &cvi.Status.Conditions)
 		cvi.Status.Phase = virtv2.ImageTerminating
 		return reconcile.Result{}, nil
 	}
