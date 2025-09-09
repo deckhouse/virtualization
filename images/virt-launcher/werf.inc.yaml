@@ -85,7 +85,6 @@ altLibs:
   - systemtap-sdt-devel
   - glib2-devel
   - libgio-devel
-  - libxml2-devel
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
@@ -129,7 +128,7 @@ packages:
 - zlib zstd p11-kit linux-pam
 - libssh libssh2
 - libpixman libqpl rdma-core
-- krb5 xz
+- krb5 xz libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
