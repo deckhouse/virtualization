@@ -116,6 +116,15 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 			return nil
 		}
 
+		if vdObj.Annotations == nil {
+			vdObj.Annotations = make(map[string]string)
+		}
+		vdObj.Annotations[annotations.AnnVMRestore] = v.restoreUID
+		err := v.client.Update(ctx, vdObj)
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+		}
+
 		// Phase 1: Initiate deletion and wait for completion
 		if !object.IsTerminating(vdObj) {
 			err := v.client.Delete(ctx, vdObj)
