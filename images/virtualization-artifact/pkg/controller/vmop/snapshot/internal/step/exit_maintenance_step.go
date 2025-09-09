@@ -80,6 +80,12 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, nil
 	}
 
+	for _, status := range vmop.Status.Resources {
+		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+			return &reconcile.Result{}, nil
+		}
+	}
+
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
 			Generation(vm.GetGeneration()).
