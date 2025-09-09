@@ -121,6 +121,15 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 			return nil
 		}
 
+		if vmbdaObj.Annotations == nil {
+			vmbdaObj.Annotations = make(map[string]string)
+		}
+		vmbdaObj.Annotations[annotations.AnnVMRestore] = v.restoreUID
+		err := v.client.Update(ctx, vmbdaObj)
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+		}
+
 		// Phase 1: Initiate deletion and wait for completion
 		if !object.IsTerminating(vmbdaObj) {
 			err = v.client.Delete(ctx, vmbdaObj)
