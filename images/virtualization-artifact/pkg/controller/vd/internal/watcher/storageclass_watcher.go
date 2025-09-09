@@ -56,6 +56,9 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 		source.Kind(mgr.GetCache(), &storagev1.StorageClass{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
 			predicate.TypedFuncs[*storagev1.StorageClass]{
+				CreateFunc: func(e event.TypedCreateEvent[*storagev1.StorageClass]) bool {
+					return true
+				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*storagev1.StorageClass]) bool {
 					oldIsDefault, oldIsDefaultOk := e.ObjectOld.Annotations[annotations.AnnDefaultStorageClass]
 					newIsDefault, newIsDefaultOk := e.ObjectNew.Annotations[annotations.AnnDefaultStorageClass]
