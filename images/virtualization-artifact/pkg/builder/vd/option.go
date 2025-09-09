@@ -42,6 +42,7 @@ func WithDatasource(datasource *v1alpha2.VirtualDiskDataSource) func(vd *v1alpha
 		vd.Spec.DataSource = datasource
 	}
 }
+
 func WithDataSourceHTTP(url string, checksum *v1alpha2.Checksum, caBundle []byte) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
 		vd.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{
