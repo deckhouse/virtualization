@@ -37,7 +37,6 @@ altPackages:
 - python3-module-pytest-xdist
 - python3-module-psutil
 - python3-module-filelock
-- libngtcp2-devel
 - tree
 packages:
 - openssl libidn2 libgmp gnutls nettle
@@ -46,6 +45,7 @@ packages:
 - libssh2
 - openldap
 - libpsl
+- ngtcp2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
