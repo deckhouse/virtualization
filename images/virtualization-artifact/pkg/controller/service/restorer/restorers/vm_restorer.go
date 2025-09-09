@@ -191,60 +191,56 @@ func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) validateImageDependencies(ctx context.Context) error {
-	var indicesToRemove []int
+	filteredRefs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(v.vm.Spec.BlockDeviceRefs))
 
-	for i, ref := range v.vm.Spec.BlockDeviceRefs {
-		var missing bool
-		var err error
-
-		switch ref.Kind {
-		case v1alpha2.ImageDevice:
-			missing, err = v.validateVirtualImageRef(ctx, &ref)
-		case v1alpha2.ClusterImageDevice:
-			missing, err = v.validateClusterVirtualImageRef(ctx, &ref)
-		default:
+	for _, ref := range v.vm.Spec.BlockDeviceRefs {
+		if ref.Kind != v1alpha2.ImageDevice && ref.Kind != v1alpha2.ClusterImageDevice {
+			filteredRefs = append(filteredRefs, ref)
 			continue
 		}
 
+		exists, err := v.imageExists(ctx, ref)
 		if err != nil {
 			return err
 		}
-		if missing {
-			indicesToRemove = append(indicesToRemove, i)
+
+		if exists {
+			filteredRefs = append(filteredRefs, ref)
 		}
 	}
 
-	for i := len(indicesToRemove) - 1; i >= 0; i-- {
-		idx := indicesToRemove[i]
-		v.vm.Spec.BlockDeviceRefs = append(v.vm.Spec.BlockDeviceRefs[:idx], v.vm.Spec.BlockDeviceRefs[idx+1:]...)
-	}
-
+	v.vm.Spec.BlockDeviceRefs = filteredRefs
 	return nil
 }
 
-func (v *VirtualMachineHandler) validateVirtualImageRef(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) (bool, error) {
-	key := types.NamespacedName{Namespace: v.vm.Namespace, Name: ref.Name}
-	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.VirtualImage{})
-	return v.handleMissingResource(obj, err, ref.Kind, ref.Name)
-}
+func (v *VirtualMachineHandler) imageExists(ctx context.Context, ref v1alpha2.BlockDeviceSpecRef) (bool, error) {
+	var obj client.Object
+	var key types.NamespacedName
 
-func (v *VirtualMachineHandler) validateClusterVirtualImageRef(ctx context.Context, ref *v1alpha2.BlockDeviceSpecRef) (bool, error) {
-	key := types.NamespacedName{Name: ref.Name}
-	obj, err := object.FetchObject(ctx, key, v.client, &v1alpha2.ClusterVirtualImage{})
-	return v.handleMissingResource(obj, err, ref.Kind, ref.Name)
-}
+	switch ref.Kind {
+	case v1alpha2.ImageDevice:
+		obj = &v1alpha2.VirtualImage{}
+		key = types.NamespacedName{Namespace: v.vm.Namespace, Name: ref.Name}
+	case v1alpha2.ClusterImageDevice:
+		obj = &v1alpha2.ClusterVirtualImage{}
+		key = types.NamespacedName{Name: ref.Name}
+	default:
+		return true, nil
+	}
 
-func (v *VirtualMachineHandler) handleMissingResource(obj client.Object, err error, resourceType v1alpha2.BlockDeviceKind, name string) (bool, error) {
+	fetchedObj, err := object.FetchObject(ctx, key, v.client, obj)
 	if err != nil {
 		return false, err
 	}
-	if obj == nil {
+
+	if fetchedObj == nil {
 		if v.mode == v1alpha2.VMOPRestoreModeBestEffort {
-			return true, nil
+			return false, nil
 		}
-		return false, fmt.Errorf("%s %q not found", resourceType, name)
+		return false, fmt.Errorf("%s %q not found", ref.Kind, ref.Name)
 	}
-	return false, nil
+
+	return true, nil
 }
 
 func (v *VirtualMachineHandler) Object() client.Object {
