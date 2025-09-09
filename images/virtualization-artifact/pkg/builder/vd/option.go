@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type Option func(vmop *v1alpha2.VirtualDisk)
+type Option func(vd *v1alpha2.VirtualDisk)
 
 var (
 	WithName         = meta.WithName[*v1alpha2.VirtualDisk]
