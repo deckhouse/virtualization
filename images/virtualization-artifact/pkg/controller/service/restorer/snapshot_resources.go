@@ -120,6 +120,10 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		}
 	}
 
+	if vmip != nil {
+		r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineIPAddressHandler(r.client, vmip, r.uuid))
+	}
+
 	for _, vd := range vds {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualDiskHandler(r.client, *vd, r.uuid))
 	}
