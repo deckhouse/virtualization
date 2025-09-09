@@ -75,7 +75,7 @@ altLibraries:
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
 - libgnutls-devel
-- libreadline-devel libtasn1-devel
+- libreadline-devel
 - libattr-devel libbsd-devel
 - libsystemd-devel
 - systemtap-sdt-devel
@@ -92,6 +92,7 @@ packages:
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

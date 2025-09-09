@@ -24,7 +24,6 @@ altLibs:
   - libgvnc-devel
   - libfdt-devel
   - libuuid-devel
-  - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
   - libxdp-devel
@@ -130,6 +129,7 @@ packages:
 - zlib zstd p11-kit linux-pam
 - libssh libssh2
 - libpixman libqpl rdma-core
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
