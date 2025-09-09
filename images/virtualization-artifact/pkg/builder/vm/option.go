@@ -50,13 +50,6 @@ func WithMemory(size resource.Quantity) Option {
 	}
 }
 
-func WithBlockDeviceRefs(bdRefs ...v1alpha2.BlockDeviceSpecRef) Option {
-	return func(vm *v1alpha2.VirtualMachine) {
-		vm.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{}
-		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, bdRefs...)
-	}
-}
-
 func WithDisks(disks ...*v1alpha2.VirtualDisk) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		blockDeviceRefs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(disks))
