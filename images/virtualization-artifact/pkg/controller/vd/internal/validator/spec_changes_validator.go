@@ -89,8 +89,8 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 					return nil, err
 				}
 
-				migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-				if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
+				migrating, ok := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+				if ok && migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
 					return nil, errors.New("cannot change storage class while the VirtualMachine is being migrated or awaiting migration")
 				}
 
