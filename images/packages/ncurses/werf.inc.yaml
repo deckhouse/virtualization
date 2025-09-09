@@ -111,13 +111,6 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-    for i in ncurses ncursesw; do
-      rm -f $OUTDIR/usr/lib64/lib$i.so
-      cat > $OUTDIR/usr/lib64/lib$i.so <<-EOF
-      /* GNU ld script */
-      GROUP($OUTDIR/usr/lib64/lib$i.so.6 -ltinfo)
-      EOF
-    done
 
     rm -rf ${OUTDIR}/usr/share/man
 
