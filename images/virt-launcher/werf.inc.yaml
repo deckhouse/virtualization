@@ -86,7 +86,6 @@ altLibs:
   - glib2-devel
   - libgio-devel
   - libxml2-devel
-  - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
@@ -129,7 +128,7 @@ packages:
 - zlib zstd p11-kit linux-pam
 - libssh libssh2
 - libpixman libqpl rdma-core
-- libtasn1
+- libtasn1 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

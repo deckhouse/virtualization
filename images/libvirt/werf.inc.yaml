@@ -81,7 +81,7 @@ altLibraries:
 - systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
 - libgio-devel libxml2-devel
-- libtirpc-devel libsasl2-devel
+- libsasl2-devel
 - wireshark-devel
 - libclocale
 - libslirp-devel
@@ -92,7 +92,7 @@ packages:
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
-- libtasn1
+- libtasn1 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
