@@ -19,12 +19,15 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -35,12 +38,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
+
+const migrationHandlerName = "MigrationHandler"
 
 type storageClassValidator interface {
 	IsStorageClassAllowed(scName string) bool
@@ -55,31 +59,38 @@ type MigrationHandler struct {
 	client      client.Client
 	scValidator storageClassValidator
 	modeGetter  volumeAndAccessModesGetter
+	gate        featuregate.FeatureGate
 }
 
-func NewMigrationHandler(client client.Client, storageClassValidator storageClassValidator, modeGetter volumeAndAccessModesGetter) *MigrationHandler {
+func NewMigrationHandler(client client.Client, storageClassValidator storageClassValidator, modeGetter volumeAndAccessModesGetter, gate featuregate.FeatureGate) *MigrationHandler {
 	return &MigrationHandler{
 		client:      client,
 		scValidator: storageClassValidator,
 		modeGetter:  modeGetter,
+		gate:        gate,
 	}
 }
 
 func (h MigrationHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	if !featuregates.Default().Enabled(featuregates.VolumeMigration) {
-		return reconcile.Result{}, nil
-	}
-
 	if vd == nil || !vd.GetDeletionTimestamp().IsZero() {
 		return reconcile.Result{}, nil
 	}
 
-	// TODO: check vm migration
+	if !commonvd.VolumeMigrationEnabled(h.gate, vd) {
+		return reconcile.Result{}, nil
+	}
 
-	expectedAction, err := h.getAction(ctx, vd)
+	log, ctx := logger.GetHandlerContext(ctx, migrationHandlerName)
+
+	expectedAction, err := h.getAction(ctx, vd, log)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	log = log.With(slog.String("action", expectedAction.String()))
+	ctx = logger.ToContext(ctx, log)
+	log.Info("Migration action")
+
 	switch expectedAction {
 	case none:
 		return reconcile.Result{}, nil
@@ -96,6 +107,21 @@ func (h MigrationHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 type action int
 
+func (a action) String() string {
+	switch a {
+	case none:
+		return "none"
+	case migrate:
+		return "migrate"
+	case revert:
+		return "revert"
+	case complete:
+		return "complete"
+	default:
+		return "unknown"
+	}
+}
+
 const (
 	none action = iota
 	migrate
@@ -103,7 +129,7 @@ const (
 	complete
 )
 
-func (h MigrationHandler) getAction(ctx context.Context, vd *virtv2.VirtualDisk) (action, error) {
+func (h MigrationHandler) getAction(ctx context.Context, vd *virtv2.VirtualDisk, log *slog.Logger) (action, error) {
 	// We should not check ready condition, because if disk in use and attached to vm, it is already ready.
 	inUse, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUse.Reason != vdcondition.AttachedToVirtualMachine.String() && conditions.IsLastUpdated(inUse, vd) {
@@ -112,17 +138,24 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *virtv2.VirtualDisk)
 
 	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
 	if currentlyMountedVM == "" {
+		log.Info("VirtualDisk is not attached to any VirtualMachine. Skip...")
 		return none, nil
 	}
 
-	vm := virtv2.VirtualMachine{}
-	err := h.client.Get(ctx, types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}, &vm)
+	vm := &virtv2.VirtualMachine{}
+	err := h.client.Get(ctx, types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}, vm)
 	if err != nil {
-		return none, client.IgnoreNotFound(err)
+		if k8serrors.IsNotFound(err) {
+			if commonvd.IsMigrating(vd) {
+				log.Info("VirtualMachine is not found, but the VirtualDisk is migrating. Will be reverted.")
+				return revert, nil
+			}
+		}
+		return none, err
 	}
 
-	if isMigrationInProgress(vd) {
-		return h.getActionIfMigrationInProgress(vd, vm), nil
+	if commonvd.IsMigrating(vd) {
+		return h.getActionIfMigrationInProgress(vd, vm, log), nil
 	}
 
 	vmMigrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
@@ -131,22 +164,26 @@ func (h MigrationHandler) getAction(ctx context.Context, vd *virtv2.VirtualDisk)
 	disksNotMigratable := vmMigratable.Reason == vmcondition.ReasonDisksNotMigratable.String()
 
 	if migratingPending && disksNotMigratable {
-		return h.getActionIfDisksNotMigratable(ctx, vd)
+		return h.getActionIfDisksNotMigratable(ctx, vd, log)
 	}
 
-	return h.getActionIfStorageClassChanged(vd), nil
+	return none, nil
 }
 
-func (h MigrationHandler) getActionIfMigrationInProgress(vd *virtv2.VirtualDisk, vm virtv2.VirtualMachine) action {
-	vdStart := vd.Status.MigrationState.StartTimestamp
-	state := vm.Status.MigrationState
-	if state == nil {
-		return none
+func (h MigrationHandler) getActionIfMigrationInProgress(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, log *slog.Logger) action {
+	// If VirtualMachine is not running, we can't migrate it. Should be reverted.
+	running, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+	if running.Status != metav1.ConditionTrue {
+		log.Info("VirtualMachine is not running. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
+		return revert
 	}
 
-	matchWindow := state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time) && !state.EndTimestamp.IsZero()
-	if matchWindow {
-		switch state.Result {
+	if commonvd.IsMigrationsMatched(vm, vd) {
+		if vm.Status.MigrationState == nil {
+			log.Error("VirtualMachine migration state is empty. Please report a bug.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
+			return none
+		}
+		switch vm.Status.MigrationState.Result {
 		case virtv2.MigrationResultFailed:
 			return revert
 		case virtv2.MigrationResultSucceeded:
@@ -154,15 +191,17 @@ func (h MigrationHandler) getActionIfMigrationInProgress(vd *virtv2.VirtualDisk,
 		}
 	}
 
-	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-	if migrating.Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() {
+	// If migration is in progress. VirtualMachine must have the migrating condition.
+	_, migratingFound := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if !migratingFound {
+		log.Info("VirtualMachine is not migrating. Will be reverted.", slog.String("vm.name", vm.Name), slog.String("vm.namespace", vm.Namespace))
 		return revert
 	}
 
 	return none
 }
 
-func (h MigrationHandler) getActionIfDisksNotMigratable(ctx context.Context, vd *virtv2.VirtualDisk) (action, error) {
+func (h MigrationHandler) getActionIfDisksNotMigratable(ctx context.Context, vd *virtv2.VirtualDisk, log *slog.Logger) (action, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := h.client.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, pvc)
 	if err != nil {
@@ -171,27 +210,19 @@ func (h MigrationHandler) getActionIfDisksNotMigratable(ctx context.Context, vd 
 
 	for _, mode := range pvc.Spec.AccessModes {
 		if mode == corev1.ReadWriteMany {
+			log.Debug("PersistentVolumeClaim has ReadWriteMany access mode. Migrate VirtualDisk is no need. Skip...")
 			return none, nil
 		}
 	}
 
+	log.Info("VirtualDisk should be migrated.")
 	return migrate, nil
-}
-
-func (h MigrationHandler) getActionIfStorageClassChanged(vd *virtv2.VirtualDisk) action {
-	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil {
-		if *sc != vd.Status.StorageClassName && *sc != "" && vd.Status.StorageClassName != "" {
-			return migrate
-		}
-	}
-
-	return none
 }
 
 func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualDisk) error {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("migration"))
 
-	if isMigrationInProgress(vd) {
+	if commonvd.IsMigrating(vd) {
 		log.Error("Migration already in progress, do nothing, please report a bug.")
 		return nil
 	}
@@ -201,6 +232,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 	// check resizing condition
 	resizing, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 	if resizing.Status == metav1.ConditionTrue {
+		log.Debug("Migration is not allowed while the disk is being resized. Skip...")
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.PendingMigratingReason).
@@ -212,6 +244,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 	// check snapshotting condition
 	snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 	if snapshotting.Status == metav1.ConditionTrue {
+		log.Debug("Migration is not allowed while the disk is being snapshotted. Skip...")
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.PendingMigratingReason).
@@ -239,6 +272,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 		}
 		if targetStorageClass != nil {
 			if !h.scValidator.IsStorageClassAllowed(targetStorageClass.Name) {
+				log.Debug("StorageClass is not allowed for use. Skip...", slog.String("storageClass", targetStorageClass.Name))
 				vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
 					Result:         virtv2.VirtualDiskMigrationResultFailed,
 					Message:        fmt.Sprintf("StorageClass %s is not allowed for use.", targetStorageClass.Name),
@@ -248,6 +282,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 				return nil
 			}
 			if h.scValidator.IsStorageClassDeprecated(targetStorageClass) {
+				log.Debug("StorageClass is deprecated, please use a different one. Skip...", slog.String("storageClass", targetStorageClass.Name))
 				vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
 					Result:         virtv2.VirtualDiskMigrationResultFailed,
 					Message:        fmt.Sprintf("StorageClass %s is deprecated, please use a different one.", targetStorageClass.Name),
@@ -265,6 +300,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 	}
 
 	if targetStorageClass == nil {
+		log.Info("StorageClass not found, waiting for creation. Skip...")
 		cb.Status(metav1.ConditionFalse).
 			Reason(vdcondition.PendingMigratingReason).
 			Message("StorageClass not found, waiting for creation.")
@@ -273,6 +309,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 	}
 
 	if targetStorageClass.GetDeletionTimestamp() != nil {
+		log.Info("StorageClass is terminating and cannot be used. Skip...", slog.String("storageClass", targetStorageClass.Name))
 		vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
 			Result:         virtv2.VirtualDiskMigrationResultFailed,
 			Message:        fmt.Sprintf("StorageClass %s is terminating and cannot be used.", targetStorageClass.Name),
@@ -281,18 +318,9 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 		}
 	}
 
-	if targetStorageClass.VolumeBindingMode == nil || *targetStorageClass.VolumeBindingMode != storev1.VolumeBindingWaitForFirstConsumer {
-		vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
-			Result:         virtv2.VirtualDiskMigrationResultFailed,
-			Message:        fmt.Sprintf("StorageClass %s does not support migration, VolumeBindingMode must be WaitForFirstConsumer.", targetStorageClass.Name),
-			StartTimestamp: metav1.Now(),
-			EndTimestamp:   metav1.Now(),
-		}
-		return nil
-	}
-
 	size, err := resource.ParseQuantity(vd.Status.Capacity)
 	if err != nil {
+		log.Error("Failed to parse capacity. Skip...", slog.String("capacity", vd.Status.Capacity), slog.Any("error", err))
 		vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
 			Result:         virtv2.VirtualDiskMigrationResultFailed,
 			Message:        fmt.Sprintf("Failed to parse capacity %q: %v", vd.Status.Capacity, err),
@@ -302,6 +330,7 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 		return nil
 	}
 	if size.IsZero() {
+		log.Error("Failed to parse capacity. Zero value. Skip...", slog.String("capacity", vd.Status.Capacity))
 		vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
 			Result:         virtv2.VirtualDiskMigrationResultFailed,
 			Message:        fmt.Sprintf("Failed to parse capacity %q: zero value", vd.Status.Capacity),
@@ -311,10 +340,12 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 		return nil
 	}
 
+	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
 	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size)
 	if err != nil {
 		return err
 	}
+	log.Info("Target PersistentVolumeClaim was created or was already exists", slog.String("pvc.name", pvc.Name), slog.String("pvc.namespace", pvc.Namespace))
 
 	vd.Status.MigrationState = virtv2.VirtualDiskMigrationState{
 		SourcePVC:      vd.Status.Target.PersistentVolumeClaim,
@@ -331,10 +362,16 @@ func (h MigrationHandler) handleMigrate(ctx context.Context, vd *virtv2.VirtualD
 }
 
 func (h MigrationHandler) handleRevert(ctx context.Context, vd *virtv2.VirtualDisk) error {
+	log := logger.FromContext(ctx)
+	log.Info("Start reverting...")
+	log.Info("Delete target PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
+
 	err := h.deleteTargetPersistentVolumeClaim(ctx, vd)
 	if err != nil {
 		return err
 	}
+	log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
+
 	vd.Status.MigrationState.EndTimestamp = metav1.Now()
 	vd.Status.MigrationState.Result = virtv2.VirtualDiskMigrationResultFailed
 	vd.Status.MigrationState.Message = "Migration reverted."
@@ -344,6 +381,9 @@ func (h MigrationHandler) handleRevert(ctx context.Context, vd *virtv2.VirtualDi
 }
 
 func (h MigrationHandler) handleComplete(ctx context.Context, vd *virtv2.VirtualDisk) error {
+	log := logger.FromContext(ctx)
+	log.Info("Start completing...")
+
 	targetPVC, err := h.getTargetPersistentVolumeClaim(ctx, vd)
 	if err != nil {
 		return err
@@ -352,6 +392,7 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *virtv2.Virtual
 	// If target PVC is not found, it means that the migration was not completed successfully.
 	// revert old PVC and remove migration condition.
 	if targetPVC == nil {
+		log.Info("Target PersistentVolumeClaim is not found. Revert old PersistentVolumeClaim and remove migration condition.", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 		vd.Status.MigrationState.EndTimestamp = metav1.Now()
 		vd.Status.MigrationState.Result = virtv2.VirtualDiskMigrationResultFailed
 		vd.Status.MigrationState.Message = "Migration failed: target PVC is not found."
@@ -364,10 +405,13 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *virtv2.Virtual
 	// If target PVC is not bound, it means that the migration was not completed successfully.
 	// revert old PVC and remove migration condition.
 	if targetPVC.Status.Phase != corev1.ClaimBound {
+		log.Info("Target PersistentVolumeClaim is not bound. Revert old PersistentVolumeClaim and remove migration condition.", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
+
 		err = h.deleteTargetPersistentVolumeClaim(ctx, vd)
 		if err != nil {
 			return err
 		}
+		log.Debug("Target PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
 
 		vd.Status.MigrationState.EndTimestamp = metav1.Now()
 		vd.Status.MigrationState.Result = virtv2.VirtualDiskMigrationResultFailed
@@ -378,10 +422,12 @@ func (h MigrationHandler) handleComplete(ctx context.Context, vd *virtv2.Virtual
 		return nil
 	}
 
+	log.Info("Complete migration. Delete source PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 	err = h.deleteSourcePersistentVolumeClaim(ctx, vd)
 	if err != nil {
 		return err
 	}
+	log.Debug("Source PersistentVolumeClaim was deleted", slog.String("pvc.name", vd.Status.MigrationState.SourcePVC), slog.String("pvc.namespace", vd.Namespace))
 
 	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
 		vd.Status.StorageClassName = *sc
@@ -514,9 +560,4 @@ func listPersistentVolumeClaims(ctx context.Context, vd *virtv2.VirtualDisk, c c
 	}
 
 	return pvcs, nil
-}
-
-func isMigrationInProgress(vd *virtv2.VirtualDisk) bool {
-	return vd != nil &&
-		(!vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero())
 }

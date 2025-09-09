@@ -16,7 +16,14 @@ limitations under the License.
 
 package vd
 
-import "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import (
+	"log/slog"
+
+	"k8s.io/component-base/featuregate"
+
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
 
 func GetCurrentlyMountedVMName(vd *v1alpha2.VirtualDisk) string {
 	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
@@ -25,4 +32,40 @@ func GetCurrentlyMountedVMName(vd *v1alpha2.VirtualDisk) string {
 		}
 	}
 	return ""
+}
+
+func IsMigrating(vd *v1alpha2.VirtualDisk) bool {
+	return vd != nil && !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
+}
+
+// VolumeMigrationEnabled returns true if volume migration is enabled or if the volume is currently migrating
+// If the volume migrating but the feature gate was turned off, we should complete the migration
+func VolumeMigrationEnabled(gate featuregate.FeatureGate, vd *v1alpha2.VirtualDisk) bool {
+	if gate.Enabled(featuregates.VolumeMigration) {
+		return true
+	}
+	if IsMigrating(vd) {
+		slog.Info("VolumeMigration is disabled, but the volume is already migrating. Complete the migration.", slog.String("vd.name", vd.Name), slog.String("vd.namespace", vd.Namespace))
+		return true
+	}
+	return false
+}
+
+func IsMigrationsMatched(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
+	vdStart := vd.Status.MigrationState.StartTimestamp
+	state := vm.Status.MigrationState
+
+	// VD-StartTimestamp -> VM-StartTimestamp -> VM-EndTimestamp -> VD-EndTimestamp
+	return state != nil && state.StartTimestamp != nil && state.StartTimestamp.After(vdStart.Time) && !state.EndTimestamp.IsZero()
+}
+
+func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
+	if vd == nil {
+		return false
+	}
+
+	specSc := vd.Spec.PersistentVolumeClaim.StorageClass
+	statusSc := vd.Status.StorageClassName
+
+	return specSc != nil && *specSc != statusSc && *specSc != "" && statusSc != ""
 }

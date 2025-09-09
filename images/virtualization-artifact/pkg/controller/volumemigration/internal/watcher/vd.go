@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -42,16 +43,12 @@ func (w *VDWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 			&v1alpha2.VirtualDisk{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualDisk]{},
 			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
-					if e.ObjectNew.Status.Phase != v1alpha2.DiskMigrating {
-						return false
-					}
-
-					if sc := e.ObjectNew.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
-						return *sc != e.ObjectNew.Status.StorageClassName
-					}
-
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualDisk]) bool {
 					return false
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
+
+					return commonvd.StorageClassChanged(e.ObjectNew)
 				},
 			},
 		),

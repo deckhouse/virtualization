@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,8 +34,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -68,6 +72,7 @@ func (m *fakeVolumeAndAccessModesGetter) GetVolumeAndAccessModes(_ context.Conte
 var _ = Describe("MigrationHandler", func() {
 	var (
 		ctx              context.Context
+		log              *slog.Logger
 		scheme           *runtime.Scheme
 		fakeClient       client.Client
 		scValidator      *fakeStorageClassValidator
@@ -81,6 +86,7 @@ var _ = Describe("MigrationHandler", func() {
 
 	BeforeEach(func() {
 		ctx = testutil.ContextBackgroundWithNoOpLogger()
+		log = logger.FromContext(ctx)
 		scheme = runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
@@ -160,7 +166,7 @@ var _ = Describe("MigrationHandler", func() {
 		}
 
 		fakeClient = fake.NewClientBuilder().WithScheme(scheme).Build()
-		migrationHandler = NewMigrationHandler(fakeClient, scValidator, modeGetter)
+		migrationHandler = NewMigrationHandler(fakeClient, scValidator, modeGetter, featuregates.Default())
 	})
 
 	Describe("Handle", func() {
@@ -208,7 +214,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should return none", func() {
-				action, err := migrationHandler.getAction(ctx, vd)
+				action, err := migrationHandler.getAction(ctx, vd, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(none))
 			})
@@ -226,7 +232,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should return none", func() {
-				action, err := migrationHandler.getAction(ctx, vd)
+				action, err := migrationHandler.getAction(ctx, vd, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(none))
 			})
@@ -254,7 +260,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should return migrate", func() {
-				action, err := migrationHandler.getAction(ctx, vd)
+				action, err := migrationHandler.getAction(ctx, vd, log)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(action).To(Equal(migrate))
 			})
@@ -497,7 +503,7 @@ var _ = Describe("MigrationHandler", func() {
 		})
 	})
 
-	Describe("isMigrationInProgress", func() {
+	Describe("commonvd.IsMigrating", func() {
 		Context("when migration state has start timestamp but no end timestamp", func() {
 			BeforeEach(func() {
 				vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
@@ -506,7 +512,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should return true", func() {
-				Expect(isMigrationInProgress(vd)).To(BeTrue())
+				Expect(commonvd.IsMigrating(vd)).To(BeTrue())
 			})
 		})
 
@@ -519,7 +525,7 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should return false", func() {
-				Expect(isMigrationInProgress(vd)).To(BeFalse())
+				Expect(commonvd.IsMigrating(vd)).To(BeFalse())
 			})
 		})
 
@@ -529,13 +535,13 @@ var _ = Describe("MigrationHandler", func() {
 			})
 
 			It("should return false", func() {
-				Expect(isMigrationInProgress(vd)).To(BeFalse())
+				Expect(commonvd.IsMigrating(vd)).To(BeFalse())
 			})
 		})
 
 		Context("when VirtualDisk is nil", func() {
 			It("should return false", func() {
-				Expect(isMigrationInProgress(nil)).To(BeFalse())
+				Expect(commonvd.IsMigrating(nil)).To(BeFalse())
 			})
 		})
 	})

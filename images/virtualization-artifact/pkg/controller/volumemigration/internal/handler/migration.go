@@ -22,6 +22,8 @@ import (
 	"slices"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -30,7 +32,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
@@ -51,21 +55,21 @@ func NewMigrationHandler(client client.Client) *MigrationHandler {
 }
 
 func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
-	if !h.shouldMigrate(vd) {
+	if !commonvd.StorageClassChanged(vd) {
+		return reconcile.Result{}, nil
+	}
+
+	ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if ready.Status != metav1.ConditionTrue {
 		return reconcile.Result{}, nil
 	}
 
 	vm, err := h.getVirtualMachine(ctx, vd)
 	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Migration finished, byt virtual disk is not sync changes. Wait until virtual disk migration is completed.
-	if !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero() {
-		state := vm.Status.MigrationState
-		if state != nil && vm.Status.MigrationState.StartTimestamp.After(vd.Status.MigrationState.StartTimestamp.Time) && !state.EndTimestamp.IsZero() {
-			return reconcile.Result{}, nil
+		if k8serrors.IsNotFound(err) {
+			return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 		}
+		return reconcile.Result{}, err
 	}
 
 	migratingVMOPs, finishedVMOPs, err := h.getMigrationVMOPs(ctx, vm)
@@ -110,25 +114,11 @@ func (h *MigrationHandler) Name() string {
 	return MigrationHandlerName
 }
 
-func (h *MigrationHandler) shouldMigrate(vd *v1alpha2.VirtualDisk) bool {
-	if vd.Status.Phase != v1alpha2.DiskMigrating {
-		return false
-	}
-	if sc := vd.Spec.PersistentVolumeClaim.StorageClass; sc != nil && *sc != "" {
-		return *sc != vd.Status.StorageClassName
-	}
-
-	return false
-}
-
 func (h *MigrationHandler) getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk) (*v1alpha2.VirtualMachine, error) {
 	vmName := commonvd.GetCurrentlyMountedVMName(vd)
 	vm := &v1alpha2.VirtualMachine{}
 	err := h.client.Get(ctx, client.ObjectKey{Name: vmName, Namespace: vd.Namespace}, vm)
-	if err != nil {
-		return nil, err
-	}
-	return vm, nil
+	return vm, err
 }
 
 func (h *MigrationHandler) getMigrationVMOPs(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*v1alpha2.VirtualMachineOperation, []*v1alpha2.VirtualMachineOperation, error) {
@@ -194,8 +184,4 @@ func newVolumeMigrationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOp
 		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
-}
-
-func diskMigrating(vd *v1alpha2.VirtualDisk) bool {
-	return vd != nil && !vd.Status.MigrationState.StartTimestamp.IsZero() && vd.Status.MigrationState.EndTimestamp.IsZero()
 }

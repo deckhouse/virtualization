@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -115,16 +116,6 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	if isResizeNeeded(vdSpecSize, &pvcSpecSize) {
-		if isMigrationInProgress(vd) {
-			// Skip resizing check if the disk is being migrated.
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.ResizingNotAvailable).
-				Message("The virtual disk cannot be selected for resizing as it is currently being migrated.")
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-			return reconcile.Result{}, nil
-		}
-
 		// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
 		return h.ResizeNeeded(ctx, vd, pvc, cb, log)
 	} else {
@@ -140,9 +131,10 @@ func (h ResizingHandler) ResizeNeeded(
 	cb *conditions.ConditionBuilder,
 	log *slog.Logger,
 ) (reconcile.Result, error) {
+	// Check if snapshotting
 	snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 
-	if snapshotting.Status == metav1.ConditionTrue && conditions.IsLastUpdated(snapshotting, vd) {
+	if snapshotting.Status == metav1.ConditionTrue {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
@@ -154,6 +146,24 @@ func (h ResizingHandler) ResizeNeeded(
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ResizingNotAvailable).
 			Message("The virtual disk cannot be selected for resizing as it is currently snapshotting.")
+
+		conditions.SetCondition(cb, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
+	// Check if migrating
+	if commonvd.IsMigrating(vd) {
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVDResizingNotAvailable,
+			"The virtual disk cannot be selected for resizing as it is currently being migrated.",
+		)
+
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ResizingNotAvailable).
+			Message("The virtual disk cannot be selected for resizing as it is currently being migrated.")
 
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
