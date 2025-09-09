@@ -28,11 +28,11 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc make autoconf automake libtool pkgconfig
-- gtk-doc texinfo help2man
+- gcc gcc-c++ make autoconf automake libtool pkgconfig
+- gtk-doc texinfo help2man libgpm-devel
 - tree
 packages:
-- openssl nghttp3 gnutls libidn2 libgmp
+- openssl nghttp3 gnutls libidn2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
