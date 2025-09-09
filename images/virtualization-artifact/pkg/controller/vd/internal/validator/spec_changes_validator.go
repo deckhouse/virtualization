@@ -89,6 +89,16 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 					return nil, err
 				}
 
+				if vm.Status.Phase != virtv2.MachineRunning {
+					return nil, errors.New("storage class cannot be changed unless the VirtualDisk is mounted to a running virtual machine")
+				}
+
+				for _, bd := range vm.Status.BlockDeviceRefs {
+					if bd.Kind == virtv2.DiskDevice && bd.Name == oldVD.Name && bd.Hotplugged == true {
+						return nil, errors.New("storage class cannot be changed if the VirtualDisk is hotplugged to a running virtual machine")
+					}
+				}
+
 				migrating, ok := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 				if ok && migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
 					return nil, errors.New("cannot change storage class while the VirtualMachine is being migrated or awaiting migration")
