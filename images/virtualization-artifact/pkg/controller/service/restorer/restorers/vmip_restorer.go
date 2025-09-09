@@ -139,6 +139,14 @@ func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
 	return nil
 }
 
+func (v *VirtualMachineIPHandler) ValidateClone(ctx context.Context) error {
+	return nil
+}
+
+func (v *VirtualMachineIPHandler) ProcessClone(ctx context.Context) error {
+	return nil
+}
+
 func (v *VirtualMachineIPHandler) Object() client.Object {
 	return &v1alpha2.VirtualMachineIPAddress{
 		TypeMeta: metav1.TypeMeta{
