@@ -31,7 +31,7 @@ spec:
     migrations:
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
-      parallelMigrationsPerCluster: {{ .Values.virtualization.internal | dig "virtHandler" "nodeCount" 1 }}
+      parallelMigrationsPerCluster: {{ include "kubevirt.parallel_migrations_per_cluster" . }}
       parallelOutboundMigrationsPerNode: 1
       progressTimeout: 150
     smbios:
