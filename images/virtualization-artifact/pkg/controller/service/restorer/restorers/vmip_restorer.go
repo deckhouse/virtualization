@@ -93,7 +93,7 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 		}
 
 		for _, vmip := range vmips.Items {
-			if vmip.Status.VirtualMachine == v.vmip.Status.VirtualMachine {
+			if vmip.Status.VirtualMachine == v.vmip.Status.VirtualMachine || vmip.Name == v.vmip.Name {
 				continue
 			}
 

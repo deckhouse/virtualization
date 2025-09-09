@@ -93,7 +93,7 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 		}
 
 		for _, vmMac := range vmmacs.Items {
-			if vmMac.Status.VirtualMachine == v.vmmac.Status.VirtualMachine {
+			if vmMac.Status.VirtualMachine == v.vmmac.Status.VirtualMachine || vmMac.Name == v.vmmac.Name {
 				continue
 			}
 
