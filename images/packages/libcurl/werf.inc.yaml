@@ -45,7 +45,7 @@ packages:
 - libssh2
 - openldap
 - libpsl
-- ngtcp2
+- ngtcp2 libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
