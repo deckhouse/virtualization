@@ -121,6 +121,10 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 }
 
 func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+	if oldVD.Status.Phase == virtv2.DiskMigrating {
+		return nil, errors.New("spec.persistentVolumeClaim.size cannot be changed during migration. Please wait for the migration to finish")
+	}
+
 	if oldVD.Spec.PersistentVolumeClaim.Size == newVD.Spec.PersistentVolumeClaim.Size {
 		return nil, nil
 	}
