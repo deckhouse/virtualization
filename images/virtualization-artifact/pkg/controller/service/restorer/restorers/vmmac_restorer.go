@@ -82,7 +82,11 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	if v.vmmac.Spec.Address != "" {
+	if existed == nil {
+		if v.vmmac.Spec.Address != "" {
+			return nil
+		}
+
 		var vmmacs v1alpha2.VirtualMachineMACAddressList
 		err = v.client.List(ctx, &vmmacs, &client.ListOptions{
 			Namespace:     v.vmmac.Namespace,
@@ -102,10 +106,6 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 				v.vmmac.Spec.Address, common.ErrAlreadyInUse, vmMac.Name,
 			)
 		}
-	}
-
-	if existed == nil {
-		return nil
 	}
 
 	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine != v.vmmac.Status.VirtualMachine {

@@ -82,28 +82,30 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 		}
 	}
 
-	var vmips v1alpha2.VirtualMachineIPAddressList
-	err = v.client.List(ctx, &vmips, &client.ListOptions{
-		Namespace:     v.vmip.Namespace,
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMIPByAddress, v.vmip.Spec.StaticIP),
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, vmip := range vmips.Items {
-		if vmip.Status.VirtualMachine == v.vmip.Status.VirtualMachine {
-			continue
+	if existed == nil {
+		if v.vmip.Spec.StaticIP == "" {
+			return nil
 		}
 
-		return fmt.Errorf(
-			"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
-			v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmip.Name,
-		)
-	}
+		var vmips v1alpha2.VirtualMachineIPAddressList
+		err = v.client.List(ctx, &vmips, &client.ListOptions{
+			Namespace:     v.vmip.Namespace,
+			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMIPByAddress, v.vmip.Spec.StaticIP),
+		})
+		if err != nil {
+			return err
+		}
 
-	if existed == nil {
-		return nil
+		for _, vmip := range vmips.Items {
+			if vmip.Status.VirtualMachine == v.vmip.Status.VirtualMachine {
+				continue
+			}
+
+			return fmt.Errorf(
+				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
+				v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmip.Name,
+			)
+		}
 	}
 
 	if existed.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine != v.vmip.Status.VirtualMachine {
