@@ -40,12 +40,10 @@ type ProvisionerHandler struct {
 }
 
 func NewProvisionerHandler(client client.Client, secretTmpl corev1.Secret, vmRestoreUID string) *ProvisionerHandler {
-	if secretTmpl.Annotations != nil {
-		secretTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
-	} else {
+	if secretTmpl.Annotations == nil {
 		secretTmpl.Annotations = make(map[string]string)
-		secretTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
+	secretTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	return &ProvisionerHandler{
 		secret: &corev1.Secret{
 			TypeMeta: metav1.TypeMeta{
