@@ -79,9 +79,9 @@ spec:
 {{-   $default -}}
 {{- else -}}
 {{-   if eq $phase "Deployed" -}}
-{{-     .Values.virtualization.internal |  dig "virtHandler" "nodeCount" $default | min $default -}}
+{{-     max $default ( .Values.virtualization.internal |  dig "virtHandler" "nodeCount" 0 ) -}}
 {{-   else -}}
-{{-     .Values.virtualization.internal |  dig "virtConfig" "parallelMigrationsPerCluster" $default -}}
+{{-     .Values.virtualization.internal | dig "virtConfig" "parallelMigrationsPerCluster" $default -}}
 {{-   end -}}
 {{- end -}}
 {{- end -}}
