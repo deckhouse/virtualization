@@ -126,6 +126,7 @@ packages:
 - zlib zstd linux-pam
 - libssh libssh2
 - openldap keyutils
+- xz lz4 lzo krb5
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
 {{- end -}}

@@ -50,6 +50,12 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
+- image: {{ .ModuleNamePrefix }}cdi-artifact
+  add: /cdi-binaries
+  to: /usr/lib64
+  before: setup
+  includePaths:
+  - libxml2.s*
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
