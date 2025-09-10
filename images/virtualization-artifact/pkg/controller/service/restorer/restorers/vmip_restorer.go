@@ -40,10 +40,10 @@ type VirtualMachineIPHandler struct {
 
 func NewVirtualMachineIPAddressHandler(client client.Client, vmipTmpl *v1alpha2.VirtualMachineIPAddress, vmRestoreUID string) *VirtualMachineIPHandler {
 	if vmipTmpl.Annotations != nil {
-		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmipTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	} else {
 		vmipTmpl.Annotations = make(map[string]string)
-		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmipTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
 	return &VirtualMachineIPHandler{
 		vmip: &v1alpha2.VirtualMachineIPAddress{
@@ -77,7 +77,7 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 	}
@@ -126,7 +126,7 @@ func (v *VirtualMachineIPHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 	} else {

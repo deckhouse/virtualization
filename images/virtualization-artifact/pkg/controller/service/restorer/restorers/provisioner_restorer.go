@@ -41,10 +41,10 @@ type ProvisionerHandler struct {
 
 func NewProvisionerHandler(client client.Client, secretTmpl corev1.Secret, vmRestoreUID string) *ProvisionerHandler {
 	if secretTmpl.Annotations != nil {
-		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		secretTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	} else {
 		secretTmpl.Annotations = make(map[string]string)
-		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		secretTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
 	return &ProvisionerHandler{
 		secret: &corev1.Secret{
@@ -83,7 +83,7 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 		return nil
 	}
 
-	if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+	if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 		return nil
 	}
 
@@ -111,7 +111,7 @@ func (v *ProvisionerHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 	} else {

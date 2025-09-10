@@ -97,6 +97,11 @@ const (
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 
+	// AnnVMOPRestore is an annotation on a resource that indicates it was created by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
+	AnnVMOPRestore = AnnAPIGroupV + "/vmoprestore"
+	// AnnVMRestoreDeleted is an annotation on a resource that indicates it was deleted by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
+	AnnVMOPRestoreDeleted = AnnAPIGroupV + "/vmoprestoredeleted"
+
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 

@@ -45,10 +45,10 @@ type VirtualMachineHandler struct {
 
 func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string, mode v1alpha2.VMOPRestoreMode) *VirtualMachineHandler {
 	if vmTmpl.Annotations != nil {
-		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
+		vmTmpl.Annotations[annotations.AnnVMOPRestore] = vmopRestoreUID
 	} else {
 		vmTmpl.Annotations = make(map[string]string)
-		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
+		vmTmpl.Annotations[annotations.AnnVMOPRestore] = vmopRestoreUID
 	}
 
 	return &VirtualMachineHandler{
@@ -104,7 +104,7 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 	}
@@ -147,7 +147,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		}
 
 		// Early return if VM is already fully processed by this restore operation
-		if value, ok := vm.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := vm.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			if equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
 				return nil
 			}
@@ -160,7 +160,7 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 		vm.Spec = v.vm.Spec
 		vm.Labels = v.vm.Labels
 		vm.Annotations = v.vm.Annotations
-		vm.Annotations[annotations.AnnVMRestore] = v.restoreUID
+		vm.Annotations[annotations.AnnVMOPRestore] = v.restoreUID
 
 		updErr := v.client.Update(ctx, vm)
 		if updErr != nil {

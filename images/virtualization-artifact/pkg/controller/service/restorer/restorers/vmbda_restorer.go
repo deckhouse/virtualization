@@ -39,10 +39,10 @@ type VMBlockDeviceAttachmentHandler struct {
 
 func NewVMBlockDeviceAttachmentHandler(client client.Client, vmbdaTmpl v1alpha2.VirtualMachineBlockDeviceAttachment, vmRestoreUID string) *VMBlockDeviceAttachmentHandler {
 	if vmbdaTmpl.Annotations != nil {
-		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmbdaTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	} else {
 		vmbdaTmpl.Annotations = make(map[string]string)
-		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmbdaTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
 	return &VMBlockDeviceAttachmentHandler{
 		vmbda: &v1alpha2.VirtualMachineBlockDeviceAttachment{
@@ -85,7 +85,7 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) er
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 
@@ -118,14 +118,16 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 	}
 
 	if vmbdaObj != nil {
-		if value, ok := vmbdaObj.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := vmbdaObj.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 
 		if vmbdaObj.Annotations == nil {
 			vmbdaObj.Annotations = make(map[string]string)
 		}
-		vmbdaObj.Annotations[annotations.AnnVMRestore] = v.restoreUID
+		vmbdaObj.Annotations[annotations.AnnVMOPRestore] = v.restoreUID
+
+		// Phase 1: Set annotation to trigger find right VMOP for reconciliation
 		err := v.client.Update(ctx, vmbdaObj)
 		if err != nil {
 			if apierrors.IsConflict(err) {
@@ -134,7 +136,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 			return fmt.Errorf("failed to update the `VirtualMachineBlockDeviceAttachment`: %w", err)
 		}
 
-		// Phase 1: Initiate deletion and wait for completion
+		// Phase 2: Initiate deletion and wait for completion
 		if !object.IsTerminating(vmbdaObj) {
 			err = v.client.Delete(ctx, vmbdaObj)
 			if err != nil {
@@ -142,7 +144,7 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 			}
 		}
 
-		// Phase 2: Wait for deletion to complete before creating new VMBDA
+		// Phase 3: Wait for deletion to complete before creating new VMBDA
 		return fmt.Errorf("waiting for deletion of VirtualMachineBlockDeviceAttachment %s %w", vmbdaObj.Name, common.ErrWaitingForDeletion)
 	} else {
 		err = v.client.Create(ctx, v.vmbda)

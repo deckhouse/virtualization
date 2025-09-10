@@ -50,7 +50,11 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 					return nil
 				}
 
-				restoreUID, hasRestoreAnnotation := vmbda.Annotations[annotations.AnnVMRestore]
+				restoreUID, hasRestoreAnnotation := vmbda.Annotations[annotations.AnnVMOPRestore]
+				if !hasRestoreAnnotation {
+					restoreUID, hasRestoreAnnotation = vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
+				}
+
 				if !hasRestoreAnnotation {
 					return nil
 				}
@@ -90,7 +94,7 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 					if e.ObjectNew.Annotations == nil {
 						return false
 					}
-					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMRestore]
+					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPRestore]
 					return hasRestoreAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},

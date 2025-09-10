@@ -50,7 +50,11 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					return nil
 				}
 
-				restoreUID, hasRestoreAnnotation := vd.Annotations[annotations.AnnVMRestore]
+				restoreUID, hasRestoreAnnotation := vd.Annotations[annotations.AnnVMOPRestore]
+				if !hasRestoreAnnotation {
+					restoreUID, hasRestoreAnnotation = vd.Annotations[annotations.AnnVMOPRestoreDeleted]
+				}
+
 				if !hasRestoreAnnotation {
 					return nil
 				}
@@ -90,7 +94,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					if e.ObjectNew.Annotations == nil {
 						return false
 					}
-					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMRestore]
+					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPRestore]
 					return hasRestoreAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},

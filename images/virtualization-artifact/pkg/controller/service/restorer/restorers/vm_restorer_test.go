@@ -137,7 +137,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 				Name:      "vmbda-2",
 				Namespace: namespace,
 				Annotations: map[string]string{
-					annotations.AnnVMRestore: "different-restore-uid",
+					annotations.AnnVMOPRestore: "different-restore-uid",
 				},
 			},
 			Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
@@ -183,7 +183,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 					if vmToAdd.Annotations == nil {
 						vmToAdd.Annotations = make(map[string]string)
 					}
-					vmToAdd.Annotations[annotations.AnnVMRestore] = restoreUID
+					vmToAdd.Annotations[annotations.AnnVMOPRestore] = restoreUID
 				}
 				if !args.vmHasCorrectSpec {
 					vmToAdd.Spec.VirtualMachineIPAddress = "different-ip"
@@ -199,12 +199,12 @@ var _ = Describe("VirtualMachineRestorer", func() {
 					if vmbda1Copy.Annotations == nil {
 						vmbda1Copy.Annotations = make(map[string]string)
 					}
-					vmbda1Copy.Annotations[annotations.AnnVMRestore] = restoreUID
+					vmbda1Copy.Annotations[annotations.AnnVMOPRestore] = restoreUID
 
 					if vmbda2Copy.Annotations == nil {
 						vmbda2Copy.Annotations = make(map[string]string)
 					}
-					vmbda2Copy.Annotations[annotations.AnnVMRestore] = restoreUID
+					vmbda2Copy.Annotations[annotations.AnnVMOPRestore] = restoreUID
 				}
 
 				objects = append(objects, vmbda1Copy, vmbda2Copy)
@@ -218,7 +218,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(handler).ToNot(BeNil())
 
 			// Verify that restore annotation was added
-			Expect(handler.vm.Annotations[annotations.AnnVMRestore]).To(Equal(restoreUID))
+			Expect(handler.vm.Annotations[annotations.AnnVMOPRestore]).To(Equal(restoreUID))
 
 			err = handler.ValidateRestore(ctx)
 			if args.failValidation {

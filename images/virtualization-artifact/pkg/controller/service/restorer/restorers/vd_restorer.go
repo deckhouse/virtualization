@@ -39,10 +39,10 @@ type VirtualDiskHandler struct {
 
 func NewVirtualDiskHandler(client client.Client, vdTmpl v1alpha2.VirtualDisk, vmRestoreUID string) *VirtualDiskHandler {
 	if vdTmpl.Annotations != nil {
-		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vdTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	} else {
 		vdTmpl.Annotations = make(map[string]string)
-		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vdTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
 	return &VirtualDiskHandler{
 		vd: &v1alpha2.VirtualDisk{
@@ -78,7 +78,7 @@ func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 	vmName := v.getVirtualMachineName()
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 
@@ -113,14 +113,14 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if vdObj != nil {
-		if value, ok := vdObj.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := vdObj.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 
 		if vdObj.Annotations == nil {
 			vdObj.Annotations = make(map[string]string)
 		}
-		vdObj.Annotations[annotations.AnnVMRestore] = v.restoreUID
+		vdObj.Annotations[annotations.AnnVMOPRestoreDeleted] = v.restoreUID
 
 		// Phase 1: Set annotation to trigger find right VMOP for reconciliation
 		err := v.client.Update(ctx, vdObj)

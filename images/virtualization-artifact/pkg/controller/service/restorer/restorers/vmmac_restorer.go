@@ -40,10 +40,10 @@ type VirtualMachineMACHandler struct {
 
 func NewVirtualMachineMACAddressHandler(client client.Client, vmmacTmpl *v1alpha2.VirtualMachineMACAddress, vmRestoreUID string) *VirtualMachineMACHandler {
 	if vmmacTmpl.Annotations != nil {
-		vmmacTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmmacTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	} else {
 		vmmacTmpl.Annotations = make(map[string]string)
-		vmmacTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmmacTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
 	return &VirtualMachineMACHandler{
 		vmmac: &v1alpha2.VirtualMachineMACAddress{
@@ -77,7 +77,7 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 	}
@@ -126,7 +126,7 @@ func (v *VirtualMachineMACHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		if value, ok := existed.Annotations[annotations.AnnVMRestore]; ok && value == v.restoreUID {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
 		}
 	} else {
