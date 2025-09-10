@@ -40,7 +40,7 @@ altPackages:
 packages:
 - libgmp libtpms openssl libjson-glib
 - libtasn1
-- glib2
+- glib2 util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
