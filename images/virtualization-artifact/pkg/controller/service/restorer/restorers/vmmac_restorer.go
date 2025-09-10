@@ -106,7 +106,7 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 
 	if existed != nil {
 		if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine != v.vmmac.Status.VirtualMachine {
-			return fmt.Errorf("the virtual machine Mac address %q is %w and cannot be used for the restored virtual machine", vmMacKey.Name, common.ErrAlreadyInUse)
+			return fmt.Errorf("the virtual machine MAC address %q is %w and cannot be used for the restored virtual machine", vmMacKey.Name, common.ErrAlreadyInUse)
 		}
 	}
 
