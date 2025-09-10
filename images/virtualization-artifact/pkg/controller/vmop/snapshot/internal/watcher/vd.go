@@ -91,9 +91,6 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
 					// Trigger reconciliation when VirtualDisk phase changes during restore
-					if e.ObjectNew.Annotations == nil {
-						return false
-					}
 					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPRestore]
 					return hasRestoreAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
