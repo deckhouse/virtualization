@@ -60,6 +60,11 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		if c.Status == metav1.ConditionTrue {
 			return nil, nil
 		}
+
+		snapshotReadyCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
+		if found && snapshotReadyCondition.Status == metav1.ConditionFalse {
+			return &reconcile.Result{}, nil
+		}
 	}
 
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
