@@ -98,8 +98,8 @@ func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 			}
 
 			return fmt.Errorf(
-				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
-				v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmip.Name,
+				"the IP Address %q cannot be used for restore: it is taken by VirtualMachineIPAddress/%s and %w by the different virtual machine",
+				v.vmip.Spec.StaticIP, vmip.Name, common.ErrAlreadyInUse,
 			)
 		}
 	}
