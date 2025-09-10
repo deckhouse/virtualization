@@ -47,8 +47,9 @@ const (
 	// AnnPodRetainAfterCompletion is PVC annotation for retaining transfer pods after completion
 	AnnPodRetainAfterCompletion = AnnAPIGroup + "/storage.pod.retainAfterCompletion"
 
-	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation.
-	AnnUploadURL = AnnAPIGroup + "/upload.url"
+	// AnnUploadURLDeprecated provides a const for CVMI/VMI/VMD uploadURL annotation.
+	// TODO remove annotation and its usages after version 1.0 becomes Stable.
+	AnnUploadURLDeprecated = AnnAPIGroup + "/upload.url"
 
 	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
 	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
@@ -96,6 +97,11 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+
+	// AnnUploadURL is an annotation on Ingress with full URL to upload image from outside the cluster.
+	AnnUploadURL = AnnAPIGroupV + "/upload.url"
+	// AnnUploadPath is an annotation on Ingress with the URL path to upload image.
+	AnnUploadPath = AnnAPIGroupV + "/upload.path"
 
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
