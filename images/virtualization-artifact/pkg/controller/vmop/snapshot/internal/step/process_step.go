@@ -88,9 +88,9 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
+	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		common.FillResourcesStatuses(vmop, statuses)
 		return &reconcile.Result{}, err
 	}
 

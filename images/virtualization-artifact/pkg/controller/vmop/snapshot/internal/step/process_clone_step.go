@@ -101,9 +101,9 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
+	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		common.FillResourcesStatuses(vmop, statuses)
 		return &reconcile.Result{}, err
 	}
 
@@ -113,13 +113,11 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
+	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		common.FillResourcesStatuses(vmop, statuses)
 		return &reconcile.Result{}, err
 	}
-
-	common.FillResourcesStatuses(vmop, statuses)
 
 	for _, status := range statuses {
 		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
