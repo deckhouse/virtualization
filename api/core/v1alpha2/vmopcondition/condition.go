@@ -37,6 +37,9 @@ const (
 
 	// TypeMaintenanceMode is a type for condition that indicates VMOP has put VM in maintenance mode.
 	TypeMaintenanceMode Type = "MaintenanceMode"
+
+	// TypeSnapshotReady is a type for condition that indicates snapshot is ready for clone operation.
+	TypeSnapshotReady Type = "SnapshotReady"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -172,4 +175,25 @@ const (
 
 	// ReasonMaintenanceModeFailure is a ReasonMaintenanceMode indicating that maintenance mode operation failed.
 	ReasonMaintenanceModeFailure ReasonMaintenanceMode = "MaintenanceModeFailure"
+)
+
+// ReasonSnapshotReady represents specific reasons for the 'SnapshotReady' condition type.
+type ReasonSnapshotReady string
+
+func (r ReasonSnapshotReady) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonSnapshotInProgress is a ReasonSnapshotReady indicating that snapshot creation is in progress.
+	ReasonSnapshotInProgress ReasonSnapshotReady = "SnapshotInProgress"
+
+	// ReasonSnapshotOperationReady is a ReasonSnapshotReady indicating that snapshot is ready for clone operation.
+	ReasonSnapshotOperationReady ReasonSnapshotReady = "SnapshotReady"
+
+	// ReasonSnapshotCleanedUp is a ReasonSnapshotReady indicating that snapshot has been cleaned up.
+	ReasonSnapshotCleanedUp ReasonSnapshotReady = "SnapshotCleanedUp"
+
+	// ReasonSnapshotFailed is a ReasonSnapshotReady indicating that snapshot operation failed.
+	ReasonSnapshotFailed ReasonSnapshotReady = "SnapshotFailed"
 )

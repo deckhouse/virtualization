@@ -154,7 +154,7 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 		return common.FormatVirtualMachineConflictError(v.vm.Name)
 	}
 
-	if err := v.validateImageDependenciesForClone(ctx); err != nil {
+	if err := v.validateImageDependencies(ctx); err != nil {
 		return err
 	}
 
@@ -239,27 +239,6 @@ func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
 	err = v.client.Create(ctx, v.vm)
 	if err != nil {
 		return fmt.Errorf("failed to create the `VirtualMachine`: %w", err)
-	}
-
-	return nil
-}
-
-func (v *VirtualMachineHandler) validateImageDependenciesForClone(ctx context.Context) error {
-	for _, ref := range v.vm.Spec.BlockDeviceRefs {
-		var err error
-
-		switch ref.Kind {
-		case v1alpha2.ImageDevice:
-			err = v.validateVirtualImageRefForClone(ctx, &ref)
-		case v1alpha2.ClusterImageDevice:
-			err = v.validateClusterVirtualImageRefForClone(ctx, &ref)
-		default:
-			continue
-		}
-
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

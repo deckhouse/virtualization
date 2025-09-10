@@ -166,11 +166,3 @@ func (v *VirtualMachineIPHandler) Object() client.Object {
 		Spec: v.vmip.Spec,
 	}
 }
-
-func (v *VirtualMachineIPHandler) ValidateClone(ctx context.Context) error {
-	return nil
-}
-
-func (v *VirtualMachineIPHandler) ProcessClone(ctx context.Context) error {
-	return nil
-}
