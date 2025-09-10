@@ -32,7 +32,6 @@ altPackages:
 - tree
 packages:
 - libtasn1
-- glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
