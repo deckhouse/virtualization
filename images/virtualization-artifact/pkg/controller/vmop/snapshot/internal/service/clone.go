@@ -85,7 +85,6 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	return steptaker.NewStepTakers(
 		step.NewCreateSnapshotStep(o.client, o.recorder, cb),
 		step.NewVMSnapshotReadyStep(o.client, cb),
-		step.NewValidateCloneStep(o.client, o.recorder, cb),
 		step.NewProcessCloneStep(o.client, o.recorder, cb),
 		step.NewCleanupSnapshotStep(o.client, o.recorder, cb),
 	).Run(ctx, o.vmop)
