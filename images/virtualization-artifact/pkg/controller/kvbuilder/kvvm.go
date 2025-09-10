@@ -127,15 +127,23 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 	case virtv2.CPUTypeDiscovery, virtv2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
 		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		hasSvm := false
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
-			if feature == "invtsc" || feature == "svm" {
+			if feature == "invtsc" {
+				policy = "optional"
+			}
+			if feature == "svm" {
+				hasSvm = true
 				policy = "optional"
 			}
 			features[i] = virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
 			}
+		}
+		if !hasSvm {
+			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
 		}
 		cpu.Features = features
 	default:
