@@ -122,6 +122,14 @@ properties:
         properties:
           nodeCount:
             type: integer
+      virtConfig:
+        type: object
+        default: {}
+        properties:
+          phase:
+            type: string
+          parallelMigrationsPerCluster:
+            type: integer
       moduleConfig:
         type: object
         additionalProperties: true
