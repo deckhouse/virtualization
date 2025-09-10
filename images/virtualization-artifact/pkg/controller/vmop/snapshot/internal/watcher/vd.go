@@ -45,11 +45,6 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vd *v1alpha2.VirtualDisk) []reconcile.Request {
-				// Check if this VirtualDisk is being restored (has restore annotation)
-				if vd.Annotations == nil {
-					return nil
-				}
-
 				restoreUID, hasRestoreAnnotation := vd.Annotations[annotations.AnnVMOPRestore]
 				if !hasRestoreAnnotation {
 					restoreUID, hasRestoreAnnotation = vd.Annotations[annotations.AnnVMOPRestoreDeleted]

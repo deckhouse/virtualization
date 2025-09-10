@@ -45,11 +45,6 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineBlockDeviceAttachment{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) []reconcile.Request {
-				// Check if this VMBDA is being restored (has restore annotation)
-				if vmbda.Annotations == nil {
-					return nil
-				}
-
 				restoreUID, hasRestoreAnnotation := vmbda.Annotations[annotations.AnnVMOPRestore]
 				if !hasRestoreAnnotation {
 					restoreUID, hasRestoreAnnotation = vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
@@ -91,9 +86,6 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineBlockDeviceAttachment]) bool {
 					// Trigger reconciliation when VMBDA phase changes during restore
-					if e.ObjectNew.Annotations == nil {
-						return false
-					}
 					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPRestore]
 					return hasRestoreAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
