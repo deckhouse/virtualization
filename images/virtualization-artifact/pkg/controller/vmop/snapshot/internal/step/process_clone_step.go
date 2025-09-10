@@ -112,7 +112,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
-	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Clone.Mode == v1alpha2.VMOPRestoreModeDryRun {
 		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
 		return &reconcile.Result{}, nil
 	}
