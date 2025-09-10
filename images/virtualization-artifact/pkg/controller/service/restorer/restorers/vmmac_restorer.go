@@ -99,7 +99,9 @@ func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 
 			return fmt.Errorf(
 				"the set address %q is %w by the different virtual machine Mac address %q and cannot be used for the restored virtual machine",
-				v.vmmac.Spec.Address, common.ErrAlreadyInUse, vmMac.Name,
+				"the MAC address %q cannot be used for the restore: it is taken by VirtualMachineMACAddress/%q and %w by the different virtual machine",
+
+				v.vmmac.Spec.Address, vmMac.Name, common.ErrAlreadyInUse,
 			)
 		}
 	}
