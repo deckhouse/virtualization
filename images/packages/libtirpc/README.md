@@ -1,13 +1,13 @@
 # libtirpc
 ```
-└── [drwxr-xr-x     6]  usr
-    ├── [drwxr-xr-x     4]  etc
+└── [drwxr-xr-x  4.0K]  usr
+    ├── [drwxr-xr-x  4.0K]  etc
     │   ├── [-rw-r--r--   535]  bindresvport.blacklist
     │   └── [-rw-r--r--   767]  netconfig
-    ├── [drwxr-xr-x     3]  include
-    │   └── [drwxr-xr-x     5]  tirpc
+    ├── [drwxr-xr-x  4.0K]  include
+    │   └── [drwxr-xr-x  4.0K]  tirpc
     │       ├── [-rw-r--r--  2.1K]  netconfig.h
-    │       ├── [drwxr-xr-x    33]  rpc
+    │       ├── [drwxr-xr-x  4.0K]  rpc
     │       │   ├── [-rw-r--r--   11K]  auth.h
     │       │   ├── [-rw-r--r--  3.7K]  auth_des.h
     │       │   ├── [-rw-r--r--  4.2K]  auth_gss.h
@@ -39,17 +39,16 @@
     │       │   ├── [-rw-r--r--  3.7K]  svc_soc.h
     │       │   ├── [-rw-r--r--  3.7K]  types.h
     │       │   └── [-rw-r--r--   13K]  xdr.h
-    │       └── [drwxr-xr-x     4]  rpcsvc
+    │       └── [drwxr-xr-x  4.0K]  rpcsvc
     │           ├── [-rw-r--r--  2.4K]  crypt.h
     │           └── [-rw-r--r--  3.8K]  crypt.x
-    ├── [drwxr-xr-x     7]  lib64
-    │   ├── [-rwxr-xr-x   974]  libtirpc.la
-    │   ├── [lrwxrwxrwx    17]  libtirpc.so -> libtirpc.so.3.0.0
-    │   ├── [lrwxrwxrwx    17]  libtirpc.so.3 -> libtirpc.so.3.0.0
-    │   ├── [-rwxr-xr-x  193K]  libtirpc.so.3.0.0
-    │   └── [drwxr-xr-x     3]  pkgconfig
-    │       └── [-rw-r--r--   249]  libtirpc.pc
-    └── [drwxr-xr-x     2]  share
+    └── [drwxr-xr-x  4.0K]  lib64
+        ├── [-rwxr-xr-x   974]  libtirpc.la
+        ├── [lrwxrwxrwx    17]  libtirpc.so -> libtirpc.so.3.0.0
+        ├── [lrwxrwxrwx    17]  libtirpc.so.3 -> libtirpc.so.3.0.0
+        ├── [-rwxr-xr-x  193K]  libtirpc.so.3.0.0
+        └── [drwxr-xr-x  4.0K]  pkgconfig
+            └── [-rw-r--r--   249]  libtirpc.pc
 
-10 directories, 41 files
+9 directories, 41 files
 ```
