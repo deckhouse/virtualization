@@ -50,9 +50,39 @@ func WithMemory(size resource.Quantity) Option {
 	}
 }
 
-func WithBlockDeviceRefs(bdRefs ...v1alpha2.BlockDeviceSpecRef) Option {
+func WithDisks(disks ...*v1alpha2.VirtualDisk) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
-		vm.Spec.BlockDeviceRefs = []v1alpha2.BlockDeviceSpecRef{}
-		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, bdRefs...)
+		blockDeviceRefs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(disks))
+		for _, disk := range disks {
+			blockDeviceRefs = append(blockDeviceRefs, v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualDiskKind,
+				Name: disk.Name,
+			})
+		}
+		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, blockDeviceRefs...)
+	}
+}
+
+func WithBlockDeviceRefs(refs ...v1alpha2.BlockDeviceSpecRef) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, refs...)
+	}
+}
+
+func WithNodeSelector(nodeSelector map[string]string) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.NodeSelector = nodeSelector
+	}
+}
+
+func WithLiveMigrationPolicy(liveMigrationPolicy v1alpha2.LiveMigrationPolicy) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.LiveMigrationPolicy = liveMigrationPolicy
+	}
+}
+
+func WithVirtualMachineClass(class string) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.VirtualMachineClassName = class
 	}
 }
