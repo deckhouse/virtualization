@@ -5,12 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/libnbd.git" }}
+{{- $gitRepoUrl := "ngtcp2/ngtcp2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -20,20 +20,39 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+
+        cd ./third-party/urlparse
+        git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --depth=1
+    fi
 
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++ make git autoconf libtool gettext-tools
-- automake pkgconf glibc-devel
-- bash-completion hardlink libfuse3-devel
-- liburing-devel libxml2-devel perl-podlators
-- ocaml ocaml-findlib ocaml-ocamldoc
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
+- CUnit-devel libev-devel
+- tree
 packages:
-- gnutls libidn2 libgmp ubdsrv
+- openssl nghttp3 gnutls libidn2 libgmp
 - libtasn1
 {{- end -}}
 
@@ -59,7 +78,7 @@ shell:
 
   install:
   - |
-    echo "Install packages"
+    # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
@@ -70,19 +89,18 @@ shell:
 
     cd /src
 
-    autoreconf -i
+    autoreconf -if
     ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --disable-ocaml \
-      --disable-static
+    --prefix=/usr \
+    --libdir=/usr/lib64 \
+    --disable-static \
+    --with-gnutls
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
 
-    # We don't need man
-    rm -rf $OUTDIR/usr/share
+    rm -rf ${OUTDIR}/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
@@ -90,3 +108,4 @@ shell:
     fi
     done
 
+    tree -hps $OUTDIR

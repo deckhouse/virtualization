@@ -5,12 +5,13 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
-
+  excludePaths:
+  - usr/share
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/libnbd.git" }}
+{{- $gitRepoUrl := "ncurses/ncurses.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -22,19 +23,17 @@ shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++ make git autoconf libtool gettext-tools
-- automake pkgconf glibc-devel
-- bash-completion hardlink libfuse3-devel
-- liburing-devel libxml2-devel perl-podlators
-- ocaml ocaml-findlib ocaml-ocamldoc
+- gcc gcc-c++ make autoconf automake libtool pkgconfig
+- gtk-doc texinfo help2man libgpm-devel
+- tree
 packages:
-- gnutls libidn2 libgmp ubdsrv
-- libtasn1
+- openssl nghttp3 gnutls libidn2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -59,7 +58,7 @@ shell:
 
   install:
   - |
-    echo "Install packages"
+    # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
@@ -70,19 +69,51 @@ shell:
 
     cd /src
 
-    autoreconf -i
+    sed -i 's/EXTRA_LIBS="-ldl -lncurses $EXTRA_LIBS"/EXTRA_LIBS="$EXTRA_LIBS"/
+    s/SHLIB_LIST="-ldl $SHLIB_LIST"/SHLIB_LIST="-lgpm $SHLIB_LIST"/
+    s/TINFO_LIST="$SHLIB_LIST"/TINFO_LIST=/' ./configure
+
+    export \
+      ac_cv_func_mkstemp=yes \
+      ac_cv_prog_AWK=gawk \
+      ac_cv_prog_MAKE_LOWER_TAGS=yes \
+      ac_cv_prog_MAKE_UPPER_TAGS=yes \
+      ac_cv_prog_MAN=man \
+
     ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --disable-ocaml \
-      --disable-static
+    --prefix=/usr \
+    --libdir=/usr/lib64 \
+    --without-dlsym \
+    --with-termlib=tinfo \
+    --with-ticlib=tic \
+    --with-ospeed="unsigned int" \
+    --disable-termcap \
+    --enable-const \
+    --enable-hard-tabs \
+    --enable-no-padding \
+    --enable-sigwinch \
+    --enable-echo \
+    --enable-warnings \
+    --disable-rpath \
+    --disable-root-environ \
+    --disable-home-terminfo \
+    --disable-stripping \
+    --with-chtype=long \
+    --with-cxx-shared \
+    --with-shared \
+    --with-normal \
+    --without-debug \
+    --without-profile \
+    --without-ada \
+    --without-libtool \
+    --with-gpm \
+    --enable-widec
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
 
-    # We don't need man
-    rm -rf $OUTDIR/usr/share
+    rm -rf ${OUTDIR}/usr/share/man
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
@@ -90,3 +121,4 @@ shell:
     fi
     done
 
+    tree -hp $OUTDIR

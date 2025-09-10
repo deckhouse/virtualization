@@ -1,25 +1,4 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-altPackages:
-- gcc
-- git make libtool gettext-devel
-- bison flex
-- pkgconf asciidoctor
-- python3-devel python3-module-setuptools
-- glibc-devel-static
-- libpopt-devel
-- klibc-devel libsqlite3
-packages:
-- libcap-ng zlib
-- ncurses
-{{- end -}}
-
-{{- $builderDependencies := include "$name" . | fromYaml }}
-
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "util-linux/util-linux.git" }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
@@ -30,6 +9,9 @@ import:
   before: setup
 
 ---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "steved/libtirpc.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -42,12 +24,20 @@ shell:
 
 
 ---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc make autoconf automake libtool pkgconfig
+- libkrb5-devel
+- tree
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
@@ -65,35 +55,26 @@ shell:
 
   install:
   - |
-    echo "Install packages"
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-  - |
     OUTDIR=/out
 
     cd /src
-    ./autogen.sh
+
+    autoreconf -if
     ./configure \
-      --prefix=/usr \
-      --exec-prefix=/usr \
-      --bindir=/usr/bin \
-      --sbindir=/usr/sbin \
-      --libdir=/usr/lib64 \
-      --enable-all-programs \
-      --enable-shared \
-      --disable-static \
-      --disable-asciidoc
+    --prefix=/usr \
+    --libdir=/usr/lib64 \
+    --disable-static
 
     make -j$(nproc)
+
     make DESTDIR=$OUTDIR install
 
-    rm -rf $OUTDIR/usr/share
+    rm -rf ${OUTDIR}/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
+
+    tree -hps $OUTDIR

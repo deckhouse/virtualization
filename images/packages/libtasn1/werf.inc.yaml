@@ -1,25 +1,4 @@
 ---
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-altPackages:
-- gcc
-- git make libtool gettext-devel
-- bison flex
-- pkgconf asciidoctor
-- python3-devel python3-module-setuptools
-- glibc-devel-static
-- libpopt-devel
-- klibc-devel libsqlite3
-packages:
-- libcap-ng zlib
-- ncurses
-{{- end -}}
-
-{{- $builderDependencies := include "$name" . | fromYaml }}
-
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "util-linux/util-linux.git" }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
@@ -30,6 +9,9 @@ import:
   before: setup
 
 ---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "gnutls/libtasn1.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -38,16 +20,35 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+    GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
+    cd gnulib
+    git checkout $GNULIB_REVISION
+    cd /
 
 
 ---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
+- gtk-doc texinfo help2man bison patch git
+- tree
+packages:
+- openssl nghttp3 libidn2 libgmp
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
@@ -65,35 +66,36 @@ shell:
 
   install:
   - |
-    echo "Install packages"
+    # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src
-    ./autogen.sh
+    export GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    export GNULIB_SRCDIR=$(pwd)/gnulib
+
+    ./bootstrap --skip-po --no-git
     ./configure \
-      --prefix=/usr \
-      --exec-prefix=/usr \
-      --bindir=/usr/bin \
-      --sbindir=/usr/sbin \
-      --libdir=/usr/lib64 \
-      --enable-all-programs \
-      --enable-shared \
-      --disable-static \
-      --disable-asciidoc
+    --prefix=/usr \
+    --libdir=/usr/lib64 \
+    --disable-static \
+    --disable-silent-rules
 
     make -j$(nproc)
+
     make DESTDIR=$OUTDIR install
 
-    rm -rf $OUTDIR/usr/share
+    rm -rf ${OUTDIR}/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
+
+    tree -hps $OUTDIR

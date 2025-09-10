@@ -20,10 +20,8 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -38,6 +36,7 @@ altPackages:
 - python3-devel python3-module-setuptools
 packages:
 - libgmp libmnl libjansson4
+- ncurses
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
