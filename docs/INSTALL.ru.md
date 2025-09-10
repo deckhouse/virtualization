@@ -218,20 +218,20 @@ weight: 15
 
 В таблице указаны компоненты плоскости управления и типы узлов для их размещения. Компоненты распределяются по приоритету, только если соответствующие узлы доступны в конфигурации кластера.
 
-| Название                      | Группа узлов для запуска компонент                         | Комментарий                             |
-| ----------------------------- | ---------------------------------------------------------- | --------------------------------------- |
-| `cdi-operator-*`              | system/worker                                              |                                         |
-| `cdi-apiserver-*`             | master                                                     |                                         |
-| `cdi-deployment-*`            | system/worker                                              |                                         |
-| `virt-api-*`                  | master                                                     |                                         |
-| `virt-controller-*`           | system/worker                                              |                                         |
-| `virt-operator-*`             | system/worker                                              |                                         |
-| `virtualization-api-*`        | master                                                     |                                         |
-| `virtualization-controller-*` | master                                                     |                                         |
-| `virtualization-audit-*`      | system/worker                                              |                                         |
-| `dvcr-*`                      | system/worker                                              | Требуется доступность хранилища на узле |
-| `virt-handler-*`              | Все узлы кластера / либо узлы, указанные настройках модуля |                                         |
-| `vm-route-forge-*`            | Все узлы кластера                                          |                                         |
+| Название                      | Группа узлов для запуска компонент | Комментарий                             |
+| ----------------------------- | ---------------------------------- | --------------------------------------- |
+| `cdi-operator-*`              | system/worker                      |                                         |
+| `cdi-apiserver-*`             | master                             |                                         |
+| `cdi-deployment-*`            | system/worker                      |                                         |
+| `virt-api-*`                  | master                             |                                         |
+| `virt-controller-*`           | system/worker                      |                                         |
+| `virt-operator-*`             | system/worker                      |                                         |
+| `virtualization-api-*`        | master                             |                                         |
+| `virtualization-controller-*` | master                             |                                         |
+| `virtualization-audit-*`      | system/worker                      |                                         |
+| `dvcr-*`                      | system/worker                      | Требуется доступность хранилища на узле |
+| `virt-handler-*`              | Все узлы кластера                  |                                         |
+| `vm-route-forge-*`            | Все узлы кластера                  |                                         |
 
 ## Обновление модуля
 

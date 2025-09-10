@@ -214,20 +214,20 @@ The distribution of components across cluster nodes depends on the cluster's con
 
 The table lists the management plane components and the node types for their placement. Components are distributed by priority only if the corresponding nodes are available in the cluster configuration.
 
-| Name                          | Node group for running components                             | Comment                                      |
-| ----------------------------- | ------------------------------------------------------------- | -------------------------------------------- |
-| `cdi-operator-*`              | system/worker                                                 |                                              |
-| `cdi-apiserver-*`             | master                                                        |                                              |
-| `cdi-deployment-*`            | system/worker                                                 |                                              |
-| `virt-api-*`                  | master                                                        |                                              |
-| `virt-controller-*`           | system/worker                                                 |                                              |
-| `virt-operator-*`             | system/worker                                                 |                                              |
-| `virtualization-api-*`        | master                                                        |                                              |
-| `virtualization-controller-*` | master                                                        |                                              |
-| `virtualization-audit-*`      | system/worker                                                 |                                              |
-| `dvcr-*`                      | system/worker                                                 | Storage availability on the node is required |
-| `virt-handler-*`              | All cluster nodes / or nodes specified in the module settings |                                              |
-| `vm-route-forge-*`            | All cluster nodes                                             |                                              |
+| Name                          | Node group for running components | Comment                                      |
+| ----------------------------- | --------------------------------- | -------------------------------------------- |
+| `cdi-operator-*`              | system/worker                     |                                              |
+| `cdi-apiserver-*`             | master                            |                                              |
+| `cdi-deployment-*`            | system/worker                     |                                              |
+| `virt-api-*`                  | master                            |                                              |
+| `virt-controller-*`           | system/worker                     |                                              |
+| `virt-operator-*`             | system/worker                     |                                              |
+| `virtualization-api-*`        | master                            |                                              |
+| `virtualization-controller-*` | master                            |                                              |
+| `virtualization-audit-*`      | system/worker                     |                                              |
+| `dvcr-*`                      | system/worker                     | Storage availability on the node is required |
+| `virt-handler-*`              | All cluster nodes                 |                                              |
+| `vm-route-forge-*`            | All cluster nodes                 |                                              |
 
 ## Module update
 

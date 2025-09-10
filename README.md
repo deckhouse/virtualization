@@ -27,11 +27,7 @@ The following minimum resources are recommended for infrastructure nodes, depend
 
 ### Requirements for platform nodes:
 
-- Linux-based OS:
-  - CentOS 7, 8, 9
-  - Debian 10, 11, 12
-  - Rocky Linux 8, 9
-  - Ubuntu 18.04, 20.04, 22.04, 24.04
+- [Supported Linux-based OS](https://deckhouse.io/products/kubernetes-platform/documentation/v1/supported_versions.html#linux)
 - Linux kernel version >= 5.7
 - CPU with x86_64 c architecture with support for Intel-VT (vmx) or AMD-V (svm) instructions
 
@@ -47,8 +43,10 @@ The following minimum resources are recommended for infrastructure nodes, depend
    - [SDS-Local-volume](https://deckhouse.io/modules/sds-local-volume/stable/)
    - [CSI-nfs](https://deckhouse.io/modules/csi-nfs/stable/)
    - [CSI-CEPH](https://deckhouse.io/modules/csi-ceph/stable/)
+   ...
 
-3. [Set](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) default `StorageClass`.
+3. [Set](https://deckhouse.io/products/kubernetes-platform/documentation/v1/storage/admin/supported-storage.html) default `StorageClass`.
+
 4. Turn on the [console](https://deckhouse.ru/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
 
 5. Enable the `virtualization` module:
