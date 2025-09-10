@@ -59,20 +59,28 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 			return &reconcile.Result{}, err
 		}
 
-		if vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseFailed {
-			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-			return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase", vmSnapshotKey.Name)
-		}
-
-		if vmSnapshot != nil && vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseReady {
-			conditions.SetCondition(
-				conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
-					Status(metav1.ConditionTrue).
-					Reason(vmopcondition.ReasonSnapshotOperationReady).
-					Message("Snapshot is ready for clone operation"),
-				&vmop.Status.Conditions,
-			)
-			return nil, nil
+		if vmSnapshot != nil {
+			switch vmSnapshot.Status.Phase {
+			case v1alpha2.VirtualMachineSnapshotPhaseFailed:
+				conditions.SetCondition(
+					conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
+						Status(metav1.ConditionFalse).
+						Reason(vmopcondition.ReasonSnapshotFailed).
+						Message("Snapshot is failed"),
+					&vmop.Status.Conditions,
+				)
+				common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase", vmSnapshotKey.Name)
+			case v1alpha2.VirtualMachineSnapshotPhaseReady:
+				conditions.SetCondition(
+					conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
+						Status(metav1.ConditionTrue).
+						Reason(vmopcondition.ReasonSnapshotOperationReady).
+						Message("Snapshot is ready for clone operation"),
+					&vmop.Status.Conditions,
+				)
+				return nil, nil
+			}
 		}
 
 		conditions.SetCondition(
