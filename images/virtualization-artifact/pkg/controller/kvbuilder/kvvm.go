@@ -129,7 +129,7 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
-			if feature == "invtsc" {
+			if feature == "invtsc" || feature = "svm" {
 				policy = "optional"
 			}
 			features[i] = virtv1.CPUFeature{
