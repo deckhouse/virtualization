@@ -18,7 +18,6 @@ package step
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,10 +53,6 @@ func NewProcessRestoreStep(
 }
 
 func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
-		return nil, nil
-	}
-
 	c, exist := conditions.GetCondition(s.cb.GetType(), vmop.Status.Conditions)
 	if exist {
 		if c.Status == metav1.ConditionTrue {
@@ -73,12 +68,6 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
-	}
-
-	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
-		err := fmt.Errorf("snapshot secret name is empty")
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
@@ -105,14 +94,17 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return &reconcile.Result{}, err
 	}
 
-	statuses, err = snapshotResources.Process(ctx)
-	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		common.FillResourcesStatuses(vmop, statuses)
-		return &reconcile.Result{}, err
+	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
+		return &reconcile.Result{}, nil
 	}
 
+	statuses, err = snapshotResources.Process(ctx)
 	common.FillResourcesStatuses(vmop, statuses)
+	if err != nil {
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
 
 	for _, status := range statuses {
 		if status.Status == v1alpha2.VMOPResourceStatusInProgress {

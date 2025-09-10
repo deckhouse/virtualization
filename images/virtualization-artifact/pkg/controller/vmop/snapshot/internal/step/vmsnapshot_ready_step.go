@@ -85,5 +85,11 @@ func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		return &reconcile.Result{}, err
 	}
 
+	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
+		err := fmt.Errorf("snapshot secret name is empty")
+		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
 	return nil, nil
 }
