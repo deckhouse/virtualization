@@ -109,10 +109,11 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return nil, nil
 	}
 
 	if vmop.Spec.Clone.Mode == v1alpha2.VMOPRestoreModeDryRun {
+		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine can be cloned from the snapshot")
 		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
 		return &reconcile.Result{}, nil
 	}
@@ -121,7 +122,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		return nil, nil
 	}
 
 	for _, status := range statuses {
@@ -130,7 +131,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		}
 	}
 
-	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine has been cloned successfully")
+	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine has been cloned successfully.")
 
-	return &reconcile.Result{}, nil
+	return nil, nil
 }

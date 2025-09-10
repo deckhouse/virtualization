@@ -66,8 +66,13 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
+	svcOp, err := h.svcOpCreator(vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Ignore if VMOP is in final state.
-	if commonvmop.IsFinished(vmop) {
+	if svcOp.IsComplete() {
 		return reconcile.Result{}, nil
 	}
 
@@ -77,11 +82,6 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// 2. Get VirtualMachine for validation vmop.
 	vm, err := h.base.FetchVirtualMachineOrSetFailedPhase(ctx, vmop)
 	if vm == nil || err != nil {
-		return reconcile.Result{}, err
-	}
-
-	svcOp, err := h.svcOpCreator(vmop)
-	if err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -131,15 +131,15 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	} else {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 		reason := svcOp.GetInProgressReason()
-		conditions.SetCondition(completedCond.Reason(reason).Message("Wait for operation to complete").Status(metav1.ConditionFalse), &vmop.Status.Conditions)
+		conditions.SetCondition(completedCond.Reason(reason).Message("Wait for operation to complete.").Status(metav1.ConditionFalse), &vmop.Status.Conditions)
 	}
 
 	isComplete := svcOp.IsComplete()
 	if isComplete {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
-		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
+		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation completed")
 
-		conditions.SetCondition(completedCond.Reason(vmopcondition.ReasonOperationCompleted).Message("VirtualMachineOperation succeeded").Status(metav1.ConditionTrue), &vmop.Status.Conditions)
+		conditions.SetCondition(completedCond.Reason(vmopcondition.ReasonOperationCompleted).Message("VirtualMachineOperation succeeded.").Status(metav1.ConditionTrue), &vmop.Status.Conditions)
 	}
 
 	return rec, err

@@ -51,6 +51,14 @@ func NewCreateSnapshotStep(client client.Client, recorder eventrecord.EventRecor
 }
 
 func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
+
+	if snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions); found {
+		if snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+			return &reconcile.Result{}, nil
+		}
+	}
+
 	if snapshotName, exists := vmop.Annotations[annotations.AnnVMOPSnapshotName]; exists {
 		vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
 		vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
@@ -63,20 +71,15 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 			switch vmSnapshot.Status.Phase {
 			case v1alpha2.VirtualMachineSnapshotPhaseFailed:
 				conditions.SetCondition(
-					conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
-						Status(metav1.ConditionFalse).
-						Reason(vmopcondition.ReasonSnapshotFailed).
-						Message("Snapshot is failed"),
+					rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
 					&vmop.Status.Conditions,
 				)
 				common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+
 				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase", vmSnapshotKey.Name)
 			case v1alpha2.VirtualMachineSnapshotPhaseReady:
 				conditions.SetCondition(
-					conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
-						Status(metav1.ConditionTrue).
-						Reason(vmopcondition.ReasonSnapshotOperationReady).
-						Message("Snapshot is ready for clone operation"),
+					rcb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonSnapshotOperationReady).Message("Snapshot is ready for clone operation."),
 					&vmop.Status.Conditions,
 				)
 				return nil, nil
@@ -84,10 +87,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		}
 
 		conditions.SetCondition(
-			conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
-				Status(metav1.ConditionFalse).
-				Reason(vmopcondition.ReasonSnapshotInProgress).
-				Message("Snapshot creation is in progress"),
+			rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotInProgress).Message("Snapshot creation is in progress."),
 			&vmop.Status.Conditions,
 		)
 		return &reconcile.Result{}, nil
@@ -156,10 +156,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	s.recorder.Event(vmop, corev1.EventTypeNormal, "SnapshotCreated", fmt.Sprintf("Created snapshot %s for clone operation", snapshot.Name))
 
 	conditions.SetCondition(
-		conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady).
-			Status(metav1.ConditionFalse).
-			Reason(vmopcondition.ReasonSnapshotInProgress).
-			Message("Snapshot creation is in progress"),
+		rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotInProgress).Message("Snapshot creation is in progress."),
 		&vmop.Status.Conditions,
 	)
 

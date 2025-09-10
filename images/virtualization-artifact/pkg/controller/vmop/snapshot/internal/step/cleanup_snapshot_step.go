@@ -53,8 +53,10 @@ func NewCleanupSnapshotStep(
 }
 
 func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
+	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
+
 	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
-	if !found || cloneCondition.Status == metav1.ConditionUnknown {
+	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) {
 		return &reconcile.Result{}, nil
 	}
 
@@ -71,9 +73,6 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		s.cb.Status(metav1.ConditionFalse).
-			Reason(vmopcondition.ReasonSnapshotCleanedUp).
-			Message("Snapshot cleanup completed")
 		return &reconcile.Result{}, nil
 	}
 
@@ -84,9 +83,10 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	if vmSnapshot == nil {
-		s.cb.Status(metav1.ConditionFalse).
-			Reason(vmopcondition.ReasonSnapshotCleanedUp).
-			Message("Snapshot cleanup completed")
+		conditions.SetCondition(
+			rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotCleanedUp).Message("Snapshot cleanup completed."),
+			&vmop.Status.Conditions,
+		)
 		return &reconcile.Result{}, nil
 	}
 
@@ -109,9 +109,10 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		s.recorder.Event(vmop, corev1.EventTypeNormal, "SnapshotDeleted", fmt.Sprintf("Deleted snapshot %s after clone completion", vmSnapshot.Name))
 	}
 
-	s.cb.Status(metav1.ConditionFalse).
-		Reason(vmopcondition.ReasonSnapshotCleanedUp).
-		Message("Snapshot cleanup completed")
+	conditions.SetCondition(
+		rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotCleanedUp).Message("Snapshot cleanup completed."),
+		&vmop.Status.Conditions,
+	)
 
 	return &reconcile.Result{}, nil
 }
