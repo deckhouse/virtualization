@@ -48,9 +48,12 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 	log := logger.FromContext(ctx)
 
 	// Add finalizer for operations in progress
-	if vmop.DeletionTimestamp.IsZero() && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
-		log.Debug("Add cleanup finalizer while in the InProgress phase")
-		controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+	if vmop.DeletionTimestamp.IsZero() {
+		if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
+			log.Debug("Add cleanup finalizer while in the InProgress phase")
+			controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
+		}
+
 		return reconcile.Result{}, nil
 	}
 

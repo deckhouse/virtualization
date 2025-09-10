@@ -45,8 +45,8 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 			watcher.NewVMBDAWatcher(),
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
-			handler.NewDeletionHandler(client),
 			handler.NewLifecycleHandler(svcOpCreator, baseSvc, recorder),
+			handler.NewDeletionHandler(client),
 		},
 	}
 }
