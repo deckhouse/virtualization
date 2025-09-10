@@ -27,11 +27,12 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git gcc gcc-c++ make meson ninja-build pkg-config
-- glib2-devel libffi-devel gettext-devel
+- libffi-devel gettext-devel
 - openssl-devel ca-certificates
 - tree
 packages:
 - libtasn1
+- glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

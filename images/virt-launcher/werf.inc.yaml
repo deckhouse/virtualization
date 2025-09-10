@@ -83,8 +83,6 @@ altLibs:
   - libreadline-devel
   - libsystemd-devel
   - systemtap-sdt-devel
-  - glib2-devel
-  - libgio-devel
   - libxml2-devel
   - libclocale
   - libLLVMSPIRVLib-devel
@@ -129,6 +127,7 @@ packages:
 - libssh libssh2
 - libpixman libqpl rdma-core
 - libtasn1 libtirpc
+- glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

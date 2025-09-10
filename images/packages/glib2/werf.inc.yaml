@@ -101,4 +101,6 @@ shell:
     meson compile -C _build
     DESTDIR=${OUTDIR} meson install -C _build
 
+    tree -hp $OUTDIR
+
 {{- end}}
