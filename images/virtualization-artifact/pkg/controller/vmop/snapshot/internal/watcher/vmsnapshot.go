@@ -45,11 +45,6 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineSnapshot{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vd *v1alpha2.VirtualMachineSnapshot) []reconcile.Request {
-				// Check if this VirtualMachineSnapshot is being restored (has restore annotation)
-				if vd.Annotations == nil {
-					return nil
-				}
-
 				vmopUID, hasVMOPAnnotation := vd.Annotations[annotations.AnnVMOPUID]
 				if !hasVMOPAnnotation {
 					return nil

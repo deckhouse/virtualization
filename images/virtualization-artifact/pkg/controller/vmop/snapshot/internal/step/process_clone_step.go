@@ -76,12 +76,6 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
-	if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
-		err := fmt.Errorf("snapshot secret name is empty")
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
-	}
-
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
@@ -111,6 +105,11 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		common.FillResourcesStatuses(vmop, statuses)
 		return &reconcile.Result{}, err
+	}
+
+	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
+		return &reconcile.Result{}, nil
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
