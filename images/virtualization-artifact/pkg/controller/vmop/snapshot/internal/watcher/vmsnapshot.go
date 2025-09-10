@@ -82,9 +82,6 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
 					// Trigger reconciliation when VirtualMachineSnapshot phase changes during restore
-					if e.ObjectNew.Annotations == nil {
-						return false
-					}
 					_, hasVMOPUIDAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPUID]
 					return hasVMOPUIDAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
