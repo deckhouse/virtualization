@@ -111,11 +111,11 @@ func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
 		vmName := v.getVirtualMachineName()
 		for _, attachment := range existed.Status.AttachedToVirtualMachines {
 			if attachment.Mounted && attachment.Name != vmName {
-				return common.FormatVirtualDiskAttachedError(v.vd.Name, attachment.Name)
+				return fmt.Errorf("VirtualDisk with name %s attached to VirtualMachine %s", v.vd.Name, attachment.Name)
 			}
 		}
 
-		return common.FormatVirtualDiskConflictError(v.vd.Name)
+		return fmt.Errorf("VirtualDisk with name %s already exists", v.vd.Name)
 	}
 
 	return nil

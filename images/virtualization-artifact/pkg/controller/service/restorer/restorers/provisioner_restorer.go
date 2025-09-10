@@ -109,7 +109,7 @@ func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
 
 	if existed != nil {
 		if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
-			return common.FormatSecretContentDifferentError(v.secret.Name)
+			return fmt.Errorf("content of the secret %s is different from that in the snapshot", v.secret.Name)
 		}
 	}
 

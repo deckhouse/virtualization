@@ -41,6 +41,16 @@ var (
 	ErrClusterVirtualImageNotFound = errors.New("the virtual image is not found")
 	ErrSecretHasDifferentData      = errors.New("the secret has different data")
 	ErrResourceNameTooLong         = errors.New("resource name exceeds maximum allowed length")
+
+	ErrVirtualMachineAlreadyExists      = errors.New("VirtualMachine already exists")
+	ErrVirtualDiskAlreadyExists         = errors.New("VirtualDisk already exists")
+	ErrVirtualDiskAttachedToDifferentVM = errors.New("VirtualDisk is attached to different VirtualMachine")
+	ErrVMBDAAlreadyExists               = errors.New("VirtualMachineBlockDeviceAttachment already exists")
+	ErrVMBDAAttachedToDifferentVM       = errors.New("VirtualMachineBlockDeviceAttachment is attached to different VirtualMachine")
+	ErrVMIPAttachedToDifferentVM        = errors.New("VirtualMachineIPAddress is attached to different VirtualMachine")
+	ErrVMMACAttachedToDifferentVM       = errors.New("VirtualMachineMACAddress is attached to different VirtualMachine")
+	ErrImageResourceNotFound            = errors.New("image resource is used by VirtualMachine but absent in cluster")
+	ErrSecretContentDifferent           = errors.New("secret content is different from that in the snapshot")
 )
 
 // OverrideName overrides the name of the resource with the given rules

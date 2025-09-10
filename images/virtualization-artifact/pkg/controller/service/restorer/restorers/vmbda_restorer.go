@@ -114,10 +114,10 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateClone(ctx context.Context) erro
 
 	if existed != nil {
 		if existed.Spec.VirtualMachineName != v.vmbda.Spec.VirtualMachineName {
-			return common.FormatVMBDAAttachedError(v.vmbda.Name, existed.Spec.VirtualMachineName)
+			return fmt.Errorf("VirtualMachineBlockDeviceAttachment with name %s already exists and attached to VirtualMachine %s", v.vmbda.Name, existed.Spec.VirtualMachineName)
 		}
 
-		return common.FormatVMBDAConflictError(v.vmbda.Name)
+		return fmt.Errorf("VirtualMachineBlockDeviceAttachment with name %s already exists", v.vmbda.Name)
 	}
 
 	return nil

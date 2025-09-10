@@ -151,7 +151,7 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		return common.FormatVirtualMachineConflictError(v.vm.Name)
+		return fmt.Errorf("VirtualMachine with name %s already exists", v.vm.Name)
 	}
 
 	if err := v.validateImageDependencies(ctx); err != nil {
