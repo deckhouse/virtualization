@@ -97,10 +97,8 @@ func (v *VirtualMachineHandler) Override(rules []v1alpha2.NameReplacement) {
 }
 
 func (v *VirtualMachineHandler) Customize(prefix, suffix string) {
-	// Apply customization to VM name itself
 	v.vm.Name = common.ApplyNameCustomization(v.vm.Name, prefix, suffix)
 
-	// Apply customization to referenced resources
 	if v.vm.Spec.VirtualMachineIPAddress != "" {
 		v.vm.Spec.VirtualMachineIPAddress = common.ApplyNameCustomization(v.vm.Spec.VirtualMachineIPAddress, prefix, suffix)
 	}
