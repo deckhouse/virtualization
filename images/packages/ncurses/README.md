@@ -1259,7 +1259,7 @@
             │   ├── [-rw-r--r--   579]  ibmapa8c
             │   ├── [-rw-r--r--   604]  ibmapa8c-c
             │   ├── [-rw-r--r--   561]  ibmega
-            │   ���── [-rw-r--r--   609]  ibmega-c
+            │   ├── [-rw-r--r--   609]  ibmega-c
             │   ├── [-rw-r--r--   563]  ibmmono
             │   ├── [-rw-r--r--   615]  ibmmpel-c
             │   ├── [-rw-r--r--   804]  ibmpc
@@ -1329,7 +1329,7 @@
             │   ├── [-rw-r--r--  3.1K]  konsole
             │   ├── [-rw-r--r--  1.9K]  konsole+pcfkeys
             │   ├── [-rw-r--r--  3.3K]  konsole-16color
-            │   ���── [-rw-r--r--  3.2K]  konsole-256color
+            │   ├── [-rw-r--r--  3.2K]  konsole-256color
             │   ├── [-rw-r--r--  1.8K]  konsole-base
             │   ├── [-rw-r--r--  3.2K]  konsole-direct
             │   ├── [-rw-r--r--  1.8K]  konsole-linux
@@ -1602,7 +1602,7 @@
             │   ├── [-rw-r--r--  1.3K]  nsterm-7
             │   ├── [-rw-r--r--  1.5K]  nsterm-7-c
             │   ├── [-rw-r--r--  1.6K]  nsterm-7-c-s
-            │   ├���─ [-rw-r--r--  1.1K]  nsterm-7-m
+            │   ├── [-rw-r--r--  1.1K]  nsterm-7-m
             │   ├── [-rw-r--r--  1.2K]  nsterm-7-m-s
             │   ├── [-rw-r--r--  1.3K]  nsterm-7-s
             │   ├── [-rw-r--r--  1.3K]  nsterm-acs
@@ -1668,7 +1668,7 @@
             │   ├── [-rw-r--r--  1.2K]  nwp513-a
             │   ├── [-rw-r--r--  1.2K]  nwp513-o
             │   ├── [-rw-r--r--  1.2K]  nwp514
-            ���   ├── [-rw-r--r--  1.2K]  nwp514-a
+            │   ├── [-rw-r--r--  1.2K]  nwp514-a
             │   ├── [-rw-r--r--  1.2K]  nwp514-o
             │   ├── [-rw-r--r--  1.6K]  nwp517
             │   ├── [-rw-r--r--  1.6K]  nwp517-w
@@ -2901,7 +2901,7 @@
             │   ├── [-rw-r--r--  2.0K]  xterm-xf86-v32
             │   ├── [-rw-r--r--  1.9K]  xterm-xf86-v33
             │   ├── [-rw-r--r--  2.0K]  xterm-xf86-v333
-            │ �� ├── [-rw-r--r--  2.2K]  xterm-xf86-v40
+            │   ├── [-rw-r--r--  2.2K]  xterm-xf86-v40
             │   ├── [-rw-r--r--  2.2K]  xterm-xf86-v43
             │   ├── [-rw-r--r--  2.2K]  xterm-xf86-v44
             │   ├── [-rw-r--r--  2.2K]  xterm-xfree86

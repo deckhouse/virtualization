@@ -13,10 +13,8 @@
         ├── [lrwxrwxrwx    19]  libngtcp2.so.16 -> libngtcp2.so.16.2.9
         ├── [-rwxr-xr-x  283K]  libngtcp2.so.16.2.9
         ├── [-rwxr-xr-x  1.1K]  libngtcp2_crypto_gnutls.la
-        ├── [lrwxrwxrwx    32]  libngtcp2_crypto_gnutls.so ->                               ↵
-libngtcp2_crypto_gnutls.so.8.2.0
-        ├── [lrwxrwxrwx    32]  libngtcp2_crypto_gnutls.so.8 ->                             ↵
-libngtcp2_crypto_gnutls.so.8.2.0
+        ├── [lrwxrwxrwx    32]  libngtcp2_crypto_gnutls.so -> libngtcp2_crypto_gnutls.so.8.2.0
+        ├── [lrwxrwxrwx    32]  libngtcp2_crypto_gnutls.so.8 -> libngtcp2_crypto_gnutls.so.8.2.0
         ├── [-rwxr-xr-x   39K]  libngtcp2_crypto_gnutls.so.8.2.0
         └── [drwxr-xr-x     4]  pkgconfig
             ├── [-rw-r--r--  1.3K]  libngtcp2.pc
