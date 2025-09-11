@@ -72,7 +72,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	// Ignore if VMOP is in final state.
-	if comlpete, _ := svcOp.IsComplete(); comlpete {
+	if complete, _ := svcOp.IsComplete(); complete {
 		return reconcile.Result{}, nil
 	}
 
