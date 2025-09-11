@@ -39,7 +39,8 @@ const (
 var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryService)
 
 var configDiscoveryService = &pkg.HookConfig{
-	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
+	// Note: this hook should run before TLS certificate generator for DVCR. Order should be lower than 5.
+	OnBeforeHelm: &pkg.OrderedConfig{Order: 3},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       discoveryService,
