@@ -234,6 +234,18 @@ func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
 		return err
 	}
 
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
 	if err := v.validateImageDependencies(ctx); err != nil {
 		return err
 	}

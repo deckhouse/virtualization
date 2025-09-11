@@ -152,6 +152,18 @@ func (v *ProvisionerHandler) ProcessClone(ctx context.Context) error {
 		return err
 	}
 
+	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
 	err = v.client.Create(ctx, v.secret)
 	if err != nil {
 		return fmt.Errorf("failed to create the `Secret`: %w", err)

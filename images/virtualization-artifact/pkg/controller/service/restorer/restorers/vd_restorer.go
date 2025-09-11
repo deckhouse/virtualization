@@ -186,6 +186,18 @@ func (v *VirtualDiskHandler) ProcessClone(ctx context.Context) error {
 		return err
 	}
 
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
 	err = v.client.Create(ctx, v.vd)
 	if err != nil {
 		return fmt.Errorf("failed to create the `VirtualDisk`: %w", err)
