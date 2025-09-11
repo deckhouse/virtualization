@@ -119,7 +119,6 @@ altLibraries:
 - libaio-devel libselinux-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
-- glib2-devel
 packages:
 - dmidecode libgcrypt nettle libcap-ng libcapstone
 - openssl libcurl e2fsprogs libxcrypt numactl
@@ -129,6 +128,7 @@ packages:
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
 - ngtcp2 libtasn1 ncurses
+- glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

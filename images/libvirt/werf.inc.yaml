@@ -79,8 +79,8 @@ altLibraries:
 - libattr-devel libbsd-devel
 - libsystemd-devel
 - systemtap-sdt-devel
-- libacl-devel glib2-devel glibc-utils
-- libgio-devel libxml2-devel
+- libacl-devel glibc-utils
+- libxml2-devel
 - libsasl2-devel
 - wireshark-devel
 - libclocale
@@ -93,6 +93,7 @@ packages:
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
 - libtasn1 libtirpc
+- glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
