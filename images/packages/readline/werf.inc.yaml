@@ -5,12 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "opensvc/multipath-tools.git" }}
+{{- $gitRepoUrl := "readline/readline.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,21 +21,16 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc make git autoconf libtool gettext-tools
-- gcc-c++ makeinfo
-- libmultipath kpartx
-- dmsetup udev-rules-sgutils sg3_utils
-- libaio-devel libdevmapper-devel libudev-devel libsystemd-devel
-- libuserspace-rcu-devel libjson-c-devel
+- gcc gcc-c++ autoconf automake libtool make pkg-config
+- makeinfo
+- tree
 packages:
-- util-linux
-- readline
+- ncurses
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -60,22 +55,29 @@ shell:
 
   install:
   - |
+    # Install packages
     echo "Install packages"
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src
 
-    make -j$(nproc) all
+    autoconf
+    ./configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --libdir=/usr/lib64 \
+      --enable-shared \
+      --disable-static
 
-    make DESTDIR=$OUTDIR prefix=/usr LIB=/lib64 install
+    make -j$(nproc) SHLIB_LIBS="-lncursesw -ltinfo"
+    make DESTDIR=$OUTDIR install
 
-    # We don't need man
     rm -rf $OUTDIR/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
@@ -84,3 +86,4 @@ shell:
     fi
     done
 
+    tree -sph $OUTDIR
