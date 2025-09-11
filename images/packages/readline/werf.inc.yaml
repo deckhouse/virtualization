@@ -27,7 +27,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config
-- libtinfo-devel libncursesw-devel makeinfo
+- libtinfo-devel makeinfo
 - tree
 packages:
 - ncurses

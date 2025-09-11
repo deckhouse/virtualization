@@ -131,7 +131,6 @@ shell:
   install:
   - |
     # Install packages
-    echo "Install packages"
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /

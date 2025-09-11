@@ -47,7 +47,6 @@ altPackages:
 - libkrb5-devel
 - libsqlite3-devel
 - tree
-# libpam-devel
 packages:
 - libxcrypt
 - zlib
