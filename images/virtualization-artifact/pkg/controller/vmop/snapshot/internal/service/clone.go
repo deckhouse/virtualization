@@ -77,7 +77,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if vm == nil {
-		err := fmt.Errorf("virtual machine is nil")
+		err := fmt.Errorf("virtual machine specified is not found")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
