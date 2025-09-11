@@ -56,6 +56,17 @@ func WithDataSourceHTTP(url string, checksum *v1alpha2.Checksum, caBundle []byte
 	}
 }
 
+func WithDataSourceHTTPWithOnlyURL(url string) Option {
+	return func(vd *v1alpha2.VirtualDisk) {
+		vd.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL: url,
+			},
+		}
+	}
+}
+
 func WithDataSourceContainerImage(image, imagePullSecretName string, caBundle []byte) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
 		vd.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{
@@ -70,7 +81,6 @@ func WithDataSourceContainerImage(image, imagePullSecretName string, caBundle []
 		}
 	}
 }
-
 func WithDataSourceObjectRef(kind v1alpha2.VirtualDiskObjectRefKind, name string) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
 		vd.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{

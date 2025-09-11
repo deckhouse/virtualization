@@ -20,11 +20,14 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"os/exec"
+	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -40,6 +43,7 @@ type Framework struct {
 
 	namespace          *corev1.Namespace
 	namespacesToDelete []string
+	resourcesToDelete  []client.Object
 }
 
 func NewFramework(namespacePrefix string) *Framework {
@@ -73,12 +77,18 @@ func (f *Framework) Before() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		ginkgo.By(fmt.Sprintf("Created namespace %s", ns.Name))
 		f.namespace = ns
-		f.AddNamespaceToDelete(ns.Name)
 	}
 }
 
 func (f *Framework) After() {
 	ginkgo.GinkgoHelper()
+
+	for _, resource := range f.resourcesToDelete {
+		ginkgo.By(fmt.Sprintf("Delete resource %s", resource.GetName()))
+		err := f.client.Delete(context.Background(), resource)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
 	for _, ns := range f.namespacesToDelete {
 		ginkgo.By(fmt.Sprintf("Delete namespace %s", ns))
 		err := f.KubeClient().CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
@@ -98,8 +108,8 @@ func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*c
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-%s-", NamespaceBasePrefix, prefix),
-			Labels:       nsLabels,
+			Name:   fmt.Sprintf("%s-%s-%s", NamespaceBasePrefix, prefix, GetCommitHash()),
+			Labels: nsLabels,
 		},
 	}
 
@@ -117,4 +127,25 @@ func (f *Framework) Namespace() *corev1.Namespace {
 
 func (f *Framework) AddNamespaceToDelete(name string) {
 	f.namespacesToDelete = append(f.namespacesToDelete, name)
+}
+
+func (f *Framework) AddResourceToDelete(obj client.Object) {
+	f.resourcesToDelete = append(f.resourcesToDelete, obj)
+}
+
+// func (f *Framework) GetRunHash() string {
+// 	parts := strings.Split(f.Namespace().Name, "-")
+// 	if len(parts) == 0 {
+// 		return ""
+// 	}
+// 	return parts[len(parts)-1]
+// }
+
+func GetCommitHash() string {
+	ginkgo.GinkgoHelper()
+
+	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	stdout, err := cmd.Output()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	return strings.TrimSpace(string(stdout))
 }
