@@ -30,7 +30,7 @@ altPackages:
 - gcc git make libtool gettext-tools meson ninja-build
 - tree
 packages:
-- glib2
+- glib2 util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
