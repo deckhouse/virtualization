@@ -45,9 +45,10 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vd *v1alpha2.VirtualDisk) []reconcile.Request {
-				restoreUID, hasRestoreAnnotation := vd.Annotations[annotations.AnnVMOPRestore]
+				// Use when we deleting VD before creating new one. Order is important because VD may have restore annotation from previous restore.
+				restoreUID, hasRestoreAnnotation := vd.Annotations[annotations.AnnVMOPRestoreDeleted]
 				if !hasRestoreAnnotation {
-					restoreUID, hasRestoreAnnotation = vd.Annotations[annotations.AnnVMOPRestoreDeleted]
+					restoreUID, hasRestoreAnnotation = vd.Annotations[annotations.AnnVMOPRestore]
 				}
 
 				if !hasRestoreAnnotation {
