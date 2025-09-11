@@ -111,10 +111,6 @@ import:
   to: /install-libvirt.sh
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-# - image: {{ .ModuleNamePrefix }}qemu
-#   add: /qemu-img
-#   to: /qemu-img
-#   before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -137,14 +133,10 @@ shell:
     # Install packages
     echo "Install packages"
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    # PKGS+=" qemu-img"
     for pkg in $PKGS; do
-      echo "===Install $pkg==="
       cp -a /$pkg/. /
       rm -rf /$pkg
-      # rsync -a --inplace /$pkg/ /
     done
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"

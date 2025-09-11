@@ -53,7 +53,6 @@ packages:
 - glib2 bzip2
 - pcre2
 - libcap libcap-ng
-# - linux-pam-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
