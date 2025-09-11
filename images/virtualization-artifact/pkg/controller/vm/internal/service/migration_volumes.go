@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -42,16 +44,21 @@ func NewMigrationVolumesService(client client.Client, makeKVVMFromSpec func(ctx 
 }
 
 func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.VirtualMachineState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx)
+	log.Debug("[SyncVolumes] Start")
+
 	vm := vmState.VirtualMachine().Changed()
 
 	// we can't migrate VM which is restarting
 	if commonvm.RestartRequired(vm) {
+		log.Info("Virtualmachine is restart required, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
 	// not syncing if migrating
 	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 	if migrating.Status == metav1.ConditionTrue {
+		log.Info("Virtualmachine is migrating, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
@@ -61,12 +68,14 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if kvvmInCluster == nil || kvvmiInCluster == nil {
+		log.Info("Virtualmachine or kvvmi is nil, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInCluster.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
 		// kubevirt does not sync volumes with kvvmi yet
+		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
@@ -77,15 +86,18 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	// we should check that's generated kvvm has disks, which are not migratable or storage class changed, before kvvmSynced check
 	if !s.isDisksSynced(builtKVVMWithMigrationVolumes, nonMigratableDisks) {
+		log.Info("Non-migratable disks are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 	if !s.isDisksSynced(builtKVVMWithMigrationVolumes, storageClassChangedDisks) {
+		log.Info("Storage class changed disks are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
 	kvvmSynced := equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes)
 	if kvvmSynced {
 		// we already synced our vm with kvvm
+		log.Info("kvvm volumes are already synced, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
@@ -93,6 +105,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	migrationInProgress := len(kvvmiInCluster.Status.MigratedVolumes) > 0
 
 	if !migrationRequested && !migrationInProgress {
+		log.Info("Migration is not requested and not in progress, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
@@ -101,10 +114,12 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		if len(storageClassChangedDisks) > 0 {
 			delay, exists := s.delay[vm.UID]
 			if !exists {
+				log.Info("Delay is not set, set delay and requeue after delay duration.")
 				s.delay[vm.UID] = time.Now().Add(s.delayDuration)
 				return reconcile.Result{RequeueAfter: s.delayDuration}, nil
 			}
 			if time.Now().Before(delay) {
+				log.Debug("Delay is not expired, requeue after delay duration.")
 				return reconcile.Result{RequeueAfter: time.Until(delay)}, nil
 			}
 		}
@@ -115,16 +130,21 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		}
 
 		if len(notReadyDisks) > 0 {
+			log.Info("Some disks are not ready, wait for disks to be ready.")
 			return reconcile.Result{}, nil
 		}
 
+		log.Info("All disks are ready, patch kvvm with migration volumes.")
 		err = s.patchVolumes(ctx, builtKVVMWithMigrationVolumes)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		log.Debug("kvvm volumes are patched.")
 
 		// Clean up the delay after it's passed
 		delete(s.delay, vm.UID)
+
+		log.Debug("[SyncVolumes] End")
 		return reconcile.Result{}, nil
 	}
 
@@ -166,11 +186,15 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 		return err
 	}
 
+	logger.FromContext(ctx).Debug("Patch kvvm with migration volumes.", slog.String("patch", string(patchBytes)))
+
 	err = s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
 	return err
 }
 
 func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState state.VirtualMachineState) (bool, error) {
+	log := logger.FromContext(ctx)
+
 	kvvmInCluster, _, builtKVVMWithMigrationVolumes, kvvmiInCluster, err := s.getMachines(ctx, vmState)
 	if err != nil {
 		return false, err
@@ -182,16 +206,21 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 
 	migratable, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmiInCluster.Status.Conditions)
 	if migratable.Status != corev1.ConditionTrue {
+		log.Info("VirtualMachine is not migratable, volumes are not synced yet.")
 		return false, nil
 	}
 
 	kvvmSynced := equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes)
 	if !kvvmSynced {
+		log.Info("kvvm volumes are not synced yet")
+		log.Debug("", slog.Any("builtKVVM", builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes), slog.Any("kvvm", kvvmInCluster.Spec.Template.Spec.Volumes))
 		return false, nil
 	}
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInCluster.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
+		log.Info("kvvmi volumes are not synced yet")
+		log.Debug("", slog.Any("kvvmi", kvvmInCluster.Spec.Template.Spec.Volumes), slog.Any("kvvmi", kvvmiInCluster.Spec.Volumes))
 		return false, nil
 	}
 
@@ -202,11 +231,15 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 
 	nonMigratableDisksSynced := s.isDisksSynced(builtKVVMWithMigrationVolumes, nonMigratableDisks)
 	if !nonMigratableDisksSynced {
+		log.Info("Non-migratable disks are not synced yet")
+		log.Debug("", slog.Any("nonMigratableDisks", nonMigratableDisks), slog.Any("builtKVVM", builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes))
 		return false, nil
 	}
 
 	storageClassChangedDisksSynced := s.isDisksSynced(builtKVVMWithMigrationVolumes, storageClassChangedDisks)
 	if !storageClassChangedDisksSynced {
+		log.Info("Storage class changed disks are not synced yet")
+		log.Debug("", slog.Any("storageClassChangedDisks", storageClassChangedDisks), slog.Any("builtKVVM", builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes))
 		return false, nil
 	}
 

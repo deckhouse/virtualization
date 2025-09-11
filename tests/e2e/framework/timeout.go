@@ -16,11 +16,25 @@ limitations under the License.
 
 package framework
 
-import "time"
-
-const (
-	ShortTimeout  = 30 * time.Second
-	MiddleTimeout = 90 * time.Second
-	LongTimeout   = 300 * time.Second
-	MaxTimeout    = 600 * time.Second
+import (
+	"os"
+	"time"
 )
+
+var (
+	ShortTimeout  = getTimeout("E2E_SHORT_TIMEOUT", 30*time.Second)
+	MiddleTimeout = getTimeout("E2E_MIDDLE_TIMEOUT", 90*time.Second)
+	LongTimeout   = getTimeout("E2E_LONG_TIMEOUT", 300*time.Second)
+	MaxTimeout    = getTimeout("E2E_MAX_TIMEOUT", 600*time.Second)
+)
+
+func getTimeout(env string, defaultTimeout time.Duration) time.Duration {
+	if e, ok := os.LookupEnv(env); ok {
+		t, err := time.ParseDuration(e)
+		if err != nil {
+			return defaultTimeout
+		}
+		return t
+	}
+	return defaultTimeout
+}

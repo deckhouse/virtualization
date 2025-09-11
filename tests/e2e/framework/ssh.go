@@ -49,7 +49,7 @@ func makeSSHCommandOptions(options ...SSHCommandOption) *sshCommandOptions {
 func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...SSHCommandOption) error {
 	o := makeSSHCommandOptions(options...)
 
-	file, err := os.CreateTemp(os.TempDir(), "ssh-key")
+	file, err := os.CreateTemp(os.TempDir(), "ssh-key-")
 	if err != nil {
 		return err
 	}

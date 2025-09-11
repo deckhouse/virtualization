@@ -32,13 +32,16 @@ users:
       # testcases
       - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
 `
-	DefaultSSHPrivateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
+	DefaultSSHPrivateKey = `
+-----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
 QyNTUxOQAAACBcXFx5sGhpyfLHCWhDeUc5JQT2aVUonOBnWgLCo0KHgAAAAKDCANDUwgDQ
 1AAAAAtzc2gtZWQyNTUxOQAAACBcXFx5sGhpyfLHCWhDeUc5JQT2aVUonOBnWgLCo0KHgA
 AAAED/iI2D9QTc70eISkYFC/TrXG3JpHYLu5FqQhGCTxveElxcXHmwaGnJ8scJaEN5Rzkl
 BPZpVSic4GdaAsKjQoeAAAAAFnlvdXJfZW1haWxAZXhhbXBsZS5jb20BAgMEBQYH
------END OPENSSH PRIVATE KEY-----`
+-----END OPENSSH PRIVATE KEY-----
+`
+
 	DefaultSSHPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com"
 	DefaultUser         = "cloud"
 	DefaultPassword     = "cloud"
