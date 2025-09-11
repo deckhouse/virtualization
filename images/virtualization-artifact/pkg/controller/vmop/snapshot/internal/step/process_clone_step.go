@@ -59,7 +59,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	c, exist := conditions.GetCondition(s.cb.GetType(), vmop.Status.Conditions)
 	if exist {
 		if c.Status == metav1.ConditionTrue {
-			return nil, nil
+			return &reconcile.Result{}, nil
 		}
 
 		snapshotReadyCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
@@ -138,7 +138,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		}
 
 		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
-			return nil, nil
+			return &reconcile.Result{}, nil
 		}
 
 		if vd.Status.Phase == v1alpha2.DiskFailed {
@@ -157,5 +157,5 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 
 	s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine has been cloned successfully.")
 
-	return nil, nil
+	return &reconcile.Result{}, nil
 }
