@@ -20,6 +20,8 @@ import (
 	"context"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . ObjectHandler
@@ -29,4 +31,6 @@ type ObjectHandler interface {
 	ProcessRestore(ctx context.Context) error
 	ValidateClone(ctx context.Context) error
 	ProcessClone(ctx context.Context) error
+	Override(rules []v1alpha2.NameReplacement)
+	Customize(prefix, suffix string)
 }

@@ -80,7 +80,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 				Generation(vmop.GetGeneration()).
 				Reason(vmopcondition.ReasonMaintenanceModeEnabled).
 				Status(metav1.ConditionTrue).
-				Message("VMOP has enabled maintenance mode on VM for restore operation"),
+				Message("VMOP has enabled maintenance mode on VM for restore operation."),
 			&vmop.Status.Conditions,
 		)
 
@@ -92,7 +92,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 			Generation(vm.GetGeneration()).
 			Reason(vmcondition.ReasonMaintenanceRestore).
 			Status(metav1.ConditionTrue).
-			Message("VM is in maintenance mode for restore operation"),
+			Message("VM is in maintenance mode for restore operation."),
 		&vm.Status.Conditions,
 	)
 
@@ -112,7 +112,7 @@ func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMa
 			Generation(vmop.GetGeneration()).
 			Reason(vmopcondition.ReasonMaintenanceModeEnabled).
 			Status(metav1.ConditionTrue).
-			Message("VMOP has enabled maintenance mode on VM for restore operation"),
+			Message("VMOP has enabled maintenance mode on VM for restore operation."),
 		&vmop.Status.Conditions,
 	)
 

@@ -43,6 +43,7 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 			watcher.NewVMOPWatcher(),
 			watcher.NewVDWatcher(),
 			watcher.NewVMBDAWatcher(),
+			watcher.NewVMSnapshotWatcher(),
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewLifecycleHandler(svcOpCreator, baseSvc, recorder),

@@ -77,7 +77,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 				Generation(vm.GetGeneration()).
 				Reason(vmcondition.ReasonMaintenanceRestore).
 				Status(metav1.ConditionFalse).
-				Message("VM exited maintenance mode due to vmop deletion"),
+				Message("VM exited maintenance mode due to vmop deletion."),
 			&vm.Status.Conditions,
 		)
 
