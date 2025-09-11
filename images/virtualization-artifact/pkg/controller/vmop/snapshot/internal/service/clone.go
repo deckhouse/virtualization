@@ -63,7 +63,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	if o.vmop.Spec.Clone == nil {
-		err := fmt.Errorf("clone specification is nil")
+		err := fmt.Errorf("clone specification is mandatory to start cloning")
 		cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
 	}
