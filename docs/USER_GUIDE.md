@@ -617,8 +617,8 @@ VolumeBindingMode property:
 
 AccessMode:
 
-- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk.
 - `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
+- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with such disks is possible only in the DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reconnected statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -649,7 +649,7 @@ How to find out the available storage options in the DVP web interface:
 
 - Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
-## Create an empty disk
+### Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
 
@@ -861,6 +861,35 @@ Method #2:
 - In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
+
+### Changing the disk StorageClass
+
+In the DVP commercial editions, it is possible to change the StorageClass for existing disks. At the moment, this is only supported for running VMs (`Phase` should be `Running`).
+
+{{< alert level="warning">}}
+Storage class migration is only available for disks connected statically via (`.spec.blockDeviceRefs`).
+
+To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, you must statically reattach them by specifying them in `.spec.blockDeviceRefs`.
+{{< /alert >}}
+
+Example:
+
+```bash
+d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+After the disk configuration is updated, a live migration of the VM will be initiated, during which the VM’s disk will be migrated to the new storage.
+
+If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
+
+```bash
+d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+If migration fails, repeated attempts are made with increasing delays (exponential backoff algorithm). The maximum delay is 300 seconds (5 minutes). Delays: 5 seconds (1st attempt), 10 seconds (2nd), then each delay doubles, reaching 300 seconds (7th and subsequent attempts). The first attempt is performed without delay.
+
+To cancel migration, the user must return the storage class in the specification to the original one.
 
 ## Virtual machines
 
