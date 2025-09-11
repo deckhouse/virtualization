@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -57,28 +56,28 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
 
 	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
-	if found && (snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) || snapshotCondition.Status == metav1.ConditionFalse) {
-		return &reconcile.Result{}, nil
+	if found && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+		return nil, nil
 	}
 
 	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
-	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) {
-		return &reconcile.Result{}, nil
+	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) || cloneCondition.Status == metav1.ConditionUnknown {
+		return nil, nil
 	}
 
 	if cloneCondition.Reason != string(vmopcondition.ReasonCloneOperationFailed) && cloneCondition.Status == metav1.ConditionFalse {
-		return &reconcile.Result{}, nil
+		return nil, nil
 	}
 
 	for _, status := range vmop.Status.Resources {
 		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
-			return &reconcile.Result{}, nil
+			return nil, nil
 		}
 	}
 
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
-		return &reconcile.Result{}, nil
+		return nil, nil
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
@@ -93,36 +92,6 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			&vmop.Status.Conditions,
 		)
 		return &reconcile.Result{}, nil
-	}
-
-	for _, status := range vmop.Status.Resources {
-		if status.Kind != v1alpha2.VirtualDiskKind {
-			continue
-		}
-
-		var vd v1alpha2.VirtualDisk
-		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
-		err := s.client.Get(ctx, vdKey, &vd)
-		if err != nil {
-			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
-		}
-
-		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
-			return &reconcile.Result{}, nil
-		}
-
-		if vd.Status.Phase == v1alpha2.DiskFailed {
-			conditions.SetCondition(
-				rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
-				&vmop.Status.Conditions,
-			)
-			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-		}
-
-		if vd.Status.Phase != v1alpha2.DiskReady {
-			return &reconcile.Result{}, nil
-		}
 	}
 
 	if !object.IsTerminating(vmSnapshot) {
