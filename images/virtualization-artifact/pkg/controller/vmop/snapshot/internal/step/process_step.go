@@ -95,7 +95,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
-		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine can be restored from the snapshot.")
+		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonRestoreOperationCompleted).Message("The virtual machine can be restored from the snapshot.")
 		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
 		return &reconcile.Result{}, nil
 	}
