@@ -125,8 +125,32 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
-	for _, status := range statuses {
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+	for _, status := range vmop.Status.Resources {
+		if status.Kind != v1alpha2.VirtualDiskKind {
+			continue
+		}
+
+		var vd v1alpha2.VirtualDisk
+		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
+		err := s.client.Get(ctx, vdKey, &vd)
+		if err != nil {
+			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
+		}
+
+		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
+			return nil, nil
+		}
+
+		if vd.Status.Phase == v1alpha2.DiskFailed {
+			conditions.SetCondition(
+				s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
+				&vmop.Status.Conditions,
+			)
+			common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
+			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
+		}
+
+		if vd.Status.Phase != v1alpha2.DiskReady {
 			return &reconcile.Result{}, nil
 		}
 	}
