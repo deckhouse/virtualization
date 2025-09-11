@@ -45,7 +45,7 @@ The following minimum resources are recommended for infrastructure nodes, depend
    - [CSI-CEPH](https://deckhouse.io/modules/csi-ceph/stable/)
    ...
 
-3. [Set](https://deckhouse.io/products/kubernetes-platform/documentation/v1/storage/admin/supported-storage.html) default `StorageClass`.
+3. [Set](https://deckhouse.io/products/kubernetes-platform/documentation/v1/storage/admin/supported-storage.html#how-to-set-the-default-storageclass) default `StorageClass`.
 
 4. Turn on the [console](https://deckhouse.ru/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
 

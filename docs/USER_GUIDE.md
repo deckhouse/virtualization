@@ -270,7 +270,7 @@ Project image two storage options are supported:
 - `PersistentVolumeClaim` - the type that uses `PVC` as the storage for the image. This option is preferred if you are using storage that supports `PVC` fast cloning, which allows you to create disks from images faster.
 
 {{< alert level="warning" >}}
-Using an image with the `storage: PersistentVolumeClaim` parameter is allowed for creating disks that belong to the same storage class (StorageClass).
+Using an image with the `storage: PersistentVolumeClaim` parameter is only supported for creating disks in the same storage class (StorageClass).
 {{< /alert >}}
 
 A full description of the `VirtualImage` resource configuration settings can be found at [link](cr.html#virtualimage).
@@ -2777,45 +2777,45 @@ spec:
 
 One of three modes can be used for this operation:
 
-- `DryRun` - idle run of the restore operation, necessary to check for possible conflicts, which will be displayed in the resource status (`status.resources`).
-- `Strict` - strict recovery mode, when VM recovery ‘as in the snapshot’ is required; missing external dependencies may result in the VM being in Pending status after recovery.
-- `BestEffort` - ignore missing external dependencies (ClusterVirtualImage, VirtualImage) are removed from the VM configuration.
+- `DryRun`: Idle run of the restore operation, used to check for possible conflicts, which will be displayed in the resource status (`status.resources`).
+- `Strict`: Strict recovery mode, used when the VM must be restored exactly as captured in the snapshot; missing external dependencies may cause the VM to remain in `Pending` status after recovery.
+- `BestEffort`: Missing external dependencies (`ClusterVirtualImage`, `VirtualImage`) are ignored and removed from the VM configuration.
 
-Restoring a virtual machine from a snapshot is possible if the following conditions are met:
-- The VM being restored is present in the cluster (the `VirtualMachine` resource exists, and its `.metadata.uid` matches the identifier used when creating the snapshot).
-- The disks being restored (identified by name) are not connected to other VMs and are not present in the cluster.
-- The IP address being restored is not occupied by another VM and is free.
-- The MAC addresses being restored are not used by other VMs and are free.
+Restoring a virtual machine from a snapshot is only possible if all the following conditions are met:
+- The VM to be restored exists in the cluster (the `VirtualMachine` resource exists and its `.metadata.uid` matches the identifier used when creating the snapshot).
+- The disks to be restored (identified by name) are either not attached to other VMs or do not exist in the cluster.
+- The IP address to be restored is either not used by any other VM or does not exist in the cluster.
+- The MAC addresses to be restored are either not used by any other VMs or do not exist in the cluster.
 
 {{< alert level="warning" >}}
-If some resources on which the VM depends (for example, VirtualMachineClass, VirtualImage, ClusterVirtualImage) are not present in the cluster but existed at the time the snapshot was created, the VM will enter a Pending state after recovery.
-In this case, you will need to manually edit the VM configuration and change or delete the dependent resources that are missing from the cluster.
+If some resources on which the VM depends (for example, `VirtualMachineClass`, `VirtualImage`, `ClusterVirtualImage`) are missing from the cluster but existed when the snapshot was taken, the VM will remain in the `Pending` state after recovery.
+In this case, you must manually edit the VM configuration to update or remove the missing dependencies.
 {{< /alert >}}
 
-Information about conflicts when restoring a VM from a snapshot can be found in the resource status:
+You can view information about conflicts when restoring a VM from a snapshot in the resource status:
 
 ```bash
 d8 k get vmop <vmop-name> -o json | jq “.status.resources”
 ```
 
 {{< alert level="warning" >}}
-It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, as this may result in an inconsistent state of the restored virtual machine.
+It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
 {{< /alert >}}
 
 ## Data export
 
-The platform allows you to export virtual machine disks and disk images using the `d8` utility (version 1.17 and above).
+DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 1.17 and above).
 
-Example command for exporting a disk (executed on the cluster node):
+Example: export a disk (run on a cluster node):
 
 ```bash
 d8 download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
-Example command for exporting a disk snapshot (executed on the cluster node):
+Example: export a disk snapshot (run on a cluster node):
 
 ```bash
 d8 download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
-To export resources outside the cluster, you must additionally use the `--publish` key.
+To export resources outside the cluster, you must also use the `--publish` flag.

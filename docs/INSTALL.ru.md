@@ -229,7 +229,7 @@ weight: 15
 | `virtualization-api-*`        | master                             |                                         |
 | `virtualization-controller-*` | master                             |                                         |
 | `virtualization-audit-*`      | system/worker                      |                                         |
-| `dvcr-*`                      | system/worker                      | Требуется доступность хранилища на узле |
+| `dvcr-*`                      | system/worker                      | На узле должно быть доступно хранилище  |
 | `virt-handler-*`              | Все узлы кластера                  |                                         |
 | `vm-route-forge-*`            | Все узлы кластера                  |                                         |
 
