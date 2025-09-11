@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -95,7 +96,23 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			continue
 		}
 
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+		var vd v1alpha2.VirtualDisk
+		vdKey := types.NamespacedName{Namespace: vmop.Namespace, Name: status.Name}
+		err := s.client.Get(ctx, vdKey, &vd)
+		if err != nil {
+			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
+		}
+
+		if vd.Status.Phase == v1alpha2.DiskFailed {
+			conditions.SetCondition(
+				rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
+				&vmop.Status.Conditions,
+			)
+			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
+		}
+
+		if vd.Status.Phase != v1alpha2.DiskReady {
 			return &reconcile.Result{}, nil
 		}
 	}
