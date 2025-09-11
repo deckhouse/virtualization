@@ -17,7 +17,11 @@ limitations under the License.
 package vm
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
@@ -58,4 +62,13 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 		return virtv2.Manual
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
+}
+
+func RestartRequired(vm *virtv2.VirtualMachine) bool {
+	if vm == nil {
+		return false
+	}
+
+	cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+	return cond.Status == metav1.ConditionTrue
 }

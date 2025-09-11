@@ -33,11 +33,11 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 	var (
 		ns     string
 		ctx    context.Context

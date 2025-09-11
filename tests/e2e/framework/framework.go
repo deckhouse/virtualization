@@ -20,11 +20,14 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"sync"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -39,7 +42,11 @@ type Framework struct {
 	skipNsCreation  bool
 
 	namespace          *corev1.Namespace
-	namespacesToDelete []string
+	namespacesToDelete map[string]struct{}
+
+	objectsToDelete map[string]client.Object
+
+	mu sync.Mutex
 }
 
 func NewFramework(namespacePrefix string) *Framework {
@@ -47,6 +54,9 @@ func NewFramework(namespacePrefix string) *Framework {
 		Clients:         GetClients(),
 		namespacePrefix: namespacePrefix,
 		skipNsCreation:  namespacePrefix == "",
+
+		namespacesToDelete: make(map[string]struct{}),
+		objectsToDelete:    make(map[string]client.Object),
 	}
 }
 
@@ -79,10 +89,29 @@ func (f *Framework) Before() {
 
 func (f *Framework) After() {
 	ginkgo.GinkgoHelper()
-	for _, ns := range f.namespacesToDelete {
+
+	for _, obj := range f.objectsToDelete {
+		ginkgo.By(fmt.Sprintf("Delete object %s", obj.GetName()))
+		err := f.GenericClient().Delete(context.Background(), obj)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			ginkgo.Fail(fmt.Sprintf("Failed to delete object %s: %s", obj.GetName(), err.Error()))
+		}
+
+		f.mu.Lock()
+		delete(f.objectsToDelete, string(obj.GetUID()))
+		f.mu.Unlock()
+	}
+
+	for ns := range f.namespacesToDelete {
 		ginkgo.By(fmt.Sprintf("Delete namespace %s", ns))
 		err := f.KubeClient().CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		if err != nil && !k8serrors.IsNotFound(err) {
+			ginkgo.Fail(fmt.Sprintf("Failed to delete namespace %s: %s", ns, err.Error()))
+		}
+
+		f.mu.Lock()
+		delete(f.namespacesToDelete, ns)
+		f.mu.Unlock()
 	}
 }
 
@@ -116,5 +145,13 @@ func (f *Framework) Namespace() *corev1.Namespace {
 }
 
 func (f *Framework) AddNamespaceToDelete(name string) {
-	f.namespacesToDelete = append(f.namespacesToDelete, name)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.namespacesToDelete[name] = struct{}{}
+}
+
+func (f *Framework) AddToDelete(obj client.Object) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.objectsToDelete[string(obj.GetUID())] = obj
 }

@@ -29,11 +29,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.CommonE2ETestDecorators(), func() {
 	const (
 		viCount    = 2
 		vmCount    = 1

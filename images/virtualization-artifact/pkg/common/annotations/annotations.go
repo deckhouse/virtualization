@@ -97,6 +97,8 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
+	AnnVMOPVolumeMigration = AnnAPIGroupV + "/volume-migration"
 
 	// AnnVMOPRestore is an annotation on a resource that indicates it was created by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
 	AnnVMOPRestore = AnnAPIGroupV + "/vmoprestore"

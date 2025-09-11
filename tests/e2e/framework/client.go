@@ -18,15 +18,13 @@ package framework
 
 import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -43,6 +41,7 @@ type Clients struct {
 	kubectl          kubectl.Kubectl
 	d8virtualization d8.D8Virtualization
 	client           client.Client
+	dynamic          dynamic.Interface
 }
 
 func (c Clients) VirtClient() kubeclient.Client {
@@ -57,6 +56,10 @@ func (c Clients) GenericClient() client.Client {
 	return c.client
 }
 
+func (c Clients) DynamicClient() dynamic.Interface {
+	return c.dynamic
+}
+
 func (c Clients) Kubectl() kubectl.Kubectl {
 	return c.kubectl
 }
@@ -66,10 +69,8 @@ func (c Clients) D8Virtualization() d8.D8Virtualization {
 }
 
 func init() {
-	conf, err := config.GetConfig()
-	if err != nil {
-		panic(err)
-	}
+	onceLoadConfig()
+
 	restConfig, err := conf.ClusterTransport.RestConfig()
 	if err != nil {
 		panic(err)
@@ -79,6 +80,10 @@ func init() {
 		panic(err)
 	}
 	clients.kubeClient, err = kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		panic(err)
+	}
+	clients.dynamic, err = dynamic.NewForConfig(restConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -92,10 +97,11 @@ func init() {
 	}
 
 	scheme := apiruntime.NewScheme()
+	// virtv1 and cdiv1 are not registered in the scheme,
+	// The main reason is that we cannot use kubevirt types in tests because in DVP we use rewritten kubevirt types
+	// use dynamic client for get kubevirt types
 	for _, f := range []func(*apiruntime.Scheme) error{
 		virtv2.AddToScheme,
-		virtv1.AddToScheme,
-		cdiv1.AddToScheme,
 		clientgoscheme.AddToScheme,
 	} {
 		if err := f(scheme); err != nil {

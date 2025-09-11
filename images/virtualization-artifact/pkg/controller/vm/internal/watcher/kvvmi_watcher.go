@@ -19,8 +19,8 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -56,7 +56,10 @@ func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 			}),
 			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
-					return !reflect.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status)
+					if !equality.Semantic.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status) {
+						return true
+					}
+					return !equality.Semantic.DeepEqual(e.ObjectOld.Spec, e.ObjectNew.Spec)
 				},
 			},
 		),

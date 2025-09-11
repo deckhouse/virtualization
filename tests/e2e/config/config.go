@@ -166,6 +166,7 @@ type TestData struct {
 type StorageClass struct {
 	DefaultStorageClass   *storagev1.StorageClass
 	ImmediateStorageClass *storagev1.StorageClass
+	TemplateStorageClass  *storagev1.StorageClass
 }
 
 type ClusterTransport struct {
@@ -314,7 +315,9 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 
 	kustomizeFile.Namespace = namespace + "-" + testCaseName
 	kustomizeFile.NamePrefix = namePrefix + "-"
-	kustomizeFile.Labels[0].Pairs["id"] = namePrefix
+	if len(kustomizeFile.Labels) > 0 {
+		kustomizeFile.Labels[0].Pairs["id"] = namePrefix
+	}
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr
