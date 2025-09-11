@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -108,13 +109,12 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	statuses, err := snapshotResources.Validate(ctx)
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
-		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+		s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
+		return &reconcile.Result{}, nil
 	}
 
 	if vmop.Spec.Clone.Mode == v1alpha2.VMOPRestoreModeDryRun {
-		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine can be cloned from the snapshot")
-		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
+		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine can be cloned from the snapshot.")
 		return &reconcile.Result{}, nil
 	}
 

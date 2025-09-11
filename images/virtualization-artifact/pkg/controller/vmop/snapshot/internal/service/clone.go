@@ -83,10 +83,10 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	return steptaker.NewStepTakers(
+		step.NewCleanupSnapshotStep(o.client, o.recorder, cb),
 		step.NewCreateSnapshotStep(o.client, o.recorder, cb),
 		step.NewVMSnapshotReadyStep(o.client, cb),
 		step.NewProcessCloneStep(o.client, o.recorder, cb),
-		step.NewCleanupSnapshotStep(o.client, o.recorder, cb),
 	).Run(ctx, o.vmop)
 }
 
@@ -116,16 +116,20 @@ func (o CloneOperation) IsInProgress() bool {
 	return false
 }
 
-func (o CloneOperation) IsComplete() bool {
+func (o CloneOperation) IsComplete() (bool, string) {
 	cloneCondition, ok := conditions.GetCondition(vmopcondition.TypeCloneCompleted, o.vmop.Status.Conditions)
 	if !ok {
-		return false
+		return false, ""
 	}
 
 	snapshotCondition, ok := conditions.GetCondition(vmopcondition.TypeSnapshotReady, o.vmop.Status.Conditions)
 	if !ok {
-		return false
+		return false, ""
 	}
 
-	return cloneCondition.Status == metav1.ConditionTrue && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp)
+	if cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationFailed) && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) {
+		return true, cloneCondition.Message
+	}
+
+	return cloneCondition.Status == metav1.ConditionTrue && snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp), ""
 }
