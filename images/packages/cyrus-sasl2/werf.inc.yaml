@@ -49,7 +49,7 @@ packages:
 - libxcrypt
 - zlib
 - linux-pam
-- openssl e2fsprogs openldap
+- openssl e2fsprogs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

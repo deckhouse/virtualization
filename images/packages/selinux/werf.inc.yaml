@@ -101,7 +101,8 @@ shell:
       install install-pywrap
 
     rm -rf $OUTDIR/usr/share/{applications,bash-completion,dbus-1,icons,pixmaps,locale,man}
-   
+    rm -rf $OUTDIR/usr/lib/python3/site-packages/sepolicy/help
+
     find ${OUTDIR} -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"

@@ -183,70 +183,6 @@
 │   │   │       │   ├── [-rw-r--r--  1.7K]  communicate.py
 │   │   │       │   ├── [-rw-r--r--   50K]  generate.py
 │   │   │       │   ├── [-rw-r--r--  131K]  gui.py
-│   │   │       │   ├── [drwxr-xr-x  4.0K]  help/
-│   │   │       │   │   ├── [-rw-r--r--     0]  __init__.py
-│   │   │       │   │   ├── [drwxr-xr-x  4.0K]  __pycache__/
-│   │   │       │   │   │   └── [-rw-r--r--   157]  __init__.cpython-312.pyc
-│   │   │       │   │   ├── [-rw-r--r--   71K]  booleans.png
-│   │   │       │   │   ├── [-rw-r--r--   478]  booleans.txt
-│   │   │       │   │   ├── [-rw-r--r--   61K]  booleans_more.png
-│   │   │       │   │   ├── [-rw-r--r--   193]  booleans_more.txt
-│   │   │       │   │   ├── [-rw-r--r--   34K]  booleans_more_show.png
-│   │   │       │   │   ├── [-rw-r--r--    62]  booleans_more_show.txt
-│   │   │       │   │   ├── [-rw-r--r--   61K]  booleans_toggled.png
-│   │   │       │   │   ├── [-rw-r--r--   310]  booleans_toggled.txt
-│   │   │       │   │   ├── [-rw-r--r--   48K]  file_equiv.png
-│   │   │       │   │   ├── [-rw-r--r--  1.2K]  file_equiv.txt
-│   │   │       │   │   ├── [-rw-r--r--   80K]  files_apps.png
-│   │   │       │   │   ├── [-rw-r--r--   563]  files_apps.txt
-│   │   │       │   │   ├── [-rw-r--r--   66K]  files_exec.png
-│   │   │       │   │   ├── [-rw-r--r--   398]  files_exec.txt
-│   │   │       │   │   ├── [-rw-r--r--   76K]  files_write.png
-│   │   │       │   │   ├── [-rw-r--r--   567]  files_write.txt
-│   │   │       │   │   ├── [-rw-r--r--   49K]  lockdown.png
-│   │   │       │   │   ├── [-rw-r--r--   291]  lockdown.txt
-│   │   │       │   │   ├── [-rw-r--r--   29K]  lockdown_permissive.png
-│   │   │       │   │   ├── [-rw-r--r--   722]  lockdown_permissive.txt
-│   │   │       │   │   ├── [-rw-r--r--   29K]  lockdown_ptrace.png
-│   │   │       │   │   ├── [-rw-r--r--  1.2K]  lockdown_ptrace.txt
-│   │   │       │   │   ├── [-rw-r--r--   27K]  lockdown_unconfined.png
-│   │   │       │   │   ├── [-rw-r--r--   867]  lockdown_unconfined.txt
-│   │   │       │   │   ├── [-rw-r--r--   39K]  login.png
-│   │   │       │   │   ├── [-rw-r--r--   786]  login.txt
-│   │   │       │   │   ├── [-rw-r--r--   41K]  login_default.png
-│   │   │       │   │   ├── [-rw-r--r--   507]  login_default.txt
-│   │   │       │   │   ├── [-rw-r--r--   58K]  ports_inbound.png
-│   │   │       │   │   ├── [-rw-r--r--   336]  ports_inbound.txt
-│   │   │       │   │   ├── [-rw-r--r--   52K]  ports_outbound.png
-│   │   │       │   │   ├── [-rw-r--r--   346]  ports_outbound.txt
-│   │   │       │   │   ├── [-rw-r--r--   14K]  start.png
-│   │   │       │   │   ├── [-rw-r--r--   505]  start.txt
-│   │   │       │   │   ├── [-rw-r--r--   49K]  system.png
-│   │   │       │   │   ├── [-rw-r--r--    81]  system.txt
-│   │   │       │   │   ├── [-rw-r--r--   51K]  system_boot_mode.png
-│   │   │       │   │   ├── [-rw-r--r--   458]  system_boot_mode.txt
-│   │   │       │   │   ├── [-rw-r--r--   51K]  system_current_mode.png
-│   │   │       │   │   ├── [-rw-r--r--   344]  system_current_mode.txt
-│   │   │       │   │   ├── [-rw-r--r--   52K]  system_export.png
-│   │   │       │   │   ├── [-rw-r--r--   416]  system_export.txt
-│   │   │       │   │   ├── [-rw-r--r--   53K]  system_policy_type.png
-│   │   │       │   │   ├── [-rw-r--r--   410]  system_policy_type.txt
-│   │   │       │   │   ├── [-rw-r--r--   52K]  system_relabel.png
-│   │   │       │   │   ├── [-rw-r--r--   399]  system_relabel.txt
-│   │   │       │   │   ├── [-rw-r--r--   68K]  transition_file.png
-│   │   │       │   │   ├── [-rw-r--r--  1.0K]  transition_file.txt
-│   │   │       │   │   ├── [-rw-r--r--   62K]  transition_from.png
-│   │   │       │   │   ├── [-rw-r--r--   619]  transition_from.txt
-│   │   │       │   │   ├── [-rw-r--r--   66K]  transition_from_boolean.png
-│   │   │       │   │   ├── [-rw-r--r--   463]  transition_from_boolean.txt
-│   │   │       │   │   ├── [-rw-r--r--   70K]  transition_from_boolean_1.png
-│   │   │       │   │   ├── [-rw-r--r--   235]  transition_from_boolean_1.txt
-│   │   │       │   │   ├── [-rw-r--r--   31K]  transition_from_boolean_2.png
-│   │   │       │   │   ├── [-rw-r--r--   132]  transition_from_boolean_2.txt
-│   │   │       │   │   ├── [-rw-r--r--   58K]  transition_to.png
-│   │   │       │   │   ├── [-rw-r--r--   605]  transition_to.txt
-│   │   │       │   │   ├── [-rw-r--r--   56K]  users.png
-│   │   │       │   │   └── [-rw-r--r--   814]  users.txt
 │   │   │       │   ├── [-rw-r--r--  8.0K]  interface.py
 │   │   │       │   ├── [-rw-r--r--   39K]  manpage.py
 │   │   │       │   ├── [-rw-r--r--  2.7K]  network.py
@@ -415,5 +351,5 @@
         └── [drwxr-xr-x  4.0K]  sepolgen/
             └── [-rw-r--r--   33K]  perm_map
 
-51 directories, 362 files
+49 directories, 300 files
 ```
