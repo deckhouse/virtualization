@@ -34,7 +34,6 @@ altPackages:
 - tree
 packages:
 - libxcrypt
-# - selinux-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
