@@ -70,21 +70,21 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	snapshotName, ok := vmop.Annotations[annotations.AnnVMOPSnapshotName]
 	if !ok {
 		err := fmt.Errorf("snapshot name annotation not found")
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
@@ -92,7 +92,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
@@ -108,7 +108,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	statuses, err := snapshotResources.Validate(ctx)
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
@@ -121,7 +121,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	statuses, err = snapshotResources.Process(ctx)
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 

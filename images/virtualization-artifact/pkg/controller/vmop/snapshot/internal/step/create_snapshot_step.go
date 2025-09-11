@@ -63,7 +63,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 		vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: snapshotName}
 		vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &v1alpha2.VirtualMachineSnapshot{})
 		if err != nil {
-			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+			common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 			return &reconcile.Result{}, err
 		}
 
@@ -74,7 +74,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 					rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
 					&vmop.Status.Conditions,
 				)
-				common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+				common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 
 				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase", vmSnapshotKey.Name)
 			case v1alpha2.VirtualMachineSnapshotPhaseReady:
@@ -96,7 +96,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	var snapshotList v1alpha2.VirtualMachineSnapshotList
 	err := s.client.List(ctx, &snapshotList, client.InNamespace(vmop.Namespace))
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
@@ -144,7 +144,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	err = s.client.Create(ctx, snapshot)
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
+		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, fmt.Errorf("failed to create VirtualMachineSnapshot: %w", err)
 	}
 
