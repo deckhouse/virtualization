@@ -109,7 +109,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return nil, nil
+		return &reconcile.Result{}, err
 	}
 
 	if vmop.Spec.Clone.Mode == v1alpha2.VMOPRestoreModeDryRun {
@@ -122,7 +122,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	common.FillResourcesStatuses(vmop, statuses)
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-		return nil, nil
+		return &reconcile.Result{}, err
 	}
 
 	for _, status := range statuses {

@@ -56,13 +56,17 @@ func NewCleanupSnapshotStep(
 func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
 	rcb := conditions.NewConditionBuilder(vmopcondition.TypeSnapshotReady)
 
+	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
+	if found && (snapshotCondition.Reason == string(vmopcondition.ReasonSnapshotCleanedUp) || snapshotCondition.Status == metav1.ConditionFalse) {
+		return &reconcile.Result{}, nil
+	}
+
 	cloneCondition, found := conditions.GetCondition(vmopcondition.TypeCloneCompleted, vmop.Status.Conditions)
 	if !found || cloneCondition.Reason == string(vmopcondition.ReasonCloneOperationInProgress) {
 		return &reconcile.Result{}, nil
 	}
 
-	snapshotCondition, found := conditions.GetCondition(vmopcondition.TypeSnapshotReady, vmop.Status.Conditions)
-	if !found || snapshotCondition.Status == metav1.ConditionFalse {
+	if cloneCondition.Reason != string(vmopcondition.ReasonCloneOperationFailed) && cloneCondition.Status == metav1.ConditionFalse {
 		return &reconcile.Result{}, nil
 	}
 
@@ -101,6 +105,10 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		err := s.client.Get(ctx, vdKey, &vd)
 		if err != nil {
 			return &reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
+		}
+
+		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmop.UID) {
+			return &reconcile.Result{}, nil
 		}
 
 		if vd.Status.Phase == v1alpha2.DiskFailed {
