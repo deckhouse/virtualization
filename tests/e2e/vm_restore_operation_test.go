@@ -23,7 +23,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -33,12 +35,14 @@ import (
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 )
 
-const ubuntuUrl = "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+const ubuntuUrl = "https://cloud-images.ubuntu.com/noble/20250704/noble-server-cloudimg-amd64.img"
 
 var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
 	frameworkEntity := framework.NewFramework("virtual-machine-restore-operation")
@@ -56,11 +60,11 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 		It("Applying resources", func() {
 			helper.GenerateAndCreateOriginalResources()
 		})
-		It("Resorces should be applied", func() {
+		It("Resorces should be ready", func() {
 			Eventually(func(g Gomega) {
 				helper.UpdateState(g)
 				helper.CheckIfResourcesReady(g)
-			}, 180*time.Second, 1*time.Second).Should(Succeed())
+			}, 300*time.Second, 1*time.Second).Should(Succeed())
 		})
 	})
 
@@ -73,6 +77,7 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 				true,
 				v1alpha2.KeepIPAddressAlways,
 			)
+			By(fmt.Sprintf("Creating vm snapshot: %s/%s", helper.VMSnapshot.Namespace, helper.VMSnapshot.Name))
 			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMSnapshot)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
@@ -81,8 +86,29 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 			Eventually(func(g Gomega) {
 				helper.UpdateState(g)
 
-				// Expect(helper.VMSnapshot.)
-			}, 120*time.Second, 1*time.Second).Should(Succeed())
+				g.Expect(helper.VMSnapshot.Status.Phase).Should(Equal(v1alpha2.VirtualMachineSnapshotPhaseReady))
+			}, 300*time.Second, 1*time.Second).Should(Succeed())
+		})
+	})
+
+	Context("Removing VM", func() {
+		It("Remove VM", func() {
+			helper.FrameworkEntity.Clients.GenericClient().Delete(context.Background(), helper.VM)
+		})
+
+		It("VM should not exists", func() {
+			Eventually(func(g Gomega) {
+				var vm v1alpha2.VirtualMachine
+				err := helper.FrameworkEntity.Clients.GenericClient().Get(
+					context.Background(),
+					types.NamespacedName{
+						Namespace: helper.VM.Namespace,
+						Name:      helper.VM.Name,
+					},
+					&vm,
+				)
+				g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+			}, 60*time.Second, time.Second).Should(Succeed())
 		})
 	})
 
@@ -122,17 +148,17 @@ func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 		"10%",
 		"1Gi",
 		v1alpha2.BlockDeviceSpecRef{
-			Kind: v1alpha2.ClusterImageDevice,
-			Name: h.CVI.Name,
-		},
-		v1alpha2.BlockDeviceSpecRef{
-			Kind: v1alpha2.ImageDevice,
-			Name: h.VI.Name,
-		},
-		v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.DiskDevice,
 			Name: h.VDRoot.Name,
 		},
+		// v1alpha2.BlockDeviceSpecRef{
+		// 	Kind: v1alpha2.ClusterImageDevice,
+		// 	Name: h.CVI.Name,
+		// },
+		// v1alpha2.BlockDeviceSpecRef{
+		// 	Kind: v1alpha2.ImageDevice,
+		// 	Name: h.VI.Name,
+		// },
 	)
 	h.VMBDA = h.GenerateVMBDA(
 		"vmbda", h.FrameworkEntity.Namespace().Name, h.VM.Name,
@@ -170,6 +196,24 @@ func (h *VMOPRestoreTestHelper) GenerateVM(
 	memoreySize string,
 	blockDeviceRefs ...v1alpha2.BlockDeviceSpecRef,
 ) *v1alpha2.VirtualMachine {
+	cloudInit :=
+		`#cloud-config
+users:
+- name: cloud
+passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
+shell: /bin/bash
+sudo: ALL=(ALL) NOPASSWD:ALL
+chpasswd: { expire: False }
+lock_passwd: false
+ssh_authorized_keys:
+    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDdgocvYNNgs/GkZVCoGUSWI9S4IJ2pvl/f/9k3/QalIwmkIjEqef9ndIpw+hr57MBzxKZbgjkstwedd+iH3Q06Lf3Ne3VsbNJBkQsdaSfCKwelkWng+uAdC/Ol8Kh9VA3pqur4EWsXAdWZ2YtaQD64GF9JPN9ASybwr/r0cIgpBilvC7GqLzgwoGxAlqj/gWWj4RJZzSr4lflXBiiOyqxA0EnLs13jGbxMWzUWGMd35l1B5MkEYIj+brvX9wCtJGBnsmmTU3q2J3dk2wSM8BCNLq1Rg2UoLiZzWdgxRU6tcuMtBJBn+llrbYtfDGs1nj5XlGqa+nwa1KgC8IHbTTsyX/Kde019Q+7QEDnP3ZMd1qVFIn01NjePTRfdSAXgPI6DO1ifemPKuRobgjC3HTGyH3CHhlbkz01XUpP+Pdpj+LKHGBDVBC2qDx2Hr+wwnJJEqxID3RqICYyidR+7Goti/0ike0ddT/wRNd/C+6rMepgTbuOj0uW65l4Bkormrrs= work@work-ThinkPad-T14-Gen-3
+
+runcmd:
+- [bash, -c, "apt update"]
+- [bash, -c, "apt install qemu-guest-agent -y"]
+- [bash, -c, "systemctl enable qemu-guest-agent"]
+- [bash, -c, "systemctl start qemu-guest-agent"]`
+
 	return vmbuilder.New(
 		vmbuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
 		vmbuilder.WithNamespace(namespace),
@@ -177,6 +221,12 @@ func (h *VMOPRestoreTestHelper) GenerateVM(
 		vmbuilder.WithLiveMigrationPolicy(liveMigrationPolicy),
 		vmbuilder.WithCPU(cores, ptr.To(coreFraction)),
 		vmbuilder.WithMemory(resource.MustParse(memoreySize)),
+		vmbuilder.WithProvisioning(
+			&v1alpha2.Provisioning{
+				Type:     v1alpha2.ProvisioningTypeUserData,
+				UserData: cloudInit,
+			},
+		),
 	)
 }
 
@@ -358,4 +408,7 @@ func (h *VMOPRestoreTestHelper) CheckIfResourcesReady(g Gomega) {
 	g.Expect(h.VDRoot.Status.Phase).Should(Equal(v1alpha2.DiskReady))
 	g.Expect(h.VMBDA.Status.Phase).Should(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
 	g.Expect(h.VM.Status.Phase).Should(Equal(v1alpha2.MachineRunning))
+
+	agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, h.VM.Status.Conditions)
+	g.Expect(agentReady.Status).Should(Equal(metav1.ConditionTrue))
 }

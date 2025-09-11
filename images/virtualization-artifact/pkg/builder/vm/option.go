@@ -86,3 +86,9 @@ func WithVirtualMachineClass(class string) Option {
 		vm.Spec.VirtualMachineClassName = class
 	}
 }
+
+func WithProvisioning(provisiong *v1alpha2.Provisioning) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Provisioning = provisiong
+	}
+}
