@@ -47,7 +47,7 @@ func (h ProtectionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (
 		}
 	}
 
-	if unmounted {
+	if unmounted || vd.Status.Phase == virtv2.DiskPending {
 		log.Debug("Allow virtual disk deletion")
 		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
 		return reconcile.Result{}, nil
