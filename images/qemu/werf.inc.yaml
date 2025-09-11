@@ -335,7 +335,6 @@ shell:
       --enable-werror \
       --enable-xkbcommon \
       --enable-zstd
-      cat qemu-v9.2.0/build/meson-logs/meson-log.txt
 
     {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
