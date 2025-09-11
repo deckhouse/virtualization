@@ -99,10 +99,10 @@ altLibraries:
 - glibc-kernheaders
 - libfdt-devel
 - libuuid-devel
-- libtasn1-devel libslirp-devel
+- libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
-- libncursesw-devel libalsa-devel libpulseaudio-devel
+- libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
 - libsoundio-devel libsasl2-devel
 - libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
@@ -128,6 +128,7 @@ packages:
 - openldap keyutils
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
+- ngtcp2 libtasn1 ncurses
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

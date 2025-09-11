@@ -47,7 +47,6 @@ altPackages:
 - gem-gettext-devel gettext po4a
 - libunistring-devel
 - libtpm2-tss-devel libtrousers-devel
-- libtasn1-devel libtasn1-utils
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
 - liboqs-devel libreadline-devel
@@ -57,6 +56,7 @@ packages:
 - libbrotli libidn2 libgcrypt libgmp
 - nettle zlib zstd p11-kit
 - openssl
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

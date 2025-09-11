@@ -24,7 +24,6 @@ altLibs:
   - libgvnc-devel
   - libfdt-devel
   - libuuid-devel
-  - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
   - libxdp-devel
@@ -87,7 +86,6 @@ altLibs:
   - glib2-devel
   - libgio-devel
   - libxml2-devel
-  - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
@@ -130,6 +128,7 @@ packages:
 - zlib zstd p11-kit linux-pam
 - libssh libssh2
 - libpixman libqpl rdma-core
+- libtasn1 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

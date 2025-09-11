@@ -21,7 +21,7 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -34,6 +34,7 @@ altPackages:
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
 - gnutls libidn2 libgmp ubdsrv
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
