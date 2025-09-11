@@ -66,12 +66,6 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 	if dvcrSettings.RegistryURL == "" {
 		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRRegistryURLVar)
 	}
-	if dvcrSettings.UploaderIngressSettings.Host == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressHostVar)
-	}
-	if dvcrSettings.UploaderIngressSettings.Class == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressClassVar)
-	}
 
 	if dvcrSettings.AuthSecret != "" && dvcrSettings.AuthSecretNamespace == "" {
 		dvcrSettings.AuthSecretNamespace = controllerNamespace
