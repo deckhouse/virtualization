@@ -9,7 +9,6 @@ altPackages:
 - python3-devel python3-module-setuptools 
 - python3-module-dbus python3-module-pyudev
 - libsepol-devel
-- libblkid-devel
 - libnvme-devel
 - sanlock-devel
 - libcorosync-devel
@@ -17,6 +16,7 @@ altPackages:
 packages:
 - readline
 - selinux
+- util-linux
 - ncurses
 {{- end -}}
 
