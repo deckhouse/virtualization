@@ -76,7 +76,7 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 				)
 				common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 
-				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase", vmSnapshotKey.Name)
+				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase: %w. Try again with new VMOP Clone operation", vmSnapshotKey.Name, err)
 			case v1alpha2.VirtualMachineSnapshotPhaseReady:
 				conditions.SetCondition(
 					rcb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonSnapshotOperationReady).Message("Snapshot is ready for clone operation."),
