@@ -39,7 +39,6 @@ altPackages:
 - python3-module-setuptools
 - python3-module-sphinx-sphinx-build-symlink
 - libMySQL-devel postgresql-devel libsqlite3-devel
-- libldap-devel
 - m4
 - groff-base gettext-tools
 - libdb4-devel
