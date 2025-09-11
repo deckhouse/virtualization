@@ -31,7 +31,7 @@ altPackages:
 - libsphinxclient-devel libsphinxclient
 - libsphinxbase-devel libgdbm-devel
 - libcom_err-devel libdb4-devel libkrb5-devel
-- groff-base openssl-devel
+- groff-base
 - perl-Pod-POM-View-Restructured
 - python3-module-sphinx
 - python3-module-sphinx-devel
