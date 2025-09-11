@@ -98,6 +98,11 @@ const (
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 
+	// AnnVMOPRestore is an annotation on a resource that indicates it was created by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
+	AnnVMOPRestore = AnnAPIGroupV + "/vmoprestore"
+	// AnnVMRestoreDeleted is an annotation on a resource that indicates it was deleted by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
+	AnnVMOPRestoreDeleted = AnnAPIGroupV + "/vmoprestoredeleted"
+
 	// AnnUploadURL is an annotation on Ingress with full URL to upload image from outside the cluster.
 	AnnUploadURL = AnnAPIGroupV + "/upload.url"
 	// AnnUploadPath is an annotation on Ingress with the URL path to upload image.

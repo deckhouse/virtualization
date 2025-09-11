@@ -40,6 +40,9 @@ const (
 	// ReasonVMStartFailed is an event reason indicating that the start of the VM failed.
 	ReasonVMStartFailed = "Failed"
 
+	// ReasonVMStopFailed is an event reason indicating that the stop of the VM failed.
+	ReasonVMStopFailed = "Failed"
+
 	// ReasonVMLastAppliedSpecIsInvalid is event reason that JSON in last-applied-spec annotation is invalid.
 	ReasonVMLastAppliedSpecIsInvalid = "LastAppliedSpecIsInvalid"
 

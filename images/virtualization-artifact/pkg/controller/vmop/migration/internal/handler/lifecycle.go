@@ -78,6 +78,17 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 	// 1.Initialize new VMOP resource: set phase to Pending and all conditions to Unknown.
 	h.base.Init(vmop)
 
+	if vmop.Status.Phase == "" {
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
+				Generation(vmop.GetGeneration()).
+				Reason(conditions.ReasonUnknown).
+				Status(metav1.ConditionUnknown).
+				Message(""),
+			&vmop.Status.Conditions,
+		)
+	}
+
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).Generation(vmop.GetGeneration())
 
 	// Pending if quota exceeded.
