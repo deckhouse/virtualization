@@ -1,3 +1,7 @@
+ci:
+  fixes:
+    - summary: fixed src-artifact
+      pull_request: https://github.com/deckhouse/virtualization/pull/1384
 core:
   fixes:
     - summary: Refactor build libidn and libidn2
