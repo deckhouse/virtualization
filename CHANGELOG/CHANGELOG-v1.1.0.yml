@@ -1,0 +1,13 @@
+ci:
+  fixes:
+    - summary: fix variable name for delve debug
+      pull_request: https://github.com/deckhouse/virtualization/pull/1442
+core:
+  features:
+    - summary: add e2e framework
+      pull_request: https://github.com/deckhouse/virtualization/pull/1366
+vd:
+  fixes:
+    - summary: allow delete pending resource
+      pull_request: https://github.com/deckhouse/virtualization/pull/1448
+
