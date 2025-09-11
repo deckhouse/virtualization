@@ -108,6 +108,10 @@ func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
 		if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
 			return fmt.Errorf("content of the secret %s is different from that in the snapshot", v.secret.Name)
 		}

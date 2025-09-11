@@ -108,6 +108,10 @@ func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
 		vmName := v.getVirtualMachineName()
 		for _, attachment := range existed.Status.AttachedToVirtualMachines {
 			if attachment.Mounted && attachment.Name != vmName {

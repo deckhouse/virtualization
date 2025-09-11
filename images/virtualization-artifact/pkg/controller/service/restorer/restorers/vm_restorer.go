@@ -149,6 +149,10 @@ func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
 		return fmt.Errorf("VirtualMachine with name %s already exists", v.vm.Name)
 	}
 
