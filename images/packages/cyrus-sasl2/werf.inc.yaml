@@ -30,7 +30,7 @@ altPackages:
 - meson ninja-build flex
 - libsphinxclient-devel libsphinxclient
 - libsphinxbase-devel libgdbm-devel
-- libcom_err-devel libdb4-devel libkrb5-devel
+- libdb4-devel libkrb5-devel
 - groff-base
 - perl-Pod-POM-View-Restructured
 - python3-module-sphinx
