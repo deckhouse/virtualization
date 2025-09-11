@@ -13,6 +13,7 @@ secrets:
   value: {{ $.SOURCE_REPO }}
 shell:
   install:
+  - echo "Rebuild 11.09.2025-2"
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
 
 ---

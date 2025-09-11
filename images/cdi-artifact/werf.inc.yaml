@@ -31,6 +31,7 @@ secrets:
   value: {{ $.SOURCE_REPO }}
 shell:
   install:
+  - echo "Rebuild 11.09.2025"
   - |
     echo "Git clone CDI repository..."
     git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
