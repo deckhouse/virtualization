@@ -42,7 +42,6 @@ altPackages:
 - libldap-devel
 - m4
 - groff-base gettext-tools
-- libssl-devel
 - libdb4-devel
 - libkrb5-devel
 - libsqlite3-devel
@@ -51,6 +50,7 @@ packages:
 - libxcrypt
 - zlib
 - linux-pam
+- openssl e2fsprogs openldap
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
