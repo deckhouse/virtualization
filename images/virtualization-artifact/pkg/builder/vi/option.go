@@ -40,3 +40,39 @@ func WithCDROM(cdrom bool) func(vi *v1alpha2.VirtualImage) {
 		vi.Status.CDROM = cdrom
 	}
 }
+
+func WithStorageType(storageType *v1alpha2.StorageType) func(vi *v1alpha2.VirtualImage) {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.Storage = *storageType
+	}
+}
+
+func WithDatasource(datasource v1alpha2.VirtualImageDataSource) func(vd *v1alpha2.VirtualImage) {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = datasource
+	}
+}
+
+func WithDataSourceHTTP(url string, checksum *v1alpha2.Checksum, caBundle []byte) Option {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL:      url,
+				Checksum: checksum,
+				CABundle: caBundle,
+			},
+		}
+	}
+}
+
+func WithDataSourceHTTPWithOnlyURL(url string) Option {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL: url,
+			},
+		}
+	}
+}
