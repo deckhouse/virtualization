@@ -105,7 +105,7 @@ altLibraries:
 - libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
 - libsoundio-devel
-- libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
+- libjpeg-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
@@ -133,6 +133,7 @@ packages:
 - snappy
 - ngtcp2 libtasn1 ncurses
 - glib2 util-linux
+- libxkbcommon
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

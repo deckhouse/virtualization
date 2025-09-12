@@ -37,7 +37,6 @@ altLibs:
   - libsoundio-devel
   - libjpeg-devel
   - libpng-devel
-  - libxkbcommon-devel
   - xkeyboard-config-devel
   - libgtk+3-devel
   - libvte
@@ -129,6 +128,7 @@ packages:
 - snappy
 - libtasn1 libtirpc
 - glib2
+- libxkbcommon
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
