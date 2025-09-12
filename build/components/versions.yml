@@ -3,7 +3,7 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: v1.3.1-v12n.10
+  3p-kubevirt: v1.3.1-v12n.11
   3p-containerized-data-importer: v1.60.3-v12n.9
   distribution: 2.8.3
 package:
@@ -23,7 +23,7 @@ package:
   libbrotli: v1.1.0
   libbsd: 0.12.2
   libburn: release-1.5.6
-  libcap: libcap-2.69
+  libcap: libcap-2.69 # v1.2.69
   libcap-ng: v0.8.5
   libcapstone: 4.0.2
   libcurl: curl-8_14_1
@@ -77,5 +77,11 @@ package:
   swtpm: v0.10.0
   ubdsrv: v1.6
   util-linux: v2.41.1
+  readline: readline-8.2
+  cyrus-sasl2: cyrus-sasl-2.1.28 # libsasl2-3
+  libseccomp: v2.6.0
+  selinux: 3.6
+  libslirp: v4.8.0
+  snappy: 1.2.2 # libsnappy
   zlib: v1.3.1
   zstd: v1.5.7

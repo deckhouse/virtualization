@@ -49,7 +49,6 @@ altPackages:
 - clang ccache
 - make cmake
 - meson ninja-build
-- attr
 - iproute iptables iptables-nft iptables-ipv6
 - openvswitch ebtables
 - pkgconfig
@@ -69,29 +68,28 @@ altLibraries:
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
 - libpcap-devel libnl-devel
-- libselinux-devel libsasl2-devel
 - libparted-devel
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
 - libgnutls-devel
-- libreadline-devel
-- libattr-devel libbsd-devel
 - libsystemd-devel
 - systemtap-sdt-devel
 - libacl-devel glibc-utils
 - libxml2-devel
-- libsasl2-devel
 - wireshark-devel
 - libclocale
 - libslirp-devel
-- libyajl-devel libselinux-devel
+- libyajl-devel
 packages:
 - dmidecode lvm2 libattr libbsd libmd util-linux
 - libgcrypt libfuse3 libaudit libnbd libcap-ng
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
+- readline
+- selinux
+- cyrus-sasl2
 - libtasn1 libtirpc
 - glib2
 {{- end -}}
@@ -114,10 +112,6 @@ import:
   to: /install-libvirt.sh
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-- image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
-  to: /qemu-img
-  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -139,12 +133,10 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"

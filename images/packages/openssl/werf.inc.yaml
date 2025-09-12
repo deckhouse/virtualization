@@ -30,8 +30,7 @@ altPackages:
 - gcc git make glibc-devel-static musl-devel-static
 - autoconf automake libtool makeinfo
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
-- autoconf libtool makeinfo gettext-devel po4a
-- zlib-devel
+- gettext-devel po4a
 - tree
 packages:
 - zlib

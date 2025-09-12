@@ -394,7 +394,11 @@ virtualization:
         - 10.0.10.0/24
         - 10.0.20.0/24
         - 10.0.30.0/24
-
+    virtConfig:
+      phase: Deployed
+      parallelMigrationsPerCluster: 2
+    virtHandler:
+      nodeCount: 1
   logLevel: debug
   registry:
     base: some-registry.io/sys/deckhouse-oss/modules

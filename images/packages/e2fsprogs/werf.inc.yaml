@@ -26,10 +26,10 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools
-- libuuid-devel libarchive-devel acl
+- libuuid-devel libarchive-devel
 - tree
 packages:
-- glib2 util-linux
+- glib2 util-linux acl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

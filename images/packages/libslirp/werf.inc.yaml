@@ -5,12 +5,13 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "rockdaboot/libpsl.git" }}
+{{- $gitRepoUrl := "slirp/libslirp.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -25,28 +26,18 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools meson ninja-build
-- rpm-build-python3
-- libicu-devel
-- libunistring-devel
-- gtk-doc xsltproc
-- publicsuffix-list
-- publicsuffix-list-dafsa
+- gcc gcc-c++ autoconf automake libtool make pkg-config
+- meson ninja-build
 - tree
 packages:
-- libidn2
 - glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
@@ -70,29 +61,22 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-
+    
     OUTDIR=/out
-    cd /src
-    mkdir _build
-    /usr/bin/meson setup _build  \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      -Dbuiltin=false \
-      -Dpsl_distfile=/usr/share/publicsuffix/public_suffix_list.dafsa \
-      -Dpsl_file=/usr/share/publicsuffix/effective_tld_names.dat \
-      -Dpsl_testfile=/usr/share/publicsuffix/test_psl.txt \
-      -Druntime=libidn2 \
-      -Ddocs=false \
-      -Dtests=false \
-      --wrap-mode=nofallback \
-      --wrap-mode=nodownload
 
-    ninja-build -j$(nproc) -C _build
-    DESTDIR=$OUTDIR ninja-build install -C _build
+    cd /src
+
+    meson setup build --prefix=/usr --buildtype=release
+    ninja -C build
+    DESTDIR=${OUTDIR} meson install -C build
+
     rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/var
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
-    tree -hp $OUTDIR
+
+    tree -sph $OUTDIR
