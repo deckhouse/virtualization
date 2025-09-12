@@ -5,12 +5,15 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
+  excludePaths:
+  - var
+  - etc
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "opensvc/multipath-tools.git" }}
+{{- $gitRepoUrl := "SELinuxProject/selinux.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,21 +24,35 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc make git autoconf libtool gettext-tools
-- gcc-c++ makeinfo
-- libmultipath kpartx
-- dmsetup udev-rules-sgutils sg3_utils
-- libaio-devel libdevmapper-devel libudev-devel libsystemd-devel
-- libuserspace-rcu-devel libjson-c-devel
+- gcc gcc-c++ autoconf automake libtool make makeinfo pkg-config
+- bison flex
+- CUnit-devel
+- diffutils swig
+- gettext gettext-tools
+- libsystemd-devel
+- libsepol-devel libsepol-devel-static
+- xmlto
+- python3 python3-devel
+- python3-module-pip
+- python3-module-setuptools
+- python3-module-pyproject-installer
+- python3-module-wheel
+- python3-module-distro
+- ruby-devel
+- libgio-devel
+- libustr-devel libustr 
+- policycoreutils-restorecond policycoreutils
+- tree
 packages:
-- util-linux
-- readline
+- libaudit
+- glib2 bzip2
+- pcre2
+- libcap libcap-ng
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -60,27 +77,36 @@ shell:
 
   install:
   - |
-    echo "Install packages"
+    # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
-    OUTDIR=/out
 
     cd /src
+    OUTDIR=/out
 
-    make -j$(nproc) all
+    make -j$(nproc) clean distclean
 
-    make DESTDIR=$OUTDIR prefix=/usr LIB=/lib64 install
+    make -j$(nproc) \
+      DESTDIR=$OUTDIR \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin \
+      LIBDIR=/usr/lib64 \
+      SHLIBDIR=/usr/lib64 \
+      PKG_CONFIG_PATH=$OUTDIR/usr/lib64/pkgconfig:$PKG_CONFIG_PATH \
+      LD_LIBRARY_PATH=$OUTDIR/usr/lib64:$LD_LIBRARY_PATH \
+      LDFLAGS+="-L$OUTDIR/usr/lib64" \
+      install install-pywrap
 
-    # We don't need man
-    rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/share/{applications,bash-completion,dbus-1,icons,pixmaps,locale,man}
+    rm -rf $OUTDIR/usr/lib/python3/site-packages/sepolicy/help
 
-    find $OUTDIR -type f -executable | while read -r execfile; do
+    find ${OUTDIR} -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
 
+    tree -sph $OUTDIR

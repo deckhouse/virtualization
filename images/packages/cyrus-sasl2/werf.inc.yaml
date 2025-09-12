@@ -5,12 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /{{ .ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "opensvc/multipath-tools.git" }}
+{{- $gitRepoUrl := "cyrusimap/cyrus-sasl.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,21 +21,35 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc make git autoconf libtool gettext-tools
-- gcc-c++ makeinfo
-- libmultipath kpartx
-- dmsetup udev-rules-sgutils sg3_utils
-- libaio-devel libdevmapper-devel libudev-devel libsystemd-devel
-- libuserspace-rcu-devel libjson-c-devel
+- gcc gcc-c++ autoconf automake libtool make pkg-config
+- meson ninja-build flex
+- libsphinxclient-devel libsphinxclient
+- libsphinxbase-devel libgdbm-devel
+- libdb4-devel libkrb5-devel
+- groff-base
+- perl-Pod-POM-View-Restructured
+- python3-module-sphinx
+- python3-module-sphinx-devel
+- python3-module-six
+- python3-module-setuptools
+- python3-module-sphinx-sphinx-build-symlink
+- libMySQL-devel postgresql-devel libsqlite3-devel
+- m4
+- groff-base gettext-tools
+- libdb4-devel
+- libkrb5-devel
+- libsqlite3-devel
+- tree
 packages:
-- util-linux
-- readline
+- libxcrypt
+- zlib
+- linux-pam
+- openssl e2fsprogs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -60,22 +74,39 @@ shell:
 
   install:
   - |
-    echo "Install packages"
+    # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+    
     OUTDIR=/out
 
     cd /src
 
-    make -j$(nproc) all
+    ./autogen.sh
+    ./configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --libdir=/usr/lib64 \
+      --enable-sample=no \
+      --disable-static \
+      --enable-shared \
+      --disable-static \
+      --disable-krb4 \
+      --enable-login \
+      --enable-ntlm \
+      --with-ldap \
+      --with-openssl \
+      --with-pam \
+      --with-dblib=berkeley \
+      --with-sqlite3 \
+      --disable-macos-framework
+    
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
 
-    make DESTDIR=$OUTDIR prefix=/usr LIB=/lib64 install
-
-    # We don't need man
     rm -rf $OUTDIR/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
@@ -84,3 +115,4 @@ shell:
     fi
     done
 
+    tree -sph $OUTDIR
