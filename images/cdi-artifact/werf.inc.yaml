@@ -11,7 +11,6 @@ binaries:
 packages:
 - libnbd
 - xz
-- libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -60,7 +59,7 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get -qq install -y \
+    apt-get -qq install -y libxml2-devel \
       git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
   {{- include "alt packages clean" . | nindent 2 }}
   install:
