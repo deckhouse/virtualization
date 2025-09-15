@@ -248,7 +248,9 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		return false
 	}
 
-	return podutil.IsPodRunning(pod) && podutil.IsPodStarted(pod) && ing.Annotations[annotations.AnnUploadURL] != ""
+	ingressIsOK := ing.Annotations[annotations.AnnUploadPath] != "" || ing.Annotations[annotations.AnnUploadURLDeprecated] != ""
+
+	return podutil.IsPodRunning(pod) && podutil.IsPodStarted(pod) && ingressIsOK
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {

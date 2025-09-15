@@ -99,12 +99,12 @@ altLibraries:
 - glibc-kernheaders
 - libfdt-devel
 - libuuid-devel
-- libtasn1-devel libslirp-devel
+- libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
-- libncursesw-devel libalsa-devel libpulseaudio-devel
+- libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
-- libsoundio-devel libsasl2-devel
+- libsoundio-devel
 - libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
@@ -113,22 +113,27 @@ altLibraries:
 - libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
 - libdaxctl-devel
-- bzlib-devel liblzo2-devel libsnappy-devel
+- bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
-- libaio-devel libselinux-devel
+- libaio-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
 - glib2-devel
 packages:
 - dmidecode libgcrypt nettle libcap-ng libcapstone
 - openssl libcurl e2fsprogs libxcrypt numactl
-- zlib zstd linux-pam
+- zlib zstd
 - libssh libssh2
 - openldap keyutils
 - xz lz4 lzo krb5
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
+- selinux
+- cyrus-sasl2
+- linux-pam
+- snappy
+- ngtcp2 libtasn1 ncurses
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -190,6 +195,9 @@ shell:
     export MAKE="/usr/bin/make"
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
+
+    export LDFLAGS="-L/usr/lib64 -L/usr/lib"
+    export CPPFLAGS="-I/usr/include"
 
     cd /{{ $gitRepoName }}-{{ $version }}
 

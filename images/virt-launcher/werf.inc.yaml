@@ -24,7 +24,6 @@ altLibs:
   - libgvnc-devel
   - libfdt-devel
   - libuuid-devel
-  - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
   - libxdp-devel
@@ -36,7 +35,6 @@ altLibs:
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
-  - libsasl2-devel
   - libjpeg-devel
   - libpng-devel
   - libxkbcommon-devel
@@ -60,7 +58,6 @@ altLibs:
   - libpmem-devel
   - libdaxctl-devel
   - bzlib-devel
-  - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
@@ -68,7 +65,6 @@ altLibs:
   - libvitastor-devel
   - libiscsi-devel
   - libaio-devel
-  - libselinux-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -80,12 +76,10 @@ altLibs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libreadline-devel
   - libsystemd-devel
   - systemtap-sdt-devel
   - glib2-devel
   - libgio-devel
-  - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
@@ -125,10 +119,16 @@ packages:
 - util-linux libfuse3 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
-- zlib zstd p11-kit linux-pam
+- zlib zstd p11-kit
 - libssh libssh2
 - libpixman libqpl rdma-core
 - krb5 xz libxml2
+- readline
+- selinux
+- linux-pam
+- cyrus-sasl2
+- snappy
+- libtasn1 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

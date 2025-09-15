@@ -139,9 +139,8 @@ func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) 
 			if updErr != nil {
 				if apierrors.IsConflict(updErr) {
 					return fmt.Errorf("waiting for the `VirtualMachine` %w", ErrUpdating)
-				} else {
-					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 				}
+				return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 			}
 		}
 	}

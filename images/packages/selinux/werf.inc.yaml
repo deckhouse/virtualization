@@ -1,0 +1,112 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+  excludePaths:
+  - var
+  - etc
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "SELinuxProject/selinux.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc gcc-c++ autoconf automake libtool make makeinfo pkg-config
+- bison flex
+- CUnit-devel
+- diffutils swig
+- gettext gettext-tools
+- libsystemd-devel
+- libsepol-devel libsepol-devel-static
+- xmlto
+- python3 python3-devel
+- python3-module-pip
+- python3-module-setuptools
+- python3-module-pyproject-installer
+- python3-module-wheel
+- python3-module-distro
+- ruby-devel
+- libgio-devel
+- libustr-devel libustr 
+- policycoreutils-restorecond policycoreutils
+- tree
+packages:
+- libaudit
+- glib2 bzip2
+- pcre2
+- libcap libcap-ng
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    cd /src
+    OUTDIR=/out
+
+    make -j$(nproc) clean distclean
+
+    make -j$(nproc) \
+      DESTDIR=$OUTDIR \
+      BINDIR=/usr/bin \
+      SBINDIR=/usr/sbin \
+      LIBDIR=/usr/lib64 \
+      SHLIBDIR=/usr/lib64 \
+      PKG_CONFIG_PATH=$OUTDIR/usr/lib64/pkgconfig:$PKG_CONFIG_PATH \
+      LD_LIBRARY_PATH=$OUTDIR/usr/lib64:$LD_LIBRARY_PATH \
+      LDFLAGS+="-L$OUTDIR/usr/lib64" \
+      install install-pywrap
+
+    rm -rf $OUTDIR/usr/share/{applications,bash-completion,dbus-1,icons,pixmaps,locale,man}
+    rm -rf $OUTDIR/usr/lib/python3/site-packages/sepolicy/help
+
+    find ${OUTDIR} -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -sph $OUTDIR

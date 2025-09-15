@@ -11,6 +11,7 @@ binaries:
 packages:
 - libnbd
 - xz
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -73,7 +74,7 @@ shell:
 
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
-    
+
     echo Download Go modules.
     cd /containerized-data-importer
     go mod download

@@ -31,7 +31,7 @@ altPackages:
 - bash-completion
 - curl qemu expect
 - filesystem
-- socat xz jq 
+- socat xz jq
 - iproute2
 - zlib-ng
 - libblkio libtorrent-rasterbar-devel
@@ -42,6 +42,7 @@ packages:
 - libssh
 - zstd
 - libxml2
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
