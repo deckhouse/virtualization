@@ -64,7 +64,6 @@ altLibs:
   - libgbm-devel
   - libvitastor-devel
   - libiscsi-devel
-  - libaio-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -129,6 +128,7 @@ packages:
 - libtasn1 libtirpc
 - glib2
 - libxkbcommon
+- libaio
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

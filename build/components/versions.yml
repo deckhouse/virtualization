@@ -19,6 +19,7 @@ package:
   libgmp: 6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
+  libaio: libaio-0.3.113
   libaudit: v4.0.3
   libbrotli: v1.1.0
   libbsd: 0.12.2

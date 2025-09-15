@@ -116,7 +116,6 @@ altLibraries:
 - bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
-- libaio-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
 packages:
@@ -135,6 +134,7 @@ packages:
 - glib2 util-linux
 - libxkbcommon
 - libgcc1
+- libaio
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
