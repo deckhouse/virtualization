@@ -13,7 +13,7 @@ package:
   dtc: v1.7.2
   e2fsprogs: v1.47.1
   file: FILE5_45
-  gcc: releases/gcc-13.2.1
+  gcc: releases/gcc-13.2.0
   glib2: 2.84.2
   glibc: glibc-2.38
   libgmp: 6.3.0
