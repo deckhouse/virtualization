@@ -49,13 +49,8 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 	frameworkEntity := framework.NewFramework("virtual-machine-restore-operation")
 	helper := NewVMOPRestoreTestHelper(frameworkEntity)
 
-	BeforeAll(func() {
-		frameworkEntity.Before()
-	})
-
-	AfterAll(func() {
-		frameworkEntity.After()
-	})
+	frameworkEntity.BeforeAll()
+	frameworkEntity.AfterAll()
 
 	Context("Preparing resources", func() {
 		It("Applying resources", func() {
@@ -97,15 +92,17 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 			helper.VMOPDryRun = helper.GenerateRestoreVMOP(
 				"vmop-dryrun", frameworkEntity.Namespace().Name,
 				helper.VMSnapshot.Name,
+				helper.VM.Name,
 				v1alpha2.VMOPRestoreModeDryRun,
 			)
 			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPDryRun)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 
-		It("Dry run restore VMOP must be ???", func() {
+		It("Dry run restore VMOP must be Completed", func() {
 			Eventually(func(g Gomega) {
-				// ???
+				helper.UpdateState(g)
+				g.Expect(helper.VMOPDryRun.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
 			}, 120*time.Second, 1*time.Second).Should(Succeed())
 		})
 	})
@@ -132,23 +129,25 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 		})
 	})
 
-	// Context("Restore in ??? mode", func() {
-	// 	It("Creating VMOP", func() {
-	// 		helper.VMOPDryRun = helper.GenerateRestoreVMOP(
-	// 			"vmop-dryrun", frameworkEntity.Namespace().Name,
-	// 			helper.VMSnapshot.Name,
-	// 			v1alpha2.VMOPRestoreModeDryRun,
-	// 		)
-	// 		err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPDryRun)
-	// 		Expect(err).ShouldNot(HaveOccurred())
-	// 	})
+	Context("Restore in BestEffort mode", func() {
+		It("Creating VMOP", func() {
+			helper.VMOPBestEffort = helper.GenerateRestoreVMOP(
+				"vmop-besteffort", frameworkEntity.Namespace().Name,
+				helper.VMSnapshot.Name,
+				helper.VM.Name,
+				v1alpha2.VMOPRestoreModeBestEffort,
+			)
+			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPBestEffort)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
 
-	// 	It("Dry run restore VMOP must be ???", func() {
-	// 		Eventually(func(g Gomega) {
-	// 			// ???
-	// 		}, 120*time.Second, 1*time.Second).Should(Succeed())
-	// 	})
-	// })
+		It("BestEffort restore VMOP must be Completed", func() {
+			Eventually(func(g Gomega) {
+				helper.UpdateState(g)
+				g.Expect(helper.VMOPBestEffort.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
+			}, 120*time.Second, 1*time.Second).Should(Succeed())
+		})
+	})
 
 	// Context("Do something", func() {
 	// 	// ???
@@ -172,9 +171,9 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 	// 	})
 	// })
 
-	Context("kek", func() {
-		time.Sleep(300 * time.Second)
-	})
+	// Context("kek", func() {
+	// 	time.Sleep(200 * time.Second)
+	// })
 })
 
 type VMOPRestoreTestHelper struct {
@@ -278,7 +277,7 @@ runcmd:
 - [bash, -c, "systemctl start qemu-guest-agent"]`
 
 	return vmbuilder.New(
-		vmbuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vmbuilder.WithName(name),
 		vmbuilder.WithNamespace(namespace),
 		vmbuilder.WithBlockDeviceRefs(blockDeviceRefs...),
 		vmbuilder.WithLiveMigrationPolicy(liveMigrationPolicy),
@@ -295,7 +294,7 @@ runcmd:
 
 func (h *VMOPRestoreTestHelper) GenerateVDBlank(name, namespace, size string) *v1alpha2.VirtualDisk {
 	return vdbuilder.New(
-		vdbuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(namespace),
 		vdbuilder.WithSize(ptr.To(resource.MustParse(size))),
 	)
@@ -303,7 +302,7 @@ func (h *VMOPRestoreTestHelper) GenerateVDBlank(name, namespace, size string) *v
 
 func (h *VMOPRestoreTestHelper) GenerateVDFromHttp(name, namespace, size, url string) *v1alpha2.VirtualDisk {
 	return vdbuilder.New(
-		vdbuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(namespace),
 		vdbuilder.WithSize(ptr.To(resource.MustParse(size))),
 		vdbuilder.WithDataSourceHTTPWithOnlyURL(url),
@@ -312,7 +311,7 @@ func (h *VMOPRestoreTestHelper) GenerateVDFromHttp(name, namespace, size, url st
 
 func (h *VMOPRestoreTestHelper) GenerateVI(name, namespace, url string) *v1alpha2.VirtualImage {
 	return vibuilder.New(
-		vibuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vibuilder.WithName(name),
 		vibuilder.WithNamespace(namespace),
 		vibuilder.WithDataSourceHTTPWithOnlyURL(url),
 		vibuilder.WithStorageType(ptr.To(v1alpha2.StorageContainerRegistry)),
@@ -321,14 +320,14 @@ func (h *VMOPRestoreTestHelper) GenerateVI(name, namespace, url string) *v1alpha
 
 func (h *VMOPRestoreTestHelper) GenerateCVI(name, url string) *v1alpha2.ClusterVirtualImage {
 	return cvibuilder.New(
-		cvibuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		cvibuilder.WithGenerateName(fmt.Sprintf("%s-", name)),
 		cvibuilder.WithDataSourceHTTPWithOnlyURL(url),
 	)
 }
 
 func (h *VMOPRestoreTestHelper) GenerateVMBDA(name, namespace, vmName string, bdRef v1alpha2.VMBDAObjectRef) *v1alpha2.VirtualMachineBlockDeviceAttachment {
 	return vmbdabuilder.New(
-		vmbdabuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vmbdabuilder.WithName(name),
 		vmbdabuilder.WithNamespace(namespace),
 		vmbdabuilder.WithVMName(vmName),
 		vmbdabuilder.WithBlockDeviceRef(bdRef),
@@ -341,7 +340,7 @@ func (h *VMOPRestoreTestHelper) GenerateVMSnapshot(
 	keepIpAddress v1alpha2.KeepIPAddress,
 ) *v1alpha2.VirtualMachineSnapshot {
 	return vmsnapshotbuilder.New(
-		vmsnapshotbuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vmsnapshotbuilder.WithName(name),
 		vmsnapshotbuilder.WithNamespace(namespace),
 		vmsnapshotbuilder.WithVm(vmName),
 		vmsnapshotbuilder.WithKeepIpAddress(keepIpAddress),
@@ -349,17 +348,18 @@ func (h *VMOPRestoreTestHelper) GenerateVMSnapshot(
 	)
 }
 
-func (h *VMOPRestoreTestHelper) GenerateRestoreVMOP(name, namespace, vmSnapshotName string, restoreMode v1alpha2.VMOPRestoreMode) *v1alpha2.VirtualMachineOperation {
+func (h *VMOPRestoreTestHelper) GenerateRestoreVMOP(name, namespace, vmSnapshotName, vmName string, restoreMode v1alpha2.VMOPRestoreMode) *v1alpha2.VirtualMachineOperation {
 	restoreSpec := &v1alpha2.VirtualMachineOperationRestoreSpec{
 		VirtualMachineSnapshotName: vmSnapshotName,
 		Mode:                       restoreMode,
 	}
 
 	return vmopbuilder.New(
-		vmopbuilder.WithName(fmt.Sprintf("%s-%s", name, framework.GetCommitHash())),
+		vmopbuilder.WithName(name),
 		vmopbuilder.WithNamespace(namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
 		vmopbuilder.WithRestoreSpec(restoreSpec),
+		vmopbuilder.WithVirtualMachine(vmName),
 	)
 }
 

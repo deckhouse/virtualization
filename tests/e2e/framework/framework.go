@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"os/exec"
-	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -108,8 +106,8 @@ func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*c
 			APIVersion: corev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("%s-%s-%s", NamespaceBasePrefix, prefix, GetCommitHash()),
-			Labels: nsLabels,
+			GenerateName: fmt.Sprintf("%s-%s-", NamespaceBasePrefix, prefix),
+			Labels:       nsLabels,
 		},
 	}
 
@@ -131,21 +129,4 @@ func (f *Framework) AddNamespaceToDelete(name string) {
 
 func (f *Framework) AddResourceToDelete(obj client.Object) {
 	f.resourcesToDelete = append(f.resourcesToDelete, obj)
-}
-
-// func (f *Framework) GetRunHash() string {
-// 	parts := strings.Split(f.Namespace().Name, "-")
-// 	if len(parts) == 0 {
-// 		return ""
-// 	}
-// 	return parts[len(parts)-1]
-// }
-
-func GetCommitHash() string {
-	ginkgo.GinkgoHelper()
-
-	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
-	stdout, err := cmd.Output()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-	return strings.TrimSpace(string(stdout))
 }
