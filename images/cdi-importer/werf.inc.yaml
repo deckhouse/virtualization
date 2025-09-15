@@ -16,7 +16,6 @@ imageSpec:
 {{- define "cdi-importer-deps" -}}
 libraries:
 - libsqlite3
-- libxml2-devel
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
@@ -28,7 +27,7 @@ binaries:
   - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
 packages:
 - nbdkit libnbd
-- libtasn1
+- libtasn1 libxml2
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
