@@ -81,7 +81,7 @@ package:
   readline: readline-8.2
   cyrus-sasl2: cyrus-sasl-2.1.28 # libsasl2-3
   libseccomp: v2.6.0
-  selinux: 3.6
+  selinux: 3.8
   libslirp: v4.8.0
   libxkbcommon: xkbcommon-1.10.0
   snappy: 1.2.2 # libsnappy
