@@ -28,11 +28,11 @@ shell:
 altPackages:
 - git gcc gcc-c++ make meson ninja-build pkg-config
 - gettext-devel
-- openssl-devel ca-certificates
+- ca-certificates
 - tree
 packages:
 - libtasn1
-- libffi
+- libffi openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
