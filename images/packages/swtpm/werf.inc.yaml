@@ -34,13 +34,13 @@ altPackages:
 - net-tools softhsm
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
 - libgnutls-openssl-devel
-- libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
 - libseccomp-devel libseccomp
 - perl-podlators
 packages:
 - libgmp libtpms openssl libjson-glib
 - libtasn1
 - glib2 util-linux
+- gnutls libfuse3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

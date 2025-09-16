@@ -72,11 +72,9 @@ altLibraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libgnutls-devel
 - libsystemd-devel
 - systemtap-sdt-devel
-- libacl-devel glibc-utils
-- libxml2-devel
+- glibc-utils
 - wireshark-devel
 - libclocale
 - libslirp-devel
@@ -91,7 +89,7 @@ packages:
 - selinux
 - cyrus-sasl2
 - libtasn1 libtirpc
-- glib2
+- glib2 libxml2 gnutls acl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

@@ -4,10 +4,10 @@ altPackages:
 - gcc gcc-c++
 - git pkg-config meson ninja-build cmake
 - libunwind-devel libelf-devel sysprof-devel libgvdb-devel
-- libselinux-devel
 - tree
 packages:
 - libffi zlib pcre2 util-linux
+- selinux
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
