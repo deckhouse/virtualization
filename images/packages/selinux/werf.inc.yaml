@@ -49,7 +49,7 @@ altPackages:
 - tree
 packages:
 - libaudit
-- glib2 util-linux bzip2
+- util-linux bzip2
 - pcre2
 - libcap libcap-ng
 {{- end -}}
