@@ -116,7 +116,6 @@ altLibraries:
 - bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
-- libaio-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
 - glib2-devel
@@ -134,6 +133,7 @@ packages:
 - linux-pam
 - snappy
 - ngtcp2 libtasn1 ncurses
+- libaio
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

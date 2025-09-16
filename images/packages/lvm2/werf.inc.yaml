@@ -4,7 +4,7 @@
 altPackages:
 - git gcc gcc-c++ make autoconf automake
 - pkgconfig makeinfo
-- libtinfo-devel libudev-devel libaio-devel
+- libtinfo-devel libudev-devel
 - CUnit-devel
 - python3-devel python3-module-setuptools 
 - python3-module-dbus python3-module-pyudev
@@ -18,6 +18,7 @@ packages:
 - selinux
 - util-linux
 - ncurses
+- libaio
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
