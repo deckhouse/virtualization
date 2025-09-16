@@ -27,10 +27,9 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git gcc automake make tree
-- flex libcom_err-devel libkeyutils-devel bison
-- libncurses-devel libss-devel libtinfo-devel
+- flex bison
 packages:
-- linux-pam openssl
+- linux-pam openssl e2fsprogs keyutils ncurses  
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
