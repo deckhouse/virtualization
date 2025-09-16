@@ -58,8 +58,10 @@ true
 {{- end }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
+{{- if ne "<missing>" (dig "modules" "publicDomainTemplate" "<missing>" .Values.global) }}
 - name: UPLOADER_INGRESS_HOST
   value: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
+{{- end }}
 {{- if (include "helm_lib_module_https_ingress_tls_enabled" .) }}
 - name: UPLOADER_INGRESS_TLS_SECRET
   value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}

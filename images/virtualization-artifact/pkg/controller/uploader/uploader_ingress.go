@@ -64,15 +64,24 @@ func (i *Ingress) Create(ctx context.Context, client client.Client) (*netv1.Ingr
 	return ing, nil
 }
 
+// makeSpec fills Ingress structure with uploader settings.
+//
+// Notes:
+//   - AnnUploadURL annotation is used by VI/CVI handlers to show URL for external upload.
+//   - AnnUploadPath annotation is a workaround to support clusters without publicDomainTemplate.
 func (i *Ingress) makeSpec() *netv1.Ingress {
 	pathTypeExact := netv1.PathTypeExact
 	path := i.generatePath()
 	tlsEnabled := i.Settings.TLSSecretName != ""
-	var uploadURL string
-	if tlsEnabled {
-		uploadURL = fmt.Sprintf("https://%s%s", i.Settings.Host, path)
-	} else {
-		uploadURL = fmt.Sprintf("http://%s%s", i.Settings.Host, path)
+	uploadHost := "dvcr-upload"
+	uploadURL := ""
+	if i.Settings.Host != "" {
+		uploadHost = i.Settings.Host
+		if tlsEnabled {
+			uploadURL = fmt.Sprintf("https://%s%s", i.Settings.Host, path)
+		} else {
+			uploadURL = fmt.Sprintf("http://%s%s", i.Settings.Host, path)
+		}
 	}
 	ingress := &netv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
@@ -84,6 +93,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 			Namespace: i.Settings.Namespace,
 			Annotations: map[string]string{
 				annotations.AnnUploadURL:                              uploadURL,
+				annotations.AnnUploadPath:                             path,
 				"nginx.ingress.kubernetes.io/proxy-body-size":         "0",
 				"nginx.ingress.kubernetes.io/proxy-request-buffering": "off",
 				"nginx.ingress.kubernetes.io/proxy-buffering":         "off",
@@ -97,7 +107,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 			IngressClassName: i.Settings.ClassName,
 			Rules: []netv1.IngressRule{
 				{
-					Host: i.Settings.Host,
+					Host: uploadHost,
 					IngressRuleValue: netv1.IngressRuleValue{
 						HTTP: &netv1.HTTPIngressRuleValue{
 							Paths: []netv1.HTTPIngressPath{
@@ -124,7 +134,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 	if tlsEnabled {
 		ingress.Spec.TLS = []netv1.IngressTLS{
 			{
-				Hosts:      []string{i.Settings.Host},
+				Hosts:      []string{uploadHost},
 				SecretName: i.Settings.TLSSecretName,
 			},
 		}

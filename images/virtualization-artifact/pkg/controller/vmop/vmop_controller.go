@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/powerstate"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -56,15 +57,18 @@ func SetupController(
 	controllers := []SubController{
 		powerstate.NewController(client, mgr),
 		migration.NewController(client, mgr),
+		snapshot.NewController(client, mgr),
 	}
 
 	for _, ctr := range controllers {
+		l := log.With("controller", ctr.Name())
 		r := NewReconciler(client, ctr)
+
 		c, err := controller.New(ctr.Name(), mgr, controller.Options{
 			Reconciler:       r,
 			RateLimiter:      workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](time.Second, 32*time.Second),
 			RecoverPanic:     ptr.To(true),
-			LogConstructor:   logger.NewConstructor(log),
+			LogConstructor:   logger.NewConstructor(l),
 			CacheSyncTimeout: 10 * time.Minute,
 		})
 		if err != nil {

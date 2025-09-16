@@ -13,9 +13,7 @@ secrets:
   value: {{ $.SOURCE_REPO }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
 
 ---
 
@@ -26,7 +24,6 @@ altPackages:
 - curl
 - pkg-config
 - libtool
-- libncurses-devel
 - libvirt-libs
 - libvirt-devel
 - libvirt-client
@@ -39,6 +36,7 @@ altPackages:
 - golang
 packages:
 - libmnl
+- ncurses
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

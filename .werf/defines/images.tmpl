@@ -39,7 +39,7 @@ Result:
 {{-     range $packages -}}
 {{-       $image := trim . -}}
 {{-       if ne $image "" }}
-- image: packages/{{ $image }}
+- image: {{ $context.ModuleNamePrefix }}packages/{{ $image }}
   add: /{{ $image }}
   to: /{{ $image }}
   before: {{ $stage }}

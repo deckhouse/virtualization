@@ -62,3 +62,26 @@ spec:
 {{- define "kubevirt.delve_strategic_patch_json" -}}
 '{{ include "kubevirt.delve_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
+
+{{/* Calculate parallel migrations per cluster.
+ This template returns:
+  - Count of nodes with virt-handler if kubevirt config is in 'Deployed' phase.
+  - Current parallelMigrationsPerCluster if config is not in 'Deployed' phase.
+  - Default migrations count (2) if there is no kubevirt config.
+ This behaviour prevents unnecessary helm installs during installation.
+
+ Values from
+ */}}
+{{- define "kubevirt.parallel_migrations_per_cluster" -}}
+{{- $default := 2 -}}
+{{- $phase := .Values.virtualization.internal | dig "virtConfig" "phase" "<missing>" -}}
+{{- if eq $phase "<missing>" -}}
+{{-   $default -}}
+{{- else -}}
+{{-   if eq $phase "Deployed" -}}
+{{-     max $default ( .Values.virtualization.internal |  dig "virtHandler" "nodeCount" 0 ) -}}
+{{-   else -}}
+{{-     .Values.virtualization.internal | dig "virtConfig" "parallelMigrationsPerCluster" $default -}}
+{{-   end -}}
+{{- end -}}
+{{- end -}}

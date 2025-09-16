@@ -26,11 +26,12 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc gcc-c++ make meson ninja-build pkg-config 
-- glib2-devel libffi-devel libtasn1-devel gettext-devel 
+- git gcc gcc-c++ make meson ninja-build pkg-config
+- glib2-devel libffi-devel gettext-devel
 - openssl-devel ca-certificates
 - tree
-# packages:
+packages:
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -43,6 +44,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -54,6 +56,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
 
     cd /src

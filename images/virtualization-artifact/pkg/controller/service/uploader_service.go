@@ -246,6 +246,10 @@ func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Genera
 func (s UploaderService) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
 	url := ing.Annotations[annotations.AnnUploadURL]
 	if url == "" {
+		// Fallback to deprecated annotation.
+		url = ing.Annotations[annotations.AnnUploadURLDeprecated]
+	}
+	if url == "" {
 		logger.FromContext(ctx).Error("unexpected empty upload url, please report a bug")
 		return ""
 	}

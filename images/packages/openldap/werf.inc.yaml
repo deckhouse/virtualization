@@ -31,10 +31,11 @@ altPackages:
 - libsystemd-devel
 - libevent-devel libuuid-devel
 - liblmdb-devel
-- libargon2-devel libsasl2-devel
+- libargon2-devel
 - tree
 packages:
 - openssl
+- cyrus-sasl2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

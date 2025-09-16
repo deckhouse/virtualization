@@ -24,11 +24,13 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc git make libtool gettext-tools
-- libuuid-devel libarchive-devel acl
+- libuuid-devel libarchive-devel
 - glib2-devel
 - tree
+packages:
+- util-linux acl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -44,21 +46,21 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "util-linux" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

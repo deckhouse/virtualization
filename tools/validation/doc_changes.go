@@ -74,7 +74,7 @@ func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
 }
 
 var possibleDocRootsRe = regexp.MustCompile(`docs/|docs/documentation`)
-var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|ADMIN_GUIDE|USER_GUIDE|CHARACTERISTICS_DESCRIPTION|INSTALL)(\.ru)?.md`)
+var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|ADMIN_GUIDE|USER_GUIDE|CHARACTERISTICS_DESCRIPTION|INSTALL|RELEASE_NOTES)(\.ru)?.md`)
 var docsDirFileRe = regexp.MustCompile(`docs/[^/]+.md`)
 
 func checkDocFile(fName string, diffInfo *DiffInfo) (msg Message) {
@@ -93,6 +93,7 @@ Only following file names are allowed in the module '/docs/' directory:
     CR.md
     FAQ.md
     README.md
+    RELEASE_NOTES.md
     ADMIN_GUIDE.md
     USER_GUIDE.md
     CHARACTERISTICS_DESCRIPTION.md

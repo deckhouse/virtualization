@@ -68,7 +68,12 @@ shell:
 
     OUTDIR=/out
     cd /src
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR prefix=/usr install
+    make -j$(nproc) prefix=/usr exec_prefix=/usr lib=/lib64 
+    make DESTDIR=$OUTDIR prefix=/usr exec_prefix=/usr lib=/lib64 install
     rm -rf $OUTDIR/usr/share
+
+    # make -j$(nproc)
+    # make DESTDIR=$OUTDIR prefix=/usr install
+    # rm -rf $OUTDIR/usr/share
+    
     tree -sp $OUTDIR

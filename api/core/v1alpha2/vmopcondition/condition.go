@@ -28,6 +28,12 @@ const (
 
 	// TypeSignalSent is a type for condition that indicates operation signal has been sent.
 	TypeSignalSent Type = "SignalSent"
+
+	// TypeRestoreCompleted is a type for condition that indicates success of restore.
+	TypeRestoreCompleted Type = "RestoreCompleted"
+
+	// TypeMaintenanceMode is a type for condition that indicates VMOP has put VM in maintenance mode.
+	TypeMaintenanceMode Type = "MaintenanceMode"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -62,6 +68,9 @@ const (
 	// ReasonStopInProgress is a ReasonCompleted indicating that the stop signal has been sent and stop is in progress.
 	ReasonStopInProgress ReasonCompleted = "StopInProgress"
 
+	// ReasonRestoreInProgress is a ReasonCompleted indicating that the restore operation is in progress.
+	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
+
 	// ReasonMigrationPending is a ReasonCompleted indicating that the migration process has been initiated but not yet started.
 	ReasonMigrationPending ReasonCompleted = "MigrationPending"
 
@@ -87,6 +96,27 @@ const (
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
 )
 
+// ReasonRestoreCompleted represents specific reasons for the 'RestoreCompleted' condition type.
+type ReasonRestoreCompleted string
+
+func (r ReasonRestoreCompleted) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonRestoreInProgress is a ReasonRestoreCompleted indicating that the restore operation is in progress.
+	ReasonRestoreOperationInProgress ReasonRestoreCompleted = "RestoreInProgress"
+
+	// ReasonRestoreOperationCompleted is a ReasonRestoreCompleted indicating that the restore operation has completed successfully.
+	ReasonRestoreOperationCompleted ReasonRestoreCompleted = "RestoreCompleted"
+
+	// ReasonDryRunOperationCompleted is a ReasonRestoreCompleted indicating that the restore dry run operation has completed successfully.
+	ReasonDryRunOperationCompleted ReasonRestoreCompleted = "RestoreDryRunCompleted"
+
+	// ReasonRestoreOperationFailed is a ReasonRestoreCompleted indicating that operation has failed.
+	ReasonRestoreOperationFailed ReasonRestoreCompleted = "RestoreFailed"
+)
+
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.
 type ReasonSignalSent string
 
@@ -100,4 +130,22 @@ const (
 
 	// ReasonSignalSentSuccess is a ReasonCompleted indicating that signal is sent to the VM.
 	ReasonSignalSentSuccess ReasonSignalSent = "SignalSentSuccess"
+)
+
+// ReasonMaintenanceMode represents specific reasons for the 'MaintenanceMode' condition type.
+type ReasonMaintenanceMode string
+
+func (r ReasonMaintenanceMode) String() string {
+	return string(r)
+}
+
+const (
+	// ReasonMaintenanceModeEnabled is a ReasonMaintenanceMode indicating that VM is in maintenance mode for restore operation.
+	ReasonMaintenanceModeEnabled ReasonMaintenanceMode = "MaintenanceModeEnabled"
+
+	// ReasonMaintenanceModeDisabled is a ReasonMaintenanceMode indicating that VM has exited maintenance mode.
+	ReasonMaintenanceModeDisabled ReasonMaintenanceMode = "MaintenanceModeDisabled"
+
+	// ReasonMaintenanceModeFailure is a ReasonMaintenanceMode indicating that maintenance mode operation failed.
+	ReasonMaintenanceModeFailure ReasonMaintenanceMode = "MaintenanceModeFailure"
 )

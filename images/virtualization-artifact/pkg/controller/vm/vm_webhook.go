@@ -45,7 +45,6 @@ type Validator struct {
 func NewValidator(client client.Client, service *service.BlockDeviceService, featureGate featuregate.FeatureGate, log *log.Logger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineValidator{
-			validators.NewMaintenanceValidator(),
 			validators.NewMetaValidator(client),
 			validators.NewIPAMValidator(client),
 			validators.NewBlockDeviceSpecRefsValidator(),
