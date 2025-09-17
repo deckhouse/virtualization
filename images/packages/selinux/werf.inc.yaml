@@ -86,7 +86,8 @@ shell:
     cd /src
     OUTDIR=/out
 
-    make -j$(nproc) clean distclean
+    cd libselinux
+    # make -j$(nproc)
 
     make -j$(nproc) \
       DESTDIR=$OUTDIR \
