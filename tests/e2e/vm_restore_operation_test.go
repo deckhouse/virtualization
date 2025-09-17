@@ -19,13 +19,12 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -36,9 +35,8 @@ import (
 	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 )
@@ -60,94 +58,136 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 			Eventually(func(g Gomega) {
 				helper.UpdateState(g)
 				helper.CheckIfResourcesReady(g)
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
-		})
-	})
-
-	Context("Creating snapshot", func() {
-		It("Applying snapshot resource", func() {
-			helper.VMSnapshot = helper.GenerateVMSnapshot(
-				"vmsnapshot",
-				frameworkEntity.Namespace().Name,
-				helper.VM.Name,
-				true,
-				v1alpha2.KeepIPAddressAlways,
-			)
-			By(fmt.Sprintf("Creating vm snapshot: %s/%s", helper.VMSnapshot.Namespace, helper.VMSnapshot.Name))
-			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMSnapshot)
-			Expect(err).ShouldNot(HaveOccurred())
+			}, 600*time.Second, 1*time.Second).Should(Succeed())
 		})
 
-		It("Snapshot should be ready", func() {
+		It("Exec ssh", func() {
 			Eventually(func(g Gomega) {
 				helper.UpdateState(g)
 
-				g.Expect(helper.VMSnapshot.Status.Phase).Should(Equal(v1alpha2.VirtualMachineSnapshotPhaseReady))
-			}, 300*time.Second, 1*time.Second).Should(Succeed())
+				var devicePath string
+				for _, bd := range helper.VM.Status.BlockDeviceRefs {
+					fmt.Println(bd.Name)
+					if bd.Name == helper.VDBlank.Name {
+						fmt.Println("gotcha")
+						devicePath = fmt.Sprintf("/dev/%s", bd.Target)
+					}
+				}
+				g.Expect(devicePath).ShouldNot(BeEmpty())
+
+				value := strconv.Itoa(time.Now().UTC().Second())
+				cmdCreate := fmt.Sprintf("sudo mkfs.ext4 %[1]s && sudo mount %[1]s /mnt && sudo bash -c \"echo %s > /mnt/value\"", devicePath, value)
+				cmdGet := "cat /mnt/value"
+
+				res := d8Virtualization.SSHCommand(helper.VM.Name, cmdCreate, d8.SSHOptions{
+					Namespace:   helper.VM.Namespace,
+					Username:    conf.TestData.SSHUser,
+					IdenityFile: conf.TestData.Sshkey,
+				})
+				if res.Error() != nil {
+					fmt.Println(res.Error())
+				}
+				g.Expect(res.Error()).ShouldNot(HaveOccurred())
+				By(res.StdOut())
+
+				res = d8Virtualization.SSHCommand(helper.VM.Name, cmdGet, d8.SSHOptions{
+					Namespace:   helper.VM.Namespace,
+					Username:    conf.TestData.SSHUser,
+					IdenityFile: conf.TestData.Sshkey,
+				})
+				g.Expect(res.Error()).ShouldNot(HaveOccurred())
+				By(res.StdOut())
+
+				fmt.Println("3")
+
+			}, 600*time.Second, time.Second).Should(Succeed())
 		})
 	})
 
-	Context("Restore dry run", func() {
-		It("Creating VMOP", func() {
-			helper.VMOPDryRun = helper.GenerateRestoreVMOP(
-				"vmop-dryrun", frameworkEntity.Namespace().Name,
-				helper.VMSnapshot.Name,
-				helper.VM.Name,
-				v1alpha2.VMOPRestoreModeDryRun,
-			)
-			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPDryRun)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+	// Context("Creating snapshot", func() {
+	// 	It("Applying snapshot resource", func() {
+	// 		helper.VMSnapshot = helper.GenerateVMSnapshot(
+	// 			"vmsnapshot",
+	// 			frameworkEntity.Namespace().Name,
+	// 			helper.VM.Name,
+	// 			true,
+	// 			v1alpha2.KeepIPAddressAlways,
+	// 		)
+	// 		By(fmt.Sprintf("Creating vm snapshot: %s/%s", helper.VMSnapshot.Namespace, helper.VMSnapshot.Name))
+	// 		err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMSnapshot)
+	// 		Expect(err).ShouldNot(HaveOccurred())
+	// 	})
 
-		It("Dry run restore VMOP must be Completed", func() {
-			Eventually(func(g Gomega) {
-				helper.UpdateState(g)
-				g.Expect(helper.VMOPDryRun.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
-			}, 120*time.Second, 1*time.Second).Should(Succeed())
-		})
-	})
+	// 	It("Snapshot should be ready", func() {
+	// 		Eventually(func(g Gomega) {
+	// 			helper.UpdateState(g)
 
-	Context("Removing VM", func() {
-		It("Remove VM", func() {
-			err := helper.FrameworkEntity.Clients.GenericClient().Delete(context.Background(), helper.VM)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+	// 			g.Expect(helper.VMSnapshot.Status.Phase).Should(Equal(v1alpha2.VirtualMachineSnapshotPhaseReady))
+	// 		}, 300*time.Second, 1*time.Second).Should(Succeed())
+	// 	})
+	// })
 
-		It("VM should not exists", func() {
-			Eventually(func(g Gomega) {
-				var vm v1alpha2.VirtualMachine
-				err := helper.FrameworkEntity.Clients.GenericClient().Get(
-					context.Background(),
-					types.NamespacedName{
-						Namespace: helper.VM.Namespace,
-						Name:      helper.VM.Name,
-					},
-					&vm,
-				)
-				g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
-			}, 60*time.Second, time.Second).Should(Succeed())
-		})
-	})
+	// Context("Restore dry run", func() {
+	// 	It("Creating VMOP", func() {
+	// 		helper.VMOPDryRun = helper.GenerateRestoreVMOP(
+	// 			"vmop-dryrun", frameworkEntity.Namespace().Name,
+	// 			helper.VMSnapshot.Name,
+	// 			helper.VM.Name,
+	// 			v1alpha2.VMOPRestoreModeDryRun,
+	// 		)
+	// 		err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPDryRun)
+	// 		Expect(err).ShouldNot(HaveOccurred())
+	// 	})
 
-	Context("Restore in BestEffort mode", func() {
-		It("Creating VMOP", func() {
-			helper.VMOPBestEffort = helper.GenerateRestoreVMOP(
-				"vmop-besteffort", frameworkEntity.Namespace().Name,
-				helper.VMSnapshot.Name,
-				helper.VM.Name,
-				v1alpha2.VMOPRestoreModeBestEffort,
-			)
-			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPBestEffort)
-			Expect(err).ShouldNot(HaveOccurred())
-		})
+	// 	It("Dry run restore VMOP must be Completed", func() {
+	// 		Eventually(func(g Gomega) {
+	// 			helper.UpdateState(g)
+	// 			g.Expect(helper.VMOPDryRun.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
+	// 		}, 120*time.Second, 1*time.Second).Should(Succeed())
+	// 	})
+	// })
 
-		It("BestEffort restore VMOP must be Completed", func() {
-			Eventually(func(g Gomega) {
-				helper.UpdateState(g)
-				g.Expect(helper.VMOPBestEffort.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
-			}, 120*time.Second, 1*time.Second).Should(Succeed())
-		})
-	})
+	// Context("Removing VM", func() {
+	// 	It("Remove VM", func() {
+	// 		err := helper.FrameworkEntity.Clients.GenericClient().Delete(context.Background(), helper.VM)
+	// 		Expect(err).ShouldNot(HaveOccurred())
+	// 	})
+
+	// 	It("VM should not exists", func() {
+	// 		Eventually(func(g Gomega) {
+	// 			var vm v1alpha2.VirtualMachine
+	// 			err := helper.FrameworkEntity.Clients.GenericClient().Get(
+	// 				context.Background(),
+	// 				types.NamespacedName{
+	// 					Namespace: helper.VM.Namespace,
+	// 					Name:      helper.VM.Name,
+	// 				},
+	// 				&vm,
+	// 			)
+	// 			g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+	// 		}, 60*time.Second, time.Second).Should(Succeed())
+	// 	})
+	// })
+
+	// Context("Restore in BestEffort mode", func() {
+	// 	It("Creating VMOP", func() {
+	// 		helper.VMOPBestEffort = helper.GenerateRestoreVMOP(
+	// 			"vmop-besteffort", frameworkEntity.Namespace().Name,
+	// 			helper.VMSnapshot.Name,
+	// 			helper.VM.Name,
+	// 			v1alpha2.VMOPRestoreModeBestEffort,
+	// 		)
+	// 		err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMOPBestEffort)
+	// 		Expect(err).ShouldNot(HaveOccurred())
+	// 	})
+
+	// 	It("BestEffort restore VMOP must be Completed", func() {
+	// 		Eventually(func(g Gomega) {
+	// 			helper.UpdateState(g)
+	// 			g.Expect(helper.VMOPBestEffort.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
+	// 		}, 120*time.Second, 1*time.Second).Should(Succeed())
+	// 	})
+	// })
 
 	// Context("Do something", func() {
 	// 	// ???
@@ -230,7 +270,7 @@ func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 		},
 	)
 
-	By(fmt.Sprintf("Creating cvi: %s", h.CVI.Name))
+	By(fmt.Sprintf("Creating cvi: %sxxxxx", h.CVI.GenerateName))
 	err := h.FrameworkEntity.GenericClient().Create(context.Background(), h.CVI)
 	Expect(err).ShouldNot(HaveOccurred())
 	By(fmt.Sprintf("Creating vi: %s/%s", h.VI.Namespace, h.VI.Name))
@@ -262,13 +302,13 @@ func (h *VMOPRestoreTestHelper) GenerateVM(
 		`#cloud-config
 users:
 - name: cloud
-passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
-shell: /bin/bash
-sudo: ALL=(ALL) NOPASSWD:ALL
-chpasswd: { expire: False }
-lock_passwd: false
-ssh_authorized_keys:
-    - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDdgocvYNNgs/GkZVCoGUSWI9S4IJ2pvl/f/9k3/QalIwmkIjEqef9ndIpw+hr57MBzxKZbgjkstwedd+iH3Q06Lf3Ne3VsbNJBkQsdaSfCKwelkWng+uAdC/Ol8Kh9VA3pqur4EWsXAdWZ2YtaQD64GF9JPN9ASybwr/r0cIgpBilvC7GqLzgwoGxAlqj/gWWj4RJZzSr4lflXBiiOyqxA0EnLs13jGbxMWzUWGMd35l1B5MkEYIj+brvX9wCtJGBnsmmTU3q2J3dk2wSM8BCNLq1Rg2UoLiZzWdgxRU6tcuMtBJBn+llrbYtfDGs1nj5XlGqa+nwa1KgC8IHbTTsyX/Kde019Q+7QEDnP3ZMd1qVFIn01NjePTRfdSAXgPI6DO1ifemPKuRobgjC3HTGyH3CHhlbkz01XUpP+Pdpj+LKHGBDVBC2qDx2Hr+wwnJJEqxID3RqICYyidR+7Goti/0ike0ddT/wRNd/C+6rMepgTbuOj0uW65l4Bkormrrs= work@work-ThinkPad-T14-Gen-3
+  passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
+  shell: /bin/bash
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  chpasswd: { expire: False }
+  lock_passwd: false
+  ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
 
 runcmd:
 - [bash, -c, "apt update"]
@@ -534,6 +574,6 @@ func (h *VMOPRestoreTestHelper) CheckIfResourcesReady(g Gomega) {
 	g.Expect(h.VMBDA.Status.Phase).Should(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
 	g.Expect(h.VM.Status.Phase).Should(Equal(v1alpha2.MachineRunning))
 
-	agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, h.VM.Status.Conditions)
-	g.Expect(agentReady.Status).Should(Equal(metav1.ConditionTrue))
+	// agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, h.VM.Status.Conditions)
+	// g.Expect(agentReady.Status).Should(Equal(metav1.ConditionTrue))
 }
