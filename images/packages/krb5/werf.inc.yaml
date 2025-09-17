@@ -85,4 +85,11 @@ shell:
     
     rm -rf $OUTDIR/usr/share
     rm -rf $OUTDIR/usr/var
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
     tree -sp $OUTDIR
