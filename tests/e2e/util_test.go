@@ -748,7 +748,7 @@ func SaveTestResources(labels map[string]string, additional string) {
 
 	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
 
-	cmdr := kubectl.Get("virtualization,intvirt -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	cmdr := kubectl.Get("virtualization,intvirt,pods -A", kc.GetOptions{Output: "yaml", Labels: labels})
 	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 
 	err := os.WriteFile(str, cmdr.StdOutBytes(), 0o644)
