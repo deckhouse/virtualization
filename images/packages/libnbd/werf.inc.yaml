@@ -35,6 +35,7 @@ altPackages:
 packages:
 - gnutls libidn2 libgmp ubdsrv xz libxml2
 - libtasn1
+- libfuse3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
