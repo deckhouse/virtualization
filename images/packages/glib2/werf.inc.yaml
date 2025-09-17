@@ -2,10 +2,10 @@
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++
-- git pkg-config meson cmake
-- libunwind-devel libelf-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
+- git pkg-config meson ninja-build cmake
+- libunwind-devel libelf-devel sysprof-devel libgvdb-devel
 packages:
-- libffi
+- libffi zlib pcre2
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -22,7 +22,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /glib2
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -82,13 +82,18 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src
 
-    meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
+    meson setup _build \
+      -Dprefix=/usr \
+      -Dlibdir=/usr/lib64 \
+      -Dgtk_doc=false \
+      -Dbuildtype=release \
+      -Dstrip=true
     meson compile -C _build
-    meson install -C _build
+    DESTDIR=${OUTDIR} meson install -C _build
 
 {{- end}}

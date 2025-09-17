@@ -64,7 +64,7 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - binutils
 - pkgconfig pkg-config
 - gcc-c++ clang git
@@ -85,47 +85,54 @@ packages:
 - python3-module-sphinx
 - python3-module-sphinx_rtd_theme
 - python3-module-black
-libraries:
+altLibraries:
 - glibc-devel-static
 - zlib-devel-static
-- libpcre2-devel-static
 - libattr-devel-static
 - libdw-devel-static
 - libatomic-devel-static
 - libdw-devel
 - perl-devel
-- libssh-devel
-- libssh2-devel
 - libxfs-devel
-- zlib-devel
 - libpci-devel
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
-- libpixman-devel
-- libkeyutils-devel
-- libuuid-devel libpam0-devel
-- libtasn1-devel libslirp-devel
+- libuuid-devel
+- libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
-- libncursesw-devel libalsa-devel libpulseaudio-devel
+- libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
-- libsoundio-devel libsasl2-devel
-- libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel
+- libsoundio-devel
+- libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
-- libnfs-devel libzstd-devel libseccomp-devel
+- libnfs-devel libseccomp-devel
 - libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
-- libdaxctl-devel rdma-core-devel
-- bzlib-devel liblzo2-devel libsnappy-devel
+- libdaxctl-devel
+- bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
-- libaio-devel libselinux-devel libqpl-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
 - glib2-devel
+packages:
+- dmidecode libgcrypt nettle libcap-ng libcapstone
+- openssl libcurl e2fsprogs libxcrypt numactl
+- zlib zstd
+- libssh libssh2
+- openldap keyutils
+- libpixman libpsl libpng libqpl rdma-core
+- pcre2
+- selinux
+- cyrus-sasl2
+- linux-pam
+- snappy
+- ngtcp2 libtasn1 ncurses
+- libaio
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -149,8 +156,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "openssl" "libcurl" "e2fsprogs" "libxcrypt" "numactl" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -159,8 +165,8 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }} \
-      {{ $builderDependencies.libraries | join " " }}
+      {{ $builderDependencies.altPackages | join " " }} \
+      {{ $builderDependencies.altLibraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -175,13 +181,11 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
@@ -190,6 +194,9 @@ shell:
     export MAKE="/usr/bin/make"
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
+
+    export LDFLAGS="-L/usr/lib64 -L/usr/lib"
+    export CPPFLAGS="-I/usr/include"
 
     cd /{{ $gitRepoName }}-{{ $version }}
 

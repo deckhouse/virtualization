@@ -20,9 +20,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
 
@@ -31,10 +29,11 @@ shell:
 altPackages:
 - gcc-c++ gcc git
 - make autoconf automake libtool
-- libssl-devel makeinfo
+- makeinfo
 - tree
 packages:
 - libgmp
+- openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

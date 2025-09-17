@@ -19,18 +19,11 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altLibs:
-  - libssh-devel
-  - libssh2-devel
   - libxfs-devel
-  - zlib-devel
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
-  - libpixman-devel
-  - libkeyutils-devel
   - libuuid-devel
-  - libpam0-devel
-  - libtasn1-devel
   - libslirp-devel
   - libdrm-devel
   - libxdp-devel
@@ -42,7 +35,6 @@ altLibs:
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
-  - libsasl2-devel
   - libjpeg-devel
   - libpng-devel
   - libxkbcommon-devel
@@ -59,26 +51,20 @@ altLibs:
   - libspice-server-devel
   - ceph-devel
   - libnfs-devel
-  - libzstd-devel
   - libseccomp-devel
   - libudev-devel
   - libmultipath-devel
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - rdma-core-devel
   - bzlib-devel
   - liblzo2-devel
-  - libsnappy-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
   - libgbm-devel
   - libvitastor-devel
   - libiscsi-devel
-  - libaio-devel
-  - libselinux-devel
-  - libqpl-devel
   - libglusterfs11-api-devel
   - libvdeplug-devel
   - libpciaccess-devel
@@ -90,20 +76,13 @@ altLibs:
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libp11-kit-devel
-  - libreadline-devel
   - libsystemd-devel
-  - libjson-c-devel
   - systemtap-sdt-devel
   - glib2-devel
   - libgio-devel
   - libxml2-devel
-  - libgcc1
-  - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libisofs
-altPackages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -138,8 +117,19 @@ packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
 - gnutls acl libbsd libgcrypt libmd
-- util-linux libfuse3 nettle libgsasl 
+- util-linux libfuse3 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
+- libjson-c5 keyutils libisofs
+- zlib zstd p11-kit
+- libssh libssh2
+- libpixman libqpl rdma-core
+- readline
+- selinux
+- linux-pam
+- cyrus-sasl2
+- snappy
+- libtasn1 libtirpc
+- libaio
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -289,7 +279,7 @@ shell:
     LIBS+=" /usr/lib64/libjson-c.s* /usr/lib64/libssh.s* /usr/lib64/libssh2.s*"
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
-    LIBS+=" /usr/lib64/libisoburn.s*"
+    LIBS+=" /usr/lib64/libisoburn.s* /usr/lib64/libacl.s*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -415,8 +405,7 @@ git:
       install:
       - '**/*'
 import:
-{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" -}}
-{{- include "importPackageImages" (list . $images "install") -}}
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -434,7 +423,7 @@ shell:
 {{- end }}
   - |
     # Install packages
-    PKGS="{{ $images | join " " }}"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

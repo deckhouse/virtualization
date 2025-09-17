@@ -3,7 +3,7 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: v1.3.1-v12n.10
+  3p-kubevirt: v1.3.1-v12n.11
   3p-containerized-data-importer: v1.60.3-v12n.9
   distribution: 2.8.3
 package:
@@ -19,11 +19,12 @@ package:
   libgmp: 6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
+  libaio: libaio-0.3.113
   libaudit: v4.0.3
   libbrotli: v1.1.0
   libbsd: 0.12.2
   libburn: release-1.5.6
-  libcap: libcap-2.69
+  libcap: libcap-2.69 # v1.2.69
   libcap-ng: v0.8.5
   libcapstone: 4.0.2
   libcurl: curl-8_14_1
@@ -31,23 +32,57 @@ package:
   libffi: v3.5.2
   libgcrypt: libgcrypt-1.10.2
   libxcrypt: v4.4.36
-  libtpms: v0.10.0
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
-  rdma-core: v57.0
+  rdma-core: v53.0
   libgsasl: v2.2.2
   libidn: v1.43
   libidn2: v2.3.8
   libisoburn: release-1.5.6
+  libisofs: release-1.5.6
+  libjansson4: v2.14.1
+  libjson-c5: json-c-0.17
+  libjson-glib: 1.10.6
+  libpixman: pixman-0.43.4
+  libpng: v1.6.50
+  libpsl: 0.21.5
+  libqpl: v1.6.0
+  openldap: OPENLDAP_REL_ENG_2_6_9
+  keyutils: v1.6.3
   libmd: 1.1.0
+  libnftnl: libnftnl-1.3.0
+  nghttp2: v1.66.0
+  libtpms: v0.10.0
+  libxml2: v2.14.5
   libmnl: libmnl-1.0.5
+  libntlm: v1.8
   libnbd: v1.23.6
   lvm2: v2_03_32
   multipath-tools: 0.11.1
   nbdkit: v1.39.5
   nettle: nettle_3.10.1_release_20241230
   nftables: v1.1.3
+  nghttp3: v1.11.0
+  ngtcp2: v1.11.0
+  libtasn1: v4.20.0
+  ncurses: v6_3_20220618
+  libtirpc: libtirpc-1-3-6
   numactl: v2.0.19
   openssl: openssl-3.4.1
+  p11-kit: 0.25.5
+  pcre2: pcre2-10.46
+  linux-pam: v1.7.1
+  libssh: libssh-0.11.2
+  libssh2: libssh2-1.11.1
+  libnl3: libnl3_11_0
   swtpm: v0.10.0
+  ubdsrv: v1.6
   util-linux: v2.41.1
+  readline: readline-8.2
+  cyrus-sasl2: cyrus-sasl-2.1.28 # libsasl2-3
+  libseccomp: v2.6.0
+  selinux: 3.6
+  libslirp: v4.8.0
+  snappy: 1.2.2 # libsnappy
+  zlib: v1.3.1
+  zstd: v1.5.7

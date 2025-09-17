@@ -45,17 +45,19 @@ altPackages:
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
-- libp11-kit-devel libunistring-devel
+- libunistring-devel
 - libtpm2-tss-devel libtrousers-devel
-- libtasn1-devel libtasn1-utils zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
-- liboqs-devel libzstd-devel libreadline-devel
-- openssl libssl-devel iproute2-devel
+- liboqs-devel
+- libssl-devel iproute2-devel
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
-- nettle
+- nettle zlib zstd p11-kit
+- openssl
+- readline
+- libtasn1
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -93,9 +95,9 @@ shell:
 
     # Fake distcheck-hook that checks bootstrap is called without --skip-po
     mkdir -p po/.reference
-    
+
     ./bootstrap --skip-po
-    
+
     ./configure \
       --prefix=/usr \
       --exec-prefix=/usr \

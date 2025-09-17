@@ -1,11 +1,24 @@
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - git gcc gcc-c++ make autoconf automake
-- pkgconfig makeinfo rpm-build-python3
-- libreadline-devel
-- libtinfo-devel libudev-devel libaio-devel
+- pkgconfig makeinfo
+- libtinfo-devel libudev-devel
+- CUnit-devel
+- python3-devel python3-module-setuptools 
+- python3-module-dbus python3-module-pyudev
+- libsepol-devel
+- libnvme-devel
+- sanlock-devel
+- libcorosync-devel
+- vdo
+packages:
+- readline
+- selinux
+- util-linux
+- ncurses
+- libaio
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -31,11 +44,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
@@ -46,6 +55,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -54,12 +64,19 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
 
     cd /src
@@ -71,7 +88,7 @@ shell:
       --enable-readline \
       --enable-pkgconfig \
       --with-device-uid=0 \
-      --with-device-gid=6 \
+      --with-device-gid=0 \
       --with-device-mode=0660 \
       --enable-write_install \
       --enable-dmeventd \

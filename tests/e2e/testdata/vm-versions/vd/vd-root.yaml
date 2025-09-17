@@ -1,0 +1,12 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-root
+spec:
+  persistentVolumeClaim:
+    size: 512Mi
+  dataSource:
+    type: HTTP
+    http:
+      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-perf.qcow2

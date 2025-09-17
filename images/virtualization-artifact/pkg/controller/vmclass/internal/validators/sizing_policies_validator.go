@@ -35,6 +35,10 @@ func NewSizingPoliciesValidator(client client.Client) *SizingPoliciesValidator {
 }
 
 func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
+	if !HasValidCores(&vmclass.Spec) {
+		return nil, fmt.Errorf("vmclass %s has sizing policies but none of them specify cores", vmclass.Name)
+	}
+
 	if HasCPUSizePoliciesCrosses(&vmclass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has size policy cpu crosses", vmclass.Name)
 	}
@@ -81,4 +85,17 @@ func HasCPUSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 	}
 
 	return false
+}
+
+func HasValidCores(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
+	if len(vmclass.SizingPolicies) == 0 {
+		return true
+	}
+
+	for _, policy := range vmclass.SizingPolicies {
+		if policy.Cores == nil {
+			return false
+		}
+	}
+	return true
 }

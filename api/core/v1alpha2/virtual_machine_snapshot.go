@@ -32,7 +32,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vmsnapshot,vmsnapshots},singular=virtualmachinesnapshot
+// +kubebuilder:resource:categories={virtualization},scope=Namespaced,shortName={vmsnapshot,vms},singular=virtualmachinesnapshot
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineSnapshot phase."
 // +kubebuilder:printcolumn:name="Consistent",type="boolean",JSONPath=".status.consistent",description="VirtualMachineSnapshot consistency."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="VirtualMachineSnapshot age."

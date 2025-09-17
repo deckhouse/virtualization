@@ -5,7 +5,7 @@ namePrefix: pr-number-or-commit-hash-
 resources:
   - ns.yaml
   - vm
-  - vi
+  - vd
 configurations:
   - transformer.yaml
 labels:

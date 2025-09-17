@@ -7,11 +7,12 @@ altPackages:
 - bison flex
 - pkgconf asciidoctor
 - python3-devel python3-module-setuptools
-- zlib-devel glibc-devel-static
-- libncursesw-devel libpopt-devel
+- glibc-devel-static
+- libpopt-devel
 - klibc-devel libsqlite3
 packages:
-- libcap-ng
+- libcap-ng zlib
+- ncurses
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -85,7 +86,7 @@ shell:
       --enable-shared \
       --disable-static \
       --disable-asciidoc
-    
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 

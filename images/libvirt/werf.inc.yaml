@@ -49,7 +49,6 @@ altPackages:
 - clang ccache
 - make cmake
 - meson ninja-build
-- attr
 - iproute iptables iptables-nft iptables-ipv6
 - openvswitch ebtables
 - pkgconfig
@@ -69,29 +68,29 @@ altLibraries:
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
 - libpcap-devel libnl-devel
-- libselinux-devel libsasl2-devel
-- libssh-devel
-- libssh2-devel
 - libparted-devel
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libgnutls-devel libp11-kit-devel
-- libreadline-devel libtasn1-devel
-- libattr-devel libbsd-devel
+- libgnutls-devel
 - libsystemd-devel
-- libjson-c-devel systemtap-sdt-devel
+- systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
 - libgio-devel libxml2-devel
-- libtirpc-devel libsasl2-devel
 - wireshark-devel
-- zlib-devel libclocale
+- libclocale
 - libslirp-devel
-- libyajl-devel libselinux-devel
+- libyajl-devel
 packages:
-- dmidecode lvm2 libattr libbsd libmd util-linux 
-- libgcrypt libfuse3 libaudit libnbd libcap-ng 
+- dmidecode lvm2 libattr libbsd libmd util-linux
+- libgcrypt libfuse3 libaudit libnbd libcap-ng
 - openssl libcurl e2fsprogs libxcrypt numactl
+- zlib p11-kit
+- libssh libssh2 libjson-c5 keyutils
+- readline
+- selinux
+- cyrus-sasl2
+- libtasn1 libtirpc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -112,10 +111,6 @@ import:
   to: /install-libvirt.sh
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
-- image: {{ .ModuleNamePrefix }}qemu
-  add: /qemu-img
-  to: /qemu-img
-  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -137,12 +132,10 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"

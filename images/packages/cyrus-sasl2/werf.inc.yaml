@@ -1,0 +1,118 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "cyrusimap/cyrus-sasl.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc gcc-c++ autoconf automake libtool make pkg-config
+- meson ninja-build flex
+- libsphinxclient-devel libsphinxclient
+- libsphinxbase-devel libgdbm-devel
+- libdb4-devel libkrb5-devel
+- groff-base
+- perl-Pod-POM-View-Restructured
+- python3-module-sphinx
+- python3-module-sphinx-devel
+- python3-module-six
+- python3-module-setuptools
+- python3-module-sphinx-sphinx-build-symlink
+- libMySQL-devel postgresql-devel libsqlite3-devel
+- m4
+- groff-base gettext-tools
+- libdb4-devel
+- libkrb5-devel
+- libsqlite3-devel
+- tree
+packages:
+- libxcrypt
+- zlib
+- linux-pam
+- openssl e2fsprogs
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
+    OUTDIR=/out
+
+    cd /src
+
+    ./autogen.sh
+    ./configure \
+      --prefix=/usr \
+      --exec-prefix=/usr \
+      --libdir=/usr/lib64 \
+      --enable-sample=no \
+      --disable-static \
+      --enable-shared \
+      --disable-static \
+      --disable-krb4 \
+      --enable-login \
+      --enable-ntlm \
+      --with-ldap \
+      --with-openssl \
+      --with-pam \
+      --with-dblib=berkeley \
+      --with-sqlite3 \
+      --disable-macos-framework
+    
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+
+    rm -rf $OUTDIR/usr/share
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -sph $OUTDIR

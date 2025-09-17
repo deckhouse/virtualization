@@ -32,7 +32,7 @@ const (
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:categories=virtualization,scope=Namespaced,shortName={vmrestore,vmrestores},singular=virtualmachinerestore
+// +kubebuilder:resource:categories=virtualization,scope=Namespaced,shortName={vmrestore},singular=virtualmachinerestore
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineRestore phase."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="VirtualMachineRestore age."
 // +genclient

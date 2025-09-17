@@ -1,6 +1,6 @@
 module github.com/deckhouse/virtualization/api
 
-go 1.24.5
+go 1.24.6
 
 tool (
 	k8s.io/code-generator

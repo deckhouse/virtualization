@@ -512,7 +512,7 @@ func newVMRestoreVMOP(vmName, namespace, vmRestoreUID string, vmopType virtv2.VM
 	return vmopbuilder.New(
 		vmopbuilder.WithGenerateName("vmrestore-"),
 		vmopbuilder.WithNamespace(namespace),
-		vmopbuilder.WithAnnotation(annotations.AnnVMRestore, vmRestoreUID),
+		vmopbuilder.WithAnnotation(annotations.AnnVMOPRestore, vmRestoreUID),
 		vmopbuilder.WithType(vmopType),
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
@@ -526,7 +526,7 @@ func (h LifeCycleHandler) getVMRestoreVMOP(ctx context.Context, vmNamespace, vmR
 	}
 
 	for _, vmop := range vmops.Items {
-		if v, ok := vmop.Annotations[annotations.AnnVMRestore]; ok {
+		if v, ok := vmop.Annotations[annotations.AnnVMOPRestore]; ok {
 			if v == vmRestoreUID && vmop.Spec.Type == vmopType {
 				return &vmop, nil
 			}

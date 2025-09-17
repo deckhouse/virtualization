@@ -1,6 +1,6 @@
 module vm-route-forge
 
-go 1.24.5
+go 1.24.6
 
 tool github.com/cilium/ebpf/cmd/bpf2go
 

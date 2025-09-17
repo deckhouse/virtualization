@@ -1,11 +1,22 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/libgcc1
 final: false
 fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /libgcc1
+  before: setup
+  includePaths:
+  - usr/lib64/libgcc_s.so.1
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /gcc
   before: setup
 
 ---
@@ -28,11 +39,15 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
+altPackages:
+- git gcc-c++ flex make makeinfo libtool autoconf_2.60
+- libelf-devel libmpc-devel libmpfr-devel perl-Pod-Parser
+- libgc-devel coreutils
+- autogen dejagnu glibc-devel-static
+- tree
 packages:
-- git gcc-c++ flex make makeinfo  glibc-devel-static libtool autoconf_2.60
-- libelf-devel libmpc-devel perl-Pod-Parser zlib-devel libzstd-devel
-- libstdc++-devel libstdc++-devel-static
-- gcc-go i586-glibc-devel i586-glibc-gconv-modules i586-glibc-nss i586-glibc-devel-static
+- zlib 
+- zstd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -45,72 +60,49 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
 
     cd /src
 
-    export AUTOCONF_VERSION=2.60
-
-    libtoolize --copy --install --force
-    set -ex \
-        && install -pm644 /usr/share/libtool/aclocal/*.m4 .
-
-    autoreconf -fvi
-
-    # taken from alt linux specfile: https://packages.altlinux.org/ru/sisyphus/srpms/gcc14/specfiles/3135719547156898666
-    set -eux; \
-        for f in */aclocal.m4; do \
-            d="${f%%/*}"; \
-            grep '^m4_include' "$d/aclocal.m4" \
-              | grep -E -v '\[(libltdl/)?acinclude\.m4\]' \
-              > acinclude.m4~ || :; \
-            touch "$d/acinclude.m4"; \
-            cat  "$d/acinclude.m4" >> acinclude.m4~; \
-            mv   acinclude.m4~ "$d/acinclude.m4"; \
-            autoreconf -fvi "$d"; \
-            sh -n "$d/configure"; \
-        done
-
-    export CFLAGS="-O2 -pipe -fexceptions -g"
-    export CXXFLAGS="-O2 -pipe -fexceptions -g"
-    export ac_cv_func_fprintf_unlocked="no"
-
     ./configure \
-      --enable-languages=c \
+      --enable-languages=c,c++ \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --enable-shared \
-      --with-bugurl=http://bugzilla.altlinux.org \
-      --enable-__cxa_atexit \
-      --enable-threads=posix \
+      --build=x86_64-linux-gnu \
+      --host=x86_64-linux-gnu \
+      --target=x86_64-linux-gnu \
+      --disable-multilib \
+      --disable-nls \
       --enable-checking=release \
+      --enable-shared \
+      --enable-threads=posix \
+      --enable-__cxa_atexit \
+      --enable-clocale=gnu \
       --with-system-zlib \
-      --with-zstd \
-      --without-included-gettext \
-      --enable-default-pie \
-      --enable-gnu-unique-object \
-      --enable-linker-build-id \
-      --with-arch_32=i586 --with-tune_32=generic \
-      --with-multilib-list=m64,m32 \
-      --enable-multilib \
-      --enable-bootstrap \
-      --with-build-config=bootstrap-lto \
-      --enable-link-serialization=1 \
-      --disable-cet
+      --program-suffix=-{{ (split "-" $version)._1 }}
 
     make -j$(nproc)
 
-    make install-strip
-    mkdir $OUTDIR
-    cp x86_64-pc-linux-gnu/libgcc/libgcc_s.so.1 /out
+    make DESTDIR=$OUTDIR install-strip
+    rm -rf $OUTDIR/usr/share
+
+    tree -sp $OUTDIR

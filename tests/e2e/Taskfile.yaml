@@ -37,43 +37,7 @@ tasks:
       - kubectl
       - d8
     cmds:
-      - |
-        bash -c 'GINKGO_RESULT=$(mktemp)
-        go tool ginkgo -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
-        EXIT_CODE="${PIPESTATUS[0]}"
-        RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
-        if [[ $RESULT == FAIL!* || $EXIT_CODE -ne "0" ]]; then
-          RESULT_STATUS=":x: FAIL!"
-        elif [[ $RESULT == SUCCESS!* ]]; then
-          RESULT_STATUS=":white_check_mark: SUCCESS!"
-        else
-          RESULT_STATUS=":question: UNKNOWN"
-          EXIT_CODE=1
-        fi
-        DATE=$(date +"%Y-%m-%d")
-
-        PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
-        FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
-        PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
-        SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
-
-        SUMMARY="
-        ### :dvp: **DVP $DATE Nightly e2e Tests**
-
-        **Branch:** \`$GITHUB_REF_NAME\`
-        **Status: $RESULT_STATUS**
-
-        - ${PASSED:-0} Passed
-        - ${FAILED:-0} Failed
-        - ${PENDING:-0} Pending
-        - ${SKIPPED:-0} Skipped
-
-        [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
-        "
-        echo "SUMMARY<<EOF" >> $GITHUB_ENV
-        echo "$SUMMARY" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-        exit $EXIT_CODE'
+      - ./task_run_ci.sh
 
   runp:
     desc: "Run e2e tests"
