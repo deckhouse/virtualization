@@ -85,9 +85,9 @@ func (v *VMBlockDeviceAttachmentHandler) Customize(prefix, suffix string) {
 	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 		v.vmbda.Spec.BlockDeviceRef.Name = common.ApplyNameCustomization(v.vmbda.Spec.BlockDeviceRef.Name, prefix, suffix)
 	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
-		v.vmbda.Spec.BlockDeviceRef.Name = common.ApplyNameCustomization(v.vmbda.Spec.BlockDeviceRef.Name, prefix, suffix)
+		// Do not apply prefix/suffix customization to ClusterVirtualImage names
 	case v1alpha2.VMBDAObjectRefKindVirtualImage:
-		v.vmbda.Spec.BlockDeviceRef.Name = common.ApplyNameCustomization(v.vmbda.Spec.BlockDeviceRef.Name, prefix, suffix)
+		// Do not apply prefix/suffix customization to VirtualImage names
 	}
 }
 
