@@ -129,6 +129,7 @@ packages:
 - glib2
 - libxkbcommon
 - libaio
+- libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
