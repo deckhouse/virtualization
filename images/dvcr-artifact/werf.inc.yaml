@@ -107,12 +107,6 @@ import:
   to: /qemu-img
   before: install
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install -y \
-      {{ $builderDependencies.altPackages | join " " }}
-  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     # Install packages
