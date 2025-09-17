@@ -67,6 +67,8 @@ shell:
       rm -rf /$pkg
     done
 
+    cp /usr/include/fuse3/* /usr/include/
+
     OUTDIR=/out
 
     cd /src
