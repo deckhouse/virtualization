@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 
@@ -35,13 +36,17 @@ import (
 	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 )
 
 const ubuntuUrl = "https://cloud-images.ubuntu.com/noble/20250704/noble-server-cloudimg-amd64.img"
+const viUrl = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
+const cviUrl = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
 
 var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
 	frameworkEntity := framework.NewFramework("virtual-machine-restore-operation")
@@ -69,7 +74,6 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 				for _, bd := range helper.VM.Status.BlockDeviceRefs {
 					fmt.Println(bd.Name)
 					if bd.Name == helper.VDBlank.Name {
-						fmt.Println("gotcha")
 						devicePath = fmt.Sprintf("/dev/%s", bd.Target)
 					}
 				}
@@ -77,6 +81,7 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 
 				value := strconv.Itoa(time.Now().UTC().Second())
 				cmdCreate := fmt.Sprintf("sudo mkfs.ext4 %[1]s && sudo mount %[1]s /mnt && sudo bash -c \"echo %s > /mnt/value\"", devicePath, value)
+				fmt.Println(cmdCreate)
 				cmdGet := "cat /mnt/value"
 
 				res := d8Virtualization.SSHCommand(helper.VM.Name, cmdCreate, d8.SSHOptions{
@@ -97,9 +102,6 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 				By(res.StdOut())
-
-				fmt.Println("3")
-
 			}, 600*time.Second, time.Second).Should(Succeed())
 		})
 	})
@@ -237,11 +239,17 @@ func NewVMOPRestoreTestHelper(frameworkEntity *framework.Framework) *VMOPRestore
 
 func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 	GinkgoHelper()
-	h.CVI = h.GenerateCVI("ubuntu-cvi", ubuntuUrl)
+	h.CVI = h.GenerateCVI("ubuntu-cvi", cviUrl)
+
+	// for getting real cvi name
+	err := h.FrameworkEntity.GenericClient().Create(context.Background(), h.CVI)
+	By(fmt.Sprintf("Created cvi: %s", h.CVI.Name))
+	Expect(err).ShouldNot(HaveOccurred())
+
 	h.FrameworkEntity.AddResourceToDelete(h.CVI)
-	h.VI = h.GenerateVI("ubuntu-vi", h.FrameworkEntity.Namespace().Name, ubuntuUrl)
+	h.VI = h.GenerateVI("ubuntu-vi", h.FrameworkEntity.Namespace().Name, viUrl)
 	h.VDRoot = h.GenerateVDFromHttp("vd-root", h.FrameworkEntity.Namespace().Name, "10Gi", ubuntuUrl)
-	h.VDBlank = h.GenerateVDBlank("vd-blank", h.FrameworkEntity.Namespace().Name, "10Gi")
+	h.VDBlank = h.GenerateVDBlank("vd-blank", h.FrameworkEntity.Namespace().Name, "200Mi")
 	h.VM = h.GenerateVM(
 		"ubuntu-vm",
 		h.FrameworkEntity.Namespace().Name,
@@ -253,14 +261,14 @@ func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 			Kind: v1alpha2.DiskDevice,
 			Name: h.VDRoot.Name,
 		},
-		// v1alpha2.BlockDeviceSpecRef{
-		// 	Kind: v1alpha2.ClusterImageDevice,
-		// 	Name: h.CVI.Name,
-		// },
-		// v1alpha2.BlockDeviceSpecRef{
-		// 	Kind: v1alpha2.ImageDevice,
-		// 	Name: h.VI.Name,
-		// },
+		v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.ClusterImageDevice,
+			Name: h.CVI.Name,
+		},
+		v1alpha2.BlockDeviceSpecRef{
+			Kind: v1alpha2.ImageDevice,
+			Name: h.VI.Name,
+		},
 	)
 	h.VMBDA = h.GenerateVMBDA(
 		"vmbda", h.FrameworkEntity.Namespace().Name, h.VM.Name,
@@ -270,9 +278,6 @@ func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 		},
 	)
 
-	By(fmt.Sprintf("Creating cvi: %sxxxxx", h.CVI.GenerateName))
-	err := h.FrameworkEntity.GenericClient().Create(context.Background(), h.CVI)
-	Expect(err).ShouldNot(HaveOccurred())
 	By(fmt.Sprintf("Creating vi: %s/%s", h.VI.Namespace, h.VI.Name))
 	err = h.FrameworkEntity.GenericClient().Create(context.Background(), h.VI)
 	Expect(err).ShouldNot(HaveOccurred())
@@ -574,6 +579,6 @@ func (h *VMOPRestoreTestHelper) CheckIfResourcesReady(g Gomega) {
 	g.Expect(h.VMBDA.Status.Phase).Should(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
 	g.Expect(h.VM.Status.Phase).Should(Equal(v1alpha2.MachineRunning))
 
-	// agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, h.VM.Status.Conditions)
-	// g.Expect(agentReady.Status).Should(Equal(metav1.ConditionTrue))
+	agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, h.VM.Status.Conditions)
+	g.Expect(agentReady.Status).Should(Equal(metav1.ConditionTrue))
 }
