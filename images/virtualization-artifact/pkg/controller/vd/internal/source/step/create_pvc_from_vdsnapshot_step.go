@@ -24,6 +24,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -100,6 +101,21 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q is not ready to use.", vdSnapshot.Name))
+		return &reconcile.Result{}, nil
+	}
+
+	if err := s.validateStorageClassCompatibility(ctx, vd, vs); err != nil {
+		vd.Status.Phase = virtv2.DiskFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningFailed).
+			Message(err.Error())
+		s.recorder.Event(
+			vd,
+			corev1.EventTypeWarning,
+			virtv2.ReasonDataSourceSyncFailed,
+			err.Error(),
+		)
 		return &reconcile.Result{}, nil
 	}
 
@@ -224,4 +240,45 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.V
 		},
 		Spec: spec,
 	}
+}
+
+func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) error {
+	if vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "" {
+		return nil
+	}
+
+	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
+
+	originalSCName := vs.Annotations[annotations.AnnStorageClassName]
+	if originalSCName == "" {
+		originalSCName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+	}
+
+	if targetSCName == originalSCName {
+		return nil
+	}
+
+	var targetSC storagev1.StorageClass
+	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
+	}
+
+	var originalSC storagev1.StorageClass
+	err = s.client.Get(ctx, types.NamespacedName{Name: originalSCName}, &originalSC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch original storage class %q: %w", originalSCName, err)
+	}
+
+	if targetSC.Provisioner != originalSC.Provisioner {
+		return fmt.Errorf(
+			"cannot restore snapshot to storage class %q: incompatible storage providers. "+
+				"Original disk uses %q (provisioner: %s), target uses %q (provisioner: %s). "+
+				"Cross-provider snapshot restore is not supported",
+			targetSCName, originalSCName, originalSC.Provisioner,
+			targetSCName, targetSC.Provisioner,
+		)
+	}
+
+	return nil
 }
