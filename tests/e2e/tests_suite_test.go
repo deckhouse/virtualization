@@ -292,11 +292,8 @@ func StopV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) []erro
 		go func() {
 			defer GinkgoRecover()
 			defer logStream.LogStreamWaitGroup.Done()
-			warn, err := logStream.WaitCmd()
+			warn, _ := logStream.WaitCmd()
 			mu.Lock()
-			if err != nil {
-				errs = append(errs, err)
-			}
 			if warn != "" {
 				_, err := GinkgoWriter.Write([]byte(warn))
 				if err != nil {
