@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
 
 type CreateSnapshotStep struct {
@@ -74,8 +75,9 @@ func (s CreateSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 					rcb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
 					&vmop.Status.Conditions,
 				)
+				vmsReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
+				err = fmt.Errorf("virtual machine %q have invalid state: %s", vmop.Spec.VirtualMachine, vmsReadyCondition.Message)
 				common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
-
 				return &reconcile.Result{}, fmt.Errorf("virtual machine snapshot %q is in failed phase: %w. Try again with new VMOP Clone operation", vmSnapshotKey.Name, err)
 			case v1alpha2.VirtualMachineSnapshotPhaseReady:
 				conditions.SetCondition(
