@@ -33,7 +33,8 @@ package:
   libgcrypt: libgcrypt-1.10.2
   liburing: liburing-2.6
   libuserspace-rcu: v0.14.0
-  libunistring: v0.9.10
+  # libunistring: v0.9.10
+  libunistring: v1.1
   libxcrypt: v4.4.36
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
