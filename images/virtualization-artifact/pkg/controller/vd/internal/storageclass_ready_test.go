@@ -26,9 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -46,7 +46,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 		ctx = context.TODO()
 
 		svc = &StorageClassServiceMock{
-			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil
 			},
 		}
@@ -65,10 +65,13 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			},
 			Status: virtv2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
 			},
 		}
 
-		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+		supgen := vdsupplements.NewGenerator(vd)
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +85,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 
 	Context("PVC is already exists", func() {
 		BeforeEach(func() {
-			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			}
 		})

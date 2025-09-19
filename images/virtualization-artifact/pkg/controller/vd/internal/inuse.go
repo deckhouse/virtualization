@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -223,13 +224,7 @@ func (h InUseHandler) isVMActive(ctx context.Context, vm virtv2.VirtualMachine) 
 }
 
 func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk, usageMap map[string]bool) {
-	var currentlyMountedVM string
-	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
-		if attachedVM.Mounted {
-			currentlyMountedVM = attachedVM.Name
-			break
-		}
-	}
+	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
 
 	attachedVMs := make([]virtv2.AttachedVirtualMachine, 0, len(usageMap))
 	setAnyToTrue := false

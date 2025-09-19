@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,6 +33,7 @@ import (
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("LifecycleHandler", func() {
@@ -76,6 +78,12 @@ var _ = Describe("LifecycleHandler", func() {
 		vm.Spec.LiveMigrationPolicy = vmPolicy
 		vm.Spec.RunPolicy = virtv2.AlwaysOnPolicy
 		vm.Status.Phase = virtv2.MachineRunning
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:   vmcondition.TypeMigratable.String(),
+				Status: metav1.ConditionTrue,
+			},
+		}
 
 		return vm
 	}

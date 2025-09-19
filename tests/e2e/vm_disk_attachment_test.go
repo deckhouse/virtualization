@@ -27,7 +27,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -36,16 +36,17 @@ const unacceptableCount = -1000
 
 var APIVersion = virtv2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
-		nameSuffix         = "automatic-with-hotplug-standalone"
-		disksBefore        Disks
-		disksAfter         Disks
-		vdAttach           string
-		vmName             string
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
+		nameSuffix               = "automatic-with-hotplug-standalone"
+		disksBefore              Disks
+		disksAfter               Disks
+		vdAttach                 string
+		vmName                   string
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	BeforeAll(func() {
@@ -269,10 +270,10 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 func GetDisksMetadata(vmNamespace, vmName string, disks *Disks) error {
 	GinkgoHelper()
 	cmd := "lsblk --nodeps --json"
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())

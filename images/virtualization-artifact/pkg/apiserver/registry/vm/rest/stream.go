@@ -69,9 +69,16 @@ func (p pather) Path(namespace, name string) string {
 
 type preconditionVirtualMachine func(vm *virtv2.VirtualMachine) error
 
-func virtualMachineNeedRunning(vm *virtv2.VirtualMachine) error {
+func virtualMachineShouldBeRunning(vm *virtv2.VirtualMachine) error {
 	if vm == nil || vm.Status.Phase != virtv2.MachineRunning {
 		return fmt.Errorf("VirtualMachine is not Running")
+	}
+	return nil
+}
+
+func virtualMachineShouldBeRunningOrMigrating(vm *virtv2.VirtualMachine) error {
+	if vm == nil || (vm.Status.Phase != virtv2.MachineRunning && vm.Status.Phase != virtv2.MachineMigrating) {
+		return fmt.Errorf("VirtualMachine is not Running or Migrating")
 	}
 	return nil
 }

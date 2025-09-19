@@ -31,12 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	pvcspec "github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -45,7 +44,7 @@ import (
 const createStep = "create"
 
 type VolumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 type CreateBlankPVCStep struct {
@@ -91,12 +90,12 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 		return nil, fmt.Errorf("storage class %q not found", vd.Status.StorageClassName)
 	}
 
-	volumeMode, accessMode, err := s.modeGetter.GetVolumeAndAccessModes(ctx, sc)
+	volumeMode, accessMode, err := s.modeGetter.GetVolumeAndAccessModes(ctx, vd, sc)
 	if err != nil {
 		return nil, fmt.Errorf("get volume and access modes: %w", err)
 	}
 
-	key := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
+	key := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
@@ -135,7 +134,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 	}
 
 	vd.Status.Progress = "0%"
-	vd.Status.Target.PersistentVolumeClaim = pvc.Name
+	vdsupplements.SetPVCName(vd, pvc.Name)
 
 	log.Debug("PVC has been created")
 

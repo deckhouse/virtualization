@@ -55,7 +55,7 @@ func (h *EvictHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		conditions.NewConditionBuilder(vmcondition.TypeNeedsEvict).
 			Generation(changed.GetGeneration()).
 			Status(metav1.ConditionTrue).
-			Reason(vmcondition.TypeNeedsEvict).
+			Reason(vmcondition.ReasonNeedsEvict).
 			Message("VirtualMachine should be evicted from current node or restarted."),
 		&changed.Status.Conditions,
 	)

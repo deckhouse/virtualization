@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ginkgoutil
+package framework
 
 import (
 	"os"
@@ -83,4 +83,8 @@ func CommonE2ETestDecorators() []interface{} {
 		ginkgo.Ordered,
 		FailureBehaviourEnvSwitcher{},
 	)
+}
+
+func FailureBehaviourEnvSwitcherDecorator() []interface{} {
+	return DecoratorsFromEnv(FailureBehaviourEnvSwitcher{})
 }

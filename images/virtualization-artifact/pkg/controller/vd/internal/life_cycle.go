@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,6 +70,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		vd.Status.Phase = virtv2.DiskPending
 	}
 
+	migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+	if migrating.Status == metav1.ConditionTrue {
+		vd.Status.Phase = virtv2.DiskMigrating
+		return reconcile.Result{}, nil
+	}
+
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
 		h.recorder.Event(
 			vd,
@@ -91,17 +98,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+
 	if !source.IsDiskProvisioningFinished(readyCondition) {
-		datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-		if datasourceReadyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(datasourceReadyCondition, vd) {
+		ds, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+
+		if ds.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(ds, vd) {
 			message := "Datasource is not ready for provisioning."
-			if datasourceReadyCondition.Status == metav1.ConditionFalse && datasourceReadyCondition.Message != "" {
-				message = datasourceReadyCondition.Message
+			if ds.Status == metav1.ConditionFalse && ds.Message != "" {
+				message = ds.Message
 			}
+
 			reason := vdcondition.DatasourceIsNotReady
-			if datasourceReadyCondition.Reason == vdcondition.ImageNotFound.String() || datasourceReadyCondition.Reason == vdcondition.ClusterImageNotFound.String() {
+			if ds.Reason == vdcondition.ImageNotFound.String() || ds.Reason == vdcondition.ClusterImageNotFound.String() {
 				reason = vdcondition.DatasourceIsNotFound
 			}
+
 			cb.
 				Reason(reason).
 				Message(message).
@@ -144,7 +155,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 	readyConditionAfterSync, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if readyConditionAfterSync.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyConditionAfterSync, vd) {
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: 1 * time.Second}, nil
 	}
 
 	return result, nil

@@ -33,16 +33,18 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 	var (
 		ns     string
 		ctx    context.Context
 		cancel context.CancelFunc
 		vmip   *virtv2.VirtualMachineIPAddress
+
+		virtClient = framework.GetClients().VirtClient()
 	)
 
 	BeforeAll(func() {
@@ -159,7 +161,7 @@ var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 func WaitForVirtualMachineIPAddress(ctx context.Context, ns, name string, h EventHandler[*virtv2.VirtualMachineIPAddress]) *virtv2.VirtualMachineIPAddress {
 	GinkgoHelper()
-	vmip, err := WaitFor(ctx, virtClient.VirtualMachineIPAddresses(ns), h, metav1.ListOptions{
+	vmip, err := WaitFor(ctx, framework.GetClients().VirtClient().VirtualMachineIPAddresses(ns), h, metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -168,7 +170,7 @@ func WaitForVirtualMachineIPAddress(ctx context.Context, ns, name string, h Even
 
 func WaitForVirtualMachineIPAddressLease(ctx context.Context, name string, h EventHandler[*virtv2.VirtualMachineIPAddressLease]) *virtv2.VirtualMachineIPAddressLease {
 	GinkgoHelper()
-	lease, err := WaitFor(ctx, virtClient.VirtualMachineIPAddressLeases(), h, metav1.ListOptions{
+	lease, err := WaitFor(ctx, framework.GetClients().VirtClient().VirtualMachineIPAddressLeases(), h, metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
 	})
 	Expect(err).NotTo(HaveOccurred())
@@ -183,7 +185,7 @@ func CreateVirtualMachineIPAddress(ctx context.Context, vmip *virtv2.VirtualMach
 		return e.Status.Phase == virtv2.VirtualMachineIPAddressPhaseBound, nil
 	})
 
-	lease, err := virtClient.VirtualMachineIPAddressLeases().Get(ctx, ipAddressToLeaseName(vmip.Status.Address), metav1.GetOptions{})
+	lease, err := framework.GetClients().VirtClient().VirtualMachineIPAddressLeases().Get(ctx, ipAddressToLeaseName(vmip.Status.Address), metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	return vmip, lease

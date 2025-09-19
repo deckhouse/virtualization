@@ -99,7 +99,7 @@ func PortForwardLocation(
 		newKVVMIPather(streamPath),
 		kubevirt,
 		proxyCertManager,
-		virtualMachineNeedRunning,
+		virtualMachineShouldBeRunningOrMigrating,
 	)
 }
 

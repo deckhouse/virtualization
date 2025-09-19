@@ -103,6 +103,6 @@ func ConsoleLocation(
 		newKVVMIPather("console"),
 		kubevirt,
 		proxyCertManager,
-		virtualMachineNeedRunning,
+		virtualMachineShouldBeRunningOrMigrating,
 	)
 }

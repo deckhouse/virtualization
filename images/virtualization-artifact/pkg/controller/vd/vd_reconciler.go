@@ -21,19 +21,18 @@ import (
 	"fmt"
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -76,6 +75,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
 
+		if vd.Changed().Status.Target.PersistentVolumeClaim == "" {
+			logger.FromContext(ctx).Error("Target.PersistentVolumeClaim is empty, restore previous value. Please report a bug.")
+			vdsupplements.SetPVCName(vd.Changed(), vd.Current().Status.Target.PersistentVolumeClaim)
+		}
+
 		return vd.Update(ctx)
 	})
 
@@ -86,11 +90,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
 			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualDisk]{},
-			predicate.TypedFuncs[*virtv2.VirtualDisk]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
-					return !equality.Semantic.DeepEqual(e.ObjectOld.GetFinalizers(), e.ObjectNew.GetFinalizers()) || e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-				},
-			},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)

@@ -96,6 +96,6 @@ func VNCLocation(
 		newKVVMIPather("vnc"),
 		kubevirt,
 		proxyCertManager,
-		virtualMachineNeedRunning,
+		virtualMachineShouldBeRunningOrMigrating,
 	)
 }
