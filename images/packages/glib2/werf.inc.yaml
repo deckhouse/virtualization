@@ -13,8 +13,6 @@ packages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "GNOME/glib.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
@@ -95,5 +93,3 @@ shell:
       -Dstrip=true
     meson compile -C _build
     DESTDIR=${OUTDIR} meson install -C _build
-
-{{- end}}
