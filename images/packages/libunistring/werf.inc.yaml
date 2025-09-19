@@ -17,9 +17,20 @@ fromImage: builder/src
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - configure
+  stageDependencies:
+    install:
+      - '**/*'
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    mv /configure /src
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -57,7 +68,7 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    ./autogen.sh
+    # ./autogen.sh
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64
