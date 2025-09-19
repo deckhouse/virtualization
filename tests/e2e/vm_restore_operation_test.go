@@ -399,7 +399,7 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 			Eventually(func(g Gomega) {
 				helper.UpdateState()
 				g.Expect(helper.VMBDA.Status.Phase).Should(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
-			})
+			}, 120*time.Second, time.Second)
 		})
 	})
 

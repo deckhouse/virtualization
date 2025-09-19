@@ -87,8 +87,8 @@ func WithVirtualMachineClass(class string) Option {
 	}
 }
 
-func WithProvisioning(provisiong *v1alpha2.Provisioning) Option {
+func WithProvisioning(provisioning *v1alpha2.Provisioning) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
-		vm.Spec.Provisioning = provisiong
+		vm.Spec.Provisioning = provisioning
 	}
 }

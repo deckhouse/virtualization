@@ -41,7 +41,7 @@ func NewEmpty(name, namespace string) *v1alpha2.VirtualMachineSnapshot {
 	return &v1alpha2.VirtualMachineSnapshot{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha2.SchemeGroupVersion.String(),
-			Kind:       v1alpha2.VirtualMachineOperationKind,
+			Kind:       v1alpha2.VirtualMachineSnapshotKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
