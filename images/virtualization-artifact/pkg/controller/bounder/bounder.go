@@ -20,7 +20,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -31,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
 
 type Bounder struct {
@@ -170,16 +168,5 @@ type PodNamer interface {
 }
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
-	pod, err := object.FetchObject(ctx, name.BounderPod(), client, &corev1.Pod{})
-	if err == nil || !k8serrors.IsNotFound(err) {
-		return pod, err
-	}
-
-	// Try legacy naming for backward compatibility
-	if gen, ok := name.(*supplements.Generator); ok {
-		legacyGen := supplements.NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-		return object.FetchObject(ctx, legacyGen.BounderPod(), client, &corev1.Pod{})
-	}
-
-	return nil, err
+	return object.FetchObject(ctx, name.BounderPod(), client, &corev1.Pod{})
 }
