@@ -74,7 +74,7 @@ shell:
     OUTDIR=/out
     cd /src
     export GNULIB_TOOL=$(pwd)/gnulib/gnulib-tool
-    ./autogen.sh
+    ./autogen.sh --skip-gnulib
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64
