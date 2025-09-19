@@ -617,8 +617,8 @@ VolumeBindingMode property:
 
 AccessMode:
 
-- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk.
 - `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
+- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with such disks is possible only in the DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reconnected statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -649,7 +649,7 @@ How to find out the available storage options in the DVP web interface:
 
 - Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
-## Create an empty disk
+### Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
 
@@ -861,6 +861,35 @@ Method #2:
 - In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
+
+### Changing the disk StorageClass
+
+In the DVP commercial editions, it is possible to change the StorageClass for existing disks. At the moment, this is only supported for running VMs (`Phase` should be `Running`).
+
+{{< alert level="warning">}}
+Storage class migration is only available for disks connected statically via (`.spec.blockDeviceRefs`).
+
+To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, you must statically reattach them by specifying them in `.spec.blockDeviceRefs`.
+{{< /alert >}}
+
+Example:
+
+```bash
+d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+After the disk configuration is updated, a live migration of the VM will be initiated, during which the VM’s disk will be migrated to the new storage.
+
+If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
+
+```bash
+d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+If migration fails, repeated attempts are made with increasing delays (exponential backoff algorithm). The maximum delay is 300 seconds (5 minutes). Delays: 5 seconds (1st attempt), 10 seconds (2nd), then each delay doubles, reaching 300 seconds (7th and subsequent attempts). The first attempt is performed without delay.
+
+To cancel migration, the user must return the storage class in the specification to the original one.
 
 ## Virtual machines
 
@@ -2801,6 +2830,66 @@ d8 k get vmop <vmop-name> -o json | jq “.status.resources”
 {{< alert level="warning" >}}
 It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
 {{< /alert >}}
+
+
+## Creating a VM clone
+
+VM cloning is performed using the `VirtualMachineOperation` resource with the `clone` operation type.
+
+{{< alert level="warning">}}
+To perform a VM cloning operation, the VM being cloned must be [powered off](#vm-start-and-state-management-policy).
+It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
+{{< /alert >}}
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: <vmop-name>
+spec:
+  type: Clone
+  virtualMachineName: <name of the VM to be cloned>
+  clone:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customisation: {}
+```
+
+{{< alert level="warning">}}
+The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the network settings of the guest OS after cloning.
+{{< /alert >}}
+
+Cloning creates a copy of an existing VM, so the resources of the new VM must have unique names. To do this, use the `.spec.clone.nameReplacements` and/or `.spec.clone.customisation` parameters.
+
+- `.spec.clone.nameReplacements` — allows you to replace the names of existing resources with new ones to avoid conflicts.
+- `.spec.clone.customisation` — sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+
+Configuration example:
+
+```yaml
+spec:
+  clone:
+    nameReplacements:
+      - from:
+          kind: <resource type>
+          name: <old name>
+      - to:
+          name: <new name>
+    customisation:
+      namePrefix: <prefix>
+      nameSuffix: <suffix>
+```
+
+One of three modes can be used for the cloning operation:
+- `DryRun` — a test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
+- `Strict` — strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `BestEffort` — mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
+
+Information about conflicts that arose during cloning can be viewed in the resource status:
+
+```bash
+d8 k get vmop <vmop-name> -o json | jq “.status.resources”
+```
 
 ## Data export
 
