@@ -46,7 +46,7 @@ spec:
 
     # Install a package
     function install_package() {
-        bb-yum-install "$1"
+        bb-dnf-install "$1"
     }
 
     if is_selinux_enabled; then
