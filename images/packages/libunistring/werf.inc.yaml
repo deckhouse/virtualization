@@ -21,7 +21,7 @@ git:
 - add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
   to: /
   includePaths:
-  - configure
+  - patches
   stageDependencies:
     install:
       - '**/*'
@@ -29,7 +29,11 @@ shell:
   install:
   - |
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    mv /configure /src
+    cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
 ---
 
@@ -68,7 +72,7 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    # ./autogen.sh
+    autoreconf -fi
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64
