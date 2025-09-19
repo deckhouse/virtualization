@@ -1,16 +1,16 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /nbdkit
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/nbdkit.git" }}
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "krb5/krb5.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,33 +21,20 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
 ---
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc
-- automake autoconf-archive make libtool
-- bash-completion
-- curl qemu expect
-- filesystem
-- socat xz jq
-- iproute2
-- zlib-ng
-- libblkio libtorrent-rasterbar-devel
+- git gcc automake make tree
+- flex bison
 packages:
-- libisoburn libnbd e2fsprogs
-- gnutls libidn2 libgmp
-- zlib
-- libssh
-- zstd
-- libxml2
-- libtasn1
+- linux-pam openssl e2fsprogs keyutils ncurses  
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
@@ -73,20 +60,36 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-
     OUTDIR=/out
 
-    cd /src
+    cd /src/src
+    export YACC="bison -y"
+    export CFLAGS="-O2 -fcommon"
 
-    autoreconf -if
+    autoreconf
+
     ./configure \
-      --disable-static \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --without-bash-completions \
-      --with-ext2 \
-      --disable-torrent
-
+        --prefix=/usr \
+        --libdir=/usr/lib64 \
+        --exec-prefix=/usr \
+        --enable-shared --disable-static \
+        --enable-dns-for-realm \
+        --enable-pkinit \
+        --with-system-et \
+        --with-system-ss \
+        --with-pkinit-crypto-impl=openssl \
+        --with-tls-impl=openssl
+    
     make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+    
+    rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/var
 
-    make DESTDIR=$OUTDIR install-strip
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -sp $OUTDIR

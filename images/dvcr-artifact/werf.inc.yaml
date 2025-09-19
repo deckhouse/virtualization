@@ -4,9 +4,9 @@
 altPackages:
 - gcc glibc-pthread glibc-devel glibc-devel-static
 - git golang make binutils
-- libxml2-devel
 packages:
 - libnbd
+- libxml2
 {{- end -}}
 
 {{ $builderDeps := include "$nameDeps" . | fromYaml }}
@@ -68,8 +68,6 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-altPackages:
-- libxml2-devel
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
@@ -83,7 +81,7 @@ binaries:
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
 packages:
-- bzip2 file nbdkit libnbd
+- bzip2 file nbdkit libnbd xz libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -109,12 +107,6 @@ import:
   to: /qemu-img
   before: install
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install -y \
-      {{ $builderDependencies.altPackages | join " " }}
-  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     # Install packages
