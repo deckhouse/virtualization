@@ -32,7 +32,7 @@ defaults:
 
 jobs:
   show_dev_manifest:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular]
     name: Run e2e
     steps:
       - uses: actions/checkout@v4
