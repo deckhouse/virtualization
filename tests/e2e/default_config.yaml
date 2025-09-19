@@ -44,7 +44,6 @@ testData:
 logFilter:
   - "pattern to exclude"
   - "validation failed for data source objectref" # Err.
-  - "clean up failed for data source registry" # Err.
   - "the server rejected our request due to an error in our request" # Err.
   - "failed to sync powerstate" # Msg.
   - "does not have a pvc reference" # "err": "kvvm head-345e7b6a-testcases-image-hotplug/head-345e7b6a-vm-image-hotplug spec volume vi-head-345e7b6a-vi-alpine-http does not have a pvc reference"
