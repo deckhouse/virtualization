@@ -56,7 +56,6 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    autoreconf -fi
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64
