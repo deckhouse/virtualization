@@ -69,6 +69,13 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 				}
 			}
 
+			vmClassFilePath := fmt.Sprintf("%s/vmc.yaml", conf.TestData.ComplexTest)
+			vmcRes := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{vmClassFilePath},
+				FilenameOption: kc.Filename,
+			})
+			Expect(vmcRes.Error()).NotTo(HaveOccurred(), "failed to apply virtual class resource")
+
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ComplexTest},
 				FilenameOption: kc.Kustomize,
