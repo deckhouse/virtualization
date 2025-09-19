@@ -11,10 +11,10 @@ Other combinations lead to migration problems. These combinations are unpredicta
 The error might be a bug in libvirt when it compares features after resolving the target CPU model (still
 need to investigate).
 
-The current approach is to use kvm64 model for Discovery and Features types. This model contains a small
-set of features and migration works well.
+The current approach is to use qemu64 model for Discovery and Features types. This model contains a small
+set of features and migration works well. Changed from kvm64 to qemu64 to improve compatibility with AMD CPUs.
 
 ## Solution
 
-1. Use kvm64 model for Discovery and Features vmclass types.
-2. Add patch for kubevirt to prevent adding nodeSelector for cpu model "kvm64".
+1. Use qemu64 model for Discovery and Features vmclass types.
+2. Add patch for kubevirt to prevent adding nodeSelector for cpu model "qemu64".
