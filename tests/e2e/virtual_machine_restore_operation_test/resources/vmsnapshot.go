@@ -31,7 +31,7 @@ func NewVMSnapshot(
 		vmsnapshotbuilder.WithName(name),
 		vmsnapshotbuilder.WithNamespace(namespace),
 		vmsnapshotbuilder.WithVm(vmName),
-		vmsnapshotbuilder.WithKeepIpAddress(keepIpAddress),
+		vmsnapshotbuilder.WithKeepIPAddress(keepIpAddress),
 		vmsnapshotbuilder.WithRequiredConsistency(requiredConsistency),
 	)
 }

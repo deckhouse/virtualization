@@ -32,8 +32,7 @@ func NewVM(
 	memorySize string,
 	blockDeviceRefs ...v1alpha2.BlockDeviceSpecRef,
 ) *v1alpha2.VirtualMachine {
-	cloudInit :=
-		`#cloud-config
+	cloudInit := `#cloud-config
 users:
 - name: cloud
   passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.

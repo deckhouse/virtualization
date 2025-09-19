@@ -21,5 +21,5 @@ import (
 )
 
 func NewRootVD(name, namespace, url string) *v1alpha2.VirtualDisk {
-	return GenerateVDFromHttp(name, namespace, "10Gi", url)
+	return GenerateVDFromHTTP(name, namespace, "10Gi", url)
 }

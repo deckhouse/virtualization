@@ -33,9 +33,9 @@ import (
 )
 
 const (
-	ubuntuUrl = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/jammy-minimal-cloudimg-amd64.img"
-	viUrl     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	cviUrl    = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
+	ubuntuURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/jammy-minimal-cloudimg-amd64.img"
+	viURL     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
+	cviURL    = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
 )
 
 type VMOPRestoreTestHelper struct {
@@ -60,7 +60,7 @@ func NewVMOPRestoreTestHelper(frameworkEntity *framework.Framework) *VMOPRestore
 
 func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 	GinkgoHelper()
-	h.CVI = resources.NewCVI("ubuntu-cvi", cviUrl)
+	h.CVI = resources.NewCVI("ubuntu-cvi", cviURL)
 
 	// for getting real cvi name
 	err := h.FrameworkEntity.GenericClient().Create(context.Background(), h.CVI)
@@ -68,8 +68,8 @@ func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 	Expect(err).ShouldNot(HaveOccurred())
 
 	h.FrameworkEntity.AddResourceToDelete(h.CVI)
-	h.VI = resources.NewVI("ubuntu-vi", h.FrameworkEntity.Namespace().Name, viUrl)
-	h.VDRoot = resources.NewRootVD("vd-root", h.FrameworkEntity.Namespace().Name, ubuntuUrl)
+	h.VI = resources.NewVI("ubuntu-vi", h.FrameworkEntity.Namespace().Name, viURL)
+	h.VDRoot = resources.NewRootVD("vd-root", h.FrameworkEntity.Namespace().Name, ubuntuURL)
 	h.VDBlank = resources.NewBlankVD("vd-blank", h.FrameworkEntity.Namespace().Name)
 	h.VM = resources.NewVM(
 		"ubuntu-vm",

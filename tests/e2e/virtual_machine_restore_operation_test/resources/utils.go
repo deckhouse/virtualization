@@ -17,12 +17,12 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/utils/ptr"
 
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func GenerateRestoreVMOP(name, namespace, vmSnapshotName, vmName string, restoreMode v1alpha2.VMOPRestoreMode) *v1alpha2.VirtualMachineOperation {
@@ -48,7 +48,7 @@ func GenerateVDBlank(name, namespace, size string) *v1alpha2.VirtualDisk {
 	)
 }
 
-func GenerateVDFromHttp(name, namespace, size, url string) *v1alpha2.VirtualDisk {
+func GenerateVDFromHTTP(name, namespace, size, url string) *v1alpha2.VirtualDisk {
 	return vdbuilder.New(
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(namespace),

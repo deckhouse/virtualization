@@ -382,6 +382,25 @@ var _ = Describe("VirtualMachineRestoreOperation", Serial, ginkgoutil.CommonE2ET
 				g.Expect(helper.VMOPStrict.Status.Phase).Should(Equal(v1alpha2.VMOPPhaseCompleted))
 			}, 60*time.Second, 1*time.Second).Should(Succeed())
 		})
+
+		It("Recreate VMBDA", func() {
+			helper.VMBDA = resources.NewVMBDA(
+				"vmbda", helper.FrameworkEntity.Namespace().Name, helper.VM.Name,
+				v1alpha2.VMBDAObjectRef{
+					Kind: v1alpha2.VMBDAObjectRefKindVirtualDisk,
+					Name: helper.VDBlank.Name,
+				},
+			)
+			err := frameworkEntity.Clients.GenericClient().Create(context.Background(), helper.VMBDA)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("Waiting VMBDA", func() {
+			Eventually(func(g Gomega) {
+				helper.UpdateState()
+				g.Expect(helper.VMBDA.Status.Phase).Should(Equal(v1alpha2.BlockDeviceAttachmentPhaseAttached))
+			})
+		})
 	})
 
 	Context("Check VM state", func() {
