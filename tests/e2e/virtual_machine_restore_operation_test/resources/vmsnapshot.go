@@ -17,9 +17,8 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMSnapshot(

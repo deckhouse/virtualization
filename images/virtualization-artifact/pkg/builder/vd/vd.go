@@ -17,9 +17,8 @@ limitations under the License.
 package vd
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func New(options ...Option) *v1alpha2.VirtualDisk {

@@ -17,9 +17,8 @@ limitations under the License.
 package resources
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewStartVMOP(name, namespace, vmName string) *v1alpha2.VirtualMachineOperation {
