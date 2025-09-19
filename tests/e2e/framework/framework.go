@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -40,6 +41,7 @@ type Framework struct {
 
 	namespace          *corev1.Namespace
 	namespacesToDelete []string
+	resourcesToDelete  []client.Object
 }
 
 func NewFramework(namespacePrefix string) *Framework {
@@ -73,12 +75,18 @@ func (f *Framework) Before() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		ginkgo.By(fmt.Sprintf("Created namespace %s", ns.Name))
 		f.namespace = ns
-		f.AddNamespaceToDelete(ns.Name)
 	}
 }
 
 func (f *Framework) After() {
 	ginkgo.GinkgoHelper()
+
+	for _, resource := range f.resourcesToDelete {
+		ginkgo.By(fmt.Sprintf("Delete resource %s", resource.GetName()))
+		err := f.client.Delete(context.Background(), resource)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
+
 	for _, ns := range f.namespacesToDelete {
 		ginkgo.By(fmt.Sprintf("Delete namespace %s", ns))
 		err := f.KubeClient().CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
@@ -117,4 +125,8 @@ func (f *Framework) Namespace() *corev1.Namespace {
 
 func (f *Framework) AddNamespaceToDelete(name string) {
 	f.namespacesToDelete = append(f.namespacesToDelete, name)
+}
+
+func (f *Framework) AddResourceToDelete(obj client.Object) {
+	f.resourcesToDelete = append(f.resourcesToDelete, obj)
 }
