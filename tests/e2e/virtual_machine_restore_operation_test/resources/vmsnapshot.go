@@ -25,13 +25,13 @@ import (
 func NewVMSnapshot(
 	name, namespace, vmName string,
 	requiredConsistency bool,
-	keepIpAddress v1alpha2.KeepIPAddress,
+	keepIPAddress v1alpha2.KeepIPAddress,
 ) *v1alpha2.VirtualMachineSnapshot {
 	return vmsnapshotbuilder.New(
 		vmsnapshotbuilder.WithName(name),
 		vmsnapshotbuilder.WithNamespace(namespace),
-		vmsnapshotbuilder.WithVm(vmName),
-		vmsnapshotbuilder.WithKeepIPAddress(keepIpAddress),
+		vmsnapshotbuilder.WithVM(vmName),
+		vmsnapshotbuilder.WithKeepIPAddress(keepIPAddress),
 		vmsnapshotbuilder.WithRequiredConsistency(requiredConsistency),
 	)
 }

@@ -40,14 +40,14 @@ func WithRequiredConsistency(required bool) Option {
 	}
 }
 
-func WithVm(vmName string) Option {
+func WithVM(vmName string) Option {
 	return func(vmop *v1alpha2.VirtualMachineSnapshot) {
 		vmop.Spec.VirtualMachineName = vmName
 	}
 }
 
-func WithKeepIPAddress(keepIpAddress v1alpha2.KeepIPAddress) Option {
+func WithKeepIPAddress(keepIPAddress v1alpha2.KeepIPAddress) Option {
 	return func(vmop *v1alpha2.VirtualMachineSnapshot) {
-		vmop.Spec.KeepIPAddress = keepIpAddress
+		vmop.Spec.KeepIPAddress = keepIPAddress
 	}
 }
