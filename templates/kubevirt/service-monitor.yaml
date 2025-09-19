@@ -78,14 +78,6 @@ spec:
             - __name__
             - drive
           targetLabel: type
-        # network ----------------------------------------------------------------------------------
-        # add network=default for all kubevirt_vmi_network_ metrics
-        - action: replace
-          regex: kubevirt_vmi_network_(.*)
-          replacement: default
-          sourceLabels:
-            - __name__
-          targetLabel: network
         # cpu --------------------------------------------------------------------------------------
         # for kubevirt_vmi_vcpu_ add new label core with value from id label
         - action: replace
