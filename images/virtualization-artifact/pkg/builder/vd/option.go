@@ -81,6 +81,7 @@ func WithDataSourceContainerImage(image, imagePullSecretName string, caBundle []
 		}
 	}
 }
+
 func WithDataSourceObjectRef(kind v1alpha2.VirtualDiskObjectRefKind, name string) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
 		vd.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{
