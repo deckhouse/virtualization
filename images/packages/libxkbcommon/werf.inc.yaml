@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "rockdaboot/libpsl.git" }}
+{{- $gitRepoUrl := "xkbcommon/libxkbcommon.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -19,23 +19,22 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools meson ninja-build
-- rpm-build-python3
-- libicu-devel
-- libunistring-devel
-- gtk-doc xsltproc
-- publicsuffix-list
-- publicsuffix-list-dafsa
+- gcc git make libtool gettext-tools meson ninja-build bison
+- xkeyboard-config-devel
+- wayland-devel libwayland-client-devel wayland-protocols
+- libxcb-devel
+- bash-completion
 - tree
 packages:
-- libidn2
-- glib2
+- libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -77,15 +76,12 @@ shell:
     /usr/bin/meson setup _build  \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      -Dbuiltin=false \
-      -Dpsl_distfile=/usr/share/publicsuffix/public_suffix_list.dafsa \
-      -Dpsl_file=/usr/share/publicsuffix/effective_tld_names.dat \
-      -Dpsl_testfile=/usr/share/publicsuffix/test_psl.txt \
-      -Druntime=libidn2 \
-      -Ddocs=false \
-      -Dtests=false \
       --wrap-mode=nofallback \
-      --wrap-mode=nodownload
+      --wrap-mode=nodownload \
+      -Denable-docs=false \
+      -Denable-x11=true \
+      -Denable-xkbregistry=true \
+      -Ddefault_library=shared
 
     ninja-build -j$(nproc) -C _build
     DESTDIR=$OUTDIR ninja-build install -C _build
@@ -96,3 +92,4 @@ shell:
     fi
     done
     tree -hp $OUTDIR
+

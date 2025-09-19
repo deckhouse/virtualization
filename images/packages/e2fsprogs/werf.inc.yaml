@@ -27,10 +27,9 @@ shell:
 altPackages:
 - gcc git make libtool gettext-tools
 - libuuid-devel libarchive-devel
-- glib2-devel
 - tree
 packages:
-- util-linux acl
+- glib2 util-linux acl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -59,7 +58,6 @@ shell:
   install:
   - |
     # Install packages
-    echo "Install packages"
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
