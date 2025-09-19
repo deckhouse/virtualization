@@ -30,10 +30,14 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func WaitVMNetworkReady(opts kc.WaitOptions) {
+func WaitForVMNetworkReady(opts kc.WaitOptions) {
+	GinkgoHelper()
+	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeNetworkReady.String(), opts)
+}
+
+func WaitForVMRunningPhase(opts kc.WaitOptions) {
 	GinkgoHelper()
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
-	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeNetworkReady.String(), opts)
 }
 
 var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
@@ -84,8 +88,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
+			By("Virtual machine should be running")
+			WaitForVMRunningPhase(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -93,7 +97,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 		})
 		It("checks network availability", func() {
 			By("Network condition should be true")
-			WaitVMNetworkReady(kc.WaitOptions{
+			WaitForVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -151,7 +155,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 		It("checks network availability after migrations", func() {
 			By("Network condition should be true")
-			WaitVMNetworkReady(kc.WaitOptions{
+			WaitForVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
