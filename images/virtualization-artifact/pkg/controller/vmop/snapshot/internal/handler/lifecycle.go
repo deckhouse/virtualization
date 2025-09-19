@@ -66,33 +66,22 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
+	svcOp, err := h.svcOpCreator(vmop)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Ignore if VMOP is in final state.
-	if commonvmop.IsFinished(vmop) {
+	if complete, _ := svcOp.IsComplete(); complete {
 		return reconcile.Result{}, nil
 	}
 
 	// 1.Initialize new VMOP resource: set phase to Pending and all conditions to Unknown.
 	h.base.Init(vmop)
 
-	if vmop.Status.Phase == "" {
-		conditions.SetCondition(
-			conditions.NewConditionBuilder(vmopcondition.TypeRestoreCompleted).
-				Generation(vmop.GetGeneration()).
-				Reason(conditions.ReasonUnknown).
-				Status(metav1.ConditionUnknown).
-				Message(""),
-			&vmop.Status.Conditions,
-		)
-	}
-
 	// 2. Get VirtualMachine for validation vmop.
 	vm, err := h.base.FetchVirtualMachineOrSetFailedPhase(ctx, vmop)
 	if vm == nil || err != nil {
-		return reconcile.Result{}, err
-	}
-
-	svcOp, err := h.svcOpCreator(vmop)
-	if err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -142,15 +131,22 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 	} else {
 		vmop.Status.Phase = v1alpha2.VMOPPhaseInProgress
 		reason := svcOp.GetInProgressReason()
-		conditions.SetCondition(completedCond.Reason(reason).Message("Wait for operation to complete").Status(metav1.ConditionFalse), &vmop.Status.Conditions)
+		conditions.SetCondition(completedCond.Reason(reason).Message("Wait for operation to complete.").Status(metav1.ConditionFalse), &vmop.Status.Conditions)
 	}
 
-	isComplete := svcOp.IsComplete()
+	isComplete, failMsg := svcOp.IsComplete()
 	if isComplete {
-		vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
-		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
+		if failMsg != "" {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+			h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, failMsg)
 
-		conditions.SetCondition(completedCond.Reason(vmopcondition.ReasonOperationCompleted).Message("VirtualMachineOperation succeeded").Status(metav1.ConditionTrue), &vmop.Status.Conditions)
+			conditions.SetCondition(completedCond.Reason(vmopcondition.ReasonOperationFailed).Message(failMsg).Status(metav1.ConditionFalse), &vmop.Status.Conditions)
+		} else {
+			vmop.Status.Phase = v1alpha2.VMOPPhaseCompleted
+			h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineOperation completed")
+
+			conditions.SetCondition(completedCond.Reason(vmopcondition.ReasonOperationCompleted).Message("VirtualMachineOperation succeeded.").Status(metav1.ConditionTrue), &vmop.Status.Conditions)
+		}
 	}
 
 	return rec, err

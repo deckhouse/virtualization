@@ -69,6 +69,10 @@ func (v *VirtualMachineIPHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vmip.Name = common.OverrideName(v.vmip.Kind, v.vmip.Name, rules)
 }
 
+func (v *VirtualMachineIPHandler) Customize(prefix, suffix string) {
+	v.vmip.Name = common.ApplyNameCustomization(v.vmip.Name, prefix, suffix)
+}
+
 func (v *VirtualMachineIPHandler) ValidateRestore(ctx context.Context) error {
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &v1alpha2.VirtualMachineIPAddress{})

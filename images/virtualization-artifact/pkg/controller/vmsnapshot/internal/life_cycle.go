@@ -172,12 +172,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrBlockDevicesNotReady), errors.Is(err, ErrVirtualDiskNotReady), errors.Is(err, ErrVirtualDiskResizing):
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
 		msg := service.CapitalizeFirstLetter(err.Error() + ".")
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingPending,
+			virtv2.ReasonVMSnapshottingFailed,
 			msg,
 		)
 		cb.

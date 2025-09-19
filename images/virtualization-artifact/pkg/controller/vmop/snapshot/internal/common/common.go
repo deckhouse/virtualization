@@ -33,6 +33,14 @@ func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
+func SetPhaseCloneConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, err error) {
+	*phase = v1alpha2.VMOPPhaseFailed
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vmopcondition.ReasonCloneOperationFailed).
+		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+}
+
 func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
 	*phase = v1alpha2.VMOPPhaseCompleted
 	cb.
