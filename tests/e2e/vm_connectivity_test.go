@@ -308,8 +308,12 @@ func CheckCiliumAgents(kubectl kc.Kubectl, namespace string, vms ...string) {
 	GinkgoHelper()
 	for _, vm := range vms {
 		By(fmt.Sprintf("Cilium agent should be OK's for VM: %s", vm))
-		err := network.CheckCilliumAgents(context.Background(), kubectl, vm, namespace)
-		Expect(err).NotTo(HaveOccurred())
+		Eventually(func() error {
+			return network.CheckCilliumAgents(context.Background(), kubectl, vm, namespace)
+		}).
+			WithTimeout(Timeout).
+			WithPolling(Interval).
+			Should(Succeed())
 	}
 }
 
