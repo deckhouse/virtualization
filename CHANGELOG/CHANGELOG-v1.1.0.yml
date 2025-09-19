@@ -1,0 +1,23 @@
+ci:
+  fixes:
+    - summary: E2E tests no longer fail due to kubectl logs exit codes during teardown.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1466
+    - summary: fix variable name for delve debug
+      pull_request: https://github.com/deckhouse/virtualization/pull/1442
+core:
+  features:
+    - summary: add e2e framework
+      pull_request: https://github.com/deckhouse/virtualization/pull/1366
+module:
+  fixes:
+    - summary: fix install packages via dnf and yum
+      pull_request: https://github.com/deckhouse/virtualization/pull/1464
+vd:
+  fixes:
+    - summary: allow delete pending resource
+      pull_request: https://github.com/deckhouse/virtualization/pull/1448
+vmop:
+  fixes:
+    - summary: fix deleting vmops when controller restarted
+      pull_request: https://github.com/deckhouse/virtualization/pull/1471
+
