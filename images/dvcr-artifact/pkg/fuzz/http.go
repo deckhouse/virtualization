@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,19 +30,19 @@ import (
 	"github.com/hashicorp/go-cleanhttp"
 )
 
-func ProcessRequests(t *testing.T, data []byte, addr string, methods ...string) {
-	t.Helper()
+func ProcessRequests(tb *testing.T, data []byte, addr string, methods ...string) {
+	tb.Helper()
 
 	if len(methods) == 0 {
-		t.Fatalf("no methods specified")
+		tb.Fatalf("no methods specified")
 	}
 	for _, method := range methods {
-		ProcessRequest(t, data, addr, method)
+		ProcessRequest(tb, data, addr, method)
 	}
 }
 
-func ProcessRequest(t testing.TB, data []byte, addr, method string) {
-	t.Helper()
+func ProcessRequest(tb testing.TB, data []byte, addr, method string) {
+	tb.Helper()
 
 	switch method {
 	case
@@ -57,26 +56,26 @@ func ProcessRequest(t testing.TB, data []byte, addr, method string) {
 		http.MethodOptions,
 		http.MethodTrace:
 
-		req := newFuzzRequest().Fuzz(t, data, method, addr)
+		req := newFuzzRequest().Fuzz(tb, data, method, addr)
 		defer req.Body.Close()
 
-		resp := fuzzHTTPRequest(t, req)
+		resp := fuzzHTTPRequest(tb, req)
 		if resp != nil {
 			if resp.StatusCode > 500 {
-				t.Errorf("resp: %v", resp)
+				tb.Errorf("resp: %v", resp)
 			}
 			defer resp.Body.Close()
 		}
 	default:
-		t.Errorf("Unsupported HTTP method: %s", method)
+		tb.Errorf("Unsupported HTTP method: %s", method)
 	}
 }
 
-func fuzzHTTPRequest(t testing.TB, fuzzReq *http.Request) *http.Response {
-	t.Helper()
+func fuzzHTTPRequest(tb testing.TB, fuzzReq *http.Request) *http.Response {
+	tb.Helper()
 
 	if fuzzReq == nil {
-		t.Skip("Skipping test because fuzzReq is nil")
+		tb.Skip("Skipping test because fuzzReq is nil")
 	}
 	client := cleanhttp.DefaultClient()
 	client.Timeout = time.Second
@@ -98,11 +97,11 @@ func fuzzHTTPRequest(t testing.TB, fuzzReq *http.Request) *http.Response {
 		return nil
 	}
 
-	t.Logf("fuzzing request, %s, %s", fuzzReq.Method, fuzzReq.URL)
+	tb.Logf("fuzzing request, %s, %s", fuzzReq.Method, fuzzReq.URL)
 
 	resp, err := client.Do(fuzzReq)
 	if err != nil && !strings.Contains(err.Error(), "checkRedirect disabled for test") {
-		t.Logf("err: %s", err)
+		tb.Logf("err: %s", err)
 	}
 
 	return resp
@@ -114,14 +113,14 @@ func newFuzzRequest() *fuzzRequest {
 	return &fuzzRequest{}
 }
 
-func (s *fuzzRequest) Fuzz(t testing.TB, data []byte, method, addr string) *http.Request {
-	t.Helper()
+func (s *fuzzRequest) Fuzz(tb testing.TB, data []byte, method, addr string) *http.Request {
+	tb.Helper()
 
 	bodyReader := bytes.NewBuffer(data)
 
 	req, err := http.NewRequest(method, addr, bodyReader)
 	if err != nil {
-		t.Skipf("Skipping test: not enough data for fuzzing: %s", err.Error())
+		tb.Skipf("Skipping test: not enough data for fuzzing: %s", err.Error())
 	}
 
 	// Get the address of the local listener in order to attach it to an Origin header.
@@ -130,10 +129,13 @@ func (s *fuzzRequest) Fuzz(t testing.TB, data []byte, method, addr string) *http
 
 	fuzzConsumer := fuzz.NewConsumer(data)
 	var headersMap map[string]string
-	fuzzConsumer.FuzzMap(&headersMap)
+	err = fuzzConsumer.FuzzMap(&headersMap)
+	if err != nil {
+		tb.Skipf("Skipping test: not enough data for fuzzing: %s", err.Error())
+	}
 
 	for k, v := range headersMap {
-		for i := 0; i < len(v); i++ {
+		for range len(v) {
 			req.Header.Add(k, v)
 		}
 	}
@@ -143,17 +145,4 @@ func (s *fuzzRequest) Fuzz(t testing.TB, data []byte, method, addr string) *http
 	req.Header.Set("Content-Type", "application/octet-stream")
 
 	return req
-}
-
-func GetPortFromEnv(env string, defaultPort int) (port int, err error) {
-	portEnv := os.Getenv(env)
-	if portEnv == "" {
-		return defaultPort, nil
-	}
-
-	port, err = strconv.Atoi(portEnv)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse port env var %s: %w", env, err)
-	}
-	return port, nil
 }
