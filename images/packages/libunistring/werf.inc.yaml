@@ -26,6 +26,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ git make libtool gettext-tools
+- wget
 - tree
 {{- end -}}
 
