@@ -34,6 +34,7 @@ shell:
       echo -n "Apply ${p} ... "
       git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
+    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
 
 ---
 
@@ -72,7 +73,8 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    autoreconf -fi
+    export GNULIB_TOOL=$(pwd)/gnulib/gnulib-tool
+    ./autogen.sh
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64
