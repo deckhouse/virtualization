@@ -60,9 +60,11 @@ spec:
                         namePrefix:
                           description: |
                             Добавляет префикс к именам ресурсов при клонировании.
+                            Применяется к ресурсам VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment и Secret.
                         nameSuffix:
                           description: |
                             Добавляет суффикс к именам ресурсов при клонировании.
+                            Применяется к ресурсам VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment и Secret.
                     nameReplacement:
                       description: |
                         Определяет правила переименования ресурсов при клонировании.

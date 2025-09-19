@@ -73,12 +73,12 @@ spec:
                         namePrefix:
                           description: |-
                             NamePrefix adds a prefix to resource names during cloning.
-                            Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+                            Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
                           type: string
                         nameSuffix:
                           description: |-
                             NameSuffix adds a suffix to resource names during cloning.
-                            Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+                            Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
                           type: string
                       type: object
                     mode:
