@@ -41,8 +41,6 @@ const (
 
 	// WaitingForTheVirtualMachine signifies that the snapshot process is waiting for the virtual machine to become ready for snapshotting.
 	WaitingForTheVirtualMachine VirtualMachineSnapshotReadyReason = "WaitingForTheVirtualMachine"
-	// RestartAwaitingChanges signifies that the snapshotting process cannot begin because the virtual machine has awaiting changes.
-	RestartAwaitingChanges VirtualMachineSnapshotReadyReason = "RestartAwaitingChanges"
 	// BlockDevicesNotReady signifies that the snapshotting process cannot begin because the block devices of the virtual machine are not ready.
 	BlockDevicesNotReady VirtualMachineSnapshotReadyReason = "BlockDevicesNotReady"
 	// PotentiallyInconsistent signifies that the snapshotting process cannot begin because creating a snapshot of the running virtual machine might result in an inconsistent snapshot.
