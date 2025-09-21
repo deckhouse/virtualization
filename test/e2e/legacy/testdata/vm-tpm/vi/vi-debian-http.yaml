@@ -1,0 +1,11 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-debian-http
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: HTTP
+    http:
+      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/debian/debian-12-generic-amd64-20250814-2204.qcow2
