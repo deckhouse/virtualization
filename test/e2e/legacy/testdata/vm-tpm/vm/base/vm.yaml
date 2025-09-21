@@ -1,0 +1,21 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: vm
+spec:
+  cpu:
+    cores: 1
+  memory:
+    size: 512Mi
+  virtualMachineClassName: discovery
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: vd-root
+  bootloader: EFI
+  disruptions:
+    restartApprovalMode: Automatic

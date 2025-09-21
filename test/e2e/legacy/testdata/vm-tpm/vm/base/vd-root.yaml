@@ -1,0 +1,12 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-root
+spec:
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualImage
+      name: vi-debian-http
+  persistentVolumeClaim:
+    size: 4Gi

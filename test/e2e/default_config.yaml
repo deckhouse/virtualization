@@ -26,6 +26,7 @@ testData:
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
   vmVpc: "/tmp/testdata/vm-vpc"
+  vmTpm: "/tmp/testdata/vm-tpm"
 logFilter:
   - "pattern to exclude"
   - "validation failed for data source objectref" # Err.
