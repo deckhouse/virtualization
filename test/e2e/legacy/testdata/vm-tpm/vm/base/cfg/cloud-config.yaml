@@ -1,0 +1,16 @@
+#cloud-config
+ssh_pwauth: True
+users:
+  - name: cloud
+    passwd: "$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/"
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: False
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+packages:
+  - qemu-guest-agent
+  - tpm2-tools
+runcmd:
+  - systemctl enable qemu-guest-agent --now
+  - chown -R cloud:cloud /home/cloud

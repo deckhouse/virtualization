@@ -96,6 +96,7 @@ type TestData struct {
 	Sshkey             string `yaml:"sshKey"`
 	SSHUser            string `yaml:"sshUser"`
 	VMVpc              string `yaml:"vmVpc"`
+	VMTpm              string `yaml:"vmTpm"`
 }
 
 type StorageClass struct {
