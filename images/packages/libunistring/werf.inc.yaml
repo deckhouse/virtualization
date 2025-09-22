@@ -43,7 +43,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ git make libtool gettext-tools
-- wget patch
+- wget patch gperf
 - tree
 {{- end -}}
 
@@ -77,6 +77,7 @@ shell:
     export GNULIB_SRCDIR=$(pwd)/gnulib
     export GNULIB_TOOL=$(pwd)/gnulib/gnulib-tool
     ./autogen.sh
+    touch tests/Makefile.in
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64
