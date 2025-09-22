@@ -80,4 +80,6 @@ shell:
 
     meson install -C build
 
+    rm -rf /out/usr/share
+
     tree -hp /out
