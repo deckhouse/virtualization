@@ -34,7 +34,8 @@ shell:
     #   echo -n "Apply ${p} ... "
     #   git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     # done
-    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
+    # git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git ./gnulib
+    ./autopull.sh --one-time
     # git checkout c89cd2fbd3b9f3d7c5a146247256599714c91ec7
 
 ---
@@ -74,8 +75,9 @@ shell:
   - |
     OUTDIR=/out
     cd /src
-    export GNULIB_SRCDIR=$(pwd)/gnulib
-    export GNULIB_TOOL=$(pwd)/gnulib/gnulib-tool
+    # export GNULIB_SRCDIR=$(pwd)/gnulib
+    # export GNULIB_TOOL=$(pwd)/gnulib/gnulib-tool
+
     ./autogen.sh
     touch tests/Makefile.in
     ./configure \
