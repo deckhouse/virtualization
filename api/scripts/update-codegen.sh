@@ -49,13 +49,15 @@ function generate::subresources {
         --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
         "${API_ROOT}/subresources"
 
+    # "${THIS_PKG}/subresources/v1alpha3" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/version"
+    # TODO: replace packages when legacyVMStorage is removed
     go tool openapi-gen                                                                           \
         --output-pkg "openapi"                                                                    \
         --output-dir "${ROOT}/images/virtualization-artifact/pkg/apiserver/api/generated/openapi" \
         --output-file "zz_generated.openapi.go"                                                   \
         --go-header-file "${SCRIPT_DIR}/boilerplate.go.txt"                                       \
         -r /dev/null                                                                              \
-       "${THIS_PKG}/core/v1alpha2" "${THIS_PKG}/subresources/v1alpha2" "kubevirt.io/api/core/v1" "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1" "k8s.io/api/core/v1" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/api/resource" "k8s.io/apimachinery/pkg/version"
+       "${THIS_PKG}/core/v1alpha2" "${THIS_PKG}/subresources/v1alpha2" "${THIS_PKG}/subresources/v1alpha3" "kubevirt.io/api/core/v1" "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1" "k8s.io/api/core/v1" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/api/resource" "k8s.io/apimachinery/pkg/version"
 }
 
 function generate::core {

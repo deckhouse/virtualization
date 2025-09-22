@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha3 "github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 type SnapshotService struct {
@@ -70,7 +70,7 @@ func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
 }
 
 func (s *SnapshotService) Freeze(ctx context.Context, name, namespace string) error {
-	err := s.virtClient.VirtualMachines(namespace).Freeze(ctx, name, v1alpha2.VirtualMachineFreeze{})
+	err := s.virtClient.VirtualMachines(namespace).Freeze(ctx, name, subv1alpha3.VirtualMachineFreeze{})
 	if err != nil {
 		return fmt.Errorf("failed to freeze virtual machine %s/%s: %w", namespace, name, err)
 	}
