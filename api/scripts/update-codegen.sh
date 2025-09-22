@@ -55,7 +55,7 @@ function generate::subresources {
         --output-file "zz_generated.openapi.go"                                                   \
         --go-header-file "${SCRIPT_DIR}/boilerplate.go.txt"                                       \
         -r /dev/null                                                                              \
-       "${THIS_PKG}/core/v1alpha2" "${THIS_PKG}/subresources/v1alpha2" "kubevirt.io/api/core/v1" "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1" "k8s.io/api/core/v1" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/api/resource" "k8s.io/apimachinery/pkg/version"
+        "${THIS_PKG}/subresources/v1alpha2" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/version"
 }
 
 function generate::core {
