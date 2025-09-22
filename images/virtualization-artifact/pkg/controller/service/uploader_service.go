@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -140,6 +141,13 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 		return false, err
 	}
 
+	if networkPolicy == nil {
+		networkPolicy, err = networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyGenerator.UploaderPod())
+		if err != nil {
+			return false, err
+		}
+	}
+
 	err = s.protection.RemoveProtection(ctx, pod, svc, ing, networkPolicy)
 	if err != nil {
 		return false, err
@@ -217,27 +225,48 @@ func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *co
 }
 
 func (s UploaderService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
-	pod, err := uploader.FindPod(ctx, s.client, sup)
+	pod, err := object.FetchObject(ctx, sup.UploaderPod(), s.client, &corev1.Pod{})
 	if err != nil {
 		return nil, err
+	}
+
+	if pod == nil {
+		pod, err = object.FetchObject(ctx, sup.LegacyGenerator.UploaderPod(), s.client, &corev1.Pod{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return pod, nil
 }
 
 func (s UploaderService) GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error) {
-	svc, err := uploader.FindService(ctx, s.client, sup)
+	svc, err := object.FetchObject(ctx, sup.UploaderService(), s.client, &corev1.Service{})
 	if err != nil {
 		return nil, err
+	}
+
+	if svc == nil {
+		svc, err = object.FetchObject(ctx, sup.LegacyGenerator.UploaderService(), s.client, &corev1.Service{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return svc, nil
 }
 
 func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error) {
-	ing, err := uploader.FindIngress(ctx, s.client, sup)
+	ing, err := object.FetchObject(ctx, sup.UploaderIngress(), s.client, &netv1.Ingress{})
 	if err != nil {
 		return nil, err
+	}
+
+	if ing == nil {
+		ing, err = object.FetchObject(ctx, sup.LegacyGenerator.UploaderIngress(), s.client, &netv1.Ingress{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return ing, nil

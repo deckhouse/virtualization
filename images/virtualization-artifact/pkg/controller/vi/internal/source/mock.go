@@ -1944,6 +1944,9 @@ var _ Disk = &DiskMock{}
 //			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the GetPersistentVolumeClaim method")
+//			},
 //		}
 //
 //		// use mockedDisk in code that requires Disk
@@ -1954,6 +1957,9 @@ type DiskMock struct {
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
 	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
+	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
@@ -1963,8 +1969,16 @@ type DiskMock struct {
 			// Sup is the sup argument value.
 			Sup *supplements.Generator
 		}
+		// GetPersistentVolumeClaim holds details about calls to the GetPersistentVolumeClaim method.
+		GetPersistentVolumeClaim []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
 	}
-	lockCleanUpSupplements sync.RWMutex
+	lockCleanUpSupplements       sync.RWMutex
+	lockGetPersistentVolumeClaim sync.RWMutex
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
@@ -2000,5 +2014,41 @@ func (mock *DiskMock) CleanUpSupplementsCalls() []struct {
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
 	mock.lockCleanUpSupplements.RUnlock()
+	return calls
+}
+
+// GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
+func (mock *DiskMock) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+	if mock.GetPersistentVolumeClaimFunc == nil {
+		panic("DiskMock.GetPersistentVolumeClaimFunc: method is nil but Disk.GetPersistentVolumeClaim was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockGetPersistentVolumeClaim.Lock()
+	mock.calls.GetPersistentVolumeClaim = append(mock.calls.GetPersistentVolumeClaim, callInfo)
+	mock.lockGetPersistentVolumeClaim.Unlock()
+	return mock.GetPersistentVolumeClaimFunc(ctx, sup)
+}
+
+// GetPersistentVolumeClaimCalls gets all the calls that were made to GetPersistentVolumeClaim.
+// Check the length with:
+//
+//	len(mockedDisk.GetPersistentVolumeClaimCalls())
+func (mock *DiskMock) GetPersistentVolumeClaimCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockGetPersistentVolumeClaim.RLock()
+	calls = mock.calls.GetPersistentVolumeClaim
+	mock.lockGetPersistentVolumeClaim.RUnlock()
 	return calls
 }

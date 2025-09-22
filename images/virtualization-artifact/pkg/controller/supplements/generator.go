@@ -20,24 +20,16 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	kvalidation "k8s.io/apimachinery/pkg/util/validation"
-	"k8s.io/utils/strings"
 )
 
 // Generator calculates names for supplemental resources, e.g. ImporterPod, AuthSecret or CABundleConfigMap.
 type Generator struct {
-	Prefix    string
-	Name      string
-	Namespace string
-	UID       types.UID
+	LegacyGenerator
 }
 
 func NewGenerator(prefix, name, namespace string, uid types.UID) *Generator {
 	return &Generator{
-		Prefix:    prefix,
-		Name:      name,
-		Namespace: namespace,
-		UID:       uid,
+		LegacyGenerator: *NewLegacyGenerator(prefix, name, namespace, uid),
 	}
 }
 
@@ -123,11 +115,4 @@ func (g *Generator) PersistentVolumeClaim() types.NamespacedName {
 func (g *Generator) NetworkPolicy() types.NamespacedName {
 	name := fmt.Sprintf("d8v-%s-%s-%s", g.Prefix, g.Name, g.UID)
 	return g.shortenNamespaced(name)
-}
-
-func (g *Generator) shortenNamespaced(name string) types.NamespacedName {
-	return types.NamespacedName{
-		Name:      strings.ShortenString(name, kvalidation.DNS1123SubdomainMaxLength),
-		Namespace: g.Namespace,
-	}
 }

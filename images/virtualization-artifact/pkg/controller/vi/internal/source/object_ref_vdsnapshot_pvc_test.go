@@ -45,18 +45,19 @@ import (
 
 var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() {
 	var (
-		ctx        context.Context
-		scheme     *runtime.Scheme
-		vi         *virtv2.VirtualImage
-		vs         *vsv1.VolumeSnapshot
-		sc         *storagev1.StorageClass
-		vdSnapshot *virtv2.VirtualDiskSnapshot
-		pvc        *corev1.PersistentVolumeClaim
-		settings   *dvcr.Settings
-		recorder   eventrecord.EventRecorderLogger
-		importer   *ImporterMock
-		bounder    *BounderMock
-		stat       *StatMock
+		ctx         context.Context
+		scheme      *runtime.Scheme
+		vi          *virtv2.VirtualImage
+		vs          *vsv1.VolumeSnapshot
+		sc          *storagev1.StorageClass
+		vdSnapshot  *virtv2.VirtualDiskSnapshot
+		pvc         *corev1.PersistentVolumeClaim
+		settings    *dvcr.Settings
+		recorder    eventrecord.EventRecorderLogger
+		importer    *ImporterMock
+		bounder     *BounderMock
+		stat        *StatMock
+		diskService *DiskMock
 	)
 
 	BeforeEach(func() {
@@ -102,6 +103,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 				return "N%"
 			},
 		}
+		diskService = &DiskMock{}
 		settings = &dvcr.Settings{}
 
 		sc = &storagev1.StorageClass{
@@ -181,7 +183,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 					},
 				}).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, settings, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, diskService, client, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -202,7 +204,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -225,7 +227,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -241,7 +243,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			vi.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())

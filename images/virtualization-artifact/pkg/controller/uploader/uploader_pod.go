@@ -213,11 +213,3 @@ func (p *Pod) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 		)
 	}
 }
-
-type PodNamer interface {
-	UploaderPod() types.NamespacedName
-}
-
-func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
-	return object.FetchObject(ctx, name.UploaderPod(), client, &corev1.Pod{})
-}

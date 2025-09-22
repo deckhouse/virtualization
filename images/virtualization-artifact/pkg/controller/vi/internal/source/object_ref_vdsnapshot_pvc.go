@@ -41,6 +41,7 @@ type ObjectRefVirtualDiskSnapshotPVC struct {
 	bounder      Bounder
 	client       client.Client
 	dvcrSettings *dvcr.Settings
+	diskService  Disk
 	recorder     eventrecord.EventRecorderLogger
 }
 
@@ -48,6 +49,7 @@ func NewObjectRefVirtualDiskSnapshotPVC(
 	importer Importer,
 	stat Stat,
 	bounder Bounder,
+	diskService Disk,
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	recorder eventrecord.EventRecorderLogger,
@@ -58,6 +60,7 @@ func NewObjectRefVirtualDiskSnapshotPVC(
 		bounder:      bounder,
 		client:       client,
 		dvcrSettings: dvcrSettings,
+		diskService:  diskService,
 		recorder:     recorder,
 	}
 }
@@ -72,7 +75,7 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.V
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	pvc, err := supplements.GetPVCWithFallback(ctx, ds.client, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}

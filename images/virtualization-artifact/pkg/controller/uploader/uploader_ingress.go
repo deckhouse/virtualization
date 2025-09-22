@@ -147,11 +147,3 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 func (i *Ingress) generatePath() string {
 	return fmt.Sprintf(tmplIngressPath, pwgen.AlphaNum(32))
 }
-
-type IngressNamer interface {
-	UploaderIngress() types.NamespacedName
-}
-
-func FindIngress(ctx context.Context, client client.Client, name IngressNamer) (*netv1.Ingress, error) {
-	return object.FetchObject(ctx, name.UploaderIngress(), client, &netv1.Ingress{})
-}

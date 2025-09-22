@@ -92,11 +92,3 @@ func (s *Service) makeSpec() *corev1.Service {
 
 	return service
 }
-
-type ServiceNamer interface {
-	UploaderService() types.NamespacedName
-}
-
-func FindService(ctx context.Context, client client.Client, name ServiceNamer) (*corev1.Service, error) {
-	return object.FetchObject(ctx, name.UploaderService(), client, &corev1.Service{})
-}

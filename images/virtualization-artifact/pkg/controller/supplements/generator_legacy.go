@@ -21,20 +21,27 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/utils/strings"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // LegacyGenerator generates names in the old format for backward compatibility
 type LegacyGenerator struct {
-	*Generator
+	Prefix    string
+	Name      string
+	Namespace string
+	UID       types.UID
 }
 
 func NewLegacyGenerator(prefix, name, namespace string, uid types.UID) *LegacyGenerator {
 	return &LegacyGenerator{
-		Generator: NewGenerator(prefix, name, namespace, uid),
+		Prefix:    prefix,
+		Name:      name,
+		Namespace: namespace,
+		UID:       uid,
 	}
 }
 
@@ -122,79 +129,9 @@ func (g *LegacyGenerator) NetworkPolicy() types.NamespacedName {
 	return g.DataVolume()
 }
 
-// FindResourceWithFallback attempts to find a resource with new naming,
-// falling back to old naming if not found
-func FindResourceWithFallback[T client.Object](ctx context.Context, c client.Client, newName, oldName types.NamespacedName, obj T) error {
-	// Try new name first
-	err := c.Get(ctx, newName, obj)
-	if err == nil {
-		return nil
+func (g *LegacyGenerator) shortenNamespaced(name string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      strings.ShortenString(name, kvalidation.DNS1123SubdomainMaxLength),
+		Namespace: g.Namespace,
 	}
-
-	if !k8serrors.IsNotFound(err) {
-		return err
-	}
-
-	// Fallback to old name
-	return c.Get(ctx, oldName, obj)
-}
-
-// GetPVCWithFallback attempts to find a PVC with new naming,
-// falling back to old naming if not found
-func GetPVCWithFallback(ctx context.Context, c client.Client, gen *Generator) (*corev1.PersistentVolumeClaim, error) {
-	pvc := &corev1.PersistentVolumeClaim{}
-	legacyGen := NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-
-	err := FindResourceWithFallback(ctx, c, gen.PersistentVolumeClaim(), legacyGen.PersistentVolumeClaim(), pvc)
-	return pvc, err
-}
-
-// FindImporterPodWithFallback attempts to find an importer pod with new naming,
-// falling back to old naming if not found
-func FindImporterPodWithFallback(ctx context.Context, c client.Client, gen *Generator) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-	legacyGen := NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-
-	err := FindResourceWithFallback(ctx, c, gen.ImporterPod(), legacyGen.ImporterPod(), pod)
-	return pod, err
-}
-
-// FindUploaderPodWithFallback attempts to find an uploader pod with new naming,
-// falling back to old naming if not found
-func FindUploaderPodWithFallback(ctx context.Context, c client.Client, gen *Generator) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-	legacyGen := NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-
-	err := FindResourceWithFallback(ctx, c, gen.UploaderPod(), legacyGen.UploaderPod(), pod)
-	return pod, err
-}
-
-// FindBounderPodWithFallback attempts to find a bounder pod with new naming,
-// falling back to old naming if not found
-func FindBounderPodWithFallback(ctx context.Context, c client.Client, gen *Generator) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-	legacyGen := NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-
-	err := FindResourceWithFallback(ctx, c, gen.BounderPod(), legacyGen.BounderPod(), pod)
-	return pod, err
-}
-
-// FindUploaderServiceWithFallback attempts to find an uploader service with new naming,
-// falling back to old naming if not found
-func FindUploaderServiceWithFallback(ctx context.Context, c client.Client, gen *Generator) (*corev1.Service, error) {
-	svc := &corev1.Service{}
-	legacyGen := NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-
-	err := FindResourceWithFallback(ctx, c, gen.UploaderService(), legacyGen.UploaderService(), svc)
-	return svc, err
-}
-
-// FindUploaderIngressWithFallback attempts to find an uploader ingress with new naming,
-// falling back to old naming if not found
-func FindUploaderIngressWithFallback(ctx context.Context, c client.Client, gen *Generator) (*netv1.Ingress, error) {
-	ing := &netv1.Ingress{}
-	legacyGen := NewLegacyGenerator(gen.Prefix, gen.Name, gen.Namespace, gen.UID)
-
-	err := FindResourceWithFallback(ctx, c, gen.UploaderIngress(), legacyGen.UploaderIngress(), ing)
-	return ing, err
 }

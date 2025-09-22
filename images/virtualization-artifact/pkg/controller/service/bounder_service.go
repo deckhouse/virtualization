@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/bounder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -112,9 +113,16 @@ func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup *suppleme
 }
 
 func (s BounderPodService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
-	pod, err := bounder.FindPod(ctx, s.client, sup)
+	pod, err := object.FetchObject(ctx, sup.BounderPod(), s.client, &corev1.Pod{})
 	if err != nil {
 		return nil, err
+	}
+
+	if pod == nil {
+		pod, err = object.FetchObject(ctx, sup.LegacyGenerator.BounderPod(), s.client, &corev1.Pod{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return pod, nil

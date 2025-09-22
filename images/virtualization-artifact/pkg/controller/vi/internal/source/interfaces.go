@@ -74,5 +74,6 @@ type Bounder interface {
 }
 
 type Disk interface {
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }

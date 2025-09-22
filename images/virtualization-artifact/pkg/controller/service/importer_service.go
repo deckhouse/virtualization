@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -180,6 +181,13 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplement
 		return false, err
 	}
 
+	if networkPolicy == nil {
+		networkPolicy, err = networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyGenerator.ImporterPod())
+		if err != nil {
+			return false, err
+		}
+	}
+
 	if networkPolicy != nil {
 		err = s.protection.RemoveProtection(ctx, networkPolicy)
 		if err != nil {
@@ -252,9 +260,16 @@ func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod) (err er
 }
 
 func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
-	pod, err := importer.FindPod(ctx, s.client, sup)
+	pod, err := object.FetchObject(ctx, sup.ImporterPod(), s.client, &corev1.Pod{})
 	if err != nil {
 		return nil, err
+	}
+
+	if pod == nil {
+		pod, err = object.FetchObject(ctx, sup.LegacyGenerator.ImporterPod(), s.client, &corev1.Pod{})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return pod, nil

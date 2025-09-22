@@ -287,6 +287,13 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 		return false, err
 	}
 
+	if networkPolicy == nil {
+		networkPolicy, err = networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyGenerator.DataVolume())
+		if err != nil {
+			return false, err
+		}
+	}
+
 	if networkPolicy != nil {
 		err = s.protection.RemoveProtection(ctx, networkPolicy)
 		if err != nil {
@@ -533,11 +540,35 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
-	return object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
+	dv, err := object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
+	if err != nil {
+		return nil, err
+	}
+
+	if dv == nil {
+		dv, err = object.FetchObject(ctx, sup.LegacyGenerator.DataVolume(), s.client, &cdiv1.DataVolume{})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return dv, nil
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+	pvc, err := object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return nil, err
+	}
+
+	if pvc == nil {
+		pvc, err = object.FetchObject(ctx, sup.LegacyGenerator.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return pvc, nil
 }
 
 func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {

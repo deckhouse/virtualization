@@ -75,12 +75,12 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	pvc, err := supplements.GetPVCWithFallback(ctx, ds.client, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	pod, err := supplements.FindImporterPodWithFallback(ctx, ds.client, supgen)
+	pod, err := ds.importer.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pod: %w", err)
 	}
