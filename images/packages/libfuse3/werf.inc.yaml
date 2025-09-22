@@ -5,6 +5,7 @@ packages:
 - gcc git
 - make rpm-macros-alternatives meson
 - ninja-build libudev-devel
+- tree
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -78,3 +79,5 @@ shell:
     done
 
     meson install -C build
+
+    tree -hp /out
