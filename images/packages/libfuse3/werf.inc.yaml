@@ -81,5 +81,7 @@ shell:
     meson install -C build
 
     rm -rf /out/usr/share
+    rm -rf /out/dev
+    rm -rf /out/etc
 
     tree -hp /out
