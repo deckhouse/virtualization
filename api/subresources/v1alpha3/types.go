@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,77 +14,83 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package subresources
+package v1alpha3
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type APIVirtualMachine struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineConsole struct {
-	metav1.TypeMeta
+	metav1.TypeMeta `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineVNC struct {
-	metav1.TypeMeta
+	metav1.TypeMeta `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachinePortForward struct {
-	metav1.TypeMeta
+	metav1.TypeMeta `json:",inline"`
 
-	Protocol string
-	Port     int
+	Protocol string `json:"protocol"`
+	Port     int    `json:"port"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineAddVolume struct {
-	metav1.TypeMeta
-	Name       string
-	VolumeKind string
-	PVCName    string
-	Image      string
-	Serial     string
-	IsCdrom    bool
+	metav1.TypeMeta `json:",inline"`
+	Name            string `json:"name"`
+	VolumeKind      string `json:"volumeKind"`
+	PVCName         string `json:"pvcName"`
+	Image           string `json:"image"`
+	Serial          string `json:"serial"`
+	IsCdrom         bool   `json:"isCdrom"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineRemoveVolume struct {
-	metav1.TypeMeta
-	Name string
+	metav1.TypeMeta `json:",inline"`
+	Name            string `json:"name"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineFreeze struct {
-	metav1.TypeMeta
+	metav1.TypeMeta `json:",inline"`
 
-	UnfreezeTimeout *metav1.Duration
+	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineUnfreeze struct {
-	metav1.TypeMeta
+	metav1.TypeMeta `json:",inline"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineCancelEvacuation struct {
 	metav1.TypeMeta
 
-	DryRun []string
+	DryRun []string `json:"dryRun,omitempty"`
 }
