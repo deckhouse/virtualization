@@ -82,6 +82,7 @@ shell:
     sed -i 's/SUBDIRS = doc gnulib-local lib tests/SUBDIRS = doc gnulib-local lib/' Makefile
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
+    rm -rf $OUTDIR/usr/share
     find $OUTDIR -type f -executable | while read -r execfile; do
       if strip "$execfile"; then
         echo "Stripped: $execfile"
