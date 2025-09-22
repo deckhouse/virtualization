@@ -1,16 +1,16 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /nbdkit
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/nbdkit.git" }}
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "tukaani-project/xz.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,33 +21,20 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
 ---
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc
-- automake autoconf-archive make libtool
-- bash-completion
-- curl qemu expect
-- filesystem
-- socat xz jq
-- iproute2
-- zlib-ng
-- libblkio libtorrent-rasterbar-devel
-packages:
-- libisoburn libnbd e2fsprogs
-- gnutls libidn2 libgmp
-- zlib
-- libssh
-- zstd
-- libxml2
-- libtasn1
+- git gcc automake make
+- glibc-devel-static gettext-devel
+- libtool po4a doxygen
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
@@ -55,7 +42,6 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -67,26 +53,26 @@ shell:
 
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
     OUTDIR=/out
 
     cd /src
 
-    autoreconf -if
+    ./autogen.sh
     ./configure \
-      --disable-static \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --without-bash-completions \
-      --with-ext2 \
-      --disable-torrent
-
+      --enable-dynamic \
+      --disable-scripts
+    
     make -j$(nproc)
+    make DESTDIR=$OUTDIR install
 
-    make DESTDIR=$OUTDIR install-strip
+    rm -rf /$OUTDIR/usr/share
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -sp $OUTDIR

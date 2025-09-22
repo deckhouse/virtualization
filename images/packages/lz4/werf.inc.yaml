@@ -1,16 +1,16 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /{{ .ImageName }}
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "GNOME/libxml2.git" }}
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "lz4/lz4.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -21,25 +21,17 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
 ---
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++
-- make autoconf automake libtool pkgconfig
-- meson ninja-build
-- gettext-devel liblzma-devel
-- xz git
-- tree
-packages:
-- zlib
-- openssl
+- git gcc automake make tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
@@ -47,7 +39,6 @@ import:
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -59,26 +50,14 @@ shell:
 
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
     OUTDIR=/out
 
     cd /src
 
-    meson setup _build . \
-    -Dprefix=/usr \
-    -Dlibdir=/usr/lib64 \
-    -Dzlib=enabled \
-    -Dlzma=enabled \
-    -Dpython=disabled
-
-    DESTDIR=${OUTDIR} meson install -C _build
-
+    export PREFIX=/usr
+    export LIBDIR=/usr/lib64
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
     rm -rf $OUTDIR/usr/share
 
     find $OUTDIR -type f -executable | while read -r execfile; do
@@ -87,4 +66,4 @@ shell:
     fi
     done
 
-    tree -hp /out
+    tree -sp $OUTDIR

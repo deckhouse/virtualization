@@ -86,3 +86,7 @@ package:
   snappy: 1.2.2 # libsnappy
   zlib: v1.3.1
   zstd: v1.5.7
+  krb5: krb5-1.21.3-final
+  lz4: v1.9.4
+  lzo: lzo-2.10
+  xz: v5.4.5
