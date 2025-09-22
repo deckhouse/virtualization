@@ -76,9 +76,11 @@ shell:
     autoreconf -i
     ./configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-ocaml \
-      --disable-static
+      --disable-golang \
+      --disable-rust 
 
     make -j$(nproc)
 

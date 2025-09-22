@@ -62,6 +62,19 @@ shell:
     OUTDIR=/out
 
     cd /src
-    meson setup build -Duseroot=false -Dprefix=$OUTDIR/usr
+    meson setup build \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --sbindir=/usr/sbin \
+      --buildtype=release
+    
     meson compile -C build
+    DESTDIR=${OUTDIR} meson install -C build
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
     meson install -C build
