@@ -42,7 +42,7 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++ git make libtool gettext-tools
+- gcc gcc-c++ git make makeinfo libtool gettext-tools
 - wget patch gperf
 - tree
 {{- end -}}
