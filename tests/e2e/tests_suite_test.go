@@ -349,6 +349,7 @@ func deleteNamespaces() error {
 
 	for _, tc := range testCases {
 		eg.Go(func() error {
+			defer GinkgoRecover()
 			kustomizeFilePath := fmt.Sprintf("%s/kustomization.yaml", tc)
 			namespace, err := kustomize.GetNamespace(kustomizeFilePath)
 			if err != nil {
@@ -371,6 +372,7 @@ func deleteNamespaces() error {
 }
 
 func deleteResources() error {
+	defer GinkgoRecover()
 	var cleanupErr error
 
 	for _, r := range conf.CleanupResources {
