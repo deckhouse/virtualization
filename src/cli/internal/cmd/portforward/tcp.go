@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha3 "github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 func (p *portForwarder) startForwardingTCP(address *net.IPAddr, port forwardedPort) error {
@@ -53,7 +53,7 @@ func (p *portForwarder) waitForConnection(listener net.Listener, port forwardedP
 			return
 		}
 		klog.Infof("opening new tcp tunnel to %d", port.remote)
-		stream, err := p.resource.PortForward(p.name, subv1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
+		stream, err := p.resource.PortForward(p.name, subv1alpha3.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 		if err != nil {
 			klog.Errorf("can't access vm/%s.%s: %v", p.name, p.namespace, err)
 			return
