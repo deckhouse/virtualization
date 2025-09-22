@@ -34,7 +34,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 type vm struct {
@@ -96,7 +96,7 @@ func (v vm) VNC(name string) (virtualizationv1alpha2.StreamInterface, error) {
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "vnc", url.Values{})
 }
 
-func (v vm) PortForward(name string, opts subv1alpha2.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error) {
+func (v vm) PortForward(name string, opts v1alpha3.VirtualMachinePortForward) (virtualizationv1alpha2.StreamInterface, error) {
 	params := url.Values{}
 	if opts.Port > 0 {
 		params.Add("port", strconv.Itoa(opts.Port))
@@ -107,7 +107,7 @@ func (v vm) PortForward(name string, opts subv1alpha2.VirtualMachinePortForward)
 	return asyncSubresourceHelper(v.config, v.resource, v.namespace, name, "portforward", params)
 }
 
-func (v vm) Freeze(ctx context.Context, name string, opts subv1alpha2.VirtualMachineFreeze) error {
+func (v vm) Freeze(ctx context.Context, name string, opts v1alpha3.VirtualMachineFreeze) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "freeze")
 
 	unfreezeTimeout := virtv1.FreezeUnfreezeTimeout{
@@ -132,7 +132,7 @@ func (v vm) Unfreeze(ctx context.Context, name string) error {
 	return v.restClient.Put().AbsPath(path).Do(ctx).Error()
 }
 
-func (v vm) AddVolume(ctx context.Context, name string, opts subv1alpha2.VirtualMachineAddVolume) error {
+func (v vm) AddVolume(ctx context.Context, name string, opts v1alpha3.VirtualMachineAddVolume) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "addvolume")
 	return v.restClient.
 		Put().
@@ -147,7 +147,7 @@ func (v vm) AddVolume(ctx context.Context, name string, opts subv1alpha2.Virtual
 		Error()
 }
 
-func (v vm) RemoveVolume(ctx context.Context, name string, opts subv1alpha2.VirtualMachineRemoveVolume) error {
+func (v vm) RemoveVolume(ctx context.Context, name string, opts v1alpha3.VirtualMachineRemoveVolume) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "removevolume")
 	return v.restClient.
 		Put().

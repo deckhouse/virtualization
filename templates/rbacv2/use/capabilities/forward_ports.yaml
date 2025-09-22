@@ -9,10 +9,18 @@ metadata:
   name: d8:use:capability:virtualization:forward_ports
 rules:
 - apiGroups:
-  - subresources.virtualization.deckhouse.io
+  - subresources.virtualization.deckhouse.io/v1alpha2
   resources:
   - virtualmachines/portforward
   verbs:
   - get
   - create
   - update
+- apiGroups:
+    - subresources.virtualization.deckhouse.io/v1alpha3
+  resources:
+    - apivirtualmachines/portforward
+  verbs:
+    - get
+    - create
+    - update

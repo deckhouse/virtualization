@@ -157,12 +157,12 @@ rules:
 - apiGroups:
     - subresources.virtualization.deckhouse.io
   resources:
-    - virtualmachines/freeze
-    - virtualmachines/unfreeze
-    - virtualmachines/migrate
-    - virtualmachines/addvolume
-    - virtualmachines/removevolume
-    - virtualmachines/cancelevacuation
+    - apivirtualmachines/freeze
+    - apivirtualmachines/unfreeze
+    - apivirtualmachines/migrate
+    - apivirtualmachines/addvolume
+    - apivirtualmachines/removevolume
+    - apivirtualmachines/cancelevacuation
   verbs:
     - update
 - apiGroups:

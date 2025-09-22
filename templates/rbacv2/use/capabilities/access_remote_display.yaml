@@ -9,10 +9,19 @@ metadata:
   name: d8:use:capability:virtualization:access_remote_display
 rules:
 - apiGroups:
-  - subresources.virtualization.deckhouse.io
+  - subresources.virtualization.deckhouse.io/v1alpha2
   resources:
   - virtualmachines/vnc
   verbs:
   - get
   - create
   - update
+- apiGroups:
+    - subresources.virtualization.deckhouse.io/v1alpha3
+  resources:
+    - apivirtualmachines/vnc
+  verbs:
+    - get
+    - create
+    - update
+
