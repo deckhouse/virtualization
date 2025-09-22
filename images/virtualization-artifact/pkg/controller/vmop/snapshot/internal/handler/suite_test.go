@@ -31,7 +31,7 @@ import (
 
 func TestVmopHandlers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VMOP Restore handlers Suite")
+	RunSpecs(t, "VMOP Restore/Clone handlers Suite")
 }
 
 func setupEnvironment(vmop *v1alpha2.VirtualMachineOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus]) {

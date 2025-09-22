@@ -34,24 +34,19 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewVDWatcher() *VirtualDiskWatcher {
-	return &VirtualDiskWatcher{}
+func NewVMSnapshotWatcher() *VirtualMachineSnapshotWatcher {
+	return &VirtualMachineSnapshotWatcher{}
 }
 
-type VirtualDiskWatcher struct{}
+type VirtualMachineSnapshotWatcher struct{}
 
-func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	mgrClient := mgr.GetClient()
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vd *v1alpha2.VirtualDisk) []reconcile.Request {
-				// Use when we deleting VD before creating new one. Order is important because VD may have restore annotation from previous restore.
-				restoreUID, hasRestoreAnnotation := vd.Annotations[annotations.AnnVMOPRestoreDeleted]
-				if !hasRestoreAnnotation {
-					restoreUID, hasRestoreAnnotation = vd.Annotations[annotations.AnnVMOPRestore]
-				}
-
-				if !hasRestoreAnnotation {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineSnapshot{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vd *v1alpha2.VirtualMachineSnapshot) []reconcile.Request {
+				vmopUID, hasVMOPAnnotation := vd.Annotations[annotations.AnnVMOPUID]
+				if !hasVMOPAnnotation {
 					return nil
 				}
 
@@ -68,7 +63,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 					}
 
 					// Check if this VMOP matches the restore UID and is in progress
-					if string(vmop.UID) == restoreUID && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
+					if string(vmop.UID) == vmopUID {
 						requests = append(requests, reconcile.Request{
 							NamespacedName: types.NamespacedName{
 								Namespace: vmop.GetNamespace(),
@@ -79,21 +74,21 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 				}
 				return requests
 			}),
-			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
-				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualDisk]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineSnapshot]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
 					// Always trigger on delete events - the handler will filter for relevant VMOPs
-					// since deleted VDs might not have restore annotations but could still be blocking restores
+					// since deleted VMSnapshots might not have annotations but could still be blocking restores
 					return true
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
-					// Trigger reconciliation when VirtualDisk phase changes during restore
-					_, hasRestoreAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPRestore]
-					return hasRestoreAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
+					// Trigger reconciliation when VirtualMachineSnapshot phase changes during restore
+					_, hasVMOPUIDAnnotation := e.ObjectNew.Annotations[annotations.AnnVMOPUID]
+					return hasVMOPUIDAnnotation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
 		),
 	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
+		return fmt.Errorf("error setting watch on VirtualMachineSnapshot: %w", err)
 	}
 	return nil
 }
