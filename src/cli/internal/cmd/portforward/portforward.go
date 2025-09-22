@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha3 "github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
@@ -137,7 +137,7 @@ func (o *PortForward) prepareCommand(defaultNamespace string, args []string) (na
 }
 
 func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPort) error {
-	streamer, err := o.resource.PortForward(name, subv1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
+	streamer, err := o.resource.PortForward(name, subv1alpha3.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 	if err != nil {
 		return err
 	}

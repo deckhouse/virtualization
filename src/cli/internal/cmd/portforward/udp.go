@@ -25,7 +25,7 @@ import (
 
 	"k8s.io/klog/v2"
 
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha3 "github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 const bufSize = 1500
@@ -47,7 +47,7 @@ func (p *portForwarder) startForwardingUDP(address *net.IPAddr, port forwardedPo
 		listener: listener,
 		remoteDialer: func() (net.Conn, error) {
 			klog.Infof("opening new udp tunnel to %d", port.remote)
-			stream, err := p.resource.PortForward(p.name, subv1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
+			stream, err := p.resource.PortForward(p.name, subv1alpha3.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 			if err != nil {
 				klog.Errorf("can't access vm/%s.%s: %v", p.name, p.namespace, err)
 				return nil, err

@@ -12,6 +12,7 @@ rules:
   - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/console
+  - apivirtualmachines/console
   verbs:
   - get
   - create

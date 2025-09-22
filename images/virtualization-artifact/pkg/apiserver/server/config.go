@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
-	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -85,26 +85,29 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
-	kubeclient, err := apiextensionsv1.NewForConfig(c.Rest)
-	if err != nil {
-		return nil, err
-	}
-	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), v1alpha2.Resource(v1alpha2.VirtualMachineResource).String(), metav1.GetOptions{})
+	kubeClient, err := apiextensionsv1.NewForConfig(c.Rest)
 	if err != nil {
 		return nil, err
 	}
 
-	virtclient, err := virtClient.NewForConfig(c.Rest)
+	crd, err := kubeClient.CustomResourceDefinitions().Get(context.Background(), v1alpha2.Resource(v1alpha2.VirtualMachineResource).String(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if err = api.Install(vmInformer.Lister(),
+
+	virtClient, err := virtclient.NewForConfig(c.Rest)
+	if err != nil {
+		return nil, err
+	}
+
+	err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
 		crd,
-		virtclient.VirtualizationV1alpha2(),
-	); err != nil {
+		virtClient.VirtualizationV1alpha2(),
+	)
+	if err != nil {
 		return nil, err
 	}
 

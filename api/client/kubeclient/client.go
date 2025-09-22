@@ -78,7 +78,7 @@ func (c client) VirtualMachines(namespace string) virtualizationv1alpha2.Virtual
 		restClient:              c.restClient,
 		config:                  c.config,
 		namespace:               namespace,
-		resource:                "virtualmachines",
+		resource:                "apivirtualmachines",
 	}
 }
 

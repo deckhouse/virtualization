@@ -32,7 +32,7 @@ import (
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha3 "github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 func (o *SSH) nativeSSH(namespace, name string, virtClient kubeclient.Client) error {
@@ -208,7 +208,7 @@ func (o *NativeSSHConnection) StartSession(client *ssh.Client, command string) e
 }
 
 func (o *NativeSSHConnection) prepareSSHTunnel(namespace, name string) (virtualizationv1alpha2.StreamInterface, error) {
-	opts := subv1alpha2.VirtualMachinePortForward{
+	opts := subv1alpha3.VirtualMachinePortForward{
 		Port:     o.options.SSHPort,
 		Protocol: "tcp",
 	}
