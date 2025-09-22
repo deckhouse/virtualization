@@ -53,6 +53,8 @@ logFilter:
   - "Forbidden: no new finalizers can be added if the object is being deleted, found new finalizers"
   - "Failed to watch" # error if virtualization-controller restarts during tests. "msg": "Failed to watch", "err": "Get \"http://127.0.0.1:23915/apis/virtualization.deckhouse.io/v1alpha2/virtualmachinerestores?allowWatchBookmarks=true\u0026resourceVersion=709816257\u0026timeoutSeconds=310\u0026watch=true\": context canceled"
   - "leader election lost"
+  - "a virtual machine cannot be restored from the pending phase with `Forced` mode" # "err": "a virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode"
+  - 'virtualMachineSnapshotSecret "" not found' # "msg": "virtualMachineSnapshotSecret \"\" not found"
 regexpLogFilter:
   - "failed to detach: .* not found" # "err" "failed to detach: virtualmachine.kubevirt.io \"head-497d17b-vm-automatic-with-hotplug\" not found",
   - "error patching .* not found" # "err" "error patching *** virtualimages.virtualization.deckhouse.io \"head-497d17b-vi-pvc-oref-vi-oref-vd\" not found",
