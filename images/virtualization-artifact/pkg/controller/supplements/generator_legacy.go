@@ -17,15 +17,11 @@ limitations under the License.
 package supplements
 
 import (
-	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/strings"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // LegacyGenerator generates names in the old format for backward compatibility

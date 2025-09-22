@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
