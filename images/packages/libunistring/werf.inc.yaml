@@ -79,7 +79,7 @@ shell:
       --libdir=/usr/lib64
 
     # remove non-existing tests from build to prevent failure
-    sed 's/SUBDIRS = doc gnulib-local lib tests/SUBDIRS = doc gnulib-local lib/'
+    sed -i 's/SUBDIRS = doc gnulib-local lib tests/SUBDIRS = doc gnulib-local lib/' Makefile
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     find $OUTDIR -type f -executable | while read -r execfile; do
