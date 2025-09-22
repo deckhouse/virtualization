@@ -734,6 +734,10 @@ func IsContainerRestarted(podName, containerName, namespace string, startedAt me
 	return false, fmt.Errorf("failed to compare the `startedAt` field before and after the tests ran: %s", podName)
 }
 
+// SaveTestResources dump some resources that may help in further diagnostic.
+//
+// NOTE: This method is called in AfterEach for failed specs only. Avoid to use Expect,
+// as it fails without reporting. Better use GinkgoWriter to report errors at this point.
 func SaveTestResources(labels map[string]string, additional string) {
 	replacer := strings.NewReplacer(
 		" ", "_",
@@ -743,16 +747,35 @@ func SaveTestResources(labels map[string]string, additional string) {
 		"(", "_",
 		")", "_",
 		"|", "_",
+		"`", "",
+		"'", "",
 	)
 	additional = replacer.Replace(strings.ToLower(additional))
 
-	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
+	tmpDir := os.Getenv("RUNNER_TEMP")
+	if tmpDir == "" {
+		tmpDir = "/tmp"
+	}
+	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", tmpDir, labels["testcase"], additional)
+	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", tmpDir, labels["testcase"], additional)
 
-	cmdr := kubectl.Get("virtualization,intvirt -A", kc.GetOptions{Output: "yaml", Labels: labels})
-	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
+	cmdr := kubectl.Get("virtualization,intvirt,po -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	if cmdr.Error() != nil {
+		errReport := fmt.Sprintf("cmd: %s\nerror: %s\nstderr: %s\n", cmdr.GetCmd(), cmdr.Error(), cmdr.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n", errReport)
+		err := os.WriteFile(errorFileName, []byte(errReport), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Save error to file '%s' failed: %s\n", errorFileName, err)
+		}
+	}
 
-	err := os.WriteFile(str, cmdr.StdOutBytes(), 0o644)
-	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
+	// Stdout may present even if error is occurred.
+	if len(cmdr.StdOutBytes()) > 0 {
+		err := os.WriteFile(resFileName, cmdr.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", errorFileName, err)
+		}
+	}
 }
 
 type Watcher interface {
