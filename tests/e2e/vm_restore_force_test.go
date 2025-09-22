@@ -49,6 +49,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
 		originalVMNetworks  map[string][]virtv2.NetworksStatus
+		criticalError       string
 	)
 
 	BeforeAll(func() {
@@ -61,6 +62,9 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 	})
 
 	BeforeEach(func() {
+		if criticalError != "" {
+			Skip(criticalError)
+		}
 		ctx, cancel = context.WithCancel(context.Background())
 	})
 
@@ -255,7 +259,8 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 
 						msg := "A virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode."
 						if vmRestoreObj.Status.Phase == virtv2.VirtualMachineRestorePhaseFailed && readyCondition.Message == msg {
-							Skip("A bug has occurred with a virtual machine in the \"Pending\" phase.")
+							criticalError = "A bug has occurred with a virtual machine in the \"Pending\" phase."
+							Skip(criticalError)
 						}
 
 						if vmRestoreObj.Status.Phase != virtv2.VirtualMachineRestorePhaseReady {
