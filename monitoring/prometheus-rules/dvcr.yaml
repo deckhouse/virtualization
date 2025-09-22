@@ -53,7 +53,7 @@
         plk_grouped_by__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: Risk of insufficient DVCR storage capacity.
         description: |
-          The DVCR storage (PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}) has less than 5GB or 20% free space, risking failure to create new images or disks. Available: {{ $value | humanize1024 }}B.
+          The DVCR storage (PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}) has less than 5GB or 20% free space, risking failure to create new images or disks.
 
           The recommended course of action:
 
