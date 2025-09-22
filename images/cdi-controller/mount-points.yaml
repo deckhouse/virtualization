@@ -1,0 +1,13 @@
+# A list of pre-created mount points for containerd strict mode.
+#
+# Some volume mounts are ignored:
+# - /tmp - already in the 'distroless' base image.
+
+dirs:
+  # Create dirs in /run, as /var/run is a symlink to /run.
+  - /run/cdi/token/keys
+  - /run/certs/cdi-uploadserver-signer
+  - /run/certs/cdi-uploadserver-client-signer
+  - /run/ca-bundle/cdi-uploadserver-signer-bundle
+  - /run/ca-bundle/cdi-uploadserver-client-signer-bundle
+  - /kubeconfig.local
