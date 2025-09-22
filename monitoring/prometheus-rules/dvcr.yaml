@@ -58,4 +58,4 @@
           The recommended course of action:
 
           - Check PVC details: `d8 k -n d8-virtualization describe pvc dvcr`
-          - Extend DVCR storage size in the virtualization module settings or remove unnecessary images (ClusterVirtualImage\VirtualImage).
+          - Extend DVCR storage size in the virtualization module settings or remove unnecessary images (ClusterVirtualImage and VirtualImage resources).
