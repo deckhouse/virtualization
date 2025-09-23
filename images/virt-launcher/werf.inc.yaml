@@ -46,7 +46,6 @@ altLibs:
   - libvirglrenderer-devel
   - libdbus
   - libusb-devel
-  - liburing-devel
   - libbpf-devel
   - libspice-server-devel
   - ceph-devel
@@ -130,6 +129,7 @@ packages:
 - snappy
 - libtasn1 libtirpc
 - libaio
+- liburing libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

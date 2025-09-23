@@ -29,12 +29,13 @@ shell:
 altPackages:
 - gcc gcc-c++ make git autoconf libtool gettext-tools
 - automake pkgconf glibc-devel
-- bash-completion hardlink libfuse3-devel
-- liburing-devel libxml2-devel perl-podlators
+- bash-completion hardlink
+- perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
 - gnutls libidn2 libgmp ubdsrv
 - libtasn1
+- liburing libxml2 libfuse3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

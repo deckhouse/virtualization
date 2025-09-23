@@ -76,7 +76,7 @@ altLibraries:
 - libsystemd-devel
 - systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
-- libgio-devel libxml2-devel
+- libgio-devel
 - wireshark-devel
 - libclocale
 - libslirp-devel
@@ -91,6 +91,7 @@ packages:
 - selinux
 - cyrus-sasl2
 - libtasn1 libtirpc
+- libunistring libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

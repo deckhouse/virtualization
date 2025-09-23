@@ -11,6 +11,7 @@ binaries:
 packages:
 - libnbd
 - libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
