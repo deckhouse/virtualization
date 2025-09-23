@@ -111,7 +111,7 @@ altLibraries:
 - libspice-server-devel spice-protocol ceph-devel
 - libnfs-devel libseccomp-devel
 - libgnutls-devel
-- libudev-devel libmultipath-devel libblkio-devel libpmem-devel
+- libmultipath-devel libblkio-devel libpmem-devel
 - libdaxctl-devel
 - bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
@@ -134,7 +134,7 @@ packages:
 - snappy
 - ngtcp2 libtasn1 ncurses
 - libaio
-- liburing libuserspace-rcu libunistring
+- liburing libuserspace-rcu libunistring systemd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
