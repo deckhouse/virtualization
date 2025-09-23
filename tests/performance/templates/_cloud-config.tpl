@@ -17,6 +17,7 @@ users:
       {{- range .Values.sshAuthorizeKeys }}
       - {{.}}
       {{- end }}
+{{- if eq .Values.baseVI "ubuntu" }}
 apt:
   sources_list: |
       deb http://mirror.yandex.ru/ubuntu jammy main restricted
@@ -36,6 +37,7 @@ packages:
   # - qemu-guest-agent
   # - stress-ng
   - nginx
+{{- end }}
 write_files:
   - path: /usr/local/bin/generate.sh
     permissions: "0755"

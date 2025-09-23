@@ -5,7 +5,7 @@ metadata:
   name: {{ $.Values.resourcesPrefix }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    vm: {{ $.Values.resourcesPrefix }}
+    vms: {{ $.Values.resourcesPrefix }}
 spec:
 {{- if eq .Values.viType "pvc" }}
   storage: PersistentVolumeClaim
@@ -32,7 +32,7 @@ metadata:
   name: {{ $.Values.resourcesPrefix }}-{{ . }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    vm: {{ $.Values.resourcesPrefix }}
+    vms: {{ $.Values.resourcesPrefix }}
 spec:
   persistentVolumeClaim:
     size: {{ $.Values.diskSize }}

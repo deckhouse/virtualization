@@ -8,17 +8,21 @@ metadata:
   name: {{ $.Values.resourcesPrefix }}-{{ . }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    vm: {{ $.Values.resourcesPrefix }}
+    vms: {{ $.Values.resourcesPrefix }}
 spec:
   runPolicy: {{ $.Values.runPolicy }}
   enableParavirtualization: true
   disruptions:
     # To ensure an equal amount of virtual machines with Manual and Automatic modes during testing,
     # we create every second machine with Automatic mode.
-    {{- if eq (mod . 2) 0 }}
+    {{- if eq $.Values.restartApprovalMode "Dynamic" }}
+    {{-   if eq (mod . 2) 0 }}
     restartApprovalMode: Automatic
-    {{- else }}
+    {{-   else }}
     restartApprovalMode: Manual
+    {{-   end }}
+    {{- else }}
+    restartApprovalMode: Automatic
     {{- end }}
   osType: Generic
   bootloader: BIOS
@@ -30,9 +34,9 @@ spec:
   memory:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  virtualMachineClassName: host
+  virtualMachineClassName: {{ $.Values.virtualMachineClassName | default "host" }}
   blockDeviceRefs:
-    {{- if eq $.Values.vmDiskType "vi" }}
+    {{- if eq $.Values.vmsDiskType "vi" }}
     - kind: VirtualImage
       name: {{ $.Values.resourcesPrefix }}
     {{- else }}

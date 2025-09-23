@@ -1,3 +1,4 @@
+{{- if eq .Values.nginx true }}
 {{- if or (eq .Values.resources "vms") (eq .Values.resources "all") }}
 apiVersion: v1
 kind: Service
@@ -28,4 +29,5 @@ spec:
                 name: {{ $.Values.resourcesPrefix }}-svc-nginx
                 port:
                   number: 80
+{{- end }}
 {{- end }}

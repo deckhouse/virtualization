@@ -19,13 +19,28 @@ includes:
 
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
-  NAMESPACE: "{{ .NAMESPACE }}"
-  STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
+  NAMESPACE: '{{ .NAMESPACE | default "perf" }}'
+  STORAGE_CLASS: 
+    sh: |
+      if [ -n "{{ .STORAGE_CLASS }}" ]; then
+        echo "{{ .STORAGE_CLASS }}"
+      else
+        kubectl get storageclass -o json | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name'
+      fi
   RESOURCES: '{{ .RESOURCES | default "all" }}'
   NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'
 
 tasks:
+  tst:
+    cmds:
+      - echo "{{ .STORAGE_CLASS }}"
+  render:
+    desc: "Render templates with default values"
+    cmds:
+      - |
+        helm template test . --values values.yaml 
+
   help:
     desc: "Help about bootstrapper.sh."
     cmds:
