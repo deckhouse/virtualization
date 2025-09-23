@@ -542,8 +542,6 @@ func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generat
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, pvc)
-
-	return pvc, nil
 }
 
 func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
