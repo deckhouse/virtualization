@@ -31,6 +31,7 @@ altPackages:
 - meson ninja-build
 - gettext-devel
 - git
+- gperf
 - tree
 packages:
 - xz lz4 zlib bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
