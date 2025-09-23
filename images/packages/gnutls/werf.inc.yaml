@@ -49,7 +49,7 @@ altPackages:
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
 - liboqs-devel
-- libssl-devel iproute2-devel
+- iproute2-devel
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
