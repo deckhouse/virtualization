@@ -195,17 +195,16 @@ var _ = SynchronizedBeforeSuite(func() {
 	}
 
 	StartV12nControllerLogStream(logStreamByV12nControllerPod)
-	DeferCleanup(func() {
-		if config.IsCleanUpNeeded() {
-			err := Cleanup()
-			if err != nil {
-				Expect(err).NotTo(HaveOccurred())
-			}
-		}
-	})
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
+	DeferCleanup(func() {
+		if config.IsCleanUpNeeded() {
+			err := Cleanup()
+			Expect(err).NotTo(HaveOccurred())
+		}
+	})
+
 	errs := make([]error, 0)
 	checkErrs := CheckV12nControllerRestarts(logStreamByV12nControllerPod)
 	if len(checkErrs) != 0 {
