@@ -17,9 +17,20 @@ limitations under the License.
 package main
 
 import (
-	"statistic/pkg/command"
+	"log/slog"
+	"os"
+
+	"evicter/pkg/command"
 )
 
 func main() {
+	// opts := &slog.HandlerOptions{
+	// 	AddSource: true, // This enables source location logging
+	// }
+	// logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	// logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	command.Execute()
 }

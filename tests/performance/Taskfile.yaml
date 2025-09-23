@@ -16,11 +16,19 @@ includes:
     taskfile: status-access-vms/ansible/Taskfile.ansible.yaml
     dir: status-access-vms/ansible
     optional: true
+  stats:
+    taskfile: statistic/Taskfile.yaml
+    dir: statistic
+    optional: true
+  evicter:
+    taskfile: tools/evicter/Taskfile.yaml
+    dir: tools/evicter
+    optional: true
 
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
   NAMESPACE: '{{ .NAMESPACE | default "perf" }}'
-  STORAGE_CLASS: 
+  STORAGE_CLASS:
     sh: |
       if [ -n "{{ .STORAGE_CLASS }}" ]; then
         echo "{{ .STORAGE_CLASS }}"
@@ -39,7 +47,7 @@ tasks:
     desc: "Render templates with default values"
     cmds:
       - |
-        helm template test . --values values.yaml 
+        helm template test . --values values.yaml
 
   help:
     desc: "Help about bootstrapper.sh."

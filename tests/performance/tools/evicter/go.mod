@@ -4,6 +4,7 @@ go 1.23.3
 
 require (
 	github.com/deckhouse/virtualization/api v0.0.0-20241203125408-98da8646a9b8
+	github.com/spf13/cobra v1.7.0
 	k8s.io/apimachinery v0.31.3
 	k8s.io/client-go v0.31.3
 )
@@ -23,6 +24,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
