@@ -31,10 +31,13 @@ altPackages:
 - meson ninja-build
 - gettext-devel
 - git
-- gperf libpasswdqc-devel libseccomp-devel
+- gperf libpasswdqc-devel libseccomp-devel libmicrohttpd-devel
+- libcryptsetup-devel libiptables-devel libgpg-error-devel
+- libfido2-devel libtpm2-tss-devel libdw-devel python3-module-jinja2
+- python3-module-elftools
 - tree
 packages:
-- xz lz4 zlib bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
+- xz lz4 zlib zstd bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
 - libcap util-linux swtpm
 {{- end -}}
 
@@ -139,7 +142,7 @@ shell:
     -Dcoredump=true \
     -Dpstore=true \
     -Dgcrypt=enabled \
-    -Dqrencode=enabled \
+    -Dqrencode=disabled \
     -Dmicrohttpd=enabled \
     -Dgnutls=enabled \
     -Dopenssl=enabled \
