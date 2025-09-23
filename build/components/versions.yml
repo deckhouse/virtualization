@@ -88,6 +88,7 @@ package:
   selinux: 3.6
   libslirp: v4.8.0
   snappy: 1.2.2 # libsnappy
+  systemd: v255
   zlib: v1.3.1
   zstd: v1.5.7
   krb5: krb5-1.21.3-final
