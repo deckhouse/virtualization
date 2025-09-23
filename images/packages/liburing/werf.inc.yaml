@@ -58,7 +58,8 @@ shell:
     cd /src
     ./configure \
       --prefix=/usr \
-      --libdir=/usr/lib64
+      --libdir=/usr/lib64 \
+      --libdevdir=/usr/lib64
 
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
