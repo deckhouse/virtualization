@@ -29,11 +29,11 @@ altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - meson ninja-build
-- gettext-devel liblzma-devel
-- xz git
+- gettext-devel
+- git
 - tree
 packages:
-- xz zlib openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
+- xz lz4 zlib bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -73,7 +73,6 @@ shell:
     -Doptimization=2 \
     --prefix=/usr \
     --bindir=/usr/bin \
-    --libexecdir=/usr/lib64 \
     --libdir=/usr/lib64 \
     --wrap-mode=nodownload \
     -Dmode=release \
@@ -84,17 +83,13 @@ shell:
     -Dlink-journalctl-shared=false \
     -Dlink-boot-shared=false \
     -Dlink-portabled-shared=false \
-    -Dlink-executor-shared=false \
     -Dstandalone-binaries=true \
     -Dxinitrcdir=/etc/X11/xinit.d \
     -Dpamlibdir=/lib64/security \
     -Dsplit-bin=true \
-    -Dconfigfiledir=/usr/lib \
     -Dsysvinit-path=/etc/rc.d/init.d \
     -Dsysvrcnd-path=/etc/rc.d \
     -Drc-local=/etc/rc.d/rc.local \
-    -Dsshdconfdir=/etc/openssh/sshd_config.d \
-    -Dsshconfdir=/etc/openssh/ssh_config.d \
     -Dinstall-sysconfdir=true \
     -Dkernel-install=true \
     -Dpamconfdir=/etc/pam.d \
@@ -108,6 +103,7 @@ shell:
     -Dumount-path=/bin/umount \
     -Dloadkeys-path=/bin/loadkeys \
     -Dsetfont-path=/bin/setfont \
+    -Dtelinit-path=/sbin/telinit \
     -Dnologin-path=/sbin/nologin \
     -Dcompat-mutable-uid-boundaries=true \
     -Dadm-gid=4 \
@@ -166,7 +162,6 @@ shell:
     -Dtimesyncd=true \
     -Dntp-servers= \
     -Dsysusers=true \
-    -Dtcb=true \
     -Dbootloader=enabled \
     -Dukify=enabled \
     -Dfirstboot=false \
@@ -184,17 +179,17 @@ shell:
     -Ddefault-dnssec=no \
     -Ddefault-mdns=no \
     -Ddefault-llmnr=yes \
+    -Ddefault-hierarchy=unified \
     -Db_lto=true \
     -Db_pie=true \
     -Db_ndebug=false \
-    -Dman=enabled \
+    -Dman=disabled \
     -Dcreate-log-dirs=false \
     -Durlify=false \
-    -Dtests=unsafe \
-    -Dinstall-tests=true \
-    -Dversion-tag=255 \
-    -Dvcs-tag=false \
-    -Dcertificate-root=/etc/pki/tls
+    -Dinstall-tests=false \
+    -Dversion-tag=255.22-alt1 \
+    -Dcertificate-root=/etc/pki/tls \
+    -Ddocdir=/usr/share/doc/systemd-255
 
     DESTDIR=${OUTDIR} meson install -C _build
 
