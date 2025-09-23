@@ -38,7 +38,7 @@ altPackages:
 - tree
 packages:
 - xz lz4 zlib zstd bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
-- libcap util-linux swtpm libunistring
+- libcap util-linux swtpm libunistring libssh2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
