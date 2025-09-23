@@ -17,8 +17,14 @@ limitations under the License.
 package vm
 
 import (
+	"strings"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+// VMContainerNameSuffix - a name suffix for container with virt-launcher, libvirt and qemu processes.
+// Container name is "d8v-compute", but previous versions may have "compute" container.
+const VMContainerNameSuffix = "compute"
 
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
 // the desired total number of CPU cores.
@@ -58,4 +64,8 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 		return virtv2.Manual
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
+}
+
+func IsComputeContainer(name string) bool {
+	return strings.HasSuffix(name, VMContainerNameSuffix)
 }

@@ -31,6 +31,7 @@ altPackages:
 - meson ninja-build
 - gettext-devel liblzma-devel
 - xz git
+- tree
 packages:
 - zlib
 - openssl
@@ -85,3 +86,5 @@ shell:
       echo "Stripped: $execfile"
     fi
     done
+
+    tree -hp /out

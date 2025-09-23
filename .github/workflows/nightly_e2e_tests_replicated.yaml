@@ -80,7 +80,7 @@ jobs:
         if: always()
         with:
           name: resources_from_failed_tests
-          path: /tmp/e2e_failed__*
+          path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
 
       - name: Save results

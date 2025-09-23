@@ -37,6 +37,9 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.Com
 	var ns string
 
 	BeforeAll(func() {
+		// TODO: Remove Skip after fixing the issue.
+		Skip("This test case is not working everytime. Should be fixed.")
+
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigrationCancel, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)

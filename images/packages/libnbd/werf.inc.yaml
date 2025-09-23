@@ -33,7 +33,7 @@ altPackages:
 - perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
-- gnutls libidn2 libgmp ubdsrv
+- gnutls libidn2 libgmp ubdsrv xz libxml2
 - libtasn1
 - liburing libxml2 libfuse3
 {{- end -}}
@@ -67,6 +67,8 @@ shell:
       rm -rf /$pkg
     done
 
+    cp /usr/include/fuse3/* /usr/include/
+
     OUTDIR=/out
 
     cd /src
@@ -74,9 +76,11 @@ shell:
     autoreconf -i
     ./configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-ocaml \
-      --disable-static
+      --disable-golang \
+      --disable-rust
 
     make -j$(nproc)
 

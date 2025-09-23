@@ -10,6 +10,8 @@ binaries:
 - /cdi-binaries/cdi-source-update-poller
 packages:
 - libnbd
+- libxml2
+- xz
 - libtasn1
 - libunistring
 {{- end -}}
