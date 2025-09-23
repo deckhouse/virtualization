@@ -103,7 +103,15 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 				return "N%"
 			},
 		}
-		diskService = &DiskMock{}
+		diskService = &DiskMock{
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				// Return the test PVC if it exists
+				if pvc != nil && pvc.Name != "" {
+					return pvc, nil
+				}
+				return nil, nil
+			},
+		}
 		settings = &dvcr.Settings{}
 
 		sc = &storagev1.StorageClass{
@@ -183,7 +191,11 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 					},
 				}).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, diskService, client, settings, recorder)
+			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -227,7 +239,11 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, diskService, client, nil, recorder)
+			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -243,7 +259,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			vi.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())

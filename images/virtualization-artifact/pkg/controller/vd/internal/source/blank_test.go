@@ -79,6 +79,9 @@ var _ = Describe("Blank", func() {
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
 				return nil
 			},
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return pvc, nil
+			},
 		}
 
 		sc = &storagev1.StorageClass{
@@ -140,6 +143,10 @@ var _ = Describe("Blank", func() {
 					},
 				}).Build()
 
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+
 			syncer := NewBlankDataSource(recorder, svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
@@ -156,7 +163,12 @@ var _ = Describe("Blank", func() {
 
 		It("checks size in spec", func() {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
-			syncer := NewBlankDataSource(nil, nil, client)
+			diskSvc := &BlankDataSourceDiskServiceMock{
+				GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+					return nil, nil
+				},
+			}
+			syncer := NewBlankDataSource(nil, diskSvc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).To(HaveOccurred())
@@ -165,7 +177,12 @@ var _ = Describe("Blank", func() {
 
 		It("checks storage class is set in status", func() {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
-			syncer := NewBlankDataSource(nil, nil, client)
+			diskSvc := &BlankDataSourceDiskServiceMock{
+				GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+					return nil, nil
+				},
+			}
+			syncer := NewBlankDataSource(nil, diskSvc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).To(HaveOccurred())
@@ -179,7 +196,12 @@ var _ = Describe("Blank", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewBlankDataSource(nil, nil, client)
+			diskSvc := &BlankDataSourceDiskServiceMock{
+				GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+					return pvc, nil
+				},
+			}
+			syncer := NewBlankDataSource(nil, diskSvc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -194,7 +216,12 @@ var _ = Describe("Blank", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewBlankDataSource(nil, nil, client)
+			diskSvc := &BlankDataSourceDiskServiceMock{
+				GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+					return pvc, nil
+				},
+			}
+			syncer := NewBlankDataSource(nil, diskSvc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -237,6 +264,10 @@ var _ = Describe("Blank", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
+
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
 
 			syncer := NewBlankDataSource(nil, svc, client)
 

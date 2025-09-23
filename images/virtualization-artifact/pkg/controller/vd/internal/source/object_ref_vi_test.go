@@ -74,6 +74,15 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
 				return nil
 			},
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return pvc, nil
+			},
+			GetDataVolumeFunc: func(_ context.Context, _ *supplements.Generator) (*cdiv1.DataVolume, error) {
+				return dv, nil
+			},
+			CheckProvisioningFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim) error {
+				return nil
+			},
 		}
 
 		sc = &storagev1.StorageClass{
@@ -151,6 +160,12 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ service.ObjectKind, _ *supplements.Generator, _ ...service.Option) error {
 				dvCreated = true
 				return nil
+			}
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+			svc.GetDataVolumeFunc = func(_ context.Context, _ *supplements.Generator) (*cdiv1.DataVolume, error) {
+				return nil, nil
 			}
 
 			syncer := NewObjectRefVirtualImage(svc, client)
@@ -243,6 +258,10 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
+
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
 
 			syncer := NewObjectRefVirtualImage(svc, client)
 
