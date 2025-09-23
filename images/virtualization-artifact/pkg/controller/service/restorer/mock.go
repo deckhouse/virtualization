@@ -5,6 +5,7 @@ package restorer
 
 import (
 	"context"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -19,8 +20,14 @@ var _ ObjectHandler = &ObjectHandlerMock{}
 //
 //		// make and configure a mocked ObjectHandler
 //		mockedObjectHandler := &ObjectHandlerMock{
+//			CustomizeFunc: func(prefix string, suffix string)  {
+//				panic("mock out the Customize method")
+//			},
 //			ObjectFunc: func() client.Object {
 //				panic("mock out the Object method")
+//			},
+//			OverrideFunc: func(rules []v1alpha2.NameReplacement)  {
+//				panic("mock out the Override method")
 //			},
 //			ProcessCloneFunc: func(ctx context.Context) error {
 //				panic("mock out the ProcessClone method")
@@ -41,8 +48,14 @@ var _ ObjectHandler = &ObjectHandlerMock{}
 //
 //	}
 type ObjectHandlerMock struct {
+	// CustomizeFunc mocks the Customize method.
+	CustomizeFunc func(prefix string, suffix string)
+
 	// ObjectFunc mocks the Object method.
 	ObjectFunc func() client.Object
+
+	// OverrideFunc mocks the Override method.
+	OverrideFunc func(rules []v1alpha2.NameReplacement)
 
 	// ProcessCloneFunc mocks the ProcessClone method.
 	ProcessCloneFunc func(ctx context.Context) error
@@ -58,8 +71,20 @@ type ObjectHandlerMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Customize holds details about calls to the Customize method.
+		Customize []struct {
+			// Prefix is the prefix argument value.
+			Prefix string
+			// Suffix is the suffix argument value.
+			Suffix string
+		}
 		// Object holds details about calls to the Object method.
 		Object []struct {
+		}
+		// Override holds details about calls to the Override method.
+		Override []struct {
+			// Rules is the rules argument value.
+			Rules []v1alpha2.NameReplacement
 		}
 		// ProcessClone holds details about calls to the ProcessClone method.
 		ProcessClone []struct {
@@ -82,11 +107,49 @@ type ObjectHandlerMock struct {
 			Ctx context.Context
 		}
 	}
+	lockCustomize       sync.RWMutex
 	lockObject          sync.RWMutex
+	lockOverride        sync.RWMutex
 	lockProcessClone    sync.RWMutex
 	lockProcessRestore  sync.RWMutex
 	lockValidateClone   sync.RWMutex
 	lockValidateRestore sync.RWMutex
+}
+
+// Customize calls CustomizeFunc.
+func (mock *ObjectHandlerMock) Customize(prefix string, suffix string) {
+	if mock.CustomizeFunc == nil {
+		panic("ObjectHandlerMock.CustomizeFunc: method is nil but ObjectHandler.Customize was just called")
+	}
+	callInfo := struct {
+		Prefix string
+		Suffix string
+	}{
+		Prefix: prefix,
+		Suffix: suffix,
+	}
+	mock.lockCustomize.Lock()
+	mock.calls.Customize = append(mock.calls.Customize, callInfo)
+	mock.lockCustomize.Unlock()
+	mock.CustomizeFunc(prefix, suffix)
+}
+
+// CustomizeCalls gets all the calls that were made to Customize.
+// Check the length with:
+//
+//	len(mockedObjectHandler.CustomizeCalls())
+func (mock *ObjectHandlerMock) CustomizeCalls() []struct {
+	Prefix string
+	Suffix string
+} {
+	var calls []struct {
+		Prefix string
+		Suffix string
+	}
+	mock.lockCustomize.RLock()
+	calls = mock.calls.Customize
+	mock.lockCustomize.RUnlock()
+	return calls
 }
 
 // Object calls ObjectFunc.
@@ -113,6 +176,38 @@ func (mock *ObjectHandlerMock) ObjectCalls() []struct {
 	mock.lockObject.RLock()
 	calls = mock.calls.Object
 	mock.lockObject.RUnlock()
+	return calls
+}
+
+// Override calls OverrideFunc.
+func (mock *ObjectHandlerMock) Override(rules []v1alpha2.NameReplacement) {
+	if mock.OverrideFunc == nil {
+		panic("ObjectHandlerMock.OverrideFunc: method is nil but ObjectHandler.Override was just called")
+	}
+	callInfo := struct {
+		Rules []v1alpha2.NameReplacement
+	}{
+		Rules: rules,
+	}
+	mock.lockOverride.Lock()
+	mock.calls.Override = append(mock.calls.Override, callInfo)
+	mock.lockOverride.Unlock()
+	mock.OverrideFunc(rules)
+}
+
+// OverrideCalls gets all the calls that were made to Override.
+// Check the length with:
+//
+//	len(mockedObjectHandler.OverrideCalls())
+func (mock *ObjectHandlerMock) OverrideCalls() []struct {
+	Rules []v1alpha2.NameReplacement
+} {
+	var calls []struct {
+		Rules []v1alpha2.NameReplacement
+	}
+	mock.lockOverride.RLock()
+	calls = mock.calls.Override
+	mock.lockOverride.RUnlock()
 	return calls
 }
 
