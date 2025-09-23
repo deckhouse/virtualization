@@ -37,7 +37,7 @@ packages:
 - util-linux
 - readline
 - libaio
-- liburing
+- liburing libuserspace-rcu
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -68,7 +68,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src
