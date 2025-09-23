@@ -84,25 +84,6 @@ function destroy() {
   helm uninstall "${RELEASE_NAME}" -n "${NAMESPACE}"
   echo "$(date +"%Y-%m-%d %H:%M:%S") - Release [${RELEASE_NAME}] was deleted"
 
-  # case "${RESOURCES}" in
-  #   "all")
-  #     kubectl wait -n "${NAMESPACE}" --for=delete vm -l vm="${RESOURCES_PREFIX}"
-  #     kubectl wait -n "${NAMESPACE}" --for=delete vd -l vm="${RESOURCES_PREFIX}"
-  #     kubectl wait -n "${NAMESPACE}" --for=delete vi -l vm="${RESOURCES_PREFIX}"
-  #     ;;
-  #   "disks")
-  #     kubectl wait -n "${NAMESPACE}" --for=delete vd -l vm="${RESOURCES_PREFIX}"
-  #     kubectl wait -n "${NAMESPACE}" --for=delete vi -l vm="${RESOURCES_PREFIX}"
-  #     ;;
-  #   "vms")
-  #     kubectl wait -n "${NAMESPACE}" --for=delete vm -l vm="${RESOURCES_PREFIX}"
-  #     ;;
-  #   *)
-  #     echo "ERROR: Invalid argument"
-  #     usage
-  #     exit 1
-  #     ;;
-  # esac
 }
 
 if [ "$#" -eq 0 ] || [ "${1}" == "--help" ] ; then
