@@ -70,4 +70,4 @@ shell:
       fi
     done
 
-    tree -hp $OUTDIR
+    tree -shp $OUTDIR
