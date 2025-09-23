@@ -27,6 +27,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -282,16 +283,10 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 	}
 
 	// 2. Delete network policy.
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.DataVolume())
+	np := &netv1.NetworkPolicy{}
+	networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
 	if err != nil {
 		return false, err
-	}
-
-	if networkPolicy == nil {
-		networkPolicy, err = networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyGenerator.DataVolume())
-		if err != nil {
-			return false, err
-		}
 	}
 
 	if networkPolicy != nil {
@@ -540,33 +535,13 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
-	dv, err := object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
-	if err != nil {
-		return nil, err
-	}
-
-	if dv == nil {
-		dv, err = object.FetchObject(ctx, sup.LegacyGenerator.DataVolume(), s.client, &cdiv1.DataVolume{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return dv, nil
+	dv := &cdiv1.DataVolume{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, dv)
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	pvc, err := object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
-	if err != nil {
-		return nil, err
-	}
-
-	if pvc == nil {
-		pvc, err = object.FetchObject(ctx, sup.LegacyGenerator.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
-		if err != nil {
-			return nil, err
-		}
-	}
+	pvc := &corev1.PersistentVolumeClaim{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, pvc)
 
 	return pvc, nil
 }

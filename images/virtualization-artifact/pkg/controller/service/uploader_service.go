@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -136,16 +135,10 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	if err != nil {
 		return false, err
 	}
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.UploaderPod())
+	np := &netv1.NetworkPolicy{}
+	networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
 	if err != nil {
 		return false, err
-	}
-
-	if networkPolicy == nil {
-		networkPolicy, err = networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyGenerator.UploaderPod())
-		if err != nil {
-			return false, err
-		}
 	}
 
 	err = s.protection.RemoveProtection(ctx, pod, svc, ing, networkPolicy)
@@ -225,51 +218,18 @@ func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *co
 }
 
 func (s UploaderService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
-	pod, err := object.FetchObject(ctx, sup.UploaderPod(), s.client, &corev1.Pod{})
-	if err != nil {
-		return nil, err
-	}
-
-	if pod == nil {
-		pod, err = object.FetchObject(ctx, sup.LegacyGenerator.UploaderPod(), s.client, &corev1.Pod{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return pod, nil
+	pod := &corev1.Pod{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderPod, pod)
 }
 
 func (s UploaderService) GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error) {
-	svc, err := object.FetchObject(ctx, sup.UploaderService(), s.client, &corev1.Service{})
-	if err != nil {
-		return nil, err
-	}
-
-	if svc == nil {
-		svc, err = object.FetchObject(ctx, sup.LegacyGenerator.UploaderService(), s.client, &corev1.Service{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return svc, nil
+	svc := &corev1.Service{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderService, svc)
 }
 
 func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error) {
-	ing, err := object.FetchObject(ctx, sup.UploaderIngress(), s.client, &netv1.Ingress{})
-	if err != nil {
-		return nil, err
-	}
-
-	if ing == nil {
-		ing, err = object.FetchObject(ctx, sup.LegacyGenerator.UploaderIngress(), s.client, &netv1.Ingress{})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return ing, nil
+	ing := &netv1.Ingress{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderIngress, ing)
 }
 
 func (s UploaderService) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
