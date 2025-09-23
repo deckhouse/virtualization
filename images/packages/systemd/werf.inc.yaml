@@ -31,11 +31,11 @@ altPackages:
 - meson ninja-build
 - gettext-devel
 - git
-- gperf
+- gperf passwdqc
 - tree
 packages:
 - xz lz4 zlib bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
-- libcap util-linux
+- libcap util-linux swtpm 
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
