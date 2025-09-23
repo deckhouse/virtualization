@@ -23,11 +23,11 @@ const (
 	OwnerUID = "OWNER_UID"
 
 	// BounderContainerName provides a constant to use as a name for bounder Container
-	BounderContainerName = "bounder"
+	BounderContainerName = "d8v-dvcr-bounder"
 	// ImporterContainerName provides a constant to use as a name for importer Container
-	ImporterContainerName = "importer"
+	ImporterContainerName = "d8v-dvcr-importer"
 	// UploaderContainerName provides a constant to use as a name for uploader Container
-	UploaderContainerName = "uploader"
+	UploaderContainerName = "d8v-dvcr-uploader"
 	// UploaderPortName provides a constant to use as a port name for uploader Service
 	UploaderPortName = "uploader"
 	// UploaderPort provides a constant to use as a port for uploader Service
@@ -79,10 +79,6 @@ const (
 	ImportProxyNoProxy = "no_proxy"
 	// ImporterProxyCertDirVar provides a constant to capture our env variable "IMPORTER_PROXY_CERT_DIR"
 	ImporterProxyCertDirVar = "IMPORTER_PROXY_CERT_DIR"
-	// ImporterExtraHeader provides a constant to include extra HTTP headers, as the prefix to a format string
-	ImporterExtraHeader = "IMPORTER_EXTRA_HEADER_"
-	// ImporterSecretExtraHeadersDir is where the secrets containing extra HTTP headers will be mounted
-	ImporterSecretExtraHeadersDir = "/extraheaders"
 
 	// ImporterDestinationAuthConfigDir is a mount directory for auth Secret.
 	ImporterDestinationAuthConfigDir = "/dvcr-auth"
@@ -101,10 +97,8 @@ const (
 
 	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
 	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
-	UploaderExtraHeader               = "UPLOADER_EXTRA_HEADER_"
 	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
 	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
-	UploaderSecretExtraHeadersDir     = "/extraheaders"
 
 	DockerRegistrySchemePrefix = "docker://"
 

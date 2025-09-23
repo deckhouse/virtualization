@@ -1,0 +1,7 @@
+# A list of pre-created mount points for containerd strict mode.
+
+dirs:
+  - /etc/virt-controller/certificates
+  - /etc/virt-controller/exportca
+  - /profile-data
+  - /kubeconfig.local

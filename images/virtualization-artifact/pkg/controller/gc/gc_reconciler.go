@@ -72,6 +72,7 @@ func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, l
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(controllerName).
 		For(r.mgr.New(), builder.WithPredicates(predicate.Funcs{
+			CreateFunc: func(ce event.CreateEvent) bool { return false },
 			UpdateFunc: func(ue event.UpdateEvent) bool {
 				return false
 			},

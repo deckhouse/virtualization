@@ -35,7 +35,7 @@ altPackages:
 - bzlib-devel liblzma-devel libseccomp-devel libcap-devel lzip ncompress strace
 - tree
 packages:
-- zlib zstd
+- zlib zstd xz
 {{- end -}}
 
 

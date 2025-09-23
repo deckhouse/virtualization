@@ -166,7 +166,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhasePending))
+			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhaseFailed))
 			ready, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vmscondition.BlockDevicesNotReady.String()))
@@ -182,7 +182,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhasePending))
+			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhaseFailed))
 			ready, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vmscondition.BlockDevicesNotReady.String()))
@@ -201,7 +201,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhasePending))
+			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhaseFailed))
 			ready, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vmscondition.BlockDevicesNotReady.String()))
@@ -221,7 +221,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhasePending))
+			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhaseFailed))
 			ready, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vmscondition.BlockDevicesNotReady.String()))
@@ -240,11 +240,11 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhasePending))
+			Expect(vmSnapshot.Status.Phase).To(Equal(virtv2.VirtualMachineSnapshotPhaseInProgress))
 			ready, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vmscondition.RestartAwaitingChanges.String()))
-			Expect(ready.Message).ToNot(BeEmpty())
+			Expect(ready.Reason).To(Equal(vmscondition.FileSystemFreezing.String()))
+			Expect(ready.Message).To(Equal("The snapshotting process has started."))
 		})
 
 		It("The virtual machine is potentially inconsistent", func() {

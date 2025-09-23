@@ -27,13 +27,18 @@ shell:
   install:
   - |
     mkdir -p /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share,lib,lib64}
-    
+
     cd /relocate
     for dir in {bin,sbin,lib,lib64};do
       ln -s usr/$dir $dir
     done
+    # /var/run -> ../run symlink to prevent making /var/run a directory during the build.
+    # It is needed for better compatibility with containerd default top layer.
+    mkdir -p run
+    mkdir -p var
+    ln -s var/run ../run
     cd /
-    
+
     cp -pr /tmp /relocate
     cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
     cp -pr /usr/share/ca-certificates /relocate/usr/share
@@ -41,6 +46,7 @@ shell:
     cp -pr /etc/pki/tls/cert.pem /relocate/etc/ssl
     cp -pr /etc/pki/tls/certs /relocate/etc/ssl
     cp -pr /etc/pki/ca-trust/ /relocate/etc/
+    # Create 'deckhouse' user to run without root.
     echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
     echo "deckhouse:x:64535:" >> /relocate/etc/group
     echo "deckhouse:!::0:::::" >> /relocate/etc/shadow

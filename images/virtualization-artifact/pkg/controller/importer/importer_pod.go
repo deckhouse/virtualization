@@ -18,8 +18,6 @@ package importer
 
 import (
 	"context"
-	"fmt"
-	"path"
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
@@ -49,9 +47,6 @@ const (
 
 	// ProxyCertVolName is the name of the volumecontaining certs
 	proxyCertVolName = "cdi-proxy-cert-vol"
-
-	// secretExtraHeadersVolumeName is the format string that specifies where extra HTTP header secrets will be mounted
-	secretExtraHeadersVolumeName = "import-extra-headers-vol-%d"
 
 	// destinationAuthVol is the name of the volume containing DVCR docker auth config.
 	destinationAuthVol = "dvcr-secret-vol"
@@ -384,21 +379,6 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			corev1.VolumeDevice{
 				Name:       "volume",
 				DevicePath: "/dev/xvda",
-			},
-		)
-	}
-
-	// Mount extra headers Secrets.
-	for index, header := range imp.EnvSettings.SecretExtraHeaders {
-		volName := fmt.Sprintf(secretExtraHeadersVolumeName, index)
-		mountPath := path.Join(common.ImporterSecretExtraHeadersDir, fmt.Sprint(index))
-		envName := fmt.Sprintf("%s%d", common.ImporterExtraHeader, index)
-		podutil.AddVolume(pod, container,
-			podutil.CreateSecretVolume(volName, header),
-			podutil.CreateVolumeMount(volName, mountPath),
-			corev1.EnvVar{
-				Name:  envName,
-				Value: header,
 			},
 		)
 	}

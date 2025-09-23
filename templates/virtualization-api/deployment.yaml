@@ -85,19 +85,19 @@ spec:
             {{- else }}
             - --v=3
             {{- end }}
-            - --tls-cert-file=/etc/virtualziation-api/certificates/tls.crt
-            - --tls-private-key-file=/etc/virtualziation-api/certificates/tls.key
-            - --proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt
-            - --proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key
+            - --tls-cert-file=/etc/virtualization-api/certificates/tls.crt
+            - --tls-private-key-file=/etc/virtualization-api/certificates/tls.key
+            - --proxy-client-cert-file=/etc/virtualization-api-proxy/certificates/tls.crt
+            - --proxy-client-key-file=/etc/virtualization-api-proxy/certificates/tls.key
             - --service-account-name=virtualization-api
             - --service-account-namespace=d8-{{ .Chart.Name }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
           imagePullPolicy: IfNotPresent
           volumeMounts:
-            - mountPath: /etc/virtualziation-api/certificates
+            - mountPath: /etc/virtualization-api/certificates
               name:  virtualization-api-tls
               readOnly: true
-            - mountPath: /etc/virtualziation-api-proxy/certificates
+            - mountPath: /etc/virtualization-api-proxy/certificates
               name:  virtualization-api-proxy-tls
               readOnly: true
             - mountPath: /etc/virt-api/certificates

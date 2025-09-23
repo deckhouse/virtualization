@@ -18,8 +18,6 @@ package uploader
 
 import (
 	"context"
-	"fmt"
-	"path"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,9 +32,6 @@ import (
 )
 
 const (
-	// secretExtraHeadersVolumeName is the format string that specifies where extra HTTP header secrets will be mounted
-	secretExtraHeadersVolumeName = "import-extra-headers-vol-%d"
-
 	// destinationAuthVol is the name of the volume containing DVCR docker auth config.
 	destinationAuthVol = "dvcr-secret-vol"
 )
@@ -192,21 +187,6 @@ func (p *Pod) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			corev1.EnvVar{
 				Name:  common.UploaderDestinationAuthConfigVar,
 				Value: common.UploaderDestinationAuthConfigFile,
-			},
-		)
-	}
-
-	// Mount extra headers Secrets.
-	for index, header := range p.Settings.SecretExtraHeaders {
-		volName := fmt.Sprintf(secretExtraHeadersVolumeName, index)
-		mountPath := path.Join(common.UploaderSecretExtraHeadersDir, fmt.Sprint(index))
-		envName := fmt.Sprintf("%s%d", common.UploaderExtraHeader, index)
-		podutil.AddVolume(pod, container,
-			podutil.CreateSecretVolume(volName, header),
-			podutil.CreateVolumeMount(volName, mountPath),
-			corev1.EnvVar{
-				Name:  envName,
-				Value: header,
 			},
 		)
 	}
