@@ -30,7 +30,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc gcc-c++ git make makeinfo libtool gettext-tools
-- wget patch gperf
+- patch gperf
 - tree
 {{- end -}}
 
