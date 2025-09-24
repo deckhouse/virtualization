@@ -1284,7 +1284,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=\"$namespace\", name=\"$name\", network=\"$network\"}[$__rate_interval])*8)",
+          "expr": "sum(rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])*8)",
           "instant": false,
           "legendFormat": "RX",
           "range": true,
@@ -1296,7 +1296,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=\"$namespace\", name=\"$name\", network=\"$network\"}[$__rate_interval])*8)",
+          "expr": "sum(rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])*8)",
           "hide": false,
           "instant": false,
           "legendFormat": "TX",
@@ -4471,8 +4471,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default",
-          "value": "default"
+          "text": "All",
+          "value": "$__all"
         },
         "datasource": {
           "type": "prometheus",
@@ -4480,7 +4480,7 @@
         },
         "definition": "label_values(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=\"$namespace\", name=\"$name\"},network)",
         "hide": 2,
-        "includeAll": false,
+        "includeAll": true,
         "multi": false,
         "name": "network",
         "options": [],
