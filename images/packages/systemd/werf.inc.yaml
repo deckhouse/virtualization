@@ -9,6 +9,7 @@ import:
   before: setup
   includePaths:
     - usr/lib64
+    - usr/include
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
