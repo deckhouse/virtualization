@@ -1,6 +1,6 @@
 # libuserspace-rcu
 ```
-└── [drwxr-xr-x     4]  usr
+ └── [drwxr-xr-x     4]  usr
     ├── [drwxr-xr-x    10]  include
     │   ├── [drwxr-xr-x    43]  urcu
     │   │   ├── [drwxr-xr-x    18]  arch
@@ -74,6 +74,56 @@
     │   │   │   ├── [-rw-r--r--  1.5K]  gcc.h
     │   │   │   ├── [-rw-r--r--   13K]  generic.h
     │   │   │   ├── [-rw-r--r--   229]  hppa.h
+    │   │   │   ├── [-rw-r--r--  1.3K]  ia64.h
+    │   │   │   ├── [-rw-r--r--  1.5K]  m68k.h
+    │   │   │   ├── [-rw-r--r--  1.4K]  mips.h
+    │   │   │   ├── [-rw-r--r--  1.4K]  nios2.h
+    │   │   │   ├── [-rw-r--r--  5.8K]  ppc.h
+    │   │   │   ├── [-rw-r--r--  1.5K]  riscv.h
+    │   │   │   ├── [-rw-r--r--  4.7K]  s390.h
+    │   │   │   ├── [-rw-r--r--  2.2K]  sparc64.h
+    │   │   │   ├── [-rw-r--r--  1.3K]  tile.h
+    │   │   │   └── [-rw-r--r--   14K]  x86.h
+    │   │   ├── [-rw-r--r--  1.8K]  uatomic.h
+    │   │   ├── [-rw-r--r--   111]  uatomic_arch.h
+    │   │   ├── [-rw-r--r--  5.6K]  urcu-bp.h
+    │   │   ├── [-rw-r--r--   105]  urcu-futex.h
+    │   │   ├── [-rw-r--r--  3.3K]  urcu-mb.h
+    │   │   ├── [-rw-r--r--  3.4K]  urcu-memb.h
+    │   │   ├── [-rw-r--r--  1009]  urcu-poll.h
+    │   │   ├── [-rw-r--r--  4.2K]  urcu-qsbr.h
+    │   │   ├── [-rw-r--r--  3.4K]  urcu-signal.h
+    │   │   ├── [-rw-r--r--  1.4K]  urcu.h
+    │   │   ├── [-rw-r--r--    99]  urcu_ref.h
+    │   │   ├── [-rw-r--r--   19K]  wfcqueue.h
+    │   │   ├── [-rw-r--r--  3.1K]  wfqueue.h
+    │   │   └── [-rw-r--r--   13K]  wfstack.h
+    │   ├── [-rw-r--r--    47]  urcu-bp.h
+    │   ├── [-rw-r--r--    27]  urcu-call-rcu.h
+    │   ├── [-rw-r--r--    24]  urcu-defer.h
+    │   ├── [-rw-r--r--    25]  urcu-flavor.h
+    │   ├── [-rw-r--r--    26]  urcu-pointer.h
+    │   ├── [-rw-r--r--    49]  urcu-qsbr.h
+    │   └── [-rw-r--r--    44]  urcu.h
+    └── [drwxr-xr-x    35]  lib64
+        ├── [-rwxr-xr-x   959]  liburcu-bp.la
+        ├── [lrwxrwxrwx    19]  liburcu-bp.so -> liburcu-bp.so.8.1.0
+        ├── [lrwxrwxrwx    19]  liburcu-bp.so.8 -> liburcu-bp.so.8.1.0
+        ├── [-rwxr-xr-x   39K]  liburcu-bp.so.8.1.0
+        ├── [-rwxr-xr-x   965]  liburcu-cds.la
+        ├── [lrwxrwxrwx    20]  liburcu-cds.so -> liburcu-cds.so.8.1.0
+        ├── [lrwxrwxrwx    20]  liburcu-cds.so.8 -> liburcu-cds.so.8.1.0
+        ├── [-rwxr-xr-x   43K]  liburcu-cds.so.8.1.0
+        ├── [-rwxr-xr-x   954]  liburcu-common.la
+        ├── [lrwxrwxrwx    23]  liburcu-common.so -> liburcu-common.so.8.1.0
+        ├── [lrwxrwxrwx    23]  liburcu-common.so.8 -> liburcu-common.so.8.1.0
+        ├── [-rwxr-xr-x   22K]  liburcu-common.so.8.1.0
+        ├── [-rwxr-xr-x   959]  liburcu-mb.la
+        ├── [lrwxrwxrwx    19]  liburcu-mb.so -> liburcu-mb.so.8.1.0
+        ├── [lrwxrwxrwx    19]  liburcu-mb.so.8 -> liburcu-mb.so.8.1.0
+        ├── [-rwxr-xr-x   35K]  liburcu-mb.so.8.1.0
+        ├── [-rwxr-xr-x   971]  liburcu-memb.la
+        ├── [lrwxrwxrwx    21]  liburcu-memb.so -> liburcu-memb.so.8.1.0
         ├── [lrwxrwxrwx    21]  liburcu-memb.so.8 -> liburcu-memb.so.8.1.0
         ├── [-rwxr-xr-x   35K]  liburcu-memb.so.8.1.0
         ├── [-rwxr-xr-x   971]  liburcu-qsbr.la
