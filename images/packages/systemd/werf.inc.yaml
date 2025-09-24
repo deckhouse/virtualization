@@ -162,7 +162,7 @@ shell:
     -Dsbat-distro-summary=DVP \
     -Dsbat-distro-pkgname=systemd-boot-efi \
     -Dsbat-distro-version=255 \
-    -Dsbat-distro-url=https://github.com/systemd/systemd.git' \
+    -Dsbat-distro-url=https://github.com/systemd/systemd.git \
     -Dhomed=enabled \
     -Dnetworkd=true \
     -Dresolve=true \
