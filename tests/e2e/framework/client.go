@@ -21,6 +21,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/exec"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -30,11 +33,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
-
-	// register auth plugins
-	_ "k8s.io/client-go/plugin/pkg/client/auth/exec"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 var clients = Clients{}

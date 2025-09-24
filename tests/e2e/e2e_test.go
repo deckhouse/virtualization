@@ -165,10 +165,7 @@ var _ = SynchronizedBeforeSuite(func() {
 	}
 
 	if !config.IsReusable() {
-		err := Cleanup()
-		if err != nil {
-			Expect(err).NotTo(HaveOccurred())
-		}
+		Expect(Cleanup()).To(Succeed())
 	} else {
 		log.Println("Run test in REUSABLE mode")
 	}
