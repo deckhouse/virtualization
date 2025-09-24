@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -76,7 +77,7 @@ func (s WaitForDVStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*recon
 	}
 
 	vd.Status.Progress = s.disk.GetProgress(s.dv, vd.Status.Progress, service.NewScaleOption(0, 100))
-	vd.Status.Target.PersistentVolumeClaim = s.dv.Status.ClaimName
+	vdsupplements.SetPVCName(vd, s.dv.Status.ClaimName)
 
 	set, err := s.setForFirstConsumerIsAwaited(ctx, vd)
 	if err != nil {

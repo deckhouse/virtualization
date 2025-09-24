@@ -8,4 +8,4 @@ Licensed under the Deckhouse Platform Enterprise Edition (EE) license. See https
 
 package version
 
-const edition = "EE"
+const edition = EditionEE

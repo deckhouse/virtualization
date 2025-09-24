@@ -54,6 +54,7 @@ type VirtualMachineState interface {
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
 	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
+	ReadWriteOnceVirtualDisks(ctx context.Context) ([]*virtv2.VirtualDisk, error)
 }
 
 func New(c client.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
@@ -64,8 +65,6 @@ type state struct {
 	client      client.Client
 	mu          sync.RWMutex
 	vm          *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	kvvm        *virtv1.VirtualMachine
-	kvvmi       *virtv1.VirtualMachineInstance
 	pods        *corev1.PodList
 	pod         *corev1.Pod
 	vdByName    map[string]*virtv2.VirtualDisk
@@ -91,39 +90,19 @@ func (s *state) VirtualMachine() *reconciler.Resource[*virtv2.VirtualMachine, vi
 }
 
 func (s *state) KVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
-	if s.vm == nil {
-		return nil, nil
-	}
-	if s.kvvm != nil {
-		return s.kvvm, nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	kvvm, err := object.FetchObject(ctx, s.vm.Name(), s.client, &virtv1.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch KVVM: %w", err)
 	}
-	s.kvvm = kvvm
-	return s.kvvm, nil
+	return kvvm, nil
 }
 
 func (s *state) KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error) {
-	if s.vm == nil {
-		return nil, nil
-	}
-	if s.kvvmi != nil {
-		return s.kvvmi, nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	kvvmi, err := object.FetchObject(ctx, s.vm.Name(), s.client, &virtv1.VirtualMachineInstance{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch KVVMI: %w", err)
 	}
-	s.kvvmi = kvvmi
-	return s.kvvmi, nil
+	return kvvmi, nil
 }
 
 func (s *state) Pods(ctx context.Context) (*corev1.PodList, error) {
@@ -242,17 +221,17 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.Virt
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.DiskDevice:
-			vmd, err := object.FetchObject(ctx, types.NamespacedName{
+			vd, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
 			}, s.client, &virtv2.VirtualDisk{})
 			if err != nil {
 				return nil, fmt.Errorf("unable to get virtual disk %q: %w", bd.Name, err)
 			}
-			if vmd == nil {
+			if vd == nil {
 				continue
 			}
-			vdByName[bd.Name] = vmd
+			vdByName[bd.Name] = vd
 		default:
 			continue
 		}
@@ -445,4 +424,38 @@ func (s *state) VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, e
 	}
 
 	return resultVMOPs, nil
+}
+
+func (s *state) ReadWriteOnceVirtualDisks(ctx context.Context) ([]*virtv2.VirtualDisk, error) {
+	vdByName, err := s.VirtualDisksByName(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var nonMigratableVirtualDisks []*virtv2.VirtualDisk
+
+	for _, vd := range vdByName {
+		pvcKey := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
+		pvc, err := object.FetchObject(ctx, pvcKey, s.client, &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch PersistentVolumeClaim: %w", err)
+		}
+		if pvc == nil {
+			nonMigratableVirtualDisks = append(nonMigratableVirtualDisks, vd)
+			continue
+		}
+
+		rwx := false
+		for _, mode := range pvc.Spec.AccessModes {
+			if mode == corev1.ReadWriteMany {
+				rwx = true
+				break
+			}
+		}
+		if !rwx {
+			nonMigratableVirtualDisks = append(nonMigratableVirtualDisks, vd)
+		}
+	}
+
+	return nonMigratableVirtualDisks, nil
 }

@@ -128,7 +128,7 @@ type handlerTestArgs struct {
 func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageClass bool) *StorageClassServiceMock {
 	var storageClassServiceMock StorageClassServiceMock
 
-	storageClassServiceMock.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+	storageClassServiceMock.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 		return nil, nil
 	}
 

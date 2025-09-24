@@ -73,7 +73,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 	}
 
 	DescribeTable("Condition TypeFirmwareUpToDate should be in expected state",
-		func(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.Reason, expectedExistence bool) {
+		func(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.FirmwareUpToDateReason, expectedExistence bool) {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
 			reconcile()
 

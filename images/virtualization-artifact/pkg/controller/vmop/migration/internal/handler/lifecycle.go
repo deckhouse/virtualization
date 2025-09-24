@@ -30,12 +30,15 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -187,7 +190,28 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
-	// 7. The Operation is valid, and can be executed.
+	// 6.3 Fail if attached vmbdas are not shared.
+	attachedRWOHotplugDisks, err := h.areAnyRWOHotplugDisks(ctx, vm)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if attachedRWOHotplugDisks {
+		vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMOPFailed, "Hotplug disks are not shared. Cannot be migrated.")
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonHotplugDisksNotShared).
+				Status(metav1.ConditionFalse).
+				Message("Hotplug disks are not shared. Cannot be migrated."),
+			&vmop.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
+	// 7. Check if the vm is migratable.
+	if !h.canExecute(vmop, vm) {
+		return reconcile.Result{}, nil
+	}
+	// 7.1 The Operation is valid, and can be executed.
 	err = h.execute(ctx, vmop, vm)
 
 	return reconcile.Result{}, err
@@ -311,6 +335,53 @@ func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Cont
 	return false, nil
 }
 
+func (h LifecycleHandler) areAnyRWOHotplugDisks(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error) {
+	vmbdaList := &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+	err := h.client.List(ctx, vmbdaList, client.InNamespace(vm.Namespace), &client.MatchingFields{
+		indexer.IndexFieldVMBDAByVM: vm.Name,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	var attached []*v1alpha2.VirtualMachineBlockDeviceAttachment
+	for _, vmbda := range vmbdaList.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
+			continue
+		}
+		if cond, _ := conditions.GetCondition(vmbdacondition.AttachedType, vmbda.Status.Conditions); cond.Status == metav1.ConditionTrue {
+			attached = append(attached, &vmbda)
+		}
+	}
+
+	for _, vmbda := range attached {
+		vd := &v1alpha2.VirtualDisk{}
+		err = h.client.Get(ctx, client.ObjectKey{Namespace: vmbda.Namespace, Name: vmbda.Spec.BlockDeviceRef.Name}, vd)
+		if err != nil {
+			return false, err
+		}
+
+		pvc := &corev1.PersistentVolumeClaim{}
+		err = h.client.Get(ctx, client.ObjectKey{Namespace: vd.Namespace, Name: vd.Status.Target.PersistentVolumeClaim}, pvc)
+		if err != nil {
+			return false, err
+		}
+
+		isRWX := false
+		for _, mode := range pvc.Status.AccessModes {
+			if mode == corev1.ReadWriteMany {
+				isRWX = true
+				break
+			}
+		}
+		if !isRWX {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
 func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (bool, error) {
 	migList := &virtv1.VirtualMachineInstanceMigrationList{}
 	err := h.client.List(ctx, migList, client.InNamespace(vmop.GetNamespace()))
@@ -323,6 +394,36 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 		}
 	}
 	return false, nil
+}
+
+func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool {
+	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if migrating.Reason == vmcondition.ReasonReadyToMigrate.String() {
+		return true
+	}
+
+	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+
+	if migratable.Status == metav1.ConditionTrue {
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+				Generation(vmop.GetGeneration()).
+				Reason(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate).
+				Status(metav1.ConditionFalse),
+			&vmop.Status.Conditions)
+		return false
+	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonOperationFailed).
+			Status(metav1.ConditionFalse).
+			Message("VirtualMachine is not migratable, cannot be processed."),
+		&vmop.Status.Conditions)
+	return false
 }
 
 func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) error {
