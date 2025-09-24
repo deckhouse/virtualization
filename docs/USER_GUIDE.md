@@ -2725,8 +2725,11 @@ There is a risk of data loss or integrity violation when restoring from such a s
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
 
 - not all dependencies of the virtual machine are ready;
-- there are changes pending restart of the virtual machine;
 - there is a disk in the process of resizing among the dependent devices.
+
+{{< alert level="warning" >}}
+If, at the time a snapshot is created, there are pending changes on the virtual machine that require a restart, the snapshot will include the updated virtual machine configuration.
+{{< /alert >}}
 
 When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static IP address and saved for recovery.
 
