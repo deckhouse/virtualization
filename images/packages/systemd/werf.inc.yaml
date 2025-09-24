@@ -157,12 +157,12 @@ shell:
     -Dpolkit=enabled \
     -Defi=true \
     -Dvmspawn=enabled \
-    -Dsbat-distro=altlinux \
+    -Dsbat-distro=DVP \
     -Dsbat-distro-generation=1 \
-    '-Dsbat-distro-summary=ALT Linux' \
+    -Dsbat-distro-summary=DVP \
     -Dsbat-distro-pkgname=systemd-boot-efi \
     -Dsbat-distro-version=255 \
-    -Dsbat-distro-url=http://git.altlinux.org/gears/s/systemd.git \
+    -Dsbat-distro-url=https://github.com/systemd/systemd.git' \
     -Dhomed=enabled \
     -Dnetworkd=true \
     -Dresolve=true \
