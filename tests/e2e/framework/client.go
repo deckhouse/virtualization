@@ -29,6 +29,11 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
+
+	// register auth plugins
+	_ "k8s.io/client-go/plugin/pkg/client/auth/exec"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 var clients = Clients{}
