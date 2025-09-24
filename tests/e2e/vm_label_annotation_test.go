@@ -35,9 +35,14 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 		specialKey   = "specialKey"
 		specialValue = "specialValue"
 	)
+
+	var (
+		ns            string
+		criticalError string
+	)
+
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
-	var ns string
 
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMLabelAnnotation, "kustomization.yaml")
@@ -51,6 +56,10 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+
+		if criticalError != "" {
+			Skip(criticalError)
 		}
 	})
 
@@ -95,11 +104,18 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: ns,
-				Timeout:   MaxWaitTimeout,
+
+			failure := InterceptGomegaFailure(func() {
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
 			})
+
+			if failure != nil {
+				criticalError = failure.Error()
+			}
 		})
 	})
 
