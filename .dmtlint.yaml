@@ -2,7 +2,7 @@ linters-settings:
   global:
   linters-settings:
     documentation:
-      impact: info
+      impact: warn
   openapi:
     exclude-rules:
       enum:
