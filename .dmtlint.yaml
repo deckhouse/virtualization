@@ -1,8 +1,8 @@
+global:
+    linters-settings:
+      documentation:
+        impact: warn
 linters-settings:
-  global:
-  linters-settings:
-    documentation:
-      impact: warn
   openapi:
     exclude-rules:
       enum:
