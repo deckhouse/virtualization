@@ -83,6 +83,9 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
 				return nil
 			},
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return pvc, nil
+			},
 		}
 
 		sc = &storagev1.StorageClass{
@@ -155,6 +158,10 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 						return nil
 					},
 				}).Build()
+
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
 
@@ -236,6 +243,10 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 				},
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
+
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
 

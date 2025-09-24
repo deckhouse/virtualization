@@ -135,7 +135,8 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	if err != nil {
 		return false, err
 	}
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.UploaderPod())
+	np := &netv1.NetworkPolicy{}
+	networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
 	if err != nil {
 		return false, err
 	}
@@ -217,30 +218,18 @@ func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *co
 }
 
 func (s UploaderService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
-	pod, err := uploader.FindPod(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return pod, nil
+	pod := &corev1.Pod{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderPod, pod)
 }
 
 func (s UploaderService) GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error) {
-	svc, err := uploader.FindService(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return svc, nil
+	svc := &corev1.Service{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderService, svc)
 }
 
 func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error) {
-	ing, err := uploader.FindIngress(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return ing, nil
+	ing := &netv1.Ingress{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderIngress, ing)
 }
 
 func (s UploaderService) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
