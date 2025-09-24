@@ -1,7 +1,7 @@
 global:
-    linters-settings:
-      documentation:
-        impact: warn
+  linters-settings:
+    documentation:
+      impact: warn
 linters-settings:
   openapi:
     exclude-rules:
