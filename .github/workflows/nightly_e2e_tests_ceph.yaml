@@ -49,7 +49,7 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
-          go tool install
+          go install tool
 
       - name: Install Deckhouse-cli
         run: |
