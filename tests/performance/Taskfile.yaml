@@ -28,13 +28,7 @@ includes:
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
   NAMESPACE: '{{ .NAMESPACE | default "perf" }}'
-  STORAGE_CLASS:
-    sh: |
-      if [ -n "{{ .STORAGE_CLASS }}" ]; then
-        echo "{{ .STORAGE_CLASS }}"
-      else
-        kubectl get storageclass -o json | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name'
-      fi
+  STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r1" }}'
   RESOURCES: '{{ .RESOURCES | default "all" }}'
   NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'

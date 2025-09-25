@@ -5,7 +5,7 @@ silent: true
 vars:
   NS: '{{ .NS | default "perf" }}'
   TARGET: "{{ .TARGET | default 10 }}"
-  DURATION: "{{ .DURATION | default 0m }}"
+  DURATION: '{{ .DURATION | default "0m" }}'
 
 tasks:
   run:miration:
