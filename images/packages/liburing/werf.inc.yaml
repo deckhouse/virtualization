@@ -5,13 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /nbdkit
+  to: /{{ $.ImageName }}
   before: setup
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "nbdkit/nbdkit.git" }}
-
+{{- $gitRepoUrl := "axboe/liburing.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -26,37 +25,24 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc
-- automake autoconf-archive make libtool
-- bash-completion
-- curl qemu expect
-- filesystem
-- socat xz jq
-- iproute2
-- zlib-ng
-- libblkio libtorrent-rasterbar-devel
-packages:
-- libisoburn libnbd e2fsprogs
-- gnutls libidn2 libgmp
-- zlib
-- libssh
-- zstd
-- libxml2
-- libtasn1
-- libunistring
+- gcc gcc-c++ git make libtool gettext-tools
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
-{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -68,26 +54,20 @@ shell:
 
   install:
   - |
-    # Install packages
-    PKGS="{{ $builderDependencies.packages | join " " }}"
-    for pkg in $PKGS; do
-      cp -a /$pkg/. /
-      rm -rf /$pkg
-    done
-
     OUTDIR=/out
-
     cd /src
-
-    autoreconf -if
     ./configure \
-      --disable-static \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --without-bash-completions \
-      --with-ext2 \
-      --disable-torrent
+      --libdevdir=/usr/lib64
 
     make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+    rm -rf $OUTDIR/usr/man
+    find $OUTDIR -type f -executable | while read -r execfile; do
+      if strip "$execfile"; then
+        echo "Stripped: $execfile"
+      fi
+    done
 
-    make DESTDIR=$OUTDIR install-strip
+    tree -shp $OUTDIR

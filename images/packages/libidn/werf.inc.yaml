@@ -4,11 +4,13 @@
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc git make makeinfo automake libtool patch gperf help2man gengetopt
 - python3 python3-module-docutils gtk-doc
-- gettext texinfo indent glibc-gconv-modules libabigail-devel libunistring-devel
+- gettext texinfo indent glibc-gconv-modules libabigail-devel
 - cvs
+packages:
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -32,7 +34,6 @@ secrets:
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
     cd /src
@@ -51,17 +52,25 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
 
     cd /src
