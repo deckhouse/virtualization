@@ -129,7 +129,6 @@ packages:
 - glib2
 - libxkbcommon
 - libaio
-- libxml2
 - liburing libunistring
 {{- end -}}
 
