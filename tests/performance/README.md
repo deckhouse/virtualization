@@ -1,7 +1,7 @@
 # performance helm chart
 ## values.yaml
-- `vmDiskType`: 
+- `resources.vd.spec.type`: 
     - `vi`: creates VMs with VirtualImage in `blockDeviceRefs`
     - `vd`: creates VMs with corresponding `VirtualDisk`
-- `viType`:
+- `resources.vi.spec.type`:
   - `pvc`: create vi with persistentVolumeClaim type
