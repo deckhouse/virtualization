@@ -37,7 +37,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -120,7 +119,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 
 	// 3. Operation already in progress. Check if the operation is completed.
 	// Synchronize conditions to the VMOP.
-	if isOperationInProgress(vmop) {
+	if commonvmop.IsOperationInProgress(vmop) {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", vmop.Status.Phase)
 		return reconcile.Result{}, h.syncOperationComplete(ctx, vmop)
 	}
@@ -344,17 +343,15 @@ func (h LifecycleHandler) areAnyRWOHotplugDisks(ctx context.Context, vm *v1alpha
 		return false, err
 	}
 
-	var attached []*v1alpha2.VirtualMachineBlockDeviceAttachment
+	var vmbdas []*v1alpha2.VirtualMachineBlockDeviceAttachment
 	for _, vmbda := range vmbdaList.Items {
 		if vmbda.Spec.BlockDeviceRef.Kind != v1alpha2.VMBDAObjectRefKindVirtualDisk {
 			continue
 		}
-		if cond, _ := conditions.GetCondition(vmbdacondition.AttachedType, vmbda.Status.Conditions); cond.Status == metav1.ConditionTrue {
-			attached = append(attached, &vmbda)
-		}
+		vmbdas = append(vmbdas, &vmbda)
 	}
 
-	for _, vmbda := range attached {
+	for _, vmbda := range vmbdas {
 		vd := &v1alpha2.VirtualDisk{}
 		err = h.client.Get(ctx, client.ObjectKey{Namespace: vmbda.Namespace, Name: vmbda.Spec.BlockDeviceRef.Name}, vd)
 		if err != nil {
@@ -489,12 +486,6 @@ func (h LifecycleHandler) recordEvent(ctx context.Context, vmop *v1alpha2.Virtua
 			"Migrate initiated with VirtualMachineOperation",
 		)
 	}
-}
-
-func isOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
-	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
-	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }
 
 var mapMigrationPhaseToReason = map[virtv1.VirtualMachineInstanceMigrationPhase]vmopcondition.ReasonCompleted{
