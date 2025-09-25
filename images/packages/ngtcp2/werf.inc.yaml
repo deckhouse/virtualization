@@ -54,6 +54,7 @@ altPackages:
 packages:
 - openssl nghttp3 gnutls libidn2 libgmp
 - libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

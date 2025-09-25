@@ -45,12 +45,11 @@ altPackages:
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
-- libunistring-devel
 - libtpm2-tss-devel libtrousers-devel
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
 - liboqs-devel
-- libssl-devel iproute2-devel
+- iproute2-devel
 - wget
 packages:
 - libbrotli libidn2 libgcrypt libgmp
@@ -58,6 +57,7 @@ packages:
 - openssl
 - readline
 - libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

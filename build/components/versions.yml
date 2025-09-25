@@ -31,6 +31,9 @@ package:
   libfuse3: fuse-3.16.2
   libffi: v3.5.2
   libgcrypt: libgcrypt-1.10.2
+  liburing: liburing-2.6
+  libuserspace-rcu: v0.14.0
+  libunistring: v1.3
   libxcrypt: v4.4.36
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
@@ -84,6 +87,7 @@ package:
   selinux: 3.6
   libslirp: v4.8.0
   snappy: 1.2.2 # libsnappy
+  systemd: v255
   zlib: v1.3.1
   zstd: v1.5.7
   krb5: krb5-1.21.3-final
