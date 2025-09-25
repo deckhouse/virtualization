@@ -51,3 +51,9 @@ func WithForce(force *bool) Option {
 		vmop.Spec.Force = force
 	}
 }
+
+func WithRestoreSpec(restoreSpec *v1alpha2.VirtualMachineOperationRestoreSpec) Option {
+	return func(vmop *v1alpha2.VirtualMachineOperation) {
+		vmop.Spec.Restore = restoreSpec
+	}
+}

@@ -80,6 +80,17 @@ func WithDatasource(datasource v1alpha2.ClusterVirtualImageDataSource) func(cvi 
 	}
 }
 
+func WithDataSourceHTTPWithOnlyURL(url string) Option {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Spec.DataSource = v1alpha2.ClusterVirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL: url,
+			},
+		}
+	}
+}
+
 func WithPhase(phase v1alpha2.ImagePhase) func(cvi *v1alpha2.ClusterVirtualImage) {
 	return func(cvi *v1alpha2.ClusterVirtualImage) {
 		cvi.Status.Phase = phase
