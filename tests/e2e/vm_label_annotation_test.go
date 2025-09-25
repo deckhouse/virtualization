@@ -36,10 +36,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 		specialValue = "specialValue"
 	)
 
-	var (
-		ns            string
-		criticalError string
-	)
+	var ns string
 
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
@@ -56,10 +53,6 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-
-		if criticalError != "" {
-			Skip(criticalError)
 		}
 	})
 
