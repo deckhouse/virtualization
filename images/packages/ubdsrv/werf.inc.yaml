@@ -42,9 +42,9 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
-- liburing-devel
 packages:
 - gnutls
+- liburing
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -85,12 +85,12 @@ shell:
       --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-static
-    
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 
     rm -rf $OUTDIR/usr/share
-    
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"

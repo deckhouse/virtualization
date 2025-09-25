@@ -13,6 +13,7 @@ packages:
 - libxml2
 - xz
 - libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
