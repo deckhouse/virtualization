@@ -67,10 +67,8 @@ func NewGeneratedHTTPVDUbuntu(prefix, namespace string) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
-		vd.WithDataSourceHTTP(
-			UbuntuHTTP,
-			nil,
-			nil,
-		),
+		vd.WithDataSourceHTTP(&virtv2.DataSourceHTTP{
+			URL: UbuntuHTTP,
+		}),
 	)
 }
