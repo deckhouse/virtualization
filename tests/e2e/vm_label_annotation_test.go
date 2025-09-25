@@ -32,8 +32,9 @@ import (
 
 var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDecorators(), func() {
 	const (
-		specialKey   = "specialKey"
-		specialValue = "specialValue"
+		specialKey       = "specialKey"
+		specialValue     = "specialValue"
+		agentReadyStdErr = "stderr: error: timed out waiting for the condition"
 	)
 
 	var (
@@ -113,7 +114,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 				})
 			})
 
-			if failure != nil {
+			if strings.Contains(failure.Error(), agentReadyStdErr) {
 				criticalError = failure.Error()
 			}
 		})
