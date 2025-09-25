@@ -27,14 +27,17 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/object"
 	"github.com/deckhouse/virtualization/tests/e2e/util"
@@ -410,5 +413,53 @@ var _ = SIGDescribe("Volume migration with local disks", framework.CommonE2ETest
 
 			untilVirtualDisksMigrationsFailed(f)
 		})
+	})
+
+	It("should be failed with RWO VMBDA", func() {
+		ns := f.Namespace().Name
+
+		vm, vds := localMigrationRootAndAdditionalBuild()
+
+		By("Creating VM")
+		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vm)
+
+		By("Creating VDs")
+		for _, vd := range vds {
+			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			f.DeferDelete(vd)
+		}
+
+		By("Creating RWO VD for VMBDA")
+		const vdVmbdaName = "vd-vmbda-rwo"
+		vdVmbda := object.NewBlankVD(vdVmbdaName, ns, &storageClass.Name, ptr.To(resource.MustParse("100Mi")))
+		_, err = f.VirtClient().VirtualDisks(ns).Create(context.Background(), vdVmbda, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vdVmbda)
+
+		By("Creating VMBDA")
+		const vmbdaName = "vd-vmbda-rwo"
+		vmbda := object.NewVMBDAFromDisk(vmbdaName, vm.Name, vdVmbda)
+		_, err = f.VirtClient().VirtualMachineBlockDeviceAttachments(ns).Create(context.Background(), vmbda, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		f.DeferDelete(vmbda)
+
+		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+
+		const vmopName = "local-disks-migration-with-rwo-vmbda"
+		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+
+		By("Waiting for migration failed")
+		Eventually(func(g Gomega) {
+			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
+			g.Expect(err).NotTo(HaveOccurred())
+
+			g.Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+			g.Expect(completed.Status).To(Equal(metav1.ConditionFalse))
+			g.Expect(completed.Reason).To(Equal(vmopcondition.ReasonHotplugDisksNotShared.String()))
+		}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed())
 	})
 })

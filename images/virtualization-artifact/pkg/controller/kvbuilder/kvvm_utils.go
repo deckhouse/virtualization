@@ -259,7 +259,7 @@ func ApplyVirtualMachineSpec(
 
 func ApplyMigrationVolumes(kvvm *KVVM, vm *virtv2.VirtualMachine, vdsByName map[string]*virtv2.VirtualDisk) error {
 	bootOrder := uint(1)
-	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy
+	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		if bd.Kind != virtv2.DiskDevice {
