@@ -145,7 +145,10 @@ require (
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
 )
 
-replace github.com/deckhouse/virtualization/api => ./../../api
+replace (
+	github.com/deckhouse/virtualization/api => ./../../api
+	kubevirt.io/api => github.com/deckhouse/3p-kubevirt-api v1.3.1-v12n.0
+)
 
 replace (
 	k8s.io/api => k8s.io/api v0.33.3

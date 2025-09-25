@@ -84,6 +84,7 @@ type HotPlugDeviceSettings struct {
 	VolumeName     string
 	PVCName        string
 	DataVolumeName string
+	ImageName      string
 }
 
 func ApplyVirtualMachineSpec(
@@ -130,11 +131,10 @@ func ApplyVirtualMachineSpec(
 				PVCName:    volume.PersistentVolumeClaim.ClaimName,
 			})
 		}
-		// FIXME(VM): not used, now only supports PVC
-		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+		if volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable {
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
-				VolumeName:     volume.Name,
-				DataVolumeName: volume.DataVolume.Name,
+				VolumeName: volume.Name,
+				ImageName:  volume.ContainerDisk.Image,
 			})
 		}
 	}
@@ -227,8 +227,13 @@ func ApplyVirtualMachineSpec(
 			}); err != nil {
 				return err
 			}
-			// FIXME(VM): not used, now only supports PVC
-		case device.DataVolumeName != "":
+		case device.ImageName != "":
+			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
+				ContainerDisk: pointer.GetPointer(device.ImageName),
+				IsHotplugged:  true,
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
