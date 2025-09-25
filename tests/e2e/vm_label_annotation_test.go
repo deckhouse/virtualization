@@ -95,7 +95,6 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine phase should be Running")
-
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
