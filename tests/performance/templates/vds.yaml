@@ -1,49 +1,49 @@
-{{- if or (eq .Values.resources "disks") (eq .Values.resources "all") }}
+{{- if or (eq .Values.resources.default "vds") (eq .Values.resources.default "all") }}
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: {{ $.Values.resourcesPrefix }}
+  name: {{ $.Values.resources.prefix }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    vms: {{ $.Values.resourcesPrefix }}
+    vms: {{ $.Values.resources.prefix }}
 spec:
-{{- if eq .Values.viType "pvc" }}
+{{- if eq .Values.resources.vi.type "pvc" }}
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
-    storageClassName: {{ $.Values.storageClass }}
+    storageClassName: {{ $.Values.resources.storageClassName }}
   dataSource:
     type: "HTTP"
     http:
-      url: {{ $.Values.imageURL }}
+      url: {{ $.Values.resources.vi.spec.baseImage.url }}
 {{- else }}
   storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
-      url: {{ $.Values.imageURL }}
+      url: {{ $.Values.resources.vi.spec.baseImage.url }}
 {{- end }}
-{{- if ne .Values.vmDiskType "vi" }}
+{{- if ne .Values.resources.vd.spec.vd "vi" }}
 {{- $count := (.Values.count | int) }}
 {{- range until $count  }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: {{ $.Values.resourcesPrefix }}-{{ . }}
+  name: {{ $.Values.resources.prefix }}-{{ . }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    vms: {{ $.Values.resourcesPrefix }}
+    vms: {{ $.Values.resources.prefix }}
 spec:
   persistentVolumeClaim:
-    size: {{ $.Values.diskSize }}
-    {{- if $.Values.storageClass }}
-    storageClassName: {{ $.Values.storageClass }}
+    size: {{ $.Values.resources.vd.spec.diskSize }}
+    {{- if $.Values.resources.storageClass }}
+    storageClassName: {{ $.Values.resources.storageClass }}
     {{- end }}
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: {{ $.Values.resourcesPrefix }}
+      name: {{ $.Values.resources.prefix }}
 {{- end }}
 {{- end }}
 {{- end }}

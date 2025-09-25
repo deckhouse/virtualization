@@ -1,21 +1,21 @@
-{{- if or (eq .Values.resources "vms") (eq .Values.resources "all") }}
+{{- if or (eq .Values.resources.default "vms") (eq .Values.resources.default "all") }}
 {{- $count := (.Values.count | int) }}
 {{- range until $count  }}
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: {{ $.Values.resourcesPrefix }}-{{ . }}
+  name: {{ $.Values.resources.prefix }}-{{ . }}
   namespace: {{ $.Release.Namespace }}
   labels:
-    vms: {{ $.Values.resourcesPrefix }}
+    vms: {{ $.Values.resources.prefix }}
 spec:
-  runPolicy: {{ $.Values.runPolicy }}
+  runPolicy: {{ $.Values.resources.vm.runPolicy }}
   enableParavirtualization: true
   disruptions:
     # To ensure an equal amount of virtual machines with Manual and Automatic modes during testing,
     # we create every second machine with Automatic mode.
-    {{- if eq $.Values.restartApprovalMode "Dynamic" }}
+    {{- if eq $.Values.resources.vm.restartApprovalMode "Dynamic" }}
     {{-   if eq (mod . 2) 0 }}
     restartApprovalMode: Automatic
     {{-   else }}
@@ -26,27 +26,27 @@ spec:
     {{- end }}
   osType: Generic
   bootloader: BIOS
-  {{- with $.Values.spec.cpu }}
+  {{- with $.Values.resources.vm.spec.cpu }}
   cpu:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with $.Values.spec.memory }}
+  {{- with $.Values.resources.vm.spec.memory }}
   memory:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  virtualMachineClassName: {{ $.Values.virtualMachineClassName | default "host" }}
+  virtualMachineClassName: {{ $.Values.resources.vm.virtualMachineClassName | default "host" }}
   blockDeviceRefs:
-    {{- if eq $.Values.vmsDiskType "vi" }}
+    {{- if eq $.Values.resources.vd.spec.type "vi" }}
     - kind: VirtualImage
-      name: {{ $.Values.resourcesPrefix }}
+      name: {{ $.Values.resources.prefix }}
     {{- else }}
     - kind: VirtualDisk
-      name: {{ $.Values.resourcesPrefix }}-{{ . }}
+      name: {{ $.Values.resources.prefix }}-{{ . }}
     {{- end }}
   provisioning:
     type: UserDataRef
     userDataRef:
       kind: Secret
-      name: {{ $.Values.resourcesPrefix }}-cloud-init
+      name: {{ $.Values.resources.prefix }}-cloud-init
 {{- end }}
 {{- end }}
