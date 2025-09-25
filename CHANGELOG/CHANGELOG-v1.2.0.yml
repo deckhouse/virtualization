@@ -1,0 +1,9 @@
+api:
+  features:
+    - summary: Do not wait agent in label and annotation test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1500
+core:
+  features:
+    - summary: Add volumesnapshot resources to e2e fail dump.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1499
+
