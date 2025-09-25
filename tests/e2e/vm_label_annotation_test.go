@@ -32,9 +32,8 @@ import (
 
 var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDecorators(), func() {
 	const (
-		specialKey       = "specialKey"
-		specialValue     = "specialValue"
-		agentReadyStdErr = "stderr: error: timed out waiting for the condition"
+		specialKey   = "specialKey"
+		specialValue = "specialValue"
 	)
 
 	var (
@@ -104,23 +103,17 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
+			By("Virtual machine phase should be Running")
 
-			failure := InterceptGomegaFailure(func() {
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Timeout:   MaxWaitTimeout,
-				})
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
 			})
-
-			if strings.Contains(failure.Error(), agentReadyStdErr) {
-				criticalError = failure.Error()
-			}
 		})
 	})
 
-	Context("When virtual machine agents are ready", func() {
+	Context("When virtual machine is running", func() {
 		It(fmt.Sprintf("marks VMs with label %q", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
