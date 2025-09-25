@@ -97,7 +97,7 @@ func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
-	if err := common.ValidateResourceNameLength(v.vd.Name); err != nil {
+	if err := common.ValidateResourceNameLength(v.vd.Name, v.vd.Kind); err != nil {
 		return err
 	}
 
