@@ -17,9 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,12 +37,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type MigrationVolumesService struct {
@@ -79,6 +83,23 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
+	if migrating.Reason == vmcondition.ReasonReadyToMigrate.String() {
+		return reconcile.Result{}, nil
+	}
+
+	vmop, err := s.getVMOPCandidate(ctx, vmState)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if vmop != nil {
+		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+		switch completed.Reason {
+		case vmopcondition.ReasonMigrationPrepareTarget.String(), vmopcondition.ReasonMigrationTargetReady.String(), vmopcondition.ReasonMigrationRunning.String():
+			return reconcile.Result{}, nil
+		}
+	}
+
 	kvvmInCluster, builtKVVM, builtKVVMWithMigrationVolumes, kvvmiInCluster, err := s.getMachines(ctx, vmState)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -101,33 +122,37 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, err
 	}
 
-	// Check disks in generated KVVM before running kvvmSynced check: detect non-migratable disks and disks with changed storage class.
-	if !s.areDisksSynced(builtKVVMWithMigrationVolumes, readWriteOnceDisks) {
-		log.Info("ReadWriteOnce disks are not synced yet, skip volume migration.")
-		return reconcile.Result{}, nil
-	}
-	if !s.areDisksSynced(builtKVVMWithMigrationVolumes, storageClassChangedDisks) {
-		log.Info("Storage class changed disks are not synced yet, skip volume migration.")
-		return reconcile.Result{}, nil
-	}
+	readWriteOnceDisksSynced := s.areDisksSynced(builtKVVMWithMigrationVolumes, readWriteOnceDisks)
+	storageClassChangedDisksSynced := s.areDisksSynced(builtKVVMWithMigrationVolumes, storageClassChangedDisks)
 
 	kvvmSynced := equality.Semantic.DeepEqual(builtKVVMWithMigrationVolumes.Spec.Template.Spec.Volumes, kvvmInCluster.Spec.Template.Spec.Volumes)
 	if kvvmSynced {
+		if vmop != nil && !(readWriteOnceDisksSynced && storageClassChangedDisksSynced) {
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
 		// we already synced our vm with kvvm
 		log.Info("kvvm volumes are already synced, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
 
-	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
-	migrationInProgress := len(kvvmiInCluster.Status.MigratedVolumes) > 0
-
-	if !migrationRequested && !migrationInProgress {
-		log.Info("Migration is not requested and not in progress, skip volume migration.")
-		return reconcile.Result{}, nil
+	if !equality.Semantic.DeepEqual(builtKVVM.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes) {
+		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 	}
 
-	if migrationRequested && !migrationInProgress {
-		// We should wait 10 seconds. This delay allows user to change storage class on other volumes
+	migrationRequested := builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy != nil && *builtKVVMWithMigrationVolumes.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration
+
+	// Check disks in generated KVVM before running kvvmSynced check: detect non-migratable disks and disks with changed storage class.
+	if !readWriteOnceDisksSynced {
+		log.Info("ReadWriteOnce disks are not synced yet, skip volume migration.")
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+	if !storageClassChangedDisksSynced {
+		log.Info("Storage class changed disks are not synced yet, skip volume migration.")
+		return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	if migrationRequested {
+		// We should wait delayDuration seconds. This delay allows user to change storage class on other volumes
 		if len(storageClassChangedDisks) > 0 {
 			delay, exists := s.delay[vm.UID]
 			if !exists {
@@ -167,6 +192,16 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	// migration in progress
 	// if some volumes is different, we should revert all and sync again in next reconcile
 
+	if s.shouldRevert(kvvmiInCluster, readWriteOnceDisks, storageClassChangedDisks) {
+		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+	}
+
+	return reconcile.Result{}, nil
+}
+
+// if any volume in kvvmi is not exists in readWriteOnceDisks or storageClassChangedDisks,
+// this indicates that
+func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstance, readWriteOnceDisks, storageClassChangedDisks map[string]*v1alpha2.VirtualDisk) bool {
 	migratedPVCNames := make(map[string]struct{})
 
 	for _, vd := range readWriteOnceDisks {
@@ -176,21 +211,14 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		migratedPVCNames[vd.Status.MigrationState.TargetPVC] = struct{}{}
 	}
 
-	shouldRevert := false
-	for _, v := range kvvmiInCluster.Status.MigratedVolumes {
-		if v.DestinationPVCInfo != nil {
-			if _, ok := migratedPVCNames[v.DestinationPVCInfo.ClaimName]; !ok {
-				shouldRevert = true
-				break
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			if _, ok := migratedPVCNames[v.PersistentVolumeClaim.ClaimName]; !ok {
+				return true
 			}
 		}
 	}
-
-	if shouldRevert {
-		return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
-	}
-
-	return reconcile.Result{}, nil
+	return false
 }
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
@@ -451,4 +479,31 @@ func (s MigrationVolumesService) areDisksSynced(kvvm *virtv1.VirtualMachine, dis
 	}
 
 	return true
+}
+
+func (s MigrationVolumesService) getVMOPCandidate(ctx context.Context, vmState state.VirtualMachineState) (*v1alpha2.VirtualMachineOperation, error) {
+	vmops, err := vmState.VMOPs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(vmops) == 0 {
+		return nil, nil
+	}
+
+	slices.SortFunc(vmops, func(a, b *v1alpha2.VirtualMachineOperation) int {
+		return cmp.Compare(a.GetCreationTimestamp().UnixNano(), b.GetCreationTimestamp().UnixNano())
+	})
+
+	vmops = slices.DeleteFunc(vmops, func(vmop *v1alpha2.VirtualMachineOperation) bool {
+		return !commonvmop.IsMigration(vmop) || commonvmop.IsFinished(vmop)
+	})
+
+	for _, vmop := range vmops {
+		if commonvmop.IsInProgressOrPending(vmop) {
+			return vmop, nil
+		}
+	}
+
+	return nil, nil
 }
