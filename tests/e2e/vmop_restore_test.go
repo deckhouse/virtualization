@@ -38,11 +38,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	virtualmachinerestoreoperationtest "github.com/deckhouse/virtualization/tests/e2e/virtual_machine_restore_operation_test"
 )
 
-var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineOperationRestore", Serial, framework.CommonE2ETestDecorators(), func() {
 	frameworkEntity := framework.NewFramework("virtual-machine-operation-restore")
 	helper := virtualmachinerestoreoperationtest.NewVMOPRestoreTestHelper(frameworkEntity)
 
@@ -65,10 +64,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 			Eventually(func(g Gomega) {
 				helper.GeneratedValue = strconv.Itoa(time.Now().UTC().Second())
 
-				res := d8Virtualization.SSHCommand(helper.VM.Name, helper.CreateFsAndSetValueOnDiskShell(helper.GeneratedValue), d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, helper.CreateFsAndSetValueOnDiskShell(helper.GeneratedValue), d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 			}, 10*time.Second, time.Second).Should(Succeed())
@@ -101,10 +100,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 	Context("Changing VM", func() {
 		It("Change data of created file", func() {
 			Eventually(func(g Gomega) {
-				res := d8Virtualization.SSHCommand(helper.VM.Name, helper.ChangeValueOnDiskShell(helper.GetChangedValue()), d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, helper.ChangeValueOnDiskShell(helper.GetChangedValue()), d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 			}, 10*time.Second, time.Second).Should(Succeed())
@@ -129,10 +128,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 			helper.RunningLastTransitionTime = running.LastTransitionTime.Time
 
 			Eventually(func(g Gomega) {
-				res := d8Virtualization.SSHCommand(helper.VM.Name, "sudo reboot", d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, "sudo reboot", d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 			}, 10*time.Second, time.Second).Should(Succeed())
@@ -266,10 +265,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 
 		It("File should have generated value", func() {
 			Eventually(func(g Gomega) {
-				res := d8Virtualization.SSHCommand(helper.VM.Name, helper.MountAndGetDiskFileContentShell(), d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, helper.MountAndGetDiskFileContentShell(), d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 
@@ -281,10 +280,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 	Context("Changing VM", func() {
 		It("Change data of created file", func() {
 			Eventually(func(g Gomega) {
-				res := d8Virtualization.SSHCommand(helper.VM.Name, helper.ChangeValueOnDiskShell("removed"), d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, helper.ChangeValueOnDiskShell("removed"), d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 			}, 10*time.Second, time.Second).Should(Succeed())
@@ -309,10 +308,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 			helper.RunningLastTransitionTime = running.LastTransitionTime.Time
 
 			Eventually(func(g Gomega) {
-				res := d8Virtualization.SSHCommand(helper.VM.Name, "sudo reboot", d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, "sudo reboot", d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 			}, 10*time.Second, time.Second).Should(Succeed())
@@ -338,10 +337,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 
 		It("Shutdown VM", func() {
 			Eventually(func(g Gomega) {
-				d8Virtualization.SSHCommand(helper.VM.Name, "sudo poweroff", d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, "sudo poweroff", d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 
 				helper.UpdateState()
@@ -467,10 +466,10 @@ var _ = Describe("VirtualMachineOperationRestore", Serial, ginkgoutil.CommonE2ET
 
 		It("File should have generated value", func() {
 			Eventually(func(g Gomega) {
-				res := d8Virtualization.SSHCommand(helper.VM.Name, helper.MountAndGetDiskFileContentShell(), d8.SSHOptions{
-					Namespace:   helper.VM.Namespace,
-					Username:    conf.TestData.SSHUser,
-					IdenityFile: conf.TestData.Sshkey,
+				res := framework.GetClients().D8Virtualization().SSHCommand(helper.VM.Name, helper.MountAndGetDiskFileContentShell(), d8.SSHOptions{
+					Namespace:    helper.VM.Namespace,
+					Username:     conf.TestData.SSHUser,
+					IdentityFile: conf.TestData.Sshkey,
 				})
 				g.Expect(res.Error()).ShouldNot(HaveOccurred())
 

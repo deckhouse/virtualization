@@ -83,7 +83,7 @@ func (h *VMOPRestoreTestHelper) GenerateAndCreateOriginalResources() {
 	By(fmt.Sprintf("Created cvi: %s", h.CVI.Name))
 	Expect(err).ShouldNot(HaveOccurred())
 
-	h.FrameworkEntity.AddResourceToDelete(h.CVI)
+	h.FrameworkEntity.DeferDelete(h.CVI)
 	h.VI = vibuilder.New(
 		vibuilder.WithName("ubuntu-vi"),
 		vibuilder.WithNamespace(h.FrameworkEntity.Namespace().Name),
