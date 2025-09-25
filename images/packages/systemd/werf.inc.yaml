@@ -161,7 +161,7 @@ shell:
     -Dsbat-distro-generation=1 \
     -Dsbat-distro-summary=DVP \
     -Dsbat-distro-pkgname=systemd-boot-efi \
-    -Dsbat-distro-version=255 \
+    -Dsbat-distro-version={{ (split "v" $version)._1 }} \
     -Dsbat-distro-url=https://github.com/systemd/systemd.git \
     -Dhomed=enabled \
     -Dnetworkd=true \
@@ -195,9 +195,9 @@ shell:
     -Dcreate-log-dirs=false \
     -Durlify=false \
     -Dinstall-tests=false \
-    -Dversion-tag=255.22-alt1 \
+    -Dversion-tag={{ (split "v" $version)._1 }} \
     -Dcertificate-root=/etc/pki/tls \
-    -Ddocdir=/usr/share/doc/systemd-255
+    -Ddocdir=/usr/share/doc/systemd-{{ (split "v" $version)._1 }}
 
     DESTDIR=${OUTDIR} meson install -C _build
 
