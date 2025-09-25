@@ -48,7 +48,7 @@ This allows creating VMs with an empty `spec.virtualMachineClassName` field, whi
 
 ## Other
 
-- [vm] Improved the garbage collector (GC) for completed virtual machine operations:
+- [vmop] Improved the garbage collector (GC) for completed virtual machine operations:
   - Runs daily at 00:00.
   - Removes successfully completed operations (`Completed` / `Failed`) after their TTL (24 hours) expires.
   - Retains only the last 10 completed operations.
