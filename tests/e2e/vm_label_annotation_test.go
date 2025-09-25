@@ -35,11 +35,9 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 		specialKey   = "specialKey"
 		specialValue = "specialValue"
 	)
-
-	var ns string
-
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
+	var ns string
 
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMLabelAnnotation, "kustomization.yaml")
