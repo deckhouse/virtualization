@@ -22,6 +22,7 @@ import (
 	"maps"
 	"sync"
 
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -83,12 +84,15 @@ func (f *Framework) Before() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		ginkgo.By(fmt.Sprintf("Created namespace %s", ns.Name))
 		f.namespace = ns
-		f.DeferNamespaceDelete(ns.Name)
 	}
 }
 
 func (f *Framework) After() {
 	ginkgo.GinkgoHelper()
+
+	if !config.IsCleanUpNeeded() {
+		return
+	}
 
 	for _, obj := range f.objectsToDelete {
 		ginkgo.By(fmt.Sprintf("Delete object %s", obj.GetName()))

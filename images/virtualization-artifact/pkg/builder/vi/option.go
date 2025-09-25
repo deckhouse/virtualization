@@ -91,3 +91,20 @@ func WithStorage(storage v1alpha2.StorageType) func(vi *v1alpha2.VirtualImage) {
 		vi.Spec.Storage = storage
 	}
 }
+
+func WithStorageType(storageType *v1alpha2.StorageType) func(vi *v1alpha2.VirtualImage) {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.Storage = *storageType
+	}
+}
+
+func WithDataSourceHTTPWithOnlyURL(url string) Option {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL: url,
+			},
+		}
+	}
+}
