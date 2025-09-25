@@ -17,8 +17,10 @@ limitations under the License.
 package internal
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -285,21 +287,30 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 		return nil, err
 	}
 
-	var candidate *virtv2.VirtualMachineOperation
-	if len(vmops) > 0 {
-		candidate = vmops[0]
+	if len(vmops) == 0 {
+		return nil, nil
+	}
 
-		for _, vmop := range vmops {
-			if !commonvmop.IsMigration(vmop) {
-				continue
-			}
-			if vmop.GetCreationTimestamp().Time.After(candidate.GetCreationTimestamp().Time) {
-				candidate = vmop
-			}
+	// sort vmops from the oldest to the newest
+	slices.SortFunc(vmops, func(a, b *virtv2.VirtualMachineOperation) int {
+		return cmp.Compare(a.GetCreationTimestamp().UnixNano(), b.GetCreationTimestamp().UnixNano())
+	})
+
+	migrations := slices.DeleteFunc(vmops, func(vmop *virtv2.VirtualMachineOperation) bool {
+		return !commonvmop.IsMigration(vmop)
+	})
+
+	for _, migration := range migrations {
+		if commonvmop.IsInProgressOrPending(migration) {
+			return migration, nil
 		}
 	}
 
-	return candidate, nil
+	if len(migrations) > 0 {
+		return migrations[len(migrations)-1], nil
+	}
+
+	return nil, nil
 }
 
 func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
