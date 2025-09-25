@@ -1,5 +1,5 @@
 {{- if eq .Values.nginx true }}
-{{- if or (eq .Values.resources "vms") (eq .Values.resources "all") }}
+{{- if or (eq .Values.resources.default "vms") (eq .Values.resources.default "all") }}
 apiVersion: v1
 kind: Service
 metadata:
