@@ -91,6 +91,7 @@ packages:
 - cyrus-sasl2
 - libtasn1 libtirpc
 - glib2 acl libunistring libxml2
+- gnutls
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
