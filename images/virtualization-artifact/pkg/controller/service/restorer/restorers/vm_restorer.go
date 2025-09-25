@@ -138,7 +138,7 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
-	if err := common.ValidateResourceNameLength(v.vm.Name); err != nil {
+	if err := common.ValidateResourceNameLength(v.vm.Name, v.vm.Kind); err != nil {
 		return err
 	}
 
