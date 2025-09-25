@@ -35,6 +35,12 @@ var (
 	WithAnnotations  = meta.WithAnnotations[*v1alpha2.VirtualMachine]
 )
 
+func WithBootloader(bootloader v1alpha2.BootloaderType) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Bootloader = bootloader
+	}
+}
+
 func WithCPU(cores int, coreFraction *string) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.CPU.Cores = cores
