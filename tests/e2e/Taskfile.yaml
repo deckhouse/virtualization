@@ -139,7 +139,7 @@ tasks:
         v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
 
         audit_status=$(kubectl get mc virtualization -o=jsonpath='{.spec.settings.audit.enabled}')
-        audit_image_skip=$(if [ -z $audit_status ] || [ $audit_status == "false" ]; then echo "false";else echo "true";fi)
+        audit_image_skip=$(if [ -z $audit_status ] || [ $audit_status == "false" ]; then echo "true";else echo "false";fi)
 
         retry_count=0
         max_retries=120
