@@ -756,7 +756,7 @@ func SaveTestResources(labels map[string]string, additional string) {
 	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", tmpDir, labels["testcase"], additional)
 	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", tmpDir, labels["testcase"], additional)
 
-	cmdr := kubectl.Get("virtualization,intvirt,po -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	cmdr := kubectl.Get("virtualization,intvirt,po,volumesnapshot -A", kc.GetOptions{Output: "yaml", Labels: labels})
 	if cmdr.Error() != nil {
 		errReport := fmt.Sprintf("cmd: %s\nerror: %s\nstderr: %s\n", cmdr.GetCmd(), cmdr.Error(), cmdr.StdErr())
 		GinkgoWriter.Printf("Get resources error:\n%s\n", errReport)
