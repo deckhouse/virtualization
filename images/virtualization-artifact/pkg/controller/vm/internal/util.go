@@ -207,7 +207,7 @@ func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
 	return conditions.CommonReason(kvmiReason)
 }
 
-var mapReasons = map[string]vmcondition.Reason{
+var mapReasons = map[string]vmcondition.RunningReason{
 	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
 	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminating,
 	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist

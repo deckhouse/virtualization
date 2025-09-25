@@ -85,11 +85,12 @@ packages:
 - openssl libcurl e2fsprogs libxcrypt numactl
 - zlib p11-kit
 - libssh libssh2 libjson-c5 keyutils
+- krb5 xz
 - readline
 - selinux
 - cyrus-sasl2
 - libtasn1 libtirpc
-- glib2 libxml2 gnutls acl
+- glib2 acl libunistring libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

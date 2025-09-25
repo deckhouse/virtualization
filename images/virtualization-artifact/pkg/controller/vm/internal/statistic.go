@@ -125,7 +125,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 		}
 		var ctr corev1.Container
 		for _, container := range pod.Spec.Containers {
-			if container.Name == "compute" {
+			if vm.IsComputeContainer(container.Name) {
 				ctr = container
 			}
 		}

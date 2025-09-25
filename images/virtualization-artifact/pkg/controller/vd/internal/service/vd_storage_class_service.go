@@ -21,10 +21,12 @@ import (
 	"errors"
 	"slices"
 
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
 
 var (
@@ -108,4 +110,8 @@ func (svc *VirtualDiskStorageClassService) IsStorageClassAllowed(scName string) 
 
 func (svc *VirtualDiskStorageClassService) GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error) {
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
+}
+
+func (svc *VirtualDiskStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+	return svc.BaseStorageClassService.GetPersistentVolumeClaim(ctx, sup)
 }

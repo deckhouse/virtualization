@@ -31,12 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -124,7 +123,7 @@ func (s CreateDataVolumeFromClusterVirtualImageStep) getPVCSize(vd *virtv2.Virtu
 }
 
 func (s CreateDataVolumeFromClusterVirtualImageStep) getSource(vd *virtv2.VirtualDisk, cviRef *virtv2.ClusterVirtualImage) *cdiv1.DataVolumeSource {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	url := common.DockerRegistrySchemePrefix + cviRef.Status.Target.RegistryURL
 	secretName := supgen.DVCRAuthSecretForDV().Name

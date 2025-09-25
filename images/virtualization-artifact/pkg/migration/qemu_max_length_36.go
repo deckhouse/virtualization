@@ -108,21 +108,21 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 		)
 
 		switch {
-		case strings.HasPrefix(d.Name, kvbuilder.CVMIDiskPrefix):
-			newName := strings.TrimPrefix(d.Name, kvbuilder.CVMIDiskPrefix)
+		case strings.HasPrefix(d.Name, kvbuilder.CVIDiskPrefix):
+			newName := strings.TrimPrefix(d.Name, kvbuilder.CVIDiskPrefix)
 			if uid, found = disks.CVINameUID[newName]; !found {
 				continue
 			}
-		case strings.HasPrefix(d.Name, kvbuilder.VMIDiskPrefix):
-			newName := strings.TrimPrefix(d.Name, kvbuilder.VMIDiskPrefix)
+		case strings.HasPrefix(d.Name, kvbuilder.VIDiskPrefix):
+			newName := strings.TrimPrefix(d.Name, kvbuilder.VIDiskPrefix)
 			if uid, found = disks.VINameUID[types.NamespacedName{
 				Name:      newName,
 				Namespace: namespace,
 			}]; !found {
 				continue
 			}
-		case strings.HasPrefix(d.Name, kvbuilder.VMDDiskPrefix):
-			newName := strings.TrimPrefix(d.Name, kvbuilder.VMDDiskPrefix)
+		case strings.HasPrefix(d.Name, kvbuilder.VDDiskPrefix):
+			newName := strings.TrimPrefix(d.Name, kvbuilder.VDDiskPrefix)
 			if uid, found = disks.VDNameUID[types.NamespacedName{
 				Name:      newName,
 				Namespace: namespace,

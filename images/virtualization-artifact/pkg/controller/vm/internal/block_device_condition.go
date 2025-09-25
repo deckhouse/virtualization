@@ -311,6 +311,13 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				canStartKVVM = false
 				continue
 			}
+
+			if vd.DeletionTimestamp != nil {
+				canStartKVVM = false
+				warnings = append(warnings, fmt.Sprintf("Virtual disk %s is terminating", vd.Name))
+				continue
+			}
+
 			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			if readyCondition.Status == metav1.ConditionTrue {
 				ready++

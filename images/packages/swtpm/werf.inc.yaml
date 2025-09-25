@@ -42,6 +42,7 @@ packages:
 - libtasn1
 - glib2 util-linux
 - gnutls
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

@@ -39,7 +39,7 @@ type BlankDataSourceDiskService interface {
 	step.VolumeAndAccessModesGetter
 	step.ReadyStepDiskService
 
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 type ObjectRefVirtualImageDiskService interface {

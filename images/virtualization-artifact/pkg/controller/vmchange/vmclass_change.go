@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -40,7 +41,7 @@ func compareVMClassNodeSelector(current, desired *v1alpha2.VirtualMachineClassSp
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.NodeSelector, desired.NodeSelector),
-		placementAction,
+		placementAction(),
 	)
 }
 
@@ -53,6 +54,13 @@ func compareVMClassTolerations(current, desired *v1alpha2.VirtualMachineClassSpe
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.Tolerations, desired.Tolerations),
-		placementAction,
+		placementAction(),
 	)
+}
+
+func placementAction() ActionType {
+	if featuregates.Default().Enabled(featuregates.AutoMigrationIfNodePlacementChanged) {
+		return ActionApplyImmediate
+	}
+	return ActionRestart
 }

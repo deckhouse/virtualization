@@ -70,6 +70,10 @@ func (v *ProvisionerHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.secret.Name = common.OverrideName(v.secret.Kind, v.secret.Name, rules)
 }
 
+func (v *ProvisionerHandler) Customize(prefix, suffix string) {
+	v.secret.Name = common.ApplyNameCustomization(v.secret.Name, prefix, suffix)
+}
+
 func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
@@ -93,6 +97,26 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.secret.Name, v.secret.Kind); err != nil {
+		return err
+	}
+
+	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
+		if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
+			return fmt.Errorf("content of the secret %s is different from that in the snapshot", v.secret.Name)
+		}
+	}
+
 	return nil
 }
 
@@ -123,6 +147,28 @@ func (v *ProvisionerHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
+	err = v.client.Create(ctx, v.secret)
+	if err != nil {
+		return fmt.Errorf("failed to create the `Secret`: %w", err)
+	}
+
 	return nil
 }
 

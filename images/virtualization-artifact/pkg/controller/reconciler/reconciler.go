@@ -39,6 +39,14 @@ type Handler[T client.Object] interface {
 	Name() string
 }
 
+type Named interface {
+	Name() string
+}
+
+type Finalizer interface {
+	Finalize(ctx context.Context) error
+}
+
 type Watcher interface {
 	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
@@ -82,7 +90,13 @@ func (r *BaseReconciler[H]) Reconcile(ctx context.Context) (reconcile.Result, er
 
 handlersLoop:
 	for _, h := range r.handlers {
-		log := logger.FromContext(ctx).With(logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
+		var name string
+		if named, ok := any(h).(Named); ok {
+			name = named.Name()
+		} else {
+			name = reflect.TypeOf(h).Elem().Name()
+		}
+		log := logger.FromContext(ctx).With(logger.SlogHandler(name))
 
 		res, err := r.execute(ctx, h)
 		switch {
@@ -119,6 +133,15 @@ handlersLoop:
 	if errs != nil {
 		logger.FromContext(ctx).Error("Error occurred during reconciliation", logger.SlogErr(errs))
 		return reconcile.Result{}, errs
+	}
+
+	for _, h := range r.handlers {
+		if finalizer, ok := any(h).(Finalizer); ok {
+			if err := finalizer.Finalize(ctx); err != nil {
+				logger.FromContext(ctx).Error("Failed to finalize resource", logger.SlogErr(err))
+				return reconcile.Result{}, err
+			}
+		}
 	}
 
 	//nolint:staticcheck // logging

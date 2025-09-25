@@ -32,11 +32,12 @@ altPackages:
 - libmultipath kpartx
 - dmsetup udev-rules-sgutils sg3_utils
 - libdevmapper-devel libudev-devel libsystemd-devel
-- libuserspace-rcu-devel libjson-c-devel
+- libjson-c-devel
 packages:
 - util-linux
 - readline
 - libaio
+- liburing libuserspace-rcu
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -67,7 +68,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-  - |
+
     OUTDIR=/out
 
     cd /src

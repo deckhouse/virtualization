@@ -33,7 +33,7 @@ const (
 	innaddrAny      = "0.0.0.0"
 )
 
-func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamespace string) error {
+func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamespace string) error {
 	// Get VM information using kubectl
 	vmIP, nodeName, err := getVMInfo(kubectl, vmName, vmNamespace)
 	if err != nil {
@@ -62,7 +62,7 @@ func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 			}
 
 			if !found {
-				return fmt.Errorf("failed: cilium agent %s for VM's node %s", pod.Name, nodeName)
+				return fmt.Errorf("failed: not found cilium agent %s for VM's node %s", pod.Name, nodeName)
 			}
 		} else {
 			// For pods on different nodes
@@ -72,7 +72,7 @@ func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 			}
 
 			if !found {
-				return fmt.Errorf("failed: cilium agent %s for node %s", pod.Name, pod.Spec.NodeName)
+				return fmt.Errorf("failed: not found cilium agent %s for node %s", pod.Name, pod.Spec.NodeName)
 			}
 		}
 	}

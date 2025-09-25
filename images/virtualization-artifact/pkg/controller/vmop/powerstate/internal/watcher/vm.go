@@ -68,7 +68,7 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 			}),
 			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
-					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || e.ObjectNew.Status.MigrationState != nil
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},
 		),

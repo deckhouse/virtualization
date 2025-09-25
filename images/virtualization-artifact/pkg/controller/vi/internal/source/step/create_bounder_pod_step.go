@@ -39,7 +39,7 @@ import (
 )
 
 type CreateBounderPodStepBounder interface {
-	Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...service.Option) error
+	Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error
 }
 
 type CreateBounderPodStep struct {
