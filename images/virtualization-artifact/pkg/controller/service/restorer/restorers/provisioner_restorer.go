@@ -97,7 +97,7 @@ func (v *ProvisionerHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *ProvisionerHandler) ValidateClone(ctx context.Context) error {
-	if err := common.ValidateResourceNameLength(v.secret.Name); err != nil {
+	if err := common.ValidateResourceNameLength(v.secret.Name, v.secret.Kind); err != nil {
 		return err
 	}
 
