@@ -1,0 +1,69 @@
+ci:
+  fixes:
+    - summary: E2E tests no longer fail due to kubectl logs exit codes during teardown.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1466
+    - summary: fix variable name for delve debug
+      pull_request: https://github.com/deckhouse/virtualization/pull/1442
+core:
+  features:
+    - summary: add virtual machine name and namespace flag completions to cli
+      pull_request: https://github.com/deckhouse/virtualization/pull/1404
+    - summary: add e2e framework
+      pull_request: https://github.com/deckhouse/virtualization/pull/1366
+docs:
+  fixes:
+    - summary: english documentation remove cyrillic characters cdi_kubevirt_patching
+      pull_request: https://github.com/deckhouse/virtualization/pull/1481
+module:
+  features:
+    - summary: >-
+        Adds the `D8VirtualizationDVCRInsufficientCapacityRisk` alert to monitor DVCR storage.
+        Triggers when free space drops below 5GB or 20% of capacity.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1461
+    - summary: add alert KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown
+      pull_request: https://github.com/deckhouse/virtualization/pull/1268
+  fixes:
+    - summary: fix install packages via dnf and yum
+      pull_request: https://github.com/deckhouse/virtualization/pull/1464
+observability:
+  features:
+    - summary: Repeat "Network details" graphs for all networks specified in the VM spec.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1475
+  fixes:
+    - summary: >-
+        Combine legends and unify line colors for different migrations on live migration memory
+        graph.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1474
+vd:
+  fixes:
+    - summary: allow delete pending resource
+      pull_request: https://github.com/deckhouse/virtualization/pull/1448
+    - summary: >-
+        Prevent empty strings in allowedStorageClassSelector configuration for VirtualDisks and
+        VirtualImage
+      pull_request: https://github.com/deckhouse/virtualization/pull/1422
+vi:
+  fixes:
+    - summary: >-
+        Prevent empty strings in allowedStorageClassSelector configuration for VirtualDisks and
+        VirtualImage
+      pull_request: https://github.com/deckhouse/virtualization/pull/1422
+vm:
+  features:
+    - summary: add volume migration in EE
+      pull_request: https://github.com/deckhouse/virtualization/pull/1360
+  fixes:
+    - summary: fix creating snapshot from vm with awaiting restart changes
+      pull_request: https://github.com/deckhouse/virtualization/pull/1477
+vmop:
+  features:
+    - summary: add VM clone operation feature.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1418
+  fixes:
+    - summary: fix the validation of VirtualDisk names during the cloning process of a VirtualMachine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1496
+    - summary: >-
+        Fix the problem where a disk that in the "Terminating" phase  was wrongly added to kvvm's
+        volumes during a restore operation in Strict mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1493
+
