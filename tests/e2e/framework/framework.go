@@ -81,7 +81,7 @@ func (f *Framework) Before() {
 	if !f.skipNsCreation {
 		ns, err := f.CreateNamespace(f.namespacePrefix, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		ginkgo.By(fmt.Sprintf("Created namespace %s", ns.Name))
+		ginkgo.By(fmt.Sprintf("Create namespace %s", ns.Name))
 		f.namespace = ns
 		f.DeferNamespaceDelete(ns.Name)
 	}
