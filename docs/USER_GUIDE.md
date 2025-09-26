@@ -607,18 +607,18 @@ Depending on the storage properties, the behavior of disks during creation of vi
 
 VolumeBindingMode property:
 
-`Immediate` - The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
+`Immediate`: The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
 
 ![vd-immediate](images/vd-immediate.png)
 
-`WaitForFirstConsumer` - The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
+`WaitForFirstConsumer`: The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
 
 ![vd-wffc](images/vd-wffc.png)
 
 AccessMode:
 
-- `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with such disks is possible only in the DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reconnected statically by specifying them in `.spec.blockDeviceRefs`.
+- `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
+- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -864,12 +864,12 @@ Method #2:
 
 ### Changing the disk StorageClass
 
-In the DVP commercial editions, it is possible to change the StorageClass for existing disks. At the moment, this is only supported for running VMs (`Phase` should be `Running`).
+In the DVP commercial editions, it is possible to change the StorageClass for existing disks. Currently, this is only supported for running VMs (`Phase` should be `Running`).
 
 {{< alert level="warning">}}
-Storage class migration is only available for disks connected statically via (`.spec.blockDeviceRefs`).
+Storage class migration is only available for disks connected statically via `.spec.blockDeviceRefs`.
 
-To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, you must statically reattach them by specifying them in `.spec.blockDeviceRefs`.
+To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, they must be reattached statically by specifying disks names in `.spec.blockDeviceRefs`.
 {{< /alert >}}
 
 Example:
@@ -878,7 +878,7 @@ Example:
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 ```
 
-After the disk configuration is updated, a live migration of the VM will be initiated, during which the VM’s disk will be migrated to the new storage.
+After the disk configuration is updated, a live migration of the VM is triggered, during which the disk is migrated to the new storage.
 
 If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
 
@@ -2728,7 +2728,7 @@ Creating a virtual machine snapshot will fail if at least one of the following c
 - there is a disk in the process of resizing among the dependent devices.
 
 {{< alert level="warning" >}}
-If, at the time a snapshot is created, there are pending changes on the virtual machine that require a restart, the snapshot will include the updated virtual machine configuration.
+If there are pending VM changes awaiting a restart when the snapshot is created, the snapshot will include the updated VM configuration.
 {{< /alert >}}
 
 When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static IP address and saved for recovery.
@@ -2840,7 +2840,7 @@ It is not recommended to cancel the restore operation (delete the `VirtualMachin
 VM cloning is performed using the `VirtualMachineOperation` resource with the `clone` operation type.
 
 {{< alert level="warning">}}
-To perform a VM cloning operation, the VM being cloned must be [powered off](#vm-start-and-state-management-policy).
+Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
 
@@ -2855,7 +2855,7 @@ spec:
   clone:
     mode: DryRun | Strict | BestEffort
     nameReplacements: []
-    customisation: {}
+    customization: {}
 ```
 
 {{< alert level="warning">}}
@@ -2864,8 +2864,8 @@ The cloned VM will be assigned a new IP address for the cluster network and MAC 
 
 Cloning creates a copy of an existing VM, so the resources of the new VM must have unique names. To do this, use the `.spec.clone.nameReplacements` and/or `.spec.clone.customisation` parameters.
 
-- `.spec.clone.nameReplacements` — allows you to replace the names of existing resources with new ones to avoid conflicts.
-- `.spec.clone.customisation` — sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+- `.spec.clone.nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
+- `.spec.clone.customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
 
 Configuration example:
 
@@ -2878,20 +2878,20 @@ spec:
           name: <old name>
       - to:
           name: <new name>
-    customisation:
-      namePrefix: <prefix>
-      nameSuffix: <suffix>
+    customization:
+      namePrefix: <prefix- >
+      nameSuffix: < -suffix>
 ```
 
 One of three modes can be used for the cloning operation:
-- `DryRun` — a test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
-- `Strict` — strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
-- `BestEffort` — mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
+- `DryRun`: A test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
+- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
 
 Information about conflicts that arose during cloning can be viewed in the resource status:
 
 ```bash
-d8 k get vmop <vmop-name> -o json | jq “.status.resources”
+d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 ```
 
 ## Data export

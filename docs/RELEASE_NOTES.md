@@ -9,23 +9,23 @@ weight: 70
 
 - [vm] Added the ability to migrate VMs using disks on local storage. Restrictions:
   - The feature is not available in the CE edition.
-  - Migration is only possible for running VMs (`phase: Running`)
-  - Migration of VMs with local disks connected via `VirtualMachineBlockDeviceAttachment` (hotplug) is currently not possible.
+  - Migration is only possible for running VMs (`phase: Running`).
+  - Migration of VMs with local disks connected via `VirtualMachineBlockDeviceAttachment` (hotplug) is not supported yet.
 - [vd] Added the ability to migrate storage for VM disks (change `StorageClass`). Restrictions:
   - The feature is not available in the CE edition.
-  - Migration is only possible for a running VM (`phase: Running`)
-  - Storage migration for disks connected via `VirtualMachineBlockDeviceAttachment` (hotplug) is currently not possible.
+  - Migration is only possible for running VMs (`phase: Running`).
+  - Storage migration for disks connected via `VirtualMachineBlockDeviceAttachment` (hotplug) is not supported yet.
 - [vmop] Added an operation with the `Clone` type to create a clone of a VM from an existing VM (`VirtualMachineOperation` `.spec.type: Clone`).
-- [observability] Added the `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown` alert, which is triggered when the node hosting the virtual machines receives a shutdown command before the VM evacuation is complete.
+- [observability] Added the `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown` alert, which is triggered when the node hosting the virtual machines is about to shut down but VM evacuation is not yet complete.
 - [observability] Added the `D8VirtualizationDVCRInsufficientCapacityRisk` alert, which warns of the risk of insufficient free space in the virtual machine image storage (DVCR).
 
 ## Fixes
 
 - [vmop/restore] Fixed a bug where the controller sometimes started a restored VM before its disks were fully restored, resulting in the VM starting with old (unrestored) disks.
-- [vmsnapshot] Fixed behaviour when creating a VM snapshot with uncommitted changes: the snapshot now instantly captures the current state of the virtual machine, including all current changes.
+- [vmsnapshot] Fixed behavior when creating a VM snapshot with uncommitted changes: the snapshot now instantly captures the current state of the virtual machine, including all current changes.
 - [module] Fixed an issue with installing the module on RedOS 8.X OS.
 - [module] Improved validation to prevent adding empty values for parameters that define storage classes for disks and images.
-- [vmop] Fixed garbage collector behaviour: previously, when restarting the virtualisation controller, all VMOP objects were deleted without taking into account the cleanup rules.
+- [vmop] Fixed garbage collector behavior: previously, all VMOP objects were deleted after restarting the virtualization controller, ignoring cleanup rules.
 - [observability] The virtual machine dashboard now displays statistics for all networks (including additional ones) connected to the VM.
 - [observability] Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration.
 
