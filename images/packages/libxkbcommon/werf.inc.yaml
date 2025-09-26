@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "gnome/json-glib.git" }}
+{{- $gitRepoUrl := "xkbcommon/libxkbcommon.git" }}
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -27,10 +27,14 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make libtool gettext-tools meson ninja-build
+- gcc git make libtool gettext-tools meson ninja-build bison
+- xkeyboard-config-devel
+- wayland-devel libwayland-client-devel wayland-protocols
+- libxcb-devel
+- bash-completion
 - tree
 packages:
-- glib2 util-linux
+- libxml2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -74,13 +78,14 @@ shell:
       --libdir=/usr/lib64 \
       --wrap-mode=nofallback \
       --wrap-mode=nodownload \
-      -Ddocumentation=disabled \
-      -Dman=false
+      -Denable-docs=false \
+      -Denable-x11=true \
+      -Denable-xkbregistry=true \
+      -Ddefault_library=shared
 
     ninja-build -j$(nproc) -C _build
     DESTDIR=$OUTDIR ninja-build install -C _build
     rm -rf $OUTDIR/usr/share
-    rm -rf $OUTDIR/usr/libexec
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"

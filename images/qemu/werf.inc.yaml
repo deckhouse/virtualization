@@ -105,7 +105,7 @@ altLibraries:
 - libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
 - libsoundio-devel
-- libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
+- libjpeg-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
@@ -118,7 +118,6 @@ altLibraries:
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
 - libglusterfs11-api-devel
 - libvdeplug-devel
-- glib2-devel
 packages:
 - dmidecode libgcrypt nettle libcap-ng libcapstone
 - openssl libcurl e2fsprogs libxcrypt numactl
@@ -133,6 +132,9 @@ packages:
 - linux-pam
 - snappy
 - ngtcp2 libtasn1 ncurses
+- glib2 util-linux
+- libxkbcommon
+- libgcc1
 - libaio
 - liburing libuserspace-rcu libunistring systemd
 - multipath-tools

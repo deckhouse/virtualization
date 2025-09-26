@@ -44,13 +44,12 @@ altPackages:
 - python3-module-wheel
 - python3-module-distro
 - ruby-devel
-- libgio-devel
-- libustr-devel libustr 
+- libustr-devel libustr
 - policycoreutils-restorecond policycoreutils
 - tree
 packages:
 - libaudit
-- glib2 bzip2
+- util-linux bzip2
 - pcre2
 - libcap libcap-ng
 {{- end -}}
@@ -87,7 +86,8 @@ shell:
     cd /src
     OUTDIR=/out
 
-    make -j$(nproc) clean distclean
+    cd libselinux
+    # make -j$(nproc)
 
     make -j$(nproc) \
       DESTDIR=$OUTDIR \
