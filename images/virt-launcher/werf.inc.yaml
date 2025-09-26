@@ -451,7 +451,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
