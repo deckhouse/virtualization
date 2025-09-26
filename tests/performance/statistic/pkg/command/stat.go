@@ -60,16 +60,14 @@ func init() {
 func getStatistic(cmd *cobra.Command, args []string) {
 	client := helpers.CreateKubeConfig()
 
-	if virtualmachine {
+	// Default is to get all stats.
+	getAll := !virtualmachine && !virtualdisk
+
+	if getAll || virtualmachine {
 		vm.GetStats(client, namespace)
 	}
 
-	if virtualdisk {
-		vd.GetStats(client, namespace)
-	}
-
-	if !virtualmachine && !virtualdisk {
-		vm.GetStats(client, namespace)
+	if getAll || virtualdisk {
 		vd.GetStats(client, namespace)
 	}
 }
