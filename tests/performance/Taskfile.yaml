@@ -16,16 +16,34 @@ includes:
     taskfile: status-access-vms/ansible/Taskfile.ansible.yaml
     dir: status-access-vms/ansible
     optional: true
+  stats:
+    taskfile: statistic/Taskfile.yaml
+    dir: statistic
+    optional: true
+  evicter:
+    taskfile: tools/evicter/Taskfile.yaml
+    dir: tools/evicter
+    optional: true
 
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
-  NAMESPACE: "{{ .NAMESPACE }}"
-  STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
+  NAMESPACE: '{{ .NAMESPACE | default "perf" }}'
+  STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r1" }}'
   RESOURCES: '{{ .RESOURCES | default "all" }}'
   NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'
 
 tasks:
+  tst:
+    cmds:
+      - echo "{{ .STORAGE_CLASS }}"
+
+  render:
+    desc: "Render templates with default values"
+    cmds:
+      - |
+        helm template test . --values values.yaml
+
   help:
     desc: "Help about bootstrapper.sh."
     cmds:
