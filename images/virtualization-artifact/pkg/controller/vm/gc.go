@@ -20,18 +20,25 @@ import (
 	"context"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 )
 
-const gcVMMigrationControllerName = "vmi-migration-gc-controller"
+const (
+	GCVMMigrationControllerName  = "vmi-migration-gc-controller"
+	GCCompletedPodControllerName = "completed-pod-gc-controller"
+)
 
-func SetupGC(
+func SetupGCMigrations(
 	mgr manager.Manager,
 	log *log.Logger,
 	gcSettings config.BaseGcSettings,
@@ -42,12 +49,29 @@ func SetupGC(
 	if err != nil {
 		return err
 	}
-
-	return gc.SetupGcController(gcVMMigrationControllerName,
+	return gc.SetupGcController(GCVMMigrationControllerName,
 		mgr,
 		log,
 		source,
 		vmimGCMgr,
+	)
+}
+
+func SetupGCCompletedPods(
+	mgr manager.Manager,
+	log *log.Logger,
+	gcSettings config.BaseGcSettings,
+) error {
+	podGCMgr := newCompletedPodGCManager(mgr.GetClient(), 10)
+	source, err := gc.NewCronSource(gcSettings.Schedule, podGCMgr, log.With("resource", "pod"))
+	if err != nil {
+		return err
+	}
+	return gc.SetupGcController(GCCompletedPodControllerName,
+		mgr,
+		log,
+		source,
+		podGCMgr,
 	)
 }
 
@@ -105,9 +129,70 @@ func (m *vmimGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
-	return vmim.Spec.VMIName
+	return types.NamespacedName{Namespace: vmim.GetNamespace(), Name: vmim.Spec.VMIName}.String()
 }
 
 func vmiMigrationIsFinal(migration *virtv1.VirtualMachineInstanceMigration) bool {
 	return migration.Status.Phase == virtv1.MigrationFailed || migration.Status.Phase == virtv1.MigrationSucceeded
+}
+
+type completedPodGCmanager struct {
+	client client.Client
+	max    int
+}
+
+func newCompletedPodGCManager(client client.Client, max int) *completedPodGCmanager {
+	if max == 0 {
+		max = 10
+	}
+	return &completedPodGCmanager{
+		client: client,
+		max:    max,
+	}
+}
+
+func (m *completedPodGCmanager) New() client.Object {
+	return &corev1.Pod{}
+}
+
+func (m *completedPodGCmanager) ShouldBeDeleted(obj client.Object) bool {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return false
+	}
+
+	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
+}
+
+func (m *completedPodGCmanager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
+	podList := &corev1.PodList{}
+	err := m.client.List(ctx, podList, client.MatchingLabels{
+		"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var objs []client.Object
+	for _, pod := range podList.Items {
+		if m.ShouldBeDeleted(&pod) {
+			objs = append(objs, &pod)
+		}
+	}
+
+	result := gc.KeepLastRemoveOld(objs, m.getIndex, m.max, now)
+
+	return result, nil
+}
+
+func (m *completedPodGCmanager) getIndex(obj client.Object) string {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return ""
+	}
+	owner := metav1.GetControllerOf(pod)
+	if owner != nil {
+		return string(owner.UID)
+	}
+	return ""
 }
