@@ -19,12 +19,12 @@ package util
 import (
 	"fmt"
 
-	. "github.com/onsi/gomega"
-
 	dv1alpha2 "github.com/deckhouse/virtualization/tests/e2e/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
+
+	. "github.com/onsi/gomega"
 )
 
 // Deprecated: Should be deleted
