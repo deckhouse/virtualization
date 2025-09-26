@@ -22,6 +22,7 @@
 
 
  - **[api]** Updated CRD short names to remove plural forms and reorganized resource categories. [#1407](https://github.com/deckhouse/virtualization/pull/1407)
+ - **[core]** Pre-create mount points in all final images. [#1488](https://github.com/deckhouse/virtualization/pull/1488)
  - **[core]** Reduce kubevirt components restarts. [#1449](https://github.com/deckhouse/virtualization/pull/1449)
  - **[module]** Reduce module restarts during installation. [#1445](https://github.com/deckhouse/virtualization/pull/1445)
  - **[module]** Support "in-cluster" upload when publicDomainTemplate is empty. [#1440](https://github.com/deckhouse/virtualization/pull/1440)
