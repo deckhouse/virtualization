@@ -2879,9 +2879,11 @@ spec:
       - to:
           name: <new name>
     customization:
-      namePrefix: <prefix- >
-      nameSuffix: < -suffix>
+      namePrefix: <prefix>
+      nameSuffix: <suffix>
 ```
+
+As a result, a VM named <prefix><new name><suffix> will be created.
 
 One of three modes can be used for the cloning operation:
 - `DryRun`: A test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
