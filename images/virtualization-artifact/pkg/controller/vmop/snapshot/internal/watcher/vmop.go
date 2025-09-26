@@ -39,7 +39,7 @@ func (w VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error
 			mgr.GetCache(),
 			&v1alpha2.VirtualMachineOperation{},
 			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineOperation]{},
-			NewRestorePredicate(),
+			NewSnapshotPredicate(),
 		),
 	)
 	if err != nil {

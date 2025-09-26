@@ -2,6 +2,8 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
 fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate
@@ -46,7 +48,6 @@ altLibs:
   - libvirglrenderer-devel
   - libdbus
   - libusb-devel
-  - liburing-devel
   - libbpf-devel
   - libspice-server-devel
   - ceph-devel
@@ -58,7 +59,6 @@ altLibs:
   - libpmem-devel
   - libdaxctl-devel
   - bzlib-devel
-  - liblzo2-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
@@ -80,7 +80,6 @@ altLibs:
   - systemtap-sdt-devel
   - glib2-devel
   - libgio-devel
-  - libxml2-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
@@ -123,6 +122,7 @@ packages:
 - zlib zstd p11-kit
 - libssh libssh2
 - libpixman libqpl rdma-core
+- krb5 xz libxml2
 - readline
 - selinux
 - linux-pam
@@ -130,6 +130,7 @@ packages:
 - snappy
 - libtasn1 libtirpc
 - libaio
+- liburing libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

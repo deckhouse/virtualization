@@ -29,12 +29,13 @@ shell:
 altPackages:
 - gcc gcc-c++ make git autoconf libtool gettext-tools
 - automake pkgconf glibc-devel
-- bash-completion hardlink libfuse3-devel
-- liburing-devel libxml2-devel perl-podlators
+- bash-completion hardlink
+- perl-podlators
 - ocaml ocaml-findlib ocaml-ocamldoc
 packages:
-- gnutls libidn2 libgmp ubdsrv
+- gnutls libidn2 libgmp ubdsrv xz libxml2
 - libtasn1
+- liburing libfuse3 libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -66,6 +67,8 @@ shell:
       rm -rf /$pkg
     done
 
+    cp /usr/include/fuse3/* /usr/include/
+
     OUTDIR=/out
 
     cd /src
@@ -73,9 +76,11 @@ shell:
     autoreconf -i
     ./configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-ocaml \
-      --disable-static
+      --disable-golang \
+      --disable-rust
 
     make -j$(nproc)
 

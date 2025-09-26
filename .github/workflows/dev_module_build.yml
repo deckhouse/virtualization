@@ -592,8 +592,7 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
-          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
-          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+          go install tool
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -625,7 +624,7 @@ jobs:
         with:
           name: resources_from_failed_tests
           retention-days: 2
-          path: /tmp/e2e_failed__*
+          path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
 
       - name: Cleanup E2E resources on cancel

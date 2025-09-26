@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -33,9 +34,12 @@ type VirtualDiskStorageClassSettings struct {
 	DefaultStorageClassName  string
 }
 
-func LoadVirtualDiskStorageClassSettings() VirtualDiskStorageClassSettings {
+func LoadVirtualDiskStorageClassSettings() (VirtualDiskStorageClassSettings, error) {
 	var allowedStorageClassNames []string
-	allowedStorageClassNamesRaw := os.Getenv(VirtualDiskAllowedStorageClasses)
+	allowedStorageClassNamesRaw, exists := os.LookupEnv(VirtualDiskAllowedStorageClasses)
+	if exists && allowedStorageClassNamesRaw == "" {
+		return VirtualDiskStorageClassSettings{}, fmt.Errorf("%s is empty. Specify valid StorageClass names or remove the restriction", VirtualDiskAllowedStorageClasses)
+	}
 	if allowedStorageClassNamesRaw != "" {
 		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
 	}
@@ -43,5 +47,5 @@ func LoadVirtualDiskStorageClassSettings() VirtualDiskStorageClassSettings {
 	return VirtualDiskStorageClassSettings{
 		AllowedStorageClassNames: allowedStorageClassNames,
 		DefaultStorageClassName:  os.Getenv(VirtualDiskDefaultStorageClass),
-	}
+	}, nil
 }

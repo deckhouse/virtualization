@@ -39,3 +39,7 @@ func generateString(length int, chars string) string {
 func AlphaNum(length int) string {
 	return generateString(length, alphaNum)
 }
+
+func LowerAlpha(length int) string {
+	return generateString(length, lowercaseAlpha)
+}

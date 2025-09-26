@@ -40,7 +40,7 @@ type Sources interface {
 
 type DiskService interface {
 	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 
 type StorageClassService interface {
@@ -48,6 +48,6 @@ type StorageClassService interface {
 	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 }

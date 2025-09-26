@@ -47,6 +47,7 @@ packages:
 - libpsl
 - cyrus-sasl2
 - ngtcp2 libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

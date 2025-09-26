@@ -5,6 +5,7 @@ packages:
 - gcc git
 - make rpm-macros-alternatives meson
 - ninja-build libudev-devel
+- tree
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -62,6 +63,25 @@ shell:
     OUTDIR=/out
 
     cd /src
-    meson setup build -Duseroot=false -Dprefix=$OUTDIR/usr
+    meson setup build \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --sbindir=/usr/sbin \
+      --buildtype=release
+    
     meson compile -C build
+    DESTDIR=${OUTDIR} meson install -C build
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
     meson install -C build
+
+    rm -rf /out/usr/share
+    rm -rf /out/dev
+    rm -rf /out/etc
+
+    tree -hp /out

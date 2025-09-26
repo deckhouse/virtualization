@@ -35,7 +35,10 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Input existing tag, example v0.16.1. Image module tag in dev-registry will have suffix -dev. For example: v0.16.1-dev"
+        description: |
+          Allow input tag vX.Y.Z (release tag) or vX.Y.Z-rc.N (release candidate tag).
+
+          Example: v1.0.0 or v1.0.0-rc.1
         type: string
         required: true
 
@@ -75,7 +78,7 @@ jobs:
           # Check if tag matches vX.Y.Z pattern (release)
           if echo "$TAG" | grep -P '^v\d+\.\d+\.\d+$' > /dev/null; then
             echo "Release tag detected"
-            echo "MODULES_MODULE_TAG=${TAG}-dev" >> $GITHUB_OUTPUT
+            echo "MODULES_MODULE_TAG=${TAG}" >> $GITHUB_OUTPUT
           # Check if tag matches vX.Y.Z-rc.N pattern (release candidate)
           elif echo "$TAG" | grep -P '^v\d+\.\d+\.\d+-rc\.\d+$' > /dev/null; then
             echo "Release candidate tag detected"

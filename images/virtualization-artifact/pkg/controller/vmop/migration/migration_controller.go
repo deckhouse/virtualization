@@ -41,6 +41,7 @@ func NewController(client client.Client, mgr manager.Manager) *Controller {
 		watchers: []reconciler.Watcher{
 			watcher.NewVMOPWatcher(),
 			watcher.NewMigrationWatcher(),
+			watcher.NewVMWatcher(),
 		},
 		handlers: []reconciler.Handler[*v1alpha2.VirtualMachineOperation]{
 			handler.NewDeletionHandler(migration),

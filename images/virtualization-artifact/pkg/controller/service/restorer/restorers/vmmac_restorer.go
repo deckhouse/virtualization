@@ -69,6 +69,10 @@ func (v *VirtualMachineMACHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vmmac.Name = common.OverrideName(v.vmmac.Kind, v.vmmac.Name, rules)
 }
 
+func (v *VirtualMachineMACHandler) Customize(prefix, suffix string) {
+	v.vmmac.Name = common.ApplyNameCustomization(v.vmmac.Name, prefix, suffix)
+}
+
 func (v *VirtualMachineMACHandler) ValidateRestore(ctx context.Context) error {
 	vmMacKey := types.NamespacedName{Namespace: v.vmmac.Namespace, Name: v.vmmac.Name}
 	existed, err := object.FetchObject(ctx, vmMacKey, v.client, &v1alpha2.VirtualMachineMACAddress{})

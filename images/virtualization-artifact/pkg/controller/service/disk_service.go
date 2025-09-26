@@ -74,31 +74,28 @@ func (s DiskService) Start(
 	pvcSize resource.Quantity,
 	sc *storagev1.StorageClass,
 	source *cdiv1.DataVolumeSource,
-	obj ObjectKind,
-	sup *supplements.Generator,
+	obj client.Object,
+	sup supplements.DataVolumeSupplement,
 	opts ...Option,
 ) error {
 	if sc == nil {
 		return errors.New("cannot create DataVolume: StorageClass must not be nil")
 	}
 
+	options := newGenericOptions(opts...)
+
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
-	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetOwnerRef(obj, obj.GetObjectKind().GroupVersionKind())
 
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case *NodePlacementOption:
-			err := dvBuilder.SetNodePlacement(v.nodePlacement)
-			if err != nil {
-				return fmt.Errorf("set node placement: %w", err)
-			}
-		default:
-			return fmt.Errorf("unknown Start option")
+	if options.nodePlacement != nil {
+		err := dvBuilder.SetNodePlacement(options.nodePlacement)
+		if err != nil {
+			return fmt.Errorf("set node placement: %w", err)
 		}
 	}
 
-	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, sc)
+	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, obj, sc)
 	if err != nil {
 		return fmt.Errorf("get volume and access modes: %w", err)
 	}
@@ -127,14 +124,37 @@ func (s DiskService) Start(
 	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
-func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+	if obj == nil {
+		return "", "", errors.New("object is nil")
+	}
 	if sc == nil {
 		return "", "", errors.New("storage class is nil")
 	}
 
-	var accessMode corev1.PersistentVolumeAccessMode
-	var volumeMode corev1.PersistentVolumeMode
+	// Priority: object > storage class > storage profile.
 
+	// 1. Get modes from annotations on the object.
+	accessMode, _ := s.parseAccessMode(obj)
+	volumeMode, _ := s.parseVolumeMode(obj)
+
+	if accessMode != "" && volumeMode != "" {
+		return volumeMode, accessMode, nil
+	}
+
+	// 2. Get modes from annotations on the storage class.
+	if m, exists := s.parseAccessMode(sc); accessMode == "" && exists {
+		accessMode = m
+	}
+	if m, exists := s.parseVolumeMode(sc); volumeMode == "" && exists {
+		volumeMode = m
+	}
+
+	if accessMode != "" && volumeMode != "" {
+		return volumeMode, accessMode, nil
+	}
+
+	// 3. Get modes from storage profile.
 	storageProfile, err := s.GetStorageProfile(ctx, sc.Name)
 	if err != nil {
 		return "", "", fmt.Errorf("get storage profile: %w", err)
@@ -145,14 +165,11 @@ func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.
 	}
 
 	storageCaps := s.parseStorageCapabilities(storageProfile.Status)
-	accessMode = storageCaps.AccessMode
-	volumeMode = storageCaps.VolumeMode
-
-	if m, override := s.parseVolumeMode(sc); override {
-		volumeMode = m
+	if accessMode == "" && storageCaps.AccessMode != "" {
+		accessMode = storageCaps.AccessMode
 	}
-	if m, override := s.parseAccessMode(sc); override {
-		accessMode = m
+	if volumeMode == "" && storageCaps.VolumeMode != "" {
+		volumeMode = storageCaps.VolumeMode
 	}
 
 	return volumeMode, accessMode, nil
@@ -163,16 +180,16 @@ func (s DiskService) StartImmediate(
 	pvcSize resource.Quantity,
 	sc *storagev1.StorageClass,
 	source *cdiv1.DataVolumeSource,
-	obj ObjectKind,
-	sup *supplements.Generator,
+	obj client.Object,
+	dataVolumeSupplement supplements.DataVolumeSupplement,
 ) error {
 	if sc == nil {
 		return errors.New("cannot create DataVolume: StorageClass must not be nil")
 	}
 
-	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
+	dvBuilder := kvbuilder.NewDV(dataVolumeSupplement.DataVolume())
 	dvBuilder.SetDataSource(source)
-	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+	dvBuilder.SetOwnerRef(obj, obj.GetObjectKind().GroupVersionKind())
 	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
 	dvBuilder.SetImmediate()
 	dv := dvBuilder.GetResource()
@@ -191,7 +208,7 @@ func (s DiskService) StartImmediate(
 		return nil
 	}
 
-	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+	return supplements.EnsureForDataVolume(ctx, s.client, dataVolumeSupplement, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
 func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
@@ -230,7 +247,7 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
-func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
 	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {
 		return false, err
@@ -260,7 +277,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
 }
 
-func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
 	// 1. Update owner ref of pvc.
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
@@ -462,11 +479,11 @@ func getAccessModeMax(modes []corev1.PersistentVolumeAccessMode) corev1.Persiste
 	return m
 }
 
-func (s DiskService) parseVolumeMode(sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, bool) {
-	if sc == nil {
+func (s DiskService) parseVolumeMode(obj client.Object) (corev1.PersistentVolumeMode, bool) {
+	if obj == nil {
 		return "", false
 	}
-	switch sc.GetAnnotations()[annotations.AnnVirtualDiskVolumeMode] {
+	switch obj.GetAnnotations()[annotations.AnnVirtualDiskVolumeMode] {
 	case string(corev1.PersistentVolumeBlock):
 		return corev1.PersistentVolumeBlock, true
 	case string(corev1.PersistentVolumeFilesystem):
@@ -476,11 +493,11 @@ func (s DiskService) parseVolumeMode(sc *storagev1.StorageClass) (corev1.Persist
 	}
 }
 
-func (s DiskService) parseAccessMode(sc *storagev1.StorageClass) (corev1.PersistentVolumeAccessMode, bool) {
-	if sc == nil {
+func (s DiskService) parseAccessMode(obj client.Object) (corev1.PersistentVolumeAccessMode, bool) {
+	if obj == nil {
 		return "", false
 	}
-	switch sc.GetAnnotations()[annotations.AnnVirtualDiskAccessMode] {
+	switch obj.GetAnnotations()[annotations.AnnVirtualDiskAccessMode] {
 	case string(corev1.ReadWriteOnce):
 		return corev1.ReadWriteOnce, true
 	case string(corev1.ReadWriteMany):
@@ -532,11 +549,11 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }
 
-func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
+func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
 	return object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
 }
 
-func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
 }
 

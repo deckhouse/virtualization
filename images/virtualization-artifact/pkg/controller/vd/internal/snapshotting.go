@@ -81,6 +81,15 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			return reconcile.Result{}, nil
 		}
 
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue && conditions.IsLastUpdated(migrating, vd) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.SnapshottingNotAvailable).
+				Message("The virtual disk cannot be selected for snapshotting as it is currently being migrated.")
+			return reconcile.Result{}, nil
+		}
+
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Snapshotting).
