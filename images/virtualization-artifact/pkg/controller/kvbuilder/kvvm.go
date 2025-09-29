@@ -46,7 +46,7 @@ const (
 	SysprepDiskName   = "sysprep"
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
-	GenericCPUModel = "kvm64"
+	GenericCPUModel = "qemu64"
 )
 
 type KVVMOptions struct {
@@ -135,16 +135,24 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 		cpu.Model = class.Spec.CPU.Model
 	case virtv2.CPUTypeDiscovery, virtv2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
-		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		l := len(class.Status.CpuFeatures.Enabled)
+		features := make([]virtv1.CPUFeature, l, l+1)
+		hasSvm := false
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
 			if feature == "invtsc" {
 				policy = "optional"
 			}
+			if feature == "svm" {
+				hasSvm = true
+			}
 			features[i] = virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
 			}
+		}
+		if !hasSvm {
+			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
 		}
 		cpu.Features = features
 	default:
