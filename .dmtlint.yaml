@@ -48,6 +48,8 @@ linters-settings:
         - kubevirt-internal-virtualization-controller
         - kubevirt-internal-virtualization-handler
   module:
+    oss:
+      disable: true
     exclude-rules:
       license:
         files:
