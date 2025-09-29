@@ -255,21 +255,16 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
 	}
 
-	var originalVD virtv2.VirtualDisk
-	err = s.client.Get(ctx, types.NamespacedName{Name: vdSnapshot.Spec.VirtualDiskName, Namespace: vdSnapshot.Namespace}, &originalVD)
-	if err != nil {
-		return fmt.Errorf("cannot fetch original virtual disk %q: %w", vdSnapshot.Spec.VirtualDiskName, err)
-	}
-
-	if originalVD.Status.Target.PersistentVolumeClaim == "" {
+	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
+	if pvcName == "" {
 		// Can't determine original PVC, skip validation
 		return nil
 	}
 
 	var originalPVC corev1.PersistentVolumeClaim
-	err = s.client.Get(ctx, types.NamespacedName{Name: originalVD.Status.Target.PersistentVolumeClaim, Namespace: vdSnapshot.Namespace}, &originalPVC)
+	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
 	if err != nil {
-		return fmt.Errorf("cannot fetch original PVC %q: %w", originalVD.Status.Target.PersistentVolumeClaim, err)
+		return fmt.Errorf("cannot fetch original PVC %q: %w", pvcName, err)
 	}
 
 	originalProvisioner := originalPVC.Annotations[annotations.AnnStorageProvisioner]
