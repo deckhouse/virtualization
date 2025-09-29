@@ -12,7 +12,7 @@ The error might be a bug in libvirt when it compares features after resolving th
 need to investigate).
 
 The current approach is to use qemu64 model for Discovery and Features types. This model contains a small
-set of features and migration works well. Changed from kvm64 to qemu64 to improve compatibility with AMD CPUs.
+set of features and migration works well. (We choose qemu64 over the kvm64 because of better compatibility with AMD CPUs).
 
 ## Solution
 
