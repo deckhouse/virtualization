@@ -254,10 +254,6 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 		originalSCName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
 	}
 
-	if targetSCName == originalSCName {
-		return nil
-	}
-
 	var targetSC storagev1.StorageClass
 	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
 	if err != nil {
