@@ -249,30 +249,30 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 
 	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
 
-	originalSCName := vs.Annotations[annotations.AnnStorageClassName]
-	if originalSCName == "" {
-		originalSCName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
-	}
-
 	var targetSC storagev1.StorageClass
 	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
 	if err != nil {
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
 	}
 
-	var originalSC storagev1.StorageClass
-	err = s.client.Get(ctx, types.NamespacedName{Name: originalSCName}, &originalSC)
-	if err != nil {
-		return fmt.Errorf("cannot fetch original storage class %q: %w", originalSCName, err)
+	if vs.Status == nil || vs.Status.BoundVolumeSnapshotContentName == nil {
+		return fmt.Errorf("volume snapshot %q is not bound to content", vs.Name)
 	}
 
-	if targetSC.Provisioner != originalSC.Provisioner {
+	var vsc vsv1.VolumeSnapshotContent
+	err = s.client.Get(ctx, types.NamespacedName{Name: *vs.Status.BoundVolumeSnapshotContentName}, &vsc)
+	if err != nil {
+		return fmt.Errorf("cannot fetch volume snapshot content %q: %w", *vs.Status.BoundVolumeSnapshotContentName, err)
+	}
+
+	originalProvisioner := vsc.Spec.Driver
+
+	if targetSC.Provisioner != originalProvisioner {
 		return fmt.Errorf(
 			"cannot restore snapshot to storage class %q: incompatible storage providers. "+
-				"Original disk uses %q (provisioner: %s), target uses %q (provisioner: %s). "+
+				"Original snapshot was created by %q, target storage class uses %q. "+
 				"Cross-provider snapshot restore is not supported",
-			targetSCName, originalSCName, originalSC.Provisioner,
-			targetSCName, targetSC.Provisioner,
+			targetSCName, originalProvisioner, targetSC.Provisioner,
 		)
 	}
 
