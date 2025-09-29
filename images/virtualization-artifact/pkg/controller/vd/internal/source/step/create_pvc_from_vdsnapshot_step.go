@@ -104,7 +104,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 		return &reconcile.Result{}, nil
 	}
 
-	if err := s.validateStorageClassCompatibility(ctx, vd, vs); err != nil {
+	if err := s.validateStorageClassCompatibility(ctx, vd, vdSnapshot, vs); err != nil {
 		vd.Status.Phase = virtv2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
@@ -242,7 +242,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.V
 	}
 }
 
-func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) error {
+func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *virtv2.VirtualDisk, vdSnapshot *virtv2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {
 	if vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "" {
 		return nil
 	}
@@ -255,17 +255,32 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
 	}
 
-	if vs.Status == nil || vs.Status.BoundVolumeSnapshotContentName == nil {
-		return fmt.Errorf("volume snapshot %q is not bound to content", vs.Name)
-	}
-
-	var vsc vsv1.VolumeSnapshotContent
-	err = s.client.Get(ctx, types.NamespacedName{Name: *vs.Status.BoundVolumeSnapshotContentName}, &vsc)
+	var originalVD virtv2.VirtualDisk
+	err = s.client.Get(ctx, types.NamespacedName{Name: vdSnapshot.Spec.VirtualDiskName, Namespace: vdSnapshot.Namespace}, &originalVD)
 	if err != nil {
-		return fmt.Errorf("cannot fetch volume snapshot content %q: %w", *vs.Status.BoundVolumeSnapshotContentName, err)
+		return fmt.Errorf("cannot fetch original virtual disk %q: %w", vdSnapshot.Spec.VirtualDiskName, err)
 	}
 
-	originalProvisioner := vsc.Spec.Driver
+	if originalVD.Status.Target.PersistentVolumeClaim == "" {
+		// Can't determine original PVC, skip validation
+		return nil
+	}
+
+	var originalPVC corev1.PersistentVolumeClaim
+	err = s.client.Get(ctx, types.NamespacedName{Name: originalVD.Status.Target.PersistentVolumeClaim, Namespace: vdSnapshot.Namespace}, &originalPVC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch original PVC %q: %w", originalVD.Status.Target.PersistentVolumeClaim, err)
+	}
+
+	originalProvisioner := originalPVC.Annotations[annotations.AnnStorageProvisioner]
+	if originalProvisioner == "" {
+		originalProvisioner = originalPVC.Annotations[annotations.AnnStorageProvisionerDeprecated]
+	}
+
+	if originalProvisioner == "" {
+		// Can't determine original provisioner, skip validation
+		return nil
+	}
 
 	if targetSC.Provisioner != originalProvisioner {
 		return fmt.Errorf(
