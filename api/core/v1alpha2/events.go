@@ -150,4 +150,7 @@ const (
 
 	// ReasonVMClassNodesWereUpdated is event reason indicating that VMClass available nodes list was updated.
 	ReasonVMClassNodesWereUpdated = "NodesWereUpdated"
+
+	// ReasonVolumeMigrationCannotBeProcessed is event reason indicating that volume migration cannot be processed.
+	ReasonVolumeMigrationCannotBeProcessed = "VolumeMigrationCannotBeProcessed"
 )

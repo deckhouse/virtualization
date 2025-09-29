@@ -1,0 +1,62 @@
+- name: virtualization.vm.node
+  rules:
+    - alert: KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown
+      expr: |
+        (
+          kube_node_status_condition{condition="GracefulShutdownPostpone", status="true"} == 1
+          and on(node)
+          sum by (node) (d8_virtualization_virtualmachine_status_phase{phase="Running"}) > 0
+        )
+      labels:
+        severity_level: "6"
+        tier: cluster
+      for: 5m
+      annotations:
+        plk_protocol_extent_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__node_maintenance: "NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__node_maintenance: "NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Node is awaiting workload evacuation before safe shutdown.
+        description: |
+          The node `{{ $labels.node }}` has activated graceful shutdown
+          protection and **cannot be safely powered off** until workloads (e.g.,
+          VirtualMachines) are eviction.
+
+          ### What Is Happening?
+
+          A shutdown request was issued, but the system intercepted it to prevent data loss or VM downtime.
+          The `GracefulShutdownPostpone` condition is now active — this means:
+          - The node is **intentionally blocking abrupt power-off**.
+          - You must **manually evict VirtualMachines** before proceeding.
+
+          This is expected behavior for nodes running VMs and ensures safe maintenance.
+
+          ### Required Action
+
+          To proceed with node shutdown:
+
+          1. **List VMs running on the node and check if they are migratable**:
+            ```bash
+            d8 k get virtualmachine -A -o jsonpath="{range .items[?(@.status.nodeName==\"{{ $labels.node }}\")]}{.metadata.namespace}/{.metadata.name}{\"\t\"}Migratable={.status.conditions[?(@.type==\"Migratable\")].status}{\"\n\"}{end}"
+            ```
+            This command shows a list like:
+            ```bash
+            default/vm-name	Migratable=True
+            prod/vm-beta    Migratable=False
+            ```
+          2. **For each VM**:
+            **If Migratable=True**, **migrate the VM to another node**:
+            ```bash
+              d8 v evict <vm-name> -n <namespace>
+            ```
+            > This migrates the VM to another node without guest OS downtime.
+
+            **If Migratable=False**, **restart the VM**:
+            ```bash
+              d8 v restart <vm-name> -n <namespace>
+            ```
+            > This restarts the VM.
+            Some VMs cannot run on other nodes because they have specific storage or network requirements.
+            In such cases, these VMs must be stopped.
+
+          3. Once all VMs are migrated, restarted or stopped, the node will automatically continue shutting down.

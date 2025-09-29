@@ -41,7 +41,9 @@ packages:
 - zlib
 - libssh
 - zstd
+- libxml2
 - libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

@@ -96,6 +96,27 @@ func (v *VirtualMachineHandler) Override(rules []v1alpha2.NameReplacement) {
 	}
 }
 
+func (v *VirtualMachineHandler) Customize(prefix, suffix string) {
+	v.vm.Name = common.ApplyNameCustomization(v.vm.Name, prefix, suffix)
+
+	if v.vm.Spec.VirtualMachineIPAddress != "" {
+		v.vm.Spec.VirtualMachineIPAddress = common.ApplyNameCustomization(v.vm.Spec.VirtualMachineIPAddress, prefix, suffix)
+	}
+
+	if v.vm.Spec.Provisioning != nil && v.vm.Spec.Provisioning.UserDataRef != nil {
+		if v.vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
+			v.vm.Spec.Provisioning.UserDataRef.Name = common.ApplyNameCustomization(v.vm.Spec.Provisioning.UserDataRef.Name, prefix, suffix)
+		}
+	}
+
+	for i := range v.vm.Spec.BlockDeviceRefs {
+		if v.vm.Spec.BlockDeviceRefs[i].Kind != v1alpha2.DiskDevice {
+			continue
+		}
+		v.vm.Spec.BlockDeviceRefs[i].Name = common.ApplyNameCustomization(v.vm.Spec.BlockDeviceRefs[i].Name, prefix, suffix)
+	}
+}
+
 func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
@@ -117,6 +138,28 @@ func (v *VirtualMachineHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vm.Name, v.vm.Kind); err != nil {
+		return err
+	}
+
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
+		return fmt.Errorf("VirtualMachine with name %s already exists", v.vm.Name)
+	}
+
+	if err := v.validateImageDependencies(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -186,6 +229,32 @@ func (v *VirtualMachineHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *VirtualMachineHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	existed, err := object.FetchObject(ctx, vmKey, v.client, &v1alpha2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
+	if err := v.validateImageDependencies(ctx); err != nil {
+		return err
+	}
+
+	err = v.client.Create(ctx, v.vm)
+	if err != nil {
+		return fmt.Errorf("failed to create the `VirtualMachine`: %w", err)
+	}
+
 	return nil
 }
 

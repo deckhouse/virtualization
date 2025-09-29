@@ -75,7 +75,7 @@ altPackages:
 - qboot flex
 - filesystem
 - ipxe-roms-qemu
-- qemu-kvm-core shadow-utils sysvinit-utils
+- shadow-utils sysvinit-utils
 - hasher-provides-dev-kvm
 - python3 python3-dev
 - python3-module-pytest
@@ -107,16 +107,15 @@ altLibraries:
 - libsoundio-devel
 - libjpeg-devel libxkbcommon-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
-- libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
+- libvirglrenderer-devel libusb-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
 - libnfs-devel libseccomp-devel
 - libgnutls-devel
-- libudev-devel libmultipath-devel libblkio-devel libpmem-devel
+- libblkio-devel libpmem-devel
 - libdaxctl-devel
 - bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
-- libaio-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
 - glib2-devel
@@ -126,6 +125,7 @@ packages:
 - zlib zstd
 - libssh libssh2
 - openldap keyutils
+- xz lz4 lzo krb5
 - libpixman libpsl libpng libqpl rdma-core
 - pcre2
 - selinux
@@ -133,6 +133,9 @@ packages:
 - linux-pam
 - snappy
 - ngtcp2 libtasn1 ncurses
+- libaio
+- liburing libuserspace-rcu libunistring systemd
+- multipath-tools
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

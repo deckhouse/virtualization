@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -67,11 +68,18 @@ func GetClientFromRESTConfig(config *rest.Config) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	clientset, err := kubernetes.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
 	virtClient, err := versioned.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 	return &client{
+		Interface:   clientset,
 		config:      config,
 		shallowCopy: &shallowCopy,
 		restClient:  restClient,

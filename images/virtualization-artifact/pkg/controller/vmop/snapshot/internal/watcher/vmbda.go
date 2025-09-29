@@ -45,9 +45,10 @@ func (w VMBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controlle
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineBlockDeviceAttachment{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) []reconcile.Request {
-				restoreUID, hasRestoreAnnotation := vmbda.Annotations[annotations.AnnVMOPRestore]
+				// Use when we deleting VMBDA before creating new one. Order is important because VMBDA may have restore annotation from previous restore.
+				restoreUID, hasRestoreAnnotation := vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
 				if !hasRestoreAnnotation {
-					restoreUID, hasRestoreAnnotation = vmbda.Annotations[annotations.AnnVMOPRestoreDeleted]
+					restoreUID, hasRestoreAnnotation = vmbda.Annotations[annotations.AnnVMOPRestore]
 				}
 
 				if !hasRestoreAnnotation {

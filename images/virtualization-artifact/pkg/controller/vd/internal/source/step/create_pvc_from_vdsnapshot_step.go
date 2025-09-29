@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -118,7 +118,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 
 	vd.Status.Progress = "0%"
 	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
-	vd.Status.Target.PersistentVolumeClaim = pvc.Name
+	vdsupplements.SetPVCName(vd, pvc.Name)
 
 	s.AddOriginalMetadata(vd, vs)
 	return nil, nil
@@ -203,7 +203,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.V
 		}
 	}
 
-	pvcKey := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
+	pvcKey := vdsupplements.NewGenerator(vd).PersistentVolumeClaim()
 
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

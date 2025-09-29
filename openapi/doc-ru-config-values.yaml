@@ -109,11 +109,14 @@ properties:
         type: object
         description: |
           Селектор разрешенных классов хранения, которые можно использовать для виртуальных образов на PVC.
+        minProperties: 1
         properties:
           matchNames:
             type: array
+            minItems: 1
             items:
               type: string
+              minLength: 1
   virtualDisks:
     type: object
     description: |
@@ -127,11 +130,14 @@ properties:
         type: object
         description: |
           Селектор разрешенных классов хранения, используемых для виртуальных дисков.
+        minProperties: 1
         properties:
           matchNames:
             type: array
+            minItems: 1
             items:
               type: string
+              minLength: 1
   audit:
     type: object
     description: |

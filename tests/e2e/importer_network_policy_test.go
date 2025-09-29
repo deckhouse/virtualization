@@ -24,11 +24,12 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"github.com/deckhouse/virtualization/tests/e2e/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
 	var ns string
 
@@ -58,7 +59,8 @@ var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), 
 
 	Context("Project", func() {
 		It("creates project", func() {
-			config.PrepareProject(conf.TestData.ImporterNetworkPolicy)
+			//nolint:staticcheck // deprecated function is temporarily used
+			util.PrepareProject(conf.TestData.ImporterNetworkPolicy)
 
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ImporterNetworkPolicy + "/project"},

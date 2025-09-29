@@ -3,8 +3,8 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: fix/core/switch-kvm64-to-qemu64
-  3p-containerized-data-importer: v1.60.3-v12n.9
+  3p-kubevirt: v1.3.1-v12n.14
+  3p-containerized-data-importer: v1.60.3-v12n.10
   distribution: 2.8.3
 package:
   acl: v2.3.1
@@ -19,6 +19,7 @@ package:
   libgmp: 6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
+  libaio: libaio-0.3.113
   libaudit: v4.0.3
   libbrotli: v1.1.0
   libbsd: 0.12.2
@@ -30,6 +31,9 @@ package:
   libfuse3: fuse-3.16.2
   libffi: v3.5.2
   libgcrypt: libgcrypt-1.10.2
+  liburing: liburing-2.6
+  libuserspace-rcu: v0.14.0
+  libunistring: v1.3
   libxcrypt: v4.4.36
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
@@ -83,5 +87,10 @@ package:
   selinux: 3.6
   libslirp: v4.8.0
   snappy: 1.2.2 # libsnappy
+  systemd: v255
   zlib: v1.3.1
   zstd: v1.5.7
+  krb5: krb5-1.21.3-final
+  lz4: v1.9.4
+  lzo: lzo-2.10
+  xz: v5.4.5

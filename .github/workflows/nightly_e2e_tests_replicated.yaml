@@ -16,7 +16,7 @@ name: End-to-End tests + Replicated storage
 
 env:
   CSI: replicated.csi.storage.deckhouse.io
-  STORAGE_CLASS_NAME: linstor-thin-r1-immediate
+  STORAGE_CLASS_NAME: linstor-thin-r1
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.24.5"
   TIMEOUT: "2h"
@@ -49,8 +49,7 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
-          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
-          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+          go install tool
 
       - name: Install Deckhouse-cli
         run: |
@@ -80,7 +79,7 @@ jobs:
         if: always()
         with:
           name: resources_from_failed_tests
-          path: /tmp/e2e_failed__*
+          path: ${{ runner.temp }}/e2e_failed__*
           if-no-files-found: ignore
 
       - name: Save results

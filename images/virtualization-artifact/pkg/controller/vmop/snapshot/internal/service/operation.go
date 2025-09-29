@@ -34,13 +34,15 @@ type Operation interface {
 	IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy) bool
 	GetInProgressReason() vmopcondition.ReasonCompleted
 	IsInProgress() bool
-	IsComplete() bool
+	IsComplete() (bool, string)
 }
 
 func NewOperationService(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *v1alpha2.VirtualMachineOperation) (Operation, error) {
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeRestore:
 		return NewRestoreOperation(client, recorder, vmop), nil
+	case v1alpha2.VMOPTypeClone:
+		return NewCloneOperation(client, recorder, vmop), nil
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
 	}

@@ -1,0 +1,212 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ .ImageName }}
+  before: setup
+  includePaths:
+    - usr/lib64
+    - usr/include
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "systemd/systemd.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- gcc gcc-c++
+- make autoconf automake libtool pkgconfig
+- meson ninja-build
+- gettext-devel
+- git
+- gperf libpasswdqc-devel libseccomp-devel libmicrohttpd-devel
+- libcryptsetup-devel libiptables-devel libgpg-error-devel
+- libfido2-devel libtpm2-tss-devel libdw-devel python3-module-jinja2
+- python3-module-elftools
+- tree
+packages:
+- xz lz4 zlib zstd bzip2 openssl p11-kit libcurl libidn2 gnutls selinux libgcrypt
+- libcap util-linux swtpm libunistring libssh2
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+
+    /usr/bin/meson setup _build . \
+    -Doptimization=2 \
+    --prefix=/usr \
+    --bindir=/usr/bin \
+    --libdir=/usr/lib64 \
+    --wrap-mode=nodownload \
+    -Dmode=release \
+    -Dlink-udev-shared=false \
+    -Dlink-systemctl-shared=false \
+    -Dlink-networkd-shared=false \
+    -Dlink-timesyncd-shared=false \
+    -Dlink-journalctl-shared=false \
+    -Dlink-boot-shared=false \
+    -Dlink-portabled-shared=false \
+    -Dstandalone-binaries=true \
+    -Dxinitrcdir=/etc/X11/xinit.d \
+    -Dpamlibdir=/lib64/security \
+    -Dsplit-bin=true \
+    -Dsysvinit-path=/etc/rc.d/init.d \
+    -Dsysvrcnd-path=/etc/rc.d \
+    -Drc-local=/etc/rc.d/rc.local \
+    -Dinstall-sysconfdir=true \
+    -Dkernel-install=true \
+    -Dpamconfdir=/etc/pam.d \
+    -Ddebug-shell=/bin/bash \
+    -Dquotaon-path=/sbin/quotaon \
+    -Dquotacheck-path=/sbin/quotacheck \
+    -Dkmod-path=/bin/kmod \
+    -Dkexec-path=/sbin/kexec \
+    -Dsulogin-path=/sbin/sulogin \
+    -Dmount-path=/bin/mount \
+    -Dumount-path=/bin/umount \
+    -Dloadkeys-path=/bin/loadkeys \
+    -Dsetfont-path=/bin/setfont \
+    -Dtelinit-path=/sbin/telinit \
+    -Dnologin-path=/sbin/nologin \
+    -Dcompat-mutable-uid-boundaries=true \
+    -Dadm-gid=4 \
+    -Daudio-gid=81 \
+    -Dcdrom-gid=22 \
+    -Ddisk-gid=6 \
+    -Dkmem-gid=9 \
+    -Dlp-gid=7 \
+    -Dtty-gid=5 \
+    -Dusers-gid=100 \
+    -Dutmp-gid=72 \
+    -Dwheel-gid=10 \
+    -Dnobody-user=nobody \
+    -Dnobody-group=nobody \
+    -Dbump-proc-sys-fs-file-max=false \
+    -Dbump-proc-sys-fs-nr-open=false \
+    -Delfutils=enabled \
+    -Dpasswdqc=enabled \
+    -Dxz=enabled \
+    -Dzlib=enabled \
+    -Dbzip2=enabled \
+    -Dlz4=enabled \
+    -Dzstd=enabled \
+    -Dlibcryptsetup=enabled \
+    -Dtpm2=enabled \
+    -Dlogind=true \
+    -Dvconsole=true \
+    -Dinitrd=true \
+    -Dquotacheck=true \
+    -Drandomseed=true \
+    -Dcoredump=true \
+    -Dpstore=true \
+    -Dgcrypt=enabled \
+    -Dqrencode=disabled \
+    -Dmicrohttpd=enabled \
+    -Dgnutls=enabled \
+    -Dopenssl=enabled \
+    -Dp11kit=enabled \
+    -Dlibfido2=enabled \
+    -Dlibcurl=enabled \
+    -Dlibidn2=enabled \
+    -Dlibiptc=enabled \
+    -Dpolkit=enabled \
+    -Defi=true \
+    -Dvmspawn=enabled \
+    -Dsbat-distro=DVP \
+    -Dsbat-distro-generation=1 \
+    -Dsbat-distro-summary=DVP \
+    -Dsbat-distro-pkgname=systemd-boot-efi \
+    -Dsbat-distro-version={{ (split "v" $version)._1 }} \
+    -Dsbat-distro-url=https://github.com/systemd/systemd.git \
+    -Dhomed=enabled \
+    -Dnetworkd=true \
+    -Dresolve=true \
+    -Ddns-servers= \
+    -Dtimesyncd=true \
+    -Dntp-servers= \
+    -Dsysusers=true \
+    -Dbootloader=enabled \
+    -Dukify=enabled \
+    -Dfirstboot=false \
+    -Dseccomp=enabled \
+    -Dima=true \
+    -Dselinux=enabled \
+    -Dutmp=true \
+    -Dfirst-boot-full-preset=true \
+    -Ddefault-timeout-sec=45 \
+    -Ddefault-user-timeout-sec=45 \
+    -Doomd=true \
+    -Dsysupdate=disabled \
+    -Dstatus-unit-format-default=combined \
+    -Dfallback-hostname=localhost \
+    -Ddefault-dnssec=no \
+    -Ddefault-mdns=no \
+    -Ddefault-llmnr=yes \
+    -Ddefault-hierarchy=unified \
+    -Db_lto=true \
+    -Db_pie=true \
+    -Db_ndebug=false \
+    -Dman=disabled \
+    -Dcreate-log-dirs=false \
+    -Durlify=false \
+    -Dinstall-tests=false \
+    -Dversion-tag={{ (split "v" $version)._1 }} \
+    -Dcertificate-root=/etc/pki/tls \
+    -Ddocdir=/usr/share/doc/systemd-{{ (split "v" $version)._1 }}
+
+    DESTDIR=${OUTDIR} meson install -C _build
+
+    rm -rf $OUTDIR/usr/share
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -hp /out

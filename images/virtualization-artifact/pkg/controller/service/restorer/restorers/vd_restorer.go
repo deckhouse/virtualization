@@ -68,6 +68,10 @@ func (v *VirtualDiskHandler) Override(rules []v1alpha2.NameReplacement) {
 	v.vd.Name = common.OverrideName(v.vd.Kind, v.vd.Name, rules)
 }
 
+func (v *VirtualDiskHandler) Customize(prefix, suffix string) {
+	v.vd.Name = common.ApplyNameCustomization(v.vd.Name, prefix, suffix)
+}
+
 func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
@@ -93,6 +97,31 @@ func (v *VirtualDiskHandler) ValidateRestore(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vd.Name, v.vd.Kind); err != nil {
+		return err
+	}
+
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
+		vmName := v.getVirtualMachineName()
+		for _, attachment := range existed.Status.AttachedToVirtualMachines {
+			if attachment.Mounted && attachment.Name != vmName {
+				return fmt.Errorf("VirtualDisk with name %s attached to VirtualMachine %s", v.vd.Name, attachment.Name)
+			}
+		}
+
+		return fmt.Errorf("VirtualDisk with name %s already exists", v.vd.Name)
+	}
+
 	return nil
 }
 
@@ -152,6 +181,28 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 }
 
 func (v *VirtualDiskHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
+	err = v.client.Create(ctx, v.vd)
+	if err != nil {
+		return fmt.Errorf("failed to create the `VirtualDisk`: %w", err)
+	}
+
 	return nil
 }
 

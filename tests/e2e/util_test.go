@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 	"os"
@@ -42,12 +41,12 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -255,18 +254,19 @@ func GetObjects(resource kc.Resource, object client.ObjectList, opts kc.GetOptio
 	return nil
 }
 
-func ChmodFile(pathFile string, permission os.FileMode) {
+func ChmodFile(pathFile string, permission os.FileMode) error {
 	stats, err := os.Stat(pathFile)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if stats.Mode().Perm() != permission {
 		err = os.Chmod(pathFile, permission)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func WaitVMAgentReady(opts kc.WaitOptions) {
@@ -445,6 +445,20 @@ func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, erro
 	)
 }
 
+func GetWaitForFirstConsumerStorageClass() (*storagev1.StorageClass, error) {
+	scList := storagev1.StorageClassList{}
+	err := GetObjects(kc.ResourceStorageClass, &scList, kc.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	for _, sc := range scList.Items {
+		if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+			return &sc, nil
+		}
+	}
+	return nil, nil
+}
+
 func toIPNet(prefix netip.Prefix) *net.IPNet {
 	return &net.IPNet{
 		IP:   prefix.Masked().Addr().AsSlice(),
@@ -553,6 +567,10 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
 }
 
+func GetPhaseByVolumeBindingModeForTemplateSc() string {
+	return GetPhaseByVolumeBindingMode(conf.StorageClass.TemplateStorageClass)
+}
+
 func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
 	switch *sc.VolumeBindingMode {
 	case storagev1.VolumeBindingImmediate:
@@ -634,32 +652,31 @@ func StartVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmN
 }
 
 func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
+	GinkgoHelper()
+
 	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, vmNamespace, vmNames...)
 }
 
 func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
-	for _, vmName := range vmNames {
-		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vmName, suffix, label, vmopType))
-		Expect(err).NotTo(HaveOccurred())
-		var cmd strings.Builder
-		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", vmNamespace))
-		cmd.Write(vmop)
-		cmd.WriteString("EOF\n")
+	GinkgoHelper()
 
-		res := kubectl.RawCommand(cmd.String(), ShortWaitDuration)
-		Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
+	for _, vmName := range vmNames {
+		vmop := GenerateVMOPWithSuffix(vmName, vmNamespace, suffix, label, vmopType)
+		_, err := framework.GetClients().VirtClient().VirtualMachineOperations(vmNamespace).Create(context.TODO(), vmop, metav1.CreateOptions{})
+		Expect(err).NotTo(HaveOccurred())
 	}
 }
 
-func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+func GenerateVMOP(vmName, vmNamespace string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
 	return &virtv2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv2.SchemeGroupVersion.String(),
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
-			Labels: labels,
+			Name:      fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
+			Namespace: vmNamespace,
+			Labels:    labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
 			Type:           vmopType,
@@ -668,8 +685,8 @@ func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPT
 	}
 }
 
-func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
-	res := GenerateVMOP(vmName, labels, vmopType)
+func GenerateVMOPWithSuffix(vmName, vmNamespace, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	res := GenerateVMOP(vmName, vmNamespace, labels, vmopType)
 	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
 	return res
 }
@@ -714,26 +731,10 @@ func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
 	return ok && val == value
 }
 
-func IsContainerRestarted(podName, containerName, namespace string, startedAt metav1.Time) (bool, error) {
-	podObj := &corev1.Pod{}
-	err := GetObject(kc.ResourcePod, podName, podObj, kc.GetOptions{
-		Namespace: namespace,
-	})
-	if err != nil {
-		return false, fmt.Errorf("failed to obtain the pod object(this may be caused by restarting the pod: %s)", podName)
-	}
-	for _, cs := range podObj.Status.ContainerStatuses {
-		if cs.Name == containerName {
-			if cs.State.Running.StartedAt != startedAt {
-				return true, fmt.Errorf("the container %q was restarted: %s", containerName, podName)
-			} else {
-				return false, nil
-			}
-		}
-	}
-	return false, fmt.Errorf("failed to compare the `startedAt` field before and after the tests ran: %s", podName)
-}
-
+// SaveTestResources dump some resources that may help in further diagnostic.
+//
+// NOTE: This method is called in AfterEach for failed specs only. Avoid to use Expect,
+// as it fails without reporting. Better use GinkgoWriter to report errors at this point.
 func SaveTestResources(labels map[string]string, additional string) {
 	replacer := strings.NewReplacer(
 		" ", "_",
@@ -743,16 +744,35 @@ func SaveTestResources(labels map[string]string, additional string) {
 		"(", "_",
 		")", "_",
 		"|", "_",
+		"`", "",
+		"'", "",
 	)
 	additional = replacer.Replace(strings.ToLower(additional))
 
-	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
+	tmpDir := os.Getenv("RUNNER_TEMP")
+	if tmpDir == "" {
+		tmpDir = "/tmp"
+	}
+	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", tmpDir, labels["testcase"], additional)
+	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", tmpDir, labels["testcase"], additional)
 
-	cmdr := kubectl.Get("virtualization,intvirt -A", kc.GetOptions{Output: "yaml", Labels: labels})
-	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
+	cmdr := kubectl.Get("virtualization,intvirt,po,volumesnapshot -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	if cmdr.Error() != nil {
+		errReport := fmt.Sprintf("cmd: %s\nerror: %s\nstderr: %s\n", cmdr.GetCmd(), cmdr.Error(), cmdr.StdErr())
+		GinkgoWriter.Printf("Get resources error:\n%s\n", errReport)
+		err := os.WriteFile(errorFileName, []byte(errReport), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Save error to file '%s' failed: %s\n", errorFileName, err)
+		}
+	}
 
-	err := os.WriteFile(str, cmdr.StdOutBytes(), 0o644)
-	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
+	// Stdout may present even if error is occurred.
+	if len(cmdr.StdOutBytes()) > 0 {
+		err := os.WriteFile(resFileName, cmdr.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", errorFileName, err)
+		}
+	}
 }
 
 type Watcher interface {
@@ -794,13 +814,13 @@ func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts
 
 func CreateResource(ctx context.Context, obj client.Object) {
 	GinkgoHelper()
-	err := crClient.Create(ctx, obj)
+	err := framework.GetClients().GenericClient().Create(ctx, obj)
 	Expect(err).NotTo(HaveOccurred())
 }
 
 func DeleteResource(ctx context.Context, obj client.Object) {
 	GinkgoHelper()
-	err := crClient.Delete(ctx, obj)
+	err := framework.GetClients().GenericClient().Delete(ctx, obj)
 	Expect(err).NotTo(HaveOccurred())
 }
 

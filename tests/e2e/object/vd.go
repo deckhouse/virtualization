@@ -17,11 +17,13 @@ limitations under the License.
 package object
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewVDFromCVI(prefix, namespace string, cvi *virtv2.ClusterVirtualImage) *virtv2.VirtualDisk {
+func NewGeneratedVDFromCVI(prefix, namespace string, cvi *virtv2.ClusterVirtualImage) *virtv2.VirtualDisk {
 	return vd.New(
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
@@ -29,12 +31,44 @@ func NewVDFromCVI(prefix, namespace string, cvi *virtv2.ClusterVirtualImage) *vi
 	)
 }
 
-func NewHTTPVDUbuntu(prefix, namespace string) *virtv2.VirtualDisk {
+func NewVDFromCVI(name, namespace string, cvi *virtv2.ClusterVirtualImage) *virtv2.VirtualDisk {
+	return vd.New(
+		vd.WithName(name),
+		vd.WithNamespace(namespace),
+		vd.WithDataSourceObjectRefFromCVI(cvi),
+	)
+}
+
+func NewGeneratedVDFromVI(prefix, namespace string, vi *virtv2.VirtualImage) *virtv2.VirtualDisk {
+	return vd.New(
+		vd.WithGenerateName(prefix),
+		vd.WithNamespace(namespace),
+		vd.WithDataSourceObjectRefFromVI(vi),
+	)
+}
+
+func NewVDFromVI(name, namespace string, vi *virtv2.VirtualImage) *virtv2.VirtualDisk {
+	return vd.New(
+		vd.WithName(name),
+		vd.WithNamespace(namespace),
+		vd.WithDataSourceObjectRefFromVI(vi),
+	)
+}
+
+func NewBlankVD(name, namespace string, storageClass *string, size *resource.Quantity) *virtv2.VirtualDisk {
+	return vd.New(
+		vd.WithName(name),
+		vd.WithNamespace(namespace),
+		vd.WithPersistentVolumeClaim(storageClass, size),
+	)
+}
+
+func NewGeneratedHTTPVDUbuntu(prefix, namespace string) *virtv2.VirtualDisk {
 	return vd.New(
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceHTTP(
-			ubuntuHTTP,
+			UbuntuHTTP,
 			nil,
 			nil,
 		),

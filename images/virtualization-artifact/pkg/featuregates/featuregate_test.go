@@ -63,7 +63,7 @@ func TestNew(t *testing.T) {
 func testKnownFeatures(t *testing.T, gate featuregate.FeatureGate) {
 	t.Helper()
 	known := gate.KnownFeatures()
-	require.Len(t, known, 1+len(defaultFeatures))
+	require.Len(t, known, len(featureSpecs)+len(defaultFeatures))
 	for _, featureStr := range known {
 		parts := strings.Split(featureStr, "=")
 		require.NotEmpty(t, parts)
@@ -73,6 +73,7 @@ func testKnownFeatures(t *testing.T, gate featuregate.FeatureGate) {
 			continue
 		}
 
-		require.Equal(t, feature, string(SDN))
+		_, ok := featureSpecs[featuregate.Feature(feature)]
+		require.True(t, ok)
 	}
 }

@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -37,21 +38,21 @@ import (
 type Importer interface {
 	step.CreatePodStepImporter
 	step.ReadyContainerRegistryStepImporter
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	Protect(ctx context.Context, pod *corev1.Pod) error
 	Unprotect(ctx context.Context, pod *corev1.Pod) error
-	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 }
 
 type Uploader interface {
-	Start(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error)
-	GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error)
+	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 	Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
@@ -69,10 +70,10 @@ type Stat interface {
 
 type Bounder interface {
 	step.CreateBounderPodStepBounder
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 type Disk interface {
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
 }

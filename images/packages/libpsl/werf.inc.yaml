@@ -29,13 +29,12 @@ altPackages:
 - rpm-build-python3
 - libicu-devel
 - glib2-devel libgio-devel
-- libunistring-devel
 - gtk-doc xsltproc
 - publicsuffix-list
 - publicsuffix-list-dafsa
 - tree
 packages:
-- libidn2
+- libidn2 libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

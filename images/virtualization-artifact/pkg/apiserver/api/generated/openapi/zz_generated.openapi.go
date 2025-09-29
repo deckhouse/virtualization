@@ -82,6 +82,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage":                  schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                      schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskList":                            schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState":                  schema_virtualization_api_core_v1alpha2_VirtualDiskMigrationState(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                       schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":           schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshot":                        schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshot(ref),
@@ -136,6 +137,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState":               schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperation":                    schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization":  schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneCustomization(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneSpec":           schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":                schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationResource":            schema_virtualization_api_core_v1alpha2_VirtualMachineOperationResource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec":         schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreSpec(ref),
@@ -2494,6 +2497,56 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref common.Referenc
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualDiskMigrationState(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"sourcePVC": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source PersistentVolumeClaim name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"targetPVC": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Target PersistentVolumeClaim name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"result": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"startTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"endTimestamp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2911,11 +2964,18 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 							Format:      "",
 						},
 					},
+					"migrationState": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Migration information.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -4843,6 +4903,76 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref common.
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneCustomization(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineOperationCloneCustomization defines customization options for cloning.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namePrefix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NamePrefix adds a prefix to resource names during cloning. Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nameSuffix": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NameSuffix adds a suffix to resource names during cloning. Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineOperationCloneSpec defines the clone operation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"nameReplacement": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NameReplacement defines rules for renaming resources during cloning.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement"),
+									},
+								},
+							},
+						},
+					},
+					"customization": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Customization defines customization options for cloning.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization"),
+						},
+					},
+				},
+				Required: []string{"mode"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5009,12 +5139,18 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref com
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec"),
 						},
 					},
+					"clone": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clone defines the clone operation.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneSpec"),
+						},
+					},
 				},
 				Required: []string{"type", "virtualMachineName"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec"},
 	}
 }
 

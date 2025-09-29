@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -31,36 +32,38 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const (
-	VMDDiskPrefix  = "vd-"
-	VMIDiskPrefix  = "vi-"
-	CVMIDiskPrefix = "cvi-"
+	VDDiskPrefix  = "vd-"
+	VIDiskPrefix  = "vi-"
+	CVIDiskPrefix = "cvi-"
 )
 
-func GenerateVMDDiskName(name string) string {
-	return VMDDiskPrefix + name
+func GenerateVDDiskName(name string) string {
+	return VDDiskPrefix + name
 }
 
-func GenerateVMIDiskName(name string) string {
-	return VMIDiskPrefix + name
+func GenerateVIDiskName(name string) string {
+	return VIDiskPrefix + name
 }
 
-func GenerateCVMIDiskName(name string) string {
-	return CVMIDiskPrefix + name
+func GenerateCVIDiskName(name string) string {
+	return CVIDiskPrefix + name
 }
 
 func GetOriginalDiskName(prefixedName string) (string, virtv2.BlockDeviceKind) {
 	switch {
-	case strings.HasPrefix(prefixedName, VMDDiskPrefix):
-		return strings.TrimPrefix(prefixedName, VMDDiskPrefix), virtv2.DiskDevice
-	case strings.HasPrefix(prefixedName, VMIDiskPrefix):
-		return strings.TrimPrefix(prefixedName, VMIDiskPrefix), virtv2.ImageDevice
-	case strings.HasPrefix(prefixedName, CVMIDiskPrefix):
-		return strings.TrimPrefix(prefixedName, CVMIDiskPrefix), virtv2.ClusterImageDevice
+	case strings.HasPrefix(prefixedName, VDDiskPrefix):
+		return strings.TrimPrefix(prefixedName, VDDiskPrefix), virtv2.DiskDevice
+	case strings.HasPrefix(prefixedName, VIDiskPrefix):
+		return strings.TrimPrefix(prefixedName, VIDiskPrefix), virtv2.ImageDevice
+	case strings.HasPrefix(prefixedName, CVIDiskPrefix):
+		return strings.TrimPrefix(prefixedName, CVIDiskPrefix), virtv2.ClusterImageDevice
 	}
 
 	return prefixedName, ""
@@ -147,7 +150,7 @@ func ApplyVirtualMachineSpec(
 
 			vi := viByName[bd.Name]
 
-			name := GenerateVMIDiskName(bd.Name)
+			name := GenerateVIDiskName(bd.Name)
 			switch vi.Spec.Storage {
 			case virtv2.StorageKubernetes,
 				virtv2.StoragePersistentVolumeClaim:
@@ -179,7 +182,7 @@ func ApplyVirtualMachineSpec(
 
 			cvi := cviByName[bd.Name]
 
-			name := GenerateCVMIDiskName(bd.Name)
+			name := GenerateCVIDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
 				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
@@ -194,14 +197,16 @@ func ApplyVirtualMachineSpec(
 			// VirtualDisk is attached as a regular disk.
 
 			vd := vdByName[bd.Name]
+
+			pvcName := vd.Status.Target.PersistentVolumeClaim
 			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
-			if vd.Status.Target.PersistentVolumeClaim == "" {
+			if pvcName == "" {
 				continue
 			}
 
-			name := GenerateVMDDiskName(bd.Name)
+			name := GenerateVDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
+				PersistentVolumeClaim: pointer.GetPointer(pvcName),
 				Serial:                GenerateSerialFromObject(vd),
 				BootOrder:             bootOrder,
 			}); err != nil {
@@ -249,6 +254,44 @@ func ApplyVirtualMachineSpec(
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func ApplyMigrationVolumes(kvvm *KVVM, vm *virtv2.VirtualMachine, vdsByName map[string]*virtv2.VirtualDisk) error {
+	bootOrder := uint(1)
+	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
+
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if bd.Kind != virtv2.DiskDevice {
+			bootOrder++
+			continue
+		}
+
+		vd := vdsByName[bd.Name]
+
+		var pvcName string
+		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+		if migrating.Status == metav1.ConditionTrue && conditions.IsLastUpdated(migrating, vd) && vd.Status.MigrationState.TargetPVC != "" {
+			pvcName = vd.Status.MigrationState.TargetPVC
+			updateVolumesStrategy = ptr.To(virtv1.UpdateVolumesStrategyMigration)
+		}
+		if pvcName == "" {
+			continue
+		}
+
+		name := GenerateVDDiskName(bd.Name)
+		if err := kvvm.SetDisk(name, SetDiskOptions{
+			PersistentVolumeClaim: pointer.GetPointer(pvcName),
+			Serial:                GenerateSerialFromObject(vd),
+			BootOrder:             bootOrder,
+		}); err != nil {
+			return err
+		}
+		bootOrder++
+	}
+
+	kvvm.SetUpdateVolumesStrategy(updateVolumesStrategy)
+
 	return nil
 }
 

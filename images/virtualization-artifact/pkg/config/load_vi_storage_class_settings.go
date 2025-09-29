@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -36,9 +37,12 @@ type VirtualImageStorageClassSettings struct {
 	StorageClassName         string
 }
 
-func LoadVirtualImageStorageClassSettings() VirtualImageStorageClassSettings {
+func LoadVirtualImageStorageClassSettings() (VirtualImageStorageClassSettings, error) {
 	var allowedStorageClassNames []string
-	allowedStorageClassNamesRaw := os.Getenv(VirtualImageAllowedStorageClasses)
+	allowedStorageClassNamesRaw, exists := os.LookupEnv(VirtualImageAllowedStorageClasses)
+	if exists && allowedStorageClassNamesRaw == "" {
+		return VirtualImageStorageClassSettings{}, fmt.Errorf("%s is empty. Specify valid StorageClass names or remove the restriction", VirtualImageAllowedStorageClasses)
+	}
 	if allowedStorageClassNamesRaw != "" {
 		allowedStorageClassNames = strings.Split(allowedStorageClassNamesRaw, ",")
 	}
@@ -47,5 +51,5 @@ func LoadVirtualImageStorageClassSettings() VirtualImageStorageClassSettings {
 		AllowedStorageClassNames: allowedStorageClassNames,
 		DefaultStorageClassName:  os.Getenv(VirtualImageDefaultStorageClass),
 		StorageClassName:         os.Getenv(VirtualImageStorageClass),
-	}
+	}, nil
 }

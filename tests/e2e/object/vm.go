@@ -31,7 +31,8 @@ func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *virtv2.VirtualMa
 		vm.WithCPU(1, ptr.To("100%")),
 		vm.WithMemory(*resource.NewQuantity(Mi256, resource.BinarySI)),
 		vm.WithLiveMigrationPolicy(virtv2.AlwaysSafeMigrationPolicy),
-		vm.WithVirtualMachineClass(defaultVMClass),
+		vm.WithVirtualMachineClass(DefaultVMClass),
+		vm.WithProvisioningUserData(DefaultCloudInit),
 	}
 	baseOpts = append(baseOpts, opts...)
 	return vm.New(baseOpts...)

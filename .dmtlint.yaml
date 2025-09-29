@@ -1,3 +1,7 @@
+global:
+  linters-settings:
+    documentation:
+      impact: error
 linters-settings:
   openapi:
     exclude-rules:
