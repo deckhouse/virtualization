@@ -17,7 +17,7 @@ name: Nightly End-to-End tests report
 env:
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.24.5"
-  TIMEOUT: "2h"
+  TIMEOUT: "4h"
 
 on:
   workflow_dispatch:
