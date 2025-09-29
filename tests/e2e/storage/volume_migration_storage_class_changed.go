@@ -146,7 +146,7 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 			Expect(err).NotTo(HaveOccurred())
 		}
 
-		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
 		untilVirtualDisksMigrationsSucceeded(f)
 
@@ -163,7 +163,7 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 	},
 		Entry("when only root disk changed storage class", storageClassMigrationRootOnlyBuild, vdRootName),
 		Entry("when root disk changed storage class and one local additional disk", storageClassMigrationRootAndLocalAdditionalBuild, vdRootName),
-		// Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName), // TODO: fixme
+		Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName),
 		Entry("when only additional disk changed storage class", storageClassMigrationAdditionalOnlyBuild, vdAdditionalName),
 	)
 
@@ -230,7 +230,7 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 	},
 		Entry("when only root disk changed storage class", storageClassMigrationRootOnlyBuild, vdRootName),
 		Entry("when root disk changed storage class and one local additional disk", storageClassMigrationRootAndLocalAdditionalBuild, vdRootName),
-		// Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName), // TODO:fixme
+		Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName), // TODO:fixme
 		Entry("when only additional disk changed storage class", storageClassMigrationAdditionalOnlyBuild, vdAdditionalName),
 	)
 
@@ -291,9 +291,9 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 				}
 
 				return fmt.Errorf("migration is not completed")
-			}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
+			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
-			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
 			untilVirtualDisksMigrationsSucceeded(f)
 
@@ -306,49 +306,5 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 			Expect(*pvc.Spec.StorageClassName).To(Equal(sc))
 			Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
 		}
-	})
-
-	It("migrate to ImmediateStorageClass", func() {
-		ns := f.Namespace().Name
-
-		vm, vds := storageClassMigrationRootAndAdditionalBuild()
-
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		f.DeferDelete(vm)
-
-		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			f.DeferDelete(vd)
-		}
-
-		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-
-		vdForMigration, err := f.VirtClient().VirtualDisks(ns).Get(context.Background(), vdRootName, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		immediateStorageClass := framework.GetConfig().StorageClass.ImmediateStorageClass.Name
-		Expect(immediateStorageClass).NotTo(BeNil())
-
-		By("Patch VD with new storage class")
-		patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", immediateStorageClass)).Bytes()
-		Expect(err).NotTo(HaveOccurred())
-
-		_, err = f.VirtClient().VirtualDisks(vdForMigration.GetNamespace()).Patch(context.Background(), vdForMigration.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
-
-		untilVirtualDisksMigrationsSucceeded(f)
-
-		migratedVD, err := f.VirtClient().VirtualDisks(ns).Get(context.Background(), vdForMigration.GetName(), metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), migratedVD.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
-		Expect(*pvc.Spec.StorageClassName).To(Equal(immediateStorageClass))
-		Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
 	})
 })

@@ -37,6 +37,7 @@ import (
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
+	By("Wait until VM agent is ready")
 	Eventually(func() error {
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 		if err != nil {
