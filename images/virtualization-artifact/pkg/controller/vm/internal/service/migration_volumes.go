@@ -110,7 +110,13 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		return reconcile.Result{}, nil
 	}
 
-	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInCluster.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
+	// The pull policy for container disks are only set on the VMI spec and not on the VM spec.
+	// In order to correctly compare the volumes set, we need to set the pull policy on the VM spec as well.
+	kvvmInClusterCopy := kvvmInCluster.DeepCopy()
+	s.fillContainerDiskImagePullPolicies(kvvmInClusterCopy, kvvmiInCluster)
+	s.fillContainerDiskImagePullPolicies(builtKVVM, kvvmiInCluster)
+
+	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
 		// kubevirt does not sync volumes with kvvmi yet
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
@@ -199,6 +205,14 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	return reconcile.Result{}, nil
 }
 
+func getVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {
+	volumes := map[string]*virtv1.Volume{}
+	for _, vol := range vmiSpec.Volumes {
+		volumes[vol.Name] = vol.DeepCopy()
+	}
+	return volumes
+}
+
 // if any volume in kvvmi is not exists in readWriteOnceDisks or storageClassChangedDisks,
 // this indicates that
 func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstance, readWriteOnceDisks, storageClassChangedDisks map[string]*v1alpha2.VirtualDisk) bool {
@@ -230,7 +244,7 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 		return err
 	}
 
-	logger.FromContext(ctx).Debug("Patch kvvm with migration volumes.", slog.String("patch", string(patchBytes)))
+	logger.FromContext(ctx).Info("The volume migration is detected: patch volumes", slog.String("patch", string(patchBytes)))
 
 	err = s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
 	return err
@@ -261,10 +275,15 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 		return false, nil
 	}
 
-	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInCluster.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
+	// The pull policy for container disks are only set on the VMI spec and not on the VM spec.
+	// In order to correctly compare the volumes set, we need to set the pull policy on the VM spec as well.
+	kvvmInClusterCopy := kvvmInCluster.DeepCopy()
+	s.fillContainerDiskImagePullPolicies(kvvmInClusterCopy, kvvmiInCluster)
+
+	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
 		log.Info("kvvmi volumes are not synced yet")
-		log.Debug("", slog.Any("kvvmi", kvvmInCluster.Spec.Template.Spec.Volumes), slog.Any("kvvmi", kvvmiInCluster.Spec.Volumes))
+		log.Debug("", slog.Any("kvvmi", kvvmInClusterCopy.Spec.Template.Spec.Volumes), slog.Any("kvvmi", kvvmiInCluster.Spec.Volumes))
 		return false, nil
 	}
 
@@ -440,21 +459,42 @@ func (s MigrationVolumesService) getReadyTargetPVCs(ctx context.Context, disks m
 	return targetPVCs, nil
 }
 
+func (s MigrationVolumesService) fillContainerDiskImagePullPolicies(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+	volsVMI := getVolumesByName(&kvvmi.Spec)
+	for i, volume := range kvvm.Spec.Template.Spec.Volumes {
+		if volume.ContainerDisk == nil {
+			continue
+		}
+		vmiVol, ok := volsVMI[volume.Name]
+		if !ok {
+			continue
+		}
+		if vmiVol.ContainerDisk == nil {
+			continue
+		}
+		kvvm.Spec.Template.Spec.Volumes[i].ContainerDisk.ImagePullPolicy = vmiVol.ContainerDisk.ImagePullPolicy
+	}
+}
+
 func (s MigrationVolumesService) makeKVVMFromVirtualMachineSpec(ctx context.Context, vmState state.VirtualMachineState) (*virtv1.VirtualMachine, *virtv1.VirtualMachine, error) {
 	kvvm, err := s.makeKVVMFromSpec(ctx, vmState)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	kvvmBuilder := kvbuilder.NewKVVM(kvvm.DeepCopy(), kvbuilder.DefaultOptions(vmState.VirtualMachine().Current()))
 	vdByName, err := vmState.VirtualDisksByName(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	err = kvbuilder.ApplyMigrationVolumes(kvvmBuilder, vmState.VirtualMachine().Changed(), vdByName)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	kvvmWithMigrationVolumes := kvvmBuilder.GetResource()
+
 	return kvvm, kvvmWithMigrationVolumes, nil
 }
 
