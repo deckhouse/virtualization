@@ -23,6 +23,8 @@ import (
 	"strings"
 	"sync"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -31,9 +33,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("VirtualDiskResizing", framework.CommonE2ETestDecorators(), func() {

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -28,9 +30,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), framework.CommonE2ETestDecorators(), func() {

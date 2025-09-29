@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -31,9 +33,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	"github.com/deckhouse/virtualization/tests/e2e/network"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 const (

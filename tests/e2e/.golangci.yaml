@@ -20,8 +20,6 @@ linters-settings:
     sections:
       - standard
       - default
-      - blank
-      - dot
       - prefix(github.com/deckhouse/)
   goimports:
     local-prefixes: github.com/deckhouse/

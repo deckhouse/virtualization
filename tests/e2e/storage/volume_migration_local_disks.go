@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"time"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -39,9 +41,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/object"
 	"github.com/deckhouse/virtualization/tests/e2e/util"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = SIGDescribe("Volume migration with local disks", framework.CommonE2ETestDecorators(), func() {
