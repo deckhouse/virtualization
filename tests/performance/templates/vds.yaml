@@ -7,22 +7,22 @@ metadata:
   labels:
     vms: {{ $.Values.resources.prefix }}
 spec:
-{{- if eq .Values.resources.vi.type "pvc" }}
+{{- if eq .Values.resources.virtualImage.spec.template.type "persistentVolumeClaim" }}
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     storageClassName: {{ $.Values.resources.storageClassName }}
   dataSource:
     type: "HTTP"
     http:
-      url: {{ $.Values.resources.vi.spec.baseImage.url }}
+      url: {{ $.Values.resources.virtualImage.spec.template.image.url }}
 {{- else }}
   storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
-      url: {{ $.Values.resources.vi.spec.baseImage.url }}
+      url: {{ $.Values.resources.virtualImage.spec.template.image.url }}
 {{- end }}
-{{- if ne .Values.resources.vd.spec.vd "vi" }}
+{{- if ne .Values.resources.virtualDisk.spec.template.type "virtualImage" }}
 {{- $count := (.Values.count | int) }}
 {{- range until $count  }}
 ---
@@ -35,7 +35,7 @@ metadata:
     vms: {{ $.Values.resources.prefix }}
 spec:
   persistentVolumeClaim:
-    size: {{ $.Values.resources.vd.spec.diskSize }}
+    size: {{ $.Values.resources.virtualDisk.spec.template.size }}
     {{- if $.Values.resources.storageClass }}
     storageClassName: {{ $.Values.resources.storageClass }}
     {{- end }}

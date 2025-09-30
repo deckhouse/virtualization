@@ -8,7 +8,8 @@
     - [Create Test Resources](#create-test-resources)
     - [Remove Resources](#remove-resources)
   - [🛠️ Tools](#️-tools)
-    - [Bootstrapper](#bootstrapper)
+    - [bootstrap](#bootstrap)
+    - [Taskfile Integration](#taskfile-integration)
     - [Shatal - VM Wobbling Tool](#shatal---vm-wobbling-tool)
     - [Evicter - Migration Tool](#evicter---migration-tool)
     - [Statistics - Statistics Collection](#statistics---statistics-collection)
@@ -43,7 +44,7 @@ A comprehensive framework for virtualization performance testing, including tool
 ### Core Components
 
 - **Helm Chart**: Resource management through Helm
-- **Bootstrapper**: Main script for creating/deleting test resources
+- **bootstrap**: Main script for creating/deleting test resources
 - **Shatal**: Virtual machine "wobbling" tool
 - **Evicter**: Continuous VM migration tool
 - **Statistics**: Performance statistics collection
@@ -56,13 +57,14 @@ performance/
 ├── templates/           # Kubernetes manifests
 ├── tools/              # Testing tools
 │   ├── evicter/        # VM migration
-│   └── ...
-├── shatal/             # VM migration tool via node drain
-├── statistic/          # Statistics collection
-├── status-access-vms/  # VM access and monitoring
-├── bootstrapper.sh     # Main script
-├── values.yaml         # Configuration
-└── Taskfile.yaml       # Task automation
+│   ├── shatal/         # VM migration tool via node drain
+│   ├── statistic/       # Statistics collection
+│   └── status-access-vms/  # VM access and monitoring
+├── monitoring/         # Grafana dashboards
+├── ssh/               # SSH keys for VM access
+├── bootstrap.sh      # Main script
+├── values.yaml        # Configuration
+└── Taskfile.yaml      # Task automation
 ```
 
 ## 🚀 Quick Start
@@ -108,16 +110,68 @@ task destroy:disks
 
 ## 🛠️ Tools
 
-### Bootstrapper
+### bootstrap
 
 Main script for managing test resources.
 
+**Available Flags:**
+- `--count, -c`: Number of virtual machines to create (required for apply)
+- `--namespace, -n`: Namespace for resources (default: current context namespace)
+- `--storage-class, -s`: Storage class for VM disks
+- `--name, -r`: Release name (default: performance)
+- `--resources, -R`: Resources to manage - 'disks', 'vms', or 'all' (default: all)
+- `--resources-prefix, -p`: Prefix for resource names (default: performance)
+
 ```bash
-# Create resources
-./bootstrapper.sh apply --count=10 --namespace=perf --storage-class=ceph-pool-r2-csi-rbd
+# Create resources (using long flags)
+./bootstrap.sh apply --count=10 --namespace=perf --storage-class=ceph-pool-r2-csi-rbd
+
+# Create resources (using short flags)
+./bootstrap.sh apply -c 10 -n perf -s ceph-pool-r2-csi-rbd
+
+# Create only disks
+./bootstrap.sh apply -c 5 -n perf -R disks -r performance-disks
+
+# Create only VMs (assuming disks exist)
+./bootstrap.sh apply -c 5 -n perf -R vms -r performance-vms
 
 # Remove resources
-./bootstrapper.sh destroy --namespace=perf --resources=all
+./bootstrap.sh destroy --namespace=perf --resources=all
+# or using short flags
+./bootstrap.sh destroy -n perf -R all
+
+# Remove specific resources
+./bootstrap.sh destroy -n perf -R vms -r performance-vms
+```
+
+### Taskfile Integration
+
+The framework includes comprehensive Taskfile integration for easy automation:
+
+**Available Tasks:**
+```bash
+# Basic operations
+task apply COUNT=10                    # Create 10 VMs
+task destroy                           # Remove all resources
+task apply:disks COUNT=5               # Create only disks
+task apply:vms COUNT=5                 # Create only VMs
+task destroy:disks                     # Remove only disks
+task destroy:vms                       # Remove only VMs
+
+# Two-step deployment
+task apply:all COUNT=30                # Create disks first, then VMs
+task destroy:all                       # Remove VMs first, then disks
+
+# Utility tasks
+task render                           # Preview Helm templates
+task help                             # Show bootstrap.sh help
+task check_or_install_software       # Install dependencies
+```
+
+**Environment Variables:**
+```bash
+# Set custom values
+COUNT=50 NAMESPACE=test STORAGE_CLASS=ceph-pool-r2-csi-rbd task apply
 ```
 
 ### Shatal - VM Wobbling Tool
@@ -132,7 +186,7 @@ Tool for continuous stress testing of virtual machines.
 
 **Usage:**
 ```bash
-cd shatal
+cd tools/shatal
 KUBECONFIG=$(cat ~/.kube/config | base64 -w 0)
 KUBECONFIG_BASE64=$KUBECONFIG task run
 ```
@@ -149,7 +203,7 @@ Continuous migration of a specified percentage of virtual machines.
 ### Statistics - Statistics Collection
 
 ```bash
-cd statistic
+cd tools/statistic
 task run
 ```
 
@@ -157,9 +211,17 @@ task run
 
 ### Grafana Dashboards
 
-- **Virtualization Dashboard**: General virtualization statistics
-- **Virtual Machine Dashboard**: Detailed VM statistics
-- **Ceph Dashboard**: Storage monitoring
+The monitoring directory contains pre-configured Grafana dashboards:
+
+- **virtualization-dashboard.yaml**: General virtualization statistics
+- **virtual-machine-dashboard.yaml**: Detailed VM statistics  
+- **ceph-dashboard.yaml**: Storage monitoring
+
+### SSH Access
+
+The `ssh/` directory contains SSH keys for VM access:
+- `id_ed`: Private SSH key
+- `id_ed.pub`: Public SSH key
 
 ### Prometheus Rules
 
@@ -226,10 +288,10 @@ resources:
 task apply COUNT=100
 
 # Start statistics collection
-cd statistic && task run
+cd tools/statistic && task run
 
 # Start wobbling tool
-cd shatal && task run
+cd tools/shatal && task run
 ```
 
 ### 2. Migration Testing
@@ -244,11 +306,11 @@ go run cmd/main.go --target=30 --duration=2h
 
 ```bash
 # Configure VM access through Ansible
-cd status-access-vms/ansible
+cd tools/status-access-vms/ansible
 task run
 
 # Start load testing
-cd status-access-vms/tank
+cd tools/status-access-vms/tank
 task run
 ```
 
@@ -276,11 +338,11 @@ cd tools/evicter
 go build -o evicter cmd/main.go
 
 # Build shatal
-cd shatal
+cd tools/shatal
 go build -o shatal cmd/shatal/main.go
 
 # Build statistic
-cd statistic
+cd tools/statistic
 go build -o stat cmd/stat/main.go
 ```
 
@@ -288,7 +350,7 @@ go build -o stat cmd/stat/main.go
 
 1. Create a new template in `templates/`
 2. Add configuration to `values.yaml`
-3. Update `bootstrapper.sh` if necessary
+3. Update `bootstrap.sh` if necessary
 4. Add tasks to `Taskfile.yaml`
 
 ## 📝 Usage Examples
@@ -303,10 +365,10 @@ kubectl create namespace perf
 task apply COUNT=50 NAMESPACE=perf
 
 # 3. Start monitoring
-cd statistic && task run
+cd tools/statistic && task run
 
 # 4. Start stress testing
-cd shatal && task run
+cd tools/shatal && task run
 ```
 
 ### Resource Cleanup
@@ -314,6 +376,62 @@ cd shatal && task run
 ```bash
 # Remove all resources from namespace
 task destroy NAMESPACE=perf
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**1. Helm Template Errors**
+```bash
+# If you get template errors, check the values structure
+helm template test . --values values.yaml
+
+# Debug with verbose output
+task apply COUNT=1 --verbose
+```
+
+**2. Resource Conflicts**
+```bash
+# If resources are stuck in terminating state
+kubectl delete virtualmachines --all -n perf --force --grace-period=0
+kubectl delete virtualdisks --all -n perf --force --grace-period=0
+
+# Clean up secrets
+kubectl delete secrets --all -n perf
+```
+
+**3. Namespace Issues**
+```bash
+# Check current namespace
+kubectl config view --minify -o jsonpath='{..namespace}'
+
+# Switch to correct namespace
+kubectl config set-context --current --namespace=perf
+```
+
+**4. Storage Class Issues**
+```bash
+# List available storage classes
+kubectl get storageclass
+
+# Use correct storage class
+task apply COUNT=5 STORAGE_CLASS=ceph-pool-r2-csi-rbd
+```
+
+### Debug Commands
+
+```bash
+# Check Helm releases
+helm list -n perf
+
+# Check resource status
+kubectl get all -n perf
+kubectl get virtualmachines -n perf
+kubectl get virtualdisks -n perf
+
+# Check logs
+kubectl logs -n perf -l app=performance
 ```
 
 ## 🤝 Contributing

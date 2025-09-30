@@ -21,22 +21,24 @@ Usage: $(basename "$0") COMMAND OPTIONS
 Commands:
   apply           Apply virtual machines.
                   Arguments:
-                  (Required) --count: count of virtual machines to create.
-                  (Optional) --namespace: namespace for virtual machines. If not defined - using default namespace.
-                  (Optional) --storage-class: storage-class for virtual machine disks. If not defined - using default SC.
-                  (Optional) --resources-prefix (default: performance): prefix to be used fo resource names.
+                  (Required) --count, -c: count of virtual machines to create.
+                  (Optional) --namespace, -n: namespace for virtual machines. If not defined - using default namespace.
+                  (Optional) --storage-class, -s: storage-class for virtual machine disks. If not defined - using default SC.
+                  (Optional) --resources-prefix, -p (default: performance): prefix to be used for resource names.
   ---
   destroy         Destroy set of virtual machines.
 
 Global Arguments:
-  --name (default: performance): name for release of virtual machine.
-  --resources: (default: 'all'): resources to manage. Possible values: 'disks', 'vms' or 'all'.
+  --name, -r (default: performance): name for release of virtual machine.
+  --resources, -R (default: 'all'): resources to manage. Possible values: 'disks', 'vms' or 'all'.
 
 Examples:
   Bootstrap:
     $(basename "$0") apply --count=1
+    $(basename "$0") apply -c 1 -n default -s ceph-pool-r2-csi-rbd
     $(basename "$0") apply --resources=disks --count=1 --namespace=default --storage-class=default
     $(basename "$0") destroy --resources=disks --namespace=default
+    $(basename "$0") destroy -R disks -n default
 EOF
 }
 
@@ -69,9 +71,9 @@ function validate_apply_args() {
 function apply() {
   echo "Apply resources: ${RESOURCES}"
 
-  args=( upgrade --install "${RELEASE_NAME}" . -n "${NAMESPACE}" --create-namespace --set "count=${COUNT}" --set "resourcesPrefix=${RESOURCES_PREFIX}" --set "resources=${RESOURCES}" )
+  args=( upgrade --install "${RELEASE_NAME}" . -n "${NAMESPACE}" --create-namespace --set "count=${COUNT}" --set "resourcesPrefix=${RESOURCES_PREFIX}" --set "resources.default=${RESOURCES}" )
   if [ -n "${STORAGE_CLASS}" ]; then
-      args+=( --set "storageClass=${STORAGE_CLASS}" )
+      args+=( --set "resources.storageClassName=${STORAGE_CLASS}" )
   fi
 
   helm "${args[@]}"
@@ -103,29 +105,53 @@ shift
 # Set naming variable
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --count=*)
+    --count=*|-c=*)
         COUNT="${1#*=}"
         shift
         ;;
-    --namespace=*)
+    -c)
+        COUNT="$2"
+        shift 2
+        ;;
+    --namespace=*|-n=*)
         NAMESPACE="${1#*=}"
         shift
         ;;
-    --storage-class=*)
+    -n)
+        NAMESPACE="$2"
+        shift 2
+        ;;
+    --storage-class=*|-s=*)
         STORAGE_CLASS="${1#*=}"
         shift
         ;;
-    --name=*)
+    -s)
+        STORAGE_CLASS="$2"
+        shift 2
+        ;;
+    --name=*|-r=*)
         RELEASE_NAME="${1#*=}"
         shift
         ;;
-    --resources=*)
+    -r)
+        RELEASE_NAME="$2"
+        shift 2
+        ;;
+    --resources=*|-R=*)
         RESOURCES="${1#*=}"
         shift
         ;;
-    --resources-prefix=*)
+    -R)
+        RESOURCES="$2"
+        shift 2
+        ;;
+    --resources-prefix=*|-p=*)
         RESOURCES_PREFIX="${1#*=}"
         shift
+        ;;
+    -p)
+        RESOURCES_PREFIX="$2"
+        shift 2
         ;;
     *)
         echo "ERROR: Invalid argument: $1"

@@ -4,31 +4,34 @@ resources:
   storageClassName: "ceph-pool-r2-csi-rbd"
   default: all # all, vms, vds, vi
   prefix: "performance"
-  vm:
-    # VM startup policy
-    # AlwaysOn - after creation the VM is always in a running state, even in case of its shutdown by OS means.
-    # AlwaysOff - after creation the VM is always in the off state.
-    # Manual - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
-    # AlwaysOnUnlessStoppedManually - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
-    runPolicy: AlwaysOnUnlessStoppedManually
-    virtualMachineClassName: generic
-    # Available values Dynamic, Manual or Automatic
-    # Dynamic - toggle between Manual and Automatic during VM creation to get 50/50 distribution.
-    restartApprovalMode: Dynamic
+  virtualMachine:
     spec:
-      cpu:
-        cores: 1
-        coreFraction: 10%
-      memory:
-        size: 256Mi
-  vd:
+      template:
+        # VM startup policy
+        # AlwaysOn - after creation the VM is always in a running state, even in case of its shutdown by OS means.
+        # AlwaysOff - after creation the VM is always in the off state.
+        # Manual - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
+        # AlwaysOnUnlessStoppedManually - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
+        runPolicy: AlwaysOnUnlessStoppedManually
+        virtualMachineClassName: generic
+        # Available values Dynamic, Manual or Automatic
+        # Dynamic - toggle between Manual and Automatic during VM creation to get 50/50 distribution.
+        restartApprovalMode: Dynamic
+        cpu:
+          cores: 1
+          coreFraction: 10%
+        memory:
+          size: 256Mi
+  virtualDisk:
     spec:
-      type: vd # vi or vd
-      diskSize: 300Mi
-  vi:
+      template:
+        type: virtualDisk # virtualImage or virtualDisk
+        size: 300Mi
+  virtualImage:
     spec:
-      # Virtual image type vi or pvc
-      type: vi
-      baseImage:
-        name: alpine
-        url: "https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-v3-20.qcow2"
+      template:
+      # Virtual image type virtualImage or persistentVolumeClaim
+        type: virtualImage
+        image:
+          name: alpine
+          url: "https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-v3-20.qcow2"

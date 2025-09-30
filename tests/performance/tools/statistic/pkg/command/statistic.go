@@ -52,9 +52,9 @@ csv files saved to current directory ./all-{vm/vd}-perf-2025-09-23_12-48-51.csv
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&namespace, "ns", "n", "perf", "namespace to look for the VMs,VDs, default 'perf'")
-	rootCmd.Flags().BoolVarP(&virtualmachine, "vm", "v", false, "get virtualmachine statistics")
-	rootCmd.Flags().BoolVarP(&virtualdisk, "vd", "d", false, "get virtualdisk statistics")
+	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "perf", "namespace to look for the VMs,VDs, default 'perf'")
+	rootCmd.Flags().BoolVarP(&virtualmachine, "virtualmachine", "v", false, "get virtualmachine statistics")
+	rootCmd.Flags().BoolVarP(&virtualdisk, "virtualdisk", "d", false, "get virtualdisk statistics")
 }
 
 func getStatistic(cmd *cobra.Command, args []string) {

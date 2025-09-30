@@ -42,7 +42,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&namespace, "ns", "n", "perf", "namespace to look for the VMs, default 'perf'")
+	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "perf", "namespace to look for the VMs, default 'perf'")
 	rootCmd.Flags().IntVarP(&target, "target", "t", 10, "target percentage for VM migration (1-100)")
 	rootCmd.Flags().StringVarP(&duration, "duration", "d", "0", "duration to run the migrator (e.g., '30m', '1h', '0' for infinite). Default '0' for infinite")
 }

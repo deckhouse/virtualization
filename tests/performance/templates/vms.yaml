@@ -10,12 +10,12 @@ metadata:
   labels:
     vms: {{ $.Values.resources.prefix }}
 spec:
-  runPolicy: {{ $.Values.resources.vm.runPolicy }}
+  runPolicy: {{ $.Values.resources.virtualMachine.spec.template.runPolicy }}
   enableParavirtualization: true
   disruptions:
     # To ensure an equal amount of virtual machines with Manual and Automatic modes during testing,
     # we create every second machine with Automatic mode.
-    {{- if eq $.Values.resources.vm.restartApprovalMode "Dynamic" }}
+    {{- if eq $.Values.resources.virtualMachine.spec.template.restartApprovalMode "Dynamic" }}
     {{-   if eq (mod . 2) 0 }}
     restartApprovalMode: Automatic
     {{-   else }}
@@ -26,17 +26,17 @@ spec:
     {{- end }}
   osType: Generic
   bootloader: BIOS
-  {{- with $.Values.resources.vm.spec.cpu }}
+  {{- with $.Values.resources.virtualMachine.spec.template.cpu }}
   cpu:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  {{- with $.Values.resources.vm.spec.memory }}
+  {{- with $.Values.resources.virtualMachine.spec.template.memory }}
   memory:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-  virtualMachineClassName: {{ $.Values.resources.vm.virtualMachineClassName | default "host" }}
+  virtualMachineClassName: {{ $.Values.resources.virtualMachine.spec.template.virtualMachineClassName | default "host" }}
   blockDeviceRefs:
-    {{- if eq $.Values.resources.vd.spec.type "vi" }}
+    {{- if eq $.Values.resources.virtualDisk.spec.template.type "virtualImage" }}
     - kind: VirtualImage
       name: {{ $.Values.resources.prefix }}
     {{- else }}

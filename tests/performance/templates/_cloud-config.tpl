@@ -17,7 +17,7 @@ users:
       {{- range .Values.sshAuthorizeKeys }}
       - {{.}}
       {{- end }}
-{{- if eq .Values.resources.vi.spec.baseImage.name "ubuntu" }}
+{{- if eq .Values.resources.virtualImage.spec.template.image.name "ubuntu" }}
 apt:
   sources_list: |
       deb http://mirror.yandex.ru/ubuntu jammy main restricted
