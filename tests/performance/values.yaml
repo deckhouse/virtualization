@@ -13,7 +13,7 @@ resources:
     runPolicy: AlwaysOnUnlessStoppedManually
     virtualMachineClassName: generic
     # Available values Dynamic, Manual or Automatic
-    # Dynamic - creates each second vm with Manual approval mode
+    # Dynamic - toggle between Manual and Automatic during VM creation to get 50/50 distribution.
     restartApprovalMode: Dynamic
     spec:
       cpu:
