@@ -8,7 +8,7 @@ vars:
   DURATION: '{{ .DURATION | default "0m" }}'
 
 tasks:
-  run:miration:
-    desc: "Run migration | NS=myns TARGET=10 task run:miration"
+  run:migration:
+    desc: "Run migration | NS=myns TARGET=10 task run:migration"
     cmds:
       - go run cmd/main.go -n {{.NS}} -t {{.TARGET}} -d {{ .DURATION }}
