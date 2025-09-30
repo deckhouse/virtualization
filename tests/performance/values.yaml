@@ -30,7 +30,7 @@ resources:
   virtualImage:
     spec:
       template:
-      # Virtual image type virtualImage or persistentVolumeClaim
+        # Virtual image type virtualImage or persistentVolumeClaim
         type: virtualImage
         image:
           name: alpine
