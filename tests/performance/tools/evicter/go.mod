@@ -3,7 +3,7 @@ module evicter
 go 1.23.3
 
 require (
-	github.com/deckhouse/virtualization/api v0.0.0-20241203125408-98da8646a9b8
+	github.com/deckhouse/virtualization/api v1.0.0
 	github.com/spf13/cobra v1.7.0
 	k8s.io/apimachinery v0.31.3
 	k8s.io/client-go v0.31.3
