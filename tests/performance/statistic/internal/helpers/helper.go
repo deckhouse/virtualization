@@ -87,6 +87,8 @@ func CreateKubeConfig() kubeclient.Client {
 	return client
 }
 
+// This format is required for processing output files in Excel.
+// Example: performance-7,0:3:1,0:0:11,0:3:34
 func DurationToString(d *metav1.Duration) string {
 	if d == nil {
 		return ""
