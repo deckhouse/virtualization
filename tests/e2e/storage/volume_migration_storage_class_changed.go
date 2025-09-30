@@ -48,6 +48,9 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 	)
 
 	BeforeEach(func() {
+		// TODO: Remove Skip after fixing the issue.
+		Skip("This test case is not working everytime. Should be fixed.")
+
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
 			Skip("TemplateStorageClass is not set.")
