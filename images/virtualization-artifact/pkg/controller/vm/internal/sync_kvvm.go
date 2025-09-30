@@ -279,6 +279,26 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	switch {
+	// This workaround is required due to a bug in the KVVM workflow.
+	// When a KVVM is created with a non-existent nodeSelector and cannot be scheduled,
+	// it remains unschedulable even if the nodeSelector is changed or removed.
+	case h.isVMUnschedulable(s.VirtualMachine().Current(), kvvm):
+		nodeSelectorChanged, err := h.isNodeSelectorChanged(ctx, s)
+		if err != nil {
+			return false, fmt.Errorf("failed to detect changes in internal virtual machine's nodeSelector: %w", err)
+		}
+		if nodeSelectorChanged {
+			err := h.updateKVVM(ctx, s)
+			if err != nil {
+				return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
+			}
+
+			err = object.DeleteObject(ctx, h.client, pod)
+			if err != nil {
+				return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
+			}
+		}
+		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
 		// KVVM must be updated when the VM is stopped because all its components,
 		//  like VirtualDisk and other resources,
@@ -658,4 +678,29 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 	log.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
 
 	return nil
+}
+
+func (h *SyncKvvmHandler) isVMUnschedulable(
+	vm *virtv2.VirtualMachine,
+	kvvm *virtv1.VirtualMachine,
+) bool {
+	if vm.Status.Phase == virtv2.MachinePending && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusUnschedulable {
+		return true
+	}
+
+	return false
+}
+
+func (h *SyncKvvmHandler) isNodeSelectorChanged(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	currentKvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
+	if err != nil {
+		return false, err
+	}
+
+	return !equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.NodeSelector, &newKvvm.Spec.Template.Spec.NodeSelector), nil
 }
