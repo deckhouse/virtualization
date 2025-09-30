@@ -341,7 +341,7 @@ func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions
 			res := kubectl.WaitResource(resource, name, waitOpts)
 			if res.Error() != nil {
 				mu.Lock()
-				waitErr = append(waitErr, fmt.Sprintf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()))
+				waitErr = append(waitErr, fmt.Sprintf("cmd: %s\nstderr: %s\nwaited for: %s", res.GetCmd(), res.StdErr(), opts.For))
 				mu.Unlock()
 			}
 		}()
