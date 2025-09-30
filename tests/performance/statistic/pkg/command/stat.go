@@ -36,7 +36,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "statistic",
 	Short: "get statistic for vm and vd in name space",
-	Long: `Get statistic from virtualmachine and virtualdisk form namespace, defaulr name space 'perf' and save to csv file
+	Long: `Get statistic from virtualmachine and virtualdisk in the namespace and save to csv file. Default namespace: 'perf'.
 
 Example output for avg statistics:
 
