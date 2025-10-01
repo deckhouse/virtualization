@@ -755,8 +755,7 @@ func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
 	}
 
 	SaveTestCaseResources(labels, additional, namespace, tmpDir)
-	SavePodLogs(labels, additional, namespace, tmpDir)
-	SavePodDescriptions(labels, additional, namespace, tmpDir)
+	SavePodLogsAndDescriptions(labels, additional, namespace, tmpDir)
 }
 
 func SaveTestCaseResources(labels map[string]string, additional, namespace, dumpPath string) {
@@ -789,42 +788,36 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 	}
 }
 
-func SavePodLogs(labels map[string]string, additional, namespace, dumpPath string) {
+func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
 	pods := &corev1.PodList{}
 	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Namespace: namespace, Labels: labels})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
 	}
 
+	if len(pods.Items) == 0 {
+		GinkgoWriter.Println("The list of pods is empty; nothing to dump.")
+	}
+
 	for _, pod := range pods.Items {
-		cmd := kubectl.RawCommand(fmt.Sprintf("logs %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
-		if cmd.Error() != nil {
-			GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %s\n", pod.Name, err)
+		logCmd := kubectl.RawCommand(fmt.Sprintf("logs %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
+		if logCmd.Error() != nil {
+			GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %s\n", pod.Name, logCmd.StdErr())
 		}
 
 		fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__logs.json", dumpPath, labels["testcase"], additional, pod.Name)
-		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+		err := os.WriteFile(fileName, logCmd.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nError: %s\n", pod.Name, err)
 		}
-	}
-}
 
-func SavePodDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
-	pods := &corev1.PodList{}
-	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Namespace: namespace, Labels: labels})
-	if err != nil {
-		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
-	}
-
-	for _, pod := range pods.Items {
-		cmd := kubectl.RawCommand(fmt.Sprintf("describe pod %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
-		if cmd.Error() != nil {
-			GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", pod.Name, err)
+		describeCmd := kubectl.RawCommand(fmt.Sprintf("describe pod %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
+		if describeCmd.Error() != nil {
+			GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", pod.Name, describeCmd.StdErr())
 		}
 
-		fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__describe", dumpPath, labels["testcase"], additional, pod.Name)
-		err := os.WriteFile(fileName, cmd.StdOutBytes(), 0o644)
+		fileName = fmt.Sprintf("%s/e2e_failed__%s__%s__%s__describe", dumpPath, labels["testcase"], additional, pod.Name)
+		err = os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %s\n", pod.Name, err)
 		}
