@@ -57,8 +57,30 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachineinstances/console
+  - virtualmachineinstances/vnc
+  - virtualmachineinstances/vnc/screenshot
+  - virtualmachineinstances/portforward
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
+  - virtualmachineinstances/sev/querylaunchmeasurement
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - subresources.virtualization.deckhouse.io
+  resources:
   - virtualmachines
-  - virtualmachineinstances
+  - virtualmachines/addvolume
+  - virtualmachines/cancelevacuation
+  - virtualmachines/console
+  - virtualmachines/freeze
+  - virtualmachines/portforward
+  - virtualmachines/removevolume
+  - virtualmachines/unfreeze
+  - virtualmachines/vnc
   verbs:
   - get
   - create
