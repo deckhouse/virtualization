@@ -25,9 +25,15 @@ rules:
   - get
   - watch
 - apiGroups:
-  - ""
+  - authorization.k8s.io
   resources:
   - subjectaccessreviews
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
   - create
