@@ -30,15 +30,15 @@ Commands:
 
 Global Arguments:
   --name, -r (default: performance): name for release of virtual machine.
-  --resources, -R (default: 'all'): resources to manage. Possible values: 'disks', 'vms' or 'all'.
+  --resources, -R (default: 'all'): resources to manage. Possible values: 'vds', 'vms' or 'all'.
 
 Examples:
   Bootstrap:
     $(basename "$0") apply --count=1
     $(basename "$0") apply -c 1 -n default -s ceph-pool-r2-csi-rbd
-    $(basename "$0") apply --resources=disks --count=1 --namespace=default --storage-class=default
-    $(basename "$0") destroy --resources=disks --namespace=default
-    $(basename "$0") destroy -R disks -n default
+    $(basename "$0") apply --resources=vds --count=1 --namespace=default --storage-class=default
+    $(basename "$0") destroy --resources=vds --namespace=default
+    $(basename "$0") destroy -R vds -n default
 EOF
 }
 
@@ -47,8 +47,8 @@ function handle_exit() {
 }
 
 function validate_global_args() {
-  if [ "${RESOURCES}" != "all" ] && [ "${RESOURCES}" != "vms" ] && [ "${RESOURCES}" != "disks" ]; then
-    echo "ERROR: Invalid --resources flag: allowed values 'disks', 'vms' or 'all'"
+  if [ "${RESOURCES}" != "all" ] && [ "${RESOURCES}" != "vms" ] && [ "${RESOURCES}" != "vds" ]; then
+    echo "ERROR: Invalid --resources flag: allowed values 'vds', 'vms' or 'all'"
     usage
     exit 1
   fi

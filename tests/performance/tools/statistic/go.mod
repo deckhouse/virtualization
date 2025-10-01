@@ -7,6 +7,7 @@ toolchain go1.24.7
 require (
 	github.com/deckhouse/virtualization/api v1.0.0
 	github.com/spf13/cobra v1.9.1
+	github.com/stretchr/testify v1.10.0
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
 )
@@ -34,6 +35,7 @@ require (
 	github.com/openshift/api v0.0.0-20230503133300-8bbcb7ca7183 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.7 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect

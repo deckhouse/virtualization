@@ -119,7 +119,7 @@ Main script for managing test resources.
 - `--namespace, -n`: Namespace for resources (default: current context namespace)
 - `--storage-class, -s`: Storage class for VM disks
 - `--name, -r`: Release name (default: performance)
-- `--resources, -R`: Resources to manage - 'disks', 'vms', or 'all' (default: all)
+- `--resources, -R`: Resources to manage - 'vds', 'vms', or 'all' (default: all)
 - `--resources-prefix, -p`: Prefix for resource names (default: performance)
 
 ```bash
@@ -130,7 +130,7 @@ Main script for managing test resources.
 ./bootstrap.sh apply -c 10 -n perf -s ceph-pool-r2-csi-rbd
 
 # Create only disks
-./bootstrap.sh apply -c 5 -n perf -R disks -r performance-disks
+./bootstrap.sh apply -c 5 -n perf -R vds -r performance-disks
 
 # Create only VMs (assuming disks exist)
 ./bootstrap.sh apply -c 5 -n perf -R vms -r performance-vms

@@ -93,7 +93,7 @@ tasks:
   apply:disks:
     desc: "Apply virtual machine disks."
     cmds:
-      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="disks" --name="{{ .NAME_PREFIX }}-disks"
+      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks"
 
   apply:vms:
     desc: "Apply virtual machines."
@@ -103,7 +103,7 @@ tasks:
   destroy:disks:
     desc: "Destroy disks."
     cmds:
-      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="disks" --name="{{ .NAME_PREFIX }}-disks"
+      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks"
 
   destroy:vms:
     desc: "Destroy virtual machines."
