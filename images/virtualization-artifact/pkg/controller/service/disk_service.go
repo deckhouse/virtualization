@@ -116,7 +116,7 @@ func (s DiskService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -183,7 +183,7 @@ func (s DiskService) StartImmediate(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -325,7 +325,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
 }
 
-func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (s DiskService) Protect(ctx context.Context, sup *supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	err := s.protection.AddOwnerRef(ctx, owner, pvc)
 	if err != nil {
 		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
@@ -337,7 +337,8 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	}
 
 	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		np := &netv1.NetworkPolicy{}
+		networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
 		}
@@ -353,14 +354,15 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	return nil
 }
 
-func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error {
+func (s DiskService) Unprotect(ctx context.Context, sup *supplements.Generator, dv *cdiv1.DataVolume) error {
 	err := s.protection.RemoveProtection(ctx, dv)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
 	}
 
 	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		np := &netv1.NetworkPolicy{}
+		networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
 		}

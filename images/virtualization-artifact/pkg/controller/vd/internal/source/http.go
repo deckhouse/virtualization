@@ -120,7 +120,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -131,7 +131,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, supgen, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -321,7 +321,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 
-		err = ds.diskService.Protect(ctx, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

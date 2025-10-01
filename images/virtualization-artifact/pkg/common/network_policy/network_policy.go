@@ -28,15 +28,20 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
-func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, finalizer string) error {
+type SupplementGenerator interface {
+	NetworkPolicy() types.NamespacedName
+}
+
+func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup SupplementGenerator, finalizer string) error {
+	npName := sup.NetworkPolicy()
 	networkPolicy := netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "NetworkPolicy",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            obj.GetName(),
-			Namespace:       obj.GetNamespace(),
+			Name:            npName.Name,
+			Namespace:       npName.Namespace,
 			OwnerReferences: obj.GetOwnerReferences(),
 			Finalizers:      []string{finalizer},
 		},

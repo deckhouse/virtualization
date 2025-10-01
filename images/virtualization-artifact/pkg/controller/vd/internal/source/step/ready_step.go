@@ -40,7 +40,7 @@ const readyStep = "ready"
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+	Protect(ctx context.Context, sup *supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
 type ReadyStep struct {
@@ -107,13 +107,13 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 
 		log.Debug("PVC is Bound")
 
-		err := s.diskService.Protect(ctx, vd, nil, s.pvc)
+		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+		err := s.diskService.Protect(ctx, supgen, vd, nil, s.pvc)
 		if err != nil {
 			return nil, fmt.Errorf("protect underlying pvc: %w", err)
 		}
 
 		if object.ShouldCleanupSubResources(vd) {
-			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 			_, err = s.diskService.CleanUpSupplements(ctx, supgen)
 			if err != nil {
 				return nil, fmt.Errorf("clean up supplements: %w", err)
