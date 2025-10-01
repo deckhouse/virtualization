@@ -3,8 +3,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: virtualization-kubevirt-virt-operator
-  namespace: d8-system
+  name: kubevirt-operator
+  namespace: d8-{{ .Chart.Name }}
 imagePullSecrets:
 - name: virtualization-module-registry
 ---
@@ -12,8 +12,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: virtualization:kubevirt:virt-operator
-  namespace: d8-system
+  name: kubevirt-operator
+  namespace: d8-{{ .Chart.Name }}
 rules:
 - apiGroups:
   - ""
@@ -68,16 +68,16 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: virtualization:kubevirt:virt-operator
-  namespace: d8-system
+  name: kubevirt-operator
+  namespace: d8-{{ .Chart.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: virtualization:kubevirt:virt-operator
+  name: kubevirt-operator
 subjects:
 - kind: ServiceAccount
-  name: virtualization-kubevirt-virt-operator
-  namespace: d8-system
+  name: kubevirt-operator
+  namespace: d8-{{ .Chart.Name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -1282,5 +1282,5 @@ roleRef:
   name: d8:virtualization:kubevirt-operator
 subjects:
 - kind: ServiceAccount
-  name: virtualization-kubevirt-virt-operator
-  namespace: d8-system
+  name: kubevirt-operator
+  namespace: d8-{{ .Chart.Name }}
