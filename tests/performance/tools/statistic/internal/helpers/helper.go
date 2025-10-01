@@ -93,7 +93,7 @@ func DurationToString(d *metav1.Duration) string {
 	if d == nil {
 		return ""
 	}
-	dur := fmt.Sprintf("%d:%d:%d", int64(d.Duration.Hours()), int64(d.Duration.Minutes()), int64(d.Duration.Seconds())%60)
+	dur := fmt.Sprintf("%d:%d:%d", int64(d.Duration.Hours()), int64(d.Duration.Minutes())%60, int64(d.Duration.Seconds())%60)
 	return dur
 }
 

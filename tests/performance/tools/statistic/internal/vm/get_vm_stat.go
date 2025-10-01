@@ -78,7 +78,7 @@ func (vms *VMs) SaveToCSV(ns string) {
 	fmt.Println("Data of VD saved successfully to csv", file.Name())
 }
 
-func GetStats(client kubeclient.Client, namespace string) {
+func GetStatistic(client kubeclient.Client, namespace string) {
 	vmList, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Printf("Failed to get vm: %v\n", err)
@@ -98,7 +98,6 @@ func GetStats(client kubeclient.Client, namespace string) {
 		if string(vm.Status.Phase) == "Running" {
 
 			vms.Items = append(vms.Items, VM{
-				// Name: vm.Status.Stats.PhasesTransitions[len(vm.Status.Stats.PhasesTransitions)-1], use range
 				Name: vm.Name,
 				VirtualMachineLaunchTimeDuration: v1alpha2.VirtualMachineLaunchTimeDuration{
 					WaitingForDependencies: vm.Status.Stats.LaunchTimeDuration.WaitingForDependencies,
@@ -161,9 +160,7 @@ func GetStatStop(client kubeclient.Client, namespace string) {
 	for _, vm := range vmList.Items {
 		if string(vm.Status.Phase) == "Stopped" {
 			vms.Items = append(vms.Items, VM{
-				Name: vm.Name,
-				// VirtualMachinePhaseTransitionTimestamp
-				// vm.Status.Stats.PhasesTransitions[len(vm.Status.Stats.PhasesTransitions)-1]
+				Name:                   vm.Name,
 				VirtualMachineStopTime: getStoppingAndStoppedDuration(vm),
 			})
 		}

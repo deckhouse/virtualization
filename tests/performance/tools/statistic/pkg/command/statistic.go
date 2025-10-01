@@ -64,11 +64,11 @@ func getStatistic(cmd *cobra.Command, args []string) {
 	getAll := !virtualmachine && !virtualdisk
 
 	if getAll || virtualmachine {
-		vm.GetStats(client, namespace)
+		vm.GetStatistic(client, namespace)
 	}
 
 	if getAll || virtualdisk {
-		vd.GetStats(client, namespace)
+		vd.GetStatistic(client, namespace)
 	}
 }
 

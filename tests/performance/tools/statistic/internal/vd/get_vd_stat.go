@@ -77,7 +77,7 @@ func (vds *VDs) SaveToCSV(ns string) {
 	fmt.Println("Data of VD saved successfully to csv", file.Name())
 }
 
-func GetStats(client kubeclient.Client, namespace string) {
+func GetStatistic(client kubeclient.Client, namespace string) {
 	var (
 		vds                       VDs
 		sumWaitingForDependencies float64
