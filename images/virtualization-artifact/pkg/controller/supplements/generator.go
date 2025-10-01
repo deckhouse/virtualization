@@ -56,18 +56,6 @@ func (g *Generator) generateName(template string, maxLength int) types.Namespace
 	}
 }
 
-func (g *generator) Namespace() string {
-	return g.namespace
-}
-
-func (g *generator) Name() string {
-	return g.name
-}
-
-func (g *generator) UID() types.UID {
-	return g.uid
-}
-
 // DVCRAuthSecret returns name and namespace for auth Secret copy.
 func (g *Generator) DVCRAuthSecret() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
@@ -128,10 +116,6 @@ func (g *Generator) UploaderTLSSecretForIngress() types.NamespacedName {
 // DataVolume is always one for vmd/vmi, so prefix is used.
 func (g *Generator) DataVolume() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
-}
-
-func (g *generator) PersistentVolumeClaim() types.NamespacedName {
-	return g.DataVolume()
 }
 
 // NetworkPolicy generates name for NetworkPolicy.

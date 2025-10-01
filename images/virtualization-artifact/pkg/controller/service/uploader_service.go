@@ -72,7 +72,7 @@ func (s UploaderService) Start(
 	ctx context.Context,
 	settings *uploader.Settings,
 	obj client.Object,
-	sup supplements.Generator,
+	sup *supplements.Generator,
 	caBundle *datasource.CABundle,
 	opts ...Option,
 ) error {
@@ -114,11 +114,11 @@ func (s UploaderService) Start(
 	return supplements.EnsureForIngress(ctx, s.client, sup, ing, s.dvcrSettings)
 }
 
-func (s UploaderService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s UploaderService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
 		return false, err
@@ -251,7 +251,7 @@ func (s UploaderService) GetInClusterURL(ctx context.Context, svc *corev1.Servic
 	return fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP)
 }
 
-func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.PodSettings {
+func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.PodSettings {
 	uploaderPod := sup.UploaderPod()
 	uploaderSvc := sup.UploaderService()
 	return &uploader.PodSettings{
@@ -267,7 +267,7 @@ func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 	}
 }
 
-func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.ServiceSettings {
+func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.ServiceSettings {
 	uploaderSvc := sup.UploaderService()
 	return &uploader.ServiceSettings{
 		Name:           uploaderSvc.Name,
@@ -276,7 +276,7 @@ func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup
 	}
 }
 
-func (s UploaderService) getIngressSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.IngressSettings {
+func (s UploaderService) getIngressSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.IngressSettings {
 	uploaderIng := sup.UploaderIngress()
 	uploaderSvc := sup.UploaderService()
 	secretName := s.dvcrSettings.UploaderIngressSettings.TLSSecret

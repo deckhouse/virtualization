@@ -24,7 +24,7 @@ var _ DiskService = &DiskServiceMock{}
 //
 //		// make and configure a mocked DiskService
 //		mockedDiskService := &DiskServiceMock{
-//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
 //			GetStorageClassFunc: func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
@@ -38,7 +38,7 @@ var _ DiskService = &DiskServiceMock{}
 //	}
 type DiskServiceMock struct {
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
-	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetStorageClassFunc mocks the GetStorageClass method.
 	GetStorageClassFunc func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
@@ -50,7 +50,7 @@ type DiskServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetStorageClass holds details about calls to the GetStorageClass method.
 		GetStorageClass []struct {
@@ -65,13 +65,13 @@ type DiskServiceMock struct {
 }
 
 // GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
-func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	if mock.GetPersistentVolumeClaimFunc == nil {
 		panic("DiskServiceMock.GetPersistentVolumeClaimFunc: method is nil but DiskService.GetPersistentVolumeClaim was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -88,11 +88,11 @@ func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup s
 //	len(mockedDiskService.GetPersistentVolumeClaimCalls())
 func (mock *DiskServiceMock) GetPersistentVolumeClaimCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockGetPersistentVolumeClaim.RLock()
 	calls = mock.calls.GetPersistentVolumeClaim
@@ -318,7 +318,7 @@ var _ StorageClassService = &StorageClassServiceMock{}
 //			GetModuleStorageClassFunc: func(ctx context.Context) (*storagev1.StorageClass, error) {
 //				panic("mock out the GetModuleStorageClass method")
 //			},
-//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
 //			GetStorageClassFunc: func(ctx context.Context, sc string) (*storagev1.StorageClass, error) {
@@ -350,7 +350,7 @@ type StorageClassServiceMock struct {
 	GetModuleStorageClassFunc func(ctx context.Context) (*storagev1.StorageClass, error)
 
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
-	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetStorageClassFunc mocks the GetStorageClass method.
 	GetStorageClassFunc func(ctx context.Context, sc string) (*storagev1.StorageClass, error)
@@ -384,7 +384,7 @@ type StorageClassServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetStorageClass holds details about calls to the GetStorageClass method.
 		GetStorageClass []struct {
@@ -491,13 +491,13 @@ func (mock *StorageClassServiceMock) GetModuleStorageClassCalls() []struct {
 }
 
 // GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
-func (mock *StorageClassServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (mock *StorageClassServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	if mock.GetPersistentVolumeClaimFunc == nil {
 		panic("StorageClassServiceMock.GetPersistentVolumeClaimFunc: method is nil but StorageClassService.GetPersistentVolumeClaim was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -514,11 +514,11 @@ func (mock *StorageClassServiceMock) GetPersistentVolumeClaim(ctx context.Contex
 //	len(mockedStorageClassService.GetPersistentVolumeClaimCalls())
 func (mock *StorageClassServiceMock) GetPersistentVolumeClaimCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockGetPersistentVolumeClaim.RLock()
 	calls = mock.calls.GetPersistentVolumeClaim

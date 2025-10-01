@@ -38,7 +38,7 @@ import (
 
 type EnsureNodePlacementStepDiskService interface {
 	CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
 
 // EnsureNodePlacementStep supports changing the node placement only if the PVC is created using a DataVolume.
@@ -104,7 +104,7 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *virtv2.VirtualDis
 
 	supgen := vdsupplements.NewGenerator(vd)
 
-	_, err = s.disk.CleanUp(ctx, supgen)
+	_, err = s.disk.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return nil, fmt.Errorf("clean up due to changes in the virtual machine tolerations: %w", err)
 	}

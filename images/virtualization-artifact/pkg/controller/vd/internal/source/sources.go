@@ -103,7 +103,7 @@ func setPhaseConditionForFinishedDisk(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *virtv2.DiskPhase,
-	supgen supplements.Generator,
+	supgen *supplements.Generator,
 ) {
 	var newPhase virtv2.DiskPhase
 	switch {
@@ -269,7 +269,7 @@ func setPhaseConditionFromPodError(
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
 
 func setPhaseConditionFromProvisioningError(
@@ -302,7 +302,7 @@ func setPhaseConditionFromProvisioningError(
 		if isChanged {
 			supgen := vdsupplements.NewGenerator(vd)
 
-			_, err = cleaner.CleanUp(ctx, supgen)
+			_, err = cleaner.CleanUp(ctx, supgen.Generator)
 			if err != nil {
 				err = errors.Join(provisioningErr, err)
 				setPhaseConditionToFailed(cb, &vd.Status.Phase, err)

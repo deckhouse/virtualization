@@ -37,11 +37,11 @@ import (
 )
 
 type ReadyContainerRegistryStepDiskService interface {
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
 
 type ReadyContainerRegistryStepImporter interface {
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
 
 type ReadyContainerRegistryStepStat interface {

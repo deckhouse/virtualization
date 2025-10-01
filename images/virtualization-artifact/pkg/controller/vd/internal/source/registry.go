@@ -88,15 +88,15 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 	supgen := vdsupplements.NewGenerator(vd)
 
-	pod, err := ds.importerService.GetPod(ctx, supgen)
+	pod, err := ds.importerService.GetPod(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -119,10 +119,10 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen.Generator)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -133,7 +133,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, supgen, dv)
+		err = ds.diskService.Unprotect(ctx, supgen.Generator, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -151,7 +151,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		vd.Status.Progress = "0%"
 
-		envSettings := ds.getEnvSettings(vd, supgen)
+		envSettings := ds.getEnvSettings(vd, supgen.Generator)
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -160,7 +160,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
+		err = ds.importerService.Start(ctx, envSettings, vd, supgen.Generator, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
 		switch {
 		case err == nil:
 			// OK.
@@ -243,7 +243,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			return reconcile.Result{}, err
 		}
 
-		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		source := ds.getSource(supgen.Generator, ds.statService.GetDVCRImageName(pod))
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -328,7 +328,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
-		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -351,12 +351,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}
@@ -367,12 +367,12 @@ func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk
 func (ds RegistryDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -411,7 +411,7 @@ func (ds RegistryDataSource) Name() string {
 	return registryDataSource
 }
 
-func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{
@@ -432,7 +432,7 @@ func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen suppl
 	return &settings
 }
 
-func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds RegistryDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

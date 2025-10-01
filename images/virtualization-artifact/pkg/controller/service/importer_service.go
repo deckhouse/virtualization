@@ -71,7 +71,7 @@ func (s ImporterService) Start(
 	ctx context.Context,
 	settings *importer.Settings,
 	obj client.Object,
-	sup supplements.Generator,
+	sup *supplements.Generator,
 	caBundle *datasource.CABundle,
 	opts ...Option,
 ) error {
@@ -97,7 +97,7 @@ func (s ImporterService) Start(
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
-func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
 	settings.Verbose = s.verbose
 	podSettings.Finalizer = s.protection.finalizer
 
@@ -109,7 +109,7 @@ func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *impo
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
-func (s ImporterService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
@@ -241,7 +241,7 @@ func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator)
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementImporterPod, pod)
 }
 
-func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *importer.PodSettings {
+func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,
@@ -256,7 +256,7 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup sup
 	}
 }
 
-func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings {
+func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,

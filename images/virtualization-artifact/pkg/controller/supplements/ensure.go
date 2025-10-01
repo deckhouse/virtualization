@@ -45,7 +45,7 @@ type DataSource interface {
 // EnsureForPod make supplements for importer or uploader Pod:
 // - It creates ConfigMap with caBundle for http and containerImage data sources.
 // - It copies DVCR auth Secret to use DVCR as destination.
-func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings) error {
+func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, ds DataSource, dvcrSettings *dvcr.Settings) error {
 	// Create ConfigMap with caBundle.
 	if ds.HasCABundle() {
 		caBundleCM := supGen.CABundleConfigMap()
@@ -79,7 +79,7 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	}
 
 	// Copy imagePullSecret if namespaces are differ (e.g. CVMI).
-	if ds != nil && ShouldCopyImagePullSecret(ds.GetContainerImage(), supGen.Namespace()) {
+	if ds != nil && ShouldCopyImagePullSecret(ds.GetContainerImage(), supGen.Namespace) {
 		imgPull := supGen.ImagePullSecret()
 		imgPullCopier := copier.Secret{
 			Source: types.NamespacedName{
@@ -100,20 +100,20 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen Generator, p
 	return nil
 }
 
-func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {
+func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
 	if dvcrSettings.AuthSecret == "" {
 		return false
 	}
 	// Should copy if namespaces are different.
-	return dvcrSettings.AuthSecretNamespace != supGen.Namespace()
+	return dvcrSettings.AuthSecretNamespace != supGen.Namespace
 }
 
-func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen Generator) bool {
+func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
 	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
 		return false
 	}
 	// Should copy if namespaces are different.
-	return dvcrSettings.UploaderIngressSettings.TLSSecretNamespace != supGen.Namespace()
+	return dvcrSettings.UploaderIngressSettings.TLSSecretNamespace != supGen.Namespace
 }
 
 func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS string) bool {
@@ -165,7 +165,7 @@ func EnsureForDataVolume(ctx context.Context, client client.Client, supGen DataV
 	return nil
 }
 
-func CleanupForDataVolume(ctx context.Context, client client.Client, supGen Generator, dvcrSettings *dvcr.Settings) error {
+func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Generator, dvcrSettings *dvcr.Settings) error {
 	// AuthSecret has type dockerconfigjson and should be transformed, so it always copied.
 	if dvcrSettings.AuthSecret != "" {
 		authSecret := supGen.DVCRAuthSecretForDV()
@@ -187,7 +187,7 @@ func CleanupForDataVolume(ctx context.Context, client client.Client, supGen Gene
 	return nil
 }
 
-func EnsureForIngress(ctx context.Context, client client.Client, supGen Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
+func EnsureForIngress(ctx context.Context, client client.Client, supGen *Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
 	if ShouldCopyUploaderTLSSecret(dvcrSettings, supGen) {
 		tlsSecret := supGen.UploaderTLSSecretForIngress()
 		tlsCopier := copier.Secret{
@@ -209,4 +209,5 @@ type DataVolumeSupplement interface {
 	DataVolume() types.NamespacedName
 	DVCRAuthSecretForDV() types.NamespacedName
 	DVCRCABundleConfigMapForDV() types.NamespacedName
+	NetworkPolicy() types.NamespacedName
 }

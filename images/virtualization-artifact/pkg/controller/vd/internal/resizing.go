@@ -69,7 +69,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	supgen := vdsupplements.NewGenerator(vd)
-	pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, err

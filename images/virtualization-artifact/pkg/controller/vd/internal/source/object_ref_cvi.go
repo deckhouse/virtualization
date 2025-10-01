@@ -59,12 +59,12 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
 	}

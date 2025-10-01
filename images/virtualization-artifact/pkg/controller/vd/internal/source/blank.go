@@ -23,7 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
@@ -58,7 +57,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
@@ -82,7 +81,7 @@ func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) err
 func (ds BlankDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	requeue, err := ds.diskService.CleanUp(ctx, supgen)
+	requeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}

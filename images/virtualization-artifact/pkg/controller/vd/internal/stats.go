@@ -90,12 +90,12 @@ func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 	switch vd.Spec.DataSource.Type {
 	case virtv2.DataSourceTypeUpload:
-		pod, err = h.uploader.GetPod(ctx, supgen)
+		pod, err = h.uploader.GetPod(ctx, supgen.Generator)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	default:
-		pod, err = h.importer.GetPod(ctx, supgen)
+		pod, err = h.importer.GetPod(ctx, supgen.Generator)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

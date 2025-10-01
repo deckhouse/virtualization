@@ -87,23 +87,23 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	supgen := vdsupplements.NewGenerator(vd)
 
-	pod, err := ds.uploaderService.GetPod(ctx, supgen)
+	pod, err := ds.uploaderService.GetPod(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	svc, err := ds.uploaderService.GetService(ctx, supgen)
+	svc, err := ds.uploaderService.GetService(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	ing, err := ds.uploaderService.GetIngress(ctx, supgen)
+	ing, err := ds.uploaderService.GetIngress(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -126,10 +126,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen.Generator)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -140,7 +140,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, supgen, dv)
+		err = ds.diskService.Unprotect(ctx, supgen.Generator, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -158,7 +158,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Progress = "0%"
 
-		envSettings := ds.getEnvSettings(vd, supgen)
+		envSettings := ds.getEnvSettings(vd, supgen.Generator)
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -167,7 +167,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
+		err = ds.uploaderService.Start(ctx, envSettings, vd, supgen.Generator, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
 		switch {
 		case err == nil:
 			// OK.
@@ -278,7 +278,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 
-		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		source := ds.getSource(supgen.Generator, ds.statService.GetDVCRImageName(pod))
 
 		var sc *storagev1.StorageClass
 		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
@@ -358,7 +358,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
-		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -381,12 +381,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 func (ds UploadDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	uploaderRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
+	uploaderRequeue, err := ds.uploaderService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}
@@ -397,12 +397,12 @@ func (ds UploadDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) 
 func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
+	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -422,7 +422,7 @@ func (ds UploadDataSource) Name() string {
 	return uploadDataSource
 }
 
-func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
@@ -435,7 +435,7 @@ func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplem
 	return &settings
 }
 
-func (ds UploadDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

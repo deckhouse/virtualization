@@ -66,7 +66,7 @@ type Settings struct {
 	DestinationAuthSecret  string
 }
 
-func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {
+func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen *supplements.Generator, dvcrImageName string) {
 	authSecret := dvcrSettings.AuthSecret
 	if supplements.ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
 		authSecret = supGen.DVCRAuthSecret().Name
@@ -77,7 +77,7 @@ func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Setti
 }
 
 // ApplyHTTPSourceSettings updates importer Pod settings to use http source.
-func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP, supGen supplements.Generator) {
+func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP, supGen *supplements.Generator) {
 	podEnvVars.Source = SourceHTTP
 	podEnvVars.Endpoint = http.URL
 
@@ -99,14 +99,14 @@ func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSource
 }
 
 // ApplyRegistrySourceSettings updates importer Pod settings to use registry source.
-func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.ContainerRegistry, supGen supplements.Generator) {
+func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.ContainerRegistry, supGen *supplements.Generator) {
 	podEnvVars.Source = SourceRegistry
 	podEnvVars.Endpoint = common.DockerRegistrySchemePrefix + ctrImg.Image
 
 	// Optional auth secret from imagePullSecret.
 	if secretName := ctrImg.ImagePullSecret.Name; secretName != "" {
 		// Copy imagePullSecret if resides in a different namespace.
-		if datasource.ShouldCopyImagePullSecret(ctrImg, supGen.Namespace()) {
+		if datasource.ShouldCopyImagePullSecret(ctrImg, supGen.Namespace) {
 			imgPull := supGen.ImagePullSecret()
 			podEnvVars.AuthSecret = imgPull.Name
 		} else {

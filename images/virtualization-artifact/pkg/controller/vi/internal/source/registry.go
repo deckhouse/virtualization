@@ -439,7 +439,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIma
 	return nil
 }
 
-func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{
@@ -495,7 +495,7 @@ func (ds RegistryDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, err
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds RegistryDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

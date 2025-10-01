@@ -30,7 +30,7 @@ type Settings struct {
 	DestinationAuthSecret  string
 }
 
-func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen supplements.Generator, dvcrImageName string) {
+func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Settings, supGen *supplements.Generator, dvcrImageName string) {
 	authSecret := dvcrSettings.AuthSecret
 	if supplements.ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
 		authSecret = supGen.DVCRAuthSecret().Name

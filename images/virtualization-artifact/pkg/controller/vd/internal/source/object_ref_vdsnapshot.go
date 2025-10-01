@@ -54,12 +54,12 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
-	sup := vdsupplements.NewGenerator(vd)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

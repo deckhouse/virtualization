@@ -37,7 +37,7 @@ import (
 )
 
 type ReadyPersistentVolumeClaimStepBounder interface {
-	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
 
 type ReadyPersistentVolumeClaimStep struct {

@@ -71,7 +71,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	requeue, err := ds.diskService.CleanUp(ctx, supgen)
+	requeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}

@@ -86,15 +86,15 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	supgen := vdsupplements.NewGenerator(vd)
-	pod, err := ds.importerService.GetPod(ctx, supgen)
+	pod, err := ds.importerService.GetPod(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -117,10 +117,10 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen.Generator)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -131,7 +131,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, supgen, dv)
+		err = ds.diskService.Unprotect(ctx, supgen.Generator, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -149,7 +149,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		vd.Status.Progress = "0%"
 
-		envSettings := ds.getEnvSettings(vd, supgen)
+		envSettings := ds.getEnvSettings(vd, supgen.Generator)
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -158,7 +158,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
+		err = ds.importerService.Start(ctx, envSettings, vd, supgen.Generator, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
 		switch {
 		case err == nil:
 			// OK.
@@ -243,7 +243,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, err
 		}
 
-		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		source := ds.getSource(supgen.Generator, ds.statService.GetDVCRImageName(pod))
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -321,7 +321,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 
-		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -345,12 +345,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
 	if err != nil {
 		return false, err
 	}
@@ -365,12 +365,12 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) erro
 func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -386,7 +386,7 @@ func (ds HTTPDataSource) Name() string {
 	return httpDataSource
 }
 
-func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vd.Spec.DataSource.HTTP, supgen)
@@ -400,7 +400,7 @@ func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplemen
 	return &settings
 }
 
-func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

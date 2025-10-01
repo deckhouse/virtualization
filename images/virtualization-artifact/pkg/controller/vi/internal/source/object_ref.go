@@ -548,7 +548,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 	}
 }
 
-func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {
+func (ds ObjectRefDataSource) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {
 	if !dvcrDataSource.IsReady() {
 		return nil, errors.New("dvcr data source is not ready")
 	}
@@ -602,7 +602,7 @@ func (ds ObjectRefDataSource) getPVCSize(dvcrDataSource controller.DVCRDataSourc
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds ObjectRefDataSource) getSource(sup supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {
+func (ds ObjectRefDataSource) getSource(sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*cdiv1.DataVolumeSource, error) {
 	if !dvcrDataSource.IsReady() {
 		return nil, errors.New("dvcr data source is not ready")
 	}

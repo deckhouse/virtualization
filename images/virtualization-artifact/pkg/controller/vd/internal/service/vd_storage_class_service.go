@@ -112,6 +112,6 @@ func (svc *VirtualDiskStorageClassService) GetModuleStorageClass(ctx context.Con
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
 }
 
-func (svc *VirtualDiskStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (svc *VirtualDiskStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	return svc.BaseStorageClassService.GetPersistentVolumeClaim(ctx, sup)
 }

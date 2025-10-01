@@ -24,10 +24,8 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ supplements.Generator = &VirtualDiskGenerator{}
-
 type VirtualDiskGenerator struct {
-	supplements.Generator
+	*supplements.Generator
 	claimName string
 }
 
@@ -48,7 +46,7 @@ func (g *VirtualDiskGenerator) DataVolume() types.NamespacedName {
 
 func (g *VirtualDiskGenerator) PersistentVolumeClaim() types.NamespacedName {
 	return types.NamespacedName{
-		Namespace: g.Namespace(),
+		Namespace: g.Namespace,
 		Name:      g.claimName,
 	}
 }

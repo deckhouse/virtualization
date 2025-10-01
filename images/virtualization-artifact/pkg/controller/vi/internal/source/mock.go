@@ -30,25 +30,25 @@ var _ Importer = &ImporterMock{}
 //
 //		// make and configure a mocked Importer
 //		mockedImporter := &ImporterMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
-//			GetPodFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+//			GetPodFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
-//			GetPodSettingsWithPVCFunc: func(ownerReference *metav1.OwnerReference, generator supplements.Generator, s1 string, s2 string) *importer.PodSettings {
+//			GetPodSettingsWithPVCFunc: func(ownerReference *metav1.OwnerReference, generator *supplements.Generator, s1 string, s2 string) *importer.PodSettings {
 //				panic("mock out the GetPodSettingsWithPVC method")
 //			},
 //			ProtectFunc: func(ctx context.Context, pod *corev1.Pod) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
+//			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
-//			StartWithPodSettingFunc: func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+//			StartWithPodSettingFunc: func(contextMoqParam context.Context, settings *importer.Settings, generator *supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
 //				panic("mock out the StartWithPodSetting method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod) error {
@@ -62,25 +62,25 @@ var _ Importer = &ImporterMock{}
 //	}
 type ImporterMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// GetPodFunc mocks the GetPod method.
-	GetPodFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	GetPodFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
 
 	// GetPodSettingsWithPVCFunc mocks the GetPodSettingsWithPVC method.
-	GetPodSettingsWithPVCFunc func(ownerReference *metav1.OwnerReference, generator supplements.Generator, s1 string, s2 string) *importer.PodSettings
+	GetPodSettingsWithPVCFunc func(ownerReference *metav1.OwnerReference, generator *supplements.Generator, s1 string, s2 string) *importer.PodSettings
 
 	// ProtectFunc mocks the Protect method.
 	ProtectFunc func(ctx context.Context, pod *corev1.Pod) error
 
 	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// StartWithPodSettingFunc mocks the StartWithPodSetting method.
-	StartWithPodSettingFunc func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error
+	StartWithPodSettingFunc func(contextMoqParam context.Context, settings *importer.Settings, generator *supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod) error
@@ -92,28 +92,28 @@ type ImporterMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
 		CleanUpSupplements []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetPod holds details about calls to the GetPod method.
 		GetPod []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetPodSettingsWithPVC holds details about calls to the GetPodSettingsWithPVC method.
 		GetPodSettingsWithPVC []struct {
 			// OwnerReference is the ownerReference argument value.
 			OwnerReference *metav1.OwnerReference
 			// Generator is the generator argument value.
-			Generator supplements.Generator
+			Generator *supplements.Generator
 			// S1 is the s1 argument value.
 			S1 string
 			// S2 is the s2 argument value.
@@ -135,7 +135,7 @@ type ImporterMock struct {
 			// Obj is the obj argument value.
 			Obj client.Object
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
 			// Opts is the opts argument value.
@@ -148,7 +148,7 @@ type ImporterMock struct {
 			// Settings is the settings argument value.
 			Settings *importer.Settings
 			// Generator is the generator argument value.
-			Generator supplements.Generator
+			Generator *supplements.Generator
 			// CABundle is the cABundle argument value.
 			CABundle *datasource.CABundle
 			// PodSettings is the podSettings argument value.
@@ -173,13 +173,13 @@ type ImporterMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("ImporterMock.CleanUpFunc: method is nil but Importer.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -196,11 +196,11 @@ func (mock *ImporterMock) CleanUp(ctx context.Context, sup supplements.Generator
 //	len(mockedImporter.CleanUpCalls())
 func (mock *ImporterMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -209,13 +209,13 @@ func (mock *ImporterMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("ImporterMock.CleanUpSupplementsFunc: method is nil but Importer.CleanUpSupplements was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -232,11 +232,11 @@ func (mock *ImporterMock) CleanUpSupplements(ctx context.Context, sup supplement
 //	len(mockedImporter.CleanUpSupplementsCalls())
 func (mock *ImporterMock) CleanUpSupplementsCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
@@ -245,13 +245,13 @@ func (mock *ImporterMock) CleanUpSupplementsCalls() []struct {
 }
 
 // GetPod calls GetPodFunc.
-func (mock *ImporterMock) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+func (mock *ImporterMock) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 	if mock.GetPodFunc == nil {
 		panic("ImporterMock.GetPodFunc: method is nil but Importer.GetPod was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -268,11 +268,11 @@ func (mock *ImporterMock) GetPod(ctx context.Context, sup supplements.Generator)
 //	len(mockedImporter.GetPodCalls())
 func (mock *ImporterMock) GetPodCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockGetPod.RLock()
 	calls = mock.calls.GetPod
@@ -281,13 +281,13 @@ func (mock *ImporterMock) GetPodCalls() []struct {
 }
 
 // GetPodSettingsWithPVC calls GetPodSettingsWithPVCFunc.
-func (mock *ImporterMock) GetPodSettingsWithPVC(ownerReference *metav1.OwnerReference, generator supplements.Generator, s1 string, s2 string) *importer.PodSettings {
+func (mock *ImporterMock) GetPodSettingsWithPVC(ownerReference *metav1.OwnerReference, generator *supplements.Generator, s1 string, s2 string) *importer.PodSettings {
 	if mock.GetPodSettingsWithPVCFunc == nil {
 		panic("ImporterMock.GetPodSettingsWithPVCFunc: method is nil but Importer.GetPodSettingsWithPVC was just called")
 	}
 	callInfo := struct {
 		OwnerReference *metav1.OwnerReference
-		Generator      supplements.Generator
+		Generator      *supplements.Generator
 		S1             string
 		S2             string
 	}{
@@ -308,13 +308,13 @@ func (mock *ImporterMock) GetPodSettingsWithPVC(ownerReference *metav1.OwnerRefe
 //	len(mockedImporter.GetPodSettingsWithPVCCalls())
 func (mock *ImporterMock) GetPodSettingsWithPVCCalls() []struct {
 	OwnerReference *metav1.OwnerReference
-	Generator      supplements.Generator
+	Generator      *supplements.Generator
 	S1             string
 	S2             string
 } {
 	var calls []struct {
 		OwnerReference *metav1.OwnerReference
-		Generator      supplements.Generator
+		Generator      *supplements.Generator
 		S1             string
 		S2             string
 	}
@@ -361,7 +361,7 @@ func (mock *ImporterMock) ProtectCalls() []struct {
 }
 
 // Start calls StartFunc.
-func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
+func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 	if mock.StartFunc == nil {
 		panic("ImporterMock.StartFunc: method is nil but Importer.Start was just called")
 	}
@@ -369,7 +369,7 @@ func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings
 		Ctx      context.Context
 		Settings *importer.Settings
 		Obj      client.Object
-		Sup      supplements.Generator
+		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
 		Opts     []service.Option
 	}{
@@ -394,7 +394,7 @@ func (mock *ImporterMock) StartCalls() []struct {
 	Ctx      context.Context
 	Settings *importer.Settings
 	Obj      client.Object
-	Sup      supplements.Generator
+	Sup      *supplements.Generator
 	CaBundle *datasource.CABundle
 	Opts     []service.Option
 } {
@@ -402,7 +402,7 @@ func (mock *ImporterMock) StartCalls() []struct {
 		Ctx      context.Context
 		Settings *importer.Settings
 		Obj      client.Object
-		Sup      supplements.Generator
+		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
 		Opts     []service.Option
 	}
@@ -413,14 +413,14 @@ func (mock *ImporterMock) StartCalls() []struct {
 }
 
 // StartWithPodSetting calls StartWithPodSettingFunc.
-func (mock *ImporterMock) StartWithPodSetting(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+func (mock *ImporterMock) StartWithPodSetting(contextMoqParam context.Context, settings *importer.Settings, generator *supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
 	if mock.StartWithPodSettingFunc == nil {
 		panic("ImporterMock.StartWithPodSettingFunc: method is nil but Importer.StartWithPodSetting was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam context.Context
 		Settings        *importer.Settings
-		Generator       supplements.Generator
+		Generator       *supplements.Generator
 		CABundle        *datasource.CABundle
 		PodSettings     *importer.PodSettings
 	}{
@@ -443,14 +443,14 @@ func (mock *ImporterMock) StartWithPodSetting(contextMoqParam context.Context, s
 func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
 	ContextMoqParam context.Context
 	Settings        *importer.Settings
-	Generator       supplements.Generator
+	Generator       *supplements.Generator
 	CABundle        *datasource.CABundle
 	PodSettings     *importer.PodSettings
 } {
 	var calls []struct {
 		ContextMoqParam context.Context
 		Settings        *importer.Settings
-		Generator       supplements.Generator
+		Generator       *supplements.Generator
 		CABundle        *datasource.CABundle
 		PodSettings     *importer.PodSettings
 	}
@@ -506,10 +506,10 @@ var _ Uploader = &UploaderMock{}
 //
 //		// make and configure a mocked Uploader
 //		mockedUploader := &UploaderMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			GetExternalURLFunc: func(ctx context.Context, ing *netv1.Ingress) string {
@@ -518,19 +518,19 @@ var _ Uploader = &UploaderMock{}
 //			GetInClusterURLFunc: func(ctx context.Context, svc *corev1.Service) string {
 //				panic("mock out the GetInClusterURL method")
 //			},
-//			GetIngressFunc: func(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
+//			GetIngressFunc: func(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error) {
 //				panic("mock out the GetIngress method")
 //			},
-//			GetPodFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+//			GetPodFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 //				panic("mock out the GetPod method")
 //			},
-//			GetServiceFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
+//			GetServiceFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error) {
 //				panic("mock out the GetService method")
 //			},
 //			ProtectFunc: func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
+//			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
@@ -544,10 +544,10 @@ var _ Uploader = &UploaderMock{}
 //	}
 type UploaderMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// GetExternalURLFunc mocks the GetExternalURL method.
 	GetExternalURLFunc func(ctx context.Context, ing *netv1.Ingress) string
@@ -556,19 +556,19 @@ type UploaderMock struct {
 	GetInClusterURLFunc func(ctx context.Context, svc *corev1.Service) string
 
 	// GetIngressFunc mocks the GetIngress method.
-	GetIngressFunc func(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	GetIngressFunc func(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error)
 
 	// GetPodFunc mocks the GetPod method.
-	GetPodFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	GetPodFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
 
 	// GetServiceFunc mocks the GetService method.
-	GetServiceFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
+	GetServiceFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error)
 
 	// ProtectFunc mocks the Protect method.
 	ProtectFunc func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 
 	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
@@ -580,14 +580,14 @@ type UploaderMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
 		CleanUpSupplements []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetExternalURL holds details about calls to the GetExternalURL method.
 		GetExternalURL []struct {
@@ -608,21 +608,21 @@ type UploaderMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetPod holds details about calls to the GetPod method.
 		GetPod []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetService holds details about calls to the GetService method.
 		GetService []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// Protect holds details about calls to the Protect method.
 		Protect []struct {
@@ -644,7 +644,7 @@ type UploaderMock struct {
 			// Obj is the obj argument value.
 			Obj client.Object
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
 			// Opts is the opts argument value.
@@ -675,13 +675,13 @@ type UploaderMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *UploaderMock) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("UploaderMock.CleanUpFunc: method is nil but Uploader.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -698,11 +698,11 @@ func (mock *UploaderMock) CleanUp(ctx context.Context, sup supplements.Generator
 //	len(mockedUploader.CleanUpCalls())
 func (mock *UploaderMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -711,13 +711,13 @@ func (mock *UploaderMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *UploaderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *UploaderMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("UploaderMock.CleanUpSupplementsFunc: method is nil but Uploader.CleanUpSupplements was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -734,11 +734,11 @@ func (mock *UploaderMock) CleanUpSupplements(ctx context.Context, sup supplement
 //	len(mockedUploader.CleanUpSupplementsCalls())
 func (mock *UploaderMock) CleanUpSupplementsCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
@@ -819,13 +819,13 @@ func (mock *UploaderMock) GetInClusterURLCalls() []struct {
 }
 
 // GetIngress calls GetIngressFunc.
-func (mock *UploaderMock) GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
+func (mock *UploaderMock) GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error) {
 	if mock.GetIngressFunc == nil {
 		panic("UploaderMock.GetIngressFunc: method is nil but Uploader.GetIngress was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -842,11 +842,11 @@ func (mock *UploaderMock) GetIngress(ctx context.Context, sup supplements.Genera
 //	len(mockedUploader.GetIngressCalls())
 func (mock *UploaderMock) GetIngressCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockGetIngress.RLock()
 	calls = mock.calls.GetIngress
@@ -855,13 +855,13 @@ func (mock *UploaderMock) GetIngressCalls() []struct {
 }
 
 // GetPod calls GetPodFunc.
-func (mock *UploaderMock) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
+func (mock *UploaderMock) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
 	if mock.GetPodFunc == nil {
 		panic("UploaderMock.GetPodFunc: method is nil but Uploader.GetPod was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -878,11 +878,11 @@ func (mock *UploaderMock) GetPod(ctx context.Context, sup supplements.Generator)
 //	len(mockedUploader.GetPodCalls())
 func (mock *UploaderMock) GetPodCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockGetPod.RLock()
 	calls = mock.calls.GetPod
@@ -891,13 +891,13 @@ func (mock *UploaderMock) GetPodCalls() []struct {
 }
 
 // GetService calls GetServiceFunc.
-func (mock *UploaderMock) GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
+func (mock *UploaderMock) GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error) {
 	if mock.GetServiceFunc == nil {
 		panic("UploaderMock.GetServiceFunc: method is nil but Uploader.GetService was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -914,11 +914,11 @@ func (mock *UploaderMock) GetService(ctx context.Context, sup supplements.Genera
 //	len(mockedUploader.GetServiceCalls())
 func (mock *UploaderMock) GetServiceCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockGetService.RLock()
 	calls = mock.calls.GetService
@@ -971,7 +971,7 @@ func (mock *UploaderMock) ProtectCalls() []struct {
 }
 
 // Start calls StartFunc.
-func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
+func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 	if mock.StartFunc == nil {
 		panic("UploaderMock.StartFunc: method is nil but Uploader.Start was just called")
 	}
@@ -979,7 +979,7 @@ func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings
 		Ctx      context.Context
 		Settings *uploader.Settings
 		Obj      client.Object
-		Sup      supplements.Generator
+		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
 		Opts     []service.Option
 	}{
@@ -1004,7 +1004,7 @@ func (mock *UploaderMock) StartCalls() []struct {
 	Ctx      context.Context
 	Settings *uploader.Settings
 	Obj      client.Object
-	Sup      supplements.Generator
+	Sup      *supplements.Generator
 	CaBundle *datasource.CABundle
 	Opts     []service.Option
 } {
@@ -1012,7 +1012,7 @@ func (mock *UploaderMock) StartCalls() []struct {
 		Ctx      context.Context
 		Settings *uploader.Settings
 		Obj      client.Object
-		Sup      supplements.Generator
+		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
 		Opts     []service.Option
 	}
@@ -1536,13 +1536,13 @@ var _ Bounder = &BounderMock{}
 //
 //		// make and configure a mocked Bounder
 //		mockedBounder := &BounderMock{
-//			CleanUpFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
-//			StartFunc: func(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error {
+//			StartFunc: func(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
 //		}
@@ -1553,13 +1553,13 @@ var _ Bounder = &BounderMock{}
 //	}
 type BounderMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error
+	StartFunc func(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...service.Option) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1568,14 +1568,14 @@ type BounderMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
 		CleanUpSupplements []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// Start holds details about calls to the Start method.
 		Start []struct {
@@ -1584,7 +1584,7 @@ type BounderMock struct {
 			// OwnerRef is the ownerRef argument value.
 			OwnerRef *metav1.OwnerReference
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 			// Opts is the opts argument value.
 			Opts []service.Option
 		}
@@ -1595,13 +1595,13 @@ type BounderMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *BounderMock) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *BounderMock) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("BounderMock.CleanUpFunc: method is nil but Bounder.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -1618,11 +1618,11 @@ func (mock *BounderMock) CleanUp(ctx context.Context, sup supplements.Generator)
 //	len(mockedBounder.CleanUpCalls())
 func (mock *BounderMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -1631,13 +1631,13 @@ func (mock *BounderMock) CleanUpCalls() []struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *BounderMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *BounderMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("BounderMock.CleanUpSupplementsFunc: method is nil but Bounder.CleanUpSupplements was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -1654,11 +1654,11 @@ func (mock *BounderMock) CleanUpSupplements(ctx context.Context, sup supplements
 //	len(mockedBounder.CleanUpSupplementsCalls())
 func (mock *BounderMock) CleanUpSupplementsCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
@@ -1667,14 +1667,14 @@ func (mock *BounderMock) CleanUpSupplementsCalls() []struct {
 }
 
 // Start calls StartFunc.
-func (mock *BounderMock) Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error {
+func (mock *BounderMock) Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...service.Option) error {
 	if mock.StartFunc == nil {
 		panic("BounderMock.StartFunc: method is nil but Bounder.Start was just called")
 	}
 	callInfo := struct {
 		Ctx      context.Context
 		OwnerRef *metav1.OwnerReference
-		Sup      supplements.Generator
+		Sup      *supplements.Generator
 		Opts     []service.Option
 	}{
 		Ctx:      ctx,
@@ -1695,13 +1695,13 @@ func (mock *BounderMock) Start(ctx context.Context, ownerRef *metav1.OwnerRefere
 func (mock *BounderMock) StartCalls() []struct {
 	Ctx      context.Context
 	OwnerRef *metav1.OwnerReference
-	Sup      supplements.Generator
+	Sup      *supplements.Generator
 	Opts     []service.Option
 } {
 	var calls []struct {
 		Ctx      context.Context
 		OwnerRef *metav1.OwnerReference
-		Sup      supplements.Generator
+		Sup      *supplements.Generator
 		Opts     []service.Option
 	}
 	mock.lockStart.RLock()
@@ -1942,7 +1942,7 @@ var _ Disk = &DiskMock{}
 //
 //		// make and configure a mocked Disk
 //		mockedDisk := &DiskMock{
-//			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
@@ -1956,7 +1956,7 @@ var _ Disk = &DiskMock{}
 //	}
 type DiskMock struct {
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
-	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
@@ -1968,7 +1968,7 @@ type DiskMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup supplements.Generator
+			Sup *supplements.Generator
 		}
 		// GetPersistentVolumeClaim holds details about calls to the GetPersistentVolumeClaim method.
 		GetPersistentVolumeClaim []struct {
@@ -1983,13 +1983,13 @@ type DiskMock struct {
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
-func (mock *DiskMock) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (mock *DiskMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	if mock.CleanUpSupplementsFunc == nil {
 		panic("DiskMock.CleanUpSupplementsFunc: method is nil but Disk.CleanUpSupplements was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -2006,11 +2006,11 @@ func (mock *DiskMock) CleanUpSupplements(ctx context.Context, sup supplements.Ge
 //	len(mockedDisk.CleanUpSupplementsCalls())
 func (mock *DiskMock) CleanUpSupplementsCalls() []struct {
 	Ctx context.Context
-	Sup supplements.Generator
+	Sup *supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup supplements.Generator
+		Sup *supplements.Generator
 	}
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements

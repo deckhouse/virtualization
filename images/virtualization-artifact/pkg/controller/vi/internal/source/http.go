@@ -450,7 +450,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) err
 	return nil
 }
 
-func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vi.Spec.DataSource.HTTP, supgen)
@@ -478,7 +478,7 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

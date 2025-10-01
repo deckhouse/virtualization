@@ -502,7 +502,7 @@ func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) e
 	return nil
 }
 
-func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
@@ -549,7 +549,7 @@ func (ds UploadDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds UploadDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

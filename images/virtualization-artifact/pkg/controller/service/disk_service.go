@@ -200,7 +200,7 @@ func (s DiskService) StartImmediate(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, sup, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, dataVolumeSupplement, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -248,7 +248,7 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
-func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {
 		return false, err
@@ -278,7 +278,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bo
 	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
 }
 
-func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
+func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	// 1. Update owner ref of pvc.
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {

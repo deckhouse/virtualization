@@ -70,7 +70,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		}()
 	}
 
-	pvc, err := h.svc.GetPersistentVolumeClaim(ctx, sup)
+	pvc, err := h.svc.GetPersistentVolumeClaim(ctx, sup.Generator)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
