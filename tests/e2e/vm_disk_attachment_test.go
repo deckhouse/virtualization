@@ -69,7 +69,7 @@ var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), f
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 

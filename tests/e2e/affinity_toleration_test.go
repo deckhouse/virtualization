@@ -71,7 +71,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 

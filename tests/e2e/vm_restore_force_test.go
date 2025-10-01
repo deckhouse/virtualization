@@ -70,7 +70,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, namespace)
 		}
 
 		cancel()

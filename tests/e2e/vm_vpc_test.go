@@ -59,7 +59,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), fr
 
 	AfterAll(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 

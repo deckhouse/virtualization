@@ -58,7 +58,7 @@ var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), framework.Comm
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 		resourcesToDelete := ResourcesToDelete{
 			AdditionalResources: []AdditionalResource{

@@ -64,7 +64,7 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), framework.Common
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, namespace)
 		}
 
 		cancel()

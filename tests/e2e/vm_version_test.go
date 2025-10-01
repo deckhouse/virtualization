@@ -49,7 +49,7 @@ var _ = Describe("VirtualMachineVersions", framework.CommonE2ETestDecorators(), 
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 

@@ -58,7 +58,7 @@ var _ = Describe("VirtualMachineEvacuation", SIGMigration(), framework.CommonE2E
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 		resourcesToDelete := ResourcesToDelete{
 			AdditionalResources: []AdditionalResource{
