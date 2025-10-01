@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: d8:virtualization:cdi:cdi-operator
+  name: d8:containerized-data-importer:cdi-operator
 rules:
 - apiGroups:
     - rbac.authorization.k8s.io
@@ -331,22 +331,22 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: d8:virtualization:cdi:cdi-operator
+  name: d8:containerized-data-importer:cdi-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: d8:virtualization:cdi:cdi-operator
+  name: d8:containerized-data-importer:cdi-operator
 subjects:
 - kind: ServiceAccount
-  name: virtualization-cdi-cdi-operator
-  namespace: d8-system
+  name: cdi-operator
+  namespace: d8-{{ .Chart.Name }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: virtualization-cdi-cdi-operator
-  namespace: d8-system
+  name: cdi-operator
+  namespace: d8-{{ .Chart.Name }}
 imagePullSecrets:
 - name: virtualization-module-registry
 ---
@@ -354,8 +354,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: virtualization:cdi:cdi-operator
-  namespace: d8-system
+  name: cdi-operator
+  namespace: d8-{{ .Chart.Name }}
 rules:
 - apiGroups:
     - rbac.authorization.k8s.io
@@ -531,16 +531,16 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
-  name: virtualization:cdi:cdi-operator
-  namespace: d8-system
+  name: cdi-operator
+  namespace: d8-{{ .Chart.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: virtualization:cdi:cdi-operator
+  name: cdi-operator
 subjects:
 - kind: ServiceAccount
-  name: virtualization-cdi-cdi-operator
-  namespace: d8-system
+  name: cdi-operator
+  namespace: d8-{{ .Chart.Name }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -549,8 +549,8 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "cdi-operator")) | nindent 2 }}
 subjects:
   - kind: ServiceAccount
-    name: virtualization-cdi-cdi-operator
-    namespace: d8-system
+    name: cdi-operator
+    namespace: d8-{{ .Chart.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
