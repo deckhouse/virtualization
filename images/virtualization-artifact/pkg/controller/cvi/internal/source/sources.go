@@ -27,40 +27,40 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type Handler interface {
-	Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error)
-	CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error)
-	Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error
+	Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error)
+	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error)
+	Validate(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error
 }
 
 type Sources struct {
-	sources map[virtv2.DataSourceType]Handler
+	sources map[v1alpha2.DataSourceType]Handler
 }
 
 func NewSources() *Sources {
 	return &Sources{
-		sources: make(map[virtv2.DataSourceType]Handler),
+		sources: make(map[v1alpha2.DataSourceType]Handler),
 	}
 }
 
-func (s Sources) Set(dsType virtv2.DataSourceType, h Handler) {
+func (s Sources) Set(dsType v1alpha2.DataSourceType, h Handler) {
 	s.sources[dsType] = h
 }
 
-func (s Sources) Get(dsType virtv2.DataSourceType) (Handler, bool) {
+func (s Sources) Get(dsType v1alpha2.DataSourceType) (Handler, bool) {
 	source, ok := s.sources[dsType]
 	return source, ok
 }
 
-func (s Sources) Changed(_ context.Context, cvi *virtv2.ClusterVirtualImage) bool {
+func (s Sources) Changed(_ context.Context, cvi *v1alpha2.ClusterVirtualImage) bool {
 	return cvi.Generation != cvi.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (s Sources) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
 	var requeue bool
 
 	for _, source := range s.sources {
@@ -76,10 +76,10 @@ func (s Sources) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error)
+	CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error)
 }
 
-func CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage, c Cleaner) (bool, error) {
+func CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, c Cleaner) (bool, error) {
 	if object.ShouldCleanupSubResources(cvi) {
 		return c.CleanUp(ctx, cvi)
 	}
@@ -93,8 +93,8 @@ func isDiskProvisioningFinished(c metav1.Condition) bool {
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
-	*phase = virtv2.ImageFailed
+func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+	*phase = v1alpha2.ImageFailed
 	cb.Status(metav1.ConditionFalse).
 		Reason(cvicondition.ProvisioningFailed)
 
@@ -107,8 +107,8 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virt
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
-func setPhaseConditionToFailed(cbReady *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
-	*phase = virtv2.ImageFailed
+func setPhaseConditionToFailed(cbReady *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error) {
+	*phase = v1alpha2.ImageFailed
 	cbReady.Status(metav1.ConditionFalse).
 		Reason(cvicondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))

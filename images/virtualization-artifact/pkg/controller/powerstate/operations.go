@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	kvv1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
@@ -30,12 +30,12 @@ import (
 )
 
 // StartVM starts VM via adding change request to the KVVM status.
-func StartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine) error {
+func StartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
 	if kvvm == nil {
 		return fmt.Errorf("kvvm must not be empty")
 	}
 	jp, err := BuildPatch(kvvm,
-		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StartRequest})
+		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
 	if err != nil {
 		if errors.Is(err, ErrChangesAlreadyExist) {
 			return nil
@@ -47,7 +47,7 @@ func StartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine) e
 
 // StopVM stops VM via deleting kvvmi.
 // It implements force stop by immediately deleting VM's Pod.
-func StopVM(ctx context.Context, cl client.Client, kvvmi *kvv1.VirtualMachineInstance, force *bool) error {
+func StopVM(ctx context.Context, cl client.Client, kvvmi *virtv1.VirtualMachineInstance, force *bool) error {
 	if kvvmi == nil {
 		return fmt.Errorf("kvvmi must not be empty")
 	}
@@ -62,7 +62,7 @@ func StopVM(ctx context.Context, cl client.Client, kvvmi *kvv1.VirtualMachineIns
 
 // RestartVM restarts VM via adding stop and start change requests to the KVVM status.
 // It implements force stop by immediately deleting VM's Pod.
-func RestartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine, kvvmi *kvv1.VirtualMachineInstance, force bool) error {
+func RestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, force bool) error {
 	if kvvm == nil {
 		return fmt.Errorf("kvvm must not be empty")
 	}
@@ -71,8 +71,8 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine,
 	}
 
 	jp, err := BuildPatch(kvvm,
-		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StopRequest, UID: &kvvmi.UID},
-		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StartRequest})
+		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StopRequest, UID: &kvvmi.UID},
+		virtv1.VirtualMachineStateChangeRequest{Action: virtv1.StartRequest})
 	if err != nil {
 		if errors.Is(err, ErrChangesAlreadyExist) {
 			return nil
@@ -91,7 +91,7 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine,
 }
 
 // SafeRestartVM restarts VM via adding stop and start change requests to the KVVM status if no other requests are in progress.
-func SafeRestartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine, kvvmi *kvv1.VirtualMachineInstance) error {
+func SafeRestartVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	if kvvm == nil {
 		return fmt.Errorf("kvvm must not be empty")
 	}

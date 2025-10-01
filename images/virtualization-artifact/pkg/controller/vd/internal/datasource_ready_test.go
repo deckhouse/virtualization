@@ -27,19 +27,19 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	ctx := t.Context()
 	blank := &HandlerMock{
-		ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
+		ValidateFunc: func(_ context.Context, _ *v1alpha2.VirtualDisk) error {
 			return nil
 		},
 	}
 	sources := &SourcesMock{
-		GetFunc: func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+		GetFunc: func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 			return blank, true
 		},
 	}
@@ -48,7 +48,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	}
 
 	t.Run("VirtualDisk with DeletionTimestamp", func(t *testing.T) {
-		vd := virtv2.VirtualDisk{
+		vd := v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				DeletionTimestamp: &metav1.Time{Time: metav1.Now().Time},
 			},
@@ -60,7 +60,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("VirtualDisk with Blank DataSource", func(t *testing.T) {
-		vd := virtv2.VirtualDisk{}
+		vd := v1alpha2.VirtualDisk{}
 
 		handler := NewDatasourceReadyHandler(recorder, blank, nil)
 		_, err := handler.Handle(ctx, &vd)
@@ -73,9 +73,9 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("VirtualDisk with Non Blank DataSource", func(t *testing.T) {
-		vd := virtv2.VirtualDisk{
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
+		vd := v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
 					Type: "NonBlank",
 				},
 			},
@@ -92,15 +92,15 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("VirtualDisk with missing VI reference", func(t *testing.T) {
-		vd := virtv2.VirtualDisk{
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
+		vd := v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
 					Type: "NonBlank",
 				},
 			},
 		}
-		sources.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
-			return &source.HandlerMock{ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
+		sources.GetFunc = func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
+			return &source.HandlerMock{ValidateFunc: func(_ context.Context, _ *v1alpha2.VirtualDisk) error {
 				return source.NewImageNotFoundError("missing-vi")
 			}}, true
 		}
@@ -114,15 +114,15 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	})
 
 	t.Run("VirtualDisk with missing CVI reference", func(t *testing.T) {
-		vd := virtv2.VirtualDisk{
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
+		vd := v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
 					Type: "NonBlank",
 				},
 			},
 		}
-		sources.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
-			return &source.HandlerMock{ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
+		sources.GetFunc = func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
+			return &source.HandlerMock{ValidateFunc: func(_ context.Context, _ *v1alpha2.VirtualDisk) error {
 				return source.NewClusterImageNotFoundError("missing-cvi")
 			}}, true
 		}

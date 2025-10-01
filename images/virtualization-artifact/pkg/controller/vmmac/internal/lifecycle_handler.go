@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
@@ -39,22 +39,22 @@ func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger) *LifecycleHan
 	}
 }
 
-func (h *LifecycleHandler) Handle(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error) {
+func (h *LifecycleHandler) Handle(_ context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error) {
 	boundCondition, _ := conditions.GetCondition(vmmaccondition.BoundType, vmmac.Status.Conditions)
 	if boundCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmmac) {
-		vmmac.Status.Phase = virtv2.VirtualMachineMACAddressPhasePending
+		vmmac.Status.Phase = v1alpha2.VirtualMachineMACAddressPhasePending
 		return reconcile.Result{}, nil
 	}
 
 	attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
 	if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmmac) {
-		if vmmac.Status.Phase != virtv2.VirtualMachineMACAddressPhaseBound {
-			h.recorder.Eventf(vmmac, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineMACAddress is bound.")
+		if vmmac.Status.Phase != v1alpha2.VirtualMachineMACAddressPhaseBound {
+			h.recorder.Eventf(vmmac, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineMACAddress is bound.")
 		}
-		vmmac.Status.Phase = virtv2.VirtualMachineMACAddressPhaseBound
+		vmmac.Status.Phase = v1alpha2.VirtualMachineMACAddressPhaseBound
 		return reconcile.Result{}, nil
 	}
 
-	vmmac.Status.Phase = virtv2.VirtualMachineMACAddressPhaseAttached
+	vmmac.Status.Phase = v1alpha2.VirtualMachineMACAddressPhaseAttached
 	return reconcile.Result{}, nil
 }

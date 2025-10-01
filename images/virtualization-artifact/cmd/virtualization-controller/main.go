@@ -66,7 +66,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -221,7 +221,7 @@ func main() {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
-		virtv2alpha1.AddToScheme,
+		v1alpha2.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,

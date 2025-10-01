@@ -28,11 +28,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/watcher"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error)
+	Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -94,10 +94,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return nil
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineBlockDeviceAttachment {
-	return &virtv2.VirtualMachineBlockDeviceAttachment{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachineBlockDeviceAttachment {
+	return &v1alpha2.VirtualMachineBlockDeviceAttachment{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineBlockDeviceAttachment) virtv2.VirtualMachineBlockDeviceAttachmentStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineBlockDeviceAttachment) v1alpha2.VirtualMachineBlockDeviceAttachmentStatus {
 	return obj.Status
 }

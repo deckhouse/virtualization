@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineMACAddressWatcher struct {
@@ -43,7 +43,7 @@ type VirtualMachineMACAddressWatcher struct {
 
 func NewVirtualMachineMACAddressWatcher(client client.Client) *VirtualMachineMACAddressWatcher {
 	return &VirtualMachineMACAddressWatcher{
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineMACAddressKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineMACAddressKind)),
 		client: client,
 	}
 }
@@ -52,11 +52,11 @@ func (w *VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr control
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineMACAddress{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) []reconcile.Request {
+			&v1alpha2.VirtualMachineMACAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) []reconcile.Request {
 				var requests []reconcile.Request
 
-				var leases virtv2.VirtualMachineMACAddressLeaseList
+				var leases v1alpha2.VirtualMachineMACAddressLeaseList
 				if err := w.client.List(ctx, &leases, &client.ListOptions{}); err != nil {
 					w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))
 					return nil
@@ -73,14 +73,14 @@ func (w *VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr control
 
 				return requests
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddress]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineMACAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineMACAddress]) bool {
 					return false
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddress]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineMACAddress]) bool {
 					return true
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineMACAddress]) bool {
 					return true
 				},
 			},

@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vdsnapshotcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vdsnapshot"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ControllerName = "vdsnapshot-controller"
@@ -43,7 +43,7 @@ func NewController(
 	log *log.Logger,
 	virtClient kubeclient.Client,
 ) (controller.Controller, error) {
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDSnapshotProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDSnapshotProtection)
 	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 
 	reconciler := NewReconciler(
@@ -69,7 +69,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualDiskSnapshot{}).
+		For(&v1alpha2.VirtualDiskSnapshot{}).
 		WithValidator(NewValidator(log)).
 		Complete(); err != nil {
 		return nil, err

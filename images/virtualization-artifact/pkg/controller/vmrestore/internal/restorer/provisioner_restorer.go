@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ProvisionerOverrideValidator struct {
@@ -67,7 +67,7 @@ func NewProvisionerOverrideValidator(secretTmpl *corev1.Secret, client client.Cl
 	}
 }
 
-func (v *ProvisionerOverrideValidator) Override(rules []virtv2.NameReplacement) {
+func (v *ProvisionerOverrideValidator) Override(rules []v1alpha2.NameReplacement) {
 	v.secret.Name = overrideName(v.secret.Kind, v.secret.Name, rules)
 }
 

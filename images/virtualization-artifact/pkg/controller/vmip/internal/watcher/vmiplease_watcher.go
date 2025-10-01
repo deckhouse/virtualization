@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineIPAddressLeaseWatcher struct {
@@ -41,13 +41,13 @@ type VirtualMachineIPAddressLeaseWatcher struct {
 func NewVirtualMachineIPAddressLeaseWatcher(client client.Client) *VirtualMachineIPAddressLeaseWatcher {
 	return &VirtualMachineIPAddressLeaseWatcher{
 		client: client,
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineIPAddressLeaseKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineIPAddressLeaseKind)),
 	}
 }
 
 func (w VirtualMachineIPAddressLeaseWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineIPAddressLease{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
 		),
 	); err != nil {
@@ -56,7 +56,7 @@ func (w VirtualMachineIPAddressLeaseWatcher) Watch(mgr manager.Manager, ctr cont
 	return nil
 }
 
-func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (requests []reconcile.Request) {
+func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context, lease *v1alpha2.VirtualMachineIPAddressLease) (requests []reconcile.Request) {
 	var opts client.ListOptions
 	vmipRef := lease.Spec.VirtualMachineIPAddressRef
 	if vmipRef != nil && vmipRef.Namespace != "" {
@@ -72,7 +72,7 @@ func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context
 		opts.Namespace = vmipRef.Namespace
 	}
 
-	var vmips virtv2.VirtualMachineIPAddressList
+	var vmips v1alpha2.VirtualMachineIPAddressList
 	err := w.client.List(ctx, &vmips, &opts)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vmips: %s", err))

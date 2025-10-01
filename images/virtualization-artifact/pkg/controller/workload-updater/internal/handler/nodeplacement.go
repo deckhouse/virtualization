@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -51,7 +51,7 @@ type NodePlacementHandler struct {
 	oneShotMigration OneShotMigration
 }
 
-func (h *NodePlacementHandler) Handle(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+func (h *NodePlacementHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	if vm == nil || !vm.GetDeletionTimestamp().IsZero() {
 		return reconcile.Result{}, nil
 	}

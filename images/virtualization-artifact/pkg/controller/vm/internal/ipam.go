@@ -33,16 +33,16 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameIpamHandler = "IPAMHandler"
 
 type IPAM interface {
-	IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool
-	CheckIPAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error
-	CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
+	IsBound(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) bool
+	CheckIPAddressAvailableForBinding(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) error
+	CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client) error
 }
 
 func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecorderLogger) *IPAMHandler {
@@ -92,7 +92,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 			Reason(vmcondition.ReasonIPAddressReady).
 			Condition())
 		changed.Status.VirtualMachineIPAddress = ipAddress.GetName()
-		if changed.Status.Phase != virtv2.MachineRunning && changed.Status.Phase != virtv2.MachineStopping {
+		if changed.Status.Phase != v1alpha2.MachineRunning && changed.Status.Phase != v1alpha2.MachineStopping {
 			changed.Status.IPAddress = ipAddress.Status.Address
 		}
 		kvvmi, err := s.KVVMI(ctx)

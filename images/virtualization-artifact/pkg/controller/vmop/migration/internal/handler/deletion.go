@@ -24,7 +24,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -39,7 +39,7 @@ func NewDeletionHandler(migration *service.MigrationService) *DeletionHandler {
 	}
 }
 
-func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (reconcile.Result, error) {
 	if vmop == nil {
 		return reconcile.Result{}, nil
 	}
@@ -48,7 +48,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachine
 
 	if vmop.DeletionTimestamp.IsZero() {
 		log.Debug("Add cleanup finalizer")
-		controllerutil.AddFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
+		controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 		return reconcile.Result{}, nil
 	}
 
@@ -70,7 +70,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachine
 		return reconcile.Result{}, nil
 	}
 
-	controllerutil.RemoveFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
+	controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 	return reconcile.Result{}, nil
 }
 

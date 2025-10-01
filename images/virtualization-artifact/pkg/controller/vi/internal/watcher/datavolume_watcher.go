@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DataVolumeWatcher struct{}
@@ -44,7 +44,7 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 			handler.TypedEnqueueRequestForOwner[*cdiv1.DataVolume](
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&virtv2.VirtualImage{},
+				&v1alpha2.VirtualImage{},
 				handler.OnlyControllerOwner(),
 			),
 			predicate.TypedFuncs[*cdiv1.DataVolume]{

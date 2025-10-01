@@ -22,9 +22,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -119,7 +119,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 
 		It("checks VMs and pods labels after VMs labeling", func() {
 			Eventually(func() error {
-				var vms virtv2.VirtualMachineList
+				var vms v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
@@ -134,7 +134,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -164,7 +164,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 
 		It("checks VMs and pods labels after VMs unlabeling", func() {
 			Eventually(func() error {
-				var vms virtv2.VirtualMachineList
+				var vms v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -211,7 +211,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 
 		It("checks VMs and pods annotations after VMs annotating", func() {
 			Eventually(func() error {
-				var vms virtv2.VirtualMachineList
+				var vms v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
@@ -226,7 +226,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -256,7 +256,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 
 		It("checks VMs and pods annotations after VMs unannotating", func() {
 			Eventually(func() error {
-				var vms virtv2.VirtualMachineList
+				var vms v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
@@ -271,7 +271,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDeco
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
-					vmPod := v1.Pod{}
+					vmPod := corev1.Pod{}
 					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
@@ -356,7 +356,7 @@ func RemoveAnnotation(resource kc.Resource, annotations map[string]string, ns st
 	return nil
 }
 
-func GetActiveVirtualMachinePod(vmObj *virtv2.VirtualMachine) string {
+func GetActiveVirtualMachinePod(vmObj *v1alpha2.VirtualMachine) string {
 	for _, pod := range vmObj.Status.VirtualMachinePods {
 		if pod.Active {
 			return pod.Name

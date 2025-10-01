@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -44,22 +44,22 @@ var _ = Describe("MACHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
-		vm         *virtv2.VirtualMachine
+		vm         *v1alpha2.VirtualMachine
 		recorder   *eventrecord.EventRecorderLoggerMock
 	)
 
 	BeforeEach(func() {
-		vm = &virtv2.VirtualMachine{
+		vm = &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 				UID:       "test-uid",
 			},
-			Spec: virtv2.VirtualMachineSpec{},
-			Status: virtv2.VirtualMachineStatus{
-				Phase: virtv2.MachinePending,
+			Spec: v1alpha2.VirtualMachineSpec{},
+			Status: v1alpha2.VirtualMachineStatus{
+				Phase: v1alpha2.MachinePending,
 			},
 		}
 		recorder = &eventrecord.EventRecorderLoggerMock{
@@ -77,8 +77,8 @@ var _ = Describe("MACHandler", func() {
 		recorder = nil
 	})
 
-	newMACAddress := func(name, address string, phase virtv2.VirtualMachineMACAddressPhase, attachedVM string) *virtv2.VirtualMachineMACAddress {
-		mac := &virtv2.VirtualMachineMACAddress{
+	newMACAddress := func(name, address string, phase v1alpha2.VirtualMachineMACAddressPhase, attachedVM string) *v1alpha2.VirtualMachineMACAddress {
+		mac := &v1alpha2.VirtualMachineMACAddress{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "VirtualMachineMACAddress",
 				APIVersion: "virtualization.deckhouse.io/v1alpha2",
@@ -90,7 +90,7 @@ var _ = Describe("MACHandler", func() {
 					annotations.LabelVirtualMachineUID: string(vm.UID),
 				},
 			},
-			Status: virtv2.VirtualMachineMACAddressStatus{
+			Status: v1alpha2.VirtualMachineMACAddressStatus{
 				Address: address,
 			},
 		}
@@ -117,7 +117,7 @@ var _ = Describe("MACHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -131,16 +131,16 @@ var _ = Describe("MACHandler", func() {
 
 		Describe("NetworkSpec have only 'Main' interface", func() {
 			It("Condition 'MACAddressReady' should have status 'True'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 				}
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -154,16 +154,16 @@ var _ = Describe("MACHandler", func() {
 
 		Describe("NetworkSpec have many interfaces", func() {
 			It("One macAddress exist - Condition 'MACAddressReady' should have status 'False'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network1",
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network2",
 					},
 				}
@@ -174,7 +174,7 @@ var _ = Describe("MACHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, macAddress1)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -187,28 +187,28 @@ var _ = Describe("MACHandler", func() {
 		})
 
 		It("One ready macAddress - Condition 'MACAddressReady' should have status 'False'", func() {
-			networkSpec := []virtv2.NetworksSpec{
+			networkSpec := []v1alpha2.NetworksSpec{
 				{
-					Type: virtv2.NetworksTypeMain,
+					Type: v1alpha2.NetworksTypeMain,
 				},
 				{
-					Type: virtv2.NetworksTypeNetwork,
+					Type: v1alpha2.NetworksTypeNetwork,
 					Name: "test-network1",
 				},
 				{
-					Type: virtv2.NetworksTypeNetwork,
+					Type: v1alpha2.NetworksTypeNetwork,
 					Name: "test-network2",
 				},
 			}
 
-			macAddress1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
+			macAddress1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
 			macAddress2 := newMACAddress("test-mac-address2", "aa:bb:cc:dd:ee:ef", "", "")
 
 			vm.Spec.Networks = networkSpec
 			fakeClient, resource, vmState = setupEnvironment(vm, macAddress1, macAddress2)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -220,28 +220,28 @@ var _ = Describe("MACHandler", func() {
 		})
 
 		It("two ready macAddresses - Condition 'MACAddressReady' should have status 'True'", func() {
-			networkSpec := []virtv2.NetworksSpec{
+			networkSpec := []v1alpha2.NetworksSpec{
 				{
-					Type: virtv2.NetworksTypeMain,
+					Type: v1alpha2.NetworksTypeMain,
 				},
 				{
-					Type: virtv2.NetworksTypeNetwork,
+					Type: v1alpha2.NetworksTypeNetwork,
 					Name: "test-network1",
 				},
 				{
-					Type: virtv2.NetworksTypeNetwork,
+					Type: v1alpha2.NetworksTypeNetwork,
 					Name: "test-network2",
 				},
 			}
 
-			macAddress1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
-			macAddress2 := newMACAddress("test-mac-address2", "aa:bb:cc:dd:ee:ef", virtv2.VirtualMachineMACAddressPhaseAttached, name)
+			macAddress1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+			macAddress2 := newMACAddress("test-mac-address2", "aa:bb:cc:dd:ee:ef", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
 
 			vm.Spec.Networks = networkSpec
 			fakeClient, resource, vmState = setupEnvironment(vm, macAddress1, macAddress2)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewMACManager() *MACManager {
@@ -33,19 +33,19 @@ func NewMACManager() *MACManager {
 
 type MACManager struct{}
 
-func (m MACManager) IsBound(vmName string, vmmac *virtv2.VirtualMachineMACAddress) bool {
+func (m MACManager) IsBound(vmName string, vmmac *v1alpha2.VirtualMachineMACAddress) bool {
 	if vmmac == nil {
 		return false
 	}
 
-	if vmmac.Status.Phase != virtv2.VirtualMachineMACAddressPhaseBound && vmmac.Status.Phase != virtv2.VirtualMachineMACAddressPhaseAttached {
+	if vmmac.Status.Phase != v1alpha2.VirtualMachineMACAddressPhaseBound && vmmac.Status.Phase != v1alpha2.VirtualMachineMACAddressPhaseAttached {
 		return false
 	}
 
 	return vmmac.Status.VirtualMachine == vmName
 }
 
-func (m MACManager) CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMachineMACAddress) error {
+func (m MACManager) CheckMACAddressAvailableForBinding(vmmac *v1alpha2.VirtualMachineMACAddress) error {
 	if vmmac == nil {
 		return errors.New("cannot to bind with empty MAC address")
 	}
@@ -53,9 +53,9 @@ func (m MACManager) CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMach
 	return nil
 }
 
-func (m MACManager) CreateMACAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client, macAddress string) error {
+func (m MACManager) CreateMACAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client, macAddress string) error {
 	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
-	vmmac := &virtv2.VirtualMachineMACAddress{
+	vmmac := &v1alpha2.VirtualMachineMACAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineUID: string(vm.GetUID()),

@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -43,7 +43,7 @@ var _ = Describe("SizePolicyHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
 	)
 
@@ -53,7 +53,7 @@ var _ = Describe("SizePolicyHandler", func() {
 		vmState = nil
 	})
 
-	newVM := func(vmClassName string) *virtv2.VirtualMachine {
+	newVM := func(vmClassName string) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		if vmClassName != "" {
 			vm.Spec.VirtualMachineClassName = vmClassName
@@ -76,7 +76,7 @@ var _ = Describe("SizePolicyHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 			cond, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
@@ -93,7 +93,7 @@ var _ = Describe("SizePolicyHandler", func() {
 				},
 			}
 
-			vmClass := &virtv2.VirtualMachineClass{
+			vmClass := &v1alpha2.VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: vmClassName,
 				},
@@ -101,7 +101,7 @@ var _ = Describe("SizePolicyHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, vmClass)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 			_, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
@@ -111,7 +111,7 @@ var _ = Describe("SizePolicyHandler", func() {
 		It("Should not add condition if it was absent and size policy matches", func() {
 			vm := newVM(vmClassName)
 
-			vmClass := &virtv2.VirtualMachineClass{
+			vmClass := &v1alpha2.VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: vmClassName,
 				},
@@ -119,7 +119,7 @@ var _ = Describe("SizePolicyHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, vmClass)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 			_, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
