@@ -32,9 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -68,7 +68,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "100Mi"
 			},
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
@@ -121,10 +121,13 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			},
 			Status: virtv2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
 			},
 		}
 
-		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+		supgen := vdsupplements.NewGenerator(vd)
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -155,9 +158,13 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create DataVolume", func() {
 			var dvCreated bool
-			vd.Status = virtv2.VirtualDiskStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
-			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ service.ObjectKind, _ *supplements.Generator, _ ...service.Option) error {
+			vd.Status = virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
+			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ client.Object, _ supplements.DataVolumeSupplement, _ ...service.Option) error {
 				dvCreated = true
 				return nil
 			}
@@ -168,7 +175,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 				return nil, nil
 			}
 
-			syncer := NewObjectRefVirtualImage(svc, client)
+			syncer := NewObjectRefVirtualImage(svc, fakeClient)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())

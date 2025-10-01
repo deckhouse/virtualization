@@ -26,11 +26,11 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDecorators(), func() {
 	const (
 		specialKey   = "specialKey"
 		specialValue = "specialValue"
@@ -94,8 +94,8 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
+			By("Virtual machine phase should be Running")
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -103,7 +103,7 @@ var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDec
 		})
 	})
 
-	Context("When virtual machine agents are ready", func() {
+	Context("When virtual machine is running", func() {
 		It(fmt.Sprintf("marks VMs with label %q", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,

@@ -31,7 +31,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -42,7 +42,7 @@ const (
 	frozenReasonPollingInterval    = 1 * time.Second
 )
 
-var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
 		attachedVirtualDiskLabel = map[string]string{"attachedVirtualDisk": ""}

@@ -1,3 +1,7 @@
+global:
+  linters-settings:
+    documentation:
+      impact: error
 linters-settings:
   openapi:
     exclude-rules:
@@ -44,8 +48,6 @@ linters-settings:
         - kubevirt-internal-virtualization-controller
         - kubevirt-internal-virtualization-handler
   module:
-    oss:
-      disable: true
     exclude-rules:
       license:
         files:

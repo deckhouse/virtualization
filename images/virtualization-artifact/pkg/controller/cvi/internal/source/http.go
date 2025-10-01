@@ -235,7 +235,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.ClusterVirtualIma
 	return nil
 }
 
-func (ds HTTPDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, cvi.Spec.DataSource.HTTP, supgen)

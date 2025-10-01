@@ -17,7 +17,11 @@ limitations under the License.
 package vmop
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 func IsInProgressOrPending(vmop *v1alpha2.VirtualMachineOperation) bool {
@@ -43,4 +47,9 @@ func InProgressOrPendingExists(vmops []v1alpha2.VirtualMachineOperation) bool {
 		}
 	}
 	return false
+}
+
+func IsOperationInProgress(vmop *v1alpha2.VirtualMachineOperation) bool {
+	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	return sent.Status == metav1.ConditionTrue && !IsFinished(vmop)
 }

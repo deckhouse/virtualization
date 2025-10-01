@@ -19,12 +19,12 @@ env:
   STORAGE_CLASS_NAME: ceph-pool-r2-csi-rbd-immediate
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.24.6"
-  TIMEOUT: "2h"
+  TIMEOUT: "3h"
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 0 * * *"
 
 defaults:
   run:
@@ -49,8 +49,7 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
-          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
-          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+          go install tool
 
       - name: Install Deckhouse-cli
         run: |

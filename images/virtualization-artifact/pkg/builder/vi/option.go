@@ -21,12 +21,13 @@ import (
 type Option func(vi *v1alpha2.VirtualImage)
 
 var (
-	WithName        = meta.WithName[*v1alpha2.VirtualImage]
-	WithNamespace   = meta.WithNamespace[*v1alpha2.VirtualImage]
-	WithLabel       = meta.WithLabel[*v1alpha2.VirtualImage]
-	WithLabels      = meta.WithLabels[*v1alpha2.VirtualImage]
-	WithAnnotation  = meta.WithAnnotation[*v1alpha2.VirtualImage]
-	WithAnnotations = meta.WithAnnotations[*v1alpha2.VirtualImage]
+	WithName         = meta.WithName[*v1alpha2.VirtualImage]
+	WithGenerateName = meta.WithGenerateName[*v1alpha2.VirtualImage]
+	WithNamespace    = meta.WithNamespace[*v1alpha2.VirtualImage]
+	WithLabel        = meta.WithLabel[*v1alpha2.VirtualImage]
+	WithLabels       = meta.WithLabels[*v1alpha2.VirtualImage]
+	WithAnnotation   = meta.WithAnnotation[*v1alpha2.VirtualImage]
+	WithAnnotations  = meta.WithAnnotations[*v1alpha2.VirtualImage]
 )
 
 func WithPhase(phase v1alpha2.ImagePhase) func(vi *v1alpha2.VirtualImage) {
@@ -38,5 +39,55 @@ func WithPhase(phase v1alpha2.ImagePhase) func(vi *v1alpha2.VirtualImage) {
 func WithCDROM(cdrom bool) func(vi *v1alpha2.VirtualImage) {
 	return func(vi *v1alpha2.VirtualImage) {
 		vi.Status.CDROM = cdrom
+	}
+}
+
+func WithDataSourceHTTP(url string, checksum *v1alpha2.Checksum, caBundle []byte) Option {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL:      url,
+				Checksum: checksum,
+				CABundle: caBundle,
+			},
+		}
+	}
+}
+
+func WithDataSourceContainerImage(image string, imagePullSecret v1alpha2.ImagePullSecretName, caBundle []byte) Option {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeContainerImage,
+			ContainerImage: &v1alpha2.VirtualImageContainerImage{
+				Image:           image,
+				ImagePullSecret: imagePullSecret,
+				CABundle:        caBundle,
+			},
+		}
+	}
+}
+
+func WithDataSourceObjectRef(kind v1alpha2.VirtualImageObjectRefKind, name, namespace string) Option {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeObjectRef,
+			ObjectRef: &v1alpha2.VirtualImageObjectRef{
+				Kind: kind,
+				Name: name,
+			},
+		}
+	}
+}
+
+func WithDatasource(datasource v1alpha2.VirtualImageDataSource) func(vi *v1alpha2.VirtualImage) {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.DataSource = datasource
+	}
+}
+
+func WithStorage(storage v1alpha2.StorageType) func(vi *v1alpha2.VirtualImage) {
+	return func(vi *v1alpha2.VirtualImage) {
+		vi.Spec.Storage = storage
 	}
 }

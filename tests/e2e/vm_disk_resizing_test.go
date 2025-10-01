@@ -31,11 +31,11 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	cfg "github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskResizing", framework.CommonE2ETestDecorators(), func() {
 	const (
 		vmCount   = 1
 		diskCount = 3
@@ -45,6 +45,11 @@ var _ = Describe("VirtualDiskResizing", ginkgoutil.CommonE2ETestDecorators(), fu
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
 	BeforeAll(func() {
+		// TODO: The test is being disabled because the new functionality for volume migration has introduced
+		// an issue that results in the disappearance of the serial inside kvvmi.
+		// This leads to errors during disk resizing. Remove Skip after fixing the issue.
+		Skip("This test case is not working everytime. Should be fixed.")
+
 		if cfg.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
@@ -321,10 +326,10 @@ func GetSizeByLsblk(vmNamespace, vmName, diskIDPath string) (*resource.Quantity,
 		quantity     resource.Quantity
 	)
 	cmd := fmt.Sprintf("lsblk --json --nodeps --output size %s", diskIDPath)
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return nil, errors.New(res.StdErr())

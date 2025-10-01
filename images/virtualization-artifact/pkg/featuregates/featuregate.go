@@ -19,16 +19,30 @@ package featuregates
 import (
 	"github.com/spf13/pflag"
 	"k8s.io/component-base/featuregate"
+
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 )
 
 const (
-	SDN featuregate.Feature = "SDN"
+	SDN                                 featuregate.Feature = "SDN"
+	AutoMigrationIfNodePlacementChanged featuregate.Feature = "AutoMigrationIfNodePlacementChanged"
+	VolumeMigration                     featuregate.Feature = "VolumeMigration"
 )
 
 var featureSpecs = map[featuregate.Feature]featuregate.FeatureSpec{
 	SDN: {
 		Default:    false,
 		PreRelease: featuregate.Alpha,
+	},
+	AutoMigrationIfNodePlacementChanged: {
+		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
+	},
+	VolumeMigration: {
+		Default:       version.GetEdition() == version.EditionEE,
+		LockToDefault: true,
+		PreRelease:    featuregate.Alpha,
 	},
 }
 

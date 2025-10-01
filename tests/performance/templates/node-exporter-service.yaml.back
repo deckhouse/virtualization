@@ -1,0 +1,39 @@
+{{- if eq .Values.nginx true }}
+{{- if or (eq .Values.resources.default "vms") (eq .Values.resources.default "all") }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+spec:
+  selector:
+    vm: {{ $.Values.resourcesPrefix }}
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: 9100
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+    prometheus: main
+spec:
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: http
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  selector:
+    matchLabels:
+      app: {{ $.Values.resourcesPrefix }}-svc-node-exporter
+{{- end }}
+{{- end }}

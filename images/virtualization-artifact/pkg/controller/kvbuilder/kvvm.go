@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	"fmt"
 	"maps"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -45,7 +46,7 @@ const (
 	SysprepDiskName   = "sysprep"
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
-	GenericCPUModel = "kvm64"
+	GenericCPUModel = "qemu64"
 )
 
 type KVVMOptions struct {
@@ -65,6 +66,14 @@ func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		ResourceBuilder: resource_builder.NewResourceBuilder(currentKVVM, resource_builder.ResourceBuilderOptions{ResourceExists: true}),
 		opts:            opts,
+	}
+}
+
+func DefaultOptions(current *virtv2.VirtualMachine) KVVMOptions {
+	return KVVMOptions{
+		EnableParavirtualization: current.Spec.EnableParavirtualization,
+		OsType:                   current.Spec.OsType,
+		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	}
 }
 
@@ -126,16 +135,24 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 		cpu.Model = class.Spec.CPU.Model
 	case virtv2.CPUTypeDiscovery, virtv2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
-		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		l := len(class.Status.CpuFeatures.Enabled)
+		features := make([]virtv1.CPUFeature, l, l+1)
+		hasSvm := false
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
 			if feature == "invtsc" {
 				policy = "optional"
 			}
+			if feature == "svm" {
+				hasSvm = true
+			}
 			features[i] = virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
 			}
+		}
+		if !hasSvm {
+			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
 		}
 		cpu.Features = features
 	default:
@@ -627,4 +644,8 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	}
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+}
+
+func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {
+	b.Resource.Spec.UpdateVolumesStrategy = strategy
 }

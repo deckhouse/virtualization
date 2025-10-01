@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
-	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -68,36 +67,21 @@ func NewImporterService(
 	}
 }
 
-type Option interface{}
-
-type NodePlacementOption struct {
-	nodePlacement *provisioner.NodePlacement
-}
-
-func WithNodePlacement(nodePlacement *provisioner.NodePlacement) Option {
-	return &NodePlacementOption{nodePlacement: nodePlacement}
-}
-
 func (s ImporterService) Start(
 	ctx context.Context,
 	settings *importer.Settings,
-	obj ObjectKind,
-	sup *supplements.Generator,
+	obj client.Object,
+	sup supplements.Generator,
 	caBundle *datasource.CABundle,
 	opts ...Option,
 ) error {
-	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
+	options := newGenericOptions(opts...)
+	ownerRef := metav1.NewControllerRef(obj, obj.GetObjectKind().GroupVersionKind())
 	settings.Verbose = s.verbose
 
 	podSettings := s.getPodSettings(ownerRef, sup)
-
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case *NodePlacementOption:
-			podSettings.NodePlacement = v.nodePlacement
-		default:
-			return fmt.Errorf("unknown Start option")
-		}
+	if options.nodePlacement != nil {
+		podSettings.NodePlacement = options.nodePlacement
 	}
 
 	pod, err := importer.NewImporter(podSettings, settings).GetOrCreatePod(ctx, s.client)
@@ -113,7 +97,7 @@ func (s ImporterService) Start(
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
-func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
 	settings.Verbose = s.verbose
 	podSettings.Finalizer = s.protection.finalizer
 
@@ -125,11 +109,11 @@ func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *impo
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
-func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s ImporterService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controllerName string) (bool, error) {
+func (s ImporterService) DeletePod(ctx context.Context, obj client.Object, controllerName string) (bool, error) {
 	labelSelector := client.MatchingLabels{annotations.AppKubernetesManagedByLabel: controllerName}
 
 	podList := &corev1.PodList{}
@@ -139,7 +123,7 @@ func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controll
 
 	for _, pod := range podList.Items {
 		for _, ownerRef := range pod.OwnerReferences {
-			if ownerRef.Kind == obj.GroupVersionKind().Kind && ownerRef.Name == obj.GetName() && ownerRef.UID == obj.GetUID() {
+			if ownerRef.Kind == obj.GetObjectKind().GroupVersionKind().Kind && ownerRef.Name == obj.GetName() && ownerRef.UID == obj.GetUID() {
 				networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, &pod)
 				if err != nil {
 					return false, err
@@ -257,7 +241,7 @@ func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator)
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementImporterPod, pod)
 }
 
-func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *importer.PodSettings {
+func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,
@@ -272,7 +256,7 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *su
 	}
 }
 
-func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings {
+func (s ImporterService) GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings {
 	importerPod := sup.ImporterPod()
 	return &importer.PodSettings{
 		Name:                 importerPod.Name,

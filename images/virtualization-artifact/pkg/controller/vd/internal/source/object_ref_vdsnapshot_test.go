@@ -77,7 +77,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "1Mi"
 			},
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
@@ -96,7 +96,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "vd-vd-22222222-2222-2222-2222-222222222222",
+				Name: "test-pvc",
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: &sc.Name,
@@ -142,13 +142,22 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 					},
 				},
 			},
+			Status: virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
+			},
 		}
 	})
 
 	Context("VirtualDisk has just been created", func() {
 		It("must create PVC", func() {
 			var pvcCreated bool
-			vd.Status = virtv2.VirtualDiskStatus{}
+			vd.Status = virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
+			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {

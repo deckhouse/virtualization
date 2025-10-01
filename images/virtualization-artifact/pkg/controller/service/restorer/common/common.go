@@ -20,13 +20,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	// MaxKubernetesResourceNameLength defines the maximum allowed length for Kubernetes resource names
-	// according to DNS label standard (RFC 1123) - 63 characters for labels
-	MaxKubernetesResourceNameLength = 63
+	// MaxKubernetesResourceNameLength specifies the maximum allowable length for Kubernetes resource names.
+	MaxKubernetesResourceNameLength = 253
 )
 
 var (
@@ -72,12 +72,22 @@ func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
 	return name
 }
 
-// ValidateResourceNameLength validates that the resource name does not exceed
-// the maximum allowed length for Kubernetes resources
-func ValidateResourceNameLength(resourceName string) error {
-	if len(resourceName) > MaxKubernetesResourceNameLength {
+// ValidateResourceNameLength checks if the given resource name exceeds
+// the maximum allowed length for the specified Kubernetes resource kind.
+// By default, the maximum length is set to MaxKubernetesResourceNameLength,
+// but for VirtualMachine and VirtualDisk resources, it uses
+// MaxVirtualMachineNameLen and MaxDiskNameLen respectively.
+func ValidateResourceNameLength(resourceName, kind string) error {
+	maxLength := MaxKubernetesResourceNameLength
+	switch kind {
+	case virtv2.VirtualMachineKind:
+		maxLength = validate.MaxVirtualMachineNameLen
+	case virtv2.VirtualDiskKind:
+		maxLength = validate.MaxDiskNameLen
+	}
+	if len(resourceName) > maxLength {
 		return fmt.Errorf("name %q too long (%d > %d): %w",
-			resourceName, len(resourceName), MaxKubernetesResourceNameLength, ErrResourceNameTooLong)
+			resourceName, len(resourceName), maxLength, ErrResourceNameTooLong)
 	}
 	return nil
 }

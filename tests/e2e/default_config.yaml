@@ -54,7 +54,10 @@ logFilter:
   - "Failed to watch" # error if virtualization-controller restarts during tests. "msg": "Failed to watch", "err": "Get \"http://127.0.0.1:23915/apis/virtualization.deckhouse.io/v1alpha2/virtualmachinerestores?allowWatchBookmarks=true\u0026resourceVersion=709816257\u0026timeoutSeconds=310\u0026watch=true\": context canceled"
   - "leader election lost"
   - "a virtual machine cannot be restored from the pending phase with `Forced` mode" # "err": "a virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode"
-  - 'virtualMachineSnapshotSecret "" not found' # "msg": "virtualMachineSnapshotSecret \"\" not found"
+  - 'virtualMachineSnapshotSecret \"\" not found' # "msg": "virtualMachineSnapshotSecret \"\" not found"
+  - 'failed to sync migrating volumes: admission webhook \"virtualmachine-validator.kubevirt.io\" denied the request: spec.template.spec.domain.devices.disks'
+  - "in-flight migration detected" # "err": "admission webhook \"migration-create-validator.kubevirt.io\" denied the request: in-flight migration detected. Active migration job"
+
 regexpLogFilter:
   - "failed to detach: .* not found" # "err" "failed to detach: virtualmachine.kubevirt.io \"head-497d17b-vm-automatic-with-hotplug\" not found",
   - "error patching .* not found" # "err" "error patching *** virtualimages.virtualization.deckhouse.io \"head-497d17b-vi-pvc-oref-vi-oref-vd\" not found",
@@ -65,6 +68,8 @@ regexpLogFilter:
   - "Failed to update lock: .* leases.*leader-election-helper.*" # "msg": "ock: Operation cannot be fulfilled on leases.coordination.k8s.io \"d8-virt-operator-leader-election-helper\": the object has been modified; please apply your changes to the latest version and try again",
   - "failed to create VirtualMachineIPAddress .* the specified IP address .* has already been allocated and has not been released" #     "err": "failed to create VirtualMachineIPAddress \"head-5d2c558-vm-restore-safe-tfv4w\": admission webhook \"vmip.virtualization-controller.validate.d8-virtualization\" denied the request: the VirtualMachineIPAddress cannot be created: the specified IP address 10.66.10.4 has already been allocated and has not been released"
   - "error retrieving resource lock .*leader-election-helper" #  "msg": "error retrieving resource lock d8-virtualization/d8-virt-operator-leader-election-helper: context deadline exceeded",
+  - "persistentvolumeclaims .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "persistentvolumeclaims \"vd-f6fd1238-9cfe-4c22-bb48-cd64778740e3-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-p8cxr because it is being terminated"
+  - "virtualmachineoperations.virtualization.deckhouse.io .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "virtualmachineoperations.virtualization.deckhouse.io \"volume-migration-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-qsggq because it is being terminated"
 
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io

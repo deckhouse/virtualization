@@ -41,6 +41,7 @@ altPackages:
 packages:
 - libgmp libtpms openssl libjson-glib
 - libtasn1
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

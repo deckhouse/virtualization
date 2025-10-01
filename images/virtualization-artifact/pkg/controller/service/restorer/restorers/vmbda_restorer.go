@@ -112,7 +112,7 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) er
 }
 
 func (v *VMBlockDeviceAttachmentHandler) ValidateClone(ctx context.Context) error {
-	if err := common.ValidateResourceNameLength(v.vmbda.Name); err != nil {
+	if err := common.ValidateResourceNameLength(v.vmbda.Name, v.vmbda.Kind); err != nil {
 		return err
 	}
 

@@ -29,12 +29,12 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string
@@ -46,6 +46,7 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		existingVMClass                = map[string]string{"vm": "existing-vmclass"}
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 		ns                             string
+		phaseByVolumeBindingMode       = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	BeforeAll(func() {

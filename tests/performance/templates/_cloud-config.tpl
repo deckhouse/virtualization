@@ -17,6 +17,7 @@ users:
       {{- range .Values.sshAuthorizeKeys }}
       - {{.}}
       {{- end }}
+{{- if eq .Values.resources.virtualImage.spec.template.image.name "ubuntu" }}
 apt:
   sources_list: |
       deb http://mirror.yandex.ru/ubuntu jammy main restricted
@@ -32,10 +33,11 @@ apt:
 package_update: true
 package_upgrade: true
 packages:
-  - prometheus-node-exporter
-  - qemu-guest-agent
-  - stress-ng
+  # - prometheus-node-exporter
+  # - qemu-guest-agent
+  # - stress-ng
   - nginx
+{{- end }}
 write_files:
   - path: /usr/local/bin/generate.sh
     permissions: "0755"

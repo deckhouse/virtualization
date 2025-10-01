@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -78,7 +79,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 		return nil, nil
 	}
 
-	vd.Status.Target.PersistentVolumeClaim = s.pvc.Name
+	vdsupplements.SetPVCName(vd, s.pvc.Name)
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:

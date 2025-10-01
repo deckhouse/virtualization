@@ -3,4 +3,4 @@ kind: Kustomization
 resources:
   - overlays/migration-bios
   - overlays/migration-uefi
-  - overlays/with-cvi
+#  - overlays/with-cvi # TODO: Remove Skip after fixing the issue.

@@ -36,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -102,7 +103,7 @@ func setPhaseConditionForFinishedDisk(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *virtv2.DiskPhase,
-	supgen *supplements.Generator,
+	supgen supplements.Generator,
 ) {
 	var newPhase virtv2.DiskPhase
 	switch {
@@ -268,7 +269,7 @@ func setPhaseConditionFromPodError(
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 func setPhaseConditionFromProvisioningError(
@@ -299,7 +300,7 @@ func setPhaseConditionFromProvisioningError(
 		vd.Status.Phase = virtv2.DiskProvisioning
 
 		if isChanged {
-			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+			supgen := vdsupplements.NewGenerator(vd)
 
 			_, err = cleaner.CleanUp(ctx, supgen)
 			if err != nil {
