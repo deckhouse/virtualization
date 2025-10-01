@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	sub1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type AttachmentService struct {
@@ -139,7 +139,7 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 		return errors.New("cannot hot plug a disk into a nil KVVM")
 	}
 
-	return s.virtClient.VirtualMachines(vm.GetNamespace()).AddVolume(ctx, vm.GetName(), sub1alpha2.VirtualMachineAddVolume{
+	return s.virtClient.VirtualMachines(vm.GetNamespace()).AddVolume(ctx, vm.GetName(), subv1alpha2.VirtualMachineAddVolume{
 		VolumeKind: string(ad.Kind),
 		Name:       ad.GenerateName,
 		Image:      ad.Image,
@@ -170,7 +170,7 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualM
 	if diskName == "" {
 		return errors.New("cannot unplug a disk with a empty DiskName")
 	}
-	return s.virtClient.VirtualMachines(kvvm.GetNamespace()).RemoveVolume(ctx, kvvm.GetName(), sub1alpha2.VirtualMachineRemoveVolume{
+	return s.virtClient.VirtualMachines(kvvm.GetNamespace()).RemoveVolume(ctx, kvvm.GetName(), subv1alpha2.VirtualMachineRemoveVolume{
 		Name: diskName,
 	})
 }

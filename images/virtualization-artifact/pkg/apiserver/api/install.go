@@ -32,7 +32,7 @@ import (
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
-	sub1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 var (
@@ -68,7 +68,7 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 		"virtualmachines/unfreeze":         store.UnfreezeREST(),
 		"virtualmachines/cancelevacuation": store.CancelEvacuationREST(),
 	}
-	apiGroupInfo.VersionedResourcesStorageMap[sub1alpha2.SchemeGroupVersion.Version] = resources
+	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
 }
 

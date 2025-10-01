@@ -30,7 +30,7 @@ import (
 	"k8s.io/klog/v2"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
-	sub1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
@@ -121,23 +121,23 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 func (o *PortForward) prepareCommand(defaultNamespace string, args []string) (namespace, name string, ports []forwardedPort, err error) {
 	namespace, name, err = templates.ParseTarget(args[0])
 	if err != nil {
-		return
+		return namespace, name, ports, err
 	}
 
 	ports, err = parsePorts(args[1:])
 	if err != nil {
-		return
+		return namespace, name, ports, err
 	}
 
 	if namespace == "" {
 		namespace = defaultNamespace
 	}
 
-	return
+	return namespace, name, ports, err
 }
 
 func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPort) error {
-	streamer, err := o.resource.PortForward(name, sub1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
+	streamer, err := o.resource.PortForward(name, subv1alpha2.VirtualMachinePortForward{Port: port.remote, Protocol: port.protocol})
 	if err != nil {
 		return err
 	}
