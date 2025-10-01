@@ -280,14 +280,14 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 
 	switch {
 	// This workaround is required due to a bug in the KVVM workflow.
-	// When a KVVM is created with a non-existent nodeSelector and cannot be scheduled,
-	// it remains unschedulable even if the nodeSelector is changed or removed.
+	// When a KVVM is created with conflicting placement rules and cannot be scheduled,
+	// it remains unschedulable even if these rules are changed or removed.
 	case h.isVMUnschedulable(s.VirtualMachine().Current(), kvvm):
-		nodeSelectorChanged, err := h.isNodeSelectorChanged(ctx, s)
+		placementPolicyChanged, err := h.isPlacementPolicyChanged(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("failed to detect changes in internal virtual machine's nodeSelector: %w", err)
 		}
-		if nodeSelectorChanged {
+		if placementPolicyChanged {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
@@ -691,7 +691,8 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 	return false
 }
 
-func (h *SyncKvvmHandler) isNodeSelectorChanged(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+// isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.
+func (h *SyncKvvmHandler) isPlacementPolicyChanged(ctx context.Context, s state.VirtualMachineState) (bool, error) {
 	currentKvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return false, err
@@ -702,5 +703,12 @@ func (h *SyncKvvmHandler) isNodeSelectorChanged(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	return !equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.NodeSelector, &newKvvm.Spec.Template.Spec.NodeSelector), nil
+	isChanged := false
+	if !equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.Affinity, &newKvvm.Spec.Template.Spec.Affinity) ||
+		!equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.NodeSelector, &newKvvm.Spec.Template.Spec.NodeSelector) ||
+		!equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.Tolerations, &newKvvm.Spec.Template.Spec.Tolerations) {
+		isChanged = true
+	}
+
+	return isChanged, nil
 }
