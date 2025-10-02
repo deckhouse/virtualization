@@ -731,11 +731,11 @@ func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
 	return ok && val == value
 }
 
-// SaveTestResources dump some resources that may help in further diagnostic.
+// SaveTestCaseDump dump some resources, logs and descriptions that may help in further diagnostic.
 //
 // NOTE: This method is called in AfterEach for failed specs only. Avoid to use Expect,
 // as it fails without reporting. Better use GinkgoWriter to report errors at this point.
-func SaveTestResources(labels map[string]string, additional string) {
+func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
 	replacer := strings.NewReplacer(
 		" ", "_",
 		":", "_",
@@ -753,10 +753,24 @@ func SaveTestResources(labels map[string]string, additional string) {
 	if tmpDir == "" {
 		tmpDir = "/tmp"
 	}
-	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", tmpDir, labels["testcase"], additional)
-	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", tmpDir, labels["testcase"], additional)
 
-	cmdr := kubectl.Get("virtualization,intvirt,po,volumesnapshot -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	SaveTestCaseResources(labels, additional, namespace, tmpDir)
+	SavePodLogsAndDescriptions(labels, additional, namespace, tmpDir)
+}
+
+func SaveTestCaseResources(labels map[string]string, additional, namespace, dumpPath string) {
+	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", dumpPath, labels["testcase"], additional)
+	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", dumpPath, labels["testcase"], additional)
+
+	cmdr := kubectl.Get(
+		"virtualization,cvi,vmc,intvirt,pod,volumesnapshot",
+		kc.GetOptions{
+			Labels:            labels,
+			Namespace:         namespace,
+			Output:            "yaml",
+			ShowManagedFields: true,
+		},
+	)
 	if cmdr.Error() != nil {
 		errReport := fmt.Sprintf("cmd: %s\nerror: %s\nstderr: %s\n", cmdr.GetCmd(), cmdr.Error(), cmdr.StdErr())
 		GinkgoWriter.Printf("Get resources error:\n%s\n", errReport)
@@ -771,6 +785,42 @@ func SaveTestResources(labels map[string]string, additional string) {
 		err := os.WriteFile(resFileName, cmdr.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", errorFileName, err)
+		}
+	}
+}
+
+func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
+	pods := &corev1.PodList{}
+	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Namespace: namespace, Labels: labels})
+	if err != nil {
+		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
+	}
+
+	if len(pods.Items) == 0 {
+		GinkgoWriter.Println("The list of pods is empty; nothing to dump.")
+	}
+
+	for _, pod := range pods.Items {
+		logCmd := kubectl.RawCommand(fmt.Sprintf("logs %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
+		if logCmd.Error() != nil {
+			GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %s\n", pod.Name, logCmd.StdErr())
+		}
+
+		fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__logs.json", dumpPath, labels["testcase"], additional, pod.Name)
+		err := os.WriteFile(fileName, logCmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nError: %s\n", pod.Name, err)
+		}
+
+		describeCmd := kubectl.RawCommand(fmt.Sprintf("describe pod %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
+		if describeCmd.Error() != nil {
+			GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", pod.Name, describeCmd.StdErr())
+		}
+
+		fileName = fmt.Sprintf("%s/e2e_failed__%s__%s__%s__describe", dumpPath, labels["testcase"], additional, pod.Name)
+		err = os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
+		if err != nil {
+			GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %s\n", pod.Name, err)
 		}
 	}
 }

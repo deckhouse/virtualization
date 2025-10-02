@@ -44,7 +44,7 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
