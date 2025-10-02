@@ -358,7 +358,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) CleanUp(ctx context.Context, vi *v1alph
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator) *importer.Settings {
+func (ds ObjectRefDataVirtualImageOnPVC) getEnvSettings(vi *v1alpha2.VirtualImage, sup *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

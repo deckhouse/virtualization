@@ -386,7 +386,7 @@ func (ds HTTPDataSource) Name() string {
 	return httpDataSource
 }
 
-func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vd.Spec.DataSource.HTTP, supgen)

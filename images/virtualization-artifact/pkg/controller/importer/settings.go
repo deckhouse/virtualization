@@ -77,7 +77,7 @@ func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Setti
 }
 
 // ApplyHTTPSourceSettings updates importer Pod settings to use http source.
-func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP, supGen *supplements.Generator) {
+func ApplyHTTPSourceSettings(podEnvVars *Settings, http *v1alpha2.DataSourceHTTP, supGen *supplements.Generator) {
 	podEnvVars.Source = SourceHTTP
 	podEnvVars.Endpoint = http.URL
 

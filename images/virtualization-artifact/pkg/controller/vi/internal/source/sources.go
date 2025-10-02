@@ -112,7 +112,7 @@ type CheckImportProcess interface {
 func setPhaseConditionForFinishedImage(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
-	phase *virtv2.ImagePhase,
+	phase *v1alpha2.ImagePhase,
 	supgen *supplements.Generator,
 ) {
 	switch {

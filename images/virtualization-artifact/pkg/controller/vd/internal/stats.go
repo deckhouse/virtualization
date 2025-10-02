@@ -89,7 +89,7 @@ func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	var err error
 
 	switch vd.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
+	case v1alpha2.DataSourceTypeUpload:
 		pod, err = h.uploader.GetPod(ctx, supgen.Generator)
 		if err != nil {
 			return reconcile.Result{}, err

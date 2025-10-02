@@ -47,10 +47,10 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 	var (
 		ctx         context.Context
 		scheme      *runtime.Scheme
-		vi          *virtv2.VirtualImage
+		vi          *v1alpha2.VirtualImage
 		vs          *vsv1.VolumeSnapshot
 		sc          *storagev1.StorageClass
-		vdSnapshot  *virtv2.VirtualDiskSnapshot
+		vdSnapshot  *v1alpha2.VirtualDiskSnapshot
 		pvc         *corev1.PersistentVolumeClaim
 		settings    *dvcr.Settings
 		recorder    eventrecord.EventRecorderLogger

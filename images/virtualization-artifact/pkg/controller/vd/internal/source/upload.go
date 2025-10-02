@@ -422,7 +422,7 @@ func (ds UploadDataSource) Name() string {
 	return uploadDataSource
 }
 
-func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen *supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(

@@ -102,7 +102,7 @@ func IsDiskProvisioningFinished(c metav1.Condition) bool {
 func setPhaseConditionForFinishedDisk(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
-	phase *virtv2.DiskPhase,
+	phase *v1alpha2.DiskPhase,
 	supgen *supplements.Generator,
 ) {
 	var newPhase v1alpha2.DiskPhase

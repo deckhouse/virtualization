@@ -111,7 +111,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	return nil, nil
 }
 
-func (s CreatePodStep) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator) *importer.Settings {
+func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

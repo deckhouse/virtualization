@@ -411,7 +411,7 @@ func (ds RegistryDataSource) Name() string {
 	return registryDataSource
 }
 
-func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{

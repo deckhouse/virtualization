@@ -215,7 +215,7 @@ func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *v1alpha2.Cluste
 	return ds.importerService.DeletePod(ctx, cvi, controllerName)
 }
 
-func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

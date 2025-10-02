@@ -439,7 +439,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vi *v1alpha2.VirtualI
 	return nil
 }
 
-func (ds RegistryDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{

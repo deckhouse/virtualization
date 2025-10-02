@@ -207,7 +207,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				return nil, nil
 			}
 
-			vi.Status = virtv2.VirtualImageStatus{}
+			vi.Status = v1alpha2.VirtualImageStatus{}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {

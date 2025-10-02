@@ -358,7 +358,7 @@ func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *v1alpha
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

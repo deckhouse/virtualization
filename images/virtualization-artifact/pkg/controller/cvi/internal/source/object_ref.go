@@ -379,7 +379,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *v1alpha2.Cluste
 	}
 }
 
-func (ds ObjectRefDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {
+func (ds ObjectRefDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup *supplements.Generator, dvcrDataSource controller.DVCRDataSource) (*importer.Settings, error) {
 	if !dvcrDataSource.IsReady() {
 		return nil, errors.New("dvcr data source is not ready")
 	}

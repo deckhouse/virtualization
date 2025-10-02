@@ -450,7 +450,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualImage) e
 	return nil
 }
 
-func (ds HTTPDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vi.Spec.DataSource.HTTP, supgen)
