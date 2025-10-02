@@ -6,6 +6,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -19,6 +21,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -32,6 +36,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -45,6 +51,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -58,6 +66,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -73,6 +83,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -86,6 +98,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -99,6 +113,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
@@ -112,6 +128,8 @@ metadata:
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: "ObjectRef"
     objectRef:
