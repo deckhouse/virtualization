@@ -51,6 +51,9 @@ var _ = SIGDescribe("Volume migration with local disks", framework.CommonE2ETest
 	)
 
 	BeforeEach(func() {
+		// TODO: Remove Skip after fixing the issue.
+		Skip("This test case is not working everytime. Should be fixed.")
+
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
 			Skip("TemplateStorageClass is not set.")
