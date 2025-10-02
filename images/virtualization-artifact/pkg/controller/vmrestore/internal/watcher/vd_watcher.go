@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskWatcher struct {
@@ -44,7 +44,7 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 
 func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
 		),
 	); err != nil {
@@ -53,8 +53,8 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 	return nil
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
-	var vmRestores virtv2.VirtualMachineRestoreList
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
+	var vmRestores v1alpha2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -65,14 +65,14 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.Virt
 
 	for _, vmRestore := range vmRestores.Items {
 		vmSnapshotName := vmRestore.Spec.VirtualMachineSnapshotName
-		var vmSnapshot virtv2.VirtualMachineSnapshot
+		var vmSnapshot v1alpha2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: vd.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
 			return
 		}
 		for _, vdsnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
-			var vdSnapshot virtv2.VirtualDiskSnapshot
+			var vdSnapshot v1alpha2.VirtualDiskSnapshot
 			err := w.client.Get(ctx, types.NamespacedName{Name: vdsnapshotName, Namespace: vd.GetNamespace()}, &vdSnapshot)
 			if err != nil {
 				log.Error(fmt.Sprintf("failed to get vdSnapshot: %s", err))
@@ -93,7 +93,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.Virt
 	return
 }
 
-func (w VirtualDiskWatcher) isVdNameMatch(vdName, restoredName string, nameReplacements []virtv2.NameReplacement) bool {
+func (w VirtualDiskWatcher) isVdNameMatch(vdName, restoredName string, nameReplacements []v1alpha2.NameReplacement) bool {
 	var (
 		isNameMatch            bool
 		isNameReplacementMatch bool
@@ -102,7 +102,7 @@ func (w VirtualDiskWatcher) isVdNameMatch(vdName, restoredName string, nameRepla
 	isNameMatch = vdName == restoredName
 
 	for _, nr := range nameReplacements {
-		if nr.From.Kind != virtv2.VirtualDiskKind {
+		if nr.From.Kind != v1alpha2.VirtualDiskKind {
 			continue
 		}
 

@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
@@ -57,7 +57,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -131,7 +131,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 				vmNames := strings.Split(res.StdOut(), " ")
 				Expect(vmNames).NotTo(BeEmpty())
 
-				vmResource := virtv2.VirtualMachine{}
+				vmResource := v1alpha2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vmNames[0], &vmResource, kc.GetOptions{Namespace: ns})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -210,7 +210,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 				vmNames := strings.Split(res.StdOut(), " ")
 				Expect(vmNames).NotTo(BeEmpty())
 
-				vmResource := virtv2.VirtualMachine{}
+				vmResource := v1alpha2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vmNames[0], &vmResource, kc.GetOptions{Namespace: ns})
 				Expect(err).NotTo(HaveOccurred(), "%v", err)
 
@@ -301,7 +301,7 @@ func ChangeCPUCoresNumber(cpuNumber int, vmNamespace string, vmNames ...string) 
 func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, vmNamespace string, vmNames ...string) {
 	for _, vmName := range vmNames {
 		By(fmt.Sprintf("Checking the number of processor cores %s changing", stage))
-		vmResource := virtv2.VirtualMachine{}
+		vmResource := v1alpha2.VirtualMachine{}
 		err := GetObject(kc.ResourceVM, vmName, &vmResource, kc.GetOptions{Namespace: vmNamespace})
 		Expect(err).NotTo(HaveOccurred(), "%v", err)
 		Expect(vmResource.Spec.CPU.Cores).To(Equal(requiredValue))

@@ -30,19 +30,19 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 type TakeLeaseStep struct {
-	lease    *virtv2.VirtualMachineIPAddressLease
+	lease    *v1alpha2.VirtualMachineIPAddressLease
 	client   client.Client
 	cb       *conditions.ConditionBuilder
 	recorder eventrecord.EventRecorderLogger
 }
 
 func NewTakeLeaseStep(
-	lease *virtv2.VirtualMachineIPAddressLease,
+	lease *v1alpha2.VirtualMachineIPAddressLease,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 	recorder eventrecord.EventRecorderLogger,
@@ -55,7 +55,7 @@ func NewTakeLeaseStep(
 	}
 }
 
-func (s TakeLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*reconcile.Result, error) {
+func (s TakeLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*reconcile.Result, error) {
 	if s.lease == nil {
 		return nil, nil
 	}
@@ -83,7 +83,7 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIPAd
 	}
 
 	// All checks have passed, the Lease is unoccupied, and it can be taken.
-	s.lease.Spec.VirtualMachineIPAddressRef = &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
+	s.lease.Spec.VirtualMachineIPAddressRef = &v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef{
 		Name:      vmip.Name,
 		Namespace: vmip.Namespace,
 	}

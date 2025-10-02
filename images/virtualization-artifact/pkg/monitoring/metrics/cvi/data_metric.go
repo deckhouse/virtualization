@@ -17,17 +17,17 @@ limitations under the License.
 package cvi
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
 	Name  string
 	UID   string
-	Phase virtv2.ImagePhase
+	Phase v1alpha2.ImagePhase
 }
 
 // DO NOT mutate ClusterVirtualImage!
-func newDataMetric(cvi *virtv2.ClusterVirtualImage) *dataMetric {
+func newDataMetric(cvi *v1alpha2.ClusterVirtualImage) *dataMetric {
 	if cvi == nil {
 		return nil
 	}

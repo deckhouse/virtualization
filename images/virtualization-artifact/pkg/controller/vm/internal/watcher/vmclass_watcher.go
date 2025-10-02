@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineClassWatcher struct{}
@@ -46,10 +46,10 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineClass{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmClass *virtv2.VirtualMachineClass) []reconcile.Request {
+			&v1alpha2.VirtualMachineClass{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmClass *v1alpha2.VirtualMachineClass) []reconcile.Request {
 				c := mgr.GetClient()
-				vms := &virtv2.VirtualMachineList{}
+				vms := &v1alpha2.VirtualMachineList{}
 				err := c.List(ctx, vms, client.MatchingFields{
 					indexer.IndexFieldVMByClass: vmClass.GetName(),
 				})
@@ -73,9 +73,9 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 				}
 				return requests
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineClass]{
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineClass]) bool { return false },
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineClass]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineClass]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineClass]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineClass]) bool {
 					return !equality.Semantic.DeepEqual(e.ObjectOld.Spec.SizingPolicies, e.ObjectNew.Spec.SizingPolicies) ||
 						!equality.Semantic.DeepEqual(e.ObjectOld.Spec.Tolerations, e.ObjectNew.Spec.Tolerations) ||
 						!equality.Semantic.DeepEqual(e.ObjectOld.Spec.NodeSelector, e.ObjectNew.Spec.NodeSelector)

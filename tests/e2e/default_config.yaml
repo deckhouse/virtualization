@@ -69,6 +69,7 @@ regexpLogFilter:
   - "failed to create VirtualMachineIPAddress .* the specified IP address .* has already been allocated and has not been released" #     "err": "failed to create VirtualMachineIPAddress \"head-5d2c558-vm-restore-safe-tfv4w\": admission webhook \"vmip.virtualization-controller.validate.d8-virtualization\" denied the request: the VirtualMachineIPAddress cannot be created: the specified IP address 10.66.10.4 has already been allocated and has not been released"
   - "error retrieving resource lock .*leader-election-helper" #  "msg": "error retrieving resource lock d8-virtualization/d8-virt-operator-leader-election-helper: context deadline exceeded",
   - "persistentvolumeclaims .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "persistentvolumeclaims \"vd-f6fd1238-9cfe-4c22-bb48-cd64778740e3-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-p8cxr because it is being terminated"
+  - "virtualmachineoperations.virtualization.deckhouse.io .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "virtualmachineoperations.virtualization.deckhouse.io \"volume-migration-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-qsggq because it is being terminated"
 
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io

@@ -6,7 +6,7 @@ package internal
 import (
 	"context"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"sync"
 )
 
@@ -26,7 +26,7 @@ var _ IPAddressService = &IPAddressServiceMock{}
 //			GetAllocatedIPsFunc: func(ctx context.Context) (ip.AllocatedIPs, error) {
 //				panic("mock out the GetAllocatedIPs method")
 //			},
-//			GetLeaseFunc: func(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+//			GetLeaseFunc: func(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 //				panic("mock out the GetLease method")
 //			},
 //			IsInsideOfRangeFunc: func(address string) error {
@@ -46,7 +46,7 @@ type IPAddressServiceMock struct {
 	GetAllocatedIPsFunc func(ctx context.Context) (ip.AllocatedIPs, error)
 
 	// GetLeaseFunc mocks the GetLease method.
-	GetLeaseFunc func(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error)
+	GetLeaseFunc func(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error)
 
 	// IsInsideOfRangeFunc mocks the IsInsideOfRange method.
 	IsInsideOfRangeFunc func(address string) error
@@ -68,7 +68,7 @@ type IPAddressServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vmip is the vmip argument value.
-			Vmip *virtv2.VirtualMachineIPAddress
+			Vmip *v1alpha2.VirtualMachineIPAddress
 		}
 		// IsInsideOfRange holds details about calls to the IsInsideOfRange method.
 		IsInsideOfRange []struct {
@@ -147,13 +147,13 @@ func (mock *IPAddressServiceMock) GetAllocatedIPsCalls() []struct {
 }
 
 // GetLease calls GetLeaseFunc.
-func (mock *IPAddressServiceMock) GetLease(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (mock *IPAddressServiceMock) GetLease(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 	if mock.GetLeaseFunc == nil {
 		panic("IPAddressServiceMock.GetLeaseFunc: method is nil but IPAddressService.GetLease was just called")
 	}
 	callInfo := struct {
 		Ctx  context.Context
-		Vmip *virtv2.VirtualMachineIPAddress
+		Vmip *v1alpha2.VirtualMachineIPAddress
 	}{
 		Ctx:  ctx,
 		Vmip: vmip,
@@ -170,11 +170,11 @@ func (mock *IPAddressServiceMock) GetLease(ctx context.Context, vmip *virtv2.Vir
 //	len(mockedIPAddressService.GetLeaseCalls())
 func (mock *IPAddressServiceMock) GetLeaseCalls() []struct {
 	Ctx  context.Context
-	Vmip *virtv2.VirtualMachineIPAddress
+	Vmip *v1alpha2.VirtualMachineIPAddress
 } {
 	var calls []struct {
 		Ctx  context.Context
-		Vmip *virtv2.VirtualMachineIPAddress
+		Vmip *v1alpha2.VirtualMachineIPAddress
 	}
 	mock.lockGetLease.RLock()
 	calls = mock.calls.GetLease

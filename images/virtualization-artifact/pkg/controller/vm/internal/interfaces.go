@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/client-go/tools/record"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . EventRecorder BlockDeviceService
@@ -29,5 +29,5 @@ import (
 type EventRecorder = record.EventRecorder
 
 type BlockDeviceService interface {
-	CountBlockDevicesAttachedToVM(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
+	CountBlockDevicesAttachedToVM(ctx context.Context, vm *v1alpha2.VirtualMachine) (int, error)
 }

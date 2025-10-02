@@ -23,7 +23,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -42,17 +42,17 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.VMOPPhasePending
+		phase = v1alpha2.VMOPPhasePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.VMOPPhasePending, string(virtv2.VMOPPhasePending)},
-		{phase == virtv2.VMOPPhaseInProgress, string(virtv2.VMOPPhaseInProgress)},
-		{phase == virtv2.VMOPPhaseCompleted, string(virtv2.VMOPPhaseCompleted)},
-		{phase == virtv2.VMOPPhaseFailed, string(virtv2.VMOPPhaseFailed)},
-		{phase == virtv2.VMOPPhaseTerminating, string(virtv2.VMOPPhaseTerminating)},
+		{phase == v1alpha2.VMOPPhasePending, string(v1alpha2.VMOPPhasePending)},
+		{phase == v1alpha2.VMOPPhaseInProgress, string(v1alpha2.VMOPPhaseInProgress)},
+		{phase == v1alpha2.VMOPPhaseCompleted, string(v1alpha2.VMOPPhaseCompleted)},
+		{phase == v1alpha2.VMOPPhaseFailed, string(v1alpha2.VMOPPhaseFailed)},
+		{phase == v1alpha2.VMOPPhaseTerminating, string(v1alpha2.VMOPPhaseTerminating)},
 	}
 
 	for _, p := range phases {

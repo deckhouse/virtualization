@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -58,21 +58,21 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.MachinePending
+		phase = v1alpha2.MachinePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.MachinePending, string(virtv2.MachinePending)},
-		{phase == virtv2.MachineRunning, string(virtv2.MachineRunning)},
-		{phase == virtv2.MachineDegraded, string(virtv2.MachineDegraded)},
-		{phase == virtv2.MachineTerminating, string(virtv2.MachineTerminating)},
-		{phase == virtv2.MachineStopped, string(virtv2.MachineStopped)},
-		{phase == virtv2.MachineStopping, string(virtv2.MachineStopping)},
-		{phase == virtv2.MachineStarting, string(virtv2.MachineStarting)},
-		{phase == virtv2.MachineMigrating, string(virtv2.MachineMigrating)},
-		{phase == virtv2.MachinePause, string(virtv2.MachinePause)},
+		{phase == v1alpha2.MachinePending, string(v1alpha2.MachinePending)},
+		{phase == v1alpha2.MachineRunning, string(v1alpha2.MachineRunning)},
+		{phase == v1alpha2.MachineDegraded, string(v1alpha2.MachineDegraded)},
+		{phase == v1alpha2.MachineTerminating, string(v1alpha2.MachineTerminating)},
+		{phase == v1alpha2.MachineStopped, string(v1alpha2.MachineStopped)},
+		{phase == v1alpha2.MachineStopping, string(v1alpha2.MachineStopping)},
+		{phase == v1alpha2.MachineStarting, string(v1alpha2.MachineStarting)},
+		{phase == v1alpha2.MachineMigrating, string(v1alpha2.MachineMigrating)},
+		{phase == v1alpha2.MachinePause, string(v1alpha2.MachinePause)},
 	}
 	for _, p := range phases {
 		s.defaultUpdate(MetricVirtualMachineStatusPhase,
@@ -135,10 +135,10 @@ func (s *scraper) updateMetricVirtualMachineConfigurationRunPolicy(m *dataMetric
 		value bool
 		name  string
 	}{
-		{policy == virtv2.AlwaysOnPolicy, string(virtv2.AlwaysOnPolicy)},
-		{policy == virtv2.AlwaysOffPolicy, string(virtv2.AlwaysOffPolicy)},
-		{policy == virtv2.ManualPolicy, string(virtv2.ManualPolicy)},
-		{policy == virtv2.AlwaysOnUnlessStoppedManually, string(virtv2.AlwaysOnUnlessStoppedManually)},
+		{policy == v1alpha2.AlwaysOnPolicy, string(v1alpha2.AlwaysOnPolicy)},
+		{policy == v1alpha2.AlwaysOffPolicy, string(v1alpha2.AlwaysOffPolicy)},
+		{policy == v1alpha2.ManualPolicy, string(v1alpha2.ManualPolicy)},
+		{policy == v1alpha2.AlwaysOnUnlessStoppedManually, string(v1alpha2.AlwaysOnUnlessStoppedManually)},
 	}
 	for _, p := range policies {
 		s.defaultUpdate(MetricVirtualMachineConfigurationRunPolicy,

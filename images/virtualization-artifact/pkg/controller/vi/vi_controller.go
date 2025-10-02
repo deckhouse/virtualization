@@ -37,7 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vicollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vi"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -48,7 +48,7 @@ const (
 )
 
 type Condition interface {
-	Handle(ctx context.Context, vi *virtv2.VirtualImage) error
+	Handle(ctx context.Context, vi *v1alpha2.VirtualImage) error
 }
 
 func NewController(
@@ -63,7 +63,7 @@ func NewController(
 	storageClassSettings config.VirtualImageStorageClassSettings,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
@@ -72,10 +72,10 @@ func NewController(
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, bounder, dvcr, mgr.GetClient(), disk))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk))
+	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk))
+	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk))
+	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, bounder, dvcr, mgr.GetClient(), disk))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
@@ -102,7 +102,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualImage{}).
+		For(&v1alpha2.VirtualImage{}).
 		WithValidator(NewValidator(log, mgr.GetClient(), scService)).
 		Complete(); err != nil {
 		return nil, err

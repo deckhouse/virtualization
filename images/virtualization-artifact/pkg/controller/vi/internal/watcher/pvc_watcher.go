@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type PersistentVolumeClaimWatcher struct{}
@@ -43,7 +43,7 @@ func (w *PersistentVolumeClaimWatcher) Watch(mgr manager.Manager, ctr controller
 			handler.TypedEnqueueRequestForOwner[*corev1.PersistentVolumeClaim](
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&virtv2.VirtualImage{},
+				&v1alpha2.VirtualImage{},
 			), predicate.TypedFuncs[*corev1.PersistentVolumeClaim]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.PersistentVolumeClaim]) bool {
 					if e.ObjectOld.Status.Capacity[corev1.ResourceStorage] != e.ObjectNew.Status.Capacity[corev1.ResourceStorage] {

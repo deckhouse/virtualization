@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -45,21 +45,21 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricDiskStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.DiskPending
+		phase = v1alpha2.DiskPending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.DiskPending, string(virtv2.DiskPending)},
-		{phase == virtv2.DiskWaitForUserUpload, string(virtv2.DiskWaitForUserUpload)},
-		{phase == virtv2.DiskWaitForFirstConsumer, string(virtv2.DiskWaitForFirstConsumer)},
-		{phase == virtv2.DiskProvisioning, string(virtv2.DiskProvisioning)},
-		{phase == virtv2.DiskFailed, string(virtv2.DiskFailed)},
-		{phase == virtv2.DiskLost, string(virtv2.DiskLost)},
-		{phase == virtv2.DiskReady, string(virtv2.DiskReady)},
-		{phase == virtv2.DiskResizing, string(virtv2.DiskResizing)},
-		{phase == virtv2.DiskTerminating, string(virtv2.DiskTerminating)},
+		{phase == v1alpha2.DiskPending, string(v1alpha2.DiskPending)},
+		{phase == v1alpha2.DiskWaitForUserUpload, string(v1alpha2.DiskWaitForUserUpload)},
+		{phase == v1alpha2.DiskWaitForFirstConsumer, string(v1alpha2.DiskWaitForFirstConsumer)},
+		{phase == v1alpha2.DiskProvisioning, string(v1alpha2.DiskProvisioning)},
+		{phase == v1alpha2.DiskFailed, string(v1alpha2.DiskFailed)},
+		{phase == v1alpha2.DiskLost, string(v1alpha2.DiskLost)},
+		{phase == v1alpha2.DiskReady, string(v1alpha2.DiskReady)},
+		{phase == v1alpha2.DiskResizing, string(v1alpha2.DiskResizing)},
+		{phase == v1alpha2.DiskTerminating, string(v1alpha2.DiskTerminating)},
 	}
 
 	for _, p := range phases {

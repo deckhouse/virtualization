@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
@@ -42,7 +42,7 @@ func NewVirtualMachineSnapshotReadyToUseHandler(client client.Client) *VirtualMa
 	}
 }
 
-func (h VirtualMachineSnapshotReadyToUseHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualMachineRestore) (reconcile.Result, error) {
+func (h VirtualMachineSnapshotReadyToUseHandler) Handle(ctx context.Context, vmRestore *v1alpha2.VirtualMachineRestore) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmrestorecondition.VirtualMachineSnapshotReadyToUseType)
 	defer func() { conditions.SetCondition(cb.Generation(vmRestore.Generation), &vmRestore.Status.Conditions) }()
 
@@ -56,7 +56,7 @@ func (h VirtualMachineSnapshotReadyToUseHandler) Handle(ctx context.Context, vmR
 	}
 
 	vmSnapshotKey := types.NamespacedName{Name: vmRestore.Spec.VirtualMachineSnapshotName, Namespace: vmRestore.Namespace}
-	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, h.client, &virtv2.VirtualMachineSnapshot{})
+	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, h.client, &v1alpha2.VirtualMachineSnapshot{})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -78,7 +78,7 @@ func (h VirtualMachineSnapshotReadyToUseHandler) Handle(ctx context.Context, vmR
 	}
 
 	vmSnapshotReady, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
-	if vmSnapshotReady.Status != metav1.ConditionTrue || vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseReady {
+	if vmSnapshotReady.Status != metav1.ConditionTrue || vmSnapshot.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmrestorecondition.VirtualMachineSnapshotNotReady).

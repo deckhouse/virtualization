@@ -10,7 +10,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1085,7 +1085,7 @@ var _ Stat = &StatMock{}
 //			GetDVCRImageNameFunc: func(pod *corev1.Pod) string {
 //				panic("mock out the GetDVCRImageName method")
 //			},
-//			GetDownloadSpeedFunc: func(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
+//			GetDownloadSpeedFunc: func(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed {
 //				panic("mock out the GetDownloadSpeed method")
 //			},
 //			GetFormatFunc: func(pod *corev1.Pod) string {
@@ -1094,7 +1094,7 @@ var _ Stat = &StatMock{}
 //			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
-//			GetSizeFunc: func(pod *corev1.Pod) virtv2.ImageStatusSize {
+//			GetSizeFunc: func(pod *corev1.Pod) v1alpha2.ImageStatusSize {
 //				panic("mock out the GetSize method")
 //			},
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
@@ -1120,7 +1120,7 @@ type StatMock struct {
 	GetDVCRImageNameFunc func(pod *corev1.Pod) string
 
 	// GetDownloadSpeedFunc mocks the GetDownloadSpeed method.
-	GetDownloadSpeedFunc func(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
+	GetDownloadSpeedFunc func(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 
 	// GetFormatFunc mocks the GetFormat method.
 	GetFormatFunc func(pod *corev1.Pod) string
@@ -1129,7 +1129,7 @@ type StatMock struct {
 	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 
 	// GetSizeFunc mocks the GetSize method.
-	GetSizeFunc func(pod *corev1.Pod) virtv2.ImageStatusSize
+	GetSizeFunc func(pod *corev1.Pod) v1alpha2.ImageStatusSize
 
 	// IsUploadStartedFunc mocks the IsUploadStarted method.
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
@@ -1307,7 +1307,7 @@ func (mock *StatMock) GetDVCRImageNameCalls() []struct {
 }
 
 // GetDownloadSpeed calls GetDownloadSpeedFunc.
-func (mock *StatMock) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
+func (mock *StatMock) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed {
 	if mock.GetDownloadSpeedFunc == nil {
 		panic("StatMock.GetDownloadSpeedFunc: method is nil but Stat.GetDownloadSpeed was just called")
 	}
@@ -1419,7 +1419,7 @@ func (mock *StatMock) GetProgressCalls() []struct {
 }
 
 // GetSize calls GetSizeFunc.
-func (mock *StatMock) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
+func (mock *StatMock) GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize {
 	if mock.GetSizeFunc == nil {
 		panic("StatMock.GetSizeFunc: method is nil but Stat.GetSize was just called")
 	}
@@ -1720,16 +1720,16 @@ var _ Handler = &HandlerMock{}
 //
 //		// make and configure a mocked Handler
 //		mockedHandler := &HandlerMock{
-//			CleanUpFunc: func(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			StoreToDVCRFunc: func(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+//			StoreToDVCRFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 //				panic("mock out the StoreToDVCR method")
 //			},
-//			StoreToPVCFunc: func(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+//			StoreToPVCFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 //				panic("mock out the StoreToPVC method")
 //			},
-//			ValidateFunc: func(ctx context.Context, vi *virtv2.VirtualImage) error {
+//			ValidateFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 //				panic("mock out the Validate method")
 //			},
 //		}
@@ -1740,16 +1740,16 @@ var _ Handler = &HandlerMock{}
 //	}
 type HandlerMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
+	CleanUpFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error)
 
 	// StoreToDVCRFunc mocks the StoreToDVCR method.
-	StoreToDVCRFunc func(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
+	StoreToDVCRFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
 
 	// StoreToPVCFunc mocks the StoreToPVC method.
-	StoreToPVCFunc func(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
+	StoreToPVCFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
 
 	// ValidateFunc mocks the Validate method.
-	ValidateFunc func(ctx context.Context, vi *virtv2.VirtualImage) error
+	ValidateFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1758,28 +1758,28 @@ type HandlerMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vi is the vi argument value.
-			Vi *virtv2.VirtualImage
+			Vi *v1alpha2.VirtualImage
 		}
 		// StoreToDVCR holds details about calls to the StoreToDVCR method.
 		StoreToDVCR []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vi is the vi argument value.
-			Vi *virtv2.VirtualImage
+			Vi *v1alpha2.VirtualImage
 		}
 		// StoreToPVC holds details about calls to the StoreToPVC method.
 		StoreToPVC []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vi is the vi argument value.
-			Vi *virtv2.VirtualImage
+			Vi *v1alpha2.VirtualImage
 		}
 		// Validate holds details about calls to the Validate method.
 		Validate []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vi is the vi argument value.
-			Vi *virtv2.VirtualImage
+			Vi *v1alpha2.VirtualImage
 		}
 	}
 	lockCleanUp     sync.RWMutex
@@ -1789,13 +1789,13 @@ type HandlerMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *HandlerMock) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (mock *HandlerMock) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("HandlerMock.CleanUpFunc: method is nil but Handler.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}{
 		Ctx: ctx,
 		Vi:  vi,
@@ -1812,11 +1812,11 @@ func (mock *HandlerMock) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (
 //	len(mockedHandler.CleanUpCalls())
 func (mock *HandlerMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Vi  *virtv2.VirtualImage
+	Vi  *v1alpha2.VirtualImage
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -1825,13 +1825,13 @@ func (mock *HandlerMock) CleanUpCalls() []struct {
 }
 
 // StoreToDVCR calls StoreToDVCRFunc.
-func (mock *HandlerMock) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (mock *HandlerMock) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	if mock.StoreToDVCRFunc == nil {
 		panic("HandlerMock.StoreToDVCRFunc: method is nil but Handler.StoreToDVCR was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}{
 		Ctx: ctx,
 		Vi:  vi,
@@ -1848,11 +1848,11 @@ func (mock *HandlerMock) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 //	len(mockedHandler.StoreToDVCRCalls())
 func (mock *HandlerMock) StoreToDVCRCalls() []struct {
 	Ctx context.Context
-	Vi  *virtv2.VirtualImage
+	Vi  *v1alpha2.VirtualImage
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}
 	mock.lockStoreToDVCR.RLock()
 	calls = mock.calls.StoreToDVCR
@@ -1861,13 +1861,13 @@ func (mock *HandlerMock) StoreToDVCRCalls() []struct {
 }
 
 // StoreToPVC calls StoreToPVCFunc.
-func (mock *HandlerMock) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (mock *HandlerMock) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	if mock.StoreToPVCFunc == nil {
 		panic("HandlerMock.StoreToPVCFunc: method is nil but Handler.StoreToPVC was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}{
 		Ctx: ctx,
 		Vi:  vi,
@@ -1884,11 +1884,11 @@ func (mock *HandlerMock) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 //	len(mockedHandler.StoreToPVCCalls())
 func (mock *HandlerMock) StoreToPVCCalls() []struct {
 	Ctx context.Context
-	Vi  *virtv2.VirtualImage
+	Vi  *v1alpha2.VirtualImage
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}
 	mock.lockStoreToPVC.RLock()
 	calls = mock.calls.StoreToPVC
@@ -1897,13 +1897,13 @@ func (mock *HandlerMock) StoreToPVCCalls() []struct {
 }
 
 // Validate calls ValidateFunc.
-func (mock *HandlerMock) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
+func (mock *HandlerMock) Validate(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	if mock.ValidateFunc == nil {
 		panic("HandlerMock.ValidateFunc: method is nil but Handler.Validate was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}{
 		Ctx: ctx,
 		Vi:  vi,
@@ -1920,11 +1920,11 @@ func (mock *HandlerMock) Validate(ctx context.Context, vi *virtv2.VirtualImage) 
 //	len(mockedHandler.ValidateCalls())
 func (mock *HandlerMock) ValidateCalls() []struct {
 	Ctx context.Context
-	Vi  *virtv2.VirtualImage
+	Vi  *v1alpha2.VirtualImage
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}
 	mock.lockValidate.RLock()
 	calls = mock.calls.Validate

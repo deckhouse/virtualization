@@ -5,7 +5,7 @@ package internal
 
 import (
 	"context"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"sync"
 )
@@ -26,16 +26,16 @@ var _ Restorer = &RestorerMock{}
 //			RestoreProvisionerFunc: func(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error) {
 //				panic("mock out the RestoreProvisioner method")
 //			},
-//			RestoreVirtualMachineFunc: func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error) {
+//			RestoreVirtualMachineFunc: func(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachine, error) {
 //				panic("mock out the RestoreVirtualMachine method")
 //			},
-//			RestoreVirtualMachineBlockDeviceAttachmentsFunc: func(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
+//			RestoreVirtualMachineBlockDeviceAttachmentsFunc: func(ctx context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
 //				panic("mock out the RestoreVirtualMachineBlockDeviceAttachments method")
 //			},
-//			RestoreVirtualMachineIPAddressFunc: func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error) {
+//			RestoreVirtualMachineIPAddressFunc: func(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachineIPAddress, error) {
 //				panic("mock out the RestoreVirtualMachineIPAddress method")
 //			},
-//			RestoreVirtualMachineMACAddressesFunc: func(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineMACAddress, error) {
+//			RestoreVirtualMachineMACAddressesFunc: func(ctx context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineMACAddress, error) {
 //				panic("mock out the RestoreVirtualMachineMACAddresses method")
 //			},
 //		}
@@ -52,16 +52,16 @@ type RestorerMock struct {
 	RestoreProvisionerFunc func(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 
 	// RestoreVirtualMachineFunc mocks the RestoreVirtualMachine method.
-	RestoreVirtualMachineFunc func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error)
+	RestoreVirtualMachineFunc func(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachine, error)
 
 	// RestoreVirtualMachineBlockDeviceAttachmentsFunc mocks the RestoreVirtualMachineBlockDeviceAttachments method.
-	RestoreVirtualMachineBlockDeviceAttachmentsFunc func(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error)
+	RestoreVirtualMachineBlockDeviceAttachmentsFunc func(ctx context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
 
 	// RestoreVirtualMachineIPAddressFunc mocks the RestoreVirtualMachineIPAddress method.
-	RestoreVirtualMachineIPAddressFunc func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error)
+	RestoreVirtualMachineIPAddressFunc func(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachineIPAddress, error)
 
 	// RestoreVirtualMachineMACAddressesFunc mocks the RestoreVirtualMachineMACAddresses method.
-	RestoreVirtualMachineMACAddressesFunc func(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineMACAddress, error)
+	RestoreVirtualMachineMACAddressesFunc func(ctx context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineMACAddress, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -189,7 +189,7 @@ func (mock *RestorerMock) RestoreProvisionerCalls() []struct {
 }
 
 // RestoreVirtualMachine calls RestoreVirtualMachineFunc.
-func (mock *RestorerMock) RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error) {
+func (mock *RestorerMock) RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachine, error) {
 	if mock.RestoreVirtualMachineFunc == nil {
 		panic("RestorerMock.RestoreVirtualMachineFunc: method is nil but Restorer.RestoreVirtualMachine was just called")
 	}
@@ -225,7 +225,7 @@ func (mock *RestorerMock) RestoreVirtualMachineCalls() []struct {
 }
 
 // RestoreVirtualMachineBlockDeviceAttachments calls RestoreVirtualMachineBlockDeviceAttachmentsFunc.
-func (mock *RestorerMock) RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
+func (mock *RestorerMock) RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineBlockDeviceAttachment, error) {
 	if mock.RestoreVirtualMachineBlockDeviceAttachmentsFunc == nil {
 		panic("RestorerMock.RestoreVirtualMachineBlockDeviceAttachmentsFunc: method is nil but Restorer.RestoreVirtualMachineBlockDeviceAttachments was just called")
 	}
@@ -261,7 +261,7 @@ func (mock *RestorerMock) RestoreVirtualMachineBlockDeviceAttachmentsCalls() []s
 }
 
 // RestoreVirtualMachineIPAddress calls RestoreVirtualMachineIPAddressFunc.
-func (mock *RestorerMock) RestoreVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error) {
+func (mock *RestorerMock) RestoreVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachineIPAddress, error) {
 	if mock.RestoreVirtualMachineIPAddressFunc == nil {
 		panic("RestorerMock.RestoreVirtualMachineIPAddressFunc: method is nil but Restorer.RestoreVirtualMachineIPAddress was just called")
 	}
@@ -297,7 +297,7 @@ func (mock *RestorerMock) RestoreVirtualMachineIPAddressCalls() []struct {
 }
 
 // RestoreVirtualMachineMACAddresses calls RestoreVirtualMachineMACAddressesFunc.
-func (mock *RestorerMock) RestoreVirtualMachineMACAddresses(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineMACAddress, error) {
+func (mock *RestorerMock) RestoreVirtualMachineMACAddresses(ctx context.Context, secret *corev1.Secret) ([]*v1alpha2.VirtualMachineMACAddress, error) {
 	if mock.RestoreVirtualMachineMACAddressesFunc == nil {
 		panic("RestorerMock.RestoreVirtualMachineMACAddressesFunc: method is nil but Restorer.RestoreVirtualMachineMACAddresses was just called")
 	}

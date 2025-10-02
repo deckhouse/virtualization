@@ -45,7 +45,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DiskService struct {
@@ -561,16 +561,16 @@ func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace stri
 	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &vsv1.VolumeSnapshot{})
 }
 
-func (s DiskService) GetVirtualImage(ctx context.Context, name, namespace string) (*virtv2.VirtualImage, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualImage{})
+func (s DiskService) GetVirtualImage(ctx context.Context, name, namespace string) (*v1alpha2.VirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &v1alpha2.VirtualImage{})
 }
 
-func (s DiskService) GetClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &virtv2.ClusterVirtualImage{})
+func (s DiskService) GetClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &v1alpha2.ClusterVirtualImage{})
 }
 
-func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace string) ([]virtv2.VirtualDiskSnapshot, error) {
-	var vdSnapshots virtv2.VirtualDiskSnapshotList
+func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace string) ([]v1alpha2.VirtualDiskSnapshot, error) {
+	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
 	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: namespace,
 	})
@@ -581,8 +581,8 @@ func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace str
 	return vdSnapshots.Items, nil
 }
 
-func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
+func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDiskSnapshot, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 }
 
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {

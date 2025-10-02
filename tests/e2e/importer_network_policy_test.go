@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -53,7 +53,7 @@ var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), f
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -98,8 +98,8 @@ var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), f
 				Timeout:   MaxWaitTimeout,
 			})
 		},
-		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
-		Entry("When virtual disks are applied", "VD", kc.ResourceVD, string(virtv2.DiskReady)),
-		Entry("When virtual machines are applied", "VM", kc.ResourceVM, string(virtv2.MachineRunning)),
+		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(v1alpha2.ImageReady)),
+		Entry("When virtual disks are applied", "VD", kc.ResourceVD, string(v1alpha2.DiskReady)),
+		Entry("When virtual machines are applied", "VM", kc.ResourceVM, string(v1alpha2.MachineRunning)),
 	)
 })

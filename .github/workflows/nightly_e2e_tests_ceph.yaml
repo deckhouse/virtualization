@@ -19,12 +19,12 @@ env:
   STORAGE_CLASS_NAME: ceph-pool-r2-csi-rbd-immediate
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.24.6"
-  TIMEOUT: "4h"
+  TIMEOUT: "3h"
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 21 * * *"
+    - cron: "0 0 * * *"
 
 defaults:
   run:
@@ -44,6 +44,9 @@ jobs:
 
       - name: Install Task
         uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install ginkgo
         working-directory: ./tests/e2e/

@@ -21,16 +21,16 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *virtv2.VirtualMachine {
+func NewMinimalVM(prefix, namespace string, opts ...vm.Option) *v1alpha2.VirtualMachine {
 	baseOpts := []vm.Option{
 		vm.WithGenerateName(prefix),
 		vm.WithNamespace(namespace),
 		vm.WithCPU(1, ptr.To("100%")),
 		vm.WithMemory(*resource.NewQuantity(Mi256, resource.BinarySI)),
-		vm.WithLiveMigrationPolicy(virtv2.AlwaysSafeMigrationPolicy),
+		vm.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vm.WithVirtualMachineClass(DefaultVMClass),
 		vm.WithProvisioningUserData(DefaultCloudInit),
 	}

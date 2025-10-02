@@ -26,18 +26,18 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
 
 type BindStep struct {
-	lease *virtv2.VirtualMachineMACAddressLease
+	lease *v1alpha2.VirtualMachineMACAddressLease
 	cb    *conditions.ConditionBuilder
 }
 
 func NewBindStep(
-	lease *virtv2.VirtualMachineMACAddressLease,
+	lease *v1alpha2.VirtualMachineMACAddressLease,
 	cb *conditions.ConditionBuilder,
 ) *BindStep {
 	return &BindStep{
@@ -46,7 +46,7 @@ func NewBindStep(
 	}
 }
 
-func (s BindStep) Take(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*reconcile.Result, error) {
+func (s BindStep) Take(_ context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*reconcile.Result, error) {
 	// 1. The required Lease already exists; set its address in the vmmac status.
 	if s.lease != nil {
 		vmmac.Status.Address = mac.LeaseNameToAddress(s.lease.Name)

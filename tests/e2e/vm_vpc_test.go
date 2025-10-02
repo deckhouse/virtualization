@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
@@ -59,7 +59,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), fr
 
 	AfterAll(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -123,8 +123,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), fr
 
 	Context("When VMs migrations are applied", func() {
 		It("checks VMs and VMOPs phases", func() {
-			By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-			WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+			By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+			WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -196,7 +196,7 @@ func isSdnModuleEnabled() (bool, error) {
 }
 
 func CheckVMConnectivityToTargetIPs(ns string, testCaseLabel map[string]string) {
-	var vmList virtv2.VirtualMachineList
+	var vmList v1alpha2.VirtualMachineList
 	err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 		Labels:    testCaseLabel,
 		Namespace: ns,

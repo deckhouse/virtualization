@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,7 +52,7 @@ func (m *fakeStorageClassValidator) IsStorageClassAllowed(scName string) bool {
 	return m.allowedStorageClasses[scName]
 }
 
-func (m *fakeStorageClassValidator) IsStorageClassDeprecated(sc *storev1.StorageClass) bool {
+func (m *fakeStorageClassValidator) IsStorageClassDeprecated(sc *storagev1.StorageClass) bool {
 	return m.deprecatedStorageClasses[sc.Name]
 }
 
@@ -62,7 +62,7 @@ type fakeVolumeAndAccessModesGetter struct {
 	shouldError bool
 }
 
-func (m *fakeVolumeAndAccessModesGetter) GetVolumeAndAccessModes(_ context.Context, _ client.Object, _ *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (m *fakeVolumeAndAccessModesGetter) GetVolumeAndAccessModes(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if m.shouldError {
 		return "", "", fmt.Errorf("mock error")
 	}
@@ -80,7 +80,7 @@ var _ = Describe("MigrationHandler", func() {
 		migrationHandler *MigrationHandler
 		vd               *v1alpha2.VirtualDisk
 		vm               *v1alpha2.VirtualMachine
-		storageClass     *storev1.StorageClass
+		storageClass     *storagev1.StorageClass
 		pvc              *corev1.PersistentVolumeClaim
 	)
 
@@ -139,11 +139,11 @@ var _ = Describe("MigrationHandler", func() {
 		}
 
 		// Create test StorageClass
-		storageClass = &storev1.StorageClass{
+		storageClass = &storagev1.StorageClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "allowed-sc",
 			},
-			VolumeBindingMode: ptr.To(storev1.VolumeBindingWaitForFirstConsumer),
+			VolumeBindingMode: ptr.To(storagev1.VolumeBindingWaitForFirstConsumer),
 		}
 
 		// Create test PVC

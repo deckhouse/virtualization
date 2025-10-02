@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -42,8 +42,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			var sourcesMock SourcesMock
 			args.ReadyCondition.Type = vdcondition.ReadyType.String()
 			cleanUpCalled := false
-			vd := virtv2.VirtualDisk{
-				Status: virtv2.VirtualDiskStatus{
+			vd := v1alpha2.VirtualDisk{
+				Status: v1alpha2.VirtualDiskStatus{
 					StorageClassName: "",
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
@@ -57,26 +57,26 @@ var _ = Describe("LifeCycleHandler Run", func() {
 						},
 					},
 				},
-				Spec: virtv2.VirtualDiskSpec{
-					DataSource: &virtv2.VirtualDiskDataSource{
-						Type: virtv2.DataSourceTypeHTTP,
+				Spec: v1alpha2.VirtualDiskSpec{
+					DataSource: &v1alpha2.VirtualDiskDataSource{
+						Type: v1alpha2.DataSourceTypeHTTP,
 					},
 				},
 			}
 
-			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 				cleanUpCalled = true
 				return false, nil
 			}
 
-			sourcesMock.ChangedFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) bool {
+			sourcesMock.ChangedFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) bool {
 				return args.SpecChanged
 			}
 
-			sourcesMock.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+			sourcesMock.GetFunc = func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 				var handler HandlerMock
 
-				handler.SyncFunc = func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
+				handler.SyncFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
 				}
 
@@ -147,8 +147,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			args.StorageClassReadyCondition.Type = vdcondition.StorageClassReadyType.String()
 			var sourcesMock SourcesMock
 			cleanUpCalled := false
-			vd := virtv2.VirtualDisk{
-				Status: virtv2.VirtualDiskStatus{
+			vd := v1alpha2.VirtualDisk{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						args.StorageClassReadyCondition,
@@ -158,26 +158,26 @@ var _ = Describe("LifeCycleHandler Run", func() {
 						},
 					},
 				},
-				Spec: virtv2.VirtualDiskSpec{
-					DataSource: &virtv2.VirtualDiskDataSource{
-						Type: virtv2.DataSourceTypeHTTP,
+				Spec: v1alpha2.VirtualDiskSpec{
+					DataSource: &v1alpha2.VirtualDiskDataSource{
+						Type: v1alpha2.DataSourceTypeHTTP,
 					},
 				},
 			}
 
-			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+			sourcesMock.CleanUpFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 				cleanUpCalled = true
 				return false, nil
 			}
 
-			sourcesMock.ChangedFunc = func(ctx context.Context, vd *virtv2.VirtualDisk) bool {
+			sourcesMock.ChangedFunc = func(ctx context.Context, vd *v1alpha2.VirtualDisk) bool {
 				return false
 			}
 
-			sourcesMock.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+			sourcesMock.GetFunc = func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 				var handler HandlerMock
 
-				handler.SyncFunc = func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
+				handler.SyncFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
 				}
 
@@ -242,8 +242,8 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
 			ctx := logger.ToContext(context.TODO(), testutil.NewNoOpSlogLogger())
-			vd := virtv2.VirtualDisk{
-				Status: virtv2.VirtualDiskStatus{
+			vd := v1alpha2.VirtualDisk{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:    vdcondition.DatasourceReadyType.String(),
@@ -259,11 +259,11 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				},
 			}
 
-			sourcesMock.ChangedFunc = func(_ context.Context, _ *virtv2.VirtualDisk) bool {
+			sourcesMock.ChangedFunc = func(_ context.Context, _ *v1alpha2.VirtualDisk) bool {
 				return false
 			}
-			sourcesMock.GetFunc = func(_ virtv2.DataSourceType) (source.Handler, bool) {
-				return &source.HandlerMock{SyncFunc: func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
+			sourcesMock.GetFunc = func(_ v1alpha2.DataSourceType) (source.Handler, bool) {
+				return &source.HandlerMock{SyncFunc: func(_ context.Context, _ *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
 				}}, true
 			}

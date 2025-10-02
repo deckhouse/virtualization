@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
@@ -46,7 +46,7 @@ var _ = Describe("VirtualMachineConnectivity", framework.CommonE2ETestDecorators
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
 		bObjName      = fmt.Sprintf("%s-vm-connectivity-b", namePrefix)
-		vmA, vmB      virtv2.VirtualMachine
+		vmA, vmB      v1alpha2.VirtualMachine
 		svcA, svcB    corev1.Service
 		ns            string
 
@@ -65,7 +65,7 @@ var _ = Describe("VirtualMachineConnectivity", framework.CommonE2ETestDecorators
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -140,12 +140,12 @@ var _ = Describe("VirtualMachineConnectivity", framework.CommonE2ETestDecorators
 
 	Context("When virtual machine agents are ready", func() {
 		It("gets VMs and SVCs objects", func() {
-			vmA = virtv2.VirtualMachine{}
+			vmA = v1alpha2.VirtualMachine{}
 			err := GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
 				Namespace: ns,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			vmB = virtv2.VirtualMachine{}
+			vmB = v1alpha2.VirtualMachine{}
 			err = GetObject(kc.ResourceVM, bObjName, &vmB, kc.GetOptions{
 				Namespace: ns,
 			})
