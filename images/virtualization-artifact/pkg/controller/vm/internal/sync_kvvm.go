@@ -282,21 +282,14 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	// This workaround is required due to a bug in the KVVM workflow.
 	// When a KVVM is created with conflicting placement rules and cannot be scheduled,
 	// it remains unschedulable even if these rules are changed or removed.
-	case h.isVMUnschedulable(s.VirtualMachine().Current(), kvvm):
-		placementPolicyChanged, err := h.isPlacementPolicyChanged(ctx, s)
+	case h.isVMUnschedulable(s.VirtualMachine().Current(), kvvm) && h.isPlacementPolicyChanged(allChanges):
+		err := h.updateKVVM(ctx, s)
 		if err != nil {
-			return false, fmt.Errorf("failed to detect changes in internal virtual machine's nodeSelector: %w", err)
+			return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
 		}
-		if placementPolicyChanged {
-			err := h.updateKVVM(ctx, s)
-			if err != nil {
-				return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
-			}
-
-			err = object.DeleteObject(ctx, h.client, pod)
-			if err != nil {
-				return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
-			}
+		err = object.DeleteObject(ctx, h.client, pod)
+		if err != nil {
+			return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
 		}
 		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
@@ -681,10 +674,10 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 }
 
 func (h *SyncKvvmHandler) isVMUnschedulable(
-	vm *virtv2.VirtualMachine,
+	vm *v1alpha2.VirtualMachine,
 	kvvm *virtv1.VirtualMachine,
 ) bool {
-	if vm.Status.Phase == virtv2.MachinePending && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusUnschedulable {
+	if vm.Status.Phase == v1alpha2.MachinePending && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusUnschedulable {
 		return true
 	}
 
@@ -692,23 +685,15 @@ func (h *SyncKvvmHandler) isVMUnschedulable(
 }
 
 // isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.
-func (h *SyncKvvmHandler) isPlacementPolicyChanged(ctx context.Context, s state.VirtualMachineState) (bool, error) {
-	currentKvvm, err := s.KVVM(ctx)
-	if err != nil {
-		return false, err
+func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
+	for _, c := range allChanges.GetAll() {
+		switch c.Path {
+		case "affinity", "nodeSelector", "tolerations":
+			if !equality.Semantic.DeepEqual(c.CurrentValue, c.DesiredValue) {
+				return true
+			}
+		}
 	}
 
-	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
-	if err != nil {
-		return false, err
-	}
-
-	isChanged := false
-	if !equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.Affinity, &newKvvm.Spec.Template.Spec.Affinity) ||
-		!equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.NodeSelector, &newKvvm.Spec.Template.Spec.NodeSelector) ||
-		!equality.Semantic.DeepEqual(&currentKvvm.Spec.Template.Spec.Tolerations, &newKvvm.Spec.Template.Spec.Tolerations) {
-		isChanged = true
-	}
-
-	return isChanged, nil
+	return false
 }
