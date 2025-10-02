@@ -62,15 +62,14 @@ cleanup_dir() {
 }
 
 default_storage_class() {
-  local STORAGE_CLASS=${1:-$STORAGE_CLASS}
-  if [ -n $STORAGE_CLASS ]; then
+  if [ -n "$STORAGE_CLASS" ]; then
     echo $STORAGE_CLASS
   else
-    kubectl get storageclass -o json \
-        | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name'
+    STORAGE_CLASS=$(kubectl get storageclass -o json \
+        | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
+    echo $STORAGE_CLASS
   fi
 }
-
 
 deploy_resources() {
   # available resource types: all, vm, vd
@@ -99,14 +98,14 @@ deploy_resources() {
     "vm")
       task apply:vms \
         COUNT=${COUNT} \
-        NAMESPACE=perf \
+        STORAGE_CLASS=$(default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
         VIRTUALIMAGE_TYPE=${VIType}
       ;;
     "vd")
       task apply:disks \
         COUNT=${COUNT} \
-        NAMESPACE=perf \
+        STORAGE_CLASS=$(default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
         VIRTUALIMAGE_TYPE=${VIType}
       ;;
@@ -207,6 +206,7 @@ start_migration() {
   tmux resize-pane -t 2 -x 50%
   echo "For watching migration in $SESSION, connect to session with command:"
   echo "tmux -2 attach -t ${SESSION}"
+
   echo ""
 
 }
@@ -233,12 +233,12 @@ collect_vpa() {
 }
 
 # test only
-for vitype in "virtualImage" "persistentVolumeClaim"; do
+for vitype in "containerRegistry" "persistentVolumeClaim"; do
   cleanup_dir "report"
 done
 
 # all resources
-vi_type="virtualImage"
+vi_type="containerRegistry"
 migration_duration="1m"
 main_sleep=$( echo "$migration_duration" | sed 's/m//' )
 count=5
@@ -257,15 +257,16 @@ count=5
 
 vi_type="persistentVolumeClaim"
 undeploy_vm
-sleep 5
+sleep 1
 deploy_resources "all" $vi_type $count
 sleep 1
+
 start_migration "$migration_duration"
 sleep $(( $main_sleep * 60 ))
 stop_migration
 sleep 5
+
 gather_all_statistics "report/statistics/vm_vi_${vi_type}"
 collect_vpa
 
 # vd only
-

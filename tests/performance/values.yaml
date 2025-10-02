@@ -31,8 +31,9 @@ resources:
   virtualImage:
     spec:
       template:
-        # Virtual image type virtualImage or persistentVolumeClaim
-        type: virtualImage
+        # Virtual image type containerRegistry or persistentVolumeClaim
+        type: containerRegistry
+        # type: persistentVolumeClaim
         image:
           name: alpine
           url: "https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-v3-20.qcow2"

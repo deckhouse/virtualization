@@ -36,6 +36,8 @@ vars:
   RESOURCES: '{{ .RESOURCES | default "all" }}'
   NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'
+  VIRTUALIMAGE_TYPE: '{{ .VIRTUALIMAGE_TYPE | default "containerRegistry" }}'
+  VIRTUALDISK_TYPE: '{{ .VIRTUALDISK_TYPE | default "virtualDisk" }}'
 
 tasks:
   tst:
@@ -56,7 +58,7 @@ tasks:
   apply:
     desc: "Apply disks and virtual machines."
     cmds:
-      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
+      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}" --virtualDisk-type="{{ .VIRTUALDISK_TYPE }}" --virtualImage-type="{{ .VIRTUALIMAGE_TYPE }}"
 
   destroy:
     desc: "Destroy disks and virtual machines."
@@ -73,12 +75,16 @@ tasks:
           STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
           NAME_PREFIX: "{{ .NAME_PREFIX }}"
           RESOURCES_PREFIX: "{{ .RESOURCES_PREFIX }}"
+          VIRTUALIMAGE_TYPE: "{{ .VIRTUALIMAGE_TYPE }}"
+          VIRTUALDISK_TYPE: "{{ .VIRTUALDISK_TYPE }}"
       - task: apply:vms
         vars:
           COUNT: "{{ .COUNT }}"
           NAMESPACE: "{{ .NAMESPACE }}"
           NAME_PREFIX: "{{ .NAME_PREFIX }}"
           RESOURCES_PREFIX: "{{ .RESOURCES_PREFIX }}"
+          VIRTUALIMAGE_TYPE: "{{ .VIRTUALIMAGE_TYPE }}"
+          VIRTUALDISK_TYPE: "{{ .VIRTUALDISK_TYPE }}"
 
   destroy:all:
     desc: "Destroy disks and virtual machines in two steps (in two different releases)."
@@ -97,22 +103,37 @@ tasks:
   apply:disks:
     desc: "Apply virtual machine disks."
     cmds:
-      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks"
+      - |
+        ./bootstrap.sh apply --count="{{ .COUNT }}" \
+          --namespace="{{ .NAMESPACE }}" \
+          --storage-class="{{ .STORAGE_CLASS }}" \
+          --resources-prefix="{{ .RESOURCES_PREFIX }}" \
+          --resources="vds" \
+          --name="{{ .NAME_PREFIX }}-disks" \
+          --virtualDisk-type="{{ .VIRTUALDISK_TYPE }}" \
+          --virtualImage-type="{{ .VIRTUALIMAGE_TYPE }}"
 
   apply:vms:
     desc: "Apply virtual machines."
     cmds:
-      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+      - |
+        ./bootstrap.sh apply --count="{{ .COUNT }}" \
+          --namespace="{{ .NAMESPACE }}" \
+          --resources-prefix="{{ .RESOURCES_PREFIX }}" \
+          --resources="vms" \
+          --name="{{ .NAME_PREFIX }}-vms" \
+          --virtualDisk-type="{{ .VIRTUALDISK_TYPE }}" \
+          --virtualImage-type="{{ .VIRTUALIMAGE_TYPE }}"
 
   destroy:disks:
     desc: "Destroy disks."
     cmds:
-      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks"
+      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks" --virtualDisk-type="{{ .VIRTUALDISK_TYPE }}" --virtualImage-type="{{ .VIRTUALIMAGE_TYPE }}"
 
   destroy:vms:
     desc: "Destroy virtual machines."
     cmds:
-      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms" --virtualDisk-type="{{ .VIRTUALDISK_TYPE }}" --virtualImage-type="{{ .VIRTUALIMAGE_TYPE }}"
 
   check_or_install_software:
     desc: "Check and install Helm3, Ansible, and K9s"

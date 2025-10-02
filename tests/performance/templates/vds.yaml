@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: {{ $.Values.resources.prefix }}
+  name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
   namespace: {{ $.Release.Namespace }}
   labels:
     vms: {{ $.Values.resources.prefix }}
@@ -43,7 +43,7 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: {{ $.Values.resources.prefix }}
+      name:  {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
 {{- end }}
 {{- end }}
 {{- end }}
