@@ -42,7 +42,7 @@ import (
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
@@ -183,7 +183,7 @@ func CheckField(resource kc.Resource, ns, name, output, compareValue string) {
 	Expect(res.StdOut()).To(Equal(compareValue))
 }
 
-func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
+func GetVMFromManifest(manifest string) (*v1alpha2.VirtualMachine, error) {
 	unstructs, err := helper.ParseYaml(manifest)
 	if err != nil {
 		return nil, err
@@ -195,7 +195,7 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 			break
 		}
 	}
-	var vm virtv2.VirtualMachine
+	var vm v1alpha2.VirtualMachine
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstruct.Object, &vm); err != nil {
 		return nil, err
 	}
@@ -574,11 +574,11 @@ func GetPhaseByVolumeBindingModeForTemplateSc() string {
 func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
 	switch *sc.VolumeBindingMode {
 	case storagev1.VolumeBindingImmediate:
-		return string(virtv2.DiskReady)
+		return string(v1alpha2.DiskReady)
 	case storagev1.VolumeBindingWaitForFirstConsumer:
-		return string(virtv2.DiskWaitForFirstConsumer)
+		return string(v1alpha2.DiskWaitForFirstConsumer)
 	default:
-		return string(virtv2.DiskReady)
+		return string(v1alpha2.DiskReady)
 	}
 }
 
@@ -638,26 +638,26 @@ func DeleteTestCaseResources(ns string, resources ResourcesToDelete) {
 
 func RebootVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeRestart, vmNamespace, vmNames...)
+	CreateAndApplyVMOPs(label, v1alpha2.VMOPTypeRestart, vmNamespace, vmNames...)
 }
 
 func StopVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStop, vmNamespace, vmNames...)
+	CreateAndApplyVMOPs(label, v1alpha2.VMOPTypeStop, vmNamespace, vmNames...)
 }
 
 func StartVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStart, vmNamespace, vmNames...)
+	CreateAndApplyVMOPs(label, v1alpha2.VMOPTypeStart, vmNamespace, vmNames...)
 }
 
-func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
+func CreateAndApplyVMOPs(label map[string]string, vmopType v1alpha2.VMOPType, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 
 	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, vmNamespace, vmNames...)
 }
 
-func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
+func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType v1alpha2.VMOPType, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 
 	for _, vmName := range vmNames {
@@ -667,25 +667,25 @@ func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopT
 	}
 }
 
-func GenerateVMOP(vmName, vmNamespace string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
-	return &virtv2.VirtualMachineOperation{
+func GenerateVMOP(vmName, vmNamespace string, labels map[string]string, vmopType v1alpha2.VMOPType) *v1alpha2.VirtualMachineOperation {
+	return &v1alpha2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: virtv2.SchemeGroupVersion.String(),
-			Kind:       virtv2.VirtualMachineOperationKind,
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+			Kind:       v1alpha2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
 			Namespace: vmNamespace,
 			Labels:    labels,
 		},
-		Spec: virtv2.VirtualMachineOperationSpec{
+		Spec: v1alpha2.VirtualMachineOperationSpec{
 			Type:           vmopType,
 			VirtualMachine: vmName,
 		},
 	}
 }
 
-func GenerateVMOPWithSuffix(vmName, vmNamespace, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+func GenerateVMOPWithSuffix(vmName, vmNamespace, suffix string, labels map[string]string, vmopType v1alpha2.VMOPType) *v1alpha2.VirtualMachineOperation {
 	res := GenerateVMOP(vmName, vmNamespace, labels, vmopType)
 	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
 	return res
@@ -780,7 +780,7 @@ type Watcher interface {
 }
 
 type Resource interface {
-	*virtv2.VirtualMachineIPAddress | *virtv2.VirtualMachineIPAddressLease
+	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease
 }
 
 type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)

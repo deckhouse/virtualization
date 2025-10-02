@@ -26,7 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
@@ -38,7 +38,7 @@ func NewIPAM() *IPAM {
 
 type IPAM struct{}
 
-func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool {
+func (m IPAM) IsBound(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) bool {
 	if vmip == nil {
 		return false
 	}
@@ -56,7 +56,7 @@ func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool 
 	return vmip.Status.VirtualMachine == vmName
 }
 
-func (m IPAM) CheckIPAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error {
+func (m IPAM) CheckIPAddressAvailableForBinding(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) error {
 	if vmip == nil {
 		return errors.New("cannot to bind with empty ip address")
 	}
@@ -64,9 +64,9 @@ func (m IPAM) CheckIPAddressAvailableForBinding(vmName string, vmip *virtv2.Virt
 	return nil
 }
 
-func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
+func (m IPAM) CreateIPAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client) error {
 	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
-	return client.Create(ctx, &virtv2.VirtualMachineIPAddress{
+	return client.Create(ctx, &v1alpha2.VirtualMachineIPAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineUID: string(vm.GetUID()),
@@ -75,22 +75,22 @@ func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, cl
 			Namespace:       vm.Namespace,
 			OwnerReferences: []metav1.OwnerReference{*ownerRef},
 		},
-		Spec: virtv2.VirtualMachineIPAddressSpec{
-			Type: virtv2.VirtualMachineIPAddressTypeAuto,
+		Spec: v1alpha2.VirtualMachineIPAddressSpec{
+			Type: v1alpha2.VirtualMachineIPAddressTypeAuto,
 		},
 	})
 }
 
 const generateNameSuffix = "-"
 
-func GenerateName(vm *virtv2.VirtualMachine) string {
+func GenerateName(vm *v1alpha2.VirtualMachine) string {
 	if vm == nil {
 		return ""
 	}
 	return vm.GetName() + generateNameSuffix
 }
 
-func GetVirtualMachineName(vmip *virtv2.VirtualMachineIPAddress) string {
+func GetVirtualMachineName(vmip *v1alpha2.VirtualMachineIPAddress) string {
 	if vmip == nil {
 		return ""
 	}
@@ -100,7 +100,7 @@ func GetVirtualMachineName(vmip *virtv2.VirtualMachineIPAddress) string {
 
 	name := vmip.GetName()
 	for _, ow := range vmip.GetOwnerReferences() {
-		if ow.Kind == virtv2.VirtualMachineKind {
+		if ow.Kind == v1alpha2.VirtualMachineKind {
 			name = ow.Name
 			break
 		}

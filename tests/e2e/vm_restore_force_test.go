@@ -24,10 +24,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
@@ -48,7 +48,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
-		originalVMNetworks  map[string][]virtv2.NetworksStatus
+		originalVMNetworks  map[string][]v1alpha2.NetworksStatus
 		criticalError       string
 	)
 
@@ -80,16 +80,16 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
 				err := CheckReusableResources(ReusableResources{
-					virtv2.VirtualMachineResource: &Counter{
+					v1alpha2.VirtualMachineResource: &Counter{
 						Expected: vmCount,
 					},
-					virtv2.VirtualDiskResource: &Counter{
+					v1alpha2.VirtualDiskResource: &Counter{
 						Expected: vdCount,
 					},
-					virtv2.VirtualImageResource: &Counter{
+					v1alpha2.VirtualImageResource: &Counter{
 						Expected: viCount,
 					},
-					virtv2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
+					v1alpha2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
 						Expected: vmbdaCount,
 					},
 				}, kc.GetOptions{
@@ -118,8 +118,8 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 			})
 			By("`VirtualMachineBlockDeviceAttachment` should be attached", func() {
 				WaitPhaseByLabel(
-					virtv2.VirtualMachineBlockDeviceAttachmentKind,
-					string(virtv2.BlockDeviceAttachmentPhaseAttached),
+					v1alpha2.VirtualMachineBlockDeviceAttachmentKind,
+					string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
 					kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: namespace,
@@ -161,11 +161,11 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 			})
 
 			By("remembering the .status.networks of each VM after patching", func() {
-				vms := &virtv2.VirtualMachineList{}
-				err := GetObjects(virtv2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				vms := &v1alpha2.VirtualMachineList{}
+				err := GetObjects(v1alpha2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 
-				originalVMNetworks = make(map[string][]virtv2.NetworksStatus, len(vms.Items))
+				originalVMNetworks = make(map[string][]v1alpha2.NetworksStatus, len(vms.Items))
 				for _, vm := range vms.Items {
 					originalVMNetworks[vm.Name] = vm.Status.Networks
 				}
@@ -175,11 +175,11 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 
 	Context("When the resources are ready to use", func() {
 		It("restore the `VirtualMachines` with `forced` mode", func() {
-			vms := &virtv2.VirtualMachineList{}
+			vms := &v1alpha2.VirtualMachineList{}
 			vmBlockDeviceCountBeforeSnapshotting := make(map[string]int, len(vms.Items))
 
 			By("Getting `VirtualMachines`", func() {
-				err := GetObjects(virtv2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				err := GetObjects(v1alpha2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 				for _, vm := range vms.Items {
 					vmBlockDeviceCountBeforeSnapshotting[vm.Name] = len(vm.Status.BlockDeviceRefs)
@@ -191,14 +191,14 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 					vmsnapshot := NewVirtualMachineSnapshot(
 						vm.Name, vm.Namespace,
 						true,
-						virtv2.KeepIPAddressAlways,
+						v1alpha2.KeepIPAddressAlways,
 						testCaseLabel,
 					)
 					CreateResource(ctx, vmsnapshot)
 				}
 				WaitPhaseByLabel(
-					virtv2.VirtualMachineSnapshotResource,
-					string(virtv2.VirtualMachineSnapshotPhaseReady),
+					v1alpha2.VirtualMachineSnapshotResource,
+					string(v1alpha2.VirtualMachineSnapshotPhaseReady),
 					kc.WaitOptions{
 						Namespace: namespace,
 						Labels:    testCaseLabel,
@@ -211,43 +211,43 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 					vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
 					newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
 					CreateResource(ctx, newDisk)
-					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, virtv2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
+					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, v1alpha2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
 					CreateResource(ctx, newVmbda)
 
 					WaitPhaseByLabel(
-						virtv2.VirtualMachineBlockDeviceAttachmentResource,
-						string(virtv2.BlockDeviceAttachmentPhaseAttached),
+						v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
+						string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
 						kc.WaitOptions{
 							Namespace: vm.Namespace,
 							Labels:    additionalDiskLabel,
 							Timeout:   LongWaitDuration,
 						})
-					err := GetObject(virtv2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
+					err := GetObject(v1alpha2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name] + 1))
 				}
 			})
 
 			By("Creating `VirtualMachineRestores`", func() {
-				vmsnapshots := &virtv2.VirtualMachineSnapshotList{}
-				err := GetObjects(virtv2.VirtualMachineSnapshotResource, vmsnapshots, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				vmsnapshots := &v1alpha2.VirtualMachineSnapshotList{}
+				err := GetObjects(v1alpha2.VirtualMachineSnapshotResource, vmsnapshots, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, vmsnapshot := range vmsnapshots.Items {
-					vmrestore := NewVirtualMachineRestore(&vmsnapshot, virtv2.RestoreModeForced)
+					vmrestore := NewVirtualMachineRestore(&vmsnapshot, v1alpha2.RestoreModeForced)
 					CreateResource(ctx, vmrestore)
 				}
 
-				vmrestores := &virtv2.VirtualMachineRestoreList{}
-				err = GetObjects(virtv2.VirtualMachineRestoreResource, vmrestores, kc.GetOptions{Namespace: namespace})
+				vmrestores := &v1alpha2.VirtualMachineRestoreList{}
+				err = GetObjects(v1alpha2.VirtualMachineRestoreResource, vmrestores, kc.GetOptions{Namespace: namespace})
 				Expect(err).NotTo(HaveOccurred())
 
 				// TODO: Remove this block when the bug with the virtual machine status phase "pending" is fixed.
 				// Cause: When a virtual machine is in the restoration process, it can transition from the "stopped" phase to "pending" and the Virtualization Controller cannot complete the restoration process.
 				for _, vmrestore := range vmrestores.Items {
 					Eventually(func() error {
-						vmRestoreObj := &virtv2.VirtualMachineRestore{}
-						err := GetObject(virtv2.VirtualMachineRestoreResource, vmrestore.Name, vmRestoreObj, kc.GetOptions{Namespace: vmrestore.Namespace})
+						vmRestoreObj := &v1alpha2.VirtualMachineRestore{}
+						err := GetObject(v1alpha2.VirtualMachineRestoreResource, vmrestore.Name, vmRestoreObj, kc.GetOptions{Namespace: vmrestore.Namespace})
 						if err != nil {
 							return err
 						}
@@ -258,12 +258,12 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 						}
 
 						msg := "A virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode."
-						if vmRestoreObj.Status.Phase == virtv2.VirtualMachineRestorePhaseFailed && readyCondition.Message == msg {
+						if vmRestoreObj.Status.Phase == v1alpha2.VirtualMachineRestorePhaseFailed && readyCondition.Message == msg {
 							criticalError = "A bug has occurred with a virtual machine in the \"Pending\" phase."
 							Skip(criticalError)
 						}
 
-						if vmRestoreObj.Status.Phase != virtv2.VirtualMachineRestorePhaseReady {
+						if vmRestoreObj.Status.Phase != v1alpha2.VirtualMachineRestorePhaseReady {
 							return fmt.Errorf("virtual machine restore status phase should be \"Ready\": actual status is %q", vmRestoreObj.Status.Phase)
 						}
 
@@ -297,17 +297,17 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 				// 	testAnnotationValue = "test-annotation-value"
 				// )
 
-				vmrestores := &virtv2.VirtualMachineRestoreList{}
-				err := GetObjects(virtv2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+				vmrestores := &v1alpha2.VirtualMachineRestoreList{}
+				err := GetObjects(v1alpha2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 				Expect(err).NotTo(HaveOccurred())
 
 				for _, restore := range vmrestores.Items {
-					vmsnapshot := &virtv2.VirtualMachineSnapshot{}
-					err := GetObject(virtv2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
+					vmsnapshot := &v1alpha2.VirtualMachineSnapshot{}
+					err := GetObject(v1alpha2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
 					Expect(err).NotTo(HaveOccurred())
 
-					vm := &virtv2.VirtualMachine{}
-					err = GetObject(virtv2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
+					vm := &v1alpha2.VirtualMachine{}
+					err = GetObject(v1alpha2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
 					Expect(err).NotTo(HaveOccurred())
 
 					Expect(vm.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
@@ -315,9 +315,9 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 					// Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name]))
 
 					for _, bd := range vm.Status.BlockDeviceRefs {
-						if bd.Kind == virtv2.DiskDevice {
-							vd := &virtv2.VirtualDisk{}
-							err := GetObject(virtv2.VirtualDiskKind, bd.Name, vd, kc.GetOptions{Namespace: vm.Namespace})
+						if bd.Kind == v1alpha2.DiskDevice {
+							vd := &v1alpha2.VirtualDisk{}
+							err := GetObject(v1alpha2.VirtualDiskKind, bd.Name, vd, kc.GetOptions{Namespace: vm.Namespace})
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vd.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 
@@ -328,8 +328,8 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 						}
 
 						if bd.VirtualMachineBlockDeviceAttachmentName != "" {
-							vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{}
-							err := GetObject(virtv2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
+							vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
+							err := GetObject(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vmbda.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 						}
@@ -344,17 +344,17 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 				Skip("Module SDN is disabled. Skipping part of tests.")
 			}
 
-			vmrestores := &virtv2.VirtualMachineRestoreList{}
-			err = GetObjects(virtv2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
+			vmrestores := &v1alpha2.VirtualMachineRestoreList{}
+			err = GetObjects(v1alpha2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, restore := range vmrestores.Items {
-				vmsnapshot := &virtv2.VirtualMachineSnapshot{}
-				err := GetObject(virtv2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
+				vmsnapshot := &v1alpha2.VirtualMachineSnapshot{}
+				err := GetObject(v1alpha2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
 				Expect(err).NotTo(HaveOccurred())
 
-				vm := &virtv2.VirtualMachine{}
-				err = GetObject(virtv2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
+				vm := &v1alpha2.VirtualMachine{}
+				err = GetObject(v1alpha2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
 				Expect(err).NotTo(HaveOccurred())
 				// Skip the network checks until the issue with the virtual machine's MAC address is fixed.
 				// Cause: Sometimes, a virtual machine has a different MAC address after restoration, causing the test to fail.
@@ -368,19 +368,19 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 			resourcesToDelete := ResourcesToDelete{
 				AdditionalResources: []AdditionalResource{
 					{
-						Resource: virtv2.VirtualMachineSnapshotResource,
+						Resource: v1alpha2.VirtualMachineSnapshotResource,
 						Labels:   testCaseLabel,
 					},
 					{
-						Resource: virtv2.VirtualMachineRestoreResource,
+						Resource: v1alpha2.VirtualMachineRestoreResource,
 						Labels:   testCaseLabel,
 					},
 					{
-						Resource: virtv2.VirtualDiskResource,
+						Resource: v1alpha2.VirtualDiskResource,
 						Labels:   additionalDiskLabel,
 					},
 					{
-						Resource: virtv2.VirtualMachineBlockDeviceAttachmentResource,
+						Resource: v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
 						Labels:   additionalDiskLabel,
 					},
 				},
@@ -398,16 +398,16 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 func NewVirtualMachineSnapshot(
 	vmName, vmNamespace string,
 	requiredConsistency bool,
-	keepIPaddress virtv2.KeepIPAddress,
+	keepIPaddress v1alpha2.KeepIPAddress,
 	labels map[string]string,
-) *virtv2.VirtualMachineSnapshot {
-	return &virtv2.VirtualMachineSnapshot{
-		ObjectMeta: v1.ObjectMeta{
+) *v1alpha2.VirtualMachineSnapshot {
+	return &v1alpha2.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmName,
 			Namespace: vmNamespace,
 			Labels:    labels,
 		},
-		Spec: virtv2.VirtualMachineSnapshotSpec{
+		Spec: v1alpha2.VirtualMachineSnapshotSpec{
 			VirtualMachineName:  vmName,
 			RequiredConsistency: requiredConsistency,
 			KeepIPAddress:       keepIPaddress,
@@ -415,30 +415,30 @@ func NewVirtualMachineSnapshot(
 	}
 }
 
-func NewVirtualMachineRestore(vmsnapshot *virtv2.VirtualMachineSnapshot, restoreMode virtv2.RestoreMode) *virtv2.VirtualMachineRestore {
-	return &virtv2.VirtualMachineRestore{
-		ObjectMeta: v1.ObjectMeta{
+func NewVirtualMachineRestore(vmsnapshot *v1alpha2.VirtualMachineSnapshot, restoreMode v1alpha2.RestoreMode) *v1alpha2.VirtualMachineRestore {
+	return &v1alpha2.VirtualMachineRestore{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmsnapshot.Spec.VirtualMachineName,
 			Namespace: vmsnapshot.Namespace,
 			Labels:    vmsnapshot.Labels,
 		},
-		Spec: virtv2.VirtualMachineRestoreSpec{
+		Spec: v1alpha2.VirtualMachineRestoreSpec{
 			RestoreMode:                restoreMode,
 			VirtualMachineSnapshotName: vmsnapshot.Name,
 		},
 	}
 }
 
-func NewVirtualMachineBlockDeviceAttachment(vmName, vmNamespace, bdName string, bdKind virtv2.VMBDAObjectRefKind, labels map[string]string) *virtv2.VirtualMachineBlockDeviceAttachment {
-	return &virtv2.VirtualMachineBlockDeviceAttachment{
-		ObjectMeta: v1.ObjectMeta{
+func NewVirtualMachineBlockDeviceAttachment(vmName, vmNamespace, bdName string, bdKind v1alpha2.VMBDAObjectRefKind, labels map[string]string) *v1alpha2.VirtualMachineBlockDeviceAttachment {
+	return &v1alpha2.VirtualMachineBlockDeviceAttachment{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      bdName,
 			Namespace: vmNamespace,
 			Labels:    labels,
 		},
-		Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+		Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 			VirtualMachineName: vmName,
-			BlockDeviceRef: virtv2.VMBDAObjectRef{
+			BlockDeviceRef: v1alpha2.VMBDAObjectRef{
 				Kind: bdKind,
 				Name: bdName,
 			},
@@ -446,15 +446,15 @@ func NewVirtualMachineBlockDeviceAttachment(vmName, vmNamespace, bdName string, 
 	}
 }
 
-func NewVirtualDisk(vdName, vdNamespace string, labels map[string]string, size *resource.Quantity) *virtv2.VirtualDisk {
-	return &virtv2.VirtualDisk{
-		ObjectMeta: v1.ObjectMeta{
+func NewVirtualDisk(vdName, vdNamespace string, labels map[string]string, size *resource.Quantity) *v1alpha2.VirtualDisk {
+	return &v1alpha2.VirtualDisk{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      vdName,
 			Namespace: vdNamespace,
 			Labels:    labels,
 		},
-		Spec: virtv2.VirtualDiskSpec{
-			PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+		Spec: v1alpha2.VirtualDiskSpec{
+			PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 				Size: size,
 			},
 		},

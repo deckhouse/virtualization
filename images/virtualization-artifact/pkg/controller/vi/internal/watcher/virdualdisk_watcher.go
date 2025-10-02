@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -48,10 +48,10 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 
 func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequestsFromVDs),
-			predicate.TypedFuncs[*virtv2.VirtualDisk]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
 					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
 					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
 
@@ -69,8 +69,8 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	return nil
 }
 
-func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
-	var viList virtv2.VirtualImageList
+func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *v1alpha2.VirtualDisk) (requests []reconcile.Request) {
+	var viList v1alpha2.VirtualImageList
 	err := w.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -80,11 +80,11 @@ func (w *VirtualDiskWatcher) enqueueRequestsFromVDs(ctx context.Context, vd *vir
 	}
 
 	for _, vi := range viList.Items {
-		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
+		if vi.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
 			continue
 		}
 
-		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || vi.Spec.DataSource.ObjectRef.Name != vd.GetName() {
+		if vi.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskKind || vi.Spec.DataSource.ObjectRef.Name != vd.GetName() {
 			continue
 		}
 

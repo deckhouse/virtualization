@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -54,7 +54,7 @@ var (
 )
 
 // OverrideName overrides the name of the resource with the given rules
-func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
+func OverrideName(kind, name string, rules []v1alpha2.NameReplacement) string {
 	if name == "" {
 		return ""
 	}
@@ -80,9 +80,9 @@ func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
 func ValidateResourceNameLength(resourceName, kind string) error {
 	maxLength := MaxKubernetesResourceNameLength
 	switch kind {
-	case virtv2.VirtualMachineKind:
+	case v1alpha2.VirtualMachineKind:
 		maxLength = validate.MaxVirtualMachineNameLen
-	case virtv2.VirtualDiskKind:
+	case v1alpha2.VirtualDiskKind:
 		maxLength = validate.MaxDiskNameLen
 	}
 	if len(resourceName) > maxLength {

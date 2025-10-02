@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pwgen"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type InitHandler struct{}
@@ -35,7 +35,7 @@ func NewInitHandler() *InitHandler {
 	return &InitHandler{}
 }
 
-func (h *InitHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h *InitHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	// INIT PersistentVolumeClaim Name.
 	// Required for correct work virtual disk supplements.
 	// We should have different names for support migration volumes.

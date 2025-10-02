@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type PodWatcher struct {
@@ -49,7 +49,7 @@ func (w PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 			handler.TypedEnqueueRequestForOwner[*corev1.Pod](
 				mgr.GetScheme(),
 				mgr.GetRESTMapper(),
-				&virtv2.VirtualImage{},
+				&v1alpha2.VirtualImage{},
 			),
 			predicate.TypedFuncs[*corev1.Pod]{
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Pod]) bool { return false },

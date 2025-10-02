@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -42,10 +42,10 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualDisk{},
-			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.VirtualDisk](mgr.GetClient())),
-			predicate.TypedFuncs[*virtv2.VirtualDisk]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+			&v1alpha2.VirtualDisk{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*v1alpha2.VirtualDisk](mgr.GetClient())),
+			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 						return true
 					}

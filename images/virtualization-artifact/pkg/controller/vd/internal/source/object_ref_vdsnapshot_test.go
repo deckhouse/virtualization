@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -51,10 +51,10 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 	var (
 		ctx        context.Context
 		scheme     *runtime.Scheme
-		vd         *virtv2.VirtualDisk
+		vd         *v1alpha2.VirtualDisk
 		vs         *vsv1.VolumeSnapshot
 		sc         *storagev1.StorageClass
-		vdSnapshot *virtv2.VirtualDiskSnapshot
+		vdSnapshot *v1alpha2.VirtualDiskSnapshot
 		pvc        *corev1.PersistentVolumeClaim
 		recorder   eventrecord.EventRecorderLogger
 		svc        *ObjectRefVirtualDiskSnapshotDiskServiceMock
@@ -64,7 +64,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 
 		scheme = runtime.NewScheme()
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
@@ -115,35 +115,35 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			},
 		}
 
-		vdSnapshot = &virtv2.VirtualDiskSnapshot{
+		vdSnapshot = &v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "vd-snapshot",
 				UID:  "11111111-1111-1111-1111-111111111111",
 			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{},
-			Status: virtv2.VirtualDiskSnapshotStatus{
-				Phase:              virtv2.VirtualDiskSnapshotPhaseReady,
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{},
+			Status: v1alpha2.VirtualDiskSnapshotStatus{
+				Phase:              v1alpha2.VirtualDiskSnapshotPhaseReady,
 				VolumeSnapshotName: vs.Name,
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
 				UID:        "22222222-2222-2222-2222-222222222222",
 			},
-			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
-					Type: virtv2.DataSourceTypeObjectRef,
-					ObjectRef: &virtv2.VirtualDiskObjectRef{
-						Kind: virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
+			Spec: v1alpha2.VirtualDiskSpec{
+				DataSource: &v1alpha2.VirtualDiskDataSource{
+					Type: v1alpha2.DataSourceTypeObjectRef,
+					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
+						Kind: v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
 						Name: vdSnapshot.Name,
 					},
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
-				Target: virtv2.DiskTarget{
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			},
@@ -153,8 +153,8 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create PVC", func() {
 			var pvcCreated bool
-			vd.Status = virtv2.VirtualDiskStatus{
-				Target: virtv2.DiskTarget{
+			vd.Status = v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			}
@@ -183,7 +183,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.SourceUID).ToNot(BeNil())
 			Expect(*vd.Status.SourceUID).ToNot(BeEmpty())
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})
@@ -201,7 +201,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
 		})
 
 		It("is in provisioning", func() {
@@ -216,7 +216,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 		})
 	})
 
@@ -233,7 +233,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
 			ExpectStats(vd)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskReady))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 		})
 	})
 
@@ -264,7 +264,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 
@@ -280,20 +280,20 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})
 })
 
-func ExpectStats(vd *virtv2.VirtualDisk) {
+func ExpectStats(vd *v1alpha2.VirtualDisk) {
 	Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 	Expect(vd.Status.Capacity).ToNot(BeEmpty())
 	Expect(vd.Status.Progress).ToNot(BeEmpty())
 	Expect(vd.Status.Phase).ToNot(BeEmpty())
 }
 
-func ExpectCondition(vd *virtv2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.ReadyReason, msgExists bool) {
+func ExpectCondition(vd *v1alpha2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.ReadyReason, msgExists bool) {
 	ready, _ := conditions.GetCondition(vdcondition.Ready, vd.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

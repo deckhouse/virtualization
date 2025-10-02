@@ -34,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -57,7 +57,7 @@ func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, snapshotter S
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	cb := conditions.NewConditionBuilder(vmscondition.VirtualMachineSnapshotReadyType)
@@ -74,7 +74,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	}
 
 	if vmSnapshot.DeletionTimestamp != nil {
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseTerminating
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseTerminating
 		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
@@ -91,15 +91,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	switch vmSnapshot.Status.Phase {
 	case "":
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
-	case virtv2.VirtualMachineSnapshotPhaseFailed:
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
+	case v1alpha2.VirtualMachineSnapshotPhaseFailed:
 		readyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 		cb.
 			Status(readyCondition.Status).
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
 		return reconcile.Result{}, nil
-	case virtv2.VirtualMachineSnapshotPhaseReady:
+	case v1alpha2.VirtualMachineSnapshotPhaseReady:
 		// Ensure vd snapshots aren't lost.
 		var lostVDSnapshots []string
 		for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
@@ -112,20 +112,20 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			switch {
 			case vdSnapshot == nil:
 				lostVDSnapshots = append(lostVDSnapshots, vdSnapshotName)
-			case vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady:
+			case vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady:
 				log.Error("expected virtual disk snapshot to be ready, please report a bug", "vdSnapshotPhase", vdSnapshot.Status.Phase)
 			}
 		}
 
 		if len(lostVDSnapshots) > 0 {
-			vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
+			vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualDiskSnapshotLost)
 			if len(lostVDSnapshots) == 1 {
 				msg := fmt.Sprintf("The underlying virtual disk snapshot (%s) is lost.", lostVDSnapshots[0])
 				h.recorder.Event(
 					vmSnapshot,
 					corev1.EventTypeWarning,
-					virtv2.ReasonVMSnapshottingFailed,
+					v1alpha2.ReasonVMSnapshottingFailed,
 					msg,
 				)
 				cb.Message(msg)
@@ -134,7 +134,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 				h.recorder.Event(
 					vmSnapshot,
 					corev1.EventTypeWarning,
-					virtv2.ReasonVMSnapshottingFailed,
+					v1alpha2.ReasonVMSnapshottingFailed,
 					msg,
 				)
 				cb.Message(msg)
@@ -142,7 +142,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			return reconcile.Result{}, nil
 		}
 
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseReady
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmscondition.VirtualMachineSnapshotReady).
@@ -152,12 +152,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	virtualMachineReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineReadyType, vmSnapshot.Status.Conditions)
 	if vm == nil || virtualMachineReadyCondition.Status != metav1.ConditionTrue {
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
 		msg := fmt.Sprintf("Waiting for the virtual machine %q to be ready for snapshotting.", vmSnapshot.Spec.VirtualMachineName)
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingPending,
+			v1alpha2.ReasonVMSnapshottingPending,
 			msg,
 		)
 		cb.
@@ -172,12 +172,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrBlockDevicesNotReady), errors.Is(err, ErrVirtualDiskNotReady), errors.Is(err, ErrVirtualDiskResizing):
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 		msg := service.CapitalizeFirstLetter(err.Error() + ".")
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingFailed,
+			v1alpha2.ReasonVMSnapshottingFailed,
 			msg,
 		)
 		cb.
@@ -194,11 +194,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	isAwaitingConsistency := needToFreeze && !h.snapshotter.CanFreeze(vm) && vmSnapshot.Spec.RequiredConsistency
 	if isAwaitingConsistency {
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
 		msg := fmt.Sprintf(
 			"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
 				"waiting for the virtual machine to be %s",
-			vm.Name, virtv2.MachineStopped,
+			vm.Name, v1alpha2.MachineStopped,
 		)
 
 		agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
@@ -214,7 +214,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingPending,
+			v1alpha2.ReasonVMSnapshottingPending,
 			msg,
 		)
 		cb.
@@ -224,12 +224,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	if vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhasePending {
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+	if vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhasePending {
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingStarted,
+			v1alpha2.ReasonVMSnapshottingStarted,
 			"Virtual machine snapshotting process is started.",
 		)
 		cb.
@@ -251,7 +251,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	}
 
 	if hasFrozen {
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.FileSystemFreezing).
@@ -274,12 +274,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrCannotTakeSnapshot):
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 		msg := service.CapitalizeFirstLetter(err.Error())
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeWarning,
-			virtv2.ReasonVMSnapshottingFailed,
+			v1alpha2.ReasonVMSnapshottingFailed,
 			msg,
 		)
 		if !strings.HasSuffix(msg, ".") {
@@ -306,11 +306,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	if readyCount != len(vdSnapshots) {
 		log.Debug("Waiting for the virtual disk snapshots to be taken for the block devices of the virtual machine")
 
-		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingInProgress,
+			v1alpha2.ReasonVMSnapshottingInProgress,
 			msg,
 		)
 		cb.
@@ -322,7 +322,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingInProgress,
+			v1alpha2.ReasonVMSnapshottingInProgress,
 			msg,
 		)
 	}
@@ -349,11 +349,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	// 9. Move to Ready phase.
 	log.Debug("The virtual disk snapshots are taken: the virtual machine snapshot is Ready now", "unfrozen", unfrozen)
 
-	vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseReady
+	vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseReady
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMSnapshottingCompleted,
+		v1alpha2.ReasonVMSnapshottingCompleted,
 		"Virtual machine snapshotting process is completed.",
 	)
 	cb.
@@ -364,12 +364,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	return reconcile.Result{}, nil
 }
 
-func (h LifeCycleHandler) setPhaseConditionToFailed(cb *conditions.ConditionBuilder, vmSnapshot *virtv2.VirtualMachineSnapshot, err error) {
-	vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
+func (h LifeCycleHandler) setPhaseConditionToFailed(cb *conditions.ConditionBuilder, vmSnapshot *v1alpha2.VirtualMachineSnapshot, err error) {
+	vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeWarning,
-		virtv2.ReasonVMSnapshottingFailed,
+		v1alpha2.ReasonVMSnapshottingFailed,
 		err.Error()+".",
 	)
 	cb.
@@ -378,11 +378,11 @@ func (h LifeCycleHandler) setPhaseConditionToFailed(cb *conditions.ConditionBuil
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func (h LifeCycleHandler) fillStatusVirtualDiskSnapshotNames(vmSnapshot *virtv2.VirtualMachineSnapshot, vm *virtv2.VirtualMachine) {
+func (h LifeCycleHandler) fillStatusVirtualDiskSnapshotNames(vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) {
 	vmSnapshot.Status.VirtualDiskSnapshotNames = nil
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
@@ -395,8 +395,8 @@ func (h LifeCycleHandler) fillStatusVirtualDiskSnapshotNames(vmSnapshot *virtv2.
 
 var ErrCannotTakeSnapshot = errors.New("cannot take snapshot")
 
-func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) ([]*virtv2.VirtualDiskSnapshot, error) {
-	vdSnapshots := make([]*virtv2.VirtualDiskSnapshot, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
+func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) ([]*v1alpha2.VirtualDiskSnapshot, error) {
+	vdSnapshots := make([]*v1alpha2.VirtualDiskSnapshot, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
 
 	for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 		vdSnapshot, err := h.snapshotter.GetVirtualDiskSnapshot(ctx, vdSnapshotName, vmSnapshot.Namespace)
@@ -410,7 +410,7 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 				return nil, fmt.Errorf("failed to get VirtualDisk's name from VirtualDiskSnapshot's name %q", vdSnapshotName)
 			}
 
-			var vd *virtv2.VirtualDisk
+			var vd *v1alpha2.VirtualDisk
 			vd, err = h.snapshotter.GetVirtualDisk(ctx, vdName, vmSnapshot.Namespace)
 			if err != nil {
 				return nil, err
@@ -434,10 +434,10 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 				return nil, fmt.Errorf("the persistent volume claim %q doesn't have the storage class name", pvc.Name)
 			}
 
-			vdSnapshot = &virtv2.VirtualDiskSnapshot{
+			vdSnapshot = &v1alpha2.VirtualDiskSnapshot{
 				TypeMeta: metav1.TypeMeta{
-					Kind:       virtv2.VirtualDiskSnapshotKind,
-					APIVersion: virtv2.Version,
+					Kind:       v1alpha2.VirtualDiskSnapshotKind,
+					APIVersion: v1alpha2.Version,
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      vdSnapshotName,
@@ -446,7 +446,7 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 						service.MakeOwnerReference(vmSnapshot),
 					},
 				},
-				Spec: virtv2.VirtualDiskSnapshotSpec{
+				Spec: v1alpha2.VirtualDiskSnapshotSpec{
 					VirtualDiskName:     vdName,
 					RequiredConsistency: vmSnapshot.Spec.RequiredConsistency,
 				},
@@ -459,7 +459,7 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 		}
 
 		vdSnapshotReady, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
-		if vdSnapshotReady.Reason == vdscondition.VirtualDiskSnapshotFailed.String() || vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseFailed {
+		if vdSnapshotReady.Reason == vdscondition.VirtualDiskSnapshotFailed.String() || vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed {
 			return nil, fmt.Errorf("the virtual disk snapshot %q is failed: %w. %s", vdSnapshot.Name, ErrCannotTakeSnapshot, vdSnapshotReady.Message)
 		}
 
@@ -469,10 +469,10 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 	return vdSnapshots, nil
 }
 
-func (h LifeCycleHandler) countReadyVirtualDiskSnapshots(vdSnapshots []*virtv2.VirtualDiskSnapshot) int {
+func (h LifeCycleHandler) countReadyVirtualDiskSnapshots(vdSnapshots []*v1alpha2.VirtualDiskSnapshot) int {
 	var readyCount int
 	for _, vdSnapshot := range vdSnapshots {
-		if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseReady {
+		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady {
 			readyCount++
 		}
 	}
@@ -480,7 +480,7 @@ func (h LifeCycleHandler) countReadyVirtualDiskSnapshots(vdSnapshots []*virtv2.V
 	return readyCount
 }
 
-func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*virtv2.VirtualDiskSnapshot) bool {
+func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*v1alpha2.VirtualDiskSnapshot) bool {
 	for _, vdSnapshot := range vdSnapshots {
 		if vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
 			return false
@@ -490,12 +490,12 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*virtv
 	return true
 }
 
-func (h LifeCycleHandler) needToFreeze(vm *virtv2.VirtualMachine, requiredConsistency bool) bool {
+func (h LifeCycleHandler) needToFreeze(vm *v1alpha2.VirtualMachine, requiredConsistency bool) bool {
 	if !requiredConsistency {
 		return false
 	}
 
-	if vm.Status.Phase == virtv2.MachineStopped {
+	if vm.Status.Phase == v1alpha2.MachineStopped {
 		return false
 	}
 
@@ -506,8 +506,8 @@ func (h LifeCycleHandler) needToFreeze(vm *virtv2.VirtualMachine, requiredConsis
 	return true
 }
 
-func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) (bool, error) {
-	if vm.Status.Phase != virtv2.MachineRunning {
+func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
+	if vm.Status.Phase != v1alpha2.MachineRunning {
 		return false, errors.New("cannot freeze not Running virtual machine")
 	}
 
@@ -519,15 +519,15 @@ func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *virtv2.V
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMSnapshottingFrozen,
+		v1alpha2.ReasonVMSnapshottingFrozen,
 		fmt.Sprintf("The file system of the virtual machine %q is frozen.", vm.Name),
 	)
 
 	return true, nil
 }
 
-func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot, vm *virtv2.VirtualMachine) (bool, error) {
-	if vm == nil || vm.Status.Phase != virtv2.MachineRunning || !h.snapshotter.IsFrozen(vm) {
+func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (bool, error) {
+	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning || !h.snapshotter.IsFrozen(vm) {
 		return false, nil
 	}
 
@@ -548,7 +548,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMSnapshottingThawed,
+		v1alpha2.ReasonVMSnapshottingThawed,
 		fmt.Sprintf("The file system of the virtual machine %q is thawed.", vm.Name),
 	)
 
@@ -561,14 +561,14 @@ var (
 	ErrVirtualDiskResizing  = errors.New("virtual disk is in the process of resizing")
 )
 
-func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *virtv2.VirtualMachine) error {
+func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *v1alpha2.VirtualMachine) error {
 	bdReady, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vm.Status.Conditions)
 	if bdReady.Status != metav1.ConditionTrue {
 		return fmt.Errorf("%w: waiting for the block devices of the virtual machine %q to be ready", ErrBlockDevicesNotReady, vm.Name)
 	}
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
@@ -577,8 +577,8 @@ func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *
 			return err
 		}
 
-		if vd.Status.Phase != virtv2.DiskReady {
-			return fmt.Errorf("%w: waiting for the virtual disk %q to be %s", ErrVirtualDiskNotReady, vd.Name, virtv2.DiskReady)
+		if vd.Status.Phase != v1alpha2.DiskReady {
+			return fmt.Errorf("%w: waiting for the virtual disk %q to be %s", ErrVirtualDiskNotReady, vd.Name, v1alpha2.DiskReady)
 		}
 
 		ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
@@ -595,7 +595,7 @@ func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *
 	return nil
 }
 
-func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) error {
+func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) error {
 	var secret *corev1.Secret
 	var err error
 
@@ -620,28 +620,28 @@ func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMa
 	return nil
 }
 
-func getVDName(vdSnapshotName string, vmSnapshot *virtv2.VirtualMachineSnapshot) (string, bool) {
+func getVDName(vdSnapshotName string, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (string, bool) {
 	return strings.CutSuffix(vdSnapshotName, "-"+string(vmSnapshot.UID))
 }
 
-func getVDSnapshotName(vdName string, vmSnapshot *virtv2.VirtualMachineSnapshot) string {
+func getVDSnapshotName(vdName string, vmSnapshot *v1alpha2.VirtualMachineSnapshot) string {
 	return fmt.Sprintf("%s-%s", vdName, vmSnapshot.UID)
 }
 
-func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot, vm *virtv2.VirtualMachine) error {
-	vmSnapshot.Status.Resources = []virtv2.ResourceRef{}
+func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) error {
+	vmSnapshot.Status.Resources = []v1alpha2.ResourceRef{}
 
-	vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+	vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
 		Kind:       vm.Kind,
 		ApiVersion: vm.APIVersion,
 		Name:       vm.Name,
 	})
 
-	if vmSnapshot.Spec.KeepIPAddress == virtv2.KeepIPAddressAlways {
+	if vmSnapshot.Spec.KeepIPAddress == v1alpha2.KeepIPAddressAlways {
 		vmip, err := object.FetchObject(ctx, types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      vm.Status.VirtualMachineIPAddress,
-		}, h.client, &virtv2.VirtualMachineIPAddress{})
+		}, h.client, &v1alpha2.VirtualMachineIPAddress{})
 		if err != nil {
 			return err
 		}
@@ -650,7 +650,7 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 			return fmt.Errorf("the virtual machine ip address %q not found", vm.Status.VirtualMachineIPAddress)
 		}
 
-		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
 			Kind:       vmip.Kind,
 			ApiVersion: vmip.APIVersion,
 			Name:       vmip.Name,
@@ -659,21 +659,21 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 
 	if len(vm.Spec.Networks) > 1 {
 		for _, ns := range vm.Status.Networks {
-			if ns.Type == virtv2.NetworksTypeMain {
+			if ns.Type == v1alpha2.NetworksTypeMain {
 				continue
 			}
 
 			vmmac, err := object.FetchObject(ctx, types.NamespacedName{
 				Namespace: vm.Namespace,
 				Name:      ns.VirtualMachineMACAddressName,
-			}, h.client, &virtv2.VirtualMachineMACAddress{})
+			}, h.client, &v1alpha2.VirtualMachineMACAddress{})
 			if err != nil {
 				return err
 			}
 			if vmmac == nil {
 				return fmt.Errorf("the virtual machine mac address %q not found", ns.VirtualMachineMACAddressName)
 			}
-			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
 				Kind:       vmmac.Kind,
 				ApiVersion: vmmac.APIVersion,
 				Name:       vmmac.Name,
@@ -686,7 +686,7 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 		return err
 	}
 	if provisioner != nil {
-		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
 			Kind:       provisioner.Kind,
 			ApiVersion: provisioner.APIVersion,
 			Name:       provisioner.Name,
@@ -695,32 +695,32 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
 		if bdr.VirtualMachineBlockDeviceAttachmentName != "" {
-			vmbda, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.VirtualMachineBlockDeviceAttachmentName, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+			vmbda, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.VirtualMachineBlockDeviceAttachmentName, Namespace: vm.Namespace}, h.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
 			if err != nil {
 				return err
 			}
 			if vmbda == nil {
 				continue
 			}
-			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
 				Kind:       vmbda.Kind,
 				ApiVersion: vmbda.APIVersion,
 				Name:       vmbda.Name,
 			})
 		}
 
-		if bdr.Kind != virtv2.DiskDevice {
+		if bdr.Kind != v1alpha2.DiskDevice {
 			continue
 		}
 
-		vd, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.Name, Namespace: vm.Namespace}, h.client, &virtv2.VirtualDisk{})
+		vd, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.Name, Namespace: vm.Namespace}, h.client, &v1alpha2.VirtualDisk{})
 		if err != nil {
 			return err
 		}
 		if vd == nil {
 			continue
 		}
-		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, v1alpha2.ResourceRef{
 			Kind:       vd.Kind,
 			ApiVersion: vd.APIVersion,
 			Name:       vd.Name,
@@ -730,26 +730,26 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 	return nil
 }
 
-func (h LifeCycleHandler) getProvisionerFromVM(ctx context.Context, vm *virtv2.VirtualMachine) (*corev1.Secret, error) {
+func (h LifeCycleHandler) getProvisionerFromVM(ctx context.Context, vm *v1alpha2.VirtualMachine) (*corev1.Secret, error) {
 	if vm.Spec.Provisioning != nil {
 		var provisioningSecretName string
 
 		switch vm.Spec.Provisioning.Type {
-		case virtv2.ProvisioningTypeSysprepRef:
+		case v1alpha2.ProvisioningTypeSysprepRef:
 			if vm.Spec.Provisioning.SysprepRef == nil {
 				return nil, nil
 			}
 
-			if vm.Spec.Provisioning.SysprepRef.Kind == virtv2.SysprepRefKindSecret {
+			if vm.Spec.Provisioning.SysprepRef.Kind == v1alpha2.SysprepRefKindSecret {
 				provisioningSecretName = vm.Spec.Provisioning.SysprepRef.Name
 			}
 
-		case virtv2.ProvisioningTypeUserDataRef:
+		case v1alpha2.ProvisioningTypeUserDataRef:
 			if vm.Spec.Provisioning.UserDataRef == nil {
 				return nil, nil
 			}
 
-			if vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
+			if vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
 				provisioningSecretName = vm.Spec.Provisioning.UserDataRef.Name
 			}
 		}

@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineStorage struct {
@@ -138,7 +138,7 @@ func (store VirtualMachineStorage) CancelEvacuationREST() *vmrest.CancelEvacuati
 
 // New implements rest.Storage interface
 func (store VirtualMachineStorage) New() runtime.Object {
-	return &virtv2.VirtualMachine{}
+	return &v1alpha2.VirtualMachine{}
 }
 
 // Destroy implements rest.Storage interface
@@ -173,7 +173,7 @@ func (store VirtualMachineStorage) Get(ctx context.Context, name string, _ *meta
 }
 
 func (store VirtualMachineStorage) NewList() runtime.Object {
-	return &virtv2.VirtualMachineList{}
+	return &v1alpha2.VirtualMachineList{}
 }
 
 func (store VirtualMachineStorage) List(ctx context.Context, options *internalversion.ListOptions) (runtime.Object, error) {
@@ -199,8 +199,8 @@ func (store VirtualMachineStorage) List(ctx context.Context, options *internalve
 		return nil, k8serrors.NewInternalError(err)
 	}
 
-	filtered := &virtv2.VirtualMachineList{}
-	filtered.Items = make([]virtv2.VirtualMachine, 0, len(items))
+	filtered := &v1alpha2.VirtualMachineList{}
+	filtered.Items = make([]v1alpha2.VirtualMachine, 0, len(items))
 	for _, vm := range items {
 		if matches(vm, name) {
 			filtered.Items = append(filtered.Items, *vm)

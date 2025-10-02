@@ -10,7 +10,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1090,7 +1090,7 @@ var _ Stat = &StatMock{}
 //			GetDVCRImageNameFunc: func(pod *corev1.Pod) string {
 //				panic("mock out the GetDVCRImageName method")
 //			},
-//			GetDownloadSpeedFunc: func(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
+//			GetDownloadSpeedFunc: func(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed {
 //				panic("mock out the GetDownloadSpeed method")
 //			},
 //			GetFormatFunc: func(pod *corev1.Pod) string {
@@ -1099,7 +1099,7 @@ var _ Stat = &StatMock{}
 //			GetProgressFunc: func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
-//			GetSizeFunc: func(pod *corev1.Pod) virtv2.ImageStatusSize {
+//			GetSizeFunc: func(pod *corev1.Pod) v1alpha2.ImageStatusSize {
 //				panic("mock out the GetSize method")
 //			},
 //			IsUploadStartedFunc: func(ownerUID types.UID, pod *corev1.Pod) bool {
@@ -1125,7 +1125,7 @@ type StatMock struct {
 	GetDVCRImageNameFunc func(pod *corev1.Pod) string
 
 	// GetDownloadSpeedFunc mocks the GetDownloadSpeed method.
-	GetDownloadSpeedFunc func(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
+	GetDownloadSpeedFunc func(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 
 	// GetFormatFunc mocks the GetFormat method.
 	GetFormatFunc func(pod *corev1.Pod) string
@@ -1134,7 +1134,7 @@ type StatMock struct {
 	GetProgressFunc func(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 
 	// GetSizeFunc mocks the GetSize method.
-	GetSizeFunc func(pod *corev1.Pod) virtv2.ImageStatusSize
+	GetSizeFunc func(pod *corev1.Pod) v1alpha2.ImageStatusSize
 
 	// IsUploadStartedFunc mocks the IsUploadStarted method.
 	IsUploadStartedFunc func(ownerUID types.UID, pod *corev1.Pod) bool
@@ -1312,7 +1312,7 @@ func (mock *StatMock) GetDVCRImageNameCalls() []struct {
 }
 
 // GetDownloadSpeed calls GetDownloadSpeedFunc.
-func (mock *StatMock) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
+func (mock *StatMock) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed {
 	if mock.GetDownloadSpeedFunc == nil {
 		panic("StatMock.GetDownloadSpeedFunc: method is nil but Stat.GetDownloadSpeed was just called")
 	}
@@ -1424,7 +1424,7 @@ func (mock *StatMock) GetProgressCalls() []struct {
 }
 
 // GetSize calls GetSizeFunc.
-func (mock *StatMock) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
+func (mock *StatMock) GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize {
 	if mock.GetSizeFunc == nil {
 		panic("StatMock.GetSizeFunc: method is nil but Stat.GetSize was just called")
 	}

@@ -29,7 +29,7 @@ import (
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -49,7 +49,7 @@ func NewBlankDataSource(recorder eventrecord.EventRecorderLogger, diskService Bl
 	}
 }
 
-func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds BlankDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetHandlerContext(ctx, blankDataSource)
 
 	supgen := vdsupplements.NewGenerator(vd)
@@ -66,7 +66,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
 	}
 
-	return steptaker.NewStepTakers[*virtv2.VirtualDisk](
+	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreateBlankPVCStep(pvc, ds.diskService, ds.client, cb),
@@ -74,11 +74,11 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 	).Run(ctx, vd)
 }
 
-func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
+func (ds BlankDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualDisk) error {
 	return nil
 }
 
-func (ds BlankDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (ds BlankDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
 	requeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)

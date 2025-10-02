@@ -25,16 +25,16 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefClusterVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService
 
 type Handler interface {
 	Name() string
-	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
-	Validate(ctx context.Context, vd *virtv2.VirtualDisk) error
+	Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
+	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
+	Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error
 }
 
 type BlankDataSourceDiskService interface {

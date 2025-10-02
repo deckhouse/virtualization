@@ -22,25 +22,25 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("SizePolicyService", func() {
 	Context("when VM's class has no valid size policy", func() {
 		// Virtual machine with non-matching CPU parameters
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 5, CoreFraction: "10%"},
+				CPU:                     v1alpha2.CPUSpec{Cores: 5, CoreFraction: "10%"},
 			},
 		}
 
 		// Initialize a virtual machine class with policies that do not match the VM's parameters
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 					},
 				},
 			},
@@ -56,19 +56,19 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's class has correct policy without memory requirements", func() {
 		// Virtual machine with appropriate CPU parameters and no memory requirements
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+				CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
 			},
 		}
 
 		// Set mock VM class data with valid policies for the VM without memory requirements
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 					},
 				},
 			},
@@ -84,22 +84,22 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's memory does not match with policy", func() {
 		// Virtual machine with non-matching memory parameters
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 1, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("1Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("1Gi")},
 			},
 		}
 
 		// Set mock VM class data with policies that match memory requirements for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
-							MemoryMinMax: virtv2.MemoryMinMax{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
 								Min: resource.MustParse("512Mi"),
 								Max: resource.MustParse("2Gi"),
 							},
@@ -119,22 +119,22 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's memory matches the policy", func() {
 		// Virtual machine with matching memory parameters
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 1, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("2Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2Gi")},
 			},
 		}
 
 		// Set mock VM class data with valid memory policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
-							MemoryMinMax: virtv2.MemoryMinMax{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
 								Min: resource.MustParse("1Gi"),
 								Max: resource.MustParse("3Gi"),
 							},
@@ -154,21 +154,21 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when class policy has empty memory requirements", func() {
 		// Virtual machine with memory size that matches an empty memory requirement policy
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 1, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("2Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2Gi")},
 			},
 		}
 
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
 				// No specific memory policies defined
-				SizingPolicies: []virtv2.SizingPolicy{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores:  &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{},
+						Cores:  &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{},
 					},
 				},
 			},
@@ -184,23 +184,23 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's memory is correct per core", func() {
 		// Virtual machine with memory size that adheres to per-core memory policies
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("4Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4Gi")},
 			},
 		}
 
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
 				// Setting policies with per-core memory requirements
-				SizingPolicies: []virtv2.SizingPolicy{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
-							PerCore: virtv2.SizingPolicyMemoryPerCore{
-								MemoryMinMax: virtv2.MemoryMinMax{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+								MemoryMinMax: v1alpha2.MemoryMinMax{
 									Min: resource.MustParse("1Gi"),
 									Max: resource.MustParse("3Gi"),
 								},
@@ -221,23 +221,23 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's memory is incorrect per core", func() {
 		// Virtual machine with incorrect per-core memory size
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 4, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("4Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 4, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4Gi")},
 			},
 		}
 
 		// Set mock VM class data with invalid per-core memory policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
-							PerCore: virtv2.SizingPolicyMemoryPerCore{
-								MemoryMinMax: virtv2.MemoryMinMax{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
+							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+								MemoryMinMax: v1alpha2.MemoryMinMax{
 									Min: resource.MustParse("2Gi"),
 									Max: resource.MustParse("3Gi"),
 								},
@@ -258,21 +258,21 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's core fraction is correct", func() {
 		// Virtual machine with a correct core fraction
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 1, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("2Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2Gi")},
 			},
 		}
 
 		// Set mock VM class data with valid core fraction policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores:         &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						CoreFractions: []virtv2.CoreFractionValue{10, 25, 50, 100},
+						Cores:         &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						CoreFractions: []v1alpha2.CoreFractionValue{10, 25, 50, 100},
 					},
 				},
 			},
@@ -288,21 +288,21 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's core fraction is incorrect", func() {
 		// Virtual machine with an incorrect core fraction
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 1, CoreFraction: "11%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("2Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 1, CoreFraction: "11%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2Gi")},
 			},
 		}
 
 		// Set mock VM class data with valid core fraction policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores:         &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						CoreFractions: []virtv2.CoreFractionValue{10, 25, 50, 100},
+						Cores:         &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						CoreFractions: []v1alpha2.CoreFractionValue{10, 25, 50, 100},
 					},
 				},
 			},
@@ -318,23 +318,23 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's memory step is correct", func() {
 		// Virtual machine with a correct memory step
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("2Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2Gi")},
 			},
 		}
 
 		// Set mock VM class data with valid memory step policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
 							Step: resource.MustParse("1Gi"),
-							MemoryMinMax: virtv2.MemoryMinMax{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
 								Min: resource.MustParse("1Gi"),
 								Max: resource.MustParse("3Gi"),
 							},
@@ -354,23 +354,23 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's memory step is incorrect", func() {
 		// Virtual machine with an incorrect memory step
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("2001Mi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("2001Mi")},
 			},
 		}
 
 		// Set mock VM class data with invalid memory step policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
 							Step: resource.MustParse("1Gi"),
-							MemoryMinMax: virtv2.MemoryMinMax{
+							MemoryMinMax: v1alpha2.MemoryMinMax{
 								Min: resource.MustParse("1Gi"),
 								Max: resource.MustParse("3Gi"),
 							},
@@ -390,23 +390,23 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's per core memory step is correct", func() {
 		// Virtual machine with a correct per-core memory step
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("4Gi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4Gi")},
 			},
 		}
 
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
 							Step: resource.MustParse("1Gi"),
-							PerCore: virtv2.SizingPolicyMemoryPerCore{
-								MemoryMinMax: virtv2.MemoryMinMax{
+							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+								MemoryMinMax: v1alpha2.MemoryMinMax{
 									Min: resource.MustParse("1Gi"),
 									Max: resource.MustParse("3Gi"),
 								},
@@ -427,24 +427,24 @@ var _ = Describe("SizePolicyService", func() {
 
 	Context("when VM's per core memory step is incorrect", func() {
 		// Virtual machine with an incorrect per-core memory step
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("4001Mi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4001Mi")},
 			},
 		}
 
 		// Set mock VM class data with invalid per-core memory step policies for the VM
-		vmClass := &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				SizingPolicies: []virtv2.SizingPolicy{
+		vmClass := &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
-						Cores: &virtv2.SizingPolicyCores{Min: 1, Max: 4},
-						Memory: &virtv2.SizingPolicyMemory{
+						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
+						Memory: &v1alpha2.SizingPolicyMemory{
 							Step: resource.MustParse("1Gi"),
-							PerCore: virtv2.SizingPolicyMemoryPerCore{
-								MemoryMinMax: virtv2.MemoryMinMax{
+							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+								MemoryMinMax: v1alpha2.MemoryMinMax{
 									Min: resource.MustParse("1Gi"),
 									Max: resource.MustParse("3Gi"),
 								},
@@ -464,14 +464,14 @@ var _ = Describe("SizePolicyService", func() {
 	})
 
 	Context("When size policy not provided", func() {
-		vm := &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
+		vm := &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
 				VirtualMachineClassName: "vmclasstest",
-				CPU:                     virtv2.CPUSpec{Cores: 2, CoreFraction: "10%"},
-				Memory:                  virtv2.MemorySpec{Size: resource.MustParse("4001Mi")},
+				CPU:                     v1alpha2.CPUSpec{Cores: 2, CoreFraction: "10%"},
+				Memory:                  v1alpha2.MemorySpec{Size: resource.MustParse("4001Mi")},
 			},
 		}
-		vmClass := &virtv2.VirtualMachineClass{}
+		vmClass := &v1alpha2.VirtualMachineClass{}
 
 		It("should pass validation cause no requirements", func() {
 			service := service.NewSizePolicyService()

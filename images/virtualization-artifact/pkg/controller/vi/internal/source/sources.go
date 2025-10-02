@@ -31,41 +31,41 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type Handler interface {
-	StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
-	StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
-	Validate(ctx context.Context, vi *virtv2.VirtualImage) error
+	StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
+	StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
+	CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error)
+	Validate(ctx context.Context, vi *v1alpha2.VirtualImage) error
 }
 
 type Sources struct {
-	sources map[virtv2.DataSourceType]Handler
+	sources map[v1alpha2.DataSourceType]Handler
 }
 
 func NewSources() *Sources {
 	return &Sources{
-		sources: make(map[virtv2.DataSourceType]Handler),
+		sources: make(map[v1alpha2.DataSourceType]Handler),
 	}
 }
 
-func (s Sources) Set(dsType virtv2.DataSourceType, h Handler) {
+func (s Sources) Set(dsType v1alpha2.DataSourceType, h Handler) {
 	s.sources[dsType] = h
 }
 
-func (s Sources) For(dsType virtv2.DataSourceType) (Handler, bool) {
+func (s Sources) For(dsType v1alpha2.DataSourceType) (Handler, bool) {
 	source, ok := s.sources[dsType]
 	return source, ok
 }
 
-func (s Sources) Changed(_ context.Context, vi *virtv2.VirtualImage) bool {
+func (s Sources) Changed(_ context.Context, vi *v1alpha2.VirtualImage) bool {
 	return vi.Generation != vi.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (s Sources) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
 	var requeue bool
 
 	for _, source := range s.sources {
@@ -81,11 +81,11 @@ func (s Sources) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, er
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error)
-	CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
+	CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error)
+	CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
 }
 
-func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
+func CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage, c Cleaner) (bool, error) {
 	if object.ShouldCleanupSubResources(vi) {
 		return c.CleanUp(ctx, vi)
 	}
@@ -93,7 +93,7 @@ func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, err
 	return false, nil
 }
 
-func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (reconcile.Result, error) {
+func CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage, c Cleaner) (reconcile.Result, error) {
 	if object.ShouldCleanupSubResources(vi) {
 		return c.CleanUpSupplements(ctx, vi)
 	}
@@ -117,13 +117,13 @@ func setPhaseConditionForFinishedImage(
 ) {
 	switch {
 	case pvc == nil:
-		*phase = virtv2.ImageLost
+		*phase = v1alpha2.ImageLost
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Lost).
 			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	default:
-		*phase = virtv2.ImageReady
+		*phase = v1alpha2.ImageReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vicondition.Ready).
@@ -131,8 +131,8 @@ func setPhaseConditionForFinishedImage(
 	}
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
-	*phase = virtv2.ImageFailed
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error) {
+	*phase = v1alpha2.ImageFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed).
@@ -142,7 +142,7 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Im
 func setPhaseConditionForPVCProvisioningImage(
 	ctx context.Context,
 	dv *cdiv1.DataVolume,
-	vi *virtv2.VirtualImage,
+	vi *v1alpha2.VirtualImage,
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	checker CheckImportProcess,
@@ -151,7 +151,7 @@ func setPhaseConditionForPVCProvisioningImage(
 	switch {
 	case err == nil:
 		if dv == nil {
-			vi.Status.Phase = virtv2.ImageProvisioning
+			vi.Status.Phase = v1alpha2.ImageProvisioning
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.Provisioning).
@@ -159,21 +159,21 @@ func setPhaseConditionForPVCProvisioningImage(
 			return nil
 		}
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
 			Message("Import is in the process of provisioning to PVC.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
@@ -184,8 +184,8 @@ func setPhaseConditionForPVCProvisioningImage(
 	}
 }
 
-func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *virtv2.VirtualImage, err error) error {
-	vi.Status.Phase = virtv2.ImageFailed
+func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *v1alpha2.VirtualImage, err error) error {
+	vi.Status.Phase = v1alpha2.ImageFailed
 
 	switch {
 	case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
@@ -205,19 +205,19 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *virtv2.V
 	}
 }
 
-func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) (bool, error) {
+func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:
 		return false, nil
 	case errors.Is(err, service.ErrStorageProfileNotFound):
-		vi.Status.Phase = virtv2.ImageFailed
+		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
@@ -230,8 +230,8 @@ func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *c
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
-	*phase = virtv2.ImageFailed
+func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+	*phase = v1alpha2.ImageFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed)

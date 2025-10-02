@@ -35,7 +35,7 @@ import (
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -51,7 +51,7 @@ func NewResizingHandler(recorder eventrecord.EventRecorderLogger, diskService Di
 	}
 }
 
-func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h ResizingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("resizing"))
 
 	resizingCondition, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
@@ -106,7 +106,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	if pvcResizing != nil && pvcResizing.Status == corev1.ConditionTrue {
 		log.Info("Resizing is in progress", "msg", pvcResizing.Message)
 
-		vd.Status.Phase = virtv2.DiskResizing
+		vd.Status.Phase = v1alpha2.DiskResizing
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
@@ -126,7 +126,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 func (h ResizingHandler) ResizeNeeded(
 	ctx context.Context,
-	vd *virtv2.VirtualDisk,
+	vd *v1alpha2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	log *slog.Logger,
@@ -138,7 +138,7 @@ func (h ResizingHandler) ResizeNeeded(
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDResizingNotAvailable,
+			v1alpha2.ReasonVDResizingNotAvailable,
 			"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
 		)
 
@@ -156,7 +156,7 @@ func (h ResizingHandler) ResizeNeeded(
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDResizingNotAvailable,
+			v1alpha2.ReasonVDResizingNotAvailable,
 			"The virtual disk cannot be selected for resizing as it is currently being migrated.",
 		)
 
@@ -198,13 +198,13 @@ func (h ResizingHandler) ResizeNeeded(
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDResizingStarted,
+			v1alpha2.ReasonVDResizingStarted,
 			"The virtual disk resizing has started",
 		)
 
 		log.Info("The virtual disk resizing has started")
 
-		vd.Status.Phase = virtv2.DiskResizing
+		vd.Status.Phase = v1alpha2.DiskResizing
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
@@ -222,7 +222,7 @@ func (h ResizingHandler) ResizeNeeded(
 }
 
 func (h ResizingHandler) ResizeNotNeeded(
-	vd *virtv2.VirtualDisk,
+	vd *v1alpha2.VirtualDisk,
 	resizingCondition metav1.Condition,
 	cb *conditions.ConditionBuilder,
 ) (reconcile.Result, error) {
@@ -230,7 +230,7 @@ func (h ResizingHandler) ResizeNotNeeded(
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDResizingCompleted,
+			v1alpha2.ReasonVDResizingCompleted,
 			"The virtual disk resizing has completed",
 		)
 	}

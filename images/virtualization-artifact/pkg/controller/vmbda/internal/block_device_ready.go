@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
@@ -42,7 +42,7 @@ func NewBlockDeviceReadyHandler(attachment *service.AttachmentService) *BlockDev
 	}
 }
 
-func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmbdacondition.BlockDeviceReadyType)
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
@@ -56,7 +56,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 	}
 
 	switch vmbda.Spec.BlockDeviceRef.Kind {
-	case virtv2.VMBDAObjectRefKindVirtualDisk:
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 		vdKey := types.NamespacedName{
 			Name:      vmbda.Spec.BlockDeviceRef.Name,
 			Namespace: vmbda.Namespace,
@@ -83,7 +83,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskWaitForFirstConsumer {
+		if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
@@ -91,7 +91,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		if vd.Status.Phase == virtv2.DiskReady {
+		if vd.Status.Phase == v1alpha2.DiskReady {
 			diskReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			if diskReadyCondition.Status != metav1.ConditionTrue {
 				cb.
@@ -124,7 +124,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		if vd.Status.Phase == virtv2.DiskReady && pvc.Status.Phase != corev1.ClaimBound {
+		if vd.Status.Phase == v1alpha2.DiskReady && pvc.Status.Phase != corev1.ClaimBound {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
@@ -134,7 +134,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 
 		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
 		return reconcile.Result{}, nil
-	case virtv2.VMBDAObjectRefKindVirtualImage:
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{
 			Name:      vmbda.Spec.BlockDeviceRef.Name,
 			Namespace: vmbda.Namespace,
@@ -161,7 +161,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		if vi.Status.Phase != virtv2.ImageReady {
+		if vi.Status.Phase != v1alpha2.ImageReady {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
@@ -169,7 +169,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 		switch vi.Spec.Storage {
-		case virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim:
+		case v1alpha2.StorageKubernetes, v1alpha2.StoragePersistentVolumeClaim:
 			if vi.Status.Target.PersistentVolumeClaim == "" {
 				cb.
 					Status(metav1.ConditionFalse).
@@ -191,7 +191,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 				return reconcile.Result{}, nil
 			}
 
-			if vi.Status.Phase == virtv2.ImageReady && pvc.Status.Phase != corev1.ClaimBound {
+			if vi.Status.Phase == v1alpha2.ImageReady && pvc.Status.Phase != corev1.ClaimBound {
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
@@ -201,7 +201,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 
 			cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
 
-		case virtv2.StorageContainerRegistry:
+		case v1alpha2.StorageContainerRegistry:
 			if vi.Status.Target.RegistryURL == "" {
 				cb.
 					Status(metav1.ConditionFalse).
@@ -213,7 +213,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 
 		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.BlockDeviceReady)
 		return reconcile.Result{}, nil
-	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		cviKey := types.NamespacedName{
 			Name: vmbda.Spec.BlockDeviceRef.Name,
 		}
@@ -238,7 +238,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		if cvi.Status.Phase != virtv2.ImageReady {
+		if cvi.Status.Phase != v1alpha2.ImageReady {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).

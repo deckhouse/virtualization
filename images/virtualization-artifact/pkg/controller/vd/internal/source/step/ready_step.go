@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -62,12 +62,12 @@ func NewReadyStep(
 	}
 }
 
-func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s ReadyStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogStep(readyStep))
 
 	if s.pvc == nil {
 		if vd.Status.Progress == "100%" {
-			vd.Status.Phase = virtv2.DiskLost
+			vd.Status.Phase = v1alpha2.DiskLost
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Lost).
@@ -85,10 +85,10 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 	case corev1.ClaimLost:
 		s.cb.Status(metav1.ConditionFalse)
 		if s.pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
-			vd.Status.Phase = virtv2.DiskExporting
+			vd.Status.Phase = v1alpha2.DiskExporting
 			s.cb.Reason(vdcondition.Exporting).Message("PV is being exported")
 		} else {
-			vd.Status.Phase = virtv2.DiskLost
+			vd.Status.Phase = v1alpha2.DiskLost
 			s.cb.
 				Reason(vdcondition.Lost).
 				Message(fmt.Sprintf("The PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
@@ -98,7 +98,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 
 		return &reconcile.Result{}, nil
 	case corev1.ClaimBound:
-		vd.Status.Phase = virtv2.DiskReady
+		vd.Status.Phase = v1alpha2.DiskReady
 		s.cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Ready).

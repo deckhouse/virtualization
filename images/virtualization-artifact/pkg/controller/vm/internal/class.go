@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -75,8 +75,8 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeClassReady).
 		Generation(current.GetGeneration())
 
-	if class != nil && class.Status.Phase == virtv2.ClassPhaseReady {
-		if (class.Spec.CPU.Type == virtv2.CPUTypeDiscovery || class.Spec.CPU.Type == virtv2.CPUTypeFeatures) && len(class.Status.CpuFeatures.Enabled) == 0 {
+	if class != nil && class.Status.Phase == v1alpha2.ClassPhaseReady {
+		if (class.Spec.CPU.Type == v1alpha2.CPUTypeDiscovery || class.Spec.CPU.Type == v1alpha2.CPUTypeFeatures) && len(class.Status.CpuFeatures.Enabled) == 0 {
 			mgr.Update(cb.
 				Message("No enabled processor features found").
 				Reason(vmcondition.ReasonClassNotReady).

@@ -26,7 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
@@ -40,7 +40,7 @@ func NewVirtualMachineReadyHandler(attachment *service.AttachmentService) *Virtu
 	}
 }
 
-func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmbdacondition.VirtualMachineReadyType)
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
@@ -72,10 +72,10 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Vi
 	}
 
 	switch vm.Status.Phase {
-	case virtv2.MachineRunning:
+	case v1alpha2.MachineRunning:
 		// OK.
-	case virtv2.MachineStopping, virtv2.MachineStopped, virtv2.MachineStarting:
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+	case v1alpha2.MachineStopping, v1alpha2.MachineStopped, v1alpha2.MachineStarting:
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
