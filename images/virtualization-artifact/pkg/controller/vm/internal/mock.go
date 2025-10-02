@@ -5,7 +5,7 @@ package internal
 
 import (
 	"context"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sync"
 )
@@ -246,7 +246,7 @@ var _ BlockDeviceService = &BlockDeviceServiceMock{}
 //
 //		// make and configure a mocked BlockDeviceService
 //		mockedBlockDeviceService := &BlockDeviceServiceMock{
-//			CountBlockDevicesAttachedToVMFunc: func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+//			CountBlockDevicesAttachedToVMFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (int, error) {
 //				panic("mock out the CountBlockDevicesAttachedToVM method")
 //			},
 //		}
@@ -257,7 +257,7 @@ var _ BlockDeviceService = &BlockDeviceServiceMock{}
 //	}
 type BlockDeviceServiceMock struct {
 	// CountBlockDevicesAttachedToVMFunc mocks the CountBlockDevicesAttachedToVM method.
-	CountBlockDevicesAttachedToVMFunc func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
+	CountBlockDevicesAttachedToVMFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (int, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -266,20 +266,20 @@ type BlockDeviceServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// VM is the vm argument value.
-			VM *virtv2.VirtualMachine
+			VM *v1alpha2.VirtualMachine
 		}
 	}
 	lockCountBlockDevicesAttachedToVM sync.RWMutex
 }
 
 // CountBlockDevicesAttachedToVM calls CountBlockDevicesAttachedToVMFunc.
-func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVM(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVM(ctx context.Context, vm *v1alpha2.VirtualMachine) (int, error) {
 	if mock.CountBlockDevicesAttachedToVMFunc == nil {
 		panic("BlockDeviceServiceMock.CountBlockDevicesAttachedToVMFunc: method is nil but BlockDeviceService.CountBlockDevicesAttachedToVM was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		VM  *virtv2.VirtualMachine
+		VM  *v1alpha2.VirtualMachine
 	}{
 		Ctx: ctx,
 		VM:  vm,
@@ -296,11 +296,11 @@ func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVM(ctx context.Co
 //	len(mockedBlockDeviceService.CountBlockDevicesAttachedToVMCalls())
 func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVMCalls() []struct {
 	Ctx context.Context
-	VM  *virtv2.VirtualMachine
+	VM  *v1alpha2.VirtualMachine
 } {
 	var calls []struct {
 		Ctx context.Context
-		VM  *virtv2.VirtualMachine
+		VM  *v1alpha2.VirtualMachine
 	}
 	mock.lockCountBlockDevicesAttachedToVM.RLock()
 	calls = mock.calls.CountBlockDevicesAttachedToVM

@@ -19,12 +19,12 @@ package indexer
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func IndexVMBDAByVM() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineBlockDeviceAttachment{}, IndexFieldVMBDAByVM, func(object client.Object) []string {
-		vmbda, ok := object.(*virtv2.VirtualMachineBlockDeviceAttachment)
+	return &v1alpha2.VirtualMachineBlockDeviceAttachment{}, IndexFieldVMBDAByVM, func(object client.Object) []string {
+		vmbda, ok := object.(*v1alpha2.VirtualMachineBlockDeviceAttachment)
 		if !ok || vmbda == nil {
 			return nil
 		}

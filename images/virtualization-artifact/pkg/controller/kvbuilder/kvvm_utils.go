@@ -34,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -56,14 +56,14 @@ func GenerateCVIDiskName(name string) string {
 	return CVIDiskPrefix + name
 }
 
-func GetOriginalDiskName(prefixedName string) (string, virtv2.BlockDeviceKind) {
+func GetOriginalDiskName(prefixedName string) (string, v1alpha2.BlockDeviceKind) {
 	switch {
 	case strings.HasPrefix(prefixedName, VDDiskPrefix):
-		return strings.TrimPrefix(prefixedName, VDDiskPrefix), virtv2.DiskDevice
+		return strings.TrimPrefix(prefixedName, VDDiskPrefix), v1alpha2.DiskDevice
 	case strings.HasPrefix(prefixedName, VIDiskPrefix):
-		return strings.TrimPrefix(prefixedName, VIDiskPrefix), virtv2.ImageDevice
+		return strings.TrimPrefix(prefixedName, VIDiskPrefix), v1alpha2.ImageDevice
 	case strings.HasPrefix(prefixedName, CVIDiskPrefix):
-		return strings.TrimPrefix(prefixedName, CVIDiskPrefix), virtv2.ClusterImageDevice
+		return strings.TrimPrefix(prefixedName, CVIDiskPrefix), v1alpha2.ClusterImageDevice
 	}
 
 	return prefixedName, ""
@@ -87,11 +87,11 @@ type HotPlugDeviceSettings struct {
 }
 
 func ApplyVirtualMachineSpec(
-	kvvm *KVVM, vm *virtv2.VirtualMachine,
-	vdByName map[string]*virtv2.VirtualDisk,
-	viByName map[string]*virtv2.VirtualImage,
-	cviByName map[string]*virtv2.ClusterVirtualImage,
-	class *virtv2.VirtualMachineClass,
+	kvvm *KVVM, vm *v1alpha2.VirtualMachine,
+	vdByName map[string]*v1alpha2.VirtualDisk,
+	viByName map[string]*v1alpha2.VirtualImage,
+	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
 ) error {
@@ -113,7 +113,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
-	kvvm.SetAffinity(virtv2.NewAffinityFromVMAffinity(vm.Spec.Affinity), class.Spec.NodeSelector.MatchExpressions)
+	kvvm.SetAffinity(v1alpha2.NewAffinityFromVMAffinity(vm.Spec.Affinity), class.Spec.NodeSelector.MatchExpressions)
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
@@ -144,7 +144,7 @@ func ApplyVirtualMachineSpec(
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		// bootOrder starts from 1.
 		switch bd.Kind {
-		case virtv2.ImageDevice:
+		case v1alpha2.ImageDevice:
 			// Attach ephemeral disk for storage: Kubernetes.
 			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
@@ -152,8 +152,8 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateVIDiskName(bd.Name)
 			switch vi.Spec.Storage {
-			case virtv2.StorageKubernetes,
-				virtv2.StoragePersistentVolumeClaim:
+			case v1alpha2.StorageKubernetes,
+				v1alpha2.StoragePersistentVolumeClaim:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
@@ -163,7 +163,7 @@ func ApplyVirtualMachineSpec(
 				}); err != nil {
 					return err
 				}
-			case virtv2.StorageContainerRegistry:
+			case v1alpha2.StorageContainerRegistry:
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
 					IsCdrom:       imageformat.IsISO(vi.Status.Format),
@@ -177,7 +177,7 @@ func ApplyVirtualMachineSpec(
 			}
 			bootOrder++
 
-		case virtv2.ClusterImageDevice:
+		case v1alpha2.ClusterImageDevice:
 			// ClusterVirtualImage is attached as containerDisk.
 
 			cvi := cviByName[bd.Name]
@@ -193,7 +193,7 @@ func ApplyVirtualMachineSpec(
 			}
 			bootOrder++
 
-		case virtv2.DiskDevice:
+		case v1alpha2.DiskDevice:
 			// VirtualDisk is attached as a regular disk.
 
 			vd := vdByName[bd.Name]
@@ -236,11 +236,11 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
-		Group:   virtv2.SchemeGroupVersion.Group,
-		Version: virtv2.SchemeGroupVersion.Version,
+		Group:   v1alpha2.SchemeGroupVersion.Group,
+		Version: v1alpha2.SchemeGroupVersion.Version,
 		Kind:    "VirtualMachine",
 	})
-	kvvm.AddFinalizer(virtv2.FinalizerKVVMProtection)
+	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
 	// Set ip address cni request annotation.
 	kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
@@ -257,12 +257,12 @@ func ApplyVirtualMachineSpec(
 	return nil
 }
 
-func ApplyMigrationVolumes(kvvm *KVVM, vm *virtv2.VirtualMachine, vdsByName map[string]*virtv2.VirtualDisk) error {
+func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) error {
 	bootOrder := uint(1)
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
-		if bd.Kind != virtv2.DiskDevice {
+		if bd.Kind != v1alpha2.DiskDevice {
 			bootOrder++
 			continue
 		}

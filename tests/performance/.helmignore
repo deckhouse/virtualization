@@ -4,4 +4,4 @@
 # Match any file or path named .git
 .git
 
-status-access-vms/
+tools/

@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -47,7 +47,7 @@ func NewLifeCycleHandler(snapshotter LifeCycleSnapshotter) *LifeCycleHandler {
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskSnapshotReadyType).Generation(vdSnapshot.Generation)
@@ -78,7 +78,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	}
 
 	if vdSnapshot.DeletionTimestamp != nil {
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseTerminating
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseTerminating
 		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
@@ -89,17 +89,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 	switch vdSnapshot.Status.Phase {
 	case "":
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
-	case virtv2.VirtualDiskSnapshotPhaseFailed:
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
+	case v1alpha2.VirtualDiskSnapshotPhaseFailed:
 		readyCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
 		return reconcile.Result{}, nil
-	case virtv2.VirtualDiskSnapshotPhaseReady:
+	case v1alpha2.VirtualDiskSnapshotPhaseReady:
 		if vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
-			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.VolumeSnapshotLost).
@@ -107,7 +107,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseReady
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionTrue).
@@ -119,7 +119,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 	virtualDiskReadyCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 	if vd == nil || virtualDiskReadyCondition.Status != metav1.ConditionTrue {
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
@@ -137,7 +137,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	}
 
 	if pvc == nil || pvc.Status.Phase != corev1.ClaimBound {
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
@@ -153,12 +153,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != virtv2.MachineStopped && !h.snapshotter.IsFrozen(vm) {
+		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !h.snapshotter.IsFrozen(vm) {
 			if h.snapshotter.CanFreeze(vm) {
 				log.Debug("Freeze the virtual machine to take a snapshot")
 
-				if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhasePending {
-					vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+				if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending {
+					vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vdscondition.Snapshotting).
@@ -172,7 +172,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 					return reconcile.Result{}, err
 				}
 
-				vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdscondition.FileSystemFreezing).
@@ -184,7 +184,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			}
 
 			if vdSnapshot.Spec.RequiredConsistency {
-				vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
+				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdscondition.PotentiallyInconsistent)
@@ -204,7 +204,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 						"The virtual machine %q with an attached virtual disk %q is %s: "+
 							"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
 							"waiting for the virtual machine to be %s or the disk to be detached",
-						vm.Name, vd.Name, vm.Status.Phase, virtv2.MachineStopped,
+						vm.Name, vd.Name, vm.Status.Phase, v1alpha2.MachineStopped,
 					))
 				}
 
@@ -212,8 +212,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			}
 		}
 
-		if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhasePending {
-			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending {
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.Snapshotting).
@@ -279,7 +279,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			return reconcile.Result{}, err
 		}
 
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionFalse).
@@ -289,7 +289,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	case vs.Status != nil && vs.Status.Error != nil && vs.Status.Error.Message != nil:
 		log.Debug("The volume snapshot has an error")
 
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.VirtualDiskSnapshotFailed).
@@ -298,7 +298,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	case vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse:
 		log.Debug("Waiting for the volume snapshot to be ready to use")
 
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionFalse).
@@ -309,7 +309,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		log.Debug("The volume snapshot is ready to use")
 
 		switch {
-		case vm == nil, vm.Status.Phase == virtv2.MachineStopped:
+		case vm == nil, vm.Status.Phase == v1alpha2.MachineStopped:
 			vdSnapshot.Status.Consistent = ptr.To(true)
 		case h.snapshotter.IsFrozen(vm):
 			vdSnapshot.Status.Consistent = ptr.To(true)
@@ -332,7 +332,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			}
 		}
 
-		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseReady
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
 		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionTrue).
@@ -343,7 +343,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	}
 }
 
-func getVirtualMachine(ctx context.Context, vd *virtv2.VirtualDisk, snapshotter LifeCycleSnapshotter) (*virtv2.VirtualMachine, error) {
+func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotter LifeCycleSnapshotter) (*v1alpha2.VirtualMachine, error) {
 	if vd == nil {
 		return nil, nil
 	}
@@ -364,16 +364,16 @@ func getVirtualMachine(ctx context.Context, vd *virtv2.VirtualDisk, snapshotter 
 	}
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VirtualDiskSnapshotPhase, err error) {
-	*phase = virtv2.VirtualDiskSnapshotPhaseFailed
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VirtualDiskSnapshotPhase, err error) {
+	*phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdscondition.VirtualDiskSnapshotFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))
 }
 
-func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) error {
-	if vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseFailed {
+func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
+	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseFailed {
 		return nil
 	}
 

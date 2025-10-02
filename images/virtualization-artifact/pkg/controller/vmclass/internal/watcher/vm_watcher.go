@@ -32,7 +32,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachinesWatcher struct{}
@@ -44,12 +44,12 @@ func NewVirtualMachinesWatcher() *VirtualMachinesWatcher {
 func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	mgrClient := mgr.GetClient()
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
 				vmClassName := vm.Spec.VirtualMachineClassName
 				vmc, err := object.FetchObject(ctx, types.NamespacedName{
 					Name: vmClassName,
-				}, mgrClient, &virtv2.VirtualMachineClass{})
+				}, mgrClient, &v1alpha2.VirtualMachineClass{})
 
 				if vmc == nil {
 					return nil
@@ -68,11 +68,11 @@ func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Contr
 					},
 				}
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
 					return false
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					return false
 				},
 			},

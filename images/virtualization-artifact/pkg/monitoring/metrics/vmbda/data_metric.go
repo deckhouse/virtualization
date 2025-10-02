@@ -20,20 +20,20 @@ import (
 	"strings"
 
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
 	Name        string
 	Namespace   string
 	UID         string
-	Phase       virtv2.BlockDeviceAttachmentPhase
+	Phase       v1alpha2.BlockDeviceAttachmentPhase
 	Labels      map[string]string
 	Annotations map[string]string
 }
 
 // DO NOT mutate VirtualMachineBlockDeviceAttachment!
-func newDataMetric(vmbda *virtv2.VirtualMachineBlockDeviceAttachment) *dataMetric {
+func newDataMetric(vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) *dataMetric {
 	if vmbda == nil {
 		return nil
 	}

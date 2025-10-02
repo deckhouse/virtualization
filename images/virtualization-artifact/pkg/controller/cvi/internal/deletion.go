@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -40,7 +40,7 @@ func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
 	}
 }
 
-func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if cvi.DeletionTimestamp != nil {
@@ -54,10 +54,10 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		}
 
 		log.Info("Deletion observed: remove cleanup finalizer from ClusterVirtualImage")
-		controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVICleanup)
+		controllerutil.RemoveFinalizer(cvi, v1alpha2.FinalizerCVICleanup)
 		return reconcile.Result{}, nil
 	}
 
-	controllerutil.AddFinalizer(cvi, virtv2.FinalizerCVICleanup)
+	controllerutil.AddFinalizer(cvi, v1alpha2.FinalizerCVICleanup)
 	return reconcile.Result{}, nil
 }

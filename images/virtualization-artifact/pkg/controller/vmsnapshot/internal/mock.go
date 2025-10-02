@@ -5,7 +5,7 @@ package internal
 
 import (
 	"context"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"sync"
 )
@@ -20,7 +20,7 @@ var _ Storer = &StorerMock{}
 //
 //		// make and configure a mocked Storer
 //		mockedStorer := &StorerMock{
-//			StoreFunc: func(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) (*corev1.Secret, error) {
+//			StoreFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 //				panic("mock out the Store method")
 //			},
 //		}
@@ -31,7 +31,7 @@ var _ Storer = &StorerMock{}
 //	}
 type StorerMock struct {
 	// StoreFunc mocks the Store method.
-	StoreFunc func(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) (*corev1.Secret, error)
+	StoreFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -40,23 +40,23 @@ type StorerMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// VM is the vm argument value.
-			VM *virtv2.VirtualMachine
+			VM *v1alpha2.VirtualMachine
 			// VmSnapshot is the vmSnapshot argument value.
-			VmSnapshot *virtv2.VirtualMachineSnapshot
+			VmSnapshot *v1alpha2.VirtualMachineSnapshot
 		}
 	}
 	lockStore sync.RWMutex
 }
 
 // Store calls StoreFunc.
-func (mock *StorerMock) Store(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) (*corev1.Secret, error) {
+func (mock *StorerMock) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 	if mock.StoreFunc == nil {
 		panic("StorerMock.StoreFunc: method is nil but Storer.Store was just called")
 	}
 	callInfo := struct {
 		Ctx        context.Context
-		VM         *virtv2.VirtualMachine
-		VmSnapshot *virtv2.VirtualMachineSnapshot
+		VM         *v1alpha2.VirtualMachine
+		VmSnapshot *v1alpha2.VirtualMachineSnapshot
 	}{
 		Ctx:        ctx,
 		VM:         vm,
@@ -74,13 +74,13 @@ func (mock *StorerMock) Store(ctx context.Context, vm *virtv2.VirtualMachine, vm
 //	len(mockedStorer.StoreCalls())
 func (mock *StorerMock) StoreCalls() []struct {
 	Ctx        context.Context
-	VM         *virtv2.VirtualMachine
-	VmSnapshot *virtv2.VirtualMachineSnapshot
+	VM         *v1alpha2.VirtualMachine
+	VmSnapshot *v1alpha2.VirtualMachineSnapshot
 } {
 	var calls []struct {
 		Ctx        context.Context
-		VM         *virtv2.VirtualMachine
-		VmSnapshot *virtv2.VirtualMachineSnapshot
+		VM         *v1alpha2.VirtualMachine
+		VmSnapshot *v1alpha2.VirtualMachineSnapshot
 	}
 	mock.lockStore.RLock()
 	calls = mock.calls.Store
@@ -98,13 +98,13 @@ var _ Snapshotter = &SnapshotterMock{}
 //
 //		// make and configure a mocked Snapshotter
 //		mockedSnapshotter := &SnapshotterMock{
-//			CanFreezeFunc: func(vm *virtv2.VirtualMachine) bool {
+//			CanFreezeFunc: func(vm *v1alpha2.VirtualMachine) bool {
 //				panic("mock out the CanFreeze method")
 //			},
-//			CanUnfreezeWithVirtualMachineSnapshotFunc: func(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+//			CanUnfreezeWithVirtualMachineSnapshotFunc: func(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error) {
 //				panic("mock out the CanUnfreezeWithVirtualMachineSnapshot method")
 //			},
-//			CreateVirtualDiskSnapshotFunc: func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {
+//			CreateVirtualDiskSnapshotFunc: func(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error) {
 //				panic("mock out the CreateVirtualDiskSnapshot method")
 //			},
 //			FreezeFunc: func(ctx context.Context, name string, namespace string) error {
@@ -116,16 +116,16 @@ var _ Snapshotter = &SnapshotterMock{}
 //			GetSecretFunc: func(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
 //				panic("mock out the GetSecret method")
 //			},
-//			GetVirtualDiskFunc: func(ctx context.Context, name string, namespace string) (*virtv2.VirtualDisk, error) {
+//			GetVirtualDiskFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
 //				panic("mock out the GetVirtualDisk method")
 //			},
-//			GetVirtualDiskSnapshotFunc: func(ctx context.Context, name string, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
+//			GetVirtualDiskSnapshotFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDiskSnapshot, error) {
 //				panic("mock out the GetVirtualDiskSnapshot method")
 //			},
-//			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*virtv2.VirtualMachine, error) {
+//			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
 //				panic("mock out the GetVirtualMachine method")
 //			},
-//			IsFrozenFunc: func(vm *virtv2.VirtualMachine) bool {
+//			IsFrozenFunc: func(vm *v1alpha2.VirtualMachine) bool {
 //				panic("mock out the IsFrozen method")
 //			},
 //			UnfreezeFunc: func(ctx context.Context, name string, namespace string) error {
@@ -139,13 +139,13 @@ var _ Snapshotter = &SnapshotterMock{}
 //	}
 type SnapshotterMock struct {
 	// CanFreezeFunc mocks the CanFreeze method.
-	CanFreezeFunc func(vm *virtv2.VirtualMachine) bool
+	CanFreezeFunc func(vm *v1alpha2.VirtualMachine) bool
 
 	// CanUnfreezeWithVirtualMachineSnapshotFunc mocks the CanUnfreezeWithVirtualMachineSnapshot method.
-	CanUnfreezeWithVirtualMachineSnapshotFunc func(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
+	CanUnfreezeWithVirtualMachineSnapshotFunc func(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error)
 
 	// CreateVirtualDiskSnapshotFunc mocks the CreateVirtualDiskSnapshot method.
-	CreateVirtualDiskSnapshotFunc func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error)
+	CreateVirtualDiskSnapshotFunc func(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error)
 
 	// FreezeFunc mocks the Freeze method.
 	FreezeFunc func(ctx context.Context, name string, namespace string) error
@@ -157,16 +157,16 @@ type SnapshotterMock struct {
 	GetSecretFunc func(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
 
 	// GetVirtualDiskFunc mocks the GetVirtualDisk method.
-	GetVirtualDiskFunc func(ctx context.Context, name string, namespace string) (*virtv2.VirtualDisk, error)
+	GetVirtualDiskFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error)
 
 	// GetVirtualDiskSnapshotFunc mocks the GetVirtualDiskSnapshot method.
-	GetVirtualDiskSnapshotFunc func(ctx context.Context, name string, namespace string) (*virtv2.VirtualDiskSnapshot, error)
+	GetVirtualDiskSnapshotFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDiskSnapshot, error)
 
 	// GetVirtualMachineFunc mocks the GetVirtualMachine method.
-	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*virtv2.VirtualMachine, error)
+	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error)
 
 	// IsFrozenFunc mocks the IsFrozen method.
-	IsFrozenFunc func(vm *virtv2.VirtualMachine) bool
+	IsFrozenFunc func(vm *v1alpha2.VirtualMachine) bool
 
 	// UnfreezeFunc mocks the Unfreeze method.
 	UnfreezeFunc func(ctx context.Context, name string, namespace string) error
@@ -176,7 +176,7 @@ type SnapshotterMock struct {
 		// CanFreeze holds details about calls to the CanFreeze method.
 		CanFreeze []struct {
 			// VM is the vm argument value.
-			VM *virtv2.VirtualMachine
+			VM *v1alpha2.VirtualMachine
 		}
 		// CanUnfreezeWithVirtualMachineSnapshot holds details about calls to the CanUnfreezeWithVirtualMachineSnapshot method.
 		CanUnfreezeWithVirtualMachineSnapshot []struct {
@@ -185,14 +185,14 @@ type SnapshotterMock struct {
 			// VmSnapshotName is the vmSnapshotName argument value.
 			VmSnapshotName string
 			// VM is the vm argument value.
-			VM *virtv2.VirtualMachine
+			VM *v1alpha2.VirtualMachine
 		}
 		// CreateVirtualDiskSnapshot holds details about calls to the CreateVirtualDiskSnapshot method.
 		CreateVirtualDiskSnapshot []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// VdSnapshot is the vdSnapshot argument value.
-			VdSnapshot *virtv2.VirtualDiskSnapshot
+			VdSnapshot *v1alpha2.VirtualDiskSnapshot
 		}
 		// Freeze holds details about calls to the Freeze method.
 		Freeze []struct {
@@ -251,7 +251,7 @@ type SnapshotterMock struct {
 		// IsFrozen holds details about calls to the IsFrozen method.
 		IsFrozen []struct {
 			// VM is the vm argument value.
-			VM *virtv2.VirtualMachine
+			VM *v1alpha2.VirtualMachine
 		}
 		// Unfreeze holds details about calls to the Unfreeze method.
 		Unfreeze []struct {
@@ -277,12 +277,12 @@ type SnapshotterMock struct {
 }
 
 // CanFreeze calls CanFreezeFunc.
-func (mock *SnapshotterMock) CanFreeze(vm *virtv2.VirtualMachine) bool {
+func (mock *SnapshotterMock) CanFreeze(vm *v1alpha2.VirtualMachine) bool {
 	if mock.CanFreezeFunc == nil {
 		panic("SnapshotterMock.CanFreezeFunc: method is nil but Snapshotter.CanFreeze was just called")
 	}
 	callInfo := struct {
-		VM *virtv2.VirtualMachine
+		VM *v1alpha2.VirtualMachine
 	}{
 		VM: vm,
 	}
@@ -297,10 +297,10 @@ func (mock *SnapshotterMock) CanFreeze(vm *virtv2.VirtualMachine) bool {
 //
 //	len(mockedSnapshotter.CanFreezeCalls())
 func (mock *SnapshotterMock) CanFreezeCalls() []struct {
-	VM *virtv2.VirtualMachine
+	VM *v1alpha2.VirtualMachine
 } {
 	var calls []struct {
-		VM *virtv2.VirtualMachine
+		VM *v1alpha2.VirtualMachine
 	}
 	mock.lockCanFreeze.RLock()
 	calls = mock.calls.CanFreeze
@@ -309,14 +309,14 @@ func (mock *SnapshotterMock) CanFreezeCalls() []struct {
 }
 
 // CanUnfreezeWithVirtualMachineSnapshot calls CanUnfreezeWithVirtualMachineSnapshotFunc.
-func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error) {
 	if mock.CanUnfreezeWithVirtualMachineSnapshotFunc == nil {
 		panic("SnapshotterMock.CanUnfreezeWithVirtualMachineSnapshotFunc: method is nil but Snapshotter.CanUnfreezeWithVirtualMachineSnapshot was just called")
 	}
 	callInfo := struct {
 		Ctx            context.Context
 		VmSnapshotName string
-		VM             *virtv2.VirtualMachine
+		VM             *v1alpha2.VirtualMachine
 	}{
 		Ctx:            ctx,
 		VmSnapshotName: vmSnapshotName,
@@ -335,12 +335,12 @@ func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshot(ctx context.C
 func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshotCalls() []struct {
 	Ctx            context.Context
 	VmSnapshotName string
-	VM             *virtv2.VirtualMachine
+	VM             *v1alpha2.VirtualMachine
 } {
 	var calls []struct {
 		Ctx            context.Context
 		VmSnapshotName string
-		VM             *virtv2.VirtualMachine
+		VM             *v1alpha2.VirtualMachine
 	}
 	mock.lockCanUnfreezeWithVirtualMachineSnapshot.RLock()
 	calls = mock.calls.CanUnfreezeWithVirtualMachineSnapshot
@@ -349,13 +349,13 @@ func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshotCalls() []stru
 }
 
 // CreateVirtualDiskSnapshot calls CreateVirtualDiskSnapshotFunc.
-func (mock *SnapshotterMock) CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {
+func (mock *SnapshotterMock) CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error) {
 	if mock.CreateVirtualDiskSnapshotFunc == nil {
 		panic("SnapshotterMock.CreateVirtualDiskSnapshotFunc: method is nil but Snapshotter.CreateVirtualDiskSnapshot was just called")
 	}
 	callInfo := struct {
 		Ctx        context.Context
-		VdSnapshot *virtv2.VirtualDiskSnapshot
+		VdSnapshot *v1alpha2.VirtualDiskSnapshot
 	}{
 		Ctx:        ctx,
 		VdSnapshot: vdSnapshot,
@@ -372,11 +372,11 @@ func (mock *SnapshotterMock) CreateVirtualDiskSnapshot(ctx context.Context, vdSn
 //	len(mockedSnapshotter.CreateVirtualDiskSnapshotCalls())
 func (mock *SnapshotterMock) CreateVirtualDiskSnapshotCalls() []struct {
 	Ctx        context.Context
-	VdSnapshot *virtv2.VirtualDiskSnapshot
+	VdSnapshot *v1alpha2.VirtualDiskSnapshot
 } {
 	var calls []struct {
 		Ctx        context.Context
-		VdSnapshot *virtv2.VirtualDiskSnapshot
+		VdSnapshot *v1alpha2.VirtualDiskSnapshot
 	}
 	mock.lockCreateVirtualDiskSnapshot.RLock()
 	calls = mock.calls.CreateVirtualDiskSnapshot
@@ -505,7 +505,7 @@ func (mock *SnapshotterMock) GetSecretCalls() []struct {
 }
 
 // GetVirtualDisk calls GetVirtualDiskFunc.
-func (mock *SnapshotterMock) GetVirtualDisk(ctx context.Context, name string, namespace string) (*virtv2.VirtualDisk, error) {
+func (mock *SnapshotterMock) GetVirtualDisk(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
 	if mock.GetVirtualDiskFunc == nil {
 		panic("SnapshotterMock.GetVirtualDiskFunc: method is nil but Snapshotter.GetVirtualDisk was just called")
 	}
@@ -545,7 +545,7 @@ func (mock *SnapshotterMock) GetVirtualDiskCalls() []struct {
 }
 
 // GetVirtualDiskSnapshot calls GetVirtualDiskSnapshotFunc.
-func (mock *SnapshotterMock) GetVirtualDiskSnapshot(ctx context.Context, name string, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
+func (mock *SnapshotterMock) GetVirtualDiskSnapshot(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDiskSnapshot, error) {
 	if mock.GetVirtualDiskSnapshotFunc == nil {
 		panic("SnapshotterMock.GetVirtualDiskSnapshotFunc: method is nil but Snapshotter.GetVirtualDiskSnapshot was just called")
 	}
@@ -585,7 +585,7 @@ func (mock *SnapshotterMock) GetVirtualDiskSnapshotCalls() []struct {
 }
 
 // GetVirtualMachine calls GetVirtualMachineFunc.
-func (mock *SnapshotterMock) GetVirtualMachine(ctx context.Context, name string, namespace string) (*virtv2.VirtualMachine, error) {
+func (mock *SnapshotterMock) GetVirtualMachine(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
 	if mock.GetVirtualMachineFunc == nil {
 		panic("SnapshotterMock.GetVirtualMachineFunc: method is nil but Snapshotter.GetVirtualMachine was just called")
 	}
@@ -625,12 +625,12 @@ func (mock *SnapshotterMock) GetVirtualMachineCalls() []struct {
 }
 
 // IsFrozen calls IsFrozenFunc.
-func (mock *SnapshotterMock) IsFrozen(vm *virtv2.VirtualMachine) bool {
+func (mock *SnapshotterMock) IsFrozen(vm *v1alpha2.VirtualMachine) bool {
 	if mock.IsFrozenFunc == nil {
 		panic("SnapshotterMock.IsFrozenFunc: method is nil but Snapshotter.IsFrozen was just called")
 	}
 	callInfo := struct {
-		VM *virtv2.VirtualMachine
+		VM *v1alpha2.VirtualMachine
 	}{
 		VM: vm,
 	}
@@ -645,10 +645,10 @@ func (mock *SnapshotterMock) IsFrozen(vm *virtv2.VirtualMachine) bool {
 //
 //	len(mockedSnapshotter.IsFrozenCalls())
 func (mock *SnapshotterMock) IsFrozenCalls() []struct {
-	VM *virtv2.VirtualMachine
+	VM *v1alpha2.VirtualMachine
 } {
 	var calls []struct {
-		VM *virtv2.VirtualMachine
+		VM *v1alpha2.VirtualMachine
 	}
 	mock.lockIsFrozen.RLock()
 	calls = mock.calls.IsFrozen

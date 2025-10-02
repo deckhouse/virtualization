@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Validator struct{}
@@ -40,12 +40,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, _ runtime.Object) (admis
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVMSnapshot, ok := oldObj.(*virtv2.VirtualMachineSnapshot)
+	oldVMSnapshot, ok := oldObj.(*v1alpha2.VirtualMachineSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineSnapshot but got a %T", newObj)
 	}
 
-	newVMSnapshot, ok := newObj.(*virtv2.VirtualMachineSnapshot)
+	newVMSnapshot, ok := newObj.(*v1alpha2.VirtualMachineSnapshot)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineSnapshot but got a %T", newObj)
 	}

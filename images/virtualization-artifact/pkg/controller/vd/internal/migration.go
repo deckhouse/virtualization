@@ -22,7 +22,7 @@ import (
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -49,11 +49,11 @@ const migrationHandlerName = "MigrationHandler"
 
 type storageClassValidator interface {
 	IsStorageClassAllowed(scName string) bool
-	IsStorageClassDeprecated(sc *storev1.StorageClass) bool
+	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 }
 
 type volumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 type MigrationHandler struct {
@@ -308,7 +308,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	// Reset migration info
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{}
 
-	var targetStorageClass *storev1.StorageClass
+	var targetStorageClass *storagev1.StorageClass
 	var err error
 
 	storageClassName := ""
@@ -318,7 +318,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 
 	switch {
 	case storageClassName != "":
-		targetStorageClass, err = object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, h.client, &storev1.StorageClass{})
+		targetStorageClass, err = object.FetchObject(ctx, types.NamespacedName{Name: storageClassName}, h.client, &storagev1.StorageClass{})
 		if err != nil {
 			return err
 		}
@@ -345,7 +345,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 			}
 		}
 	default:
-		targetStorageClass, err = object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, h.client, &storev1.StorageClass{})
+		targetStorageClass, err = object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, h.client, &storagev1.StorageClass{})
 		if err != nil {
 			return err
 		}
@@ -452,7 +452,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 			return nil
 		}
 
-		sc := &storev1.StorageClass{}
+		sc := &storagev1.StorageClass{}
 		err = h.client.Get(ctx, types.NamespacedName{Name: storageClassName}, sc)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
@@ -463,7 +463,7 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 			return err
 		}
 
-		isWaitForFistConsumer := sc.VolumeBindingMode == nil || *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
+		isWaitForFistConsumer := sc.VolumeBindingMode == nil || *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 		if isWaitForFistConsumer {
 			cb.Status(metav1.ConditionTrue).Reason(vdcondition.InProgress).Message("Target persistent volume claim is waiting for first consumer.")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
@@ -573,7 +573,7 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 	return nil, nil
 }
 
-func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storev1.StorageClass, size resource.Quantity) (*corev1.PersistentVolumeClaim, error) {
+func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity) (*corev1.PersistentVolumeClaim, error) {
 	pvcs, err := listPersistentVolumeClaims(ctx, vd, h.client)
 	if err != nil {
 		return nil, err

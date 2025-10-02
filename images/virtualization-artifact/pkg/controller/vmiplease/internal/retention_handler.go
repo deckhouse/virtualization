@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
@@ -45,7 +45,7 @@ func NewRetentionHandler(retentionDuration time.Duration, client client.Client) 
 	}
 }
 
-func (h *RetentionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
+func (h *RetentionHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(retentionHandlerName))
 
 	// Make sure that the Lease can be deleted only if it has already been verified that it is indeed Released.
