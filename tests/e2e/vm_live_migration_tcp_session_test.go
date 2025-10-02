@@ -70,7 +70,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", SIGMigration(), framew
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(map[string]string{testCaseLabel: testCaseLabelValue}, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(map[string]string{testCaseLabel: testCaseLabelValue}, CurrentSpecReport().LeafNodeText, f.Namespace().Name)
 			SaveIPerfClientReport(testCaseLabelValue, rawReport)
 		}
 
@@ -139,8 +139,9 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", SIGMigration(), framew
 			Expect(err).NotTo(HaveOccurred())
 			Expect(iPerfClientStartTime.Before(iperfServerVMAfterMigration.Status.MigrationState.StartTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should start before the virtual machine is migrated")
 
-			iPerfClientEndTimeUnix := int64(report.Start.Timestamp.Timesecs) + int64(report.End.SumSent.End)
-			iPerfClientEndTime := time.Unix(iPerfClientEndTimeUnix, int64((report.End.SumSent.End-float64(int64(report.End.SumSent.End)))*1e9)).UTC()
+			iPerfClientEndTimeSec := int64(report.Start.Timestamp.Timesecs) + int64(report.End.SumSent.End)
+			iPerfClientEndTimeNSec := int64((report.End.SumSent.End - float64(int64(report.End.SumSent.End))) * 1e9)
+			iPerfClientEndTime := time.Unix(iPerfClientEndTimeSec, iPerfClientEndTimeNSec).UTC()
 			Expect(iPerfClientEndTime.After(iperfServerVMAfterMigration.Status.MigrationState.EndTimestamp.Time)).To(BeTrue(), "the iPerfClient connection test should stop after the virtual machine is migrated")
 
 			zeroBytesIntervalCounter := 0
@@ -256,6 +257,11 @@ func GetIPerfClientReport(vmName, namespace, reportName string, report *string) 
 func SaveIPerfClientReport(testCaseName string, rawReport *string) {
 	GinkgoHelper()
 
+	tmpDir := os.Getenv("RUNNER_TEMP")
+	if tmpDir == "" {
+		tmpDir = "/tmp"
+	}
+
 	var jsonObject map[string]any
 	err := json.Unmarshal([]byte(*rawReport), &jsonObject)
 	Expect(err).NotTo(HaveOccurred())
@@ -263,7 +269,7 @@ func SaveIPerfClientReport(testCaseName string, rawReport *string) {
 	r, err := json.MarshalIndent(&jsonObject, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
 
-	name := fmt.Sprintf("/tmp/e2e_failed__%s__iperf_client_report.json", testCaseName)
+	name := fmt.Sprintf("%s/e2e_failed__%s__iperf_client_report.json", tmpDir, testCaseName)
 	err = os.WriteFile(name, r, 0o644)
 	Expect(err).NotTo(HaveOccurred())
 }
