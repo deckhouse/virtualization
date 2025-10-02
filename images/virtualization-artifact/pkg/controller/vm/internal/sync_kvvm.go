@@ -279,6 +279,19 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	switch {
+	// This workaround is required due to a bug in the KVVM workflow.
+	// When a KVVM is created with conflicting placement rules and cannot be scheduled,
+	// it remains unschedulable even if these rules are changed or removed.
+	case h.isVMUnschedulable(s.VirtualMachine().Current(), kvvm) && h.isPlacementPolicyChanged(allChanges):
+		err := h.updateKVVM(ctx, s)
+		if err != nil {
+			return false, fmt.Errorf("failed to update internal virtual machine: %w", err)
+		}
+		err = object.DeleteObject(ctx, h.client, pod)
+		if err != nil {
+			return false, fmt.Errorf("failed to delete the internal virtual machine instance's pod: %w", err)
+		}
+		return true, nil
 	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
 		// KVVM must be updated when the VM is stopped because all its components,
 		//  like VirtualDisk and other resources,
@@ -658,4 +671,29 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(
 	log.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
 
 	return nil
+}
+
+func (h *SyncKvvmHandler) isVMUnschedulable(
+	vm *v1alpha2.VirtualMachine,
+	kvvm *virtv1.VirtualMachine,
+) bool {
+	if vm.Status.Phase == v1alpha2.MachinePending && kvvm.Status.PrintableStatus == virtv1.VirtualMachineStatusUnschedulable {
+		return true
+	}
+
+	return false
+}
+
+// isPlacementPolicyChanged returns true if any of the Affinity, NodePlacement, or Toleration rules have changed.
+func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChanges) bool {
+	for _, c := range allChanges.GetAll() {
+		switch c.Path {
+		case "affinity", "nodeSelector", "tolerations":
+			if !equality.Semantic.DeepEqual(c.CurrentValue, c.DesiredValue) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
