@@ -271,8 +271,21 @@ func ChmodFile(pathFile string, permission os.FileMode) error {
 
 func WaitVMAgentReady(opts kc.WaitOptions) {
 	GinkgoHelper()
-	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
-	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
+	err := InterceptGomegaFailure(func() {
+		WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
+	})
+	if err != nil {
+		err = fmt.Errorf("Error while waiting for Virtual Machine Phase Running: %w", err)
+	}
+	Expect(err).NotTo(HaveOccurred())
+
+	err = InterceptGomegaFailure(func() {
+		WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
+	})
+	if err != nil {
+		err = fmt.Errorf("Error while waiting for Virtual Machine AgentReady condition: %w", err)
+	}
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func WaitConditionIsTrueByLabel(resource kc.Resource, conditionName string, opts kc.WaitOptions) {
