@@ -3,11 +3,3 @@ kind: Kustomization
 nameSuffix: -restore-force
 resources:
   - ../../base
-patches:
-  - patch: |-
-      - op: replace
-        path: /spec/disruptions/restartApprovalMode
-        value: Automatic
-    target:
-      kind: VirtualMachine
-      name: vm
