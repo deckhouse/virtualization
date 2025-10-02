@@ -830,7 +830,7 @@ type Watcher interface {
 }
 
 type Resource interface {
-	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease
+	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease | *v1alpha2.VirtualMachine | *v1alpha2.VirtualDisk
 }
 
 type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)
