@@ -255,11 +255,12 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
 	}
 
-	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
-	if pvcName == "" {
+	if vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
 		// Can't determine original PVC, skip validation
 		return nil
 	}
+
+	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
 
 	var originalPVC corev1.PersistentVolumeClaim
 	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
