@@ -24,7 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -81,12 +81,12 @@ func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamesp
 }
 
 func getVMInfo(kubectl kc.Kubectl, vmName, vmNamespace string) (string, string, error) {
-	result := kubectl.GetResource(virtv2.VirtualMachineResource, vmName, kc.GetOptions{Namespace: vmNamespace, Output: "json"})
+	result := kubectl.GetResource(v1alpha2.VirtualMachineResource, vmName, kc.GetOptions{Namespace: vmNamespace, Output: "json"})
 	if result.Error() != nil {
 		return "", "", fmt.Errorf("failed to get VM: %w", result.Error())
 	}
 
-	var vm virtv2.VirtualMachine
+	var vm v1alpha2.VirtualMachine
 	if err := json.Unmarshal([]byte(result.StdOut()), &vm); err != nil {
 		return "", "", fmt.Errorf("failed to parse VM JSON: %w", err)
 	}

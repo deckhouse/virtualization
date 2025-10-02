@@ -20,13 +20,13 @@ import (
 	"context"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/step"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . IPAddressService
 
 type IPAddressService interface {
-	GetLease(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error)
+	GetLease(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error)
 
 	step.Allocator
 }

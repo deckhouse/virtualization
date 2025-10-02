@@ -23,7 +23,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -42,17 +42,17 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricVMSnapshotStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.VirtualMachineSnapshotPhasePending
+		phase = v1alpha2.VirtualMachineSnapshotPhasePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.VirtualMachineSnapshotPhasePending, string(virtv2.VirtualMachineSnapshotPhasePending)},
-		{phase == virtv2.VirtualMachineSnapshotPhaseInProgress, string(virtv2.VirtualMachineSnapshotPhaseInProgress)},
-		{phase == virtv2.VirtualMachineSnapshotPhaseReady, string(virtv2.VirtualMachineSnapshotPhaseReady)},
-		{phase == virtv2.VirtualMachineSnapshotPhaseFailed, string(virtv2.VirtualMachineSnapshotPhaseFailed)},
-		{phase == virtv2.VirtualMachineSnapshotPhaseTerminating, string(virtv2.VirtualMachineSnapshotPhaseTerminating)},
+		{phase == v1alpha2.VirtualMachineSnapshotPhasePending, string(v1alpha2.VirtualMachineSnapshotPhasePending)},
+		{phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress, string(v1alpha2.VirtualMachineSnapshotPhaseInProgress)},
+		{phase == v1alpha2.VirtualMachineSnapshotPhaseReady, string(v1alpha2.VirtualMachineSnapshotPhaseReady)},
+		{phase == v1alpha2.VirtualMachineSnapshotPhaseFailed, string(v1alpha2.VirtualMachineSnapshotPhaseFailed)},
+		{phase == v1alpha2.VirtualMachineSnapshotPhaseTerminating, string(v1alpha2.VirtualMachineSnapshotPhaseTerminating)},
 	}
 
 	for _, p := range phases {

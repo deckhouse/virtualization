@@ -24,7 +24,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type AttachmentConflictValidator struct {
@@ -39,7 +39,7 @@ func NewAttachmentConflictValidator(service *service.AttachmentService, log *log
 	}
 }
 
-func (v *AttachmentConflictValidator) ValidateCreate(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
+func (v *AttachmentConflictValidator) ValidateCreate(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	isConflicted, conflictWithName, err := v.service.IsConflictedAttachment(ctx, vmbda)
 	if err != nil {
 		v.log.Error("Failed to validate a VirtualMachineBlockDeviceAttachment creation", "err", err)
@@ -57,6 +57,6 @@ func (v *AttachmentConflictValidator) ValidateCreate(ctx context.Context, vmbda 
 	return nil, nil
 }
 
-func (v *AttachmentConflictValidator) ValidateUpdate(_ context.Context, _, _ *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
+func (v *AttachmentConflictValidator) ValidateUpdate(_ context.Context, _, _ *v1alpha2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
 	return nil, nil
 }

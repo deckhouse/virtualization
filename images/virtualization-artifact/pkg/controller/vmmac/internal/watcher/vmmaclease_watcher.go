@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineMACAddressLeaseWatcher struct {
@@ -43,7 +43,7 @@ type VirtualMachineMACAddressLeaseWatcher struct {
 func NewVirtualMachineMACAddressLeaseWatcher(client client.Client) *VirtualMachineMACAddressLeaseWatcher {
 	return &VirtualMachineMACAddressLeaseWatcher{
 		client: client,
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineMACAddressLeaseKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineMACAddressLeaseKind)),
 	}
 }
 
@@ -51,8 +51,8 @@ func (w VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr con
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineMACAddressLease{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (requests []reconcile.Request) {
+			&v1alpha2.VirtualMachineMACAddressLease{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, lease *v1alpha2.VirtualMachineMACAddressLease) (requests []reconcile.Request) {
 				vmmacRef := lease.Spec.VirtualMachineMACAddressRef
 				if vmmacRef != nil {
 					if vmmacRef.Name != "" && vmmacRef.Namespace != "" {
@@ -69,14 +69,14 @@ func (w VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr con
 
 				return
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddressLease]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineMACAddressLease]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineMACAddressLease]) bool {
 					return true
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineMACAddressLease]) bool {
 					return true
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineMACAddressLease]) bool {
 					return true
 				},
 			},

@@ -23,7 +23,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
@@ -61,7 +61,7 @@ func NewVirtualImageStorageClassService(svc *service.BaseStorageClassService, se
 // Errors:
 // 1. Return error if no storage class is specified.
 // 2. Return error if specified non-empty class is not allowed.
-func (svc *VirtualImageStorageClassService) GetValidatedStorageClass(storageClassFromSpec *string, clusterDefaultStorageClass *storev1.StorageClass) (*string, error) {
+func (svc *VirtualImageStorageClassService) GetValidatedStorageClass(storageClassFromSpec *string, clusterDefaultStorageClass *storagev1.StorageClass) (*string, error) {
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		if svc.storageClassSettings.StorageClassName == "" {
 			return storageClassFromSpec, nil
@@ -117,7 +117,7 @@ func (svc *VirtualImageStorageClassService) IsStorageClassAllowed(scName string)
 	return false
 }
 
-func (svc *VirtualImageStorageClassService) GetModuleStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
+func (svc *VirtualImageStorageClassService) GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error) {
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
 }
 

@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineMACAddressLeaseWatcher struct{}
@@ -42,8 +42,8 @@ func (w *VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr co
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineMACAddressLease{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, lease *virtv2.VirtualMachineMACAddressLease) []reconcile.Request {
+			&v1alpha2.VirtualMachineMACAddressLease{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, lease *v1alpha2.VirtualMachineMACAddressLease) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -53,14 +53,14 @@ func (w *VirtualMachineMACAddressLeaseWatcher) Watch(mgr manager.Manager, ctr co
 					},
 				}
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddressLease]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineMACAddressLease]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineMACAddressLease]) bool {
 					return true
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineMACAddressLease]) bool {
 					return false
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddressLease]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineMACAddressLease]) bool {
 					return true
 				},
 			},

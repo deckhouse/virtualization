@@ -27,18 +27,18 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type VirtualDiskRequestEnqueuer struct {
 	enqueueFromObj  client.Object
-	enqueueFromKind virtv2.VirtualDiskObjectRefKind
+	enqueueFromKind v1alpha2.VirtualDiskObjectRefKind
 	client          client.Client
 	logger          *log.Logger
 }
 
-func NewVirtualDiskRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.VirtualDiskObjectRefKind) *VirtualDiskRequestEnqueuer {
+func NewVirtualDiskRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind v1alpha2.VirtualDiskObjectRefKind) *VirtualDiskRequestEnqueuer {
 	return &VirtualDiskRequestEnqueuer{
 		enqueueFromObj:  enqueueFromObj,
 		enqueueFromKind: enqueueFromKind,
@@ -52,7 +52,7 @@ func (w VirtualDiskRequestEnqueuer) GetEnqueueFrom() client.Object {
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	var vds virtv2.VirtualDiskList
+	var vds v1alpha2.VirtualDiskList
 	err := w.client.List(ctx, &vds)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vd: %s", err))
@@ -66,7 +66,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, 
 			continue
 		}
 
-		if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 			continue
 		}
 
@@ -90,14 +90,14 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, 
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVIs(obj client.Object) (requests []reconcile.Request) {
-	if w.enqueueFromKind == virtv2.VirtualDiskObjectRefKindVirtualImage {
-		vi, ok := obj.(*virtv2.VirtualImage)
+	if w.enqueueFromKind == v1alpha2.VirtualDiskObjectRefKindVirtualImage {
+		vi, ok := obj.(*v1alpha2.VirtualImage)
 		if !ok {
 			w.logger.Error(fmt.Sprintf("expected a VirtualImage but got a %T", obj))
 			return
 		}
 
-		if vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind {
+		if vi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef && vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      vi.Spec.DataSource.ObjectRef.Name,
@@ -110,14 +110,14 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVIs(obj client.Object) (r
 }
 
 func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromCVIs(obj client.Object) (requests []reconcile.Request) {
-	if w.enqueueFromKind == virtv2.VirtualDiskObjectRefKindClusterVirtualImage {
-		cvi, ok := obj.(*virtv2.ClusterVirtualImage)
+	if w.enqueueFromKind == v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage {
+		cvi, ok := obj.(*v1alpha2.ClusterVirtualImage)
 		if !ok {
 			w.logger.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
 			return
 		}
 
-		if cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind {
+		if cvi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef && cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      cvi.Spec.DataSource.ObjectRef.Name,

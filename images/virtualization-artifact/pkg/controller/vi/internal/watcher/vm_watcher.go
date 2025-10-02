@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineWatcher struct {
@@ -50,16 +50,16 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
 					return w.hasVirtualImageRef(e.Object)
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool {
 					return w.hasVirtualImageRef(e.Object)
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					return w.hasVirtualImageRef(e.ObjectOld) || w.hasVirtualImageRef(e.ObjectNew)
 				},
 			},
@@ -70,16 +70,16 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
 	for _, ref := range vm.Status.BlockDeviceRefs {
-		if ref.Kind != virtv2.ImageDevice {
+		if ref.Kind != v1alpha2.ImageDevice {
 			continue
 		}
 
 		vi, err := object.FetchObject(ctx, types.NamespacedName{
 			Namespace: vm.Namespace,
 			Name:      ref.Name,
-		}, w.client, &virtv2.VirtualImage{})
+		}, w.client, &v1alpha2.VirtualImage{})
 		if err != nil {
 			w.logger.Error("Failed to fetch vi to reconcile", logger.SlogErr(err))
 			continue
@@ -100,15 +100,15 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 	return
 }
 
-func (w VirtualMachineWatcher) hasVirtualImageRef(vm *virtv2.VirtualMachine) bool {
+func (w VirtualMachineWatcher) hasVirtualImageRef(vm *v1alpha2.VirtualMachine) bool {
 	for _, ref := range vm.Spec.BlockDeviceRefs {
-		if ref.Kind == virtv2.ImageDevice {
+		if ref.Kind == v1alpha2.ImageDevice {
 			return true
 		}
 	}
 
 	for _, ref := range vm.Status.BlockDeviceRefs {
-		if ref.Kind == virtv2.ImageDevice {
+		if ref.Kind == v1alpha2.ImageDevice {
 			return true
 		}
 	}

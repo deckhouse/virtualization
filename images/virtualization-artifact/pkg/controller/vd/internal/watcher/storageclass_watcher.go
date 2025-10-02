@@ -36,7 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StorageClassWatcher struct {
@@ -47,7 +47,7 @@ type StorageClassWatcher struct {
 func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 	return &StorageClassWatcher{
 		client: client,
-		logger: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskKind)),
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualDiskKind)),
 	}
 }
 
@@ -87,7 +87,7 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.
 
 	fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, selectorValue)
 
-	var vds virtv2.VirtualDiskList
+	var vds v1alpha2.VirtualDiskList
 	err := w.client.List(ctx, &vds, &client.ListOptions{FieldSelector: fieldSelector})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list virtual disks: %v", err))

@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -63,14 +63,14 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 	return sockets, coresPerSocket
 }
 
-func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
+func ApprovalMode(vm *v1alpha2.VirtualMachine) v1alpha2.RestartApprovalMode {
 	if vm.Spec.Disruptions == nil {
-		return virtv2.Manual
+		return v1alpha2.Manual
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
 }
 
-func RestartRequired(vm *virtv2.VirtualMachine) bool {
+func RestartRequired(vm *v1alpha2.VirtualMachine) bool {
 	if vm == nil {
 		return false
 	}

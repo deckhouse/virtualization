@@ -34,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
@@ -93,7 +93,7 @@ func (h *MigratingHandler) Name() string {
 	return nameMigratingHandler
 }
 
-func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstance) *virtv2.VirtualMachineMigrationState {
+func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstance) *v1alpha2.VirtualMachineMigrationState {
 	if kvvmi == nil {
 		return nil
 	}
@@ -104,35 +104,35 @@ func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstan
 		return nil
 	}
 
-	return &virtv2.VirtualMachineMigrationState{
+	return &v1alpha2.VirtualMachineMigrationState{
 		StartTimestamp: migrationState.StartTimestamp,
 		EndTimestamp:   migrationState.EndTimestamp,
-		Target: virtv2.VirtualMachineLocation{
+		Target: v1alpha2.VirtualMachineLocation{
 			Node: migrationState.TargetNode,
 			Pod:  migrationState.TargetPod,
 		},
-		Source: virtv2.VirtualMachineLocation{
+		Source: v1alpha2.VirtualMachineLocation{
 			Node: migrationState.SourceNode,
 		},
 		Result: h.getMigrationResult(migrationState),
 	}
 }
 
-func (h *MigratingHandler) getMigrationResult(state *virtv1.VirtualMachineInstanceMigrationState) virtv2.MigrationResult {
+func (h *MigratingHandler) getMigrationResult(state *virtv1.VirtualMachineInstanceMigrationState) v1alpha2.MigrationResult {
 	if state == nil {
 		return ""
 	}
 	switch {
 	case state.Completed && !state.Failed:
-		return virtv2.MigrationResultSucceeded
+		return v1alpha2.MigrationResultSucceeded
 	case state.Failed:
-		return virtv2.MigrationResultFailed
+		return v1alpha2.MigrationResultFailed
 	default:
 		return ""
 	}
 }
 
-func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMachineState, vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
 	// 0. If KVVMI is nil, migration cannot be in progress. Remove Migrating condition, but keep if migration failed.
 	if kvvmi == nil {
 		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
@@ -210,20 +210,20 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 				return nil
 
-			case virtv2.VMOPPhasePending:
+			case v1alpha2.VMOPPhasePending:
 				cb.Reason(vmcondition.ReasonMigratingPending).Message("Wait until operation is completed")
 
-			case virtv2.VMOPPhaseInProgress:
+			case v1alpha2.VMOPPhaseInProgress:
 				cb.Reason(vmcondition.ReasonMigratingInProgress).Message("Wait until operation is completed")
 
-			case virtv2.VMOPPhaseCompleted:
+			case v1alpha2.VMOPPhaseCompleted:
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 				return nil
 
-			case virtv2.VMOPPhaseFailed:
+			case v1alpha2.VMOPPhaseFailed:
 				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Operation failed")
 
-			case virtv2.VMOPPhaseTerminating:
+			case v1alpha2.VMOPPhaseTerminating:
 				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Operation terminated")
 			}
 		}
@@ -281,7 +281,7 @@ func (h *MigratingHandler) syncWaitingForVMToBeReadyMigrate(ctx context.Context,
 	return nil
 }
 
-func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.VirtualMachineState) (*virtv2.VirtualMachineOperation, error) {
+func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.VirtualMachineState) (*v1alpha2.VirtualMachineOperation, error) {
 	vmops, err := s.VMOPs(ctx)
 	if err != nil {
 		return nil, err
@@ -292,11 +292,11 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 	}
 
 	// sort vmops from the oldest to the newest
-	slices.SortFunc(vmops, func(a, b *virtv2.VirtualMachineOperation) int {
+	slices.SortFunc(vmops, func(a, b *v1alpha2.VirtualMachineOperation) int {
 		return cmp.Compare(a.GetCreationTimestamp().UnixNano(), b.GetCreationTimestamp().UnixNano())
 	})
 
-	migrations := slices.DeleteFunc(vmops, func(vmop *virtv2.VirtualMachineOperation) bool {
+	migrations := slices.DeleteFunc(vmops, func(vmop *v1alpha2.VirtualMachineOperation) bool {
 		return !commonvmop.IsMigration(vmop)
 	})
 
@@ -313,7 +313,7 @@ func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.Virtual
 	return nil, nil
 }
 
-func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeMigratable).Generation(vm.GetGeneration())
 
 	if kvvm != nil {
@@ -371,14 +371,14 @@ func (h *MigratingHandler) syncMigratable(ctx context.Context, s state.VirtualMa
 	return nil
 }
 
-func liveMigrationInProgress(migrationState *virtv2.VirtualMachineMigrationState) bool {
+func liveMigrationInProgress(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.StartTimestamp != nil && migrationState.EndTimestamp == nil
 }
 
-func liveMigrationFailed(migrationState *virtv2.VirtualMachineMigrationState) bool {
-	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultFailed
+func liveMigrationFailed(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
+	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == v1alpha2.MigrationResultFailed
 }
 
-func liveMigrationSucceeded(migrationState *virtv2.VirtualMachineMigrationState) bool {
-	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultSucceeded
+func liveMigrationSucceeded(migrationState *v1alpha2.VirtualMachineMigrationState) bool {
+	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == v1alpha2.MigrationResultSucceeded
 }

@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
@@ -50,7 +50,7 @@ func NewBoundHandler(macService MACAddressService, client client.Client, recorde
 	}
 }
 
-func (h *BoundHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error) {
+func (h *BoundHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmmaccondition.BoundType).Generation(vmmac.Generation)
 	defer func() { conditions.SetCondition(cb, &vmmac.Status.Conditions) }()
 
@@ -75,7 +75,7 @@ func (h *BoundHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachineM
 		ctx = logger.ToContext(ctx, log)
 	}
 
-	return steptaker.NewStepTakers[*virtv2.VirtualMachineMACAddress](
+	return steptaker.NewStepTakers[*v1alpha2.VirtualMachineMACAddress](
 		step.NewBindStep(lease, cb),
 		step.NewCreateLeaseStep(lease, h.macService, h.client, cb, h.recorder),
 	).Run(ctx, vmmac)

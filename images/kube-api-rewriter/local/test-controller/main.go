@@ -24,7 +24,7 @@ import (
 	"runtime"
 	"strconv"
 
-	virtv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/go-logr/logr"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +32,7 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	kvv1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,8 +55,8 @@ var (
 	resourcesSchemeFuncs = []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
-		kvv1.AddToScheme,
-		virtv1alpha2.AddToScheme,
+		virtv1.AddToScheme,
+		v1alpha2.AddToScheme,
 	}
 )
 
@@ -178,7 +178,7 @@ func (i *InitialLister) Start(ctx context.Context) error {
 	cl := i.client
 
 	// List VMs, Pods, CRDs before starting manager.
-	vms := virtv1alpha2.VirtualMachineList{}
+	vms := v1alpha2.VirtualMachineList{}
 	err := cl.List(ctx, &vms)
 	if err != nil {
 		i.log.Error(err, "list VMs")
@@ -251,8 +251,8 @@ func NewController(
 
 // SetupWatches subscripts controller to Pods, CRDs and DVP VMs.
 func SetupWatches(ctx context.Context, mgr manager.Manager, ctr controller.Controller, log logr.Logger) error {
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv1alpha2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
-		//if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.EnqueueRequestForObject{},
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{}), &handler.EnqueueRequestForObject{},
+		// if err := ctr.Watch(source.Kind(mgr.GetCache(), &corev1.Pod{}), &handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
 				log.Info(fmt.Sprintf("Got CREATE event for VM %s/%s gvk %v", e.Object.GetNamespace(), e.Object.GetName(), e.Object.GetObjectKind().GroupVersionKind()))
@@ -314,7 +314,7 @@ func SetupWatches(ctx context.Context, mgr manager.Manager, ctr controller.Contr
 
 func SetupWebhooks(ctx context.Context, mgr manager.Manager, validator admission.CustomValidator) error {
 	return builder.WebhookManagedBy(mgr).
-		For(&kvv1.VirtualMachine{}).
+		For(&virtv1.VirtualMachine{}).
 		WithValidator(validator).
 		Complete()
 }
@@ -333,7 +333,7 @@ func (r *VMReconciler) Reconcile(ctx context.Context, req reconcile.Request) (re
 }
 
 func (r *VMReconciler) ValidateCreate(ctx context.Context, obj apiruntime.Object) (admission.Warnings, error) {
-	vm, ok := obj.(*kvv1.VirtualMachine)
+	vm, ok := obj.(*virtv1.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
@@ -345,7 +345,7 @@ func (r *VMReconciler) ValidateCreate(ctx context.Context, obj apiruntime.Object
 }
 
 func (r *VMReconciler) ValidateUpdate(ctx context.Context, _, newObj apiruntime.Object) (admission.Warnings, error) {
-	vm, ok := newObj.(*kvv1.VirtualMachine)
+	vm, ok := newObj.(*virtv1.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", newObj)
 	}
@@ -357,7 +357,7 @@ func (r *VMReconciler) ValidateUpdate(ctx context.Context, _, newObj apiruntime.
 }
 
 func (v *VMReconciler) ValidateDelete(_ context.Context, obj apiruntime.Object) (admission.Warnings, error) {
-	vm, ok := obj.(*kvv1.VirtualMachine)
+	vm, ok := obj.(*virtv1.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a deleted VirtualMachine but got a %T", obj)
 	}

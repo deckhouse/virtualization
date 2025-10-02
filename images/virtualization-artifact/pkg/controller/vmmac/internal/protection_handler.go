@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
@@ -34,8 +34,8 @@ func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
 }
 
-func (h *ProtectionHandler) Handle(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error) {
-	controllerutil.AddFinalizer(vmmac, virtv2.FinalizerMACAddressCleanup)
+func (h *ProtectionHandler) Handle(_ context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(vmmac, v1alpha2.FinalizerMACAddressCleanup)
 
 	// 1. The vmmac has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
 	if vmmac.GetDeletionTimestamp() == nil {
@@ -45,7 +45,7 @@ func (h *ProtectionHandler) Handle(_ context.Context, vmmac *virtv2.VirtualMachi
 	// 2. It is necessary to keep vmmac protected until we can unequivocally ensure that the resource is not in the Attached state.
 	attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
 	if attachedCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(attachedCondition, vmmac) {
-		controllerutil.RemoveFinalizer(vmmac, virtv2.FinalizerMACAddressCleanup)
+		controllerutil.RemoveFinalizer(vmmac, v1alpha2.FinalizerMACAddressCleanup)
 	}
 
 	return reconcile.Result{}, nil

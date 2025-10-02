@@ -21,12 +21,11 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"statistic/internal/helpers"
 	"time"
 
-	"statistic/internal/helpers"
-
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

@@ -24,7 +24,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -33,7 +33,7 @@ type dataMetric struct {
 	Namespace                           string
 	Node                                string
 	UID                                 string
-	Phase                               virtv2.MachinePhase
+	Phase                               v1alpha2.MachinePhase
 	CPUConfigurationCores               float64
 	CPUConfigurationCoreFraction        float64
 	CPUCores                            float64
@@ -44,15 +44,15 @@ type dataMetric struct {
 	AwaitingRestartToApplyConfiguration bool
 	ConfigurationApplied                bool
 	AgentReady                          bool
-	RunPolicy                           virtv2.RunPolicy
-	Pods                                []virtv2.VirtualMachinePod
+	RunPolicy                           v1alpha2.RunPolicy
+	Pods                                []v1alpha2.VirtualMachinePod
 	Labels                              map[string]string
 	Annotations                         map[string]string
 	firmwareUpToDate                    bool
 }
 
 // DO NOT mutate VirtualMachine!
-func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
+func newDataMetric(vm *v1alpha2.VirtualMachine) *dataMetric {
 	if vm == nil {
 		return nil
 	}
@@ -79,7 +79,7 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	firmwareUpToDateCondition, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
 	firmwareUpToDate = firmwareUpToDateCondition.Status != metav1.ConditionFalse
 
-	pods := make([]virtv2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
+	pods := make([]v1alpha2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
 		pods[i] = *pod.DeepCopy()
 	}

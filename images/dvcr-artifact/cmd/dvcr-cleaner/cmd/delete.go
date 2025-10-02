@@ -23,7 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var DeleteCmd = &cobra.Command{
@@ -41,7 +41,7 @@ var deleteViCmd = &cobra.Command{
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		imgsDir := fmt.Sprintf("%s/vi/%s", RepoDir, NamespaceFlag)
-		err := DeleteImage(virtv2.VirtualImageKind, imgsDir, cmd, args)
+		err := DeleteImage(v1alpha2.VirtualImageKind, imgsDir, cmd, args)
 		if err != nil {
 			return err
 		}
@@ -61,7 +61,7 @@ var deleteCviCmd = &cobra.Command{
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		imgsDir := fmt.Sprintf("%s/cvi", RepoDir)
-		err := DeleteImage(virtv2.ClusterVirtualImageKind, imgsDir, cmd, args)
+		err := DeleteImage(v1alpha2.ClusterVirtualImageKind, imgsDir, cmd, args)
 		if err != nil {
 			return err
 		}
@@ -131,9 +131,9 @@ func removeImageDir(imgType, imgsDir, imgName string) error {
 	err := os.RemoveAll(imgDir)
 	if err != nil {
 		switch imgType {
-		case virtv2.VirtualImageKind:
+		case v1alpha2.VirtualImageKind:
 			return fmt.Errorf("cannot delete `%s` %q in %q namespace: %w", imgType, imgName, NamespaceFlag, err)
-		case virtv2.ClusterVirtualImageKind:
+		case v1alpha2.ClusterVirtualImageKind:
 			return fmt.Errorf("cannot delete `%s` %q: %w", imgType, imgName, err)
 		default:
 			return fmt.Errorf("unknown image type: %s", imgType)

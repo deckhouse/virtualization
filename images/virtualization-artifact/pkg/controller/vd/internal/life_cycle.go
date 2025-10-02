@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -48,7 +48,7 @@ func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
@@ -61,17 +61,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if vd.DeletionTimestamp != nil {
-		vd.Status.Phase = virtv2.DiskTerminating
+		vd.Status.Phase = v1alpha2.DiskTerminating
 		return reconcile.Result{}, nil
 	}
 
 	if vd.Status.Phase == "" {
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 	}
 
 	migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
 	if migrating.Status == metav1.ConditionTrue {
-		vd.Status.Phase = virtv2.DiskMigrating
+		vd.Status.Phase = v1alpha2.DiskMigrating
 		return reconcile.Result{}, nil
 	}
 
@@ -79,13 +79,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDSpecHasBeenChanged,
+			v1alpha2.ReasonVDSpecHasBeenChanged,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
 		// Reset status and start import again.
-		vd.Status = virtv2.VirtualDiskStatus{
-			Phase: virtv2.DiskPending,
+		vd.Status = v1alpha2.VirtualDiskStatus{
+			Phase: v1alpha2.DiskPending,
 		}
 
 		_, err := h.sources.CleanUp(ctx, vd)
