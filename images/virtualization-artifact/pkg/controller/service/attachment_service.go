@@ -30,8 +30,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type AttachmentService struct {
@@ -54,7 +54,7 @@ var (
 	ErrHotPlugRequestAlreadySent = errors.New("attachment request is already sent")
 )
 
-func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	if ad == nil {
 		return false, errors.New("cannot check if a empty AttachmentDisk is hot plugged")
 	}
@@ -80,7 +80,7 @@ func (s AttachmentService) IsHotPlugged(ad *AttachmentDisk, vm *virtv2.VirtualMa
 	return false, nil
 }
 
-func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
+func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) (bool, error) {
 	if ad == nil {
 		return false, errors.New("cannot hot plug a nil AttachmentDisk")
 	}
@@ -126,7 +126,7 @@ func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *virtv2.VirtualMach
 	return true, nil
 }
 
-func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
 	if ad == nil {
 		return errors.New("cannot hot plug a nil AttachmentDisk")
 	}
@@ -139,7 +139,7 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 		return errors.New("cannot hot plug a disk into a nil KVVM")
 	}
 
-	return s.virtClient.VirtualMachines(vm.GetNamespace()).AddVolume(ctx, vm.GetName(), v1alpha2.VirtualMachineAddVolume{
+	return s.virtClient.VirtualMachines(vm.GetNamespace()).AddVolume(ctx, vm.GetName(), subv1alpha2.VirtualMachineAddVolume{
 		VolumeKind: string(ad.Kind),
 		Name:       ad.GenerateName,
 		Image:      ad.Image,
@@ -149,13 +149,13 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
+func (s AttachmentService) IsAttached(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
 	if vm == nil || kvvm == nil {
 		return false
 	}
 
 	for _, bdRef := range vm.Status.BlockDeviceRefs {
-		if bdRef.Kind == virtv2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind) && bdRef.Name == vmbda.Spec.BlockDeviceRef.Name {
+		if bdRef.Kind == v1alpha2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind) && bdRef.Name == vmbda.Spec.BlockDeviceRef.Name {
 			return bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name
 		}
 	}
@@ -170,7 +170,7 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualM
 	if diskName == "" {
 		return errors.New("cannot unplug a disk with a empty DiskName")
 	}
-	return s.virtClient.VirtualMachines(kvvm.GetNamespace()).RemoveVolume(ctx, kvvm.GetName(), v1alpha2.VirtualMachineRemoveVolume{
+	return s.virtClient.VirtualMachines(kvvm.GetNamespace()).RemoveVolume(ctx, kvvm.GetName(), subv1alpha2.VirtualMachineRemoveVolume{
 		Name: diskName,
 	})
 }
@@ -195,13 +195,13 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualM
 //
 // T1: -->VMBDA A Should be Non-Conflicted lexicographically
 // T1:    VMBDA B Phase: ""
-func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (bool, string, error) {
+func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (bool, string, error) {
 	// CVI and VI always has no conflicts. Skip
-	if vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind || vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind {
+	if vmbda.Spec.BlockDeviceRef.Kind == v1alpha2.ClusterVirtualImageKind || vmbda.Spec.BlockDeviceRef.Kind == v1alpha2.VirtualImageKind {
 		return false, "", nil
 	}
 
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	var vmbdas v1alpha2.VirtualMachineBlockDeviceAttachmentList
 	err := s.client.List(ctx, &vmbdas, &client.ListOptions{Namespace: vmbda.Namespace})
 	if err != nil {
 		return false, "", err
@@ -214,7 +214,7 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *vi
 		}
 
 		// There is already a Non-Conflicted VMBDA.
-		if vmbdas.Items[i].Status.Phase != "" && vmbdas.Items[i].Status.Phase != virtv2.BlockDeviceAttachmentPhaseFailed {
+		if vmbdas.Items[i].Status.Phase != "" && vmbdas.Items[i].Status.Phase != v1alpha2.BlockDeviceAttachmentPhaseFailed {
 			return true, vmbdas.Items[i].Name, nil
 		}
 
@@ -234,40 +234,40 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *vi
 	return false, "", nil
 }
 
-func (s AttachmentService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
+func (s AttachmentService) GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualDisk{})
 }
 
-func (s AttachmentService) GetVirtualImage(ctx context.Context, name, namespace string) (*virtv2.VirtualImage, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualImage{})
+func (s AttachmentService) GetVirtualImage(ctx context.Context, name, namespace string) (*v1alpha2.VirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualImage{})
 }
 
-func (s AttachmentService) GetClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &virtv2.ClusterVirtualImage{})
+func (s AttachmentService) GetClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &v1alpha2.ClusterVirtualImage{})
 }
 
 func (s AttachmentService) GetPersistentVolumeClaim(ctx context.Context, ad *AttachmentDisk) (*corev1.PersistentVolumeClaim, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: ad.Namespace, Name: ad.PVCName}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
-func (s AttachmentService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualMachine{})
+func (s AttachmentService) GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualMachine{})
 }
 
-func (s AttachmentService) GetKVVM(ctx context.Context, vm *virtv2.VirtualMachine) (*virtv1.VirtualMachine, error) {
+func (s AttachmentService) GetKVVM(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachine{})
 }
 
-func (s AttachmentService) GetKVVMI(ctx context.Context, vm *virtv2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+func (s AttachmentService) GetKVVMI(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachineInstance{})
 }
 
-func isSameBlockDeviceRefs(a, b virtv2.VMBDAObjectRef) bool {
+func isSameBlockDeviceRefs(a, b v1alpha2.VMBDAObjectRef) bool {
 	return a.Kind == b.Kind && a.Name == b.Name
 }
 
 type AttachmentDisk struct {
-	Kind         virtv2.BlockDeviceKind
+	Kind         v1alpha2.BlockDeviceKind
 	Name         string
 	Namespace    string
 	GenerateName string
@@ -277,9 +277,9 @@ type AttachmentDisk struct {
 	IsCdrom      bool
 }
 
-func NewAttachmentDiskFromVirtualDisk(vd *virtv2.VirtualDisk) *AttachmentDisk {
+func NewAttachmentDiskFromVirtualDisk(vd *v1alpha2.VirtualDisk) *AttachmentDisk {
 	return &AttachmentDisk{
-		Kind:         virtv2.DiskDevice,
+		Kind:         v1alpha2.DiskDevice,
 		Name:         vd.GetName(),
 		Namespace:    vd.GetNamespace(),
 		GenerateName: kvbuilder.GenerateVDDiskName(vd.GetName()),
@@ -288,13 +288,13 @@ func NewAttachmentDiskFromVirtualDisk(vd *virtv2.VirtualDisk) *AttachmentDisk {
 	}
 }
 
-func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk {
+func NewAttachmentDiskFromVirtualImage(vi *v1alpha2.VirtualImage) *AttachmentDisk {
 	serial := ""
 	if !vi.Status.CDROM {
 		serial = kvbuilder.GenerateSerialFromObject(vi)
 	}
 	ad := AttachmentDisk{
-		Kind:         virtv2.ImageDevice,
+		Kind:         v1alpha2.ImageDevice,
 		Name:         vi.GetName(),
 		Namespace:    vi.GetNamespace(),
 		GenerateName: kvbuilder.GenerateVIDiskName(vi.GetName()),
@@ -302,7 +302,7 @@ func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk 
 		IsCdrom:      vi.Status.CDROM,
 	}
 
-	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
+	if vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
 		ad.Image = vi.Status.Target.RegistryURL
 	} else {
 		ad.PVCName = vi.Status.Target.PersistentVolumeClaim
@@ -311,13 +311,13 @@ func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk 
 	return &ad
 }
 
-func NewAttachmentDiskFromClusterVirtualImage(cvi *virtv2.ClusterVirtualImage) *AttachmentDisk {
+func NewAttachmentDiskFromClusterVirtualImage(cvi *v1alpha2.ClusterVirtualImage) *AttachmentDisk {
 	serial := ""
 	if !cvi.Status.CDROM {
 		serial = kvbuilder.GenerateSerialFromObject(cvi)
 	}
 	return &AttachmentDisk{
-		Kind:         virtv2.ClusterImageDevice,
+		Kind:         v1alpha2.ClusterImageDevice,
 		Name:         cvi.GetName(),
 		GenerateName: kvbuilder.GenerateCVIDiskName(cvi.GetName()),
 		Image:        cvi.Status.Target.RegistryURL,

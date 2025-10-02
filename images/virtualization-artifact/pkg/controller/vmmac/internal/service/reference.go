@@ -17,10 +17,10 @@ limitations under the License.
 package service
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func HasReference(vmmac *virtv2.VirtualMachineMACAddress, lease *virtv2.VirtualMachineMACAddressLease) bool {
+func HasReference(vmmac *v1alpha2.VirtualMachineMACAddress, lease *v1alpha2.VirtualMachineMACAddressLease) bool {
 	if vmmac == nil || lease == nil {
 		return false
 	}

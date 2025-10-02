@@ -16,9 +16,9 @@ limitations under the License.
 
 package restorer
 
-import virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import "github.com/deckhouse/virtualization/api/core/v1alpha2"
 
-func overrideName(kind, name string, rules []virtv2.NameReplacement) string {
+func overrideName(kind, name string, rules []v1alpha2.NameReplacement) string {
 	if name == "" {
 		return ""
 	}

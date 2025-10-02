@@ -5,7 +5,7 @@ package handler
 
 import (
 	"context"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"sync"
 )
 
@@ -19,7 +19,7 @@ var _ OneShotMigration = &OneShotMigrationMock{}
 //
 //		// make and configure a mocked OneShotMigration
 //		mockedOneShotMigration := &OneShotMigrationMock{
-//			OnceMigrateFunc: func(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
+//			OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
 //				panic("mock out the OnceMigrate method")
 //			},
 //		}
@@ -30,7 +30,7 @@ var _ OneShotMigration = &OneShotMigrationMock{}
 //	}
 type OneShotMigrationMock struct {
 	// OnceMigrateFunc mocks the OnceMigrate method.
-	OnceMigrateFunc func(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error)
+	OnceMigrateFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -39,7 +39,7 @@ type OneShotMigrationMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// VM is the vm argument value.
-			VM *virtv2.VirtualMachine
+			VM *v1alpha2.VirtualMachine
 			// AnnotationKey is the annotationKey argument value.
 			AnnotationKey string
 			// AnnotationExpectedValue is the annotationExpectedValue argument value.
@@ -50,13 +50,13 @@ type OneShotMigrationMock struct {
 }
 
 // OnceMigrate calls OnceMigrateFunc.
-func (mock *OneShotMigrationMock) OnceMigrate(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
+func (mock *OneShotMigrationMock) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
 	if mock.OnceMigrateFunc == nil {
 		panic("OneShotMigrationMock.OnceMigrateFunc: method is nil but OneShotMigration.OnceMigrate was just called")
 	}
 	callInfo := struct {
 		Ctx                     context.Context
-		VM                      *virtv2.VirtualMachine
+		VM                      *v1alpha2.VirtualMachine
 		AnnotationKey           string
 		AnnotationExpectedValue string
 	}{
@@ -77,13 +77,13 @@ func (mock *OneShotMigrationMock) OnceMigrate(ctx context.Context, vm *virtv2.Vi
 //	len(mockedOneShotMigration.OnceMigrateCalls())
 func (mock *OneShotMigrationMock) OnceMigrateCalls() []struct {
 	Ctx                     context.Context
-	VM                      *virtv2.VirtualMachine
+	VM                      *v1alpha2.VirtualMachine
 	AnnotationKey           string
 	AnnotationExpectedValue string
 } {
 	var calls []struct {
 		Ctx                     context.Context
-		VM                      *virtv2.VirtualMachine
+		VM                      *v1alpha2.VirtualMachine
 		AnnotationKey           string
 		AnnotationExpectedValue string
 	}

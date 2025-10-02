@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -66,7 +66,7 @@ func NewEnsureNodePlacementStep(
 	}
 }
 
-func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc == nil {
 		return nil, nil
 	}
@@ -92,7 +92,7 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *virtv2.VirtualDis
 		return nil, fmt.Errorf("is node placement changed: %w", err)
 	}
 
-	vd.Status.Phase = virtv2.DiskProvisioning
+	vd.Status.Phase = v1alpha2.DiskProvisioning
 
 	if !isChanged {
 		s.cb.

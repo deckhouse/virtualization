@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type IPAddressService struct {
@@ -112,7 +112,7 @@ func (s IPAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, e
 }
 
 func (s IPAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs, error) {
-	var leases virtv2.VirtualMachineIPAddressLeaseList
+	var leases v1alpha2.VirtualMachineIPAddressLeaseList
 
 	err := s.client.List(ctx, &leases)
 	if err != nil {
@@ -127,7 +127,7 @@ func (s IPAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs,
 	return allocatedIPs, nil
 }
 
-func (s IPAddressService) GetLease(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (s IPAddressService) GetLease(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 	// The IP address cannot be changed for a vmip. Once it has been assigned, it will remain the same.
 	ipAddress := getAssignedIPAddress(vmip)
 	if ipAddress != "" {
@@ -139,9 +139,9 @@ func (s IPAddressService) GetLease(ctx context.Context, vmip *virtv2.VirtualMach
 	return s.getLeaseByLabel(ctx, vmip)
 }
 
-func (s IPAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress string) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (s IPAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress string) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
-	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, s.client, &virtv2.VirtualMachineIPAddressLease{})
+	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, s.client, &v1alpha2.VirtualMachineIPAddressLease{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch lease in local cache: %w", err)
 	}
@@ -164,10 +164,10 @@ func (s IPAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress str
 	}
 }
 
-func (s IPAddressService) getLeaseByLabel(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (s IPAddressService) getLeaseByLabel(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
 	{
-		leases := &virtv2.VirtualMachineIPAddressLeaseList{}
+		leases := &v1alpha2.VirtualMachineIPAddressLeaseList{}
 		err := s.client.List(ctx, leases, &client.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID())}),
 		})
@@ -235,7 +235,7 @@ func isFirstLastIP(ip netip.Addr, cidr netip.Prefix) (bool, error) {
 	return last.Equal(ip.AsSlice()), nil
 }
 
-func getAssignedIPAddress(vmip *virtv2.VirtualMachineIPAddress) string {
+func getAssignedIPAddress(vmip *v1alpha2.VirtualMachineIPAddress) string {
 	if vmip.Spec.StaticIP != "" {
 		return vmip.Spec.StaticIP
 	}

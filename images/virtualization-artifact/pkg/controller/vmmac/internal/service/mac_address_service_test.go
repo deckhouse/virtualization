@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("MACAddressService", func() {
@@ -69,16 +69,16 @@ var _ = Describe("MACAddressService", func() {
 			})
 
 			It("should return error for a duplicate MAC address", func() {
-				ref := virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
+				ref := v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef{
 					Name:      "test",
 					Namespace: "test",
 				}
 
-				spec := virtv2.VirtualMachineMACAddressLeaseSpec{
+				spec := v1alpha2.VirtualMachineMACAddressLeaseSpec{
 					VirtualMachineMACAddressRef: &ref,
 				}
 
-				lease := &virtv2.VirtualMachineMACAddressLease{
+				lease := &v1alpha2.VirtualMachineMACAddressLease{
 					Spec: spec,
 				}
 

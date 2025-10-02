@@ -21,25 +21,25 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Storer Snapshotter
 
 type Storer interface {
-	Store(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) (*corev1.Secret, error)
+	Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 }
 
 type Snapshotter interface {
 	GetSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error)
-	GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error)
-	GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error)
+	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
+	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
 	GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error)
-	GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error)
-	CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error)
+	GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDiskSnapshot, error)
+	CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error)
 	Freeze(ctx context.Context, name, namespace string) error
 	Unfreeze(ctx context.Context, name, namespace string) error
-	IsFrozen(vm *virtv2.VirtualMachine) bool
-	CanFreeze(vm *virtv2.VirtualMachine) bool
-	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
+	IsFrozen(vm *v1alpha2.VirtualMachine) bool
+	CanFreeze(vm *v1alpha2.VirtualMachine) bool
+	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error)
 }

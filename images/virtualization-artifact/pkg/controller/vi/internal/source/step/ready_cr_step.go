@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -45,7 +45,7 @@ type ReadyContainerRegistryStepImporter interface {
 }
 
 type ReadyContainerRegistryStepStat interface {
-	GetSize(pod *corev1.Pod) virtv2.ImageStatusSize
+	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
 	GetDVCRImageName(pod *corev1.Pod) string
 	GetFormat(pod *corev1.Pod) string
 	CheckPod(pod *corev1.Pod) error
@@ -79,14 +79,14 @@ func NewReadyContainerRegistryStep(
 	}
 }
 
-func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	log, _ := logger.GetDataSourceContext(ctx, "objectref")
 
 	ready, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue {
 		log.Debug("Image is Ready")
 
-		vi.Status.Phase = virtv2.ImageReady
+		vi.Status.Phase = v1alpha2.ImageReady
 		s.cb.
 			Status(metav1.ConditionTrue).
 			Reason(vicondition.Ready).
@@ -101,7 +101,7 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *virtv2.Virtual
 
 	err := s.stat.CheckPod(s.pod)
 	if err != nil {
-		vi.Status.Phase = virtv2.ImageFailed
+		vi.Status.Phase = v1alpha2.ImageFailed
 
 		switch {
 		case errors.Is(err, service.ErrProvisioningFailed):
@@ -127,7 +127,7 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *virtv2.Virtual
 	s.recorder.Event(
 		vi,
 		corev1.EventTypeNormal,
-		virtv2.ReasonDataSourceSyncCompleted,
+		v1alpha2.ReasonDataSourceSyncCompleted,
 		"The ObjectRef DataSource import has completed",
 	)
 
@@ -136,7 +136,7 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *virtv2.Virtual
 		Reason(vicondition.Ready).
 		Message("")
 
-	vi.Status.Phase = virtv2.ImageReady
+	vi.Status.Phase = v1alpha2.ImageReady
 	vi.Status.Size = s.stat.GetSize(s.pod)
 	vi.Status.CDROM = s.stat.GetCDROM(s.pod)
 	vi.Status.Format = s.stat.GetFormat(s.pod)
@@ -146,7 +146,7 @@ func (s ReadyContainerRegistryStep) Take(ctx context.Context, vi *virtv2.Virtual
 	return &reconcile.Result{}, nil
 }
 
-func (s ReadyContainerRegistryStep) cleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) error {
+func (s ReadyContainerRegistryStep) cleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	_, err := s.importer.CleanUpSupplements(ctx, supgen)

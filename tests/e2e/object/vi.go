@@ -18,10 +18,10 @@ package object
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewHTTPVIUbuntu(name string) *virtv2.VirtualImage {
+func NewHTTPVIUbuntu(name string) *v1alpha2.VirtualImage {
 	return vi.New(
 		vi.WithName(name),
 		vi.WithDataSourceHTTP(
@@ -32,7 +32,7 @@ func NewHTTPVIUbuntu(name string) *virtv2.VirtualImage {
 	)
 }
 
-func NewGeneratedHTTPVIUbuntu(prefix string) *virtv2.VirtualImage {
+func NewGeneratedHTTPVIUbuntu(prefix string) *v1alpha2.VirtualImage {
 	return vi.New(
 		vi.WithGenerateName(prefix),
 		vi.WithDataSourceHTTP(
@@ -40,6 +40,6 @@ func NewGeneratedHTTPVIUbuntu(prefix string) *virtv2.VirtualImage {
 			nil,
 			nil,
 		),
-		vi.WithStorage(virtv2.StorageContainerRegistry),
+		vi.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 }

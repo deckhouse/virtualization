@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
@@ -38,7 +38,7 @@ func NewBlockDeviceLimiter(service *service.BlockDeviceService) *BlockDeviceLimi
 	return &BlockDeviceLimiter{service: service}
 }
 
-func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	blockDeviceAttachedCount, err := h.service.CountBlockDevicesAttachedToVMName(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err

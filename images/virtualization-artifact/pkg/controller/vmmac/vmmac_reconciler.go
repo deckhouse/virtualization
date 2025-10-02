@@ -29,11 +29,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error)
+	Handle(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -96,10 +96,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualMachineMACAddress {
-	return &virtv2.VirtualMachineMACAddress{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachineMACAddress {
+	return &v1alpha2.VirtualMachineMACAddress{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualMachineMACAddress) virtv2.VirtualMachineMACAddressStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineMACAddress) v1alpha2.VirtualMachineMACAddressStatus {
 	return obj.Status
 }

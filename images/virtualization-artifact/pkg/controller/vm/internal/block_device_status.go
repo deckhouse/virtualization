@@ -25,24 +25,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type nameKindKey struct {
-	kind virtv2.BlockDeviceKind
+	kind v1alpha2.BlockDeviceKind
 	name string
 }
 
 // getBlockDeviceStatusRefs returns block device refs to populate .status.blockDeviceRefs of the virtual machine.
 // If kvvm is present, this method will reflect all volumes with prefixes (vi,vd, or cvi) into the slice of `BlockDeviceStatusRef`.
 // Block devices from the virtual machine specification will be added to the resulting slice if they have not been included in the previous step.
-func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s state.VirtualMachineState) ([]virtv2.BlockDeviceStatusRef, error) {
+func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s state.VirtualMachineState) ([]v1alpha2.BlockDeviceStatusRef, error) {
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	var refs []virtv2.BlockDeviceStatusRef
+	var refs []v1alpha2.BlockDeviceStatusRef
 
 	// 1. There is no kvvm yet: populate block device refs with the spec.
 	if kvvm == nil {
@@ -131,22 +131,22 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 	return refs, nil
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceStatusRef(kind virtv2.BlockDeviceKind, name string) virtv2.BlockDeviceStatusRef {
-	return virtv2.BlockDeviceStatusRef{
+func (h *BlockDeviceHandler) getBlockDeviceStatusRef(kind v1alpha2.BlockDeviceKind, name string) v1alpha2.BlockDeviceStatusRef {
+	return v1alpha2.BlockDeviceStatusRef{
 		Kind: kind,
 		Name: name,
 	}
 }
 
 type BlockDeviceGetter interface {
-	VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error)
-	VirtualImage(ctx context.Context, name string) (*virtv2.VirtualImage, error)
-	ClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error)
+	VirtualDisk(ctx context.Context, name string) (*v1alpha2.VirtualDisk, error)
+	VirtualImage(ctx context.Context, name string) (*v1alpha2.VirtualImage, error)
+	ClusterVirtualImage(ctx context.Context, name string) (*v1alpha2.ClusterVirtualImage, error)
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceRefSize(ctx context.Context, ref virtv2.BlockDeviceStatusRef, getter BlockDeviceGetter) (string, error) {
+func (h *BlockDeviceHandler) getBlockDeviceRefSize(ctx context.Context, ref v1alpha2.BlockDeviceStatusRef, getter BlockDeviceGetter) (string, error) {
 	switch ref.Kind {
-	case virtv2.ImageDevice:
+	case v1alpha2.ImageDevice:
 		vi, err := getter.VirtualImage(ctx, ref.Name)
 		if err != nil {
 			return "", err
@@ -157,7 +157,7 @@ func (h *BlockDeviceHandler) getBlockDeviceRefSize(ctx context.Context, ref virt
 		}
 
 		return vi.Status.Size.Unpacked, nil
-	case virtv2.DiskDevice:
+	case v1alpha2.DiskDevice:
 		vd, err := getter.VirtualDisk(ctx, ref.Name)
 		if err != nil {
 			return "", err
@@ -168,7 +168,7 @@ func (h *BlockDeviceHandler) getBlockDeviceRefSize(ctx context.Context, ref virt
 		}
 
 		return vd.Status.Capacity, nil
-	case virtv2.ClusterImageDevice:
+	case v1alpha2.ClusterImageDevice:
 		cvi, err := getter.ClusterVirtualImage(ctx, ref.Name)
 		if err != nil {
 			return "", err
@@ -218,7 +218,7 @@ func (h *BlockDeviceHandler) isHotplugged(ctx context.Context, volume virtv1.Vol
 	return false, nil
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, kind virtv2.BlockDeviceKind, bdName string, s state.VirtualMachineState) (string, error) {
+func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, kind v1alpha2.BlockDeviceKind, bdName string, s state.VirtualMachineState) (string, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameBlockDeviceHandler))
 
 	vmbdasByRef, err := s.VirtualMachineBlockDeviceAttachments(ctx)
@@ -226,8 +226,8 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 		return "", err
 	}
 
-	vmbdas := vmbdasByRef[virtv2.VMBDAObjectRef{
-		Kind: virtv2.VMBDAObjectRefKind(kind),
+	vmbdas := vmbdasByRef[v1alpha2.VMBDAObjectRef{
+		Kind: v1alpha2.VMBDAObjectRefKind(kind),
 		Name: bdName,
 	}]
 
@@ -244,7 +244,7 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 	return vmbdas[0].Name, nil
 }
 
-func (h *BlockDeviceHandler) canBeHotPlugged(vm *virtv2.VirtualMachine, kind virtv2.BlockDeviceKind, bdName string) bool {
+func (h *BlockDeviceHandler) canBeHotPlugged(vm *v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, bdName string) bool {
 	for _, bdRef := range vm.Status.BlockDeviceRefs {
 		if bdRef.Kind == kind && bdRef.Name == bdName {
 			return bdRef.Hotplugged

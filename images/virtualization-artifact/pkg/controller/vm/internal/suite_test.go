@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestVirtualMachine(t *testing.T) {
@@ -38,7 +38,7 @@ func TestVirtualMachine(t *testing.T) {
 	RunSpecs(t, "VirtualMachine Handlers Suite")
 }
 
-func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus], state.VirtualMachineState) {
+func setupEnvironment(vm *v1alpha2.VirtualMachine, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus], state.VirtualMachineState) {
 	GinkgoHelper()
 	Expect(vm).ToNot(BeNil())
 	allObjects := []client.Object{vm}
@@ -48,10 +48,10 @@ func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) (client.
 	Expect(err).NotTo(HaveOccurred())
 
 	resource := reconciler.NewResource(client.ObjectKeyFromObject(vm), fakeClient,
-		func() *virtv2.VirtualMachine {
-			return &virtv2.VirtualMachine{}
+		func() *v1alpha2.VirtualMachine {
+			return &v1alpha2.VirtualMachine{}
 		},
-		func(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
+		func(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus {
 			return obj.Status
 		})
 	err = resource.Fetch(context.Background())

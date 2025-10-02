@@ -30,9 +30,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type SnapshotService struct {
@@ -49,7 +49,7 @@ func NewSnapshotService(virtClient kubeclient.Client, client Client, protection 
 	}
 }
 
-func (s *SnapshotService) IsFrozen(vm *virtv2.VirtualMachine) bool {
+func (s *SnapshotService) IsFrozen(vm *v1alpha2.VirtualMachine) bool {
 	if vm == nil {
 		return false
 	}
@@ -59,8 +59,8 @@ func (s *SnapshotService) IsFrozen(vm *virtv2.VirtualMachine) bool {
 	return filesystemFrozen.Status == metav1.ConditionTrue && filesystemFrozen.Reason == vmcondition.ReasonFilesystemFrozen.String()
 }
 
-func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
-	if vm == nil || vm.Status.Phase != virtv2.MachineRunning || s.IsFrozen(vm) {
+func (s *SnapshotService) CanFreeze(vm *v1alpha2.VirtualMachine) bool {
+	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning || s.IsFrozen(vm) {
 		return false
 	}
 
@@ -70,7 +70,7 @@ func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
 }
 
 func (s *SnapshotService) Freeze(ctx context.Context, name, namespace string) error {
-	err := s.virtClient.VirtualMachines(namespace).Freeze(ctx, name, v1alpha2.VirtualMachineFreeze{})
+	err := s.virtClient.VirtualMachines(namespace).Freeze(ctx, name, subv1alpha2.VirtualMachineFreeze{})
 	if err != nil {
 		return fmt.Errorf("failed to freeze virtual machine %s/%s: %w", namespace, name, err)
 	}
@@ -78,19 +78,19 @@ func (s *SnapshotService) Freeze(ctx context.Context, name, namespace string) er
 	return nil
 }
 
-func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error) {
 	if vm == nil || !s.IsFrozen(vm) {
 		return false, nil
 	}
 
 	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind == virtv2.DiskDevice {
+		if bdr.Kind == v1alpha2.DiskDevice {
 			vdByName[bdr.Name] = struct{}{}
 		}
 	}
 
-	var vdSnapshots virtv2.VirtualDiskSnapshotList
+	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
 	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: vm.Namespace,
 	})
@@ -104,12 +104,12 @@ func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context
 		}
 
 		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok && vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseInProgress {
+		if ok && vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
 
-	var vmSnapshots virtv2.VirtualMachineSnapshotList
+	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
 	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
 		Namespace: vm.Namespace,
 	})
@@ -118,7 +118,7 @@ func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseInProgress {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
@@ -126,19 +126,19 @@ func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context
 	return true, nil
 }
 
-func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error) {
 	if vm == nil || !s.IsFrozen(vm) {
 		return false, nil
 	}
 
 	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind == virtv2.DiskDevice {
+		if bdr.Kind == v1alpha2.DiskDevice {
 			vdByName[bdr.Name] = struct{}{}
 		}
 	}
 
-	var vdSnapshots virtv2.VirtualDiskSnapshotList
+	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
 	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
 		Namespace: vm.Namespace,
 	})
@@ -148,12 +148,12 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Cont
 
 	for _, vdSnapshot := range vdSnapshots.Items {
 		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok && vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseInProgress {
+		if ok && vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
 
-	var vmSnapshots virtv2.VirtualMachineSnapshotList
+	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
 	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
 		Namespace: vm.Namespace,
 	})
@@ -166,7 +166,7 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Cont
 			continue
 		}
 
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseInProgress {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
@@ -211,20 +211,20 @@ func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.Vol
 	return nil
 }
 
-func (s *SnapshotService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
+func (s *SnapshotService) GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualDisk{})
 }
 
 func (s *SnapshotService) GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
-func (s *SnapshotService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDiskSnapshot{})
+func (s *SnapshotService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDiskSnapshot, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 }
 
-func (s *SnapshotService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualMachine{})
+func (s *SnapshotService) GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualMachine{})
 }
 
 func (s *SnapshotService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
@@ -235,7 +235,7 @@ func (s *SnapshotService) GetSecret(ctx context.Context, name, namespace string)
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.Secret{})
 }
 
-func (s *SnapshotService) CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {
+func (s *SnapshotService) CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error) {
 	err := s.client.Create(ctx, vdSnapshot)
 	if err != nil {
 		return nil, err

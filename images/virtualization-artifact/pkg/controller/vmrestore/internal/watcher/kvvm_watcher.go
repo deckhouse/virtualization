@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // This watcher is required for monitoring the statuses of InternalVirtualMachine disks, which must update their PVC during the restoration process.
@@ -57,7 +57,7 @@ func (w InternalVirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller
 }
 
 func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm *virtv1.VirtualMachine) (requests []reconcile.Request) {
-	var vmRestores virtv2.VirtualMachineRestoreList
+	var vmRestores v1alpha2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
 		Namespace: kvvm.GetNamespace(),
 	})
@@ -68,7 +68,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm
 
 	for _, vmRestore := range vmRestores.Items {
 		vmSnapshotName := vmRestore.Spec.VirtualMachineSnapshotName
-		var vmSnapshot virtv2.VirtualMachineSnapshot
+		var vmSnapshot v1alpha2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: kvvm.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
@@ -88,7 +88,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm
 	return
 }
 
-func (w InternalVirtualMachineWatcher) isKvvmNameMatch(kvvmName, restoredName string, nameReplacements []virtv2.NameReplacement) bool {
+func (w InternalVirtualMachineWatcher) isKvvmNameMatch(kvvmName, restoredName string, nameReplacements []v1alpha2.NameReplacement) bool {
 	var (
 		isNameMatch            bool
 		isNameReplacementMatch bool
@@ -97,7 +97,7 @@ func (w InternalVirtualMachineWatcher) isKvvmNameMatch(kvvmName, restoredName st
 	isNameMatch = kvvmName == restoredName
 
 	for _, nr := range nameReplacements {
-		if nr.From.Kind != virtv2.VirtualMachineKind {
+		if nr.From.Kind != v1alpha2.VirtualMachineKind {
 			continue
 		}
 

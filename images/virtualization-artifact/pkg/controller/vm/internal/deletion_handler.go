@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -37,7 +37,7 @@ const deletionHandlerName = "DeletionHandler"
 func NewDeletionHandler(client client.Client) *DeletionHandler {
 	return &DeletionHandler{
 		client:     client,
-		protection: service.NewProtectionService(client, virtv2.FinalizerKVVMProtection),
+		protection: service.NewProtectionService(client, v1alpha2.FinalizerKVVMProtection),
 	}
 }
 
@@ -54,7 +54,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	}
 	if s.VirtualMachine().Current().GetDeletionTimestamp().IsZero() {
 		changed := s.VirtualMachine().Changed()
-		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMCleanup)
+		controllerutil.AddFinalizer(changed, v1alpha2.FinalizerVMCleanup)
 		return reconcile.Result{}, nil
 	}
 	log.Info("Deletion observed: remove protection from KVVM")
@@ -82,7 +82,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	}
 
 	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachine")
-	controllerutil.RemoveFinalizer(s.VirtualMachine().Changed(), virtv2.FinalizerVMCleanup)
+	controllerutil.RemoveFinalizer(s.VirtualMachine().Changed(), v1alpha2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
 }
 
