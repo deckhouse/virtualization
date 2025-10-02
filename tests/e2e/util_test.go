@@ -765,9 +765,10 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 	cmdr := kubectl.Get(
 		"virtualization,cvi,vmc,intvirt,pod,volumesnapshot",
 		kc.GetOptions{
-			Labels:    labels,
-			Namespace: namespace,
-			Output:    "yaml",
+			Labels:            labels,
+			Namespace:         namespace,
+			Output:            "yaml",
+			ShowManagedFields: true,
 		},
 	)
 	if cmdr.Error() != nil {
