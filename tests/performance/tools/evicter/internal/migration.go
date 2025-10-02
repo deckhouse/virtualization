@@ -148,6 +148,9 @@ func (m *ContinuousMigrator) checkAndStartMigrations() {
 
 	// Calculate how many VMs should be migrating
 	targetCount := (m.targetPercentage * len(vmList.Items)) / 100
+	if targetCount == 0 {
+		targetCount = 1
+	}
 	currentMigrating := len(m.migratingVMs)
 
 	// Start new migrations if needed
@@ -186,8 +189,8 @@ func (m *ContinuousMigrator) startMigration(vm v1alpha2.VirtualMachine) {
 
 	// Check if VM is still in Running state and not migrating
 	if currentVM.Status.Phase != v1alpha2.MachineRunning {
-		slog.Info("VM is no longer in Running state, skipping migration", 
-			"vm", vm.Name, 
+		slog.Info("VM is no longer in Running state, skipping migration",
+			"vm", vm.Name,
 			"currentPhase", currentVM.Status.Phase)
 		return
 	}
@@ -196,7 +199,7 @@ func (m *ContinuousMigrator) startMigration(vm v1alpha2.VirtualMachine) {
 	m.mutex.RLock()
 	_, isMigrating := m.migratingVMs[vm.Name]
 	m.mutex.RUnlock()
-	
+
 	if isMigrating {
 		slog.Info("VM is already being migrated, skipping", "vm", vm.Name)
 		return
@@ -212,11 +215,11 @@ func (m *ContinuousMigrator) startMigration(vm v1alpha2.VirtualMachine) {
 	// Check if there are any active VMOPs for this VM
 	for _, vmop := range vmopList.Items {
 		if vmop.Spec.VirtualMachine == vm.Name {
-			if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress || 
-			   vmop.Status.Phase == v1alpha2.VMOPPhasePending {
-				slog.Info("VM already has active VMOP, skipping migration", 
-					"vm", vm.Name, 
-					"vmop", vmop.Name, 
+			if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress ||
+				vmop.Status.Phase == v1alpha2.VMOPPhasePending {
+				slog.Info("VM already has active VMOP, skipping migration",
+					"vm", vm.Name,
+					"vmop", vmop.Name,
 					"phase", vmop.Status.Phase)
 				return
 			}
@@ -322,4 +325,3 @@ func (m *ContinuousMigrator) isMigrationComplete(vm *v1alpha2.VirtualMachine) bo
 	// Migration is complete if we see Migrating -> Running transition
 	return last.Phase == v1alpha2.MachineRunning && beforeLast.Phase == v1alpha2.MachineMigrating
 }
-

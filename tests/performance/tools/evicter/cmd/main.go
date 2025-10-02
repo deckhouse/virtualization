@@ -24,11 +24,6 @@ import (
 )
 
 func main() {
-	// opts := &slog.HandlerOptions{
-	// 	AddSource: true, // This enables source location logging
-	// }
-	// logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
-	// logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 

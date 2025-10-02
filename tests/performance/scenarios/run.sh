@@ -8,6 +8,7 @@ sleep_time=5
 cd ..
 
 exit_trap() {
+  echo ""
   echo "Cleanup"
   echo "Exiting..."
   exit 0
@@ -93,21 +94,21 @@ deploy_resources() {
         COUNT=${COUNT} \
         STORAGE_CLASS=$(default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
-        VIRTUALIMAGE_TYPE=virtualImage
+        VIRTUALIMAGE_TYPE=${VIType}
       ;;
     "vm")
       task apply:vms \
         COUNT=${COUNT} \
         NAMESPACE=perf \
-        NAME_PREFIX=performance \
-        RESOURCES_PREFIX=performance
+        VIRTUALDISK_TYPE=virtualDisk \
+        VIRTUALIMAGE_TYPE=${VIType}
       ;;
     "vd")
       task apply:disks \
         COUNT=${COUNT} \
         NAMESPACE=perf \
-        NAME_PREFIX=performance \
-        RESOURCES_PREFIX=performance
+        VIRTUALDISK_TYPE=virtualDisk \
+        VIRTUALIMAGE_TYPE=${VIType}
       ;;
     *)
       echo "Unknown resource type: $resourceType"
@@ -194,12 +195,12 @@ start_migration() {
   tmux split-window -v -t 1      # Pane 1 (top), Pane 2 (bottom)
 
   tmux select-pane -t 0
-  tmux send-keys "k9s" C-m
+  tmux send-keys "k9s -n perf" C-m
   tmux resize-pane -t 1 -x 50%
   
   echo "Start migration in $SESSION, pane 1"
   tmux select-pane -t 1
-  tmux send-keys "NS=perf task evicter:run:migration -d ${duration}" C-m
+  tmux send-keys "NS=perf TARGET=5 DURATION=${duration} task evicter:run:migration" C-m
   tmux resize-pane -t 1 -x 50%
 
   tmux select-pane -t 2
@@ -238,26 +239,29 @@ done
 
 # all resources
 vi_type="virtualImage"
-migration_duration="5m"
-undeploy_vm
-sleep 5
-deploy_resources "all" $vi_type "30"
-sleep 1
-start_migration "$migration_duration"
-sleep $((5 * 60))
-stop_migration
-sleep 5
-gather_all_statistics "report/statistics/vm_vi_${vi_type}"
-collect_vpa
+migration_duration="1m"
+main_sleep=$( echo "$migration_duration" | sed 's/m//' )
+count=5
+
+# undeploy_vm
+# sleep 5
+# deploy_resources "all" $vi_type $count
+# sleep 1
+# start_migration "$migration_duration"
+# sleep $(( $main_sleep * 60 ))
+# stop_migration
+# sleep 5
+# gather_all_statistics "report/statistics/vm_vi_${vi_type}"
+# collect_vpa
 
 
 vi_type="persistentVolumeClaim"
 undeploy_vm
 sleep 5
-deploy_resources "all" $vi_type "30"
+deploy_resources "all" $vi_type $count
 sleep 1
 start_migration "$migration_duration"
-sleep $((5 * 60))
+sleep $(( $main_sleep * 60 ))
 stop_migration
 sleep 5
 gather_all_statistics "report/statistics/vm_vi_${vi_type}"
