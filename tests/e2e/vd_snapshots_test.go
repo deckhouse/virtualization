@@ -77,7 +77,7 @@ var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), fu
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
