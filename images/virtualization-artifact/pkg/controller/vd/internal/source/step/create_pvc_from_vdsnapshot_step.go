@@ -105,7 +105,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	}
 
 	if err := s.validateStorageClassCompatibility(ctx, vd, vdSnapshot, vs); err != nil {
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
@@ -113,7 +113,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		s.recorder.Event(
 			vd,
 			corev1.EventTypeWarning,
-			virtv2.ReasonDataSourceSyncFailed,
+			v1alpha2.ReasonDataSourceSyncFailed,
 			err.Error(),
 		)
 		return &reconcile.Result{}, nil
@@ -242,7 +242,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 	}
 }
 
-func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *virtv2.VirtualDisk, vdSnapshot *virtv2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {
+func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {
 	if vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "" {
 		return nil
 	}
