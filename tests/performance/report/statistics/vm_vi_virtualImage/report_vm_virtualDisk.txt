@@ -1,0 +1,4 @@
+Test vm with virtualDisk from virtualImage
+Start time: 13:58:13 02-10-2025
+Execution time: 00:04:10
+End time: 14:02:23 02-10-2025

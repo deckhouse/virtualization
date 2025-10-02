@@ -1,0 +1,4 @@
+Total VMs count: 30
+Average WaitingForDependencies in seconds: 145.87
+Average VirtualMachineStarting in seconds: 34.93
+Average GuestOSAgentStarting in seconds: 0.00

@@ -24,6 +24,10 @@ includes:
     taskfile: tools/evicter/Taskfile.yaml
     dir: tools/evicter
     optional: true
+  netchecker:
+    taskfile: tools/netchecker/Taskfile.dist.yaml
+    dir: tools/netchecker
+    optional: true
 
 vars:
   COUNT: '{{ .COUNT | default "1" }}'

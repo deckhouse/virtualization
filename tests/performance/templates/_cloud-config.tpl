@@ -2,8 +2,8 @@
 #cloud-config
 ssh_pwauth: true
 chpasswd: { expire: false }
-user: ubuntu
-password: ubuntu
+user: {{ .Values.resources.virtualImage.spec.template.image.name }}
+password: {{ .Values.resources.virtualImage.spec.template.image.name }}
 users:
   - name: cloud
     #cloud
@@ -54,6 +54,59 @@ write_files:
       </body>
       </html>
       EOF
+{{- if ne .Values.resources.virtualImage.spec.template.image.name "ubuntu" }}
+packages:
+  - curl
+  - nginx
+write_files:
+  - path: /usr/local/bin/curl-ping.sh
+    permissions: '0755'
+    content: |
+      #!/bin/sh
+      while true; do
+        /usr/bin/curl -s -f -H "X-Client-Name: $(hostname)" {{ .Values.curlUrl }}
+        sleep 3
+      done >> /var/log/curl-ping.log 2>&1
+  - path: /etc/init.d/curl-ping
+    permissions: '0755'
+    content: |
+      #!/sbin/openrc-run
+      name="curl-ping"
+      command="/usr/local/bin/curl-ping.sh"
+      command_args=""
+      pidfile="/run/curl-ping.pid"
+
+      start() {
+          start-stop-daemon --start --background --make-pidfile --pidfile "$pidfile" --exec "$command"
+      }
+
+      stop() {
+          start-stop-daemon --stop --pidfile "$pidfile"
+      }
 runcmd:
+  - rc-update add curl-ping default
+  - /etc/init.d/curl-ping start
+{{- else }}
+  - path: /etc/systemd/system/curl-ping.service
+    permissions: "0755"
+    content: |
+      Unit]
+      Description=Curl Ping Service
+      After=network.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/curl --connect-timeout 0.5 -H "X-Client-Name: $(hostname)" {{ .Values.curlUrl }}
+      RemainAfterExit=yes
+      Restart=on-failure
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+runcmd:
+  - systemctl daemon-reload
+  - systemctl enable curl-ping.service
+  - systemctl start curl-ping.service
+{{- end }}
   - /usr/local/bin/generate.sh
 {{- end }}

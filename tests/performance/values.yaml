@@ -1,5 +1,6 @@
 count: 1
 nginx: false
+curlUrl: "http://nc.nc.svc.cluster.local:8080/ping"
 resources:
   storageClassName: "ceph-pool-r2-csi-rbd"
   default: all # all, vms, vds, vi
@@ -19,7 +20,7 @@ resources:
         restartApprovalMode: Dynamic
         cpu:
           cores: 1
-          coreFraction: 10%
+          coreFraction: 5%
         memory:
           size: 256Mi
   virtualDisk:
