@@ -44,7 +44,7 @@ var _ = Describe("VirtualMachineMigration", SIGMigration(), framework.CommonE2ET
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 

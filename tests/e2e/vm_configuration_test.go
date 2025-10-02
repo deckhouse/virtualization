@@ -57,7 +57,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
