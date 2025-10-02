@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
@@ -42,7 +42,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 		ns     string
 		ctx    context.Context
 		cancel context.CancelFunc
-		vmip   *virtv2.VirtualMachineIPAddress
+		vmip   *v1alpha2.VirtualMachineIPAddress
 
 		virtClient = framework.GetClients().VirtClient()
 	)
@@ -65,13 +65,13 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 50*time.Second)
 
-		vmip = &virtv2.VirtualMachineIPAddress{
+		vmip = &v1alpha2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "vmip",
 				Namespace: ns,
 			},
-			Spec: virtv2.VirtualMachineIPAddressSpec{
-				Type: virtv2.VirtualMachineIPAddressTypeAuto,
+			Spec: v1alpha2.VirtualMachineIPAddressSpec{
+				Type: v1alpha2.VirtualMachineIPAddressTypeAuto,
 			},
 		}
 	})
@@ -94,7 +94,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Wait for the label to be restored by the controller")
-			lease = WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(_ watch.EventType, e *virtv2.VirtualMachineIPAddressLease) (bool, error) {
+			lease = WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(_ watch.EventType, e *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
 				return e.Labels["virtualization.deckhouse.io/virtual-machine-ip-address-uid"] == string(vmipAuto.UID), nil
 			})
 			vmipAuto, err = virtClient.VirtualMachineIPAddresses(vmipAuto.Namespace).Get(ctx, vmipAuto.Name, metav1.GetOptions{})
@@ -114,7 +114,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 
 			By("Delete the intermediate vmip automatically and check that the lease is released")
 			DeleteResource(ctx, intermediate)
-			lease = WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(_ watch.EventType, e *virtv2.VirtualMachineIPAddressLease) (bool, error) {
+			lease = WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(_ watch.EventType, e *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
 				boundCondition, err := GetCondition(vmiplcondition.BoundType.String(), e)
 				Expect(err).NotTo(HaveOccurred())
 				return boundCondition.Reason == vmiplcondition.Released.String() && boundCondition.ObservedGeneration == e.Generation, nil
@@ -124,7 +124,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 			By("Reuse the released lease with a static vmip")
 			vmipStatic := vmip.DeepCopy()
 			vmipStatic.Name += "-static"
-			vmipStatic.Spec.Type = virtv2.VirtualMachineIPAddressTypeStatic
+			vmipStatic.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
 			vmipStatic.Spec.StaticIP = intermediate.Status.Address
 			vmipStatic, lease = CreateVirtualMachineIPAddress(ctx, vmipStatic)
 			ExpectToBeBound(vmipStatic, lease)
@@ -135,7 +135,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 			go func() {
 				defer close(wait)
 				defer GinkgoRecover()
-				WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(eType watch.EventType, _ *virtv2.VirtualMachineIPAddressLease) (bool, error) {
+				WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(eType watch.EventType, _ *v1alpha2.VirtualMachineIPAddressLease) (bool, error) {
 					return eType == watch.Deleted, nil
 				})
 			}()
@@ -147,7 +147,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 
 			vmipStatic = vmip.DeepCopy()
 			vmipStatic.Name += "-one-more-static"
-			vmipStatic.Spec.Type = virtv2.VirtualMachineIPAddressTypeStatic
+			vmipStatic.Spec.Type = v1alpha2.VirtualMachineIPAddressTypeStatic
 			vmipStatic.Spec.StaticIP = intermediate.Status.Address
 			vmipStatic, lease = CreateVirtualMachineIPAddress(ctx, vmipStatic)
 			ExpectToBeBound(vmipStatic, lease)
@@ -159,7 +159,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 	})
 })
 
-func WaitForVirtualMachineIPAddress(ctx context.Context, ns, name string, h EventHandler[*virtv2.VirtualMachineIPAddress]) *virtv2.VirtualMachineIPAddress {
+func WaitForVirtualMachineIPAddress(ctx context.Context, ns, name string, h EventHandler[*v1alpha2.VirtualMachineIPAddress]) *v1alpha2.VirtualMachineIPAddress {
 	GinkgoHelper()
 	vmip, err := WaitFor(ctx, framework.GetClients().VirtClient().VirtualMachineIPAddresses(ns), h, metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
@@ -168,7 +168,7 @@ func WaitForVirtualMachineIPAddress(ctx context.Context, ns, name string, h Even
 	return vmip
 }
 
-func WaitForVirtualMachineIPAddressLease(ctx context.Context, name string, h EventHandler[*virtv2.VirtualMachineIPAddressLease]) *virtv2.VirtualMachineIPAddressLease {
+func WaitForVirtualMachineIPAddressLease(ctx context.Context, name string, h EventHandler[*v1alpha2.VirtualMachineIPAddressLease]) *v1alpha2.VirtualMachineIPAddressLease {
 	GinkgoHelper()
 	lease, err := WaitFor(ctx, framework.GetClients().VirtClient().VirtualMachineIPAddressLeases(), h, metav1.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("metadata.name", name).String(),
@@ -177,12 +177,12 @@ func WaitForVirtualMachineIPAddressLease(ctx context.Context, name string, h Eve
 	return lease
 }
 
-func CreateVirtualMachineIPAddress(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddress, *virtv2.VirtualMachineIPAddressLease) {
+func CreateVirtualMachineIPAddress(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachineIPAddress, *v1alpha2.VirtualMachineIPAddressLease) {
 	GinkgoHelper()
 
 	CreateResource(ctx, vmip)
-	vmip = WaitForVirtualMachineIPAddress(ctx, vmip.Namespace, vmip.Name, func(_ watch.EventType, e *virtv2.VirtualMachineIPAddress) (bool, error) {
-		return e.Status.Phase == virtv2.VirtualMachineIPAddressPhaseBound, nil
+	vmip = WaitForVirtualMachineIPAddress(ctx, vmip.Namespace, vmip.Name, func(_ watch.EventType, e *v1alpha2.VirtualMachineIPAddress) (bool, error) {
+		return e.Status.Phase == v1alpha2.VirtualMachineIPAddressPhaseBound, nil
 	})
 
 	lease, err := framework.GetClients().VirtClient().VirtualMachineIPAddressLeases().Get(ctx, ipAddressToLeaseName(vmip.Status.Address), metav1.GetOptions{})
@@ -191,7 +191,7 @@ func CreateVirtualMachineIPAddress(ctx context.Context, vmip *virtv2.VirtualMach
 	return vmip, lease
 }
 
-func ExpectToBeReleased(lease *virtv2.VirtualMachineIPAddressLease) {
+func ExpectToBeReleased(lease *v1alpha2.VirtualMachineIPAddressLease) {
 	GinkgoHelper()
 
 	boundCondition, err := GetCondition(vmiplcondition.BoundType.String(), lease)
@@ -199,10 +199,10 @@ func ExpectToBeReleased(lease *virtv2.VirtualMachineIPAddressLease) {
 	Expect(boundCondition.Status).To(Equal(metav1.ConditionFalse))
 	Expect(boundCondition.Reason).To(Equal(vmiplcondition.Released.String()))
 	Expect(boundCondition.ObservedGeneration).To(Equal(lease.Generation))
-	Expect(lease.Status.Phase).To(Equal(virtv2.VirtualMachineIPAddressLeasePhaseReleased))
+	Expect(lease.Status.Phase).To(Equal(v1alpha2.VirtualMachineIPAddressLeasePhaseReleased))
 }
 
-func ExpectToBeBound(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.VirtualMachineIPAddressLease) {
+func ExpectToBeBound(vmip *v1alpha2.VirtualMachineIPAddress, lease *v1alpha2.VirtualMachineIPAddressLease) {
 	GinkgoHelper()
 
 	// 1. Check vmip to be Bound.
@@ -212,7 +212,7 @@ func ExpectToBeBound(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.Virtual
 	Expect(boundCondition.Reason).To(Equal(vmipcondition.Bound.String()))
 	Expect(boundCondition.ObservedGeneration).To(Equal(vmip.Generation))
 
-	Expect(vmip.Status.Phase).To(Equal(virtv2.VirtualMachineIPAddressPhaseBound))
+	Expect(vmip.Status.Phase).To(Equal(v1alpha2.VirtualMachineIPAddressPhaseBound))
 	Expect(vmip.Status.Address).NotTo(BeEmpty())
 	Expect(ipAddressToLeaseName(vmip.Status.Address)).To(Equal(lease.Name))
 
@@ -223,7 +223,7 @@ func ExpectToBeBound(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.Virtual
 	Expect(boundCondition.Reason).To(Equal(vmiplcondition.Bound.String()))
 	Expect(boundCondition.ObservedGeneration).To(Equal(lease.Generation))
 
-	Expect(lease.Status.Phase).To(Equal(virtv2.VirtualMachineIPAddressLeasePhaseBound))
+	Expect(lease.Status.Phase).To(Equal(v1alpha2.VirtualMachineIPAddressLeasePhaseBound))
 	Expect(lease.Labels["virtualization.deckhouse.io/virtual-machine-ip-address-uid"]).To(Equal(string(vmip.UID)))
 	Expect(lease.Spec.VirtualMachineIPAddressRef).NotTo(BeNil())
 	Expect(lease.Spec.VirtualMachineIPAddressRef.Name).To(Equal(vmip.Name))

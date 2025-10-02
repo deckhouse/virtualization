@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
@@ -43,7 +43,7 @@ type Allocator interface {
 }
 
 type CreateLeaseStep struct {
-	lease     *virtv2.VirtualMachineMACAddressLease
+	lease     *v1alpha2.VirtualMachineMACAddressLease
 	allocator Allocator
 	client    client.Client
 	cb        *conditions.ConditionBuilder
@@ -51,7 +51,7 @@ type CreateLeaseStep struct {
 }
 
 func NewCreateLeaseStep(
-	lease *virtv2.VirtualMachineMACAddressLease,
+	lease *v1alpha2.VirtualMachineMACAddressLease,
 	allocator Allocator,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
@@ -66,14 +66,14 @@ func NewCreateLeaseStep(
 	}
 }
 
-func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*reconcile.Result, error) {
+func (s CreateLeaseStep) Take(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*reconcile.Result, error) {
 	// 1. Check if MAC address has been already allocated but lost.
 	if vmmac.Status.Address != "" {
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseLost).
 			Message(fmt.Sprintf("VirtualMachineMACAddress lost its lease: VirtualMachineMACAddressLease %q should exist", mac.AddressToLeaseName(vmmac.Status.Address)))
-		s.recorder.Event(vmmac, corev1.EventTypeWarning, virtv2.ReasonFailed, fmt.Sprintf("The VirtualMachineMACAddressLease %q is lost.", mac.AddressToLeaseName(vmmac.Status.Address)))
+		s.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonFailed, fmt.Sprintf("The VirtualMachineMACAddressLease %q is lost.", mac.AddressToLeaseName(vmmac.Status.Address)))
 		return &reconcile.Result{}, nil
 	}
 
@@ -110,7 +110,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineM
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseAlreadyExists).
 			Message(msg)
-		s.recorder.Event(vmmac, corev1.EventTypeWarning, virtv2.ReasonBound, msg)
+		s.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonBound, msg)
 		return &reconcile.Result{}, nil
 	}
 
@@ -125,7 +125,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineM
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
 			Message(msg)
-		s.recorder.Event(vmmac, corev1.EventTypeNormal, virtv2.ReasonBound, msg)
+		s.recorder.Event(vmmac, corev1.EventTypeNormal, v1alpha2.ReasonBound, msg)
 		return &reconcile.Result{}, nil
 	case k8serrors.IsAlreadyExists(err):
 		// The cache is outdated and not keeping up with the state in the cluster.
@@ -146,16 +146,16 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineM
 	}
 }
 
-func buildVirtualMachineMACAddressLease(vmmac *virtv2.VirtualMachineMACAddress, macAddress string) *virtv2.VirtualMachineMACAddressLease {
-	return &virtv2.VirtualMachineMACAddressLease{
+func buildVirtualMachineMACAddressLease(vmmac *v1alpha2.VirtualMachineMACAddress, macAddress string) *v1alpha2.VirtualMachineMACAddressLease {
+	return &v1alpha2.VirtualMachineMACAddressLease{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineMACAddressUID: string(vmmac.GetUID()),
 			},
 			Name: mac.AddressToLeaseName(macAddress),
 		},
-		Spec: virtv2.VirtualMachineMACAddressLeaseSpec{
-			VirtualMachineMACAddressRef: &virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
+		Spec: v1alpha2.VirtualMachineMACAddressLeaseSpec{
+			VirtualMachineMACAddressRef: &v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef{
 				Name:      vmmac.Name,
 				Namespace: vmmac.Namespace,
 			},

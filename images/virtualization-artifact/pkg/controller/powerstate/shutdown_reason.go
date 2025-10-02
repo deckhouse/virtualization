@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	kvv1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 )
@@ -46,8 +46,8 @@ const (
 // Reset termination message
 // {"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-reset\"}"}
 // {"event":"SHUTDOWN","details":"{\"guest\":false,\"reason\":\"host-signal\"}"}
-func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) ShutdownInfo {
-	if kvvmi == nil || kvvmi.Status.Phase != kvv1.Succeeded {
+func ShutdownReason(kvvmi *virtv1.VirtualMachineInstance, kvPods *corev1.PodList) ShutdownInfo {
+	if kvvmi == nil || kvvmi.Status.Phase != virtv1.Succeeded {
 		return ShutdownInfo{}
 	}
 	if kvPods == nil || len(kvPods.Items) == 0 {

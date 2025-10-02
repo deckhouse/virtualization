@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type AttacheeHandler struct {
@@ -38,7 +38,7 @@ func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 	}
 }
 
-func (h AttacheeHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (h AttacheeHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("attachee"))
 
 	hasAttachedVM, err := h.hasAttachedVM(ctx, vi)
@@ -49,10 +49,10 @@ func (h AttacheeHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (r
 	switch {
 	case !hasAttachedVM:
 		log.Debug("Allow virtual image deletion")
-		controllerutil.RemoveFinalizer(vi, virtv2.FinalizerVIProtection)
+		controllerutil.RemoveFinalizer(vi, v1alpha2.FinalizerVIProtection)
 	case vi.DeletionTimestamp == nil:
 		log.Debug("Protect virtual image from deletion")
-		controllerutil.AddFinalizer(vi, virtv2.FinalizerVIProtection)
+		controllerutil.AddFinalizer(vi, v1alpha2.FinalizerVIProtection)
 	default:
 		log.Debug("Virtual image deletion is delayed: it's protected by virtual machines")
 	}
@@ -65,7 +65,7 @@ func (h AttacheeHandler) Name() string {
 }
 
 func (h AttacheeHandler) hasAttachedVM(ctx context.Context, vi client.Object) (bool, error) {
-	var vms virtv2.VirtualMachineList
+	var vms v1alpha2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{
 		Namespace: vi.GetNamespace(),
 	})
@@ -82,9 +82,9 @@ func (h AttacheeHandler) hasAttachedVM(ctx context.Context, vi client.Object) (b
 	return false, nil
 }
 
-func (h AttacheeHandler) isVIAttachedToVM(viName string, vm virtv2.VirtualMachine) bool {
+func (h AttacheeHandler) isVIAttachedToVM(viName string, vm v1alpha2.VirtualMachine) bool {
 	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == virtv2.ImageDevice && bda.Name == viName {
+		if bda.Kind == v1alpha2.ImageDevice && bda.Name == viName {
 			return true
 		}
 	}

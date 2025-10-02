@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -48,7 +48,7 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vm *virtv2.VirtualMachine, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
+func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMachineMACAddress) InterfaceSpecList {
 	var (
 		all     []string
 		status  []struct{ Name, MAC string }
@@ -64,7 +64,7 @@ func CreateNetworkSpec(vm *virtv2.VirtualMachine, vmmacs []*virtv2.VirtualMachin
 		}
 	}
 	for _, n := range vm.Status.Networks {
-		if n.Type == virtv2.NetworksTypeMain {
+		if n.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 		status = append(status, struct{ Name, MAC string }{n.Name, n.MAC})
@@ -76,7 +76,7 @@ func CreateNetworkSpec(vm *virtv2.VirtualMachine, vmmacs []*virtv2.VirtualMachin
 		}
 	}
 	for _, n := range vm.Spec.Networks {
-		if n.Type == virtv2.NetworksTypeMain {
+		if n.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 		var mac string
@@ -118,9 +118,9 @@ func generateInterfaceName(macAddress, networkType string) string {
 	hashHex := hex.EncodeToString(hash[:])
 
 	switch networkType {
-	case virtv2.NetworksTypeNetwork:
+	case v1alpha2.NetworksTypeNetwork:
 		name = fmt.Sprintf("veth_n%s", hashHex[:8])
-	case virtv2.NetworksTypeClusterNetwork:
+	case v1alpha2.NetworksTypeClusterNetwork:
 		name = fmt.Sprintf("veth_cn%s", hashHex[:8])
 	}
 	return name

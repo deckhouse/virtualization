@@ -28,11 +28,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot/internal/watcher"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error)
+	Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -92,10 +92,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return nil
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualDiskSnapshot {
-	return &virtv2.VirtualDiskSnapshot{}
+func (r *Reconciler) factory() *v1alpha2.VirtualDiskSnapshot {
+	return &v1alpha2.VirtualDiskSnapshot{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualDiskSnapshot) virtv2.VirtualDiskSnapshotStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualDiskSnapshot) v1alpha2.VirtualDiskSnapshotStatus {
 	return obj.Status
 }

@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
@@ -33,8 +33,8 @@ func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
 }
 
-func (h *ProtectionHandler) Handle(_ context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
-	controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
+func (h *ProtectionHandler) Handle(_ context.Context, lease *v1alpha2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(lease, v1alpha2.FinalizerIPAddressLeaseCleanup)
 
 	// 1. The lease has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
 	if lease.GetDeletionTimestamp() == nil {
@@ -48,6 +48,6 @@ func (h *ProtectionHandler) Handle(_ context.Context, lease *virtv2.VirtualMachi
 	}
 
 	// 3. All checks have passed, the resource can be deleted.
-	controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
+	controllerutil.RemoveFinalizer(lease, v1alpha2.FinalizerIPAddressLeaseCleanup)
 	return reconcile.Result{}, nil
 }

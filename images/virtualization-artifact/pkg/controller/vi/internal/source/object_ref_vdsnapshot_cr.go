@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -67,8 +67,8 @@ func NewObjectRefVirtualDiskSnapshotCR(
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
+	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
@@ -87,7 +87,7 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 		return reconcile.Result{}, fmt.Errorf("fetch pod: %w", err)
 	}
 
-	return steptaker.NewStepTakers[*virtv2.VirtualImage](
+	return steptaker.NewStepTakers[*v1alpha2.VirtualImage](
 		step.NewReadyContainerRegistryStep(pod, ds.importer, ds.diskService, ds.stat, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
@@ -96,21 +96,21 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 	).Run(ctx, vi)
 }
 
-func (ds ObjectRefVirtualDiskSnapshotCR) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
+func (ds ObjectRefVirtualDiskSnapshotCR) Validate(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	return validateVirtualDiskSnapshot(ctx, vi, ds.client)
 }
 
-func validateVirtualDiskSnapshot(ctx context.Context, vi *virtv2.VirtualImage, client client.Client) error {
-	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+func validateVirtualDiskSnapshot(ctx context.Context, vi *v1alpha2.VirtualImage, client client.Client) error {
+	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot {
 		return errors.New("object ref missed for data source")
 	}
 
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, client, &virtv2.VirtualDiskSnapshot{})
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, client, &v1alpha2.VirtualDiskSnapshot{})
 	if err != nil {
 		return fmt.Errorf("fetch virtual disk snapshot: %w", err)
 	}
 
-	if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
+	if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
 		return NewVirtualDiskSnapshotNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 

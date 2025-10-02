@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmrestore "github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineBlockDeviceAttachmentWatcher struct {
@@ -49,7 +49,7 @@ func NewVirtualMachineBlockDeviceAttachmentWatcher(client client.Client, restore
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineBlockDeviceAttachment{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
 		),
 	); err != nil {
@@ -58,8 +58,8 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, c
 	return nil
 }
 
-func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (requests []reconcile.Request) {
-	var vmRestores virtv2.VirtualMachineRestoreList
+func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (requests []reconcile.Request) {
+	var vmRestores v1alpha2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
 		Namespace: vmbda.GetNamespace(),
 	})
@@ -70,7 +70,7 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 
 	for _, vmRestore := range vmRestores.Items {
 		vmSnapshotName := vmRestore.Spec.VirtualMachineSnapshotName
-		var vmSnapshot virtv2.VirtualMachineSnapshot
+		var vmSnapshot v1alpha2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: vmbda.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
@@ -110,7 +110,7 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 	return
 }
 
-func (w VirtualMachineBlockDeviceAttachmentWatcher) isVmbdaNameMatch(vmbdaName, restoredName string, nameReplacements []virtv2.NameReplacement) bool {
+func (w VirtualMachineBlockDeviceAttachmentWatcher) isVmbdaNameMatch(vmbdaName, restoredName string, nameReplacements []v1alpha2.NameReplacement) bool {
 	var (
 		isNameMatch            bool
 		isNameReplacementMatch bool
@@ -119,7 +119,7 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) isVmbdaNameMatch(vmbdaName, 
 	isNameMatch = vmbdaName == restoredName
 
 	for _, nr := range nameReplacements {
-		if nr.From.Kind != virtv2.VirtualMachineBlockDeviceAttachmentKind {
+		if nr.From.Kind != v1alpha2.VirtualMachineBlockDeviceAttachmentKind {
 			continue
 		}
 

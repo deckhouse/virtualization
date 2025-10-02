@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const MaxCount int = 16777216
@@ -157,7 +157,7 @@ func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (
 }
 
 func (s MACAddressService) GetAllocatedAddresses(ctx context.Context) (mac.AllocatedMACs, error) {
-	var leases virtv2.VirtualMachineMACAddressLeaseList
+	var leases v1alpha2.VirtualMachineMACAddressLeaseList
 
 	err := s.client.List(ctx, &leases)
 	if err != nil {
@@ -172,7 +172,7 @@ func (s MACAddressService) GetAllocatedAddresses(ctx context.Context) (mac.Alloc
 	return allocatedMACs, nil
 }
 
-func (s MACAddressService) GetLease(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
+func (s MACAddressService) GetLease(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 	// The MAC address cannot be changed for a vmmac. Once it has been assigned, it will remain the same.
 	macAddress := getAssignedMACAddress(vmmac)
 	if macAddress != "" {
@@ -184,9 +184,9 @@ func (s MACAddressService) GetLease(ctx context.Context, vmmac *virtv2.VirtualMa
 	return s.getLeaseByLabel(ctx, vmmac)
 }
 
-func (s MACAddressService) getLeaseByMACAddress(ctx context.Context, macAddress string) (*virtv2.VirtualMachineMACAddressLease, error) {
+func (s MACAddressService) getLeaseByMACAddress(ctx context.Context, macAddress string) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
-	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: mac.AddressToLeaseName(macAddress)}, s.client, &virtv2.VirtualMachineMACAddressLease{})
+	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: mac.AddressToLeaseName(macAddress)}, s.client, &v1alpha2.VirtualMachineMACAddressLease{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch lease in local cache: %w", err)
 	}
@@ -209,10 +209,10 @@ func (s MACAddressService) getLeaseByMACAddress(ctx context.Context, macAddress 
 	}
 }
 
-func (s MACAddressService) getLeaseByLabel(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
+func (s MACAddressService) getLeaseByLabel(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
 	{
-		leases := &virtv2.VirtualMachineMACAddressLeaseList{}
+		leases := &v1alpha2.VirtualMachineMACAddressLeaseList{}
 		err := s.client.List(ctx, leases, &client.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineMACAddressUID: string(vmmac.GetUID())}),
 		})
@@ -252,7 +252,7 @@ func (s MACAddressService) getLeaseByLabel(ctx context.Context, vmmac *virtv2.Vi
 	}
 }
 
-func getAssignedMACAddress(vmmac *virtv2.VirtualMachineMACAddress) string {
+func getAssignedMACAddress(vmmac *v1alpha2.VirtualMachineMACAddress) string {
 	if vmmac.Spec.Address != "" {
 		return vmmac.Spec.Address
 	}

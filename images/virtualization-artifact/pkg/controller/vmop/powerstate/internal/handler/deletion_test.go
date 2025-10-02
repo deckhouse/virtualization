@@ -25,7 +25,7 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("DeletionHandler", func() {
@@ -37,7 +37,7 @@ var _ = Describe("DeletionHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		srv        *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
+		srv        *reconciler.Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus]
 	)
 
 	AfterEach(func() {
@@ -53,24 +53,24 @@ var _ = Describe("DeletionHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	newVmop := func(phase virtv2.VMOPPhase, opts ...vmopbuilder.Option) *virtv2.VirtualMachineOperation {
+	newVmop := func(phase v1alpha2.VMOPPhase, opts ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
 		vmop.Status.Phase = phase
 		vmopbuilder.ApplyOptions(vmop, opts...)
 		return vmop
 	}
 
-	DescribeTable("Should be protected", func(phase virtv2.VMOPPhase, protect bool) {
-		vmop := newVmop(phase, vmopbuilder.WithType(virtv2.VMOPTypeEvict))
+	DescribeTable("Should be protected", func(phase v1alpha2.VMOPPhase, protect bool) {
+		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict))
 
 		fakeClient, srv = setupEnvironment(vmop)
 		reconcile()
 
-		newVMOP := &virtv2.VirtualMachineOperation{}
+		newVMOP := &v1alpha2.VirtualMachineOperation{}
 		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vmop), newVMOP)
 		Expect(err).NotTo(HaveOccurred())
 
-		updated := controllerutil.AddFinalizer(newVMOP, virtv2.FinalizerVMOPCleanup)
+		updated := controllerutil.AddFinalizer(newVMOP, v1alpha2.FinalizerVMOPCleanup)
 
 		if protect {
 			Expect(updated).To(BeFalse())
@@ -78,19 +78,19 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(updated).To(BeTrue())
 		}
 	},
-		Entry("VMOP Start 1", virtv2.VMOPPhasePending, false),
-		Entry("VMOP Start 2", virtv2.VMOPPhaseInProgress, true),
-		Entry("VMOP Start 3", virtv2.VMOPPhaseCompleted, false),
-		Entry("VMOP Start 4", virtv2.VMOPPhaseFailed, false),
+		Entry("VMOP Start 1", v1alpha2.VMOPPhasePending, false),
+		Entry("VMOP Start 2", v1alpha2.VMOPPhaseInProgress, true),
+		Entry("VMOP Start 3", v1alpha2.VMOPPhaseCompleted, false),
+		Entry("VMOP Start 4", v1alpha2.VMOPPhaseFailed, false),
 
-		Entry("VMOP Stop 1", virtv2.VMOPPhasePending, false),
-		Entry("VMOP Stop 2", virtv2.VMOPPhaseInProgress, true),
-		Entry("VMOP Stop 3", virtv2.VMOPPhaseCompleted, false),
-		Entry("VMOP Stop 4", virtv2.VMOPPhaseFailed, false),
+		Entry("VMOP Stop 1", v1alpha2.VMOPPhasePending, false),
+		Entry("VMOP Stop 2", v1alpha2.VMOPPhaseInProgress, true),
+		Entry("VMOP Stop 3", v1alpha2.VMOPPhaseCompleted, false),
+		Entry("VMOP Stop 4", v1alpha2.VMOPPhaseFailed, false),
 
-		Entry("VMOP Restart 1", virtv2.VMOPPhasePending, false),
-		Entry("VMOP Restart 2", virtv2.VMOPPhaseInProgress, true),
-		Entry("VMOP Restart 3", virtv2.VMOPPhaseCompleted, false),
-		Entry("VMOP Restart 4", virtv2.VMOPPhaseFailed, false),
+		Entry("VMOP Restart 1", v1alpha2.VMOPPhasePending, false),
+		Entry("VMOP Restart 2", v1alpha2.VMOPPhaseInProgress, true),
+		Entry("VMOP Restart 3", v1alpha2.VMOPPhaseCompleted, false),
+		Entry("VMOP Restart 4", v1alpha2.VMOPPhaseFailed, false),
 	)
 })

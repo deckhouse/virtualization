@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
@@ -185,7 +185,7 @@ var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 			})
 
 			It("creates new `VirtualMachineClass`", func() {
-				vmClass := virtv2.VirtualMachineClass{}
+				vmClass := v1alpha2.VirtualMachineClass{}
 				err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				vmClass.Name = vmClassDiscoveryCopy
@@ -222,13 +222,13 @@ var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			vmClass := virtv2.VirtualMachineClass{}
+			vmClass := v1alpha2.VirtualMachineClass{}
 			err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			for _, vm := range vms {
 				By(fmt.Sprintf("Check virtual machine: %s", vm))
-				vmObj := virtv2.VirtualMachine{}
+				vmObj := v1alpha2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: ns})
 				Expect(err).NotTo(HaveOccurred())
 				ValidateVirtualMachineByClass(&vmClass, &vmObj)
@@ -246,8 +246,8 @@ var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 	})
 })
 
-func ValidateVirtualMachineByClass(virtualMachineClass *virtv2.VirtualMachineClass, virtualMachine *virtv2.VirtualMachine) {
-	var sizingPolicy virtv2.SizingPolicy
+func ValidateVirtualMachineByClass(virtualMachineClass *v1alpha2.VirtualMachineClass, virtualMachine *v1alpha2.VirtualMachine) {
+	var sizingPolicy v1alpha2.SizingPolicy
 	for _, p := range virtualMachineClass.Spec.SizingPolicies {
 		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
 			sizingPolicy = *p.DeepCopy()
@@ -262,13 +262,13 @@ func ValidateVirtualMachineByClass(virtualMachineClass *virtv2.VirtualMachineCla
 
 	coreFraction, err := strconv.Atoi(strings.ReplaceAll(virtualMachine.Spec.CPU.CoreFraction, "%", ""))
 	Expect(err).NotTo(HaveOccurred(), "cannot convert CoreFraction value to integer: %s", err)
-	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, virtv2.CoreFractionValue(coreFraction))
+	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, v1alpha2.CoreFractionValue(coreFraction))
 	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))
 }
 
 func CompareVirtualMachineClassReadyStatus(vmNamespace, vmName string, expectedStatus metav1.ConditionStatus) {
 	GinkgoHelper()
-	vm := virtv2.VirtualMachine{}
+	vm := v1alpha2.VirtualMachine{}
 	err := GetObject(kc.ResourceVM, vmName, &vm, kc.GetOptions{Namespace: vmNamespace})
 	Expect(err).NotTo(HaveOccurred(), "%v", err)
 	status, err := GetConditionStatus(&vm, vmcondition.TypeClassReady.String())

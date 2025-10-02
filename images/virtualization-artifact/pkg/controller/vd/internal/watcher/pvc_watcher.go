@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type PersistentVolumeClaimWatcher struct {
@@ -72,7 +72,7 @@ func (w PersistentVolumeClaimWatcher) Watch(mgr manager.Manager, ctr controller.
 func (w PersistentVolumeClaimWatcher) enqueueRequestsFromOwnerRefsRecursively(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	for _, ownerRef := range obj.GetOwnerReferences() {
 		switch ownerRef.Kind {
-		case virtv2.VirtualDiskKind:
+		case v1alpha2.VirtualDiskKind:
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      ownerRef.Name,

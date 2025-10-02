@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineBlockDeviceAttachmentWatcher struct{}
@@ -35,10 +35,10 @@ func NewVirtualMachineBlockDeviceAttachmentWatcher() *VirtualMachineBlockDeviceA
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineBlockDeviceAttachment]{},
-			predicate.TypedFuncs[*virtv2.VirtualMachineBlockDeviceAttachment]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineBlockDeviceAttachment]) bool {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineBlockDeviceAttachment{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineBlockDeviceAttachment]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineBlockDeviceAttachment]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineBlockDeviceAttachment]) bool {
 					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 				},
 			},

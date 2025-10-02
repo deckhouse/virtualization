@@ -19,12 +19,12 @@ package indexer
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func IndexVMMACLeaseByVMMAC() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineMACAddressLease{}, IndexFieldVMMACLeaseByVMMAC, func(object client.Object) []string {
-		lease, ok := object.(*virtv2.VirtualMachineMACAddressLease)
+	return &v1alpha2.VirtualMachineMACAddressLease{}, IndexFieldVMMACLeaseByVMMAC, func(object client.Object) []string {
+		lease, ok := object.(*v1alpha2.VirtualMachineMACAddressLease)
 		if !ok || lease == nil {
 			return nil
 		}

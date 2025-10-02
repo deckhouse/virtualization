@@ -40,7 +40,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -65,7 +65,7 @@ func NewObjectRefVirtualDisk(recorder eventrecord.EventRecorderLogger, importerS
 	}
 }
 
-func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, vdRef *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
+func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, vdRef *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, vdRef.Namespace, cvi.UID)
@@ -84,7 +84,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 			Reason(cvicondition.Ready).
 			Message("")
 
-		cvi.Status.Phase = virtv2.ImageReady
+		cvi.Status.Phase = v1alpha2.ImageReady
 
 		err = ds.importerService.Unprotect(ctx, pod)
 		if err != nil {
@@ -98,14 +98,14 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 
 		return reconcile.Result{}, nil
 	case object.IsTerminating(pod):
-		cvi.Status.Phase = virtv2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImagePending
 
 		log.Info("Cleaning up...")
 	case pod == nil:
 		ds.recorder.Event(
 			cvi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The ObjectRef DataSource import has started",
 		)
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
@@ -120,14 +120,14 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
@@ -139,11 +139,11 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = virtv2.ImageFailed
+			cvi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -159,7 +159,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 			Reason(cvicondition.Ready).
 			Message("")
 
-		cvi.Status.Phase = virtv2.ImageReady
+		cvi.Status.Phase = v1alpha2.ImageReady
 		cvi.Status.Size = ds.statService.GetSize(pod)
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
@@ -170,7 +170,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = virtv2.ImageFailed
+			cvi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
@@ -180,7 +180,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -201,7 +201,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 			Reason(cvicondition.Provisioning).
 			Message("Import is in the process of provisioning to DVCR.")
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
@@ -211,11 +211,11 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
 	return ds.importerService.DeletePod(ctx, cvi, controllerName)
 }
 
-func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(
@@ -228,20 +228,20 @@ func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, s
 	return &settings
 }
 
-func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
-	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDisk {
-		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDisk)
+func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {
+	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != v1alpha2.ClusterVirtualImageObjectRefKindVirtualDisk {
+		return fmt.Errorf("not a %s data source", v1alpha2.ClusterVirtualImageObjectRefKindVirtualDisk)
 	}
 
-	vd, err := object.FetchObject(ctx, types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}, ds.client, &virtv2.VirtualDisk{})
+	vd, err := object.FetchObject(ctx, types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}, ds.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
 	}
 
-	if vd == nil || vd.Status.Phase != virtv2.DiskReady {
+	if vd == nil || vd.Status.Phase != v1alpha2.DiskReady {
 		return NewVirtualDiskNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	}
-	if cvi.Status.Phase != virtv2.ImageReady {
+	if cvi.Status.Phase != v1alpha2.ImageReady {
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 		if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {
 			return NewVirtualDiskNotReadyForUseError(vd.Name)

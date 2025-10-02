@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -63,7 +63,7 @@ func NewCreatePersistentVolumeClaimStep(
 	}
 }
 
-func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -71,17 +71,17 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 	s.recorder.Event(
 		vi,
 		corev1.EventTypeNormal,
-		virtv2.ReasonDataSourceSyncStarted,
+		v1alpha2.ReasonDataSourceSyncStarted,
 		"The ObjectRef DataSource import has started",
 	)
 
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch virtual disk snapshot: %w", err)
 	}
 
 	if vdSnapshot == nil {
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
@@ -94,8 +94,8 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 		return nil, fmt.Errorf("fetch volume snapshot: %w", err)
 	}
 
-	if vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
-		vi.Status.Phase = virtv2.ImagePending
+	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
+		vi.Status.Phase = v1alpha2.ImagePending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
@@ -113,7 +113,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 	log, _ := logger.GetDataSourceContext(ctx, "objectref")
 	log.With("pvc.name", pvc.Name).Debug("The underlying PVC has just been created.")
 
-	if vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim || vi.Spec.Storage == virtv2.StorageKubernetes {
+	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim || vi.Spec.Storage == v1alpha2.StorageKubernetes {
 		vi.Status.Target.PersistentVolumeClaim = pvc.Name
 	}
 
@@ -123,7 +123,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 	return nil, nil
 }
 
-func (s CreatePersistentVolumeClaimStep) buildPVC(vi *virtv2.VirtualImage, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
+func (s CreatePersistentVolumeClaimStep) buildPVC(vi *v1alpha2.VirtualImage, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
 	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
 	if storageClassName == "" {
 		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
@@ -179,7 +179,7 @@ func (s CreatePersistentVolumeClaimStep) buildPVC(vi *virtv2.VirtualImage, vs *v
 				service.MakeOwnerReference(vi),
 			},
 			Finalizers: []string{
-				virtv2.FinalizerVIProtection,
+				v1alpha2.FinalizerVIProtection,
 			},
 		},
 		Spec: spec,

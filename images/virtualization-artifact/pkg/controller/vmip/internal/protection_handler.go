@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
@@ -34,8 +34,8 @@ func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
 }
 
-func (h *ProtectionHandler) Handle(_ context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error) {
-	controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+func (h *ProtectionHandler) Handle(_ context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(vmip, v1alpha2.FinalizerIPAddressCleanup)
 
 	// 1. The vmip has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
 	if vmip.GetDeletionTimestamp() == nil {
@@ -49,10 +49,10 @@ func (h *ProtectionHandler) Handle(_ context.Context, vmip *virtv2.VirtualMachin
 	}
 
 	// 3. All checks have passed, the resource can be deleted.
-	controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+	controllerutil.RemoveFinalizer(vmip, v1alpha2.FinalizerIPAddressCleanup)
 
 	// 4. Remove legacy finalizer as well. It no longer attaches to new resources, but must be removed from old ones.
-	controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
+	controllerutil.RemoveFinalizer(vmip, v1alpha2.FinalizerIPAddressProtection)
 
 	return reconcile.Result{}, nil
 }

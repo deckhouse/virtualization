@@ -6,7 +6,7 @@ package internal
 import (
 	"context"
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"sync"
 )
 
@@ -26,7 +26,7 @@ var _ MACAddressService = &MACAddressServiceMock{}
 //			GetAllocatedAddressesFunc: func(ctx context.Context) (mac.AllocatedMACs, error) {
 //				panic("mock out the GetAllocatedAddresses method")
 //			},
-//			GetLeaseFunc: func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
+//			GetLeaseFunc: func(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 //				panic("mock out the GetLease method")
 //			},
 //		}
@@ -43,7 +43,7 @@ type MACAddressServiceMock struct {
 	GetAllocatedAddressesFunc func(ctx context.Context) (mac.AllocatedMACs, error)
 
 	// GetLeaseFunc mocks the GetLease method.
-	GetLeaseFunc func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error)
+	GetLeaseFunc func(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -62,7 +62,7 @@ type MACAddressServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vmmac is the vmmac argument value.
-			Vmmac *virtv2.VirtualMachineMACAddress
+			Vmmac *v1alpha2.VirtualMachineMACAddress
 		}
 	}
 	lockAllocateNewAddress    sync.RWMutex
@@ -135,13 +135,13 @@ func (mock *MACAddressServiceMock) GetAllocatedAddressesCalls() []struct {
 }
 
 // GetLease calls GetLeaseFunc.
-func (mock *MACAddressServiceMock) GetLease(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
+func (mock *MACAddressServiceMock) GetLease(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 	if mock.GetLeaseFunc == nil {
 		panic("MACAddressServiceMock.GetLeaseFunc: method is nil but MACAddressService.GetLease was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
-		Vmmac *virtv2.VirtualMachineMACAddress
+		Vmmac *v1alpha2.VirtualMachineMACAddress
 	}{
 		Ctx:   ctx,
 		Vmmac: vmmac,
@@ -158,11 +158,11 @@ func (mock *MACAddressServiceMock) GetLease(ctx context.Context, vmmac *virtv2.V
 //	len(mockedMACAddressService.GetLeaseCalls())
 func (mock *MACAddressServiceMock) GetLeaseCalls() []struct {
 	Ctx   context.Context
-	Vmmac *virtv2.VirtualMachineMACAddress
+	Vmmac *v1alpha2.VirtualMachineMACAddress
 } {
 	var calls []struct {
 		Ctx   context.Context
-		Vmmac *virtv2.VirtualMachineMACAddress
+		Vmmac *v1alpha2.VirtualMachineMACAddress
 	}
 	mock.lockGetLease.RLock()
 	calls = mock.calls.GetLease

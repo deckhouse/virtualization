@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,14 +37,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 const createStep = "create"
 
 type VolumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 }
 
 type CreateBlankPVCStep struct {
@@ -68,7 +68,7 @@ func NewCreateBlankPVCStep(
 	}
 }
 
-func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s CreateBlankPVCStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -81,7 +81,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 		return nil, errors.New("spec.persistentVolumeClaim.size should be set for blank virtual disk")
 	}
 
-	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storev1.StorageClass{})
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return nil, fmt.Errorf("get storage class: %w", err)
 	}
@@ -101,7 +101,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 			Name:      key.Name,
 			Namespace: key.Namespace,
 			Finalizers: []string{
-				virtv2.FinalizerVDProtection,
+				v1alpha2.FinalizerVDProtection,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vd),
@@ -121,7 +121,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 		if strings.Contains(err.Error(), "exceeded quota") {
 			log.Debug("Quota exceeded during PVC creation")
 
-			vd.Status.Phase = virtv2.DiskPending
+			vd.Status.Phase = v1alpha2.DiskPending
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.QuotaExceeded).
