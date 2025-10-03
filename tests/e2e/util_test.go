@@ -347,7 +347,7 @@ func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions
 		}()
 	}
 	wg.Wait()
-	Expect(waitErr).To(BeEmpty())
+	Expect(waitErr).To(BeEmpty(), "should observe resources in '%s' state before %s timeout", opts.For, opts.Timeout.String())
 }
 
 func GetStorageClassFromEnv(envName string) (*storagev1.StorageClass, error) {
