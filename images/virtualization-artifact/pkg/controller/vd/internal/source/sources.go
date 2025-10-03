@@ -23,7 +23,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -166,7 +166,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	dv *cdiv1.DataVolume,
 	vd *v1alpha2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
-	sc *storev1.StorageClass,
+	sc *storagev1.StorageClass,
 	cb *conditions.ConditionBuilder,
 	checker CheckImportProcess,
 ) error {
@@ -357,8 +357,8 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func isStorageClassWFFC(sc *storev1.StorageClass) bool {
-	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
+func isStorageClassWFFC(sc *storagev1.StorageClass) bool {
+	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 }
 
 const (
