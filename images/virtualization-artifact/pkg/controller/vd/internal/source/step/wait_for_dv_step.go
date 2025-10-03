@@ -133,6 +133,10 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *vir
 
 	isWFFC := sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
 	if isWFFC && (s.dv.Status.Phase == cdiv1.PendingPopulation || s.dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
+		if len(vd.Status.AttachedToVirtualMachines) > 0 {
+			return false, nil
+		}
+
 		vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).
