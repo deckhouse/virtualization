@@ -187,11 +187,10 @@ wait_vm() {
 wait_vd() {
   local sleep_time=${1:-5}
   local expected_count=$2
-  local up=false
 
   while true; do
-    local VDReady=$(kubectl -n $NAMESPACE get vm | grep "Running" | wc -l)
-    local VDTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
+    local VDReady=$(kubectl -n $NAMESPACE get vd | grep "Ready" | wc -l)
+    local VDTotal=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
 
     if [ -n "$expected_count" ]; then
       if [ $VDReady -eq $expected_count ]; then
@@ -222,8 +221,7 @@ wait_vd() {
 
 wait_for_resources() {
   local resource_type=$1
-  local report_file=$2
-  local expected_count=$3
+  local expected_count=$2
   local start_time=$(get_timestamp)
   local check_interval=5 # seconds
 
@@ -250,29 +248,30 @@ wait_for_resources() {
 
 start_migration() {
   # supoprt duration format: 0m - infinite, 30s - 30 seconds, 1h - 1 hour, 2h30m - 2 hours and 30 minutes
-  local duration=${1:-"5m"}
-  local SESSION="test-perf"
+  local duration=${1:-"0m"}
+  local target=${2:-"5"}
+  local session="test-perf"
   
-  echo "Create tmux session: $SESSION"
-  tmux -2 new-session -d -s "${SESSION}"
+  echo "Create tmux session: $session"
+  tmux -2 new-session -d -s "${session}"
 
-  tmux new-window -t "$SESSION:1" -n "perf"
+  tmux new-window -t "$session:1" -n "$NAMESPACE"
   tmux split-window -h -t 0      # Pane 0 (left), Pane 1 (right)
   tmux split-window -v -t 1      # Pane 1 (top), Pane 2 (bottom)
 
   tmux select-pane -t 0
-  tmux send-keys "k9s -n perf" C-m
+  tmux send-keys "k9s -n $NAMESPACE" C-m
   tmux resize-pane -t 1 -x 50%
   
-  echo "Start migration in $SESSION, pane 1"
+  echo "Start migration in $session, pane 1"
   tmux select-pane -t 1
-  tmux send-keys "NS=perf TARGET=5 DURATION=${duration} task evicter:run:migration" C-m
+  tmux send-keys "NS=$NAMESPACE TARGET=${target} DURATION=${duration} task evicter:run:migration" C-m
   tmux resize-pane -t 1 -x 50%
 
   tmux select-pane -t 2
   tmux resize-pane -t 2 -x 50%
-  echo "For watching migration in $SESSION, connect to session with command:"
-  echo "tmux -2 attach -t ${SESSION}"
+  echo "For watching migration in $session, connect to session with command:"
+  echo "tmux -2 attach -t ${session}"
 
   echo ""
 
@@ -283,14 +282,36 @@ stop_migration() {
   tmux -2 kill-session -t "${SESSION}" || true
 }
 
+wait_migration() {
+  local timeout=${1:-"5m"}
+  local wait_migration=$( echo "$timeout" | sed 's/m//' )
+  
+  log_info "Waiting for migration to complete"
+  log_info "Duration: $timeout minutes"
+
+  while true; do
+    current_time=$(get_timestamp)
+    duration=$((current_time - start_test_pvc))
+    if [ $duration -ge $(( $wait_migration*60 )) ]; then
+      log_info "Migration timeout reached, stopping migrator"
+      stop_migration
+      log_success "Migration completed"
+      break
+    fi
+    log_info "Waiting for migration to complete"
+    log_info "Duration: $duration seconds from $(( $WAIT_MIGRATION*60 ))"
+    sleep 1
+  done
+}
+
 stop_vm() {
   local count=$1
   local sleep_time=${2:-5}
 
   local start_time=$(get_timestamp)
 
-  local scanarion_name="scenario_1_${VI_TYPE}"
-  local report_file="$REPORT_DIR/$scanarion_name/scenario_report.txt"
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
 
   if [ -z "$count" ]; then
     local vms=($(kubectl -n $NAMESPACE get vm | grep "Running" | awk '{print $1}'))
@@ -302,7 +323,7 @@ stop_vm() {
   if [ ${#vms[@]} -eq 0 ]; then
     log_warning "No running VMs found to stop"
     echo "0"
-    return
+    return 0
   fi
 
   for vm in "${vms[@]}"; do
@@ -331,7 +352,7 @@ stop_vm() {
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       formatted_duration=$(format_duration "$duration")
-      echo "" >> $report_file
+      echo "Stop vms" >> $report_file
       echo "Stop $stopped VMs time:" >> $report_file
       echo "Duration: $duration seconds" >> $report_file
       echo "Execution time: $formatted_duration" >> $report_file
@@ -359,8 +380,8 @@ start_vm() {
 
   local start_time=$(get_timestamp)
 
-  local scanarion_name="scenario_1_${VI_TYPE}"
-  local report_file="$REPORT_DIR/$scanarion_name/scenario_report.txt"
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
 
   if [ -z "$count" ]; then
     local vms=($(kubectl -n $NAMESPACE get vm | grep "Stopped" | awk '{print $1}'))
@@ -402,7 +423,7 @@ start_vm() {
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       formatted_duration=$(format_duration "$duration")
-      echo "" >> $report_file
+      echo "Start vm" >> $report_file
       echo "Start $running VMs time:" >> $report_file
       echo "Duration: $duration seconds" >> $report_file
       echo "Execution time: $formatted_duration" >> $report_file
@@ -426,16 +447,40 @@ start_vm() {
 
 undeploy_resources() {
   local sleep_time=${1:-5}
+  local start_time=$(get_timestamp)
+  local VDTotal
+  local VMTotal
+  local VMITotal
+
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+
+  echo "undeploy_resources" >> $report_file
+  echo "Undeploy all VMs and disks" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
+
+  log_info "Undeploy all VMs and disks"
+
   task destroy:all
   
   while true; do
     VDTotal=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
     VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
+    VMITotal=$(kubectl -n $NAMESPACE get vi -o name | wc -l)
     
-    if [ $VDTotal -eq 0 ] && [ $VMTotal -eq 0 ]; then
+    if [ $VDTotal -eq 0 ] && [ $VMTotal -eq 0 ] && [ $VMITotal -eq 0 ]; then
+      local end_time=$(get_timestamp)
+      local duration=$((end_time - start_time))
+      local formatted_duration=$(format_duration "$duration")
+      echo "End time: $(formatted_date $end_time)" >> $report_file
+      echo "Duration: $duration seconds" >> $report_file
+      echo "Execution time: $formatted_duration" >> $report_file
+      echo "" >> $report_file
+
       echo "All vms and vds are destroyed"
-      log_info "$(formatted_date $(date +%s))"
-      echo ""
+      log_info "Duration: $duration seconds"
+      log_info "Execution time: $formatted_duration"
+      log_info ""
       break
     fi
 
@@ -455,10 +500,10 @@ deploy_vms_with_disks() {
   local vi_type=$2
   local start_time=$(get_timestamp)
 
-  local scanarion_name="scenario_1_${VI_TYPE}"
-  local report_file="$REPORT_DIR/$scanarion_name/scenario_report.txt"
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
 
-  echo "Scenario 1" > $report_file
+  echo "deploy_vms_with_disks" >> $report_file
   echo "Deploying $count VMs with disks from $vi_type" >> $report_file
   echo "Start time: $(formatted_date $start_time)" >> $report_file
   
@@ -478,7 +523,7 @@ deploy_vms_with_disks() {
   echo "End time: $(formatted_date $end_time)" >> $report_file
   
   local duration=$((end_time - start_time))
-  formatted_duration=$(format_duration "$duration")
+  local formatted_duration=$(format_duration "$duration")
   echo "Duration: $duration seconds" >> $report_file
   echo "Execution time: $formatted_duration" >> $report_file
 
@@ -493,8 +538,12 @@ deploy_disks_only() {
   local vi_type=$2
   local start_time=$(get_timestamp)
 
-  local scanarion_name="scenario_1_${VI_TYPE}"
-  local report_file="$REPORT_DIR/$scanarion_name/scenario_report.txt"
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+  
+  echo "deploy_disks_only" >> $report_file
+  echo "Deploying $count VDs with type $vi_type" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
   
   log_info "Deploying $count disks from $vi_type"
   
@@ -505,15 +554,116 @@ deploy_disks_only() {
       VIRTUALDISK_TYPE=virtualDisk \
       VIRTUALIMAGE_TYPE=$vi_type
   
-  wait_for_resources "vd" $count
+  wait_vd $SLEEP_TIME
   
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$duration")
+  echo "End time: $(formatted_date $end_time)" >> $report_file
+  echo "Duration: $duration seconds" >> $report_file
+  echo "Execution time: $formatted_duration" >> $report_file
+  echo "" >> $report_file
   
   log_success "Deployed $count disks in $(format_duration $duration)"
   echo "$duration"
 }
 
+deploy_vms_only() {
+  local count=$1
+  local start_time=$(get_timestamp)
+
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+
+  echo "deploy_vms_only" >> $report_file
+  echo "Deploying $count VDs with type $vi_type" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
+
+  log_info "Deploying $count VMs (disks already exist)"
+  
+  task apply:vms \
+      COUNT=$count \
+      NAMESPACE=$NAMESPACE
+  
+  # wait_for_resources "vm" $count
+  wait_vm $SLEEP_TIME
+  
+  local end_time=$(get_timestamp)
+  local duration=$((end_time - start_time))
+
+  local end_time=$(get_timestamp)
+  local duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$duration")
+  echo "End time: $(formatted_date $end_time)" >> $report_file
+  echo "Duration: $duration seconds" >> $report_file
+  echo "Execution time: $formatted_duration" >> $report_file
+  echo "" >> $report_file
+  
+  log_success "Deployed $count VMs in $(format_duration $duration)"
+  echo "$duration"
+}
+
+stop_virtualization_controller() {
+  local start_time=$(get_timestamp)
+
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+
+  echo "start_virtualization_controller" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
+
+  kubectl -n d8-virtualization scale --replicas 0 deployment virtualization-controller
+  while true; do
+    count_pods=$(kubectl -n d8-virtualization get pods | grep virtualization-controller | wc -l)
+    if [ $count_pods -eq 0 ]; then
+      local end_time=$(get_timestamp)
+      local duration=$((end_time - start_time))
+
+      local end_time=$(get_timestamp)
+      local duration=$((end_time - start_time))
+      local formatted_duration=$(format_duration "$duration")
+      echo "End time: $(formatted_date $end_time)" >> $report_file
+      echo "Duration: $duration seconds" >> $report_file
+      echo "Execution time: $formatted_duration" >> $report_file
+      echo "" >> $report_file
+      break
+    fi
+    echo "Waiting for virtualization-controller to be stopped..."
+    echo "Pods to stop: $count_pods"
+    sleep 2
+  done
+}
+
+start_virtualization_controller() {
+  local start_time=$(get_timestamp)
+
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+
+  echo "start_virtualization_controller" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
+
+  kubectl -n d8-virtualization scale --replicas 1 deployment virtualization-controller
+  while true; do
+    count_pods=$(kubectl -n d8-virtualization get pods | grep virtualization-controller | grep "Running"| wc -l)
+    if [ $count_pods -ge 1 ]; then
+      local end_time=$(get_timestamp)
+      local duration=$((end_time - start_time))
+
+      local end_time=$(get_timestamp)
+      local duration=$((end_time - start_time))
+      local formatted_duration=$(format_duration "$duration")
+      echo "End time: $(formatted_date $end_time)" >> $report_file
+      echo "Duration: $duration seconds" >> $report_file
+      echo "Execution time: $formatted_duration" >> $report_file
+      echo "" >> $report_file
+      break
+    fi
+    echo "Waiting for virtualization-controller to be started..."
+    echo "Pods to start: $count_pods"
+    sleep 2
+  done
+}
 
 # === Test cases ===
 RESCOUNT=5
@@ -522,60 +672,187 @@ WAIT_MIGRATION=$( echo "$MIGRATION_DURATION" | sed 's/m//' )
 
 # cd ..
 remove_report_dir
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
 undeploy_resources
 stop_migration
 
+# prepare for tests
+remove_report_dir
+
 VI_TYPE="persistentVolumeClaim" # containerRegistry, persistentVolumeClaim
-create_report_dir "scenario_1_${VI_TYPE}/statistics"
-
-#======== pvc ===
+# #======== pvc ===
+# All vms CSSD
+SN=1
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
 deploy_vms_with_disks $RESCOUNT $VI_TYPE
-gather_all_statistics "$REPORT_DIR/scenario_1_${VI_TYPE}/statistics"
-
-start_test_pvc=$(get_timestamp)
-start_migration "$MIGRATION_DURATION"
-
-stop_vm 3
-start_vm 3
-while true; do
-  current_time=$(get_timestamp)
-  duration=$((current_time - start_test_pvc))
-  if [ $duration -ge $(( $WAIT_MIGRATION*60 )) ]; then
-    stop_migration
-    break
-  fi
-  log_info "Waiting for migration to complete"
-  log_info "Duration: $duration seconds from $(( $WAIT_MIGRATION*60 ))"
-  sleep 1
-done
-
+gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+stop_vm
+start_vm
 undeploy_resources
-#=========
+log_success "Done with scenario ${SN}"
 
-VI_TYPE="containerRegistry"
-create_report_dir "scenario_1_${VI_TYPE}/statistics"
+log_info "Wait 10 seconds"
+sleep 10
+echo ""
 
-#==== registry === 
+SN=2
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+deploy_disks_only $RESCOUNT $VI_TYPE
+gather_vd_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+deploy_vms_only $RESCOUNT $VI_TYPE
+gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+stop_vm
+start_vm
+undeploy_resources
+log_success "Done with scenario ${SN}"
+
+log_info "Wait 10 seconds"
+sleep 10
+echo ""
+
+SN=3
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+COUNT_SCENARIO_3=2
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
 deploy_vms_with_disks $RESCOUNT $VI_TYPE
-gather_all_statistics "$REPORT_DIR/scenario_1_${VI_TYPE}/statistics"
-
-start_test_pvc=$(get_timestamp)
-start_migration "$MIGRATION_DURATION"
-
-stop_vm 2
-start_vm 2
-while true; do
-  current_time=$(get_timestamp)
-  duration=$((current_time - start_test_pvc))
-  if [ $duration -ge $(( $WAIT_MIGRATION*60 )) ]; then
-    stop_migration
-    break
-  fi
-  log_info "Waiting for migration to complete"
-  log_info "Duration: $duration seconds from $(( $WAIT_MIGRATION*60 ))"
-  sleep 1
-done
+start_migration #infinite
+deploy_vms_with_disks $COUNT_SCENARIO_3 $VI_TYPE
+stop_vm $COUNT_SCENARIO_3
+start_vm $COUNT_SCENARIO_3
+wait_migration "2m"
 undeploy_resources
-#====
+log_success "Done with scenario ${SN}"
 
-log_success "Done"
+log_info "Wait 10 seconds"
+sleep 10
+echo ""
+
+SN=4
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+COUNT_SCENARIO_4=2
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+deploy_vms_with_disks $RESCOUNT $VI_TYPE
+start_migration #infinite
+deploy_disks_only $RESCOUNT $VI_TYPE
+deploy_vms_only $RESCOUNT $VI_TYPE
+gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+stop_vm $COUNT_SCENARIO_4
+start_vm $COUNT_SCENARIO_4
+wait_migration "2m"
+undeploy_resources
+log_success "Done with scenario ${SN}"
+
+log_info "Wait 10 seconds"
+sleep 10
+echo ""
+
+SN=5
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+deploy_vms_with_disks $RESCOUNT $VI_TYPE
+start_migration "2m" "10"
+# need calculate duration
+# NS=$NAMESPACE TARGET=${target} DURATION=${duration} task evicter:run:migration
+undeploy_resources
+log_success "Done with scenario ${SN}"
+
+log_info "Wait 10 seconds"
+sleep 10
+echo ""
+
+SN=6
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+deploy_vms_with_disks $RESCOUNT $VI_TYPE
+stop_vm $RESCOUNT
+start_vm $RESCOUNT
+undeploy_resources
+log_success "Done with scenario ${SN}"
+
+log_info "Wait 10 seconds"
+sleep 10
+echo ""
+
+SN=7
+log_info "Start scenario ${SN}"
+SCENARIO="scenario_${SN}_"
+COUNT_SCENARIO_4=1
+create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+deploy_vms_with_disks $RESCOUNT $VI_TYPE
+stop_virtualization_controller
+sn7_start_time=$(get_timestamp)
+start_virtualization_controller
+deploy_vms_with_disks $COUNT_SCENARIO_4 $VI_TYPE
+gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+undeploy_resources
+log_success "Done with scenario ${SN}"
+
+
+
+# start_test_pvc=$(get_timestamp)
+# start_migration "$MIGRATION_DURATION"
+
+# stop_vm 3
+# start_vm 3
+# while true; do
+#   current_time=$(get_timestamp)
+#   duration=$((current_time - start_test_pvc))
+#   if [ $duration -ge $(( $WAIT_MIGRATION*60 )) ]; then
+#     stop_migration
+#     break
+#   fi
+#   log_info "Waiting for migration to complete"
+#   log_info "Duration: $duration seconds from $(( $WAIT_MIGRATION*60 ))"
+#   sleep 1
+# done
+
+# undeploy_resources
+# #=========
+
+# VI_TYPE="containerRegistry"
+# create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+
+# #==== registry === 
+# deploy_vms_with_disks $RESCOUNT $VI_TYPE
+# gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+
+# start_test_pvc=$(get_timestamp)
+# start_migration "$MIGRATION_DURATION"
+
+# stop_vm 2
+# start_vm 2
+# while true; do
+#   current_time=$(get_timestamp)
+#   duration=$((current_time - start_test_pvc))
+#   if [ $duration -ge $(( $WAIT_MIGRATION*60 )) ]; then
+#     stop_migration
+#     break
+#   fi
+#   log_info "Waiting for migration to complete"
+#   log_info "Duration: $duration seconds from $(( $WAIT_MIGRATION*60 ))"
+#   sleep 1
+# done
+# undeploy_resources
+# #====
+
+# deploy_disks_only $RESCOUNT $VI_TYPE
+# gather_vd_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+
+# deploy_vms_only $RESCOUNT $VI_TYPE
+# gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+
+
+# start_migration "$MIGRATION_DURATION"
+
+# stop_vm 2
+# start_vm 2
+# wait_migration $WAIT_MIGRATION
+# log_success "Done"
