@@ -43,6 +43,6 @@ dirs:
   - /var/lib/libvirt/qemu/nvram
   - /var/lib/kubevirt-node-labeller
   - /var/lib/swtpm-localca
-  - /var/log
+  - /var/log/libvirt
   - /path # For hot-plugged disks, used in "hp Pods".
   - /init/usr/bin # For attaching images as "container disks".
