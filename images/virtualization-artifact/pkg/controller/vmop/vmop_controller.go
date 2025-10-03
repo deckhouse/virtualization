@@ -83,7 +83,7 @@ func SetupController(
 
 	if err := builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineOperation{}).
-		WithValidator(NewValidator(log)).
+		WithValidator(NewValidator(mgr.GetClient(), log)).
 		Complete(); err != nil {
 		return err
 	}

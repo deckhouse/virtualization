@@ -19,7 +19,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"os"
 	"slices"
 	"time"
 
@@ -33,13 +32,12 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/object"
 	"github.com/deckhouse/virtualization/tests/e2e/util"
 )
 
-var _ = SIGDescribe("Volume migration when storage class changed", framework.CommonE2ETestDecorators(), func() {
+var _ = SIGDescribe("StorageClassMigration", framework.CommonE2ETestDecorators(), func() {
 	var (
 		f                = framework.NewFramework("volume-migration-storage-class-changed")
 		storageClass     *storagev1.StorageClass
@@ -56,22 +54,19 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 			Skip("TemplateStorageClass is not set.")
 		}
 
-		if env, ok := os.LookupEnv(config.E2EVolumeMigrationNextStorageClassEnv); ok {
-			nextStorageClass = env
-		} else {
-			scList, err := f.KubeClient().StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
+		scList, err := f.KubeClient().StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+		Expect(err).NotTo(HaveOccurred())
 
-			for _, sc := range scList.Items {
-				if sc.Name == storageClass.Name {
-					continue
-				}
-				if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
-					nextStorageClass = sc.Name
-					break
-				}
+		for _, sc := range scList.Items {
+			if sc.Name == storageClass.Name {
+				continue
+			}
+			if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+				nextStorageClass = sc.Name
+				break
 			}
 		}
+
 		if nextStorageClass == "" {
 			Skip("No available storage class for test")
 		}
@@ -81,7 +76,7 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 		DeferCleanup(f.After)
 
 		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-storage-class-changed-")
-		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
+		newVI, err = f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
 		vi = newVI
@@ -141,13 +136,8 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Patch VD with new storage class")
-		patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", nextStorageClass)).Bytes()
+		err = PatchStorageClassName(context.Background(), f, nextStorageClass, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
-
-		for _, vdForMigration := range vdsForMigration {
-			_, err = f.VirtClient().VirtualDisks(vdForMigration.GetNamespace()).Patch(context.Background(), vdForMigration.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			Expect(err).NotTo(HaveOccurred())
-		}
 
 		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
@@ -194,13 +184,8 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Patch VD with new storage class")
-		patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", nextStorageClass)).Bytes()
+		err = PatchStorageClassName(context.Background(), f, nextStorageClass, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
-
-		for _, vdForMigration := range vdsForMigration {
-			_, err = f.VirtClient().VirtualDisks(vdForMigration.GetNamespace()).Patch(context.Background(), vdForMigration.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-			Expect(err).NotTo(HaveOccurred())
-		}
 
 		Eventually(func() error {
 			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
@@ -215,16 +200,8 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 			}
 
 			// revert migration
-			patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", storageClass.Name)).Bytes()
-			if err != nil {
-				return err
-			}
-			for _, vdForMigration := range vdsForMigration {
-				_, err = f.VirtClient().VirtualDisks(vm.GetNamespace()).Patch(context.Background(), vdForMigration.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-				if err != nil {
-					return err
-				}
-			}
+			err = PatchStorageClassName(context.Background(), f, storageClass.Name, vdsForMigration...)
+			Expect(err).NotTo(HaveOccurred())
 
 			return nil
 		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
@@ -242,15 +219,14 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 
 		vm, vds := storageClassMigrationRootAndAdditionalBuild()
 
-		vm, err := f.VirtClient().VirtualMachines(ns).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		f.DeferDelete(vm)
-
+		objs := []crclient.Object{vm}
 		for _, vd := range vds {
-			_, err := f.VirtClient().VirtualDisks(ns).Create(context.Background(), vd, metav1.CreateOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			f.DeferDelete(vd)
+			objs = append(objs, vd)
 		}
+
+		f.DeferDelete(objs...)
+		err := f.BatchCreate(context.Background(), objs...)
+		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
@@ -260,36 +236,34 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 		toStorageClasses := []string{nextStorageClass, storageClass.Name}
 
 		for _, sc := range toStorageClasses {
-			By("Patch VD with new storage class")
-			patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", sc)).Bytes()
-			Expect(err).NotTo(HaveOccurred())
+			By(fmt.Sprintf("Patch VD %s with new storage class %s", vdForMigration.Name, sc))
 
-			_, err = f.VirtClient().VirtualDisks(vdForMigration.GetNamespace()).Patch(context.Background(), vdForMigration.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			err = PatchStorageClassName(context.Background(), f, sc, vdForMigration)
 			Expect(err).NotTo(HaveOccurred())
-
-			var lastVMOP *v1alpha2.VirtualMachineOperation
-			vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(context.Background(), metav1.ListOptions{})
-			Expect(err).NotTo(HaveOccurred())
-			for _, vmop := range vmops.Items {
-				if vmop.Spec.VirtualMachine == vm.Name {
-					if lastVMOP == nil {
-						lastVMOP = &vmop
-						continue
-					}
-					if vmop.CreationTimestamp.After(lastVMOP.CreationTimestamp.Time) {
-						lastVMOP = &vmop
-						continue
-					}
-				}
-			}
 
 			Eventually(func() error {
-				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), lastVMOP.Name, metav1.GetOptions{})
-				if err != nil {
-					return err
+				var lastVMOP *v1alpha2.VirtualMachineOperation
+				vmops, err := f.VirtClient().VirtualMachineOperations(ns).List(context.Background(), metav1.ListOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, vmop := range vmops.Items {
+					if vmop.Spec.VirtualMachine == vm.Name {
+						if lastVMOP == nil {
+							lastVMOP = &vmop
+							continue
+						}
+						if vmop.CreationTimestamp.After(lastVMOP.CreationTimestamp.Time) {
+							lastVMOP = &vmop
+							continue
+						}
+					}
 				}
 
-				if vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted {
+				if lastVMOP == nil {
+					return fmt.Errorf("lastVMOP is not found")
+				}
+
+				if lastVMOP.Status.Phase == v1alpha2.VMOPPhaseCompleted {
 					return nil
 				}
 
@@ -311,3 +285,19 @@ var _ = SIGDescribe("Volume migration when storage class changed", framework.Com
 		}
 	})
 })
+
+func PatchStorageClassName(ctx context.Context, f *framework.Framework, scName string, vds ...*v1alpha2.VirtualDisk) error {
+	patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", scName)).Bytes()
+	if err != nil {
+		return fmt.Errorf("new json patch: %w", err)
+	}
+
+	for _, vd := range vds {
+		_, err = f.VirtClient().VirtualDisks(vd.GetNamespace()).Patch(ctx, vd.GetName(), types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("patch vd %s %s: %w", vd.Name, string(patchBytes), err)
+		}
+	}
+
+	return nil
+}

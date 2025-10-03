@@ -93,8 +93,8 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 				}
 
 				for _, bd := range vm.Status.BlockDeviceRefs {
-					if bd.Kind == v1alpha2.DiskDevice && bd.Name == oldVD.Name && bd.Hotplugged {
-						return nil, errors.New("storage class cannot be changed if the VirtualDisk is hotplugged to a running virtual machine")
+					if bd.Hotplugged {
+						return nil, errors.New("for now, changing the storage class is not allowed if the virtual machine has hot-plugged block devices")
 					}
 				}
 			} else {
