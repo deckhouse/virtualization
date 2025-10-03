@@ -45,7 +45,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -78,7 +78,7 @@ func NewHTTPDataSource(
 	}
 }
 
-func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, httpDataSource)
 
 	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
@@ -86,15 +86,15 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	supgen := vdsupplements.NewGenerator(vd)
-	pod, err := ds.importerService.GetPod(ctx, supgen.Generator)
+	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen.Generator)
+	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -117,21 +117,21 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen.Generator)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, supgen.Generator, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, supgen.Generator, dv)
+		err = ds.diskService.Unprotect(ctx, supgen, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -143,13 +143,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
+			virtv2.ReasonDataSourceSyncStarted,
 			"The HTTP DataSource import to DVCR has started",
 		)
 
 		vd.Status.Progress = "0%"
 
-		envSettings := ds.getEnvSettings(vd, supgen.Generator)
+		envSettings := ds.getEnvSettings(vd, supgen)
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -158,19 +158,19 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen.Generator, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
+		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
 		switch {
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = v1alpha2.DiskProvisioning
+		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -185,12 +185,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			return reconcile.Result{}, setPhaseConditionFromPodError(ctx, err, pod, vd, cb, ds.client)
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = v1alpha2.DiskProvisioning
+		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -202,17 +202,17 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
+			virtv2.ReasonDataSourceSyncStarted,
 			"The HTTP DataSource import to PVC has started",
 		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vd.Status.Phase = v1alpha2.DiskFailed
+			vd.Status.Phase = virtv2.DiskFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningFailed).
@@ -243,7 +243,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 
-		source := ds.getSource(supgen.Generator, ds.statService.GetDVCRImageName(pod))
+		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -257,7 +257,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = v1alpha2.DiskProvisioning
+		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -265,9 +265,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Phase = virtv2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
-			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 		}
 		cb.
 			Status(metav1.ConditionFalse).
@@ -275,9 +275,9 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			Message(dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Phase = virtv2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
-			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 		}
 		cb.
 			Status(metav1.ConditionFalse).
@@ -286,7 +286,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
-		vd.Status.Phase = v1alpha2.DiskProvisioning
+		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -298,11 +298,11 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncCompleted,
+			virtv2.ReasonDataSourceSyncCompleted,
 			"The HTTP DataSource import has completed",
 		)
 
-		vd.Status.Phase = v1alpha2.DiskReady
+		vd.Status.Phase = virtv2.DiskReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Ready).
@@ -321,7 +321,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 
-		err = ds.diskService.Protect(ctx, supgen.Generator, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -342,15 +342,15 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds HTTPDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds HTTPDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen.Generator)
+	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
+	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
@@ -358,19 +358,19 @@ func (ds HTTPDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) 
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds HTTPDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualDisk) error {
+func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
 	return nil
 }
 
-func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen.Generator)
+	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen.Generator)
+	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -386,7 +386,7 @@ func (ds HTTPDataSource) Name() string {
 	return httpDataSource
 }
 
-func (ds HTTPDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vd.Spec.DataSource.HTTP, supgen)
@@ -400,7 +400,7 @@ func (ds HTTPDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen *supple
 	return &settings
 }
 
-func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
@@ -417,7 +417,7 @@ func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageNa
 	}
 }
 
-func (ds HTTPDataSource) getPVCSize(vd *v1alpha2.VirtualDisk, pod *corev1.Pod) (resource.Quantity, error) {
+func (ds HTTPDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod) (resource.Quantity, error) {
 	// Get size from the importer Pod to detect if specified PVC size is enough.
 	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
 	if err != nil {

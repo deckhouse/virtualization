@@ -95,7 +95,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 		cvi.Status.Phase = v1alpha2.ImageReady
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -200,7 +200,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 			}
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -235,7 +235,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *v1alpha2.ClusterVirtualI
 	return nil
 }
 
-func (ds HTTPDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, cvi.Spec.DataSource.HTTP, supgen)

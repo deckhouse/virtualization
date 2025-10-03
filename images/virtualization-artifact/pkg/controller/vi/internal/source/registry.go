@@ -117,7 +117,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 		}
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -171,7 +171,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.Virtua
 
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -310,7 +310,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtu
 
 		vi.Status.Phase = v1alpha2.ImageReady
 
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -439,7 +439,7 @@ func (ds RegistryDataSource) Validate(ctx context.Context, vi *v1alpha2.VirtualI
 	return nil
 }
 
-func (ds RegistryDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{
@@ -495,7 +495,7 @@ func (ds RegistryDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, err
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds RegistryDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

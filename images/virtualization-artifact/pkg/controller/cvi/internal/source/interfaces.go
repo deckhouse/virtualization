@@ -30,31 +30,31 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Importer Uploader Stat
 
 type Importer interface {
-	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	DeletePod(ctx context.Context, obj client.Object, controllerName string) (bool, error)
-	Protect(ctx context.Context, pod *corev1.Pod) error
-	Unprotect(ctx context.Context, pod *corev1.Pod) error
-	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
+	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	DeletePod(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error)
+	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
+	Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
+	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
 }
 
 type Uploader interface {
-	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error)
-	GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error)
-	Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
-	Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
+	Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
 	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
 }
@@ -62,9 +62,9 @@ type Uploader interface {
 type Stat interface {
 	GetFormat(pod *corev1.Pod) string
 	GetCDROM(pod *corev1.Pod) bool
-	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
+	GetSize(pod *corev1.Pod) virtv2.ImageStatusSize
 	GetDVCRImageName(pod *corev1.Pod) string
-	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
+	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool

@@ -34,12 +34,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type CreateBounderPodStepBounder interface {
-	Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...service.Option) error
+	Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...service.Option) error
 }
 
 type CreateBounderPodStep struct {
@@ -66,7 +66,7 @@ func NewCreateBounderPodStep(
 	}
 }
 
-func (s CreateBounderPodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
+func (s CreateBounderPodStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
 	if s.pvc == nil {
 		return nil, nil
 	}
@@ -89,7 +89,7 @@ func (s CreateBounderPodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImag
 	case err == nil:
 		// OK.
 	case common.ErrQuotaExceeded(err):
-		s.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+		s.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 		return setQuotaExceededPhaseCondition(s.cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 	default:
 		setPhaseConditionToFailed(s.cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))

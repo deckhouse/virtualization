@@ -73,7 +73,7 @@ func (s BaseStorageClassService) GetStorageClass(ctx context.Context, scName str
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }
 
-func (s BaseStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (s BaseStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, pvc)
 }

@@ -21,15 +21,17 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var _ supplements.Generator = &VirtualDiskGenerator{}
+
 type VirtualDiskGenerator struct {
-	*supplements.Generator
+	supplements.Generator
 	claimName string
 }
 
-func NewGenerator(vd *v1alpha2.VirtualDisk) *VirtualDiskGenerator {
+func NewGenerator(vd *virtv2.VirtualDisk) *VirtualDiskGenerator {
 	return &VirtualDiskGenerator{
 		Generator: supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID),
 		claimName: vd.Status.Target.PersistentVolumeClaim,
@@ -46,7 +48,7 @@ func (g *VirtualDiskGenerator) DataVolume() types.NamespacedName {
 
 func (g *VirtualDiskGenerator) PersistentVolumeClaim() types.NamespacedName {
 	return types.NamespacedName{
-		Namespace: g.Namespace,
+		Namespace: g.Namespace(),
 		Name:      g.claimName,
 	}
 }

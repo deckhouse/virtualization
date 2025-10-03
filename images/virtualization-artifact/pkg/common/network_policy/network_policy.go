@@ -26,13 +26,10 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
 
-type SupplementGenerator interface {
-	NetworkPolicy() types.NamespacedName
-}
-
-func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup SupplementGenerator, finalizer string) error {
+func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.DataVolumeSupplement, finalizer string) error {
 	npName := sup.NetworkPolicy()
 	networkPolicy := netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -64,10 +61,24 @@ func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object
 	return client.IgnoreAlreadyExists(err)
 }
 
-func GetNetworkPolicy(ctx context.Context, client client.Client, name types.NamespacedName) (*netv1.NetworkPolicy, error) {
+func GetNetworkPolicy(ctx context.Context, client client.Client, name types.NamespacedName, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
+	np, err := object.FetchObject(ctx, sup.NetworkPolicy(), client, &netv1.NetworkPolicy{})
+	if err != nil {
+		return nil, err
+	}
+	if np != nil {
+		return np, nil
+	}
 	return object.FetchObject(ctx, name, client, &netv1.NetworkPolicy{})
 }
 
-func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, obj client.Object) (*netv1.NetworkPolicy, error) {
+func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, obj client.Object, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
+	np, err := object.FetchObject(ctx, sup.NetworkPolicy(), client, &netv1.NetworkPolicy{})
+	if err != nil {
+		return nil, err
+	}
+	if np != nil {
+		return np, nil
+	}
 	return object.FetchObject(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, client, &netv1.NetworkPolicy{})
 }

@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Generator", func() {
 	var (
-		gen       *Generator
+		gen       Generator
 		prefix    string
 		namespace string
 		uid       types.UID
@@ -41,7 +41,7 @@ var _ = Describe("Generator", func() {
 
 	Context("Name shortening", func() {
 		DescribeTable("should handle short names without truncation",
-			func(method func(*Generator) types.NamespacedName, expectedPrefix string) {
+			func(method func(Generator) types.NamespacedName, expectedPrefix string) {
 				name := "test-image"
 				gen = NewGenerator(prefix, name, namespace, uid)
 				result := method(gen)
@@ -51,24 +51,24 @@ var _ = Describe("Generator", func() {
 				Expect(result.Name).To(ContainSubstring(name))
 				Expect(result.Name).To(HaveSuffix(string(uid)))
 			},
-			Entry("DVCRAuthSecret", (*Generator).DVCRAuthSecret, "dvcr-auth"),
-			Entry("DVCRAuthSecretForDV", (*Generator).DVCRAuthSecretForDV, "dvcr-auth"),
-			Entry("DVCRCABundleConfigMapForDV", (*Generator).DVCRCABundleConfigMapForDV, "dvcr-ca"),
-			Entry("CABundleConfigMap", (*Generator).CABundleConfigMap, "ca"),
-			Entry("ImagePullSecret", (*Generator).ImagePullSecret, "pull-image"),
-			Entry("ImporterPod", (*Generator).ImporterPod, "importer"),
-			Entry("BounderPod", (*Generator).BounderPod, "bounder"),
-			Entry("UploaderPod", (*Generator).UploaderPod, "uploader"),
-			Entry("UploaderService", (*Generator).UploaderService, "vi"),
-			Entry("UploaderIngress", (*Generator).UploaderIngress, "vi"),
-			Entry("UploaderTLSSecret", (*Generator).UploaderTLSSecretForIngress, "tls"),
-			Entry("DataVolume", (*Generator).DataVolume, "vi"),
-			Entry("PersistentVolumeClaim", (*Generator).PersistentVolumeClaim, "vi"),
-			Entry("NetworkPolicy", (*Generator).NetworkPolicy, "vi"),
+			Entry("DVCRAuthSecret", func(g Generator) types.NamespacedName { return g.DVCRAuthSecret() }, "dvcr-auth"),
+			Entry("DVCRAuthSecretForDV", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForDV() }, "dvcr-auth"),
+			Entry("DVCRCABundleConfigMapForDV", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForDV() }, "dvcr-ca"),
+			Entry("CABundleConfigMap", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, "ca"),
+			Entry("ImagePullSecret", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, "pull-image"),
+			Entry("ImporterPod", func(g Generator) types.NamespacedName { return g.ImporterPod() }, "importer"),
+			Entry("BounderPod", func(g Generator) types.NamespacedName { return g.BounderPod() }, "bounder"),
+			Entry("UploaderPod", func(g Generator) types.NamespacedName { return g.UploaderPod() }, "uploader"),
+			Entry("UploaderService", func(g Generator) types.NamespacedName { return g.UploaderService() }, "vi"),
+			Entry("UploaderIngress", func(g Generator) types.NamespacedName { return g.UploaderIngress() }, "vi"),
+			Entry("UploaderTLSSecret", func(g Generator) types.NamespacedName { return g.UploaderTLSSecretForIngress() }, "tls"),
+			Entry("DataVolume", func(g Generator) types.NamespacedName { return g.DataVolume() }, "vi"),
+			Entry("PersistentVolumeClaim", func(g Generator) types.NamespacedName { return g.PersistentVolumeClaim() }, "vi"),
+			Entry("NetworkPolicy", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, "vi"),
 		)
 
 		DescribeTable("should truncate long names to respect limits",
-			func(method func(*Generator) types.NamespacedName, maxLength int) {
+			func(method func(Generator) types.NamespacedName, maxLength int) {
 				name := strings.Repeat("very-long-resource-name-", 30)
 				gen = NewGenerator(prefix, name, namespace, uid)
 				result := method(gen)
@@ -77,20 +77,20 @@ var _ = Describe("Generator", func() {
 				Expect(result.Name).To(HavePrefix("d8v-"))
 				Expect(result.Name).To(ContainSubstring(string(uid)))
 			},
-			Entry("DVCRAuthSecret - 253 limit", (*Generator).DVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("DVCRAuthSecretForDV - 253 limit", (*Generator).DVCRAuthSecretForDV, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("DVCRCABundleConfigMapForDV - 253 limit", (*Generator).DVCRCABundleConfigMapForDV, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("CABundleConfigMap - 253 limit", (*Generator).CABundleConfigMap, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("ImagePullSecret - 253 limit", (*Generator).ImagePullSecret, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("ImporterPod - 253 limit", (*Generator).ImporterPod, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("BounderPod - 253 limit", (*Generator).BounderPod, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("UploaderPod - 253 limit", (*Generator).UploaderPod, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("UploaderService - 63 limit", (*Generator).UploaderService, kvalidation.DNS1123LabelMaxLength),
-			Entry("UploaderIngress - 253 limit", (*Generator).UploaderIngress, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("UploaderTLSSecret - 253 limit", (*Generator).UploaderTLSSecretForIngress, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("DataVolume - 253 limit", (*Generator).DataVolume, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("PersistentVolumeClaim - 253 limit", (*Generator).PersistentVolumeClaim, kvalidation.DNS1123SubdomainMaxLength),
-			Entry("NetworkPolicy - 253 limit", (*Generator).NetworkPolicy, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("DVCRAuthSecret - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRAuthSecret() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("DVCRAuthSecretForDV - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForDV() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("DVCRCABundleConfigMapForDV - 253 limit", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForDV() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("CABundleConfigMap - 253 limit", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("ImagePullSecret - 253 limit", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("ImporterPod - 253 limit", func(g Generator) types.NamespacedName { return g.ImporterPod() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("BounderPod - 253 limit", func(g Generator) types.NamespacedName { return g.BounderPod() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("UploaderPod - 253 limit", func(g Generator) types.NamespacedName { return g.UploaderPod() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("UploaderService - 63 limit", func(g Generator) types.NamespacedName { return g.UploaderService() }, kvalidation.DNS1123LabelMaxLength),
+			Entry("UploaderIngress - 253 limit", func(g Generator) types.NamespacedName { return g.UploaderIngress() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("UploaderTLSSecret - 253 limit", func(g Generator) types.NamespacedName { return g.UploaderTLSSecretForIngress() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("DataVolume - 253 limit", func(g Generator) types.NamespacedName { return g.DataVolume() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("PersistentVolumeClaim - 253 limit", func(g Generator) types.NamespacedName { return g.PersistentVolumeClaim() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("NetworkPolicy - 253 limit", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, kvalidation.DNS1123SubdomainMaxLength),
 		)
 	})
 })

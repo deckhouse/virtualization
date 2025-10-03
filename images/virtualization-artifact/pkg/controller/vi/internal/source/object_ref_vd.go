@@ -99,7 +99,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 
 		vi.Status.Phase = v1alpha2.ImageReady
 
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -193,7 +193,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 			}
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -411,7 +411,7 @@ func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.Virtual
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup *supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

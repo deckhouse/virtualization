@@ -21,7 +21,9 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -30,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -49,7 +51,7 @@ func NewObjectRefVirtualImage(
 	}
 }
 
-func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
@@ -59,17 +61,17 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
+	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen.Generator)
+	dv, err := object.FetchObject(ctx, supgen.DataVolume(), ds.client, &cdiv1.DataVolume{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
 	}
 
-	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
+	return steptaker.NewStepTakers[*virtv2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreateDataVolumeFromVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
@@ -79,13 +81,13 @@ func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDi
 	).Run(ctx, vd)
 }
 
-func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return errors.New("object ref missed for data source")
 	}
 
 	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
-	viRef, err := object.FetchObject(ctx, viRefKey, ds.client, &v1alpha2.VirtualImage{})
+	viRef, err := object.FetchObject(ctx, viRefKey, ds.client, &virtv2.VirtualImage{})
 	if err != nil {
 		return fmt.Errorf("fetch vi %q: %w", viRefKey, err)
 	}
@@ -94,16 +96,16 @@ func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *v1alpha2.Virtu
 		return NewImageNotFoundError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
-	if viRef.Status.Phase != v1alpha2.ImageReady {
+	if viRef.Status.Phase != virtv2.ImageReady {
 		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
 	switch viRef.Spec.Storage {
-	case v1alpha2.StoragePersistentVolumeClaim, v1alpha2.StorageKubernetes:
+	case virtv2.StoragePersistentVolumeClaim, virtv2.StorageKubernetes:
 		if viRef.Status.Target.PersistentVolumeClaim == "" {
 			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 		}
-	case v1alpha2.StorageContainerRegistry, "":
+	case virtv2.StorageContainerRegistry, "":
 		if viRef.Status.Target.RegistryURL == "" {
 			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 		}

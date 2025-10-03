@@ -86,7 +86,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			GetPodFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.Pod, error) {
+			GetPodFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) {
 				return pod, nil
 			},
 		}
@@ -115,7 +115,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
 		}
@@ -200,10 +200,10 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				return nil
 			}
 
-			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil
 			}
-			importer.GetPodFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.Pod, error) {
+			importer.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) {
 				return nil, nil
 			}
 

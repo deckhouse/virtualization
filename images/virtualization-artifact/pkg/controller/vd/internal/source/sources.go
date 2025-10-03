@@ -23,7 +23,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
+	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,30 +37,30 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type Sources struct {
-	sources map[v1alpha2.DataSourceType]Handler
+	sources map[virtv2.DataSourceType]Handler
 }
 
 func NewSources() *Sources {
 	return &Sources{
-		sources: make(map[v1alpha2.DataSourceType]Handler),
+		sources: make(map[virtv2.DataSourceType]Handler),
 	}
 }
 
-func (s Sources) Set(dsType v1alpha2.DataSourceType, h Handler) {
+func (s Sources) Set(dsType virtv2.DataSourceType, h Handler) {
 	s.sources[dsType] = h
 }
 
-func (s Sources) Get(dsType v1alpha2.DataSourceType) (Handler, bool) {
+func (s Sources) Get(dsType virtv2.DataSourceType) (Handler, bool) {
 	source, ok := s.sources[dsType]
 	return source, ok
 }
 
-func (s Sources) Changed(_ context.Context, vd *v1alpha2.VirtualDisk) bool {
+func (s Sources) Changed(_ context.Context, vd *virtv2.VirtualDisk) bool {
 	if vd.Generation == 1 {
 		return false
 	}
@@ -68,7 +68,7 @@ func (s Sources) Changed(_ context.Context, vd *v1alpha2.VirtualDisk) bool {
 	return vd.Generation != vd.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (s Sources) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	var requeue bool
 
 	for _, source := range s.sources {
@@ -84,10 +84,10 @@ func (s Sources) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, e
 }
 
 type SupplementsCleaner interface {
-	CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
+	CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
 }
 
-func CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk, c SupplementsCleaner) (reconcile.Result, error) {
+func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c SupplementsCleaner) (reconcile.Result, error) {
 	if object.ShouldCleanupSubResources(vd) {
 		return c.CleanUpSupplements(ctx, vd)
 	}
@@ -102,13 +102,13 @@ func IsDiskProvisioningFinished(c metav1.Condition) bool {
 func setPhaseConditionForFinishedDisk(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
-	phase *v1alpha2.DiskPhase,
-	supgen *supplements.Generator,
+	phase *virtv2.DiskPhase,
+	supgen supplements.Generator,
 ) {
-	var newPhase v1alpha2.DiskPhase
+	var newPhase virtv2.DiskPhase
 	switch {
 	case pvc == nil:
-		newPhase = v1alpha2.DiskLost
+		newPhase = virtv2.DiskLost
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Lost).
@@ -116,14 +116,14 @@ func setPhaseConditionForFinishedDisk(
 	case pvc.Status.Phase == corev1.ClaimLost:
 		cb.Status(metav1.ConditionFalse)
 		if pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true" {
-			newPhase = v1alpha2.DiskExporting
+			newPhase = virtv2.DiskExporting
 			cb.Reason(vdcondition.Exporting).Message("PV is being exported")
 		} else {
-			newPhase = v1alpha2.DiskLost
+			newPhase = virtv2.DiskLost
 			cb.Reason(vdcondition.Lost).Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
 		}
 	default:
-		newPhase = v1alpha2.DiskReady
+		newPhase = virtv2.DiskReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Ready).
@@ -138,19 +138,19 @@ type CheckImportProcess interface {
 	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
-func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
+func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:
 		return false, nil
 	case errors.Is(err, service.ErrStorageProfileNotFound):
-		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Phase = virtv2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
-		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Phase = virtv2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
@@ -164,9 +164,9 @@ func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *
 func setPhaseConditionForPVCProvisioningDisk(
 	ctx context.Context,
 	dv *cdiv1.DataVolume,
-	vd *v1alpha2.VirtualDisk,
+	vd *virtv2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
-	sc *storagev1.StorageClass,
+	sc *storev1.StorageClass,
 	cb *conditions.ConditionBuilder,
 	checker CheckImportProcess,
 ) error {
@@ -174,7 +174,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 	switch {
 	case err == nil:
 		if dv == nil {
-			vd.Status.Phase = v1alpha2.DiskProvisioning
+			vd.Status.Phase = virtv2.DiskProvisioning
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Provisioning).
@@ -182,7 +182,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 			return nil
 		}
 		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
-			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.WaitingForFirstConsumer).
@@ -190,14 +190,14 @@ func setPhaseConditionForPVCProvisioningDisk(
 			return nil
 		}
 
-		vd.Status.Phase = v1alpha2.DiskProvisioning
+		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message("Import is in the process of provisioning to PVC.")
 		return nil
 	case errors.Is(err, service.ErrDataVolumeNotRunning):
-		vd.Status.Phase = v1alpha2.DiskFailed
+		vd.Status.Phase = virtv2.DiskFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
@@ -212,20 +212,20 @@ func setPhaseConditionFromPodError(
 	ctx context.Context,
 	podErr error,
 	pod *corev1.Pod,
-	vd *v1alpha2.VirtualDisk,
+	vd *virtv2.VirtualDisk,
 	cb *conditions.ConditionBuilder,
 	c client.Client,
 ) error {
 	switch {
 	case errors.Is(podErr, service.ErrNotInitialized):
-		vd.Status.Phase = v1alpha2.DiskFailed
+		vd.Status.Phase = virtv2.DiskFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
 			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
 		return nil
 	case errors.Is(podErr, service.ErrNotScheduled):
-		vd.Status.Phase = v1alpha2.DiskPending
+		vd.Status.Phase = virtv2.DiskPending
 
 		nodePlacement, err := getNodePlacement(ctx, c, vd)
 		if err != nil {
@@ -269,14 +269,14 @@ func setPhaseConditionFromPodError(
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 func setPhaseConditionFromProvisioningError(
 	ctx context.Context,
 	provisioningErr error,
 	cb *conditions.ConditionBuilder,
-	vd *v1alpha2.VirtualDisk,
+	vd *virtv2.VirtualDisk,
 	dv *cdiv1.DataVolume,
 	cleaner Cleaner,
 	c client.Client,
@@ -297,12 +297,12 @@ func setPhaseConditionFromProvisioningError(
 			return err
 		}
 
-		vd.Status.Phase = v1alpha2.DiskProvisioning
+		vd.Status.Phase = virtv2.DiskProvisioning
 
 		if isChanged {
 			supgen := vdsupplements.NewGenerator(vd)
 
-			_, err = cleaner.CleanUp(ctx, supgen.Generator)
+			_, err = cleaner.CleanUp(ctx, supgen)
 			if err != nil {
 				err = errors.Join(provisioningErr, err)
 				setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
@@ -328,14 +328,14 @@ func setPhaseConditionFromProvisioningError(
 }
 
 // Deprecated.
-func getNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.VirtualDisk) (*provisioner.NodePlacement, error) {
+func getNodePlacement(ctx context.Context, c client.Client, vd *virtv2.VirtualDisk) (*provisioner.NodePlacement, error) {
 	return step.GetNodePlacement(ctx, c, vd)
 }
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.DiskPhase, err error, creationTimestamp metav1.Time) reconcile.Result {
-	*phase = v1alpha2.DiskFailed
+func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virtv2.DiskPhase, err error, creationTimestamp metav1.Time) reconcile.Result {
+	*phase = virtv2.DiskFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.ProvisioningFailed)
@@ -349,16 +349,16 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.DiskPhase, err error) {
-	*phase = v1alpha2.DiskFailed
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.DiskPhase, err error) {
+	*phase = virtv2.DiskFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.ProvisioningFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func isStorageClassWFFC(sc *storagev1.StorageClass) bool {
-	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer
+func isStorageClassWFFC(sc *storev1.StorageClass) bool {
+	return sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storev1.VolumeBindingWaitForFirstConsumer
 }
 
 const (

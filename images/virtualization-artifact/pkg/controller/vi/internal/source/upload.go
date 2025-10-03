@@ -120,7 +120,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		}
 
 		// Unprotect upload time supplements to delete them later.
-		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -207,7 +207,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -368,7 +368,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 
 		vi.Status.Phase = v1alpha2.ImageReady
 
-		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -448,7 +448,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -502,7 +502,7 @@ func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualImage)
 	return nil
 }
 
-func (ds UploadDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
@@ -549,7 +549,7 @@ func (ds UploadDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

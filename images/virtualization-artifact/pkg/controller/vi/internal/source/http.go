@@ -93,7 +93,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 
 		vi.Status.Phase = v1alpha2.ImageReady
 
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -167,7 +167,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 			return reconcile.Result{}, setPhaseConditionFromPodError(cb, vi, err)
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -230,7 +230,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 		}
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -276,7 +276,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 			return reconcile.Result{}, setPhaseConditionFromPodError(cb, vi, err)
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -450,7 +450,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualImage) e
 	return nil
 }
 
-func (ds HTTPDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vi.Spec.DataSource.HTTP, supgen)
@@ -478,7 +478,7 @@ func (ds HTTPDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error) 
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

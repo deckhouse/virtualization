@@ -27,7 +27,6 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -248,7 +247,7 @@ func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev
 	return nil
 }
 
-func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s DiskService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
 	subResourcesHaveDeleted, err := s.CleanUpSupplements(ctx, sup)
 	if err != nil {
 		return false, err
@@ -278,7 +277,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
 }
 
-func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
 	// 1. Update owner ref of pvc.
 	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
@@ -300,8 +299,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 	}
 
 	// 2. Delete network policy.
-	np := &netv1.NetworkPolicy{}
-	networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyDataVolume(), sup)
 	if err != nil {
 		return false, err
 	}
@@ -342,7 +340,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
 }
 
-func (s DiskService) Protect(ctx context.Context, sup *supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (s DiskService) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	err := s.protection.AddOwnerRef(ctx, owner, pvc)
 	if err != nil {
 		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
@@ -354,8 +352,7 @@ func (s DiskService) Protect(ctx context.Context, sup *supplements.Generator, ow
 	}
 
 	if dv != nil {
-		np := &netv1.NetworkPolicy{}
-		networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
+		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
 		}
@@ -371,15 +368,14 @@ func (s DiskService) Protect(ctx context.Context, sup *supplements.Generator, ow
 	return nil
 }
 
-func (s DiskService) Unprotect(ctx context.Context, sup *supplements.Generator, dv *cdiv1.DataVolume) error {
+func (s DiskService) Unprotect(ctx context.Context, sup supplements.Generator, dv *cdiv1.DataVolume) error {
 	err := s.protection.RemoveProtection(ctx, dv)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
 	}
 
 	if dv != nil {
-		np := &netv1.NetworkPolicy{}
-		networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
+		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
 		}
@@ -553,12 +549,12 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }
 
-func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
+func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
 	dv := &cdiv1.DataVolume{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, dv)
 }
 
-func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, pvc)
 }

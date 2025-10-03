@@ -21,6 +21,7 @@ import (
 	"errors"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -31,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -49,22 +50,23 @@ func NewObjectRefVirtualDiskSnapshot(recorder eventrecord.EventRecorderLogger, d
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
-	supgen := vdsupplements.NewGenerator(vd)
+	sup := vdsupplements.NewGenerator(vd)
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
+	// pvc will be nil if the name empty or object is not found
+	pvc, err := object.FetchObject(ctx, sup.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
+	return steptaker.NewStepTakers[*virtv2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.recorder, ds.client, cb),
@@ -72,7 +74,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.Vi
 	).Run(ctx, vd)
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return errors.New("object ref missed for data source")
 	}
@@ -80,12 +82,12 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *v1alpha
 	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
 		Name:      vd.Spec.DataSource.ObjectRef.Name,
 		Namespace: vd.Namespace,
-	}, ds.client, &v1alpha2.VirtualDiskSnapshot{})
+	}, ds.client, &virtv2.VirtualDiskSnapshot{})
 	if err != nil {
 		return err
 	}
 
-	if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
+	if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
 		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 

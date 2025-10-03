@@ -35,17 +35,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type CreatePodStepImporter interface {
-	GetPodSettingsWithPVC(_ *metav1.OwnerReference, _ *supplements.Generator, _, _ string) *importer.PodSettings
-	StartWithPodSetting(_ context.Context, _ *importer.Settings, _ *supplements.Generator, _ *datasource.CABundle, _ *importer.PodSettings) error
+	GetPodSettingsWithPVC(_ *metav1.OwnerReference, _ supplements.Generator, _, _ string) *importer.PodSettings
+	StartWithPodSetting(_ context.Context, _ *importer.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer.PodSettings) error
 }
 
 type CreatePodStepStat interface {
-	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
+	GetSize(pod *corev1.Pod) virtv2.ImageStatusSize
 	GetDVCRImageName(pod *corev1.Pod) string
 	GetFormat(pod *corev1.Pod) string
 	GetCDROM(pod *corev1.Pod) bool
@@ -78,7 +78,7 @@ func NewCreatePodStep(
 	}
 }
 
-func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
+func (s CreatePodStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
 	if s.pod != nil {
 		return nil, nil
 	}
@@ -95,7 +95,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	case err == nil:
 		// OK.
 	case common.ErrQuotaExceeded(err):
-		s.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+		s.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 		return setQuotaExceededPhaseCondition(s.cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 	default:
 		setPhaseConditionToFailed(s.cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -111,7 +111,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	return nil, nil
 }
 
-func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup *supplements.Generator) *importer.Settings {
+func (s CreatePodStep) getEnvSettings(vi *virtv2.VirtualImage, sup supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(
@@ -126,8 +126,8 @@ func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup *supplement
 
 const retryPeriod = 1
 
-func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error, creationTimestamp metav1.Time) *reconcile.Result {
-	*phase = v1alpha2.ImageFailed
+func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error, creationTimestamp metav1.Time) *reconcile.Result {
+	*phase = virtv2.ImageFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed)
@@ -141,8 +141,8 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *v1al
 	return &reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.ImagePhase, err error) {
-	*phase = v1alpha2.ImageFailed
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.ImagePhase, err error) {
+	*phase = virtv2.ImageFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.ProvisioningFailed).

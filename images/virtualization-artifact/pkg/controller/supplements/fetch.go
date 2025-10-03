@@ -34,7 +34,6 @@ const (
 
 	SupplementUploaderService SupplementType = "UploaderService"
 	SupplementUploaderIngress SupplementType = "UploaderIngress"
-	SupplementNetworkPolicy   SupplementType = "NetworkPolicy"
 
 	SupplementPVC        SupplementType = "PersistentVolumeClaim"
 	SupplementDataVolume SupplementType = "DataVolume"
@@ -47,29 +46,8 @@ const (
 	SupplementUploaderTLSSecret     SupplementType = "UploaderTLSSecret"
 )
 
-// SupplementGenerator is an interface for generating supplement resource names
-type SupplementGenerator interface {
-	ImporterPod() types.NamespacedName
-	UploaderPod() types.NamespacedName
-	BounderPod() types.NamespacedName
-
-	UploaderService() types.NamespacedName
-	UploaderIngress() types.NamespacedName
-	NetworkPolicy() types.NamespacedName
-
-	PersistentVolumeClaim() types.NamespacedName
-	DataVolume() types.NamespacedName
-
-	DVCRAuthSecret() types.NamespacedName
-	DVCRAuthSecretForDV() types.NamespacedName
-	DVCRCABundleConfigMapForDV() types.NamespacedName
-	CABundleConfigMap() types.NamespacedName
-	ImagePullSecret() types.NamespacedName
-	UploaderTLSSecretForIngress() types.NamespacedName
-}
-
 // GetSupplementName returns the name for the requested supplement type
-func GetSupplementName(gen SupplementGenerator, supplementType SupplementType) types.NamespacedName {
+func GetSupplementName(gen Generator, supplementType SupplementType) types.NamespacedName {
 	switch supplementType {
 	case SupplementImporterPod:
 		return gen.ImporterPod()
@@ -82,8 +60,6 @@ func GetSupplementName(gen SupplementGenerator, supplementType SupplementType) t
 		return gen.UploaderService()
 	case SupplementUploaderIngress:
 		return gen.UploaderIngress()
-	case SupplementNetworkPolicy:
-		return gen.NetworkPolicy()
 
 	case SupplementPVC:
 		return gen.PersistentVolumeClaim()
@@ -109,11 +85,50 @@ func GetSupplementName(gen SupplementGenerator, supplementType SupplementType) t
 	}
 }
 
+// GetLegacySupplementName returns the legacy name for the requested supplement type
+func GetLegacySupplementName(gen Generator, supplementType SupplementType) types.NamespacedName {
+	switch supplementType {
+	case SupplementImporterPod:
+		return gen.LegacyImporterPod()
+	case SupplementUploaderPod:
+		return gen.LegacyUploaderPod()
+	case SupplementBounderPod:
+		return gen.LegacyBounderPod()
+
+	case SupplementUploaderService:
+		return gen.LegacyUploaderService()
+	case SupplementUploaderIngress:
+		return gen.LegacyUploaderIngress()
+
+	case SupplementPVC:
+		return gen.LegacyPersistentVolumeClaim()
+	case SupplementDataVolume:
+		return gen.LegacyDataVolume()
+
+	case SupplementDVCRAuthSecret:
+		return gen.LegacyDVCRAuthSecret()
+	case SupplementDVCRAuthSecretForDV:
+		return gen.LegacyDVCRAuthSecretForDV()
+	case SupplementDVCRCABundleConfigMap:
+		return gen.LegacyDVCRCABundleConfigMapForDV()
+	case SupplementCABundleConfigMap:
+		return gen.LegacyCABundleConfigMap()
+	case SupplementImagePullSecret:
+		return gen.LegacyImagePullSecret()
+	case SupplementUploaderTLSSecret:
+		return gen.LegacyUploaderTLSSecretForIngress()
+
+	default:
+		// This should never happen if enum is used properly
+		return types.NamespacedName{}
+	}
+}
+
 // FetchSupplement fetches a supplement resource with fallback to legacy naming
 func FetchSupplement[T client.Object](
 	ctx context.Context,
 	c client.Client,
-	gen *Generator,
+	gen Generator,
 	supplementType SupplementType,
 	obj T,
 ) (T, error) {
@@ -128,7 +143,7 @@ func FetchSupplement[T client.Object](
 		return empty, err
 	}
 
-	legacyName := GetSupplementName(&gen.LegacyGenerator, supplementType)
+	legacyName := GetLegacySupplementName(gen, supplementType)
 	err = c.Get(ctx, legacyName, obj)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

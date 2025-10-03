@@ -72,7 +72,7 @@ func (s UploaderService) Start(
 	ctx context.Context,
 	settings *uploader.Settings,
 	obj client.Object,
-	sup *supplements.Generator,
+	sup supplements.Generator,
 	caBundle *datasource.CABundle,
 	opts ...Option,
 ) error {
@@ -114,11 +114,11 @@ func (s UploaderService) Start(
 	return supplements.EnsureForIngress(ctx, s.client, sup, ing, s.dvcrSettings)
 }
 
-func (s UploaderService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s UploaderService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
 		return false, err
@@ -131,8 +131,7 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	if err != nil {
 		return false, err
 	}
-	np := &netv1.NetworkPolicy{}
-	networkPolicy, err := supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementNetworkPolicy, np)
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyUploaderPod(), sup)
 	if err != nil {
 		return false, err
 	}
@@ -179,11 +178,11 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	return haveDeleted, nil
 }
 
-func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
+func (s UploaderService) Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
 	var networkPolicy *netv1.NetworkPolicy
 
 	if pod != nil {
-		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
@@ -196,11 +195,11 @@ func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *core
 	return nil
 }
 
-func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
+func (s UploaderService) Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
 	var networkPolicy *netv1.NetworkPolicy
 
 	if pod != nil {
-		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
@@ -213,17 +212,17 @@ func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *co
 	return nil
 }
 
-func (s UploaderService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
+func (s UploaderService) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
 	pod := &corev1.Pod{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderPod, pod)
 }
 
-func (s UploaderService) GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error) {
+func (s UploaderService) GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
 	svc := &corev1.Service{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderService, svc)
 }
 
-func (s UploaderService) GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error) {
+func (s UploaderService) GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
 	ing := &netv1.Ingress{}
 	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderIngress, ing)
 }
@@ -251,7 +250,7 @@ func (s UploaderService) GetInClusterURL(ctx context.Context, svc *corev1.Servic
 	return fmt.Sprintf("http://%s/upload", svc.Spec.ClusterIP)
 }
 
-func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.PodSettings {
+func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.PodSettings {
 	uploaderPod := sup.UploaderPod()
 	uploaderSvc := sup.UploaderService()
 	return &uploader.PodSettings{
@@ -267,7 +266,7 @@ func (s UploaderService) getPodSettings(ownerRef *metav1.OwnerReference, sup *su
 	}
 }
 
-func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.ServiceSettings {
+func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.ServiceSettings {
 	uploaderSvc := sup.UploaderService()
 	return &uploader.ServiceSettings{
 		Name:           uploaderSvc.Name,
@@ -276,7 +275,7 @@ func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup
 	}
 }
 
-func (s UploaderService) getIngressSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.IngressSettings {
+func (s UploaderService) getIngressSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *uploader.IngressSettings {
 	uploaderIng := sup.UploaderIngress()
 	uploaderSvc := sup.UploaderService()
 	secretName := s.dvcrSettings.UploaderIngressSettings.TLSSecret

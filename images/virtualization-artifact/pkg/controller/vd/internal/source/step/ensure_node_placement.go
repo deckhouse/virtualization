@@ -32,13 +32,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type EnsureNodePlacementStepDiskService interface {
 	CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 // EnsureNodePlacementStep supports changing the node placement only if the PVC is created using a DataVolume.
@@ -66,7 +66,7 @@ func NewEnsureNodePlacementStep(
 	}
 }
 
-func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc == nil {
 		return nil, nil
 	}
@@ -92,7 +92,7 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 		return nil, fmt.Errorf("is node placement changed: %w", err)
 	}
 
-	vd.Status.Phase = v1alpha2.DiskProvisioning
+	vd.Status.Phase = virtv2.DiskProvisioning
 
 	if !isChanged {
 		s.cb.
@@ -104,7 +104,7 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 
 	supgen := vdsupplements.NewGenerator(vd)
 
-	_, err = s.disk.CleanUp(ctx, supgen.Generator)
+	_, err = s.disk.CleanUp(ctx, supgen)
 	if err != nil {
 		return nil, fmt.Errorf("clean up due to changes in the virtual machine tolerations: %w", err)
 	}

@@ -39,7 +39,7 @@ var _ = Describe("FetchSupplement", func() {
 	var (
 		ctx    context.Context
 		scheme *runtime.Scheme
-		gen    *Generator
+		gen    Generator
 	)
 
 	BeforeEach(func() {

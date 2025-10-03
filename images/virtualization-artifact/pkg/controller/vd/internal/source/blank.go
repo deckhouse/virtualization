@@ -20,16 +20,18 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -49,7 +51,7 @@ func NewBlankDataSource(recorder eventrecord.EventRecorderLogger, diskService Bl
 	}
 }
 
-func (ds BlankDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetHandlerContext(ctx, blankDataSource)
 
 	supgen := vdsupplements.NewGenerator(vd)
@@ -57,7 +59,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (r
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen.Generator)
+	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
@@ -66,7 +68,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (r
 		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
 	}
 
-	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
+	return steptaker.NewStepTakers[*virtv2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreateBlankPVCStep(pvc, ds.diskService, ds.client, cb),
@@ -74,14 +76,14 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (r
 	).Run(ctx, vd)
 }
 
-func (ds BlankDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualDisk) error {
+func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
 	return nil
 }
 
-func (ds BlankDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+func (ds BlankDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	supgen := vdsupplements.NewGenerator(vd)
 
-	requeue, err := ds.diskService.CleanUp(ctx, supgen.Generator)
+	requeue, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}

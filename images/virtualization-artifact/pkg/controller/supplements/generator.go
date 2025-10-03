@@ -36,89 +36,235 @@ const (
 	tplUploaderTLSSecret = "d8v-%s-tls-%s-%s"
 )
 
-// Generator calculates names for supplemental resources, e.g. ImporterPod, AuthSecret or CABundleConfigMap.
-type Generator struct {
-	LegacyGenerator
+type Generator interface {
+	Namespace() string
+	Name() string
+	UID() types.UID
+
+	BounderPod() types.NamespacedName
+	ImporterPod() types.NamespacedName
+	UploaderPod() types.NamespacedName
+	UploaderService() types.NamespacedName
+	UploaderIngress() types.NamespacedName
+	DataVolume() types.NamespacedName
+	PersistentVolumeClaim() types.NamespacedName
+	CABundleConfigMap() types.NamespacedName
+	DVCRAuthSecret() types.NamespacedName
+	DVCRCABundleConfigMapForDV() types.NamespacedName
+	DVCRAuthSecretForDV() types.NamespacedName
+	UploaderTLSSecretForIngress() types.NamespacedName
+	ImagePullSecret() types.NamespacedName
+	NetworkPolicy() types.NamespacedName
+
+	LegacyBounderPod() types.NamespacedName
+	LegacyImporterPod() types.NamespacedName
+	LegacyUploaderPod() types.NamespacedName
+	LegacyUploaderService() types.NamespacedName
+	LegacyUploaderIngress() types.NamespacedName
+	LegacyDataVolume() types.NamespacedName
+	LegacyPersistentVolumeClaim() types.NamespacedName
+	LegacyCABundleConfigMap() types.NamespacedName
+	LegacyDVCRAuthSecret() types.NamespacedName
+	LegacyDVCRCABundleConfigMapForDV() types.NamespacedName
+	LegacyDVCRAuthSecretForDV() types.NamespacedName
+	LegacyUploaderTLSSecretForIngress() types.NamespacedName
+	LegacyImagePullSecret() types.NamespacedName
 }
 
-func NewGenerator(prefix, name, namespace string, uid types.UID) *Generator {
-	return &Generator{
-		LegacyGenerator: *NewLegacyGenerator(prefix, name, namespace, uid),
+// Generator calculates names for supplemental resources, e.g. ImporterPod, AuthSecret or CABundleConfigMap.
+type generator struct {
+	prefix    string
+	name      string
+	namespace string
+	uid       types.UID
+}
+
+func NewGenerator(prefix, name, namespace string, uid types.UID) Generator {
+	return &generator{
+		prefix:    prefix,
+		name:      name,
+		namespace: namespace,
+		uid:       uid,
 	}
 }
 
-func (g *Generator) generateName(template string, maxLength int) types.NamespacedName {
-	maxNameLen := maxLength - len(template) + 6 - len(g.Prefix) - len(g.UID) // 6 is for %s placeholders
-	name := fmt.Sprintf(template, g.Prefix, strings.ShortenString(g.Name, maxNameLen), g.UID)
+func (g *generator) generateName(template string, maxLength int) types.NamespacedName {
+	maxNameLen := maxLength - len(template) + 6 - len(g.prefix) - len(g.uid) // 6 is for %s placeholders
+	name := fmt.Sprintf(template, g.prefix, strings.ShortenString(g.name, maxNameLen), g.UID())
 	return types.NamespacedName{
 		Name:      name,
-		Namespace: g.Namespace,
+		Namespace: g.namespace,
 	}
+}
+
+func (g *generator) Namespace() string {
+	return g.namespace
+}
+
+func (g *generator) Name() string {
+	return g.name
+}
+func (g *generator) UID() types.UID {
+	return g.uid
 }
 
 // DVCRAuthSecret returns name and namespace for auth Secret copy.
-func (g *Generator) DVCRAuthSecret() types.NamespacedName {
+func (g *generator) DVCRAuthSecret() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // DVCRAuthSecretForDV returns name and namespace for auth Secret copy
 // compatible with DataVolume: with accessKeyId and secretKey fields.
-func (g *Generator) DVCRAuthSecretForDV() types.NamespacedName {
+func (g *generator) DVCRAuthSecretForDV() types.NamespacedName {
 	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // DVCRCABundleConfigMapForDV returns name and namespace for ConfigMap with ca.crt.
-func (g *Generator) DVCRCABundleConfigMapForDV() types.NamespacedName {
+func (g *generator) DVCRCABundleConfigMapForDV() types.NamespacedName {
 	return g.generateName(tplDVCRCABundle, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // CABundleConfigMap returns name and namespace for ConfigMap which contains caBundle from dataSource.
-func (g *Generator) CABundleConfigMap() types.NamespacedName {
+func (g *generator) CABundleConfigMap() types.NamespacedName {
 	return g.generateName(tplCABundle, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // ImagePullSecret returns name and namespace for image pull secret for the containerImage dataSource.
-func (g *Generator) ImagePullSecret() types.NamespacedName {
+func (g *generator) ImagePullSecret() types.NamespacedName {
 	return g.generateName(tplImagePullSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // ImporterPod generates name for importer Pod.
-func (g *Generator) ImporterPod() types.NamespacedName {
+func (g *generator) ImporterPod() types.NamespacedName {
 	return g.generateName(tplImporterPod, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // BounderPod generates name for bounder Pod.
-func (g *Generator) BounderPod() types.NamespacedName {
+func (g *generator) BounderPod() types.NamespacedName {
 	return g.generateName(tplBounderPod, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // UploaderPod generates name for uploader Pod.
-func (g *Generator) UploaderPod() types.NamespacedName {
+func (g *generator) UploaderPod() types.NamespacedName {
 	return g.generateName(tplUploaderPod, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // UploaderService generates name for uploader Service.
-func (g *Generator) UploaderService() types.NamespacedName {
+func (g *generator) UploaderService() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123LabelMaxLength)
 }
 
 // UploaderIngress generates name for uploader Ingress.
-func (g *Generator) UploaderIngress() types.NamespacedName {
+func (g *generator) UploaderIngress() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // UploaderTLSSecretForIngress generates name for uploader tls secret.
-func (g *Generator) UploaderTLSSecretForIngress() types.NamespacedName {
+func (g *generator) UploaderTLSSecretForIngress() types.NamespacedName {
 	return g.generateName(tplUploaderTLSSecret, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // DataVolume generates name for underlying DataVolume.
 // DataVolume is always one for vmd/vmi, so prefix is used.
-func (g *Generator) DataVolume() types.NamespacedName {
+func (g *generator) DataVolume() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // NetworkPolicy generates name for NetworkPolicy.
-func (g *Generator) NetworkPolicy() types.NamespacedName {
+func (g *generator) NetworkPolicy() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
+}
+
+// PersistentVolumeClaim generates name for underlying PersistentVolumeClaim.
+// PVC is always one for vmd/vmi, so prefix is used.
+func (g *generator) PersistentVolumeClaim() types.NamespacedName {
+	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
+}
+
+// Legacy methods for backward compatibility
+
+func (g *generator) shortenNamespaced(name string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      strings.ShortenString(name, kvalidation.DNS1123SubdomainMaxLength),
+		Namespace: g.namespace,
+	}
+}
+
+// LegacyDVCRAuthSecret returns old format name for auth Secret copy.
+func (g *generator) LegacyDVCRAuthSecret() types.NamespacedName {
+	name := fmt.Sprintf("%s-dvcr-auth-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyDVCRAuthSecretForDV returns old format name for auth Secret copy
+// compatible with DataVolume: with accessKeyId and secretKey fields.
+func (g *generator) LegacyDVCRAuthSecretForDV() types.NamespacedName {
+	name := fmt.Sprintf("%s-dvcr-auth-dv-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyDVCRCABundleConfigMapForDV returns old format name for ConfigMap with ca.crt.
+func (g *generator) LegacyDVCRCABundleConfigMapForDV() types.NamespacedName {
+	name := fmt.Sprintf("%s-dvcr-ca-dv-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyCABundleConfigMap returns old format name for ConfigMap which contains caBundle from dataSource.
+func (g *generator) LegacyCABundleConfigMap() types.NamespacedName {
+	name := fmt.Sprintf("%s-ca-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyImagePullSecret returns old format name for image pull secret for the containerImage dataSource.
+func (g *generator) LegacyImagePullSecret() types.NamespacedName {
+	name := fmt.Sprintf("%s-pull-image-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyImporterPod generates old format name for importer Pod.
+func (g *generator) LegacyImporterPod() types.NamespacedName {
+	name := fmt.Sprintf("%s-importer-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyBounderPod generates old format name for bounder Pod.
+func (g *generator) LegacyBounderPod() types.NamespacedName {
+	name := fmt.Sprintf("%s-bounder-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyUploaderPod generates old format name for uploader Pod.
+func (g *generator) LegacyUploaderPod() types.NamespacedName {
+	name := fmt.Sprintf("%s-uploader-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyUploaderService generates old format name for uploader Service.
+func (g *generator) LegacyUploaderService() types.NamespacedName {
+	name := fmt.Sprintf("%s-uploader-svc-%s", g.prefix, string(g.uid))
+	return g.shortenNamespaced(name)
+}
+
+// LegacyUploaderIngress generates old format name for uploader Ingress.
+func (g *generator) LegacyUploaderIngress() types.NamespacedName {
+	name := fmt.Sprintf("%s-uploader-ingress-%s", g.prefix, string(g.uid))
+	return g.shortenNamespaced(name)
+}
+
+// LegacyUploaderTLSSecretForIngress generates old format name for uploader tls secret.
+func (g *generator) LegacyUploaderTLSSecretForIngress() types.NamespacedName {
+	name := fmt.Sprintf("%s-uploader-tls-ing-%s", g.prefix, g.name)
+	return g.shortenNamespaced(name)
+}
+
+// LegacyDataVolume generates old format name for underlying DataVolume.
+// DataVolume is always one for vmd/vmi, so prefix is used.
+func (g *generator) LegacyDataVolume() types.NamespacedName {
+	dvName := fmt.Sprintf("%s-%s-%s", g.prefix, g.name, string(g.uid))
+	return g.shortenNamespaced(dvName)
+}
+
+// LegacyPersistentVolumeClaim generates old format name for underlying PersistentVolumeClaim.
+func (g *generator) LegacyPersistentVolumeClaim() types.NamespacedName {
+	return g.LegacyDataVolume()
 }

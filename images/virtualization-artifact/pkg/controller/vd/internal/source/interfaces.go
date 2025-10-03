@@ -19,30 +19,27 @@ package source
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefClusterVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService
 
 type Handler interface {
 	Name() string
-	Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
-	Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error
+	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
+	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	Validate(ctx context.Context, vd *virtv2.VirtualDisk) error
 }
 
 type BlankDataSourceDiskService interface {
 	step.VolumeAndAccessModesGetter
 	step.ReadyStepDiskService
 
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 type ObjectRefVirtualImageDiskService interface {
@@ -50,9 +47,6 @@ type ObjectRefVirtualImageDiskService interface {
 	step.WaitForDVStepDiskService
 	step.CreateDataVolumeStepDiskService
 	step.EnsureNodePlacementStepDiskService
-
-	GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 
 type ObjectRefClusterVirtualImageDiskService interface {
@@ -60,13 +54,8 @@ type ObjectRefClusterVirtualImageDiskService interface {
 	step.WaitForDVStepDiskService
 	step.CreateDataVolumeStepDiskService
 	step.EnsureNodePlacementStepDiskService
-
-	GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 
 type ObjectRefVirtualDiskSnapshotDiskService interface {
 	step.ReadyStepDiskService
-
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }

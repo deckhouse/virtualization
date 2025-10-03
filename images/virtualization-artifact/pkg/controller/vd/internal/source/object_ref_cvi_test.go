@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -44,8 +44,8 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 	var (
 		ctx    context.Context
 		scheme *runtime.Scheme
-		cvi    *v1alpha2.ClusterVirtualImage
-		vd     *v1alpha2.VirtualDisk
+		cvi    *virtv2.ClusterVirtualImage
+		vd     *virtv2.VirtualDisk
 		sc     *storagev1.StorageClass
 		pvc    *corev1.PersistentVolumeClaim
 		dv     *cdiv1.DataVolume
@@ -56,7 +56,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 
 		scheme = runtime.NewScheme()
-		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(cdiv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
@@ -71,16 +71,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
-			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
-				return nil
-			},
-			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-				return pvc, nil
-			},
-			GetDataVolumeFunc: func(_ context.Context, _ *supplements.Generator) (*cdiv1.DataVolume, error) {
-				return dv, nil
-			},
-			CheckProvisioningFunc: func(_ context.Context, _ *corev1.PersistentVolumeClaim) error {
+			ProtectFunc: func(_ context.Context, _ supplements.Generator, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
 				return nil
 			},
 		}
@@ -91,37 +82,37 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			},
 		}
 
-		cvi = &v1alpha2.ClusterVirtualImage{
+		cvi = &virtv2.ClusterVirtualImage{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vi",
 				Generation: 1,
 				UID:        "11111111-1111-1111-1111-111111111111",
 			},
-			Status: v1alpha2.ClusterVirtualImageStatus{
-				Size: v1alpha2.ImageStatusSize{
+			Status: virtv2.ClusterVirtualImageStatus{
+				Size: virtv2.ImageStatusSize{
 					UnpackedBytes: "100Mi",
 				},
 			},
 		}
 
-		vd = &v1alpha2.VirtualDisk{
+		vd = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
 				UID:        "22222222-2222-2222-2222-222222222222",
 			},
-			Spec: v1alpha2.VirtualDiskSpec{
-				DataSource: &v1alpha2.VirtualDiskDataSource{
-					Type: v1alpha2.DataSourceTypeObjectRef,
-					ObjectRef: &v1alpha2.VirtualDiskObjectRef{
-						Kind: v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage,
+			Spec: virtv2.VirtualDiskSpec{
+				DataSource: &virtv2.VirtualDiskDataSource{
+					Type: virtv2.DataSourceTypeObjectRef,
+					ObjectRef: &virtv2.VirtualDiskObjectRef{
+						Kind: virtv2.VirtualDiskObjectRefKindClusterVirtualImage,
 						Name: cvi.Name,
 					},
 				},
 			},
-			Status: v1alpha2.VirtualDiskStatus{
+			Status: virtv2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
-				Target: v1alpha2.DiskTarget{
+				Target: virtv2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			},
@@ -158,8 +149,8 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create DataVolume", func() {
 			var dvCreated bool
-			vd.Status = v1alpha2.VirtualDiskStatus{
-				Target: v1alpha2.DiskTarget{
+			vd.Status = virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			}
@@ -167,12 +158,6 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ client.Object, _ supplements.DataVolumeSupplement, _ ...service.Option) error {
 				dvCreated = true
 				return nil
-			}
-			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-				return nil, nil
-			}
-			svc.GetDataVolumeFunc = func(_ context.Context, _ *supplements.Generator) (*cdiv1.DataVolume, error) {
-				return nil, nil
 			}
 
 			syncer := NewObjectRefClusterVirtualImage(svc, fakeClient)
@@ -184,7 +169,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(dvCreated).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
@@ -209,7 +194,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Phase).To(Equal(virtv2.DiskWaitForFirstConsumer))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
@@ -226,7 +211,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
 			Expect(vd.Status.Progress).ToNot(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
@@ -245,7 +230,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
+			Expect(vd.Status.Phase).To(Equal(virtv2.DiskReady))
 			ExpectStats(vd)
 		})
 	})
@@ -266,10 +251,6 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-				return nil, nil
-			}
-
 			syncer := NewObjectRefClusterVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
@@ -277,7 +258,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 
@@ -293,7 +274,7 @@ var _ = Describe("ObjectRef ClusterVirtualImage", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})
