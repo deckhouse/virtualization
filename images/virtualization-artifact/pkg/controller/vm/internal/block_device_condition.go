@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"strings"
 
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -54,12 +57,28 @@ func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s st
 	}
 
 	for _, vd := range vds {
-		if vd.Status.Phase == v1alpha2.DiskWaitForFirstConsumer {
-			return true, nil
+		sc, err := h.getStorageClass(ctx, vd.Status.StorageClassName)
+		if err != nil {
+			return false, err
+		}
+
+		if sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
+			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+			if readyCondition.Status != metav1.ConditionTrue {
+				return true, nil
+			}
 		}
 	}
 
 	return false, nil
+}
+
+func (h *BlockDeviceHandler) getStorageClass(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
+	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: scName}, h.client, &storagev1.StorageClass{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch storage class %s: %w", scName, err)
+	}
+	return sc, nil
 }
 
 func (h *BlockDeviceHandler) handleVirtualDisksReadyForUse(ctx context.Context, s state.VirtualMachineState) (bool, error) {
