@@ -150,8 +150,22 @@ func (f *Framework) DeferNamespaceDelete(name string) {
 	f.namespacesToDelete[name] = struct{}{}
 }
 
-func (f *Framework) DeferDelete(obj client.Object) {
+func (f *Framework) DeferDelete(objs ...client.Object) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.objectsToDelete[string(obj.GetUID())] = obj
+
+	for _, obj := range objs {
+		f.objectsToDelete[string(obj.GetUID())] = obj
+	}
+}
+
+func (f *Framework) BatchCreate(ctx context.Context, objs ...client.Object) error {
+	for _, obj := range objs {
+		err := f.client.Create(ctx, obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
