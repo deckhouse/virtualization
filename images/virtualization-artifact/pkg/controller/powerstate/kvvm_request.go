@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
-	kvv1 "kubevirt.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
@@ -37,17 +37,17 @@ var ErrChangesAlreadyExist = errors.New("changes already exist in the current st
 // start                       replace   error     error
 // restart(stop+start)         replace   error     error
 // empty                       add       add       add
-func BuildPatch(vm *kvv1.VirtualMachine, changes ...kvv1.VirtualMachineStateChangeRequest) ([]byte, error) {
+func BuildPatch(vm *virtv1.VirtualMachine, changes ...virtv1.VirtualMachineStateChangeRequest) ([]byte, error) {
 	jp := patch.NewJSONPatch()
 	// Special case: if there's no status field at all, add one.
-	newStatus := kvv1.VirtualMachineStatus{}
+	newStatus := virtv1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
 		newStatus.StateChangeRequests = changes
 		jp.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/status", newStatus))
 	} else {
 		verb := patch.PatchAddOp
 		failOnConflict := true
-		if len(changes) == 1 && changes[0].Action == kvv1.StopRequest {
+		if len(changes) == 1 && changes[0].Action == virtv1.StopRequest {
 			// If this is a stopRequest, replace all existing StateChangeRequests.
 			failOnConflict = false
 		}
@@ -72,18 +72,18 @@ func BuildPatch(vm *kvv1.VirtualMachine, changes ...kvv1.VirtualMachineStateChan
 
 // BuildPatchSafeRestart creates a patch to restart a VM in case no other operations are present.
 // This method respects other operations that was issued during VM reboot.
-func BuildPatchSafeRestart(kvvm *kvv1.VirtualMachine, kvvmi *kvv1.VirtualMachineInstance) ([]byte, error) {
+func BuildPatchSafeRestart(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) ([]byte, error) {
 	// Restart only if current request is empty.
 	if len(kvvm.Status.StateChangeRequests) > 0 {
 		return nil, nil
 	}
-	restartRequest := []kvv1.VirtualMachineStateChangeRequest{
-		{Action: kvv1.StopRequest, UID: &kvvmi.UID},
-		{Action: kvv1.StartRequest},
+	restartRequest := []virtv1.VirtualMachineStateChangeRequest{
+		{Action: virtv1.StopRequest, UID: &kvvmi.UID},
+		{Action: virtv1.StartRequest},
 	}
 	jp := patch.NewJSONPatch()
 
-	newStatus := kvv1.VirtualMachineStatus{}
+	newStatus := virtv1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(kvvm.Status, newStatus) {
 		// Add /status if it's not exists.
 		newStatus.StateChangeRequests = restartRequest

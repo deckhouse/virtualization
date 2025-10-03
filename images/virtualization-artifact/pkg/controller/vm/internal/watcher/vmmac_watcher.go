@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewVMMACWatcher() *VMMACWatcher {
@@ -43,12 +43,12 @@ func (w *VMMACWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineMACAddress{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) []reconcile.Request {
+			&v1alpha2.VirtualMachineMACAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) []reconcile.Request {
 				name := vmmac.Status.VirtualMachine
 				if name == "" {
 					for _, ownerRef := range vmmac.OwnerReferences {
-						if ownerRef.Kind == virtv2.VirtualMachineKind && string(ownerRef.UID) == vmmac.Labels[annotations.LabelVirtualMachineUID] {
+						if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmmac.Labels[annotations.LabelVirtualMachineUID] {
 							name = ownerRef.Name
 							break
 						}
@@ -67,14 +67,14 @@ func (w *VMMACWatcher) Watch(mgr manager.Manager, ctr controller.Controller) err
 					},
 				}
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddress]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineMACAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachineMACAddress]) bool {
 					return true
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddress]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachineMACAddress]) bool {
 					return true
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineMACAddress]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
 						e.ObjectOld.Status.VirtualMachine != e.ObjectNew.Status.VirtualMachine
 				},

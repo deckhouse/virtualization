@@ -26,16 +26,16 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskOverrideValidator struct {
-	vd           *virtv2.VirtualDisk
+	vd           *v1alpha2.VirtualDisk
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.Client, vmRestoreUID string) *VirtualDiskOverrideValidator {
+func NewVirtualDiskOverrideValidator(vdTmpl *v1alpha2.VirtualDisk, client client.Client, vmRestoreUID string) *VirtualDiskOverrideValidator {
 	if vdTmpl.Annotations != nil {
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -43,7 +43,7 @@ func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.C
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
 	return &VirtualDiskOverrideValidator{
-		vd: &virtv2.VirtualDisk{
+		vd: &v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vdTmpl.Kind,
 				APIVersion: vdTmpl.APIVersion,
@@ -62,13 +62,13 @@ func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.C
 	}
 }
 
-func (v *VirtualDiskOverrideValidator) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualDiskOverrideValidator) Override(rules []v1alpha2.NameReplacement) {
 	v.vd.Name = overrideName(v.vd.Kind, v.vd.Name, rules)
 }
 
 func (v *VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
 	}
@@ -85,7 +85,7 @@ func (v *VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 
 func (v *VirtualDiskOverrideValidator) ValidateWithForce(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (v *VirtualDiskOverrideValidator) ValidateWithForce(ctx context.Context) er
 
 func (v *VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
-	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &v1alpha2.VirtualDisk{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
 	}
@@ -129,7 +129,7 @@ func (v *VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) err
 }
 
 func (v *VirtualDiskOverrideValidator) Object() client.Object {
-	return &virtv2.VirtualDisk{
+	return &v1alpha2.VirtualDisk{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v.vd.Kind,
 			APIVersion: v.vd.APIVersion,

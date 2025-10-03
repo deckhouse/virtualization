@@ -34,7 +34,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineWatcher struct {
@@ -45,7 +45,7 @@ type VirtualMachineWatcher struct {
 func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 	return &VirtualMachineWatcher{
 		client: client,
-		logger: log.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineKind)),
+		logger: log.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineKind)),
 	}
 }
 
@@ -53,8 +53,8 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachine{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+			&v1alpha2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
 				vmmacNames := make(map[string]struct{})
 
 				if len(vm.Status.Networks) > 0 {
@@ -71,7 +71,7 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 					}
 				}
 
-				vmmacs := &virtv2.VirtualMachineMACAddressList{}
+				vmmacs := &v1alpha2.VirtualMachineMACAddressList{}
 				if err := w.client.List(ctx, vmmacs, client.InNamespace(vm.Namespace), &client.MatchingFields{
 					indexer.IndexFieldVMMACByVM: vm.Name,
 				}); err != nil {
@@ -95,14 +95,14 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 
 				return requests
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
 					return true
 				},
-				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool {
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool {
 					return true
 				},
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
 					return !reflect.DeepEqual(e.ObjectOld.Status.Networks, e.ObjectNew.Status.Networks)
 				},
 			},

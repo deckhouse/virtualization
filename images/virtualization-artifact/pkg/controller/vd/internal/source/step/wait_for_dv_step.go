@@ -34,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -66,9 +66,9 @@ func NewWaitForDVStep(
 	}
 }
 
-func (s WaitForDVStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s WaitForDVStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.dv == nil {
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -112,9 +112,9 @@ func (s WaitForDVStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*recon
 	return nil, nil
 }
 
-func (s WaitForDVStep) setForProvisioning(vd *virtv2.VirtualDisk) (set bool) {
+func (s WaitForDVStep) setForProvisioning(vd *v1alpha2.VirtualDisk) (set bool) {
 	if s.dv.Status.Phase != cdiv1.Succeeded {
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -125,7 +125,7 @@ func (s WaitForDVStep) setForProvisioning(vd *virtv2.VirtualDisk) (set bool) {
 	return false
 }
 
-func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *virtv2.VirtualDisk) (set bool, err error) {
+func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1alpha2.VirtualDisk) (set bool, err error) {
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("get sc: %w", err)
@@ -137,7 +137,7 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *vir
 			return false, nil
 		}
 
-		vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
@@ -148,12 +148,12 @@ func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *vir
 	return false, nil
 }
 
-func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *virtv2.VirtualDisk, inwffc bool) (ok bool) {
+func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *v1alpha2.VirtualDisk, inwffc bool) (ok bool) {
 	dvQuotaNotExceededCondition, _ := conditions.GetDataVolumeCondition(conditions.DVQoutaNotExceededConditionType, s.dv.Status.Conditions)
 	if dvQuotaNotExceededCondition.Status == corev1.ConditionFalse {
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		if inwffc {
-			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
 		s.cb.
 			Status(metav1.ConditionFalse).
@@ -165,18 +165,18 @@ func (s WaitForDVStep) checkQoutaNotExceededCondition(vd *virtv2.VirtualDisk, in
 	return true
 }
 
-func (s WaitForDVStep) checkRunningCondition(vd *virtv2.VirtualDisk) (ok bool) {
+func (s WaitForDVStep) checkRunningCondition(vd *v1alpha2.VirtualDisk) (ok bool) {
 	dvRunningCondition, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, s.dv.Status.Conditions)
 	switch {
 	case dvRunningCondition.Reason == conditions.DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
 		return false
 	case strings.Contains(dvRunningCondition.Reason, "Error"):
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
@@ -187,7 +187,7 @@ func (s WaitForDVStep) checkRunningCondition(vd *virtv2.VirtualDisk) (ok bool) {
 	}
 }
 
-func (s WaitForDVStep) checkImporterPrimePod(ctx context.Context, vd *virtv2.VirtualDisk) (ok bool, err error) {
+func (s WaitForDVStep) checkImporterPrimePod(ctx context.Context, vd *v1alpha2.VirtualDisk) (ok bool, err error) {
 	if s.pvc == nil {
 		return true, nil
 	}
@@ -205,7 +205,7 @@ func (s WaitForDVStep) checkImporterPrimePod(ctx context.Context, vd *virtv2.Vir
 	if cdiImporterPrime != nil {
 		podInitializedCond, _ := conditions.GetPodCondition(corev1.PodInitialized, cdiImporterPrime.Status.Conditions)
 		if podInitializedCond.Status == corev1.ConditionFalse && strings.Contains(podInitializedCond.Reason, "Error") {
-			vd.Status.Phase = virtv2.DiskPending
+			vd.Status.Phase = v1alpha2.DiskPending
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ImagePullFailed).
@@ -215,7 +215,7 @@ func (s WaitForDVStep) checkImporterPrimePod(ctx context.Context, vd *virtv2.Vir
 
 		podScheduledCond, _ := conditions.GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
 		if podScheduledCond.Status == corev1.ConditionFalse && strings.Contains(podScheduledCond.Reason, "Error") {
-			vd.Status.Phase = virtv2.DiskPending
+			vd.Status.Phase = v1alpha2.DiskPending
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ImagePullFailed).

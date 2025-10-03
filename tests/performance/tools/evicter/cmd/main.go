@@ -14,16 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package main
 
-const (
-	// E2EVolumeMigrationNextStorageClassEnv is the env variable for the next storage class for volume migration tests.
-	E2EVolumeMigrationNextStorageClassEnv = "E2E_VOLUME_MIGRATION_NEXT_STORAGE_CLASS"
+import (
+	"log/slog"
+	"os"
+
+	"evicter/pkg/command"
 )
 
-const (
-	E2EShortTimeoutEnv  = "E2E_SHORT_TIMEOUT"
-	E2EMiddleTimeoutEnv = "E2E_MIDDLE_TIMEOUT"
-	E2ELongTimeoutEnv   = "E2E_LONG_TIMEOUT"
-	E2EMaxTimeoutEnv    = "E2E_MAX_TIMEOUT"
-)
+func main() {
+	// opts := &slog.HandlerOptions{
+	// 	AddSource: true, // This enables source location logging
+	// }
+	// logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	// logger := slog.New(slog.NewTextHandler(os.Stdout, opts))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
+	command.Execute()
+}

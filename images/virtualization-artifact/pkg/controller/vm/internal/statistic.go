@@ -31,7 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const nameStatisticHandler = "StatisticHandler"
@@ -77,21 +77,21 @@ func (h *StatisticHandler) Name() string {
 	return nameStatisticHandler
 }
 
-func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
+func (h *StatisticHandler) syncResources(changed *v1alpha2.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
 ) {
 	if changed == nil {
 		return
 	}
-	var resources virtv2.ResourcesStatus
+	var resources v1alpha2.ResourcesStatus
 	switch pod {
 	case nil:
 		var (
 			cpuKVVMIRequest resource.Quantity
 			memorySize      resource.Quantity
 			cores           int
-			topology        virtv2.Topology
+			topology        v1alpha2.Topology
 			coreFraction    string
 		)
 		if kvvmi == nil {
@@ -99,7 +99,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 			cores = changed.Spec.CPU.Cores
 			coreFraction = changed.Spec.CPU.CoreFraction
 			sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
-			topology = virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+			topology = v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 		} else {
 			cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
@@ -108,14 +108,14 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
 			topology = h.getCurrentTopologyByKVVMI(kvvmi)
 		}
-		resources = virtv2.ResourcesStatus{
-			CPU: virtv2.CPUStatus{
+		resources = v1alpha2.ResourcesStatus{
+			CPU: v1alpha2.CPUStatus{
 				Cores:          cores,
 				CoreFraction:   coreFraction,
 				RequestedCores: cpuKVVMIRequest,
 				Topology:       topology,
 			},
-			Memory: virtv2.MemoryStatus{
+			Memory: v1alpha2.MemoryStatus{
 				Size: memorySize,
 			},
 		}
@@ -148,15 +148,15 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 		mi := int64(1024 * 1024)
 		memoryOverhead = *resource.NewQuantity(int64(math.Ceil(float64(memoryOverhead.Value())/float64(mi)))*mi, resource.BinarySI)
 
-		resources = virtv2.ResourcesStatus{
-			CPU: virtv2.CPUStatus{
+		resources = v1alpha2.ResourcesStatus{
+			CPU: v1alpha2.CPUStatus{
 				Cores:           cores,
 				CoreFraction:    coreFraction,
 				RequestedCores:  cpuKVVMIRequest,
 				RuntimeOverhead: cpuOverhead,
 				Topology:        topology,
 			},
-			Memory: virtv2.MemoryStatus{
+			Memory: v1alpha2.MemoryStatus{
 				Size:            memoryKVVMIRequest,
 				RuntimeOverhead: memoryOverhead,
 			},
@@ -181,20 +181,20 @@ func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineIn
 	return strconv.Itoa(int(cpuKVVMIRequest.MilliValue())*100/(h.getCoresByKVVMI(kvvmi)*1000)) + "%"
 }
 
-func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
+func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) v1alpha2.Topology {
 	if kvvmi == nil {
-		return virtv2.Topology{}
+		return v1alpha2.Topology{}
 	}
 
 	if kvvmi.Status.CurrentCPUTopology != nil {
-		return virtv2.Topology{
+		return v1alpha2.Topology{
 			CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
 			Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
 		}
 	}
 
 	if kvvmi.Spec.Domain.CPU != nil {
-		return virtv2.Topology{
+		return v1alpha2.Topology{
 			CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
 			Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
 		}
@@ -202,10 +202,10 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 
 	cores := h.getCoresByKVVMI(kvvmi)
 	sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
-	return virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+	return v1alpha2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 }
 
-func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {
+func (h *StatisticHandler) syncPods(changed *v1alpha2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {
 	if changed == nil {
 		return
 	}
@@ -213,13 +213,13 @@ func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.
 		changed.Status.VirtualMachinePods = nil
 		return
 	}
-	virtualMachinePods := make([]virtv2.VirtualMachinePod, len(pods.Items))
+	virtualMachinePods := make([]v1alpha2.VirtualMachinePod, len(pods.Items))
 	for i, p := range pods.Items {
 		active := false
 		if pod != nil && p.GetUID() == pod.GetUID() {
 			active = true
 		}
-		virtualMachinePods[i] = virtv2.VirtualMachinePod{
+		virtualMachinePods[i] = v1alpha2.VirtualMachinePod{
 			Name:   p.GetName(),
 			Active: active,
 		}
@@ -227,13 +227,13 @@ func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.
 	changed.Status.VirtualMachinePods = virtualMachinePods
 }
 
-func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+func (h *StatisticHandler) syncStats(current, changed *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
 	if current == nil || changed == nil {
 		return
 	}
 	phaseChanged := current.Status.Phase != changed.Status.Phase
 
-	var stats virtv2.VirtualMachineStats
+	var stats v1alpha2.VirtualMachineStats
 
 	if current.Status.Stats != nil {
 		stats = *current.Status.Stats.DeepCopy()
@@ -245,11 +245,11 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 	launchTimeDuration := stats.LaunchTimeDuration
 
 	switch changed.Status.Phase {
-	case virtv2.MachinePending, virtv2.MachineStopped:
+	case v1alpha2.MachinePending, v1alpha2.MachineStopped:
 		launchTimeDuration.WaitingForDependencies = nil
 		launchTimeDuration.VirtualMachineStarting = nil
 		launchTimeDuration.GuestOSAgentStarting = nil
-	case virtv2.MachineStarting:
+	case v1alpha2.MachineStarting:
 		launchTimeDuration.VirtualMachineStarting = nil
 		launchTimeDuration.GuestOSAgentStarting = nil
 
@@ -257,13 +257,13 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 			for i := len(pts) - 1; i > 0; i-- {
 				pt := pts[i]
 				ptPrev := pts[i-1]
-				if pt.Phase == virtv2.MachineStarting && ptPrev.Phase == virtv2.MachinePending {
+				if pt.Phase == v1alpha2.MachineStarting && ptPrev.Phase == v1alpha2.MachinePending {
 					launchTimeDuration.WaitingForDependencies = &metav1.Duration{Duration: pt.Timestamp.Sub(pts[i-1].Timestamp.Time)}
 					break
 				}
 			}
 		}
-	case virtv2.MachineRunning:
+	case v1alpha2.MachineRunning:
 		if kvvmi != nil && osInfoIsEmpty(kvvmi.Status.GuestOSInfo) {
 			launchTimeDuration.GuestOSAgentStarting = nil
 		}
@@ -272,8 +272,8 @@ func (h *StatisticHandler) syncStats(current, changed *virtv2.VirtualMachine, kv
 			pt := pts[i]
 			ptPrev := pts[i-1]
 
-			if pt.Phase == virtv2.MachineRunning {
-				if phaseChanged && ptPrev.Phase == virtv2.MachineStarting {
+			if pt.Phase == v1alpha2.MachineRunning {
+				if phaseChanged && ptPrev.Phase == v1alpha2.MachineStarting {
 					launchTimeDuration.VirtualMachineStarting = &metav1.Duration{Duration: pt.Timestamp.Sub(pts[i-1].Timestamp.Time)}
 				}
 				if kvvmi != nil && osInfoIsEmpty(current.Status.GuestOSInfo) && !osInfoIsEmpty(kvvmi.Status.GuestOSInfo) && !pt.Timestamp.IsZero() {
@@ -293,11 +293,11 @@ func osInfoIsEmpty(info virtv1.VirtualMachineInstanceGuestOSInfo) bool {
 	return emptyOSInfo == info
 }
 
-func NewPhaseTransitions(phaseTransitions []virtv2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase virtv2.MachinePhase) []virtv2.VirtualMachinePhaseTransitionTimestamp {
+func NewPhaseTransitions(phaseTransitions []v1alpha2.VirtualMachinePhaseTransitionTimestamp, oldPhase, newPhase v1alpha2.MachinePhase) []v1alpha2.VirtualMachinePhaseTransitionTimestamp {
 	now := metav1.NewTime(time.Now().Truncate(time.Second))
 
 	if oldPhase != newPhase {
-		phaseTransitions = append(phaseTransitions, virtv2.VirtualMachinePhaseTransitionTimestamp{
+		phaseTransitions = append(phaseTransitions, v1alpha2.VirtualMachinePhaseTransitionTimestamp{
 			Phase:     newPhase,
 			Timestamp: now,
 		})

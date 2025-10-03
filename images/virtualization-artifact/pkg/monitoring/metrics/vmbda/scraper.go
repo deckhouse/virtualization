@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
@@ -45,17 +45,17 @@ func (s *scraper) Report(m *dataMetric) {
 func (s *scraper) updateMetricVMBDAStatusPhase(m *dataMetric) {
 	phase := m.Phase
 	if phase == "" {
-		phase = virtv2.BlockDeviceAttachmentPhasePending
+		phase = v1alpha2.BlockDeviceAttachmentPhasePending
 	}
 	phases := []struct {
 		value bool
 		name  string
 	}{
-		{phase == virtv2.BlockDeviceAttachmentPhasePending, string(virtv2.BlockDeviceAttachmentPhasePending)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseInProgress, string(virtv2.BlockDeviceAttachmentPhaseInProgress)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseAttached, string(virtv2.BlockDeviceAttachmentPhaseAttached)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseFailed, string(virtv2.BlockDeviceAttachmentPhaseFailed)},
-		{phase == virtv2.BlockDeviceAttachmentPhaseTerminating, string(virtv2.BlockDeviceAttachmentPhaseTerminating)},
+		{phase == v1alpha2.BlockDeviceAttachmentPhasePending, string(v1alpha2.BlockDeviceAttachmentPhasePending)},
+		{phase == v1alpha2.BlockDeviceAttachmentPhaseInProgress, string(v1alpha2.BlockDeviceAttachmentPhaseInProgress)},
+		{phase == v1alpha2.BlockDeviceAttachmentPhaseAttached, string(v1alpha2.BlockDeviceAttachmentPhaseAttached)},
+		{phase == v1alpha2.BlockDeviceAttachmentPhaseFailed, string(v1alpha2.BlockDeviceAttachmentPhaseFailed)},
+		{phase == v1alpha2.BlockDeviceAttachmentPhaseTerminating, string(v1alpha2.BlockDeviceAttachmentPhaseTerminating)},
 	}
 
 	for _, p := range phases {

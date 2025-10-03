@@ -30,7 +30,7 @@ import (
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
 	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -89,7 +89,7 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), virtv2.Resource(virtv2.VirtualMachineResource).String(), metav1.GetOptions{})
+	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), v1alpha2.Resource(v1alpha2.VirtualMachineResource).String(), metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

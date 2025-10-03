@@ -7,7 +7,7 @@ import (
 	"context"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -146,13 +146,13 @@ var _ Sources = &SourcesMock{}
 //
 //		// make and configure a mocked Sources
 //		mockedSources := &SourcesMock{
-//			ChangedFunc: func(ctx context.Context, vi *virtv2.VirtualImage) bool {
+//			ChangedFunc: func(ctx context.Context, vi *v1alpha2.VirtualImage) bool {
 //				panic("mock out the Changed method")
 //			},
-//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			ForFunc: func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+//			ForFunc: func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 //				panic("mock out the For method")
 //			},
 //		}
@@ -163,13 +163,13 @@ var _ Sources = &SourcesMock{}
 //	}
 type SourcesMock struct {
 	// ChangedFunc mocks the Changed method.
-	ChangedFunc func(ctx context.Context, vi *virtv2.VirtualImage) bool
+	ChangedFunc func(ctx context.Context, vi *v1alpha2.VirtualImage) bool
 
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error)
 
 	// ForFunc mocks the For method.
-	ForFunc func(dsType virtv2.DataSourceType) (source.Handler, bool)
+	ForFunc func(dsType v1alpha2.DataSourceType) (source.Handler, bool)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -178,19 +178,19 @@ type SourcesMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vi is the vi argument value.
-			Vi *virtv2.VirtualImage
+			Vi *v1alpha2.VirtualImage
 		}
 		// CleanUp holds details about calls to the CleanUp method.
 		CleanUp []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualImage
+			Vd *v1alpha2.VirtualImage
 		}
 		// For holds details about calls to the For method.
 		For []struct {
 			// DsType is the dsType argument value.
-			DsType virtv2.DataSourceType
+			DsType v1alpha2.DataSourceType
 		}
 	}
 	lockChanged sync.RWMutex
@@ -199,13 +199,13 @@ type SourcesMock struct {
 }
 
 // Changed calls ChangedFunc.
-func (mock *SourcesMock) Changed(ctx context.Context, vi *virtv2.VirtualImage) bool {
+func (mock *SourcesMock) Changed(ctx context.Context, vi *v1alpha2.VirtualImage) bool {
 	if mock.ChangedFunc == nil {
 		panic("SourcesMock.ChangedFunc: method is nil but Sources.Changed was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}{
 		Ctx: ctx,
 		Vi:  vi,
@@ -222,11 +222,11 @@ func (mock *SourcesMock) Changed(ctx context.Context, vi *virtv2.VirtualImage) b
 //	len(mockedSources.ChangedCalls())
 func (mock *SourcesMock) ChangedCalls() []struct {
 	Ctx context.Context
-	Vi  *virtv2.VirtualImage
+	Vi  *v1alpha2.VirtualImage
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vi  *virtv2.VirtualImage
+		Vi  *v1alpha2.VirtualImage
 	}
 	mock.lockChanged.RLock()
 	calls = mock.calls.Changed
@@ -235,13 +235,13 @@ func (mock *SourcesMock) ChangedCalls() []struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *SourcesMock) CleanUp(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
+func (mock *SourcesMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualImage) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("SourcesMock.CleanUpFunc: method is nil but Sources.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualImage
+		Vd  *v1alpha2.VirtualImage
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -258,11 +258,11 @@ func (mock *SourcesMock) CleanUp(ctx context.Context, vd *virtv2.VirtualImage) (
 //	len(mockedSources.CleanUpCalls())
 func (mock *SourcesMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualImage
+	Vd  *v1alpha2.VirtualImage
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualImage
+		Vd  *v1alpha2.VirtualImage
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -271,12 +271,12 @@ func (mock *SourcesMock) CleanUpCalls() []struct {
 }
 
 // For calls ForFunc.
-func (mock *SourcesMock) For(dsType virtv2.DataSourceType) (source.Handler, bool) {
+func (mock *SourcesMock) For(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 	if mock.ForFunc == nil {
 		panic("SourcesMock.ForFunc: method is nil but Sources.For was just called")
 	}
 	callInfo := struct {
-		DsType virtv2.DataSourceType
+		DsType v1alpha2.DataSourceType
 	}{
 		DsType: dsType,
 	}
@@ -291,10 +291,10 @@ func (mock *SourcesMock) For(dsType virtv2.DataSourceType) (source.Handler, bool
 //
 //	len(mockedSources.ForCalls())
 func (mock *SourcesMock) ForCalls() []struct {
-	DsType virtv2.DataSourceType
+	DsType v1alpha2.DataSourceType
 } {
 	var calls []struct {
-		DsType virtv2.DataSourceType
+		DsType v1alpha2.DataSourceType
 	}
 	mock.lockFor.RLock()
 	calls = mock.calls.For

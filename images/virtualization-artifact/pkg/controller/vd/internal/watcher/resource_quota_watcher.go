@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -69,7 +69,7 @@ func (w ResourceQuotaWatcher) Watch(mgr manager.Manager, ctr controller.Controll
 }
 
 func (w ResourceQuotaWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	var vds virtv2.VirtualDiskList
+	var vds v1alpha2.VirtualDiskList
 	err := w.client.List(ctx, &vds, client.InNamespace(obj.GetNamespace()))
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to get virtual disks: %s", err))

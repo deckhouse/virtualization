@@ -28,16 +28,16 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineMACAddressOverrideValidator struct {
-	vmmac        *virtv2.VirtualMachineMACAddress
+	vmmac        *v1alpha2.VirtualMachineMACAddress
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualMachineMACAddressOverrideValidator(vmmacTmpl *virtv2.VirtualMachineMACAddress, client client.Client, vmRestoreUID string) *VirtualMachineMACAddressOverrideValidator {
+func NewVirtualMachineMACAddressOverrideValidator(vmmacTmpl *v1alpha2.VirtualMachineMACAddress, client client.Client, vmRestoreUID string) *VirtualMachineMACAddressOverrideValidator {
 	if vmmacTmpl.Annotations != nil {
 		vmmacTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
@@ -45,7 +45,7 @@ func NewVirtualMachineMACAddressOverrideValidator(vmmacTmpl *virtv2.VirtualMachi
 		vmmacTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
 	return &VirtualMachineMACAddressOverrideValidator{
-		vmmac: &virtv2.VirtualMachineMACAddress{
+		vmmac: &v1alpha2.VirtualMachineMACAddress{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmmacTmpl.Kind,
 				APIVersion: vmmacTmpl.APIVersion,
@@ -64,13 +64,13 @@ func NewVirtualMachineMACAddressOverrideValidator(vmmacTmpl *virtv2.VirtualMachi
 	}
 }
 
-func (v *VirtualMachineMACAddressOverrideValidator) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualMachineMACAddressOverrideValidator) Override(rules []v1alpha2.NameReplacement) {
 	v.vmmac.Name = overrideName(v.vmmac.Kind, v.vmmac.Name, rules)
 }
 
 func (v *VirtualMachineMACAddressOverrideValidator) Validate(ctx context.Context) error {
 	vmmacKey := types.NamespacedName{Namespace: v.vmmac.Namespace, Name: v.vmmac.Name}
-	existed, err := object.FetchObject(ctx, vmmacKey, v.client, &virtv2.VirtualMachineMACAddress{})
+	existed, err := object.FetchObject(ctx, vmmacKey, v.client, &v1alpha2.VirtualMachineMACAddress{})
 	if err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (v *VirtualMachineMACAddressOverrideValidator) Validate(ctx context.Context
 			return nil
 		}
 
-		var vmmacs virtv2.VirtualMachineMACAddressList
+		var vmmacs v1alpha2.VirtualMachineMACAddressList
 		err = v.client.List(ctx, &vmmacs, &client.ListOptions{
 			Namespace:     v.vmmac.Namespace,
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMMACByAddress, v.vmmac.Spec.Address),
@@ -99,7 +99,7 @@ func (v *VirtualMachineMACAddressOverrideValidator) Validate(ctx context.Context
 		return nil
 	}
 
-	if existed.Status.Phase == virtv2.VirtualMachineMACAddressPhaseAttached || existed.Status.VirtualMachine != "" {
+	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached || existed.Status.VirtualMachine != "" {
 		return fmt.Errorf("the virtual machine mac address %q is %w and cannot be used for the restored virtual machine", vmmacKey.Name, ErrAlreadyInUse)
 	}
 
@@ -108,7 +108,7 @@ func (v *VirtualMachineMACAddressOverrideValidator) Validate(ctx context.Context
 
 func (v *VirtualMachineMACAddressOverrideValidator) ValidateWithForce(ctx context.Context) error {
 	vmmacKey := types.NamespacedName{Namespace: v.vmmac.Namespace, Name: v.vmmac.Name}
-	existed, err := object.FetchObject(ctx, vmmacKey, v.client, &virtv2.VirtualMachineMACAddress{})
+	existed, err := object.FetchObject(ctx, vmmacKey, v.client, &v1alpha2.VirtualMachineMACAddress{})
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (v *VirtualMachineMACAddressOverrideValidator) ValidateWithForce(ctx contex
 			return nil
 		}
 
-		var vmmacs virtv2.VirtualMachineMACAddressList
+		var vmmacs v1alpha2.VirtualMachineMACAddressList
 		err = v.client.List(ctx, &vmmacs, &client.ListOptions{
 			Namespace:     v.vmmac.Namespace,
 			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMMACByAddress, v.vmmac.Spec.Address),
@@ -139,11 +139,11 @@ func (v *VirtualMachineMACAddressOverrideValidator) ValidateWithForce(ctx contex
 		return nil
 	}
 
-	if existed.Status.Phase == virtv2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine == vmName {
+	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached && existed.Status.VirtualMachine == vmName {
 		return ErrAlreadyExists
 	}
 
-	if existed.Status.Phase == virtv2.VirtualMachineMACAddressPhaseAttached || existed.Status.VirtualMachine != "" {
+	if existed.Status.Phase == v1alpha2.VirtualMachineMACAddressPhaseAttached || existed.Status.VirtualMachine != "" {
 		return fmt.Errorf("the virtual machine mac address %q is %w and cannot be used for the restored virtual machine", vmmacKey.Name, ErrAlreadyInUse)
 	}
 
@@ -155,7 +155,7 @@ func (v *VirtualMachineMACAddressOverrideValidator) ProcessWithForce(_ context.C
 }
 
 func (v *VirtualMachineMACAddressOverrideValidator) Object() client.Object {
-	return &virtv2.VirtualMachineMACAddress{
+	return &v1alpha2.VirtualMachineMACAddress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v.vmmac.Kind,
 			APIVersion: v.vmmac.APIVersion,

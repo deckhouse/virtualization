@@ -36,7 +36,7 @@ import (
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StatService struct {
@@ -77,20 +77,20 @@ func (s StatService) GetCDROM(pod *corev1.Pod) bool {
 	return imageformat.IsISO(finalReport.Format)
 }
 
-func (s StatService) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
+func (s StatService) GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize {
 	finalReport, err := monitoring.GetFinalReportFromPod(pod)
 	if err != nil {
 		s.logger.Error("GetSize: Cannot get final report from pod", "err", err)
-		return virtv2.ImageStatusSize{}
+		return v1alpha2.ImageStatusSize{}
 	}
 
 	if finalReport == nil {
-		return virtv2.ImageStatusSize{}
+		return v1alpha2.ImageStatusSize{}
 	}
 
 	unpackedSizeBytes := resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
 
-	return virtv2.ImageStatusSize{
+	return v1alpha2.ImageStatusSize{
 		Stored:        humanize_bytes.HumanizeIBytes(finalReport.StoredSizeBytes),
 		StoredBytes:   strconv.FormatUint(finalReport.StoredSizeBytes, 10),
 		Unpacked:      humanize_bytes.HumanizeIBytes(uint64(unpackedSizeBytes.Value())),
@@ -135,7 +135,7 @@ func (s StatService) CheckPod(pod *corev1.Pod) error {
 	return nil
 }
 
-func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed {
+func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed {
 	report, err := monitoring.GetFinalReportFromPod(pod)
 	if err != nil && !errors.Is(err, monitoring.ErrTerminationMessageNotFound) {
 		s.logger.Error("GetDownloadSpeed: Cannot get final report from pod", "err", err)
@@ -143,7 +143,7 @@ func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virt
 	}
 
 	if report != nil {
-		return &virtv2.StatusSpeed{
+		return &v1alpha2.StatusSpeed{
 			Avg:      report.GetAverageSpeed(),
 			AvgBytes: strconv.FormatUint(report.GetAverageSpeedRaw(), 10),
 		}
@@ -159,7 +159,7 @@ func (s StatService) GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virt
 		return nil
 	}
 
-	return &virtv2.StatusSpeed{
+	return &v1alpha2.StatusSpeed{
 		Avg:          progress.AvgSpeed(),
 		AvgBytes:     strconv.FormatUint(progress.AvgSpeedRaw(), 10),
 		Current:      progress.CurSpeed(),

@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -73,12 +73,12 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		changed.Status.ObservedGeneration = gen
 	}()
 	if isDeletion(current) {
-		changed.Status.Phase = virtv2.MachineTerminating
+		changed.Status.Phase = v1alpha2.MachineTerminating
 		return reconcile.Result{}, nil
 	}
 
 	if updated := addAllUnknown(changed, vmcondition.TypeRunning); updated || changed.Status.Phase == "" {
-		changed.Status.Phase = virtv2.MachinePending
+		changed.Status.Phase = v1alpha2.MachinePending
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -109,7 +109,7 @@ func (h *LifeCycleHandler) Name() string {
 	return nameLifeCycleHandler
 }
 
-func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) {
+func (h *LifeCycleHandler) syncRunning(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
 	if pod != nil && pod.Status.Message != "" {
@@ -123,7 +123,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 	if kvvm != nil {
 		podScheduled := service.GetKVVMCondition(string(corev1.PodScheduled), kvvm.Status.Conditions)
 		if podScheduled != nil && podScheduled.Status == corev1.ConditionFalse {
-			vm.Status.Phase = virtv2.MachinePending
+			vm.Status.Phase = v1alpha2.MachinePending
 			if podScheduled.Message != "" {
 				cb.Status(metav1.ConditionFalse).
 					Reason(vmcondition.ReasonPodNotStarted).
@@ -174,7 +174,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		}
 	}
 
-	if kvvmi != nil && vm.Status.Phase == virtv2.MachineRunning {
+	if kvvmi != nil && vm.Status.Phase == v1alpha2.MachineRunning {
 		vm.Status.Versions.Libvirt = kvvmi.Annotations[annotations.AnnLibvirtVersion]
 		vm.Status.Versions.Qemu = kvvmi.Annotations[annotations.AnnQemuVersion]
 	}
@@ -182,7 +182,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 	if kvvmi != nil {
 		vm.Status.Node = kvvmi.Status.NodeName
 
-		if vm.Status.Phase == virtv2.MachineRunning {
+		if vm.Status.Phase == v1alpha2.MachineRunning {
 			cb.Reason(vmcondition.ReasonVmIsRunning).Status(metav1.ConditionTrue)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return

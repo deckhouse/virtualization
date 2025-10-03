@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Watcher interface {
@@ -41,7 +41,7 @@ type Watcher interface {
 }
 
 type Handler interface {
-	Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
+	Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
 }
 
 type Reconciler struct {
@@ -88,20 +88,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualDisk]{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualDisk]{},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
 
-	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualDiskObjectRefKindVirtualImage)
+	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualDiskObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VIs: %w", err)
 	}
 
-	vdFromCVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &virtv2.ClusterVirtualImage{}, virtv2.VirtualDiskObjectRefKindClusterVirtualImage)
+	vdFromCVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.ClusterVirtualImage{}, v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage)
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), vdFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
@@ -125,10 +125,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return nil
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualDisk {
-	return &virtv2.VirtualDisk{}
+func (r *Reconciler) factory() *v1alpha2.VirtualDisk {
+	return &v1alpha2.VirtualDisk{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualDisk) virtv2.VirtualDiskStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualDisk) v1alpha2.VirtualDiskStatus {
 	return obj.Status
 }

@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"vm-route-forge/internal/netlinkwrap"
+	"vm-route-forge/internal/netutil"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/node/addressing"
@@ -31,9 +33,7 @@ import (
 
 	vmipcache "vm-route-forge/internal/cache"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"vm-route-forge/internal/netlinkwrap"
-	"vm-route-forge/internal/netutil"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -150,7 +150,7 @@ func (m *Manager) isManagedIP(ip string) (bool, error) {
 }
 
 // UpdateRoute updates route for a single VirtualMachine.
-func (m *Manager) UpdateRoute(vm *virtv2.VirtualMachine, ciliumNode *ciliumv2.CiliumNode) error {
+func (m *Manager) UpdateRoute(vm *v1alpha2.VirtualMachine, ciliumNode *ciliumv2.CiliumNode) error {
 	// TODO Add cleanup if node was lost?
 	// TODO What about migration? Is nodeName just changed to new node or we need some workarounds when 2 Pods are running?
 	if vm == nil {

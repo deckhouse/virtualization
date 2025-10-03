@@ -21,7 +21,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func newUnsafeIterator(reader client.Reader) *iterator {
@@ -37,7 +37,7 @@ type iterator struct {
 // Iter implements iteration on objects VMBDA and create new DTO.
 // DO NOT mutate VMBDA!
 func (l *iterator) Iter(ctx context.Context, h handler) error {
-	vmbdas := virtv2.VirtualMachineBlockDeviceAttachmentList{}
+	vmbdas := v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
 	if err := l.reader.List(ctx, &vmbdas, client.UnsafeDisableDeepCopy); err != nil {
 		return err
 	}

@@ -19,21 +19,21 @@ package indexer
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func IndexVDByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualDisk{}, IndexFieldVDByVDSnapshot, func(object client.Object) []string {
-		vd, ok := object.(*virtv2.VirtualDisk)
+	return &v1alpha2.VirtualDisk{}, IndexFieldVDByVDSnapshot, func(object client.Object) []string {
+		vd, ok := object.(*v1alpha2.VirtualDisk)
 		if !ok || vd == nil {
 			return nil
 		}
 
-		if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != v1alpha2.DataSourceTypeObjectRef {
 			return nil
 		}
 
-		if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
+		if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot {
 			return nil
 		}
 
@@ -42,8 +42,8 @@ func IndexVDByVDSnapshot() (obj client.Object, field string, extractValue client
 }
 
 func IndexVDByStorageClass() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualDisk{}, IndexFieldVDByStorageClass, func(object client.Object) []string {
-		vd, ok := object.(*virtv2.VirtualDisk)
+	return &v1alpha2.VirtualDisk{}, IndexFieldVDByStorageClass, func(object client.Object) []string {
+		vd, ok := object.(*v1alpha2.VirtualDisk)
 		if !ok || vd == nil {
 			return nil
 		}

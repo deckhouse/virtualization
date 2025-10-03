@@ -6,40 +6,58 @@ silent: true
 
 includes:
   shatal:
-    taskfile: ./shatal
-    dir: ./shatal
+    taskfile: tools/shatal
+    dir: tools/shatal
   tank:
-    taskfile: status-access-vms/tank/Taskfile.tank.yaml
-    dir: status-access-vms/tank
+    taskfile: tools/status-access-vms/tank/Taskfile.tank.yaml
+    dir: tools/status-access-vms/tank
     optional: true
   ansible:
-    taskfile: status-access-vms/ansible/Taskfile.ansible.yaml
-    dir: status-access-vms/ansible
+    taskfile: tools/status-access-vms/ansible/Taskfile.ansible.yaml
+    dir: tools/status-access-vms/ansible
+    optional: true
+  statistic:
+    taskfile: tools/statistic/Taskfile.yaml
+    dir: tools/statistic
+    optional: true
+  evicter:
+    taskfile: tools/evicter/Taskfile.yaml
+    dir: tools/evicter
     optional: true
 
 vars:
   COUNT: '{{ .COUNT | default "1" }}'
-  NAMESPACE: "{{ .NAMESPACE }}"
-  STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
+  NAMESPACE: '{{ .NAMESPACE | default "perf" }}'
+  STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r1" }}'
   RESOURCES: '{{ .RESOURCES | default "all" }}'
   NAME_PREFIX: '{{ .NAME_PREFIX | default "performance" }}'
   RESOURCES_PREFIX: '{{ .RESOURCES_PREFIX | default "performance" }}'
 
 tasks:
-  help:
-    desc: "Help about bootstrapper.sh."
+  tst:
     cmds:
-      - ./bootstrapper.sh --help
+      - echo "{{ .STORAGE_CLASS }}"
+
+  render:
+    desc: "Render templates with default values"
+    cmds:
+      - |
+        helm template test . --values values.yaml
+
+  help:
+    desc: "Help about bootstrap.sh."
+    cmds:
+      - ./bootstrap.sh --help
 
   apply:
     desc: "Apply disks and virtual machines."
     cmds:
-      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
+      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
 
   destroy:
     desc: "Destroy disks and virtual machines."
     cmds:
-      - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
+      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="{{ .RESOURCES }}" --name="{{ .NAME_PREFIX }}"
 
   apply:all:
     desc: "Apply disks and virtual machines in two steps (in two different releases)."
@@ -75,22 +93,22 @@ tasks:
   apply:disks:
     desc: "Apply virtual machine disks."
     cmds:
-      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="disks" --name="{{ .NAME_PREFIX }}-disks"
+      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --storage-class="{{ .STORAGE_CLASS }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks"
 
   apply:vms:
     desc: "Apply virtual machines."
     cmds:
-      - ./bootstrapper.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+      - ./bootstrap.sh apply --count="{{ .COUNT }}" --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
 
   destroy:disks:
     desc: "Destroy disks."
     cmds:
-      - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="disks" --name="{{ .NAME_PREFIX }}-disks"
+      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vds" --name="{{ .NAME_PREFIX }}-disks"
 
   destroy:vms:
     desc: "Destroy virtual machines."
     cmds:
-      - ./bootstrapper.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
+      - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms"
 
   check_or_install_software:
     desc: "Check and install Helm3, Ansible, and K9s"

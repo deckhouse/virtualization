@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Importer Uploader Stat
@@ -62,9 +62,9 @@ type Uploader interface {
 type Stat interface {
 	GetFormat(pod *corev1.Pod) string
 	GetCDROM(pod *corev1.Pod) bool
-	GetSize(pod *corev1.Pod) virtv2.ImageStatusSize
+	GetSize(pod *corev1.Pod) v1alpha2.ImageStatusSize
 	GetDVCRImageName(pod *corev1.Pod) string
-	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
+	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
 	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool

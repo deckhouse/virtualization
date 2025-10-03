@@ -30,16 +30,16 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameMACHandler = "MACHandler"
 
 type MACManager interface {
-	IsBound(vmName string, vmmac *virtv2.VirtualMachineMACAddress) bool
-	CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMachineMACAddress) error
-	CreateMACAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client, macAddress string) error
+	IsBound(vmName string, vmmac *v1alpha2.VirtualMachineMACAddress) bool
+	CheckMACAddressAvailableForBinding(vmmac *v1alpha2.VirtualMachineMACAddress) error
+	CreateMACAddress(ctx context.Context, vm *v1alpha2.VirtualMachine, client client.Client, macAddress string) error
 }
 
 func NewMACHandler(mac MACManager, cl client.Client, recorder eventrecord.EventRecorderLogger) *MACHandler {
@@ -168,7 +168,7 @@ func (h *MACHandler) Name() string {
 	return nameMACHandler
 }
 
-func countNetworksWithMACRequest(networkSpec []virtv2.NetworksSpec, vmmacs []*virtv2.VirtualMachineMACAddress) int {
+func countNetworksWithMACRequest(networkSpec []v1alpha2.NetworksSpec, vmmacs []*v1alpha2.VirtualMachineMACAddress) int {
 	existingMACNames := make(map[string]bool)
 	for _, vmmac := range vmmacs {
 		existingMACNames[vmmac.Name] = true
@@ -176,7 +176,7 @@ func countNetworksWithMACRequest(networkSpec []virtv2.NetworksSpec, vmmacs []*vi
 
 	count := 0
 	for _, ns := range networkSpec {
-		if ns.Type != virtv2.NetworksTypeMain {
+		if ns.Type != v1alpha2.NetworksTypeMain {
 			continue
 		}
 

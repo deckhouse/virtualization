@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -51,7 +51,7 @@ func NewObjectRefClusterVirtualImage(
 	}
 }
 
-func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
@@ -71,7 +71,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
 	}
 
-	return steptaker.NewStepTakers[*virtv2.VirtualDisk](
+	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreateDataVolumeFromClusterVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
@@ -81,13 +81,13 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	).Run(ctx, vd)
 }
 
-func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return errors.New("object ref missed for data source")
 	}
 
 	cviRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name}
-	cviRef, err := object.FetchObject(ctx, cviRefKey, ds.client, &virtv2.ClusterVirtualImage{})
+	cviRef, err := object.FetchObject(ctx, cviRefKey, ds.client, &v1alpha2.ClusterVirtualImage{})
 	if err != nil {
 		return fmt.Errorf("fetch vi %q: %w", cviRefKey, err)
 	}
@@ -96,7 +96,7 @@ func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *virtv2.
 		return NewClusterImageNotFoundError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
-	if cviRef.Status.Phase != virtv2.ImageReady || cviRef.Status.Target.RegistryURL == "" {
+	if cviRef.Status.Phase != v1alpha2.ImageReady || cviRef.Status.Target.RegistryURL == "" {
 		return NewClusterImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 

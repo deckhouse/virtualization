@@ -22,7 +22,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +49,7 @@ var lsViCmd = &cobra.Command{
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		imgsDir := fmt.Sprintf("%s/vi", RepoDir)
-		err := ListImage(virtv2.VirtualImageKind, imgsDir, cmd, args)
+		err := ListImage(v1alpha2.VirtualImageKind, imgsDir, cmd, args)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ var lsCviCmd = &cobra.Command{
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		imgsDir := fmt.Sprintf("%s/cvi", RepoDir)
-		err := ListImage(virtv2.ClusterVirtualImageKind, imgsDir, cmd, args)
+		err := ListImage(v1alpha2.ClusterVirtualImageKind, imgsDir, cmd, args)
 		if err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 		)
 		imgName := args[0]
 		switch imgType {
-		case virtv2.VirtualImageKind:
+		case v1alpha2.VirtualImageKind:
 			path := fmt.Sprintf("%s/%s/%s", imgsDir, NamespaceFlag, imgName)
 			fileInfo, err = os.Stat(path)
 			if err != nil {
@@ -101,7 +101,7 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 				}
 				return fmt.Errorf("cannot get the `%s` %q in the %q namespace: %w", imgType, imgName, NamespaceFlag, err)
 			}
-		case virtv2.ClusterVirtualImageKind:
+		case v1alpha2.ClusterVirtualImageKind:
 			path := fmt.Sprintf("%s/%s", imgsDir, imgName)
 			fileInfo, err = os.Stat(path)
 			if err != nil {
@@ -122,7 +122,7 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 
 	if AllImagesFlag {
 		switch imgType {
-		case virtv2.VirtualImageKind:
+		case v1alpha2.VirtualImageKind:
 			imgs, err := listAllVirtualImages(imgsDir, NamespaceFlag)
 			if err != nil {
 				return err
@@ -133,7 +133,7 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 				fmt.Fprintf(w, "%s\t\n", img.Name)
 			}
 			w.Flush()
-		case virtv2.ClusterVirtualImageKind:
+		case v1alpha2.ClusterVirtualImageKind:
 			imgs, err := os.ReadDir(imgsDir)
 			if err != nil {
 				return fmt.Errorf("cannot get the list of all `ClusterVirtualImages`: %w", err)
@@ -150,7 +150,7 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 		return nil
 	}
 
-	if imgType == virtv2.VirtualImageKind && AllNamespacesFlag {
+	if imgType == v1alpha2.VirtualImageKind && AllNamespacesFlag {
 		namespaces, err := os.ReadDir(imgsDir)
 		if err != nil {
 			return fmt.Errorf("cannot get the list of all namespaces: %w", err)

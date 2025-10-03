@@ -3,7 +3,7 @@ module github.com/deckhouse/virtualization/shatal
 go 1.24.6
 
 require (
-	github.com/deckhouse/virtualization/api v0.0.0-20240408082728-b892ddd03f9e
+	github.com/deckhouse/virtualization/api v1.0.0
 	github.com/google/uuid v1.6.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	k8s.io/api v0.33.3
@@ -89,7 +89,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/deckhouse/virtualization/api => ./../../../api
 
 replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911

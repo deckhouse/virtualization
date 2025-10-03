@@ -5,6 +5,8 @@ metadata:
   name: vi-pvc-alpine-http
 spec:
   storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
   dataSource:
     type: HTTP
     http:

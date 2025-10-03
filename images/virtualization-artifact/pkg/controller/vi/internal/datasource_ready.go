@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -41,7 +41,7 @@ func NewDatasourceReadyHandler(sources *source.Sources) *DatasourceReadyHandler 
 	}
 }
 
-func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vicondition.DatasourceReadyType).Generation(vi.Generation)
 
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()

@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("DeletionHandler", func() {
@@ -41,7 +41,7 @@ var _ = Describe("DeletionHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		srv        *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
+		srv        *reconciler.Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus]
 	)
 
 	AfterEach(func() {
@@ -58,24 +58,24 @@ var _ = Describe("DeletionHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	newVmop := func(phase virtv2.VMOPPhase, opts ...vmopbuilder.Option) *virtv2.VirtualMachineOperation {
+	newVmop := func(phase v1alpha2.VMOPPhase, opts ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
 		vmop.Status.Phase = phase
 		vmopbuilder.ApplyOptions(vmop, opts...)
 		return vmop
 	}
 
-	DescribeTable("Should be protected", func(phase virtv2.VMOPPhase, protect bool) {
-		vmop := newVmop(phase, vmopbuilder.WithType(virtv2.VMOPTypeEvict))
+	DescribeTable("Should be protected", func(phase v1alpha2.VMOPPhase, protect bool) {
+		vmop := newVmop(phase, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict))
 
 		fakeClient, srv = setupEnvironment(vmop)
 		reconcile()
 
-		newVMOP := &virtv2.VirtualMachineOperation{}
+		newVMOP := &v1alpha2.VirtualMachineOperation{}
 		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vmop), newVMOP)
 		Expect(err).NotTo(HaveOccurred())
 
-		updated := controllerutil.AddFinalizer(newVMOP, virtv2.FinalizerVMOPCleanup)
+		updated := controllerutil.AddFinalizer(newVMOP, v1alpha2.FinalizerVMOPCleanup)
 
 		if protect {
 			Expect(updated).To(BeFalse())
@@ -83,16 +83,16 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(updated).To(BeTrue())
 		}
 	},
-		Entry("VMOP Evict 1", virtv2.VMOPPhasePending, true),
-		Entry("VMOP Evict 2", virtv2.VMOPPhaseInProgress, true),
-		Entry("VMOP Evict 3", virtv2.VMOPPhaseCompleted, true),
+		Entry("VMOP Evict 1", v1alpha2.VMOPPhasePending, true),
+		Entry("VMOP Evict 2", v1alpha2.VMOPPhaseInProgress, true),
+		Entry("VMOP Evict 3", v1alpha2.VMOPPhaseCompleted, true),
 	)
 
 	Context("Migration", func() {
-		DescribeTable("Should cleanup migration", func(vmop *virtv2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, shouldExist bool) {
+		DescribeTable("Should cleanup migration", func(vmop *v1alpha2.VirtualMachineOperation, mig *virtv1.VirtualMachineInstanceMigration, shouldExist bool) {
 			expectLength := 1
 			if !shouldExist {
-				controllerutil.AddFinalizer(vmop, virtv2.FinalizerVMOPCleanup)
+				controllerutil.AddFinalizer(vmop, v1alpha2.FinalizerVMOPCleanup)
 				vmop.DeletionTimestamp = ptr.To(metav1.Now())
 				expectLength = 0
 			}
@@ -106,11 +106,11 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(len(migs.Items)).To(Equal(expectLength))
 		},
 			Entry("VMOP Evict 1",
-				newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
+				newVmop(v1alpha2.VMOPPhaseInProgress, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
 				newSimpleMigration("vmop-"+name, namespace, "test-vm"), true,
 			),
 			Entry("VMOP Evict 2",
-				newVmop(virtv2.VMOPPhaseCompleted, vmopbuilder.WithType(virtv2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
+				newVmop(v1alpha2.VMOPPhaseCompleted, vmopbuilder.WithType(v1alpha2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
 				newSimpleMigration("vmop-"+name, namespace, "test-vm"), false,
 			),
 		)
