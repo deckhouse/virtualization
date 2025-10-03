@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Importer Uploader Stat Bounder Handler Disk
@@ -65,7 +65,7 @@ type Stat interface {
 	step.ReadyContainerRegistryStepStat
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
-	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
+	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *v1alpha2.StatusSpeed
 }
 
 type Bounder interface {

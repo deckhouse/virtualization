@@ -42,7 +42,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -76,7 +76,7 @@ func NewObjectRefVirtualDiskSnapshot(
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, vdSnapshotRef *virtv2.VirtualDiskSnapshot, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
+func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage, vdSnapshotRef *v1alpha2.VirtualDiskSnapshot, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, vdSnapshotRef.Namespace, cvi.UID)
@@ -105,7 +105,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 			Reason(vicondition.Ready).
 			Message("")
 
-		cvi.Status.Phase = virtv2.ImageReady
+		cvi.Status.Phase = v1alpha2.ImageReady
 
 		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
@@ -114,7 +114,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 
 		return ds.CleanUpSupplements(ctx, cvi)
 	case object.AnyTerminating(pod, pvc):
-		cvi.Status.Phase = virtv2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImagePending
 
 		cb.
 			Status(metav1.ConditionTrue).
@@ -126,7 +126,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 		ds.recorder.Event(
 			cvi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The ObjectRef DataSource import has started",
 		)
 
@@ -193,7 +193,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 			return reconcile.Result{}, err
 		}
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -216,14 +216,14 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -235,11 +235,11 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = virtv2.ImageFailed
+			cvi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -255,7 +255,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 			Reason(vicondition.Ready).
 			Message("")
 
-		cvi.Status.Phase = virtv2.ImageReady
+		cvi.Status.Phase = v1alpha2.ImageReady
 		cvi.Status.Size = ds.statService.GetSize(pod)
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
@@ -266,12 +266,12 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 	default:
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = virtv2.ImageFailed
+			cvi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
 				if strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
-					cvi.Status.Phase = virtv2.ImageProvisioning
+					cvi.Status.Phase = v1alpha2.ImageProvisioning
 					cb.
 						Status(metav1.ConditionFalse).
 						Reason(vicondition.Provisioning).
@@ -286,7 +286,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -307,7 +307,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 			Reason(vicondition.Provisioning).
 			Message("Import is in the process of provisioning to DVCR.")
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
@@ -317,7 +317,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
@@ -342,7 +342,7 @@ func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, c
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
@@ -358,7 +358,7 @@ func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *virtv2.
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(
@@ -371,9 +371,9 @@ func (ds ObjectRefVirtualDiskSnapshot) getEnvSettings(cvi *virtv2.ClusterVirtual
 	return &settings
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
-	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
-		return fmt.Errorf("not a %s data source", virtv2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot)
+func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) error {
+	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != v1alpha2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
+		return fmt.Errorf("not a %s data source", v1alpha2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot)
 	}
 
 	vdSnapshot, err := ds.diskService.GetVirtualDiskSnapshot(ctx, cvi.Spec.DataSource.ObjectRef.Name, cvi.Spec.DataSource.ObjectRef.Namespace)
@@ -381,7 +381,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, cvi *virtv2
 		return err
 	}
 
-	if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
+	if vdSnapshot == nil || vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady {
 		return NewVirtualDiskSnapshotNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	}
 

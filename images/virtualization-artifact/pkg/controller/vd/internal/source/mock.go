@@ -7,7 +7,7 @@ import (
 	"context"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -27,16 +27,16 @@ var _ Handler = &HandlerMock{}
 //
 //		// make and configure a mocked Handler
 //		mockedHandler := &HandlerMock{
-//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
-//			SyncFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+//			SyncFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 //				panic("mock out the Sync method")
 //			},
-//			ValidateFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) error {
+//			ValidateFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 //				panic("mock out the Validate method")
 //			},
 //		}
@@ -47,16 +47,16 @@ var _ Handler = &HandlerMock{}
 //	}
 type HandlerMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
 
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
 	// SyncFunc mocks the Sync method.
-	SyncFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
+	SyncFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
 
 	// ValidateFunc mocks the Validate method.
-	ValidateFunc func(ctx context.Context, vd *virtv2.VirtualDisk) error
+	ValidateFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -65,7 +65,7 @@ type HandlerMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 		// Name holds details about calls to the Name method.
 		Name []struct {
@@ -75,14 +75,14 @@ type HandlerMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 		// Validate holds details about calls to the Validate method.
 		Validate []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 	}
 	lockCleanUp  sync.RWMutex
@@ -92,13 +92,13 @@ type HandlerMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *HandlerMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (mock *HandlerMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("HandlerMock.CleanUpFunc: method is nil but Handler.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -115,11 +115,11 @@ func (mock *HandlerMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (b
 //	len(mockedHandler.CleanUpCalls())
 func (mock *HandlerMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -155,13 +155,13 @@ func (mock *HandlerMock) NameCalls() []struct {
 }
 
 // Sync calls SyncFunc.
-func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (mock *HandlerMock) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if mock.SyncFunc == nil {
 		panic("HandlerMock.SyncFunc: method is nil but Handler.Sync was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -178,11 +178,11 @@ func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 //	len(mockedHandler.SyncCalls())
 func (mock *HandlerMock) SyncCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockSync.RLock()
 	calls = mock.calls.Sync
@@ -191,13 +191,13 @@ func (mock *HandlerMock) SyncCalls() []struct {
 }
 
 // Validate calls ValidateFunc.
-func (mock *HandlerMock) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+func (mock *HandlerMock) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	if mock.ValidateFunc == nil {
 		panic("HandlerMock.ValidateFunc: method is nil but Handler.Validate was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -214,11 +214,11 @@ func (mock *HandlerMock) Validate(ctx context.Context, vd *virtv2.VirtualDisk) e
 //	len(mockedHandler.ValidateCalls())
 func (mock *HandlerMock) ValidateCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockValidate.RLock()
 	calls = mock.calls.Validate

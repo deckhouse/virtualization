@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
@@ -66,7 +66,7 @@ func NewUploadDataSource(
 	}
 }
 
-func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
@@ -101,7 +101,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			Reason(cvicondition.Ready).
 			Message("")
 
-		cvi.Status.Phase = virtv2.ImageReady
+		cvi.Status.Phase = v1alpha2.ImageReady
 
 		// Unprotect upload time supplements to delete them later.
 		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
@@ -116,7 +116,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 		return reconcile.Result{}, nil
 	case object.AnyTerminating(pod, svc, ing):
-		cvi.Status.Phase = virtv2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImagePending
 
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || ing == nil:
@@ -126,14 +126,14 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.Provisioning).
@@ -145,11 +145,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = virtv2.ImageFailed
+			cvi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -163,7 +163,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		ds.recorder.Event(
 			cvi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncCompleted,
+			v1alpha2.ReasonDataSourceSyncCompleted,
 			"The Upload DataSource import has completed",
 		)
 
@@ -172,7 +172,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			Reason(cvicondition.Ready).
 			Message("")
 
-		cvi.Status.Phase = virtv2.ImageReady
+		cvi.Status.Phase = v1alpha2.ImageReady
 		cvi.Status.Size = ds.statService.GetSize(pod)
 		cvi.Status.CDROM = ds.statService.GetCDROM(pod)
 		cvi.Status.Format = ds.statService.GetFormat(pod)
@@ -184,7 +184,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	case ds.statService.IsUploadStarted(cvi.GetUID(), pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			cvi.Status.Phase = virtv2.ImageFailed
+			cvi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
@@ -194,7 +194,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -210,7 +210,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			Reason(cvicondition.Provisioning).
 			Message("Import is in the process of provisioning to DVCR.")
 
-		cvi.Status.Phase = virtv2.ImageProvisioning
+		cvi.Status.Phase = v1alpha2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
@@ -227,9 +227,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			Reason(cvicondition.WaitForUserUpload).
 			Message("Waiting for the user upload.")
 
-		cvi.Status.Phase = virtv2.ImageWaitForUserUpload
+		cvi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-		cvi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+		cvi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 			External:  ds.uploaderService.GetExternalURL(ctx, ing),
 			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
 		}
@@ -241,7 +241,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			Reason(cvicondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 
-		cvi.Status.Phase = virtv2.ImagePending
+		cvi.Status.Phase = v1alpha2.ImagePending
 
 		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
@@ -249,17 +249,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	return ds.uploaderService.CleanUp(ctx, supgen)
 }
 
-func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.ClusterVirtualImage) error {
+func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.ClusterVirtualImage) error {
 	return nil
 }
 
-func (ds UploadDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, supgen supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(

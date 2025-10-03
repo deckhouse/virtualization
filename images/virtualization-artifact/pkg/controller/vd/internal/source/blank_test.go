@@ -38,7 +38,7 @@ import (
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -46,7 +46,7 @@ var _ = Describe("Blank", func() {
 	var (
 		ctx      context.Context
 		scheme   *runtime.Scheme
-		vd       *virtv2.VirtualDisk
+		vd       *v1alpha2.VirtualDisk
 		sc       *storagev1.StorageClass
 		pvc      *corev1.PersistentVolumeClaim
 		recorder eventrecord.EventRecorderLogger
@@ -57,7 +57,7 @@ var _ = Describe("Blank", func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 
 		scheme = runtime.NewScheme()
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
@@ -87,20 +87,20 @@ var _ = Describe("Blank", func() {
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
 				UID:        "11111111-1111-1111-1111-111111111111",
 			},
-			Spec: virtv2.VirtualDiskSpec{
-				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 					Size: ptr.To(resource.MustParse("10Mi")),
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
-				Target: virtv2.DiskTarget{
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			},
@@ -152,7 +152,7 @@ var _ = Describe("Blank", func() {
 			Expect(pvcCreated).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 			Expect(vd.Status.Progress).NotTo(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
@@ -189,7 +189,7 @@ var _ = Describe("Blank", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskWaitForFirstConsumer))
 		})
 
 		It("is in provisioning", func() {
@@ -204,7 +204,7 @@ var _ = Describe("Blank", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskProvisioning))
 		})
 	})
 
@@ -221,7 +221,7 @@ var _ = Describe("Blank", func() {
 
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
 			ExpectStats(vd)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskReady))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskReady))
 		})
 	})
 
@@ -248,7 +248,7 @@ var _ = Describe("Blank", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 
@@ -264,7 +264,7 @@ var _ = Describe("Blank", func() {
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
-			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
+			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})
