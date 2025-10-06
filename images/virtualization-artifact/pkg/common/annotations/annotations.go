@@ -163,9 +163,6 @@ const (
 	// AnnAccessMode is the annotation for indicating that access mode.  (USED IN STORAGE sds controllers)
 	AnnAccessModes           = AnnAPIGroupV + "/access-mode"
 	AnnAccessModesDeprecated = "accessModes"
-	// AnnStorageProvisioner is the annotation for indicating storage provisioner
-	AnnStorageProvisioner           = "volume.kubernetes.io/storage-provisioner"
-	AnnStorageProvisionerDeprecated = "volume.beta.kubernetes.io/storage-provisioner"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"
