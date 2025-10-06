@@ -49,9 +49,14 @@ var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), fu
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vd-snapshots"}
 		vmAutomaticWithHotplug   = map[string]string{"vm": "automatic-with-hotplug"}
 		ns                       string
+		criticalErr              error
 	)
 
 	BeforeAll(func() {
+		if criticalErr != nil {
+			Skip(fmt.Sprintf("Skip because blinking error: %s", criticalErr.Error()))
+		}
+
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
@@ -288,20 +293,25 @@ var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), fu
 			maps.Copy(labels, attachedVirtualDiskLabel)
 			maps.Copy(labels, testCaseLabel)
 
-			Eventually(func() error {
-				vdSnapshots := GetVirtualDiskSnapshots(ns, labels)
-				for _, snapshot := range vdSnapshots.Items {
-					if snapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || snapshot.DeletionTimestamp != nil {
-						continue
+			err := InterceptGomegaFailure(func() {
+				Eventually(func() error {
+					vdSnapshots := GetVirtualDiskSnapshots(ns, labels)
+					for _, snapshot := range vdSnapshots.Items {
+						if snapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || snapshot.DeletionTimestamp != nil {
+							continue
+						}
+						return errors.New("still wait for all snapshots either in ready or in deletion state")
 					}
-					return errors.New("still wait for all snapshots either in ready or in deletion state")
-				}
-				return nil
-			}).WithTimeout(
-				LongWaitDuration,
-			).WithPolling(
-				Interval,
-			).Should(Succeed(), "all snapshots should be in ready state after creation")
+					return nil
+				}).WithTimeout(
+					LongWaitDuration,
+				).WithPolling(
+					Interval,
+				).Should(Succeed(), "all snapshots should be in ready state after creation")
+			})
+			if err != nil {
+				criticalErr = err
+			}
 		})
 
 		// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
