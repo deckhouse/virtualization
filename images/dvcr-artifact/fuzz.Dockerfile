@@ -1,8 +1,9 @@
-FROM golang:1.23-bookworm
+FROM golang:1.24-bookworm
 
 RUN apt update -y && apt install -y \
   build-essential \
-  libnbd-dev
+  libnbd-dev \
+  qemu-utils
 
 WORKDIR /app
 
