@@ -43,6 +43,7 @@ packages:
 - zstd
 - libxml2
 - libtasn1
+- libgcc1
 - libunistring
 {{- end -}}
 
