@@ -78,7 +78,7 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *v1alpha2.VirtualMachineIP
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
-			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q alrady has a reference to another VirtualMachineIPAddress.", s.lease.Name))
+			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q already has a reference to another VirtualMachineIPAddress.", s.lease.Name))
 		return &reconcile.Result{}, nil
 	}
 
