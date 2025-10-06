@@ -3,11 +3,11 @@ version: "3"
 silent: true
 
 vars:
-  NC_GCP_HOST: '{{ .NC_GCP_HOST | default "nc.e2e.virtlab.flant.com" }}'
+  NC_HOST: '{{ .NC_HOST | default "nc.e2e.virtlab.flant.com" }}'
 
 tasks:
   apply:
     desc: "Apply netchecker"
     cmds:
-      - sed -i "s/__GCP_NC_HOST__/{{ .NC_GCP_HOST }}/g" overlays/test/kustomization.yaml
+      - sed -i "s/__NC_HOST__/{{ .NC_HOST }}/g" overlays/test/kustomization.yaml
       - kubectl apply -k overlays/test

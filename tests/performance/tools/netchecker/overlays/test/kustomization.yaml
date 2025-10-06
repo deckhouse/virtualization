@@ -11,14 +11,14 @@ patches:
     patch: |-
       - op: replace
         path: /spec/rules/0/host
-        value: __GCP_NC_HOST__
+        value: __NC_HOST__
       - op: replace
         path: /spec/tls/0/hosts/0
-        value: __GCP_NC_HOST__
+        value: __NC_HOST__
   - target:
       kind: Certificate
       name: tcpr
     patch: |-
       - op: replace
         path: /spec/dnsNames/0
-        value: __GCP_NC_HOST__
+        value: __NC_HOST__
