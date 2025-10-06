@@ -32,13 +32,13 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
+		v1alpha2.AddToScheme,
 		virtv1.AddToScheme,
 		cdiv1.AddToScheme,
 		clientgoscheme.AddToScheme,
@@ -66,7 +66,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 func NewFakeClientWithInterceptorWithObjects(interceptor interceptor.Funcs, objs ...client.Object) (client.WithWatch, error) {
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
+		v1alpha2.AddToScheme,
 		virtv1.AddToScheme,
 		cdiv1.AddToScheme,
 		clientgoscheme.AddToScheme,

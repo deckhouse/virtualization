@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type BlockDeviceService struct {
@@ -36,10 +36,10 @@ func NewBlockDeviceService(client client.Client) *BlockDeviceService {
 	}
 }
 
-func (s *BlockDeviceService) CountBlockDevicesAttachedToVM(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+func (s *BlockDeviceService) CountBlockDevicesAttachedToVM(ctx context.Context, vm *v1alpha2.VirtualMachine) (int, error) {
 	count := len(vm.Spec.BlockDeviceRefs)
 
-	var vmbdaList virtv2.VirtualMachineBlockDeviceAttachmentList
+	var vmbdaList v1alpha2.VirtualMachineBlockDeviceAttachmentList
 
 	err := s.client.List(ctx, &vmbdaList, client.InNamespace(vm.Namespace),
 		&client.MatchingFields{
@@ -56,7 +56,7 @@ func (s *BlockDeviceService) CountBlockDevicesAttachedToVM(ctx context.Context, 
 
 func (s *BlockDeviceService) CountBlockDevicesAttachedToVMName(ctx context.Context, vmName, namespace string) (int, error) {
 	count := 0
-	var vm virtv2.VirtualMachine
+	var vm v1alpha2.VirtualMachine
 
 	err := s.client.Get(ctx, client.ObjectKey{Name: vmName, Namespace: namespace}, &vm)
 	if err == nil {
@@ -65,7 +65,7 @@ func (s *BlockDeviceService) CountBlockDevicesAttachedToVMName(ctx context.Conte
 		return 0, err
 	}
 
-	var vmbdaList virtv2.VirtualMachineBlockDeviceAttachmentList
+	var vmbdaList v1alpha2.VirtualMachineBlockDeviceAttachmentList
 
 	err = s.client.List(ctx, &vmbdaList, client.InNamespace(namespace),
 		&client.MatchingFields{

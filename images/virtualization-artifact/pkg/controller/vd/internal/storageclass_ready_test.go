@@ -29,14 +29,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 var _ = Describe("StorageClassReadyHandler Run", func() {
 	var (
 		ctx context.Context
-		vd  *virtv2.VirtualDisk
+		vd  *v1alpha2.VirtualDisk
 		pvc *corev1.PersistentVolumeClaim
 		svc *StorageClassServiceMock
 		sc  *storagev1.StorageClass
@@ -57,15 +57,15 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
 				UID:        "11111111-1111-1111-1111-111111111111",
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
-				Target: virtv2.DiskTarget{
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "test-pvc",
 				},
 			},
@@ -313,7 +313,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 	})
 })
 
-func ExpectStorageClassReadyCondition(vd *virtv2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.StorageClassReadyReason, msgExists bool) {
+func ExpectStorageClassReadyCondition(vd *v1alpha2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.StorageClassReadyReason, msgExists bool) {
 	ready, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -70,7 +70,7 @@ func NewCreateDataVolumeStep(
 	}
 }
 
-func (s CreateDataVolumeStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s CreateDataVolumeStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.dv != nil {
 		return nil, nil
 	}
@@ -95,7 +95,7 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) 
 	case err == nil:
 		// OK.
 	case errors.Is(err, service.ErrStorageProfileNotFound):
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
@@ -108,13 +108,13 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) 
 	return nil, nil
 }
 
-func GetNodePlacement(ctx context.Context, c client.Client, vd *virtv2.VirtualDisk) (*provisioner.NodePlacement, error) {
+func GetNodePlacement(ctx context.Context, c client.Client, vd *v1alpha2.VirtualDisk) (*provisioner.NodePlacement, error) {
 	if len(vd.Status.AttachedToVirtualMachines) != 1 {
 		return nil, nil
 	}
 
 	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
-	vm, err := object.FetchObject(ctx, vmKey, c, &virtv2.VirtualMachine{})
+	vm, err := object.FetchObject(ctx, vmKey, c, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
 	}
@@ -127,7 +127,7 @@ func GetNodePlacement(ctx context.Context, c client.Client, vd *virtv2.VirtualDi
 	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
 
 	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
-	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &virtv2.VirtualMachineClass{})
+	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &v1alpha2.VirtualMachineClass{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
 	}

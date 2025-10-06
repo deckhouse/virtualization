@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -63,7 +63,7 @@ func NewCreatePVCFromVDSnapshotStep(
 	}
 }
 
-func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -71,17 +71,17 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 	s.recorder.Event(
 		vd,
 		corev1.EventTypeNormal,
-		virtv2.ReasonDataSourceSyncStarted,
+		v1alpha2.ReasonDataSourceSyncStarted,
 		"The ObjectRef DataSource import has started",
 	)
 
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch virtual disk snapshot: %w", err)
 	}
 
 	if vdSnapshot == nil {
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
@@ -94,8 +94,8 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 		return nil, fmt.Errorf("fetch volume snapshot: %w", err)
 	}
 
-	if vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
-		vd.Status.Phase = virtv2.DiskPending
+	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
+		vd.Status.Phase = v1alpha2.DiskPending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningNotStarted).
@@ -110,7 +110,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 		return nil, fmt.Errorf("create pvc: %w", err)
 	}
 
-	vd.Status.Phase = virtv2.DiskProvisioning
+	vd.Status.Phase = v1alpha2.DiskProvisioning
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
@@ -126,7 +126,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 
 // AddOriginalMetadata adds original annotations and labels from VolumeSnapshot to VirtualDisk,
 // without overwriting existing values
-func (s CreatePVCFromVDSnapshotStep) AddOriginalMetadata(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) {
+func (s CreatePVCFromVDSnapshotStep) AddOriginalMetadata(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) {
 	if vd.Annotations == nil {
 		vd.Annotations = make(map[string]string)
 	}
@@ -157,7 +157,7 @@ func (s CreatePVCFromVDSnapshotStep) AddOriginalMetadata(vd *virtv2.VirtualDisk,
 	}
 }
 
-func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
+func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
 	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
 	if storageClassName == "" {
 		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
@@ -210,7 +210,7 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.V
 			Name:      pvcKey.Name,
 			Namespace: pvcKey.Namespace,
 			Finalizers: []string{
-				virtv2.FinalizerVDProtection,
+				v1alpha2.FinalizerVDProtection,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vd),

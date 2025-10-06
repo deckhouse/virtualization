@@ -31,7 +31,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -46,7 +46,7 @@ var _ = Describe("InUseHandler", func() {
 	BeforeEach(func() {
 		scheme = runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 
 		ctx = context.TODO()
@@ -54,14 +54,14 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when handling VirtualDisk usage", func() {
 		It("should correctly update status for a disk used by a running VM", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "test-vm",
 							Mounted: false,
@@ -78,72 +78,72 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
 				},
 			}
 
-			vm2 := &virtv2.VirtualMachine{
+			vm2 := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm2",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachineRunning,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachineRunning,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
 				},
 			}
 
-			vm3 := &virtv2.VirtualMachine{
+			vm3 := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm3",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
@@ -175,14 +175,14 @@ var _ = Describe("InUseHandler", func() {
 		})
 
 		It("should correctly update status for a disk used by a stopped VM", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "test-vm",
 							Mounted: true,
@@ -191,24 +191,24 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachineStopped,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachineStopped,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "test-vd",
 						},
 					},
@@ -233,12 +233,12 @@ var _ = Describe("InUseHandler", func() {
 		})
 
 		It("should update the status to NotInUse if no VM uses the disk", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -259,14 +259,14 @@ var _ = Describe("InUseHandler", func() {
 		})
 
 		It("should handle VM disappearance and update status accordingly", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{Name: "missing-vm", Mounted: true},
 					},
 				},
@@ -290,12 +290,12 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is not in use", func() {
 		It("must set status Unknown and reason Unknown", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -313,12 +313,12 @@ var _ = Describe("InUseHandler", func() {
 		})
 
 		It("must set condition generation equal resource generation", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:               vdcondition.InUseType.String(),
@@ -346,34 +346,34 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by running VirtualMachine", func() {
 		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: vd.Name,
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachineRunning,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachineRunning,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: vd.Name,
 						},
 					},
@@ -396,22 +396,22 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by not ready VirtualMachine", func() {
 		It("it sets Unknown", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualMachineStatus{
+				Status: v1alpha2.VirtualMachineStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:   vmcondition.TypeMigrating.String(),
@@ -422,9 +422,9 @@ var _ = Describe("InUseHandler", func() {
 							Status: metav1.ConditionFalse,
 						},
 					},
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: vd.Name,
 						},
 					},
@@ -446,33 +446,33 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualImage", func() {
 		It("must set status True and reason AllowedForImageUsage", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Phase:      virtv2.DiskReady,
+				Status: v1alpha2.VirtualDiskStatus{
+					Phase:      v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{},
 				},
 			}
 
-			vi := &virtv2.VirtualImage{
+			vi := &v1alpha2.VirtualImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vi",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualImageSpec{
-					DataSource: virtv2.VirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualImageObjectRef{
-							Kind: virtv2.VirtualDiskKind,
+				Spec: v1alpha2.VirtualImageSpec{
+					DataSource: v1alpha2.VirtualImageDataSource{
+						Type: v1alpha2.DataSourceTypeObjectRef,
+						ObjectRef: &v1alpha2.VirtualImageObjectRef{
+							Kind: v1alpha2.VirtualDiskKind,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualImageStatus{
-					Phase:      virtv2.ImageProvisioning,
+				Status: v1alpha2.VirtualImageStatus{
+					Phase:      v1alpha2.ImageProvisioning,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -493,34 +493,34 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by ClusterVirtualImage", func() {
 		It("must set status True and reason AllowedForImageUsage", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Phase:      virtv2.DiskReady,
+				Status: v1alpha2.VirtualDiskStatus{
+					Phase:      v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{},
 				},
 			}
 
-			cvi := &virtv2.ClusterVirtualImage{
+			cvi := &v1alpha2.ClusterVirtualImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vi",
 					Namespace: "default",
 				},
-				Spec: virtv2.ClusterVirtualImageSpec{
-					DataSource: virtv2.ClusterVirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
-							Kind:      virtv2.VirtualDiskKind,
+				Spec: v1alpha2.ClusterVirtualImageSpec{
+					DataSource: v1alpha2.ClusterVirtualImageDataSource{
+						Type: v1alpha2.DataSourceTypeObjectRef,
+						ObjectRef: &v1alpha2.ClusterVirtualImageObjectRef{
+							Kind:      v1alpha2.VirtualDiskKind,
 							Name:      "test-vd",
 							Namespace: "default",
 						},
 					},
 				},
-				Status: virtv2.ClusterVirtualImageStatus{
-					Phase:      virtv2.ImageProvisioning,
+				Status: v1alpha2.ClusterVirtualImageStatus{
+					Phase:      v1alpha2.ImageProvisioning,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -541,46 +541,46 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualImage and VirtualMachine", func() {
 		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
 				},
 			}
 
-			vi := &virtv2.VirtualImage{
+			vi := &v1alpha2.VirtualImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vi",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualImageSpec{
-					DataSource: virtv2.VirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualImageObjectRef{
-							Kind: virtv2.VirtualDiskKind,
+				Spec: v1alpha2.VirtualImageSpec{
+					DataSource: v1alpha2.VirtualImageDataSource{
+						Type: v1alpha2.DataSourceTypeObjectRef,
+						ObjectRef: &v1alpha2.VirtualImageObjectRef{
+							Kind: v1alpha2.VirtualDiskKind,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualImageStatus{
-					Phase:      virtv2.ImageProvisioning,
+				Status: v1alpha2.VirtualImageStatus{
+					Phase:      v1alpha2.ImageProvisioning,
 					Conditions: []metav1.Condition{},
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachineStarting,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachineStarting,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: vd.Name,
 						},
 					},
@@ -603,12 +603,12 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualMachine after create image", func() {
 		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
@@ -619,16 +619,16 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: vd.Name,
 						},
 					},
@@ -651,13 +651,13 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualImage after running VM", func() {
 		It("must set status True and reason AllowedForImageUsage", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Phase: virtv2.DiskReady,
+				Status: v1alpha2.VirtualDiskStatus{
+					Phase: v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
@@ -668,22 +668,22 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			vi := &virtv2.VirtualImage{
+			vi := &v1alpha2.VirtualImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vi",
 					Namespace: "default",
 				},
-				Spec: virtv2.VirtualImageSpec{
-					DataSource: virtv2.VirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualImageObjectRef{
-							Kind: virtv2.VirtualDiskKind,
+				Spec: v1alpha2.VirtualImageSpec{
+					DataSource: v1alpha2.VirtualImageDataSource{
+						Type: v1alpha2.DataSourceTypeObjectRef,
+						ObjectRef: &v1alpha2.VirtualImageObjectRef{
+							Kind: v1alpha2.VirtualDiskKind,
 							Name: "test-vd",
 						},
 					},
 				},
-				Status: virtv2.VirtualImageStatus{
-					Phase:      virtv2.ImageProvisioning,
+				Status: v1alpha2.VirtualImageStatus{
+					Phase:      v1alpha2.ImageProvisioning,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -704,12 +704,12 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is not in use after image creation", func() {
 		It("must set status False and reason NotInUse", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
@@ -736,12 +736,12 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is not in use after VM deletion", func() {
 		It("must set status False and reason NotInUse", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
@@ -767,14 +767,14 @@ var _ = Describe("InUseHandler", func() {
 	})
 	Context("when VirtualDisk is used by DataExport", func() {
 		It("must set status True and reason UsedForDataExport", func() {
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
 					Namespace: "default",
 				},
-				Status: virtv2.VirtualDiskStatus{
+				Status: v1alpha2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
-					Target: virtv2.DiskTarget{
+					Target: v1alpha2.DiskTarget{
 						PersistentVolumeClaim: "test-pvc",
 					},
 				},

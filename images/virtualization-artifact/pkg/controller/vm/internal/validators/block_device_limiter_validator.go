@@ -25,7 +25,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type BlockDeviceLimiterValidator struct {
@@ -40,15 +40,15 @@ func NewBlockDeviceLimiterValidator(service *service.BlockDeviceService, log *lo
 	}
 }
 
-func (v *BlockDeviceLimiterValidator) ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *BlockDeviceLimiterValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.validate(ctx, vm)
 }
 
-func (v *BlockDeviceLimiterValidator) ValidateUpdate(ctx context.Context, _, newVM *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *BlockDeviceLimiterValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.validate(ctx, newVM)
 }
 
-func (v *BlockDeviceLimiterValidator) validate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
+func (v *BlockDeviceLimiterValidator) validate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	count, err := v.service.CountBlockDevicesAttachedToVM(ctx, vm)
 	if err != nil {
 		v.log.Error(err.Error())

@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
 
@@ -42,7 +42,7 @@ func NewDeletionHandler(client client.Client) *DeletionHandler {
 	}
 }
 
-func (h *DeletionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
+func (h *DeletionHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
 	boundCondition, _ := conditions.GetCondition(vmmaclcondition.BoundType, lease.Status.Conditions)
 	if boundCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(boundCondition, lease) {
 		err := h.client.Delete(ctx, lease)

@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
 
@@ -36,8 +36,8 @@ func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
 }
 
-func (h *ProtectionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
-	controllerutil.AddFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
+func (h *ProtectionHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(lease, v1alpha2.FinalizerMACAddressLeaseCleanup)
 
 	// 1. The lease has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
 	if lease.GetDeletionTimestamp() == nil {
@@ -47,7 +47,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMac
 	// 2. It is necessary to protect the resource until we can unequivocally ensure that the resource is not in the Bound state.
 	boundCondition, _ := conditions.GetCondition(vmmaclcondition.BoundType, lease.Status.Conditions)
 	if boundCondition.Status != metav1.ConditionTrue && conditions.IsLastUpdated(boundCondition, lease) {
-		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
+		controllerutil.RemoveFinalizer(lease, v1alpha2.FinalizerMACAddressLeaseCleanup)
 	}
 
 	return reconcile.Result{}, nil

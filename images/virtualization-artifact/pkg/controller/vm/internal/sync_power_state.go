@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -93,7 +93,7 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	ctx context.Context,
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
-	runPolicy virtv2.RunPolicy,
+	runPolicy v1alpha2.RunPolicy,
 ) error {
 	if kvvm == nil {
 		return nil
@@ -104,7 +104,7 @@ func (h *SyncPowerStateHandler) syncPowerState(
 		return fmt.Errorf("find the virtual machine instance: %w", err)
 	}
 
-	if runPolicy == virtv2.AlwaysOnUnlessStoppedManually {
+	if runPolicy == v1alpha2.AlwaysOnUnlessStoppedManually {
 		if kvvmi != nil {
 			err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 		} else if kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyAlways {
@@ -133,19 +133,19 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	var vmAction VMAction
 	if maintenance.Status != metav1.ConditionTrue {
 		switch runPolicy {
-		case virtv2.AlwaysOffPolicy:
+		case v1alpha2.AlwaysOffPolicy:
 			vmAction = h.handleAlwaysOffPolicy(ctx, s, kvvmi)
-		case virtv2.AlwaysOnPolicy:
+		case v1alpha2.AlwaysOnPolicy:
 			vmAction, err = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
 			if err != nil {
 				return err
 			}
-		case virtv2.AlwaysOnUnlessStoppedManually:
+		case v1alpha2.AlwaysOnUnlessStoppedManually:
 			vmAction, err = h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
 			if err != nil {
 				return err
 			}
-		case virtv2.ManualPolicy:
+		case v1alpha2.ManualPolicy:
 			vmAction = h.handleManualPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
 		}
 	} else {
@@ -158,13 +158,13 @@ func (h *SyncPowerStateHandler) syncPowerState(
 		cbAwaitingRestart, exist := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
 		if exist && cbAwaitingRestart.Status == metav1.ConditionTrue &&
 			cbAwaitingRestart.ObservedGeneration == vm.GetGeneration() &&
-			vm.Spec.Disruptions.RestartApprovalMode == virtv2.Automatic {
+			vm.Spec.Disruptions.RestartApprovalMode == v1alpha2.Automatic {
 			log := logger.FromContext(ctx)
-			h.recorder.WithLogging(log).Event(vm, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes with restart")
+			h.recorder.WithLogging(log).Event(vm, corev1.EventTypeNormal, v1alpha2.ReasonVMChangesApplied, "Apply disruptive changes with restart")
 			h.recorder.WithLogging(log).Event(
 				vm,
 				corev1.EventTypeNormal,
-				virtv2.ReasonVMRestarted,
+				v1alpha2.ReasonVMRestarted,
 				"Restart initiated by controller to apply changes",
 			)
 			err = powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
@@ -210,7 +210,7 @@ func (h *SyncPowerStateHandler) handleManualPolicy(
 	shutdownInfo powerstate.ShutdownInfo,
 ) VMAction {
 	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
-		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.ManualPolicy) {
+		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, v1alpha2.ManualPolicy) {
 			return Start
 		}
 		return Nothing
@@ -274,7 +274,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	}
 
 	if kvvmi.DeletionTimestamp != nil {
-		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnPolicy) {
+		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, v1alpha2.AlwaysOnPolicy) {
 			return Start, nil
 		}
 		return Nothing, nil
@@ -311,7 +311,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 	shutdownInfo powerstate.ShutdownInfo,
 ) (VMAction, error) {
 	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
-		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnUnlessStoppedManually) {
+		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, v1alpha2.AlwaysOnUnlessStoppedManually) {
 			return Start, nil
 		}
 
@@ -321,7 +321,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 				return Nothing, fmt.Errorf("load last applied spec: %w", err)
 			}
 
-			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == virtv2.AlwaysOffPolicy {
+			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == v1alpha2.AlwaysOffPolicy {
 				err = kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
 				if err != nil {
 					return Nothing, fmt.Errorf("add annotation to KVVM: %w", err)
@@ -381,7 +381,7 @@ func (h *SyncPowerStateHandler) checkNeedStartVM(
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
 	isConfigurationApplied bool,
-	runPolicy virtv2.RunPolicy,
+	runPolicy v1alpha2.RunPolicy,
 ) bool {
 	if isConfigurationApplied &&
 		(kvvm.Annotations[annotations.AnnVMStartRequested] == "true" || kvvm.Annotations[annotations.AnnVMRestartRequested] == "true") {
@@ -498,7 +498,7 @@ func (h *SyncPowerStateHandler) recordStartEventf(ctx context.Context, obj clien
 	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
 		obj,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMStarted,
+		v1alpha2.ReasonVMStarted,
 		messageFmt,
 		args...,
 	)
@@ -508,7 +508,7 @@ func (h *SyncPowerStateHandler) recordStopEventf(ctx context.Context, obj client
 	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
 		obj,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMStopped,
+		v1alpha2.ReasonVMStopped,
 		messageFmt,
 	)
 }
@@ -517,7 +517,7 @@ func (h *SyncPowerStateHandler) recordRestartEventf(ctx context.Context, obj cli
 	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
 		obj,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMRestarted,
+		v1alpha2.ReasonVMRestarted,
 		messageFmt,
 	)
 }

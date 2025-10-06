@@ -20,10 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewGeneratedVDFromCVI(prefix, namespace string, cvi *virtv2.ClusterVirtualImage) *virtv2.VirtualDisk {
+func NewGeneratedVDFromCVI(prefix, namespace string, cvi *v1alpha2.ClusterVirtualImage) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
@@ -31,7 +31,7 @@ func NewGeneratedVDFromCVI(prefix, namespace string, cvi *virtv2.ClusterVirtualI
 	)
 }
 
-func NewVDFromCVI(name, namespace string, cvi *virtv2.ClusterVirtualImage) *virtv2.VirtualDisk {
+func NewVDFromCVI(name, namespace string, cvi *v1alpha2.ClusterVirtualImage) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
@@ -39,7 +39,7 @@ func NewVDFromCVI(name, namespace string, cvi *virtv2.ClusterVirtualImage) *virt
 	)
 }
 
-func NewGeneratedVDFromVI(prefix, namespace string, vi *virtv2.VirtualImage) *virtv2.VirtualDisk {
+func NewGeneratedVDFromVI(prefix, namespace string, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
@@ -47,7 +47,7 @@ func NewGeneratedVDFromVI(prefix, namespace string, vi *virtv2.VirtualImage) *vi
 	)
 }
 
-func NewVDFromVI(name, namespace string, vi *virtv2.VirtualImage) *virtv2.VirtualDisk {
+func NewVDFromVI(name, namespace string, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
@@ -55,7 +55,7 @@ func NewVDFromVI(name, namespace string, vi *virtv2.VirtualImage) *virtv2.Virtua
 	)
 }
 
-func NewBlankVD(name, namespace string, storageClass *string, size *resource.Quantity) *virtv2.VirtualDisk {
+func NewBlankVD(name, namespace string, storageClass *string, size *resource.Quantity) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
@@ -63,14 +63,12 @@ func NewBlankVD(name, namespace string, storageClass *string, size *resource.Qua
 	)
 }
 
-func NewGeneratedHTTPVDUbuntu(prefix, namespace string) *virtv2.VirtualDisk {
+func NewGeneratedHTTPVDUbuntu(prefix, namespace string) *v1alpha2.VirtualDisk {
 	return vd.New(
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
-		vd.WithDataSourceHTTP(
-			UbuntuHTTP,
-			nil,
-			nil,
-		),
+		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
+			URL: UbuntuHTTP,
+		}),
 	)
 }

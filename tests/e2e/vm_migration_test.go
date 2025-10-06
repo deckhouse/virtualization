@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -44,7 +44,7 @@ var _ = Describe("VirtualMachineMigration", SIGMigration(), framework.CommonE2ET
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -98,8 +98,8 @@ var _ = Describe("VirtualMachineMigration", SIGMigration(), framework.CommonE2ET
 
 	Context("When VMs migrations are applied", func() {
 		It("checks VMs and VMOPs phases", func() {
-			By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-			WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+			By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+			WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -149,5 +149,5 @@ var _ = Describe("VirtualMachineMigration", SIGMigration(), framework.CommonE2ET
 
 func MigrateVirtualMachines(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeEvict, vmNamespace, vmNames...)
+	CreateAndApplyVMOPs(label, v1alpha2.VMOPTypeEvict, vmNamespace, vmNames...)
 }

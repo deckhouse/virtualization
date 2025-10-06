@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	dv1alpha1 "github.com/deckhouse/virtualization/tests/e2e/api/deckhouse/v1alpha1"
 	dv1alpha2 "github.com/deckhouse/virtualization/tests/e2e/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
@@ -113,7 +113,7 @@ func init() {
 	// The main reason is that we cannot use kubevirt types in tests because in DVP we use rewritten kubevirt types
 	// use dynamic client for get kubevirt types
 	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
+		v1alpha2.AddToScheme,
 		clientgoscheme.AddToScheme,
 		dv1alpha1.AddToScheme,
 		dv1alpha2.AddToScheme,

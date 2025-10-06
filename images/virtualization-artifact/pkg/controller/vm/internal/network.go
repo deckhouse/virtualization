@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -98,10 +98,10 @@ func (h *NetworkInterfaceHandler) Name() string {
 	return nameNetworkHandler
 }
 
-func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
 	// check that vmmacName is not removed when deleting a network interface from the spec, as it is still in use
 	if len(vm.Status.Networks) > len(vm.Spec.Networks) {
-		if vm.Status.Phase != virtv2.MachinePending && vm.Status.Phase != virtv2.MachineStopped {
+		if vm.Status.Phase != v1alpha2.MachinePending && vm.Status.Phase != v1alpha2.MachineStopped {
 			return reconcile.Result{}, nil
 		}
 	}
@@ -130,15 +130,15 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		}
 	}
 
-	networksStatus := []virtv2.NetworksStatus{
+	networksStatus := []v1alpha2.NetworksStatus{
 		{
-			Type: virtv2.NetworksTypeMain,
+			Type: v1alpha2.NetworksTypeMain,
 			Name: "default",
 		},
 	}
 
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
-		networksStatus = append(networksStatus, virtv2.NetworksStatus{
+		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 			Type:                         interfaceSpec.Type,
 			Name:                         interfaceSpec.Name,
 			MAC:                          macAddressesByInterfaceName[interfaceSpec.InterfaceName],

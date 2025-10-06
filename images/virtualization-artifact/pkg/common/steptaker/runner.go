@@ -22,11 +22,11 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Resource interface {
-	*virtv2.VirtualDisk | *virtv2.VirtualImage | *virtv2.VirtualMachineIPAddress | *virtv2.VirtualMachineMACAddress | *virtv2.VirtualMachineOperation
+	*v1alpha2.VirtualDisk | *v1alpha2.VirtualImage | *v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineMACAddress | *v1alpha2.VirtualMachineOperation
 }
 
 type StepTaker[R Resource] interface {
