@@ -154,6 +154,9 @@ const (
 	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
 	AnnStorageClassName           = AnnAPIGroupV + "/storage-class-name"
 	AnnStorageClassNameDeprecated = "storageClass"
+	// AnnStorageProvisioner is the annotation for indicating storage provisioner
+	AnnStorageProvisioner           = "volume.kubernetes.io/storage-provisioner"
+	AnnStorageProvisionerDeprecated = "volume.beta.kubernetes.io/storage-provisioner"
 	// AnnVolumeMode is the annotation for indicating that volume mode.  (USED IN STORAGE sds controllers)
 	AnnVolumeMode           = AnnAPIGroupV + "/volume-mode"
 	AnnVolumeModeDeprecated = "volumeMode"
