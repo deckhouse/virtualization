@@ -24,6 +24,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -103,6 +104,21 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 		return &reconcile.Result{}, nil
 	}
 
+	if err := s.validateStorageClassCompatibility(ctx, vd, vdSnapshot, vs); err != nil {
+		vd.Status.Phase = v1alpha2.DiskFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningFailed).
+			Message(err.Error())
+		s.recorder.Event(
+			vd,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonDataSourceSyncFailed,
+			err.Error(),
+		)
+		return &reconcile.Result{}, nil
+	}
+
 	pvc := s.buildPVC(vd, vs)
 
 	err = s.client.Create(ctx, pvc)
@@ -158,10 +174,16 @@ func (s CreatePVCFromVDSnapshotStep) AddOriginalMetadata(vd *v1alpha2.VirtualDis
 }
 
 func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
-	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
-	if storageClassName == "" {
-		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+	var storageClassName string
+	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
+		storageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
+	} else {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassName]
+		if storageClassName == "" {
+			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+		}
 	}
+
 	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
 	if volumeMode == "" {
 		volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
@@ -218,4 +240,52 @@ func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1
 		},
 		Spec: spec,
 	}
+}
+
+func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {
+	if vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == "" {
+		return nil
+	}
+
+	targetSCName := *vd.Spec.PersistentVolumeClaim.StorageClass
+
+	var targetSC storagev1.StorageClass
+	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
+	}
+
+	if vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
+		// Can't determine original PVC, skip validation
+		return nil
+	}
+
+	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
+
+	var originalPVC corev1.PersistentVolumeClaim
+	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch original PVC %q: %w", pvcName, err)
+	}
+
+	originalProvisioner := originalPVC.Annotations[annotations.AnnStorageProvisioner]
+	if originalProvisioner == "" {
+		originalProvisioner = originalPVC.Annotations[annotations.AnnStorageProvisionerDeprecated]
+	}
+
+	if originalProvisioner == "" {
+		// Can't determine original provisioner, skip validation
+		return nil
+	}
+
+	if targetSC.Provisioner != originalProvisioner {
+		return fmt.Errorf(
+			"cannot restore snapshot to storage class %q: incompatible storage providers. "+
+				"Original snapshot was created by %q, target storage class uses %q. "+
+				"Cross-provider snapshot restore is not supported",
+			targetSCName, originalProvisioner, targetSC.Provisioner,
+		)
+	}
+
+	return nil
 }
