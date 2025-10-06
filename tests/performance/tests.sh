@@ -157,18 +157,18 @@ wait_vm() {
   local up=false
 
   while true; do
-    local VMReady=$(kubectl -n $NAMESPACE get vm | grep "Running" | wc -l)
+    local VMRunning=$(kubectl -n $NAMESPACE get vm | grep "Running" | wc -l)
     local VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
 
     if [ -n "$expected_count" ]; then
-      if [ $VMReady -eq $expected_count ]; then
+      if [ $VMRunning -eq $expected_count ]; then
         echo "All vms are ready"
         echo "$(formatted_date $(get_timestamp))"
         echo ""
         break
       fi
     else
-      if [ $VMReady -eq $VMTotal ]; then
+      if [ $VMRunning -eq $VMTotal ]; then
         echo "All vms are ready"
         echo "$(formatted_date $(get_timestamp))"
         echo ""
@@ -177,8 +177,8 @@ wait_vm() {
     fi
 
     echo ""
-    echo "Waiting for vms to be ready..."
-    echo "VM Running: $VMReady/$VMTotal"
+    echo "Waiting for vms to be running..."
+    echo "VM Running: $VMRunning/$VMTotal"
     echo ""
     echo "Waiting for $sleep_time seconds..."
     sleep $sleep_time
@@ -249,7 +249,7 @@ wait_for_resources() {
 
 }
 
-start_migration() {
+start_migration_old() {
   # supoprt duration format: 0m - infinite, 30s - 30 seconds, 1h - 1 hour, 2h30m - 2 hours and 30 minutes
   local duration=${1:-"0m"}
   local target=${2:-"5"}
@@ -280,10 +280,48 @@ start_migration() {
 
 }
 
+start_migration() {
+  local duration=${1:-"0m"}
+  local target=${2:-"5"}
+  local session="test-perf"
+  local ns="${NAMESPACE:-perf}"
+
+  echo "Create tmux session: $session"
+  tmux new-session -d -s "${session}" -n "${ns}" # windows named "ns"
+
+  # split window
+  tmux split-window  -h  -t "${session}:0"         # Pane 0 (left), Pane 1 (right)
+  tmux split-window  -v  -t "${session}:0.1"       # Split right pane; .1
+
+  # 3) Посылаем команды в нужные панели явно
+  tmux select-pane   -t "${session}:0.0"
+  tmux send-keys     -t "${session}:0.0" "k9s -n ${ns}" C-m
+  tmux resize-pane   -t "${session}:0.1" -x 50%
+
+  echo "Start migration in $session, pane 1"
+  tmux select-pane   -t "${session}:0.1"
+  tmux send-keys     -t "${session}:0.1" "NS=${ns} TARGET=${target} DURATION=${duration} task evicter:run:migration" C-m
+  tmux resize-pane   -t "${session}:0.1" -x 50%
+
+  tmux select-pane   -t "${session}:0.2"
+  tmux resize-pane   -t "${session}:0.2" -x 50%
+
+  echo "For watching migration in $session, attach with:"
+  echo "tmux -2 attach -t ${session}"
+
+  # Optional
+  # if [ -n "${TMUX:-}" ]; then
+  #   tmux switch-client -t "${session}" # switch client to created session inside tmux
+  # else
+  #   tmux -2 attach -t "${session}" # from bash tmux — just attach to created session
+  # fi
+}
+
+
 stop_migration() {
   local SESSION="test-perf"
-  tmux select-pane -t 1 || true
-  tmux send-keys C-c || true
+  tmux send-keys -t "${SESSION}:1.1" C-c || true
+  sleep 1
   tmux -2 kill-session -t "${SESSION}" || true
 }
 
@@ -317,6 +355,10 @@ remove_vmops() {
     log_info "Check if all vmops are removed"
     local vmop_total=$(( $(kubectl -n $namespace get vmop | wc -l )-1 ))
     local vmop_list=$(kubectl -n $namespace get vmop | grep "Completed" | awk '{print $1}')
+    local vmop_failed_list=$(kubectl -n $namespace get vmop | grep "Failed" | awk '{print $1}')
+    log_warning "VMOP failed list: $vmop_failed_list"
+
+    vmop_list+=" $vmop_failed_list"
 
     log_info "VMOP total: $( if [ $vmop_total -le 0 ]; then echo "0"; else echo $vmop_total; fi )"
     if [ $vmop_total -le 0 ]; then
@@ -486,7 +528,7 @@ start_vm() {
   fi
 
   if [ ${#vms[@]} -eq 0 ]; then
-    log_warning "No running VMs found to stop"
+    log_warning "No running VMs found to run"
     echo "0"
     return
   fi
@@ -496,24 +538,28 @@ start_vm() {
     d8 v -n $NAMESPACE start $vm
   done
 
-  # Wait for vms to be running
-  local running_vm=()
-  total=${#vms[@]}
 
   while true; do
+
+    # Wait for vms to be running    
+    if [ -z "$count" ]; then
+      local vms=($(kubectl -n $NAMESPACE get vm | grep "Stopped" | awk '{print $1}'))
+    else
+      # Start vm from the end
+      local vms=($(kubectl -n $NAMESPACE get vm | grep "Stopped" | awk '{print $1}' | tail -n $count))
+    fi
+
+    local total=${#vms[@]}
+    local running_vm=0
     
     for vm in "${vms[@]}"; do
       local status=$(kubectl -n perf get vm $vm -o jsonpath='{.status.phase}')
       if [ "$status" == "Running" ]; then
-        running_vm+=($vm)
+        (( running_vm+=1 ))
       fi
     done
-    
-    running=${#running_vm[@]}
-    running_vm=()
-    
-    
-    if [ $running -eq $total ]; then
+
+    if [ $running_vm -eq $total ]; then
       echo "All vms are running"
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
@@ -533,12 +579,50 @@ start_vm() {
 
     echo ""
     echo "Waiting for vms to be running..."
-    echo "VM running: $running/$total"
+    echo "VM running: $running_vm/$total"
     echo ""
     echo "Waiting for $sleep_time seconds..."
     sleep $sleep_time
     echo ""
   done
+}
+
+migration_percent_vms() {
+  local percent=${1:-$PERCENT_RESOURCES}
+  local namespace=${2:-$NAMESPACE}
+  local start_time=$(get_timestamp)
+
+  local target=$(( $MAIN_COUNT_RESOURCES * $percent / 100 ))
+
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+  
+  echo "" >> $report_file
+  echo "=== migration_${percent}_percent_vms ===" >> $report_file
+  echo "Undeploy all VMs and disks" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
+
+  local vms=$(kubectl -n $NAMESPACE get vm -o name | grep Running | awk '{print $1}' | tail -n $target)
+
+  for vm in $vms; do
+    echo "Migrate vm [$vm] via evict"
+    d8 v -n $NAMESPACE evict $vm
+  done
+
+  wait_vmops_complete
+
+  local end_time=$(get_timestamp)
+  local duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$duration")
+  echo "" >> $report_file
+  echo "End time: $(formatted_date $end_time)" >> $report_file
+  echo "Duration: $duration seconds" >> $report_file
+  echo "Execution time: $formatted_duration" >> $report_file
+  echo "=== migration_${percent}_percent_vms ===" >> $report_file
+  echo "" >> $report_file
+  
+  log_success "Migrated $target VMs in $(format_duration $duration)"
+
 }
 
 undeploy_resources() {
@@ -701,6 +785,55 @@ deploy_vms_only() {
   echo "$duration"
 }
 
+undeploy_vms_only() {
+  local count=${1:-0}
+  local namespace=${2:-$NAMESPACE}
+  local start_time=$(get_timestamp)
+
+  local scenario_name="$SCENARIO${VI_TYPE}"
+  local report_file="$REPORT_DIR/$scenario_name/scenario_report.txt"
+
+  echo "" >> $report_file
+  echo "undeploy_vms_only" >> $report_file
+  echo "Undeploying $count VDs with type $vi_type" >> $report_file
+  echo "Start time: $(formatted_date $start_time)" >> $report_file
+
+  log_info "Undeploying $count VMs (disks already exist)"
+  
+  task apply:vms \
+      COUNT=$count \
+      NAMESPACE=$NAMESPACE
+  
+  while true; do
+    local vms_count=$(kubectl -n $NAMESPACE get vm | wc -l)
+    if [ $vms_count -eq 0 ]; then
+      echo "All vms are undeployed"
+      log_info "$(formatted_date $(date +%s))"
+      echo ""
+      
+      local end_time=$(get_timestamp)
+      local duration=$((end_time - start_time))
+      local formatted_duration=$(format_duration "$duration")
+      echo "End time: $(formatted_date $end_time)" >> $report_file
+      echo "Duration: $duration seconds" >> $report_file
+      echo "Execution time: $formatted_duration" >> $report_file
+      echo "" >> $report_file
+      break
+    fi
+    
+    echo ""
+    echo "Waiting for vms to be undeployed..."
+    echo "VM to undeploy: $vms_count/0"
+    echo ""
+    echo "Waiting for $SLEEP_TIME seconds..."
+    sleep $SLEEP_TIME
+    echo ""
+  done
+  
+  log_success "Undeployed VMs in $(format_duration $duration)"
+  echo "$duration"
+}
+
 stop_virtualization_controller() {
   local start_time=$(get_timestamp)
 
@@ -773,14 +906,14 @@ MIGRATION_PERCENTAGE_10=10
 MIGRATION_PERCENTAGE_5=5
 WAIT_MIGRATION=$( echo "$MIGRATION_DURATION" | sed 's/m//' )
 
-PERCENT_RESOURCES=$(( $MAIN_COUNT_RESOURCES*$PERCENT_VMS/100 ))
+PERCENT_RESOURCES=$(( $MAIN_COUNT_RESOURCES * $PERCENT_VMS / 100 ))
 if [ $PERCENT_RESOURCES -eq 0 ]; then
   PERCENT_RESOURCES=1
 fi
 
 # cd ..
-VI_TYPE="containerRegistry" # containerRegistry, persistentVolumeClaim
-
+# VI_TYPE="containerRegistry" # containerRegistry, persistentVolumeClaim
+VI_TYPE="persistentVolumeClaim" # containerRegistry, persistentVolumeClaim
 prepare_for_tests() {
   remove_report_dir
   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
@@ -806,18 +939,26 @@ create_report_dir "$SCENARIO${VI_TYPE}/statistics/deploy_vm_${PERCENT_RESOURCES}
 create_report_dir "$SCENARIO${VI_TYPE}/statistics/vm_${PERCENT_RESOURCES}_deploy"
 
 START_TIME_SN=$(get_timestamp)
-echo "Start: $START_TIME_SN" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
+echo "Test perf vms" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
+echo "Start: $(formatted_date $START_TIME_SN)" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
 echo "" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
 
 log_info "Deploy resources"
 deploy_vms_with_disks $MAIN_COUNT_RESOURCES $VI_TYPE
 log_info "Gather statistics gather_all_statistics"
 gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+log_info "Wait 30 seconds, before stop vms"
+sleep 30
+log_info "Stop vms - $(get_current_date)"
 stop_vm
+log_info "Wait 30 seconds, before start vms"
+sleep 30
+log_info "Start vms - $(get_current_date)"
 start_vm
 
-deploy_vms_only $MAIN_COUNT_RESOURCES $VI_TYPE
-gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/deploy_vm_${MAIN_COUNT_RESOURCES}"
+log_info "Undeploy vms - $(get_current_date)"
+undeploy_vms_only 0
+
 # Time for 10% of VMs with disks in the active cluster
 # delete PERCENT_RESOURCES vms
 start_migration "0m" $MIGRATION_PERCENTAGE_5
@@ -835,11 +976,11 @@ start_vm $PERCENT_RESOURCES
 stop_migration
 remove_vmops
 log_info "Start migration"
-start_migration "0m" $MIGRATION_PERCENTAGE_10
-log_info "Wait 5 seconds"
-sleep 5
-stop_migration
-wait_vmops_complete
+migration_percent_vms
+# log_info "Wait 5 seconds"
+# sleep 5
+# stop_migration
+# wait_vmops_complete
 log_info "Wait 5 seconds"
 sleep 5
 
