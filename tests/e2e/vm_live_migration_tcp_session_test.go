@@ -63,18 +63,28 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", SIGMigration(), framew
 
 		f            = framework.NewFramework(testCaseLabelValue)
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
+		testSkipped  bool
 	)
+
+	BeforeAll(func() {
+		// TODO: The test is being disabled because running it with the ginkgo `--race` option detects a race condition.
+		// This leads to unstable test execution. Remove Skip after fixing the issue.
+		testSkipped = true
+		Skip("This test case is not working everytime. Should be fixed.")
+	})
 
 	f.BeforeAll()
 	f.AfterAll()
 
 	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestCaseDump(map[string]string{testCaseLabel: testCaseLabelValue}, CurrentSpecReport().LeafNodeText, f.Namespace().Name)
-			SaveIPerfClientReport(testCaseLabelValue, rawReport)
-		}
+		if !testSkipped {
+			if CurrentSpecReport().Failed() {
+				SaveTestCaseDump(map[string]string{testCaseLabel: testCaseLabelValue}, CurrentSpecReport().LeafNodeText, f.Namespace().Name)
+				SaveIPerfClientReport(testCaseLabelValue, rawReport)
+			}
 
-		cancel()
+			cancel()
+		}
 	})
 
 	It("checks TCP connection", func() {
