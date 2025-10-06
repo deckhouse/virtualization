@@ -345,10 +345,10 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	err = app.upload(readCloser, cdiContentType, dvContentType, parseHTTPHeader(r))
-
 	app.mutex.Lock()
 	defer app.mutex.Unlock()
+
+	err = app.upload(readCloser, cdiContentType, dvContentType, parseHTTPHeader(r))
 
 	if err != nil {
 		klog.Errorf("Saving stream failed: %s", err)
