@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -306,6 +307,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	}
 
 	// Reset migration info
+	targetPVCName := vd.Status.MigrationState.TargetPVC
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{}
 
 	var targetStorageClass *storagev1.StorageClass
@@ -398,11 +400,20 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	}
 
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
-	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size)
+	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim)
 	if err != nil {
 		return err
 	}
-	log.Info("Target PersistentVolumeClaim was created or was already exists", slog.String("pvc.name", pvc.Name), slog.String("pvc.namespace", pvc.Namespace))
+
+	log.Info(
+		"The target PersistentVolumeClaim has been created or already exists",
+		slog.String("state.source.pvc", vd.Status.Target.PersistentVolumeClaim),
+		slog.String("state.target.pvc", pvc.Name),
+	)
+
+	if vd.Status.Target.PersistentVolumeClaim == pvc.Name {
+		return errors.New("the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
+	}
 
 	vd.Status.MigrationState = v1alpha2.VirtualDiskMigrationState{
 		SourcePVC:      vd.Status.Target.PersistentVolumeClaim,
@@ -479,7 +490,10 @@ func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.Vi
 func (h MigrationHandler) handleRevert(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	log := logger.FromContext(ctx)
 	log.Info("Start reverting...")
-	log.Info("Delete target PersistentVolumeClaim", slog.String("pvc.name", vd.Status.MigrationState.TargetPVC), slog.String("pvc.namespace", vd.Namespace))
+
+	if vd.Status.MigrationState.TargetPVC == vd.Status.Target.PersistentVolumeClaim {
+		return errors.New("cannot revert: the target PersistentVolumeClaim name matched the source PersistentVolumeClaim name, please report a bug")
+	}
 
 	err := h.deleteTargetPersistentVolumeClaim(ctx, vd)
 	if err != nil {
@@ -573,7 +587,7 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 	return nil, nil
 }
 
-func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity) (*corev1.PersistentVolumeClaim, error) {
+func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string) (*corev1.PersistentVolumeClaim, error) {
 	pvcs, err := listPersistentVolumeClaims(ctx, vd, h.client)
 	if err != nil {
 		return nil, err
@@ -584,7 +598,7 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 		for _, pvc := range pvcs {
 			// If TargetPVC is empty, that means previous reconciliation failed and not updated TargetPVC in status.
 			// So, we should use pvc, that is not equal to SourcePVC.
-			if pvc.Name == vd.Status.MigrationState.TargetPVC || pvc.Name != vd.Status.MigrationState.SourcePVC {
+			if pvc.Name == targetPVCName || pvc.Name != sourcePVCName {
 				return &pvc, nil
 			}
 		}

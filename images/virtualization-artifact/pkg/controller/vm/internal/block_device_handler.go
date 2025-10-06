@@ -202,94 +202,26 @@ func (h *BlockDeviceHandler) getBlockDeviceWarnings(ctx context.Context, s state
 		return "", err
 	}
 
-	hotplugsByName := make(map[string]struct{})
-
-	for _, vmbdas := range vmbdasByBlockDevice {
-		for _, vmbda := range vmbdas {
-			switch vmbda.Status.Phase {
-			case v1alpha2.BlockDeviceAttachmentPhaseInProgress,
-				v1alpha2.BlockDeviceAttachmentPhaseAttached:
-			default:
-				continue
-			}
-
-			var (
-				cvi         *v1alpha2.ClusterVirtualImage
-				vi          *v1alpha2.VirtualImage
-				vd          *v1alpha2.VirtualDisk
-				bdStatusRef v1alpha2.BlockDeviceStatusRef
-			)
-
-			switch vmbda.Spec.BlockDeviceRef.Kind {
-			case v1alpha2.VMBDAObjectRefKindVirtualDisk:
-				vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
-				if err != nil {
-					return "", err
-				}
-
-				if vd == nil {
-					continue
-				}
-
-				bdStatusRef = h.getBlockDeviceStatusRef(v1alpha2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
-				bdStatusRef.Size = vd.Status.Capacity
-			case v1alpha2.VMBDAObjectRefKindVirtualImage:
-				vi, err = s.VirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
-				if err != nil {
-					return "", err
-				}
-
-				if vi == nil {
-					continue
-				}
-
-				bdStatusRef = h.getBlockDeviceStatusRef(v1alpha2.ImageDevice, vmbda.Spec.BlockDeviceRef.Name)
-				bdStatusRef.Size = vi.Status.Size.Unpacked
-
-			case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
-				cvi, err = s.ClusterVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
-				if err != nil {
-					return "", err
-				}
-
-				if cvi == nil {
-					continue
-				}
-
-				bdStatusRef = h.getBlockDeviceStatusRef(v1alpha2.ClusterImageDevice, vmbda.Spec.BlockDeviceRef.Name)
-				bdStatusRef.Size = cvi.Status.Size.Unpacked
-			default:
-				return "", fmt.Errorf("unacceptable `Kind` of `BlockDeviceRef`: %s", vmbda.Spec.BlockDeviceRef.Kind)
-			}
-
-			hotplugsByName[bdStatusRef.Name] = struct{}{}
-		}
-	}
-
 	var conflictedRefs []string
-	vm := s.VirtualMachine().Current()
 
-	for _, bdSpecRef := range vm.Spec.BlockDeviceRefs {
+	for _, bdSpecRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
 		// It is a precaution to not apply changes in spec.blockDeviceRefs if disk is already
 		// hotplugged using the VMBDA resource.
 		// spec check is done by VirtualDisk status
 		// the reverse check is done by the vmbda-controller.
-		if bdSpecRef.Kind == v1alpha2.DiskDevice {
-			if _, conflict := hotplugsByName[bdSpecRef.Name]; conflict {
-				conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
-				continue
-			}
-		}
-
-		if _, conflict := hotplugsByName[bdSpecRef.Name]; conflict {
-			conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
+		_, conflict := vmbdasByBlockDevice[v1alpha2.VMBDAObjectRef{
+			Kind: v1alpha2.VMBDAObjectRefKind(bdSpecRef.Kind),
+			Name: bdSpecRef.Name,
+		}]
+		if conflict {
+			conflictedRefs = append(conflictedRefs, fmt.Sprintf("%s/%s", strings.ToLower(string(bdSpecRef.Kind)), bdSpecRef.Name))
 			continue
 		}
 	}
 
 	var warning string
 	if len(conflictedRefs) > 0 {
-		warning = fmt.Sprintf("spec.blockDeviceRefs field contains hotplugged disks (%s): unplug or remove them from spec to continue.", strings.Join(conflictedRefs, ", "))
+		warning = fmt.Sprintf("spec.blockDeviceRefs field contains block devices to hotplug (%s): unplug or remove them from spec to continue.", strings.Join(conflictedRefs, ", "))
 	}
 
 	return warning, nil

@@ -341,13 +341,13 @@ func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions
 			res := kubectl.WaitResource(resource, name, waitOpts)
 			if res.Error() != nil {
 				mu.Lock()
-				waitErr = append(waitErr, fmt.Sprintf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()))
+				waitErr = append(waitErr, fmt.Sprintf("cmd: %s\nstderr: %s\nwaited for: %s", res.GetCmd(), res.StdErr(), opts.For))
 				mu.Unlock()
 			}
 		}()
 	}
 	wg.Wait()
-	Expect(waitErr).To(BeEmpty())
+	Expect(waitErr).To(BeEmpty(), "should observe resources in '%s' state before %s timeout", opts.For, opts.Timeout.String())
 }
 
 func GetStorageClassFromEnv(envName string) (*storagev1.StorageClass, error) {
@@ -830,7 +830,7 @@ type Watcher interface {
 }
 
 type Resource interface {
-	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease
+	*v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineIPAddressLease | *v1alpha2.VirtualMachine | *v1alpha2.VirtualDisk
 }
 
 type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)
