@@ -29,7 +29,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
-  name: {{ $.Values.resources.prefix }}-{{ . }}
+  name: {{ printf "%s-%05d" $.Values.resources.prefix . }}
   namespace: {{ $.Release.Namespace }}
   labels:
     vms: {{ $.Values.resources.prefix }}

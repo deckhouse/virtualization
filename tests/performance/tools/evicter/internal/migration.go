@@ -133,7 +133,15 @@ func (m *ContinuousMigrator) checkAndStartMigrations() {
 
 	// Filter VMs that are running and not currently migrating
 	var availableVMs []v1alpha2.VirtualMachine
-	for _, vm := range vmList.Items {
+
+	// Calculate how many VMs should be migrating
+	// We need migrate only part of VMs, because we don't want migrate last n VMs
+	targetCount := (m.targetPercentage * len(vmList.Items)) / 100
+	if targetCount == 0 {
+		targetCount = 1
+	}
+
+	for _, vm := range vmList.Items[:targetCount] {
 		// Only consider VMs that are in Running state and not already migrating
 		if vm.Status.Phase == v1alpha2.MachineRunning {
 			m.mutex.RLock()
@@ -146,11 +154,6 @@ func (m *ContinuousMigrator) checkAndStartMigrations() {
 		}
 	}
 
-	// Calculate how many VMs should be migrating
-	targetCount := (m.targetPercentage * len(vmList.Items)) / 100
-	if targetCount == 0 {
-		targetCount = 1
-	}
 	currentMigrating := len(m.migratingVMs)
 
 	// Start new migrations if needed

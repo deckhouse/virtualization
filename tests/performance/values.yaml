@@ -4,7 +4,7 @@ curlUrl: "http://nc.nc.svc.cluster.local:8080/ping"
 resources:
   storageClassName: "ceph-pool-r2-csi-rbd"
   default: all # all, vms, vds, vi
-  prefix: "performance"
+  prefix: "perf"
   virtualMachine:
     spec:
       template:

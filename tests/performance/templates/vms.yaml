@@ -5,7 +5,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  name: {{ $.Values.resources.prefix }}-{{ . }}
+  name: {{ printf "%s-%05d" $.Values.resources.prefix . }}
   namespace: {{ $.Release.Namespace }}
   labels:
     vms: {{ $.Values.resources.prefix }}
@@ -41,7 +41,7 @@ spec:
       name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
     {{- else }}
     - kind: VirtualDisk
-      name: {{ $.Values.resources.prefix }}-{{ . }}
+      name: {{ printf "%s-%05d" $.Values.resources.prefix . }}
     {{- end }}
   provisioning:
     type: UserDataRef
