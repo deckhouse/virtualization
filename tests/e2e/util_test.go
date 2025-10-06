@@ -763,7 +763,7 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", dumpPath, labels["testcase"], additional)
 
 	cmdr := kubectl.Get(
-		"virtualization,cvi,vmc,intvirt,pod,volumesnapshot",
+		"virtualization,cvi,vmc,intvirt,pod,pvc,volumesnapshot",
 		kc.GetOptions{
 			Labels:            labels,
 			Namespace:         namespace,
