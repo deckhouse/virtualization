@@ -31,6 +31,7 @@ type constructor func(client client.Client, logger *log.Logger) (Migration, erro
 
 var newMigrations = []constructor{
 	newQEMUMaxLength36,
+	newCoreFractionsFormat,
 }
 
 type Migration interface {

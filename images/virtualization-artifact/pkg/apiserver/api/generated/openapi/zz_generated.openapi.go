@@ -1974,14 +1974,14 @@ func schema_virtualization_api_core_v1alpha2_SizingPolicy(ref common.ReferenceCa
 					},
 					"coreFractions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allowed values of the `coreFraction` parameter.",
+							Description: "Allowed values of the `coreFraction` parameter in percentages (e.g., \"5%\", \"10%\", \"25%\", \"50%\", \"100%\").",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: 0,
-										Type:    []string{"integer"},
-										Format:  "int32",
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
 									},
 								},
 							},

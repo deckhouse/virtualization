@@ -115,7 +115,7 @@ type CpuDiscovery struct {
 type SizingPolicy struct {
 	// Memory sizing policy.
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
-	// Allowed values of the `coreFraction` parameter.
+	// Allowed values of the `coreFraction` parameter in percentages (e.g., "5%", "10%", "25%", "50%", "100%").
 	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
@@ -123,9 +123,9 @@ type SizingPolicy struct {
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
 
-// +kubebuilder:validation:Minimum=1
-// +kubebuilder:validation:Maximum=100
-type CoreFractionValue int
+// CoreFractionValue represents CPU core fraction as a percentage string (e.g., "5%", "10%", "25%", "50%", "100%").
+// +kubebuilder:validation:Pattern=`^([1-9]|[1-9][0-9]|100)%?$`
+type CoreFractionValue string
 
 type SizingPolicyMemory struct {
 	MemoryMinMax `json:",inline"`
