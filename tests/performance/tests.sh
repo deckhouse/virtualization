@@ -545,7 +545,6 @@ start_vm() {
       local vms=($(kubectl -n $NAMESPACE get vm | grep "Stopped" | awk '{print $1}' | tail -n $count))
     fi
 
-    local running_vm=()
     local total=${#vms[@]}
     
     for vm in "${vms[@]}"; do
@@ -572,6 +571,8 @@ start_vm() {
       log_info ""
       break
     fi
+
+    local running_vm=()
 
     echo ""
     echo "Waiting for vms to be running..."
@@ -908,8 +909,8 @@ if [ $PERCENT_RESOURCES -eq 0 ]; then
 fi
 
 # cd ..
-VI_TYPE="containerRegistry" # containerRegistry, persistentVolumeClaim
-
+# VI_TYPE="containerRegistry" # containerRegistry, persistentVolumeClaim
+VI_TYPE="persistentVolumeClaim" # containerRegistry, persistentVolumeClaim
 prepare_for_tests() {
   remove_report_dir
   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
