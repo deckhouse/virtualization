@@ -31,7 +31,7 @@ altPackages:
 - gcc make autoconf automake libtool pkgconfig
 - tree
 packages:
-- krb5
+- krb5 e2fsprogs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
