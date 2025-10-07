@@ -16,27 +16,11 @@ limitations under the License.
 
 package framework
 
-import (
-	"os"
-	"time"
+import "time"
 
-	"github.com/deckhouse/virtualization/tests/e2e/config"
+const (
+	ShortTimeout  = 30 * time.Second
+	MiddleTimeout = 60 * time.Second
+	LongTimeout   = 300 * time.Second
+	MaxTimeout    = 600 * time.Second
 )
-
-var (
-	ShortTimeout  = getTimeout(config.E2EShortTimeoutEnv, 30*time.Second)
-	MiddleTimeout = getTimeout(config.E2EMiddleTimeoutEnv, 60*time.Second)
-	LongTimeout   = getTimeout(config.E2ELongTimeoutEnv, 300*time.Second)
-	MaxTimeout    = getTimeout(config.E2EMaxTimeoutEnv, 600*time.Second)
-)
-
-func getTimeout(env string, defaultTimeout time.Duration) time.Duration {
-	if e, ok := os.LookupEnv(env); ok {
-		t, err := time.ParseDuration(e)
-		if err != nil {
-			return defaultTimeout
-		}
-		return t
-	}
-	return defaultTimeout
-}

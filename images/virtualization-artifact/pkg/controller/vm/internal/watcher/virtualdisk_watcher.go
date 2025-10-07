@@ -17,33 +17,47 @@ limitations under the License.
 package watcher
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-func NewVirtualDiskWatcher() *VirtualDiskWatcher {
-	return &VirtualDiskWatcher{}
+func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
+	return &VirtualDiskWatcher{
+		client: client,
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineKind)),
+	}
 }
 
-type VirtualDiskWatcher struct{}
+type VirtualDiskWatcher struct {
+	client client.Client
+	logger *slog.Logger
+}
 
 func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
 			&v1alpha2.VirtualDisk{},
-			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*v1alpha2.VirtualDisk](mgr.GetClient())),
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueue),
 			predicate.TypedFuncs[*v1alpha2.VirtualDisk]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualDisk]) bool {
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
@@ -78,4 +92,28 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}
 	return nil
+}
+
+func (w *VirtualDiskWatcher) enqueue(ctx context.Context, vd *v1alpha2.VirtualDisk) []reconcile.Request {
+	var vms v1alpha2.VirtualMachineList
+	err := w.client.List(ctx, &vms, &client.ListOptions{
+		Namespace:     vd.Namespace,
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByVD, vd.Name),
+	})
+	if err != nil {
+		w.logger.Error(fmt.Sprintf("failed to list virtual machines: %v", err))
+		return nil
+	}
+
+	var result []reconcile.Request
+	for _, vm := range vms.Items {
+		result = append(result, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      vm.GetName(),
+				Namespace: vm.GetNamespace(),
+			},
+		})
+	}
+
+	return result
 }

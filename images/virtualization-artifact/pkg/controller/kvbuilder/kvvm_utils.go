@@ -83,6 +83,7 @@ func GenerateSerial(input string) string {
 type HotPlugDeviceSettings struct {
 	VolumeName     string
 	PVCName        string
+	Image          string
 	DataVolumeName string
 }
 
@@ -91,6 +92,7 @@ func ApplyVirtualMachineSpec(
 	vdByName map[string]*v1alpha2.VirtualDisk,
 	viByName map[string]*v1alpha2.VirtualImage,
 	cviByName map[string]*v1alpha2.ClusterVirtualImage,
+	vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment,
 	class *v1alpha2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
@@ -130,11 +132,11 @@ func ApplyVirtualMachineSpec(
 				PVCName:    volume.PersistentVolumeClaim.ClaimName,
 			})
 		}
-		// FIXME(VM): not used, now only supports PVC
-		if volume.DataVolume != nil && volume.DataVolume.Hotpluggable {
+
+		if volume.ContainerDisk != nil && isHotplugged(volume, vm, vmbdas) {
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
-				VolumeName:     volume.Name,
-				DataVolumeName: volume.DataVolume.Name,
+				VolumeName: volume.Name,
+				Image:      volume.ContainerDisk.Image,
 			})
 		}
 	}
@@ -218,6 +220,10 @@ func ApplyVirtualMachineSpec(
 		}
 	}
 
+	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
+		return err
+	}
+
 	for _, device := range hotpluggedDevices {
 		switch {
 		case device.PVCName != "":
@@ -227,12 +233,14 @@ func ApplyVirtualMachineSpec(
 			}); err != nil {
 				return err
 			}
-			// FIXME(VM): not used, now only supports PVC
-		case device.DataVolumeName != "":
+		case device.Image != "":
+			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
+				ContainerDisk: pointer.GetPointer(device.Image),
+				IsHotplugged:  true,
+			}); err != nil {
+				return err
+			}
 		}
-	}
-	if err := kvvm.SetProvisioning(vm.Spec.Provisioning); err != nil {
-		return err
 	}
 
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
@@ -312,4 +320,16 @@ func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) er
 	}
 	kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
 	return nil
+}
+
+func isHotplugged(volume virtv1.Volume, vm *v1alpha2.VirtualMachine, vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
+	name, kind := GetOriginalDiskName(volume.Name)
+	for _, bdRef := range vm.Spec.BlockDeviceRefs {
+		if bdRef.Name == name && bdRef.Kind == kind {
+			return false
+		}
+	}
+
+	_, ok := vmbdas[v1alpha2.VMBDAObjectRef{Name: name, Kind: v1alpha2.VMBDAObjectRefKind(kind)}]
+	return ok
 }
