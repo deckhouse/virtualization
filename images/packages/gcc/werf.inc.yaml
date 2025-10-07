@@ -41,11 +41,12 @@ altPackages:
 - git gcc-c++ flex make makeinfo libtool autoconf_2.60
 - libelf-devel libmpc-devel libmpfr-devel perl-Pod-Parser
 - libgc-devel coreutils
-- autogen dejagnu glibc-devel-static
+- autogen dejagnu
 - tree
 packages:
 - zlib
 - zstd
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

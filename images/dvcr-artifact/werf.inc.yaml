@@ -2,11 +2,12 @@
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
 altPackages:
-- gcc glibc-pthread glibc-devel glibc-devel-static
+- gcc
 - git golang make binutils
 packages:
 - libnbd
 - libxml2
+- glibc
 {{- end -}}
 
 {{ $builderDeps := include "$nameDeps" . | fromYaml }}

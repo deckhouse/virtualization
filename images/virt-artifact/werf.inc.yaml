@@ -26,14 +26,8 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git
-- curl
 - pkg-config
 - libtool
-- libvirt-libs
-- libvirt-devel
-- libvirt-client
-- libvirt-daemon
-- libvirt
 - gcc
 - gcc-c++
 - glibc-devel-static
@@ -42,6 +36,7 @@ altPackages:
 packages:
 - libmnl
 - ncurses
+- libcurl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -61,6 +56,10 @@ import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src/kubevirt
   to: /kubevirt
+  before: install
+- image: {{ .ModuleNamePrefix }}libvirt
+  add: /libvirt
+  to: /libvirt
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
