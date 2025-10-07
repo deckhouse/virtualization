@@ -36,11 +36,12 @@ shell:
 altPackages:
 - gcc gcc-c++ git make libtool gettext-tools
 - patch gperf help2man texinfo gengetopt
-- gtk-doc libgnutls-devel libkrb5-devel
+- gtk-doc
 - texinfo diffutils dovecot help2man
 packages:
 - libgcrypt libidn libntlm
 - readline gnutls
+- krb5
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

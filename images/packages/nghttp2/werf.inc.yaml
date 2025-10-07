@@ -50,12 +50,13 @@ altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - libev-devel libevent-devel
-- libjansson-devel libjemalloc-devel libcares-devel
-- CUnit-devel libsystemd-devel libicu-devel
+- libjemalloc-devel libcares-devel
+- CUnit-devel libicu-devel
 - gnustep-base-devel
 packages:
 - zlib libxml2
 - openssl
+- libjansson4
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

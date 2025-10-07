@@ -19,10 +19,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -32,10 +29,11 @@ altPackages:
 - make automake autoconf libtool makeinfo
 - pkg-config
 - bison
-- bzlib-devel liblzma-devel libseccomp-devel libcap-devel lzip ncompress strace
+- lzip ncompress strace
 - tree
 packages:
 - zlib zstd xz
+- bzip2 libseccomp libcap
 {{- end -}}
 
 
@@ -67,7 +65,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
     cd /src
 

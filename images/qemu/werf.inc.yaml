@@ -88,7 +88,6 @@ altPackages:
 - python3-module-black
 altLibraries:
 - glibc-devel-static
-- zlib-devel-static
 - libattr-devel-static
 - libdw-devel-static
 - libatomic-devel-static
@@ -99,8 +98,6 @@ altLibraries:
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
-- libuuid-devel
-- libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
 - libalsa-devel libpulseaudio-devel
@@ -110,11 +107,9 @@ altLibraries:
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
-- libnfs-devel libseccomp-devel
-- libgnutls-devel
+- libnfs-devel
 - libblkio-devel libpmem-devel
 - libdaxctl-devel
-- bzlib-devel liblzo2-devel
 - libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
 - libvitastor-devel libiscsi-devel glusterfs-coreutils
 - libglusterfs11-api-devel
@@ -139,6 +134,7 @@ packages:
 - libaio
 - liburing libuserspace-rcu libunistring systemd
 - multipath-tools
+- libslirp libseccomp gnutls bzip2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

@@ -41,11 +41,11 @@ shell:
 altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config
 - cmake libgflags-devel
-- libgtest-devel liblzo2-devel
 - llvm-devel
 - tree
 packages:
 - zlib
+- lzo
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -76,7 +76,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
 
     cd /src
@@ -88,7 +88,7 @@ shell:
       -DCMAKE_INSTALL_PREFIX=/usr \
       -DBUILD_SHARED_LIBS=ON
 
-      
+
 
     make -j$(nproc)
     make -j$(nproc) DESTDIR=$OUTDIR PREFIX=/usr install
@@ -97,7 +97,7 @@ shell:
     exec_prefix=${prefix}
     libdir=${exec_prefix}/lib64
     includedir=${prefix}/include
-    
+
     cat << EOF >$OUTDIR/usr/lib64/pkgconfig/snappy.pc
     prefix=${prefix}
     exec_prefix=${prefix}

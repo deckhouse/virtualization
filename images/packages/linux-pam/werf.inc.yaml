@@ -29,11 +29,12 @@ altPackages:
 - gcc gcc-c++ autoconf automake libtool make pkg-config
 - meson ninja-build flex
 - libdb4-devel docbook5-schemas docbook5-style-xsl xsltproc w3m
-- libaudit-devel byacc
+- byacc
 - gettext-devel
 - tree
 packages:
 - libxcrypt
+- libaudit
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -64,7 +65,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
 
     cd /src
