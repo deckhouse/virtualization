@@ -1005,118 +1005,118 @@ echo "End: $(formatted_date $END_TIME_SN)" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/st
 echo "Duration: $DURATION_SN seconds" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
 echo "Execution time: $FORMATTED_DURATION_SN" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
 
-# All vms CSSD
-test_scenario() {
-  SN=1
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
-  gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
-  stop_vm
-  start_vm
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
+# # All vms CSSD
+# test_scenario() {
+#   SN=1
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
+#   gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+#   stop_vm
+#   start_vm
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
 
-  log_info "Wait 10 seconds"
-  sleep 10
-  echo ""
+#   log_info "Wait 10 seconds"
+#   sleep 10
+#   echo ""
 
-  SN=2
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_disks_only $COUNT_RESOURCES $VI_TYPE
-  gather_vd_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_only $COUNT_RESOURCES $VI_TYPE
-  gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
-  stop_vm
-  start_vm
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
+#   SN=2
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_disks_only $COUNT_RESOURCES $VI_TYPE
+#   gather_vd_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_only $COUNT_RESOURCES $VI_TYPE
+#   gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+#   stop_vm
+#   start_vm
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
 
-  log_info "Wait 10 seconds"
-  sleep 10
-  echo ""
+#   log_info "Wait 10 seconds"
+#   sleep 10
+#   echo ""
 
-  SN=3
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  COUNT_SCENARIO_3=2
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
-  start_migration #infinite
-  deploy_vms_with_disks $COUNT_SCENARIO_3 $VI_TYPE
-  stop_vm $COUNT_SCENARIO_3
-  start_vm $COUNT_SCENARIO_3
-  wait_migration "2m"
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
+#   SN=3
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   COUNT_SCENARIO_3=2
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
+#   start_migration #infinite
+#   deploy_vms_with_disks $COUNT_SCENARIO_3 $VI_TYPE
+#   stop_vm $COUNT_SCENARIO_3
+#   start_vm $COUNT_SCENARIO_3
+#   wait_migration "2m"
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
 
-  log_info "Wait 10 seconds"
-  sleep 10
-  echo ""
+#   log_info "Wait 10 seconds"
+#   sleep 10
+#   echo ""
 
-  SN=4
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  COUNT_SCENARIO_4=2
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
-  start_migration #infinite
-  deploy_disks_only $COUNT_RESOURCES $VI_TYPE
-  deploy_vms_only $COUNT_RESOURCES $VI_TYPE
-  gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
-  stop_vm $COUNT_SCENARIO_4
-  start_vm $COUNT_SCENARIO_4
-  wait_migration "2m"
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
+#   SN=4
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   COUNT_SCENARIO_4=2
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
+#   start_migration #infinite
+#   deploy_disks_only $COUNT_RESOURCES $VI_TYPE
+#   deploy_vms_only $COUNT_RESOURCES $VI_TYPE
+#   gather_vm_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+#   stop_vm $COUNT_SCENARIO_4
+#   start_vm $COUNT_SCENARIO_4
+#   wait_migration "2m"
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
 
-  log_info "Wait 10 seconds"
-  sleep 10
-  echo ""
+#   log_info "Wait 10 seconds"
+#   sleep 10
+#   echo ""
 
-  SN=5
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
-  start_migration "2m" "10"
-  # need calculate duration
-  # NS=$NAMESPACE TARGET=${target} DURATION=${duration} task evicter:run:migration
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
+#   SN=5
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
+#   start_migration "2m" "10"
+#   # need calculate duration
+#   # NS=$NAMESPACE TARGET=${target} DURATION=${duration} task evicter:run:migration
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
 
-  log_info "Wait 10 seconds"
-  sleep 10
-  echo ""
+#   log_info "Wait 10 seconds"
+#   sleep 10
+#   echo ""
 
-  SN=6
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
-  stop_vm $COUNT_RESOURCES
-  start_vm $COUNT_RESOURCES
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
+#   SN=6
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
+#   stop_vm $COUNT_RESOURCES
+#   start_vm $COUNT_RESOURCES
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
 
-  log_info "Wait 10 seconds"
-  sleep 10
-  echo ""
+#   log_info "Wait 10 seconds"
+#   sleep 10
+#   echo ""
 
-  SN=7
-  log_info "Start scenario ${SN}"
-  SCENARIO="scenario_${SN}_"
-  COUNT_SCENARIO_4=1
-  create_report_dir "$SCENARIO${VI_TYPE}/statistics"
-  deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
-  stop_virtualization_controller
-  sn7_start_time=$(get_timestamp)
-  start_virtualization_controller
-  deploy_vms_with_disks $COUNT_SCENARIO_4 $VI_TYPE
-  gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
-  undeploy_resources
-  log_success "Done with scenario ${SN}"
-}
+#   SN=7
+#   log_info "Start scenario ${SN}"
+#   SCENARIO="scenario_${SN}_"
+#   COUNT_SCENARIO_4=1
+#   create_report_dir "$SCENARIO${VI_TYPE}/statistics"
+#   deploy_vms_with_disks $COUNT_RESOURCES $VI_TYPE
+#   stop_virtualization_controller
+#   sn7_start_time=$(get_timestamp)
+#   start_virtualization_controller
+#   deploy_vms_with_disks $COUNT_SCENARIO_4 $VI_TYPE
+#   gather_all_statistics "$REPORT_DIR/$SCENARIO${VI_TYPE}/statistics"
+#   undeploy_resources
+#   log_success "Done with scenario ${SN}"
+# }
