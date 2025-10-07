@@ -77,4 +77,12 @@ shell:
 
     make DESTDIR=$OUTDIR install
 
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -hp $OUTDIR
+
 {{- end }}
