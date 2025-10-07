@@ -30,6 +30,8 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
+const VirtualMachineCount = 12
+
 var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
@@ -38,6 +40,7 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 		notAlwaysOnLabel         = map[string]string{"notAlwaysOn": "complex-test"}
 		ns                       string
 		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
+		f                        = framework.NewFramework("")
 	)
 
 	AfterEach(func() {
@@ -78,7 +81,10 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 		})
 
 		It("should fill empty virtualMachineClassName with the default class name", func() {
-			defaultVMLabels := testCaseLabel
+			defaultVMLabels := make(map[string]string, len(testCaseLabel)+1)
+			for k, v := range testCaseLabel {
+				defaultVMLabels[k] = v
+			}
 			defaultVMLabels["vm"] = "default"
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
@@ -125,13 +131,12 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 	})
 
 	Context("When virtual machines IP addresses are applied", func() {
-		// TODO: fix: the custom IP address loses its lease and becomes Lost.
-		// It("patches custom VMIP with unassigned address", func() {
-		// 	vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
-		// 	Eventually(func() error {
-		// 		return AssignIPToVMIP(f, ns, vmipName)
-		// 	}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
-		// })
+		It("patches custom VMIP with unassigned address", func() {
+			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
+			Eventually(func() error {
+				return AssignIPToVMIP(f, ns, vmipName)
+			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
+		})
 
 		It("checks VMIPs phases", func() {
 			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
@@ -219,6 +224,7 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 					Namespace: ns,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
+				Expect(len(vmList.Items)).To(Equal(VirtualMachineCount))
 
 				for _, vmObj := range vmList.Items {
 					if vmObj.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
@@ -278,6 +284,7 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 					Labels:    testCaseLabel,
 				})
 				Expect(err).NotTo(HaveOccurred())
+				Expect(len(vms.Items)).To(Equal(VirtualMachineCount))
 
 				var notAlwaysOnVMs []string
 				for _, vm := range vms.Items {
@@ -313,6 +320,7 @@ var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), fun
 					Namespace: ns,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
+				Expect(len(vmList.Items)).To(Equal(VirtualMachineCount))
 
 				alwaysOnVMs = []string{}
 				notAlwaysOnVMs = []string{}
