@@ -106,10 +106,11 @@ func (b *Backoff) Step() time.Duration {
 // In all other cases, ErrWaitTimeout is returned.
 func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 	const (
-		dvcrNoSpaceError         = "no space left on device"
-		dvcrInternalErrorPattern = "UNKNOWN: unknown error;"
-		dvcrNoSpaceErrMessage    = "DVCR is overloaded"
-		internalDvcrErrMessage   = "Internal DVCR error (could it be overloaded?)"
+		dvcrNoSpaceError             = "no space left on device"
+		dvcrInternalErrorPattern     = "UNKNOWN: unknown error;"
+		dvcrNoSpaceErrMessage        = "DVCR is overloaded"
+		internalDvcrErrMessage       = "Internal DVCR error (could it be overloaded?)"
+		datasourceCreatingErrMessage = "error creating data source"
 	)
 
 	var err error
@@ -124,6 +125,8 @@ func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 			return fmt.Errorf("%s: %w", dvcrNoSpaceErrMessage, err)
 		case strings.Contains(err.Error(), dvcrInternalErrorPattern):
 			return fmt.Errorf("%s: %w", internalDvcrErrMessage, err)
+		case strings.Contains(err.Error(), datasourceCreatingErrMessage):
+			return err
 		}
 
 		if backoff.Steps == 1 {
