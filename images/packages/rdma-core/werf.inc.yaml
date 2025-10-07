@@ -9,7 +9,7 @@ altPackages:
 - binutils cmake pkgconfig
 - pandoc
 - python3-module-Cython python3-devel python3-module-docutils
-- libpcap-devel l
+- libpcap-devel
 - tree
 packages:
 - systemd libnl3 rdma-core
