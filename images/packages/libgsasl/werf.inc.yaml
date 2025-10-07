@@ -41,7 +41,7 @@ altPackages:
 packages:
 - libgcrypt libidn libntlm
 - readline gnutls
-- krb5
+- krb5 e2fsprogs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
