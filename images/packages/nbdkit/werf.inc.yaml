@@ -46,6 +46,7 @@ packages:
 - libgcc1
 - libunistring
 - xz libcurl nghttp2 nghttp3 ngtcp2 openldap
+- libgsasl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
