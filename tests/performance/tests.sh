@@ -280,6 +280,44 @@ start_migration() {
 
 }
 
+start_migration_new() {
+  local duration=${1:-"0m"}
+  local target=${2:-"5"}
+  local session="test-perf"
+  local ns="${NAMESPACE:-perf}"
+
+  echo "Create tmux session: $session"
+  tmux new-session -d -s "${session}" -n "${ns}" # windows named "ns"
+
+  # split window
+  tmux split-window  -h  -t "${session}:0"         # Pane 0 (left), Pane 1 (right)
+  tmux split-window  -v  -t "${session}:0.1"       # Split right pane; .1
+
+  # 3) Посылаем команды в нужные панели явно
+  tmux select-pane   -t "${session}:0.0"
+  tmux send-keys     -t "${session}:0.0" "k9s -n ${ns}" C-m
+  tmux resize-pane   -t "${session}:0.1" -x 50%
+
+  echo "Start migration in $session, pane 1"
+  tmux select-pane   -t "${session}:0.1"
+  tmux send-keys     -t "${session}:0.1" "NS=${ns} TARGET=${target} DURATION=${duration} task evicter:run:migration" C-m
+  tmux resize-pane   -t "${session}:0.1" -x 50%
+
+  tmux select-pane   -t "${session}:0.2"
+  tmux resize-pane   -t "${session}:0.2" -x 50%
+
+  echo "For watching migration in $session, attach with:"
+  echo "tmux -2 attach -t ${session}"
+
+  # Optional
+  # if [ -n "${TMUX:-}" ]; then
+  #   tmux switch-client -t "${session}" # switch client to created session inside tmux
+  # else
+  #   tmux -2 attach -t "${session}" # from bash tmux — just attach to created session
+  # fi
+}
+
+
 stop_migration() {
   local SESSION="test-perf"
   tmux send-keys -t "${SESSION}:1.1" C-c || true
@@ -486,7 +524,7 @@ start_vm() {
   fi
 
   if [ ${#vms[@]} -eq 0 ]; then
-    log_warning "No running VMs found to stop"
+    log_warning "No running VMs found to run"
     echo "0"
     return
   fi
@@ -496,11 +534,19 @@ start_vm() {
     d8 v -n $NAMESPACE start $vm
   done
 
-  # Wait for vms to be running
-  local running_vm=()
-  total=${#vms[@]}
 
   while true; do
+
+    # Wait for vms to be running    
+    if [ -z "$count" ]; then
+      local vms=($(kubectl -n $NAMESPACE get vm | grep "Stopped" | awk '{print $1}'))
+    else
+      # Start vm from the end
+      local vms=($(kubectl -n $NAMESPACE get vm | grep "Stopped" | awk '{print $1}' | tail -n $count))
+    fi
+
+    local running_vm=()
+    local total=${#vms[@]}
     
     for vm in "${vms[@]}"; do
       local status=$(kubectl -n perf get vm $vm -o jsonpath='{.status.phase}')
@@ -508,11 +554,7 @@ start_vm() {
         running_vm+=($vm)
       fi
     done
-    
-    running=${#running_vm[@]}
-    running_vm=()
-    
-    
+
     if [ $running -eq $total ]; then
       echo "All vms are running"
       local end_time=$(get_timestamp)
