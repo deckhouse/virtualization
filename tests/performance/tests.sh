@@ -249,7 +249,7 @@ wait_for_resources() {
 
 }
 
-start_migration() {
+start_migration_old() {
   # supoprt duration format: 0m - infinite, 30s - 30 seconds, 1h - 1 hour, 2h30m - 2 hours and 30 minutes
   local duration=${1:-"0m"}
   local target=${2:-"5"}
@@ -280,7 +280,7 @@ start_migration() {
 
 }
 
-start_migration_new() {
+start_migration() {
   local duration=${1:-"0m"}
   local target=${2:-"5"}
   local session="test-perf"
