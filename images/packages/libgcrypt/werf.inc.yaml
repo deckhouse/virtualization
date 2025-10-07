@@ -1,7 +1,7 @@
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - git gcc
 - make pkgconfig makeinfo autoconf
 - libtool
