@@ -64,20 +64,16 @@ altPackages:
 - mdevctl tshark
 - dmsetup pm-utils
 altLibraries:
-- libudev-devel
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
-- libpcap-devel libnl-devel
+- libpcap-devel
 - libparted-devel
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libsystemd-devel
 - systemtap-sdt-devel
-- glibc-utils
 - wireshark-devel
 - libclocale
-- libslirp-devel
 - libyajl-devel
 packages:
 - dmidecode lvm2 libattr libbsd libmd util-linux
@@ -92,6 +88,7 @@ packages:
 - libtasn1 libtirpc
 - glib2 acl libunistring libxml2
 - gnutls
+- systemd glibc libnl3 libslirp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

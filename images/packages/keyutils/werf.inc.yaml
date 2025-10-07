@@ -19,8 +19,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -76,10 +75,10 @@ shell:
       SBINDIR=/usr/sbin
 
     rm -rf $OUTDIR/usr/share/
-    find $OUTDIR -type f -executable | while read -r execfile; do  
-    if strip "$execfile"; then  
-      echo "Stripped: $execfile"  
-    fi  
-    done  
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
     tree -hp $OUTDIR
 
