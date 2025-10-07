@@ -575,7 +575,7 @@ start_vm() {
 
     echo ""
     echo "Waiting for vms to be running..."
-    echo "VM running: $running/$total"
+    echo "VM running: $running_vm/$total"
     echo ""
     echo "Waiting for $sleep_time seconds..."
     sleep $sleep_time
