@@ -105,6 +105,7 @@ type TestData struct {
 	SSHUser               string `yaml:"sshUser"`
 	IPAM                  string `yaml:"ipam"`
 	VMVpc                 string `yaml:"vmVpc"`
+	VMTpm                 string `yaml:"vmTpm"`
 }
 
 type StorageClass struct {
