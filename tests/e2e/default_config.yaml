@@ -48,7 +48,6 @@ logFilter:
   - "the server rejected our request due to an error in our request" # Err.
   - "failed to sync powerstate" # Msg.
   - "does not have a pvc reference" # "err": "kvvm head-345e7b6a-testcases-image-hotplug/head-345e7b6a-vm-image-hotplug spec volume vi-head-345e7b6a-vi-alpine-http does not have a pvc reference"
-  - "lastTransitionTime: Required value" # Err.
   - "virtualmachineipaddressleases.virtualization.deckhouse.io "
   - "Forbidden: no new finalizers can be added if the object is being deleted, found new finalizers"
   - "Failed to watch" # error if virtualization-controller restarts during tests. "msg": "Failed to watch", "err": "Get \"http://127.0.0.1:23915/apis/virtualization.deckhouse.io/v1alpha2/virtualmachinerestores?allowWatchBookmarks=true\u0026resourceVersion=709816257\u0026timeoutSeconds=310\u0026watch=true\": context canceled"

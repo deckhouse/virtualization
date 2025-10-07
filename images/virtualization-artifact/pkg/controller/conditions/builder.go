@@ -66,15 +66,29 @@ func SetCondition(c Conder, conditions *[]metav1.Condition) {
 		if !newCondition.LastTransitionTime.IsZero() &&
 			newCondition.LastTransitionTime.After(existingCondition.LastTransitionTime.Time) {
 			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+		} else {
+			existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
 		}
 	}
 
 	if existingCondition.Message != newCondition.Message {
 		existingCondition.Message = newCondition.Message
+		if !newCondition.LastTransitionTime.IsZero() &&
+			newCondition.LastTransitionTime.After(existingCondition.LastTransitionTime.Time) {
+			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+		} else {
+			existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
+		}
 	}
 
 	if existingCondition.ObservedGeneration != newCondition.ObservedGeneration {
 		existingCondition.ObservedGeneration = newCondition.ObservedGeneration
+		if !newCondition.LastTransitionTime.IsZero() &&
+			newCondition.LastTransitionTime.After(existingCondition.LastTransitionTime.Time) {
+			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+		} else {
+			existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
+		}
 	}
 }
 
@@ -164,7 +178,7 @@ func (c *ConditionBuilder) LastTransitionTime(lastTransitionTime time.Time) *Con
 }
 
 func (c *ConditionBuilder) Clone() *ConditionBuilder {
-	var out *ConditionBuilder
+	out := &ConditionBuilder{}
 	*out = *c
 	return out
 }
