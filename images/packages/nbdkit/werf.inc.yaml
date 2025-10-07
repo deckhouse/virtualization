@@ -45,7 +45,7 @@ packages:
 - libtasn1
 - libgcc1
 - libunistring
-- xz libcurl 
+- xz libcurl nghttp3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
