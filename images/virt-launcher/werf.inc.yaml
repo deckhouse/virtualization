@@ -25,20 +25,16 @@ altLibs:
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
-  - libuuid-devel
-  - libslirp-devel
   - libdrm-devel
   - libxdp-devel
   - libSDL2-devel
   - libSDL2_image-devel
-  - libncursesw-devel
   - libalsa-devel
   - libpulseaudio-devel
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
   - libjpeg-devel
-  - libpng-devel
   - xkeyboard-config-devel
   - libgtk+3-devel
   - libvte
@@ -51,13 +47,9 @@ altLibs:
   - libspice-server-devel
   - ceph-devel
   - libnfs-devel
-  - libseccomp-devel
-  - libudev-devel
-  - libmultipath-devel
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - bzlib-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
@@ -70,19 +62,16 @@ altLibs:
   - libyajl-devel
   - sanlock-devel
   - libpcap-devel
-  - libnl-devel
   - libparted-devel
   - libdevmapper-devel
   - libglusterfs-devel
   - libfuse-devel
-  - libsystemd-devel
   - systemtap-sdt-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
   - fdisk
   - glibc-gconv-modules
-  - gnutls-utils
   - hwclock
   - iptables
   - passt
@@ -130,6 +119,8 @@ packages:
 - libxkbcommon
 - libaio
 - liburing libunistring
+- libslirp ncurses libpng libseccomp
+- systemd multipath-tools bzip2 libnl3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
