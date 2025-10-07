@@ -30,7 +30,7 @@ altPackages:
 - meson ninja-build flex
 - libsphinxclient-devel libsphinxclient
 - libsphinxbase-devel libgdbm-devel
-- libdb4-devel libkrb5-devel
+- libdb4-devel
 - groff-base
 - perl-Pod-POM-View-Restructured
 - python3-module-sphinx
@@ -42,7 +42,6 @@ altPackages:
 - m4
 - groff-base gettext-tools
 - libdb4-devel
-- libkrb5-devel
 - libsqlite3-devel
 - tree
 packages:
@@ -50,6 +49,7 @@ packages:
 - zlib
 - linux-pam
 - openssl e2fsprogs
+- krb5
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -80,7 +80,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
 
     cd /src
@@ -103,7 +103,7 @@ shell:
       --with-dblib=berkeley \
       --with-sqlite3 \
       --disable-macos-framework
-    
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 

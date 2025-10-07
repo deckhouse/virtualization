@@ -26,7 +26,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools
-- libuuid-devel libarchive-devel
+- libarchive-devel
 - tree
 packages:
 - glib2 util-linux acl

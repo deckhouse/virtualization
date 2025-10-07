@@ -63,8 +63,6 @@ imageSpec:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-altPackages:
-- libnftnl
 binaries:
 - /usr/bin/getfacl
 - /usr/bin/setfacl
@@ -75,7 +73,7 @@ binaries:
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
 packages:
-- libisoburn nftables acl libmnl libjansson4
+- libisoburn nftables acl libmnl libjansson4 libnftnl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -98,12 +96,6 @@ import:
   before: setup
 shell:
   install:
-    {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install --yes \
-      {{ $builderDependencies.altPackages | join " " }}
-
-  {{- include "alt packages clean" . | nindent 2 }}
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
