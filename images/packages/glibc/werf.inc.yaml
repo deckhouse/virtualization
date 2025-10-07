@@ -7,7 +7,7 @@ altPackages:
 - make bison python3
 - tree
 packages:
-- util-linux glibc
+- util-linux
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
