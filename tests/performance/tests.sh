@@ -355,6 +355,10 @@ remove_vmops() {
     log_info "Check if all vmops are removed"
     local vmop_total=$(( $(kubectl -n $namespace get vmop | wc -l )-1 ))
     local vmop_list=$(kubectl -n $namespace get vmop | grep "Completed" | awk '{print $1}')
+    local vmop_failed_list=$(kubectl -n $namespace get vmop | grep "Failed" | awk '{print $1}')
+    log_warning "VMOP failed list: $vmop_failed_list"
+
+    vmop_list+=$vmop_failed_list
 
     log_info "VMOP total: $( if [ $vmop_total -le 0 ]; then echo "0"; else echo $vmop_total; fi )"
     if [ $vmop_total -le 0 ]; then
