@@ -46,7 +46,6 @@ altPackages:
 packages:
 - zlib
 - zstd
-- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
