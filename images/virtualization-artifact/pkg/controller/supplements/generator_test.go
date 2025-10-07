@@ -52,7 +52,7 @@ var _ = Describe("Generator", func() {
 				Expect(result.Name).To(HaveSuffix(string(uid)))
 			},
 			Entry("DVCRAuthSecret", func(g Generator) types.NamespacedName { return g.DVCRAuthSecret() }, "dvcr-auth"),
-			Entry("DVCRAuthSecretForDV", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForDV() }, "dvcr-auth"),
+			Entry("DVCRAuthSecretForDV", func(g Generator) types.NamespacedName { return g.DVCRAuthSecretForDV() }, "dvcr-auth-dv"),
 			Entry("DVCRCABundleConfigMapForDV", func(g Generator) types.NamespacedName { return g.DVCRCABundleConfigMapForDV() }, "dvcr-ca"),
 			Entry("CABundleConfigMap", func(g Generator) types.NamespacedName { return g.CABundleConfigMap() }, "ca"),
 			Entry("ImagePullSecret", func(g Generator) types.NamespacedName { return g.ImagePullSecret() }, "pull-image"),

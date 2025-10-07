@@ -25,15 +25,16 @@ import (
 )
 
 const (
-	tplCommon            = "d8v-%s-%s-%s"
-	tplDVCRAuthSecret    = "d8v-%s-dvcr-auth-%s-%s"
-	tplDVCRCABundle      = "d8v-%s-dvcr-ca-%s-%s"
-	tplCABundle          = "d8v-%s-ca-%s-%s"
-	tplImagePullSecret   = "d8v-%s-pull-image-%s-%s"
-	tplImporterPod       = "d8v-%s-importer-%s-%s"
-	tplBounderPod        = "d8v-%s-bounder-%s-%s"
-	tplUploaderPod       = "d8v-%s-uploader-%s-%s"
-	tplUploaderTLSSecret = "d8v-%s-tls-%s-%s"
+	tplCommon               = "d8v-%s-%s-%s"
+	tplDVCRAuthSecret       = "d8v-%s-dvcr-auth-%s-%s"
+	tplDVCRAuthSecretForDV  = "d8v-%s-dvcr-auth-dv-%s-%s"
+	tplDVCRCABundle         = "d8v-%s-dvcr-ca-%s-%s"
+	tplCABundle             = "d8v-%s-ca-%s-%s"
+	tplImagePullSecret      = "d8v-%s-pull-image-%s-%s"
+	tplImporterPod          = "d8v-%s-importer-%s-%s"
+	tplBounderPod           = "d8v-%s-bounder-%s-%s"
+	tplUploaderPod          = "d8v-%s-uploader-%s-%s"
+	tplUploaderTLSSecret    = "d8v-%s-tls-%s-%s"
 )
 
 type Generator interface {
@@ -116,7 +117,7 @@ func (g *generator) DVCRAuthSecret() types.NamespacedName {
 // DVCRAuthSecretForDV returns name and namespace for auth Secret copy
 // compatible with DataVolume: with accessKeyId and secretKey fields.
 func (g *generator) DVCRAuthSecretForDV() types.NamespacedName {
-	return g.generateName(tplDVCRAuthSecret, kvalidation.DNS1123SubdomainMaxLength)
+	return g.generateName(tplDVCRAuthSecretForDV, kvalidation.DNS1123SubdomainMaxLength)
 }
 
 // DVCRCABundleConfigMapForDV returns name and namespace for ConfigMap with ca.crt.
