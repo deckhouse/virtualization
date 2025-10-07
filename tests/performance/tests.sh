@@ -555,7 +555,7 @@ start_vm() {
       fi
     done
 
-    if [ $running -eq $total ]; then
+    if [ $running_vm -eq $total ]; then
       echo "All vms are running"
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
