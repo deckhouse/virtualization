@@ -358,7 +358,7 @@ remove_vmops() {
     local vmop_failed_list=$(kubectl -n $namespace get vmop | grep "Failed" | awk '{print $1}')
     log_warning "VMOP failed list: $vmop_failed_list"
 
-    vmop_list+=$vmop_failed_list
+    vmop_list+=" $vmop_failed_list"
 
     log_info "VMOP total: $( if [ $vmop_total -le 0 ]; then echo "0"; else echo $vmop_total; fi )"
     if [ $vmop_total -le 0 ]; then
@@ -939,7 +939,8 @@ create_report_dir "$SCENARIO${VI_TYPE}/statistics/deploy_vm_${PERCENT_RESOURCES}
 create_report_dir "$SCENARIO${VI_TYPE}/statistics/vm_${PERCENT_RESOURCES}_deploy"
 
 START_TIME_SN=$(get_timestamp)
-echo "Start: $START_TIME_SN" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
+echo "Test perf vms" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
+echo "Start: $(formatted_date $START_TIME_SN)" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
 echo "" >> $REPORT_DIR/$SCENARIO${VI_TYPE}/statistics/scenario_report.txt
 
 log_info "Deploy resources"
