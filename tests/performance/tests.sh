@@ -546,11 +546,12 @@ start_vm() {
     fi
 
     local total=${#vms[@]}
+    local running_vm=0
     
     for vm in "${vms[@]}"; do
       local status=$(kubectl -n perf get vm $vm -o jsonpath='{.status.phase}')
       if [ "$status" == "Running" ]; then
-        running_vm+=($vm)
+        (( running_vm+=1 ))
       fi
     done
 
@@ -571,8 +572,6 @@ start_vm() {
       log_info ""
       break
     fi
-
-    local running_vm=()
 
     echo ""
     echo "Waiting for vms to be running..."
