@@ -58,7 +58,7 @@ import:
   to: /kubevirt
   before: install
 - image: {{ .ModuleNamePrefix }}libvirt
-  add: /libvirt
+  add: /BINS
   to: /libvirt
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
