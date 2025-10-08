@@ -209,7 +209,7 @@ shell:
   - echo 'TREE OF SRC'
   - tree /{{ $gitRepoName }}-{{ $version }}
   - echo 'TREE OF BUILD'
-  - tree build
+  - tree /{{ $gitRepoName }}-{{ $version }}/build
     /install-libvirt.sh --version-num "{{ $version }}" \
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
