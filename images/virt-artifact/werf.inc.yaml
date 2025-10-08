@@ -75,6 +75,7 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
+    PKGS+=" libvirt"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
