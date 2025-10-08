@@ -1655,7 +1655,7 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes.
+- Nodes on which virtual machines run should not have any taints.
 
 {{< alert level="info" >}}
 When changing placement parameters:
