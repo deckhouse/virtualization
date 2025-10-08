@@ -166,7 +166,7 @@ func (c *ConditionBuilder) LastTransitionTime(lastTransitionTime time.Time) *Con
 }
 
 func (c *ConditionBuilder) Clone() *ConditionBuilder {
-	out := &ConditionBuilder{}
+	var out *ConditionBuilder
 	*out = *c
 	return out
 }
