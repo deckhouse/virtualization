@@ -155,7 +155,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVir
 		cvi.Status.Phase = v1alpha2.ImageReady
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

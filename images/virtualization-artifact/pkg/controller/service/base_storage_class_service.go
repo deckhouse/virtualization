@@ -74,7 +74,8 @@ func (s BaseStorageClassService) GetStorageClass(ctx context.Context, scName str
 }
 
 func (s BaseStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+	pvc := &corev1.PersistentVolumeClaim{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, pvc)
 }
 
 func (s BaseStorageClassService) IsStorageClassDeprecated(sc *storagev1.StorageClass) bool {

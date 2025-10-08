@@ -248,7 +248,7 @@ var _ BlankDataSourceDiskService = &BlankDataSourceDiskServiceMock{}
 //			GetVolumeAndAccessModesFunc: func(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
-//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
 //		}
@@ -271,7 +271,7 @@ type BlankDataSourceDiskServiceMock struct {
 	GetVolumeAndAccessModesFunc func(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -307,6 +307,8 @@ type BlankDataSourceDiskServiceMock struct {
 		Protect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 			// Owner is the owner argument value.
 			Owner client.Object
 			// Dv is the dv argument value.
@@ -467,17 +469,19 @@ func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []str
 }
 
 // Protect calls ProtectFunc.
-func (mock *BlankDataSourceDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (mock *BlankDataSourceDiskServiceMock) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if mock.ProtectFunc == nil {
 		panic("BlankDataSourceDiskServiceMock.ProtectFunc: method is nil but BlankDataSourceDiskService.Protect was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
 	}{
 		Ctx:   ctx,
+		Sup:   sup,
 		Owner: owner,
 		Dv:    dv,
 		Pvc:   pvc,
@@ -485,7 +489,7 @@ func (mock *BlankDataSourceDiskServiceMock) Protect(ctx context.Context, owner c
 	mock.lockProtect.Lock()
 	mock.calls.Protect = append(mock.calls.Protect, callInfo)
 	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, owner, dv, pvc)
+	return mock.ProtectFunc(ctx, sup, owner, dv, pvc)
 }
 
 // ProtectCalls gets all the calls that were made to Protect.
@@ -494,12 +498,14 @@ func (mock *BlankDataSourceDiskServiceMock) Protect(ctx context.Context, owner c
 //	len(mockedBlankDataSourceDiskService.ProtectCalls())
 func (mock *BlankDataSourceDiskServiceMock) ProtectCalls() []struct {
 	Ctx   context.Context
+	Sup   supplements.Generator
 	Owner client.Object
 	Dv    *cdiv1.DataVolume
 	Pvc   *corev1.PersistentVolumeClaim
 } {
 	var calls []struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
@@ -535,7 +541,7 @@ var _ ObjectRefVirtualImageDiskService = &ObjectRefVirtualImageDiskServiceMock{}
 //			GetProgressFunc: func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
-//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
 //			StartFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj client.Object, sup supplements.DataVolumeSupplement, opts ...service.Option) error {
@@ -564,7 +570,7 @@ type ObjectRefVirtualImageDiskServiceMock struct {
 	GetProgressFunc func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string
 
 	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj client.Object, sup supplements.DataVolumeSupplement, opts ...service.Option) error
@@ -610,6 +616,8 @@ type ObjectRefVirtualImageDiskServiceMock struct {
 		Protect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 			// Owner is the owner argument value.
 			Owner client.Object
 			// Dv is the dv argument value.
@@ -825,17 +833,19 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) GetProgressCalls() []struct {
 }
 
 // Protect calls ProtectFunc.
-func (mock *ObjectRefVirtualImageDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (mock *ObjectRefVirtualImageDiskServiceMock) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if mock.ProtectFunc == nil {
 		panic("ObjectRefVirtualImageDiskServiceMock.ProtectFunc: method is nil but ObjectRefVirtualImageDiskService.Protect was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
 	}{
 		Ctx:   ctx,
+		Sup:   sup,
 		Owner: owner,
 		Dv:    dv,
 		Pvc:   pvc,
@@ -843,7 +853,7 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) Protect(ctx context.Context, o
 	mock.lockProtect.Lock()
 	mock.calls.Protect = append(mock.calls.Protect, callInfo)
 	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, owner, dv, pvc)
+	return mock.ProtectFunc(ctx, sup, owner, dv, pvc)
 }
 
 // ProtectCalls gets all the calls that were made to Protect.
@@ -852,12 +862,14 @@ func (mock *ObjectRefVirtualImageDiskServiceMock) Protect(ctx context.Context, o
 //	len(mockedObjectRefVirtualImageDiskService.ProtectCalls())
 func (mock *ObjectRefVirtualImageDiskServiceMock) ProtectCalls() []struct {
 	Ctx   context.Context
+	Sup   supplements.Generator
 	Owner client.Object
 	Dv    *cdiv1.DataVolume
 	Pvc   *corev1.PersistentVolumeClaim
 } {
 	var calls []struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
@@ -949,7 +961,7 @@ var _ ObjectRefClusterVirtualImageDiskService = &ObjectRefClusterVirtualImageDis
 //			GetProgressFunc: func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string {
 //				panic("mock out the GetProgress method")
 //			},
-//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
 //			StartFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj client.Object, sup supplements.DataVolumeSupplement, opts ...service.Option) error {
@@ -978,7 +990,7 @@ type ObjectRefClusterVirtualImageDiskServiceMock struct {
 	GetProgressFunc func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string
 
 	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj client.Object, sup supplements.DataVolumeSupplement, opts ...service.Option) error
@@ -1024,6 +1036,8 @@ type ObjectRefClusterVirtualImageDiskServiceMock struct {
 		Protect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 			// Owner is the owner argument value.
 			Owner client.Object
 			// Dv is the dv argument value.
@@ -1239,17 +1253,19 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) GetProgressCalls() []st
 }
 
 // Protect calls ProtectFunc.
-func (mock *ObjectRefClusterVirtualImageDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (mock *ObjectRefClusterVirtualImageDiskServiceMock) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if mock.ProtectFunc == nil {
 		panic("ObjectRefClusterVirtualImageDiskServiceMock.ProtectFunc: method is nil but ObjectRefClusterVirtualImageDiskService.Protect was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
 	}{
 		Ctx:   ctx,
+		Sup:   sup,
 		Owner: owner,
 		Dv:    dv,
 		Pvc:   pvc,
@@ -1257,7 +1273,7 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) Protect(ctx context.Con
 	mock.lockProtect.Lock()
 	mock.calls.Protect = append(mock.calls.Protect, callInfo)
 	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, owner, dv, pvc)
+	return mock.ProtectFunc(ctx, sup, owner, dv, pvc)
 }
 
 // ProtectCalls gets all the calls that were made to Protect.
@@ -1266,12 +1282,14 @@ func (mock *ObjectRefClusterVirtualImageDiskServiceMock) Protect(ctx context.Con
 //	len(mockedObjectRefClusterVirtualImageDiskService.ProtectCalls())
 func (mock *ObjectRefClusterVirtualImageDiskServiceMock) ProtectCalls() []struct {
 	Ctx   context.Context
+	Sup   supplements.Generator
 	Owner client.Object
 	Dv    *cdiv1.DataVolume
 	Pvc   *corev1.PersistentVolumeClaim
 } {
 	var calls []struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
@@ -1354,7 +1372,7 @@ var _ ObjectRefVirtualDiskSnapshotDiskService = &ObjectRefVirtualDiskSnapshotDis
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 //				panic("mock out the Protect method")
 //			},
 //		}
@@ -1371,7 +1389,7 @@ type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+	ProtectFunc func(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -1391,6 +1409,8 @@ type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
 		Protect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 			// Owner is the owner argument value.
 			Owner client.Object
 			// Dv is the dv argument value.
@@ -1473,17 +1493,19 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetCapacityCalls() []st
 }
 
 // Protect calls ProtectFunc.
-func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if mock.ProtectFunc == nil {
 		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.ProtectFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.Protect was just called")
 	}
 	callInfo := struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
 	}{
 		Ctx:   ctx,
+		Sup:   sup,
 		Owner: owner,
 		Dv:    dv,
 		Pvc:   pvc,
@@ -1491,7 +1513,7 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) Protect(ctx context.Con
 	mock.lockProtect.Lock()
 	mock.calls.Protect = append(mock.calls.Protect, callInfo)
 	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, owner, dv, pvc)
+	return mock.ProtectFunc(ctx, sup, owner, dv, pvc)
 }
 
 // ProtectCalls gets all the calls that were made to Protect.
@@ -1500,12 +1522,14 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) Protect(ctx context.Con
 //	len(mockedObjectRefVirtualDiskSnapshotDiskService.ProtectCalls())
 func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) ProtectCalls() []struct {
 	Ctx   context.Context
+	Sup   supplements.Generator
 	Owner client.Object
 	Dv    *cdiv1.DataVolume
 	Pvc   *corev1.PersistentVolumeClaim
 } {
 	var calls []struct {
 		Ctx   context.Context
+		Sup   supplements.Generator
 		Owner client.Object
 		Dv    *cdiv1.DataVolume
 		Pvc   *corev1.PersistentVolumeClaim
