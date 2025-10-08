@@ -73,22 +73,10 @@ func SetCondition(c Conder, conditions *[]metav1.Condition) {
 
 	if existingCondition.Message != newCondition.Message {
 		existingCondition.Message = newCondition.Message
-		if !newCondition.LastTransitionTime.IsZero() &&
-			newCondition.LastTransitionTime.After(existingCondition.LastTransitionTime.Time) {
-			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
-		} else {
-			existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
-		}
 	}
 
 	if existingCondition.ObservedGeneration != newCondition.ObservedGeneration {
 		existingCondition.ObservedGeneration = newCondition.ObservedGeneration
-		if !newCondition.LastTransitionTime.IsZero() &&
-			newCondition.LastTransitionTime.After(existingCondition.LastTransitionTime.Time) {
-			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
-		} else {
-			existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
-		}
 	}
 }
 
