@@ -207,5 +207,7 @@ shell:
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
-    apt-get install -y tree
-    tree /BINS
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get install -y tree
+  {{- include "alt packages clean" . | nindent 2 }}
+  - tree /BINS
