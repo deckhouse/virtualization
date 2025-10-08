@@ -203,7 +203,7 @@ $SRC_BASE/include/libvirt/libvirt-event.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
