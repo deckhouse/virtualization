@@ -203,11 +203,16 @@ shell:
 
   setup:
   - |
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get install -y tree
+  {{- include "alt packages clean" . | nindent 2 }}
+  echo 'TREE OF SRC'
+  - tree /{{ $gitRepoName }}-{{ $version }}
+  echo 'TREE OF BUILD'
+  - tree build
     /install-libvirt.sh --version-num "{{ $version }}" \
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get install -y tree
-  {{- include "alt packages clean" . | nindent 2 }}
+  echo 'TREE OF BINS'
   - tree /BINS
