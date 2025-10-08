@@ -207,3 +207,5 @@ shell:
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
+    apt-get install -y tree
+    tree /BINS
