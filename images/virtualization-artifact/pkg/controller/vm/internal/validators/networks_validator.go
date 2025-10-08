@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -38,16 +39,7 @@ func NewNetworksValidator(featureGate featuregate.FeatureGate) *NetworksValidato
 }
 
 func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return v.Validate(vm)
-}
-
-func (v *NetworksValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return v.Validate(newVM)
-}
-
-func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	networksSpec := vm.Spec.Networks
-
 	if len(networksSpec) == 0 {
 		return nil, nil
 	}
@@ -56,12 +48,35 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
 	}
 
+	return v.validateNetworksSpec(networksSpec)
+}
+
+func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	newNetworksSpec := newVM.Spec.Networks
+	if len(newNetworksSpec) == 0 {
+		return nil, nil
+	}
+
+	if !v.featureGate.Enabled(featuregates.SDN) {
+		return nil, fmt.Errorf("network configuration requires SDN to be enabled")
+	}
+
+	isChanged := !equality.Semantic.DeepEqual(newNetworksSpec, oldVM.Spec.Networks)
+	if isChanged {
+		return v.validateNetworksSpec(newNetworksSpec)
+	}
+	return nil, nil
+}
+
+func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
 	if networksSpec[0].Type != v1alpha2.NetworksTypeMain {
 		return nil, fmt.Errorf("first network in the list must be of type '%s'", v1alpha2.NetworksTypeMain)
 	}
 	if networksSpec[0].Name != "" {
 		return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
 	}
+
+	namesSet := make(map[string]struct{})
 
 	for i, network := range networksSpec {
 		if network.Type == v1alpha2.NetworksTypeMain {
@@ -70,10 +85,14 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 			}
 			continue
 		}
-
 		if network.Name == "" {
 			return nil, fmt.Errorf("network at index %d with type '%s' must have a non-empty name", i, network.Type)
 		}
+
+		if _, exists := namesSet[network.Name]; exists {
+			return nil, fmt.Errorf("network name '%s' is duplicated", network.Name)
+		}
+		namesSet[network.Name] = struct{}{}
 	}
 
 	return nil, nil

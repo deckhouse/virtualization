@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func TestNetworksValidate(t *testing.T) {
+func TestNetworksValidateCreate(t *testing.T) {
 	tests := []struct {
 		networks   []v1alpha2.NetworksSpec
 		sdnEnabled bool
@@ -36,12 +36,13 @@ func TestNetworksValidate(t *testing.T) {
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeMain}}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork}}, true, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, false, false},
 	}
 
 	for i, test := range tests {
-		t.Run(fmt.Sprintf("TestCase%d", i), func(t *testing.T) {
+		t.Run(fmt.Sprintf("CreateTestCase%d", i), func(t *testing.T) {
 			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{Networks: test.networks}}
 
 			// Create feature gate with SDN
@@ -51,13 +52,120 @@ func TestNetworksValidate(t *testing.T) {
 			}
 			networkValidator := NewNetworksValidator(featureGate)
 
-			_, err := networkValidator.Validate(vm)
+			_, err := networkValidator.ValidateCreate(t.Context(), vm)
 			if test.valid && err != nil {
-				t.Errorf("For spec %s expected valid, but validation failed", test.networks)
+				t.Errorf("Validation failed for spec %s: expected valid, but got an error: %v", test.networks, err)
+			}
+			if !test.valid && err == nil {
+				t.Errorf("Validation succeeded for spec %s: expected error, but got none", test.networks)
+			}
+		})
+	}
+}
+
+func TestNetworksValidateUpdate(t *testing.T) {
+	tests := []struct {
+		oldNetworksSpec []v1alpha2.NetworksSpec
+		newNetworksSpec []v1alpha2.NetworksSpec
+		sdnEnabled      bool
+		valid           bool
+	}{
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{},
+			newNetworksSpec: []v1alpha2.NetworksSpec{},
+			sdnEnabled:      true,
+			valid:           true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{},
+			newNetworksSpec: []v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}},
+			sdnEnabled:      true,
+			valid:           true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+			},
+			sdnEnabled: true,
+			valid:      false,
+		},
+		{
+			oldNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+			},
+			newNetworksSpec: []v1alpha2.NetworksSpec{
+				{Type: v1alpha2.NetworksTypeMain},
+				{Type: v1alpha2.NetworksTypeNetwork, Name: "test"},
+			},
+			sdnEnabled: true,
+			valid:      true,
+		},
+	}
+
+	for i, test := range tests {
+		t.Run(fmt.Sprintf("UpdateTestCase%d", i), func(t *testing.T) {
+			oldVM := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					Networks: test.oldNetworksSpec,
+				},
+			}
+			newVM := &v1alpha2.VirtualMachine{
+				Spec: v1alpha2.VirtualMachineSpec{
+					Networks: test.newNetworksSpec,
+				},
 			}
 
+			// Create feature gate with SDN
+			featureGate, _, setFromMap, _ := featuregates.New()
+			if test.sdnEnabled {
+				_ = setFromMap(map[string]bool{
+					string(featuregates.SDN): true,
+				})
+			}
+			networkValidator := NewNetworksValidator(featureGate)
+			_, err := networkValidator.ValidateUpdate(t.Context(), oldVM, newVM)
+
+			if test.valid && err != nil {
+				t.Errorf(
+					"Validation failed for old spec %v and new spec %v: expected valid, but got an error: %v",
+					test.oldNetworksSpec, test.newNetworksSpec, err,
+				)
+			}
 			if !test.valid && err == nil {
-				t.Errorf("For spec %s expected not valid, but validation succeeded", test.networks)
+				t.Errorf(
+					"Validation succeeded for old spec %v and new spec %v: expected error, but got none",
+					test.oldNetworksSpec, test.newNetworksSpec,
+				)
 			}
 		})
 	}
