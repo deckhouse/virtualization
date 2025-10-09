@@ -72,7 +72,7 @@ tasks:
     deps:
       - _ensure:mirrord
     cmd: |
-      ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
+      TMPDIR=/tmp ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
       --deployment=virtualization-controller                                 \
       --namespace={{ .BaseNamespace }}                                       \
       --container-name=virtualization-controller
@@ -92,15 +92,15 @@ tasks:
       flags+=( "--kubevirt-cabundle=/etc/virt-api/certificates/ca.crt" )
       flags+=( "--kubevirt-endpoint=virt-api.{{ .BaseNamespace }}.svc" )
       flags+=( "--secure-port=8443" )
-      flags+=( "--tls-private-key-file=/etc/virtualziation-api/certificates/tls.key" )
-      flags+=( "--tls-cert-file=/etc/virtualziation-api/certificates/tls.crt" )
+      flags+=( "--tls-private-key-file=/etc/virtualization-api/certificates/tls.key" )
+      flags+=( "--tls-cert-file=/etc/virtualization-api/certificates/tls.crt" )
       flags+=( "--v=7" )
-      flags+=( "--proxy-client-cert-file=/etc/virtualziation-api-proxy/certificates/tls.crt" )
-      flags+=( "--proxy-client-key-file=/etc/virtualziation-api-proxy/certificates/tls.key" )
+      flags+=( "--proxy-client-cert-file=/etc/virtualization-api-proxy/certificates/tls.crt" )
+      flags+=( "--proxy-client-key-file=/etc/virtualization-api-proxy/certificates/tls.key" )
       flags+=( "--service-account-name=virtualization-api" )
       flags+=( "--service-account-namespace={{ .BaseNamespace }}" )
 
-      ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
+      TMPDIR=/tmp ./hack/mirrord.sh run --app="$PWD/cmd/virtualization-api/main.go" \
       --deployment="virtualization-api"                                 \
       --namespace="{{ .BaseNamespace }}"                                \
       --flags="\"${flags[@]}\""

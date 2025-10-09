@@ -103,7 +103,7 @@ chmod +x "${BIN_DIR}/${BINARY}"
 if ! kubectl -n "${NAMESPACE}" get "deployment/${NEW_NAME}" &>/dev/null; then
   kubectl -n "${NAMESPACE}" get "deployment/${DEPLOYMENT}" -ojson | \
   jq --arg CONTAINER_NAME "$CONTAINER_NAME" --arg NEW_NAME "$NEW_NAME" '.metadata.name = $NEW_NAME |
-    (.spec.template.spec.containers[] | select(.name == $CONTAINER_NAME) ) |= (.command= [ "/bin/sh", "-c", "--" ] | .args = [ "while true; do sleep 60; done;" ] | .image = "alpine:3.20.1") |
+    (.spec.template.spec.containers[] | select(.name == $CONTAINER_NAME) ) |= (.command= [ "/bin/sh", "-c", "--" ] | .args = [ "while true; do sleep 60; done;" ] | .image = "alpine:3.20.1" | del(.livenessProbe) | del(.readinessProbe)) |
     .spec.replicas = 1 |
     .spec.template.metadata.labels.mirror = "true" |
     .spec.template.metadata.labels.ownerName = $NEW_NAME' | \
