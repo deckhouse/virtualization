@@ -1,7 +1,10 @@
 - name: kubernetes.internal.virtualization.cdi_operator_state
   rules:
     - alert: D8InternalVirtualizationCDIOperatorPodIsNotReady
-      expr: min by (pod) (kube_pod_status_ready{condition="true", namespace="d8-virtualization", pod=~"cdi-operator-.*"}) != 1
+      expr: |
+        (kube_pod_status_ready{condition="true", namespace="d8-virtualization", pod=~"cdi-operator-.*"} == 0)
+        and on (namespace,pod)
+        (kube_pod_status_phase{namespace="d8-virtualization", phase=~"Running|Succeeded", pod=~"cdi-operator-.*"} == 1)
       labels:
         severity_level: "6"
         tier: cluster
