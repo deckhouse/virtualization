@@ -256,8 +256,9 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
 	}
 
+	log, _ := logger.GetDataSourceContext(ctx, "objectref")
 	if vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
-		// Can't determine original PVC, skip validation
+		log.With("volumeSnapshot.name", vs.Name).Debug("Cannot determine original PVC from VolumeSnapshot, skipping storage class compatibility validation")
 		return nil
 	}
 
@@ -275,7 +276,6 @@ func (s CreatePVCFromVDSnapshotStep) validateStorageClassCompatibility(ctx conte
 	}
 
 	if originalProvisioner == "" {
-		log, _ := logger.GetDataSourceContext(ctx, "objectref")
 		log.With("pvc.name", pvcName).Debug("Cannot determine original provisioner from PVC annotations, skipping storage class compatibility validation")
 		return nil
 	}
