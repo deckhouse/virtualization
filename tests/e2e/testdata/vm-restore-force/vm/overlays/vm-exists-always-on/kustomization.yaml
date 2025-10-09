@@ -11,3 +11,10 @@ patches:
     target:
       kind: VirtualMachine
       name: vm
+  - patch: |-
+      - op: replace
+        path: /spec/disruptions/restartApprovalMode
+        value: Automatic
+    target:
+      kind: VirtualMachine
+      name: vm
