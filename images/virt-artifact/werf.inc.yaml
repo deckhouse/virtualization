@@ -70,6 +70,7 @@ shell:
   install:
   - |
     echo "$date"
+    echo kek
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
