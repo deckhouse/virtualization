@@ -211,9 +211,7 @@ shell:
   - echo 'TREE OF BUILD'
   - tree /{{ $gitRepoName }}-{{ $version }}/build
   - |
-    /install-libvirt.sh --version-num "{{ $version }}" \
-                        -s /{{ $gitRepoName }}-{{ $version }} \
-                        -d /BINS \
-                        -b build
+    cd /{{ $gitRepoName }}-{{ $version }}
+    DESTDIR=/out ninja -C build install
   - echo 'TREE OF BINS'
   - tree /BINS
