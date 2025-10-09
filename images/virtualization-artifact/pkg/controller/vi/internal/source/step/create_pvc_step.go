@@ -238,6 +238,8 @@ func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx c
 	}
 
 	if originalProvisioner == "" {
+		log, _ := logger.GetDataSourceContext(ctx, "objectref")
+		log.With("pvc.name", pvcName).Debug("Cannot determine original provisioner from PVC annotations, skipping storage class compatibility validation")
 		return nil
 	}
 
