@@ -159,6 +159,19 @@ func compareMemory(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange 
 }
 
 func compareProvisioning(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	// Special case: if we're removing provisioning (desired is nil), don't require restart
+	if current.Provisioning != nil && desired.Provisioning == nil {
+		return []FieldChange{
+			{
+				Operation:      ChangeRemove,
+				Path:           "provisioning",
+				CurrentValue:   current.Provisioning,
+				DesiredValue:   nil,
+				ActionRequired: ActionApplyImmediate,
+			},
+		}
+	}
+
 	changes := compareEmpty(
 		"provisioning",
 		NewPtrValue(current.Provisioning, current.Provisioning == nil),

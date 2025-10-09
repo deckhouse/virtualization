@@ -1,7 +1,7 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $gitRepoName := "3p-kubevirt" }}
-{{- $tag := get $.Core $gitRepoName }}
+{{- $tag := print "v1.3.1-virtualization-hot-unplug-cloud-init" }}
 {{- $version := (split "-" $tag)._0 }}
 
 ---
@@ -13,7 +13,7 @@ secrets:
   value: {{ $.SOURCE_REPO }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
+  - git clone --depth=1 https://github.com/deckhouse/3p-kubevirt --branch v1.3.1-virtualization-hot-unplug-cloud-init /kubevirt
 
 ---
 
@@ -66,9 +66,15 @@ shell:
       {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
-
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}" # <--- для пересборки
   install:
   - |
+    echo "$date"
+    echo kek
+
+    rm -rf /kubevirt
+    git clone --depth=1 https://github.com/deckhouse/3p-kubevirt --branch v1.3.1-virtualization-hot-unplug-cloud-init /kubevirt
+
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
