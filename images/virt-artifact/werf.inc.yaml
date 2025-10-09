@@ -12,9 +12,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
-  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}" # <--- для пересборки
   install:
-  - echo kek
   - git clone --depth=1 https://github.com/deckhouse/3p-kubevirt --branch v1.3.1-virtualization-hot-unplug-cloud-init /kubevirt
 
 ---
@@ -73,6 +71,9 @@ shell:
   - |
     echo "$date"
     echo kek
+
+    git clone --depth=1 https://github.com/deckhouse/3p-kubevirt --branch v1.3.1-virtualization-hot-unplug-cloud-init /kubevirt
+
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
