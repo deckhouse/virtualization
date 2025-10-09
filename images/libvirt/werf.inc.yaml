@@ -212,6 +212,6 @@ shell:
   - tree /{{ $gitRepoName }}-{{ $version }}/build
   - |
     cd /{{ $gitRepoName }}-{{ $version }}
-    DESTDIR=/out ninja -C build install
+    DESTDIR=/BINS ninja -C build install
   - echo 'TREE OF BINS'
   - tree /BINS
