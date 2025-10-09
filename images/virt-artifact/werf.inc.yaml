@@ -72,6 +72,7 @@ shell:
     echo "$date"
     echo kek
 
+    rm -rf /kubevirt
     git clone --depth=1 https://github.com/deckhouse/3p-kubevirt --branch v1.3.1-virtualization-hot-unplug-cloud-init /kubevirt
 
     # Install packages
