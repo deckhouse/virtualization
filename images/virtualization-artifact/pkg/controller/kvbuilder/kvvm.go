@@ -373,7 +373,8 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 
 	case opts.ContainerDisk != nil:
 		vs.ContainerDisk = &virtv1.ContainerDiskSource{
-			Image: *opts.ContainerDisk,
+			Image:        *opts.ContainerDisk,
+			Hotpluggable: opts.IsHotplugged,
 		}
 
 	case opts.Provisioning != nil:
