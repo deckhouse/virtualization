@@ -18,6 +18,8 @@ shell:
   installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
+    echo {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}
+
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
