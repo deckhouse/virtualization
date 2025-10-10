@@ -3,10 +3,8 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: fix/cve/cve-mitigation-1
-  3p-containerized-data-importer: fix/cve/cve-mitigation-1
-  # 3p-kubevirt: v1.3.1-v12n.12-cse.1
-  # 3p-containerized-data-importer: v1.60.3-v12n.10-cse.1
+  3p-kubevirt: v1.3.1-v12n.12-cse.2
+  3p-containerized-data-importer: v1.60.3-v12n.10-cse.2
   distribution: 2.8.3
 package:
   acl: v2.3.1
