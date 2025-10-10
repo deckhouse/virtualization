@@ -88,11 +88,12 @@ func (v *StorageClassMatchValidator) Validate(ctx context.Context, vi *v1alpha2.
 	}
 
 	var vdStorageClass string
-	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
-		vdStorageClass = *vd.Spec.PersistentVolumeClaim.StorageClass
-	} else if vd.Status.StorageClassName != "" {
+	switch {
+	case vd.Status.StorageClassName != "":
 		vdStorageClass = vd.Status.StorageClassName
-	} else {
+	case vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "":
+		vdStorageClass = *vd.Spec.PersistentVolumeClaim.StorageClass
+	default:
 		vdStorageClass = defaultStorageClass.Name // if VD only created and not ready yet, it will use default StorageClass
 	}
 
