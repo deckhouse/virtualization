@@ -63,6 +63,8 @@ const (
 	// or the virtual disk is already attached to the virtual machine spec.
 	// Only the one that was created or started sooner can be processed.
 	Conflict AttachedReason = "Conflict"
+	// DeviceNotAvailableOnNode indicates that the block device's PersistentVolume is not available on the node where the virtual machine is running.
+	DeviceNotAvailableOnNode AttachedReason = "DeviceNotAvailableOnNode"
 
 	// CapacityAvailable signifies that the capacity not reached and attaching available.
 	CapacityAvailable DiskAttachmentCapacityAvailableReason = "CapacityAvailable"
