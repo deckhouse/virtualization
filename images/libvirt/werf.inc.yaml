@@ -213,5 +213,11 @@ shell:
   - |
     cd /{{ $gitRepoName }}-{{ $version }}
     DESTDIR=/BINS ninja -C build install
+    rm -rf /BINS/var
+    find /BINS -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
   - echo 'TREE OF BINS'
   - tree /BINS
