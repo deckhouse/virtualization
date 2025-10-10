@@ -1,0 +1,58 @@
+api:
+  features:
+    - summary: Do not wait agent in label and annotation test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1500
+ci:
+  fixes:
+    - summary: E2E test timeout errors now include the condition that was being waited for.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1514
+core:
+  features:
+    - summary: Promote vd/vi import error if url is broken.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1534
+    - summary: Add volumesnapshot resources to e2e fail dump.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1499
+  fixes:
+    - summary: kill workers if main fuzz process don't kill they.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1560
+    - summary: fixing paths to source code
+      pull_request: https://github.com/deckhouse/virtualization/pull/1551
+    - summary: fix path placement for filesystem pvc.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1548
+    - summary: Fix setting LastTransitionTime in condition if reason changed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1543
+module:
+  fixes:
+    - summary: fix CVE-2025-58058 and CVE-2025-54410
+      pull_request: https://github.com/deckhouse/virtualization/pull/1556
+    - summary: >-
+        Current PR fix panics, which causes when during e2e tests one of pods of
+        virtualization-controller is completed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1535
+    - summary: This PR fix bring some fixes for fuzzing tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1261
+observability:
+  features:
+    - summary: >-
+        Added Prometheus metrics for virtual machine and virtual disk snapshots
+        (d8_virtualization_virtualmachinesnapshot_info and
+        d8_virtualization_virtualdisksnapshot_info), allowing users to monitor the presence of
+        snapshots through their observability dashboards.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1555
+vm:
+  fixes:
+    - summary: prohibit duplicating networks in the VirtualMachine `.spec`
+      pull_request: https://github.com/deckhouse/virtualization/pull/1545
+vmip:
+  fixes:
+    - summary: >-
+        Added validation to ensure that an IP address is not already in use when updating the
+        `VirtualMachineIP` address.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1530
+vmop:
+  fixes:
+    - summary: >-
+        This PR enhances the `VirtualMachineOperation` CRD by adding validation rules to ensure safe
+        and valid resource naming during clone operations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1522
+
