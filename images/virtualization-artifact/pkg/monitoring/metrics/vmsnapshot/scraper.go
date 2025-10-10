@@ -37,6 +37,7 @@ type scraper struct {
 
 func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVMSnapshotStatusPhase(m)
+	s.updateMetricVMSnapshotInfo(m)
 }
 
 func (s *scraper) updateMetricVMSnapshotStatusPhase(m *dataMetric) {
@@ -59,6 +60,10 @@ func (s *scraper) updateMetricVMSnapshotStatusPhase(m *dataMetric) {
 		s.defaultUpdate(MetricVMSnapshotStatusPhase,
 			common.BoolFloat64(p.value), m, p.name)
 	}
+}
+
+func (s *scraper) updateMetricVMSnapshotInfo(m *dataMetric) {
+	s.defaultUpdate(MetricVMSnapshotInfo, 1, m, m.VirtualMachine)
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
