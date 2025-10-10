@@ -66,6 +66,7 @@ shell:
 
     cat > configparms << EOF
     libdir=/usr/lib64
+    slibdir=/usr/lib64
     rootsbindir=/usr/sbin
     EOF
 
