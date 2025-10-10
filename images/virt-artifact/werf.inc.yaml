@@ -38,6 +38,7 @@ packages:
 - ncurses
 - libcurl
 - libxml2 libnl3 libssh numactl libjson-c5 libbsd glib2
+- libtirpc libmd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
