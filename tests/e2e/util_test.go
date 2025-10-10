@@ -756,6 +756,7 @@ func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
 
 	SaveTestCaseResources(labels, additional, namespace, tmpDir)
 	SavePodLogsAndDescriptions(labels, additional, namespace, tmpDir)
+	SaveIntvirtvmDescriptions(labels, additional, namespace, tmpDir)
 }
 
 func SaveTestCaseResources(labels map[string]string, additional, namespace, dumpPath string) {
@@ -822,6 +823,19 @@ func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace,
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %s\n", pod.Name, err)
 		}
+	}
+}
+
+func SaveIntvirtvmDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
+	describeCmd := kubectl.RawCommand(fmt.Sprintf("describe intvirtvm --namespace %s", namespace), framework.ShortTimeout)
+	if describeCmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachine:\nError: %s\n", describeCmd.StdErr())
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__intvirtvm_describe", dumpPath, labels["testcase"], additional)
+	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachine description:\nError: %s\n", err)
 	}
 }
 
