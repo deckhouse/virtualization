@@ -65,11 +65,9 @@ shell:
     cd /build
 
     cat > configparms << EOF
-    rootlibdir=/usr/lib64
+    libdir=/usr/lib64
     rootsbindir=/usr/sbin
     EOF
-    echo "+ configparms"
-    cat configparms
 
     ../src/configure \
       --prefix=/usr \
@@ -82,8 +80,6 @@ shell:
       --enable-obsolete-rpc \
       --enable-stack-protector=strong \
       --enable-fortify-source=3
-    echo "+ Makefile"
-    cat Makefile
 
     make -j$(nproc)
 
