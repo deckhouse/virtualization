@@ -123,7 +123,7 @@ func GetStatistic(client kubeclient.Client, namespace string) {
 		totalItems, avgWaitingForDependencies, avgVirtualMachineStarting, avgGuestOSAgentStarting,
 	)
 
-	helpers.SaveToFile(saveData, "vm", namespace)
+	helpers.SaveToFile(saveData, "avg-vm", namespace)
 
 	fmt.Println(saveData)
 

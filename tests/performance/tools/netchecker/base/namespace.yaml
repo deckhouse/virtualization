@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netchecker
+  labels:
+    prometheus.deckhouse.io/monitor-watcher-enabled: "true"
+    prometheus.deckhouse.io/probe-watcher-enabled: "true"
+    prometheus.deckhouse.io/rules-watcher-enabled: "true"
+    prometheus.deckhouse.io/scrape-configs-watcher-enabled: "true"

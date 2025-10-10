@@ -71,7 +71,16 @@ function validate_apply_args() {
 function apply() {
   echo "Apply resources: ${RESOURCES}"
 
-  args=( upgrade --install "${RELEASE_NAME}" . -n "${NAMESPACE}" --create-namespace --set "count=${COUNT}" --set "resourcesPrefix=${RESOURCES_PREFIX}" --set "resources.default=${RESOURCES}" )
+  args=( upgrade \
+    --install "${RELEASE_NAME}" . \
+    -n "${NAMESPACE}" \
+    --create-namespace \
+    --set "count=${COUNT}" \
+    --set "resourcesPrefix=${RESOURCES_PREFIX}" \
+    --set "resources.default=${RESOURCES}" \
+    --set "resources.virtualDisk.spec.template.type=${VIRTUALDISK_TYPE}" \
+    --set "resources.virtualImage.spec.template.type=${VIRTUALIMAGE_TYPE}" )
+
   if [ -n "${STORAGE_CLASS}" ]; then
       args+=( --set "resources.storageClassName=${STORAGE_CLASS}" )
   fi
@@ -144,6 +153,14 @@ while [[ $# -gt 0 ]]; do
     -R)
         RESOURCES="$2"
         shift 2
+        ;;
+    --virtualDisk-type=*)
+        VIRTUALDISK_TYPE="${1#*=}"
+        shift
+        ;;
+    --virtualImage-type=*)
+        VIRTUALIMAGE_TYPE="${1#*=}"
+        shift
         ;;
     --resources-prefix=*|-p=*)
         RESOURCES_PREFIX="${1#*=}"

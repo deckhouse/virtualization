@@ -15,6 +15,7 @@
     - [Statistics - Statistics Collection](#statistics---statistics-collection)
   - [📊 Monitoring](#-monitoring)
     - [Grafana Dashboards](#grafana-dashboards)
+    - [SSH Access](#ssh-access)
     - [Prometheus Rules](#prometheus-rules)
   - [⚙️ Configuration](#️-configuration)
     - [values.yaml](#valuesyaml)
@@ -32,6 +33,9 @@
   - [📝 Usage Examples](#-usage-examples)
     - [Creating Test Environment](#creating-test-environment)
     - [Resource Cleanup](#resource-cleanup)
+  - [🔧 Troubleshooting](#-troubleshooting)
+    - [Common Issues](#common-issues)
+    - [Debug Commands](#debug-commands)
   - [🤝 Contributing](#-contributing)
   - [📄 License](#-license)
 
@@ -276,8 +280,8 @@ resources:
 - `vd`: creates VMs with corresponding VirtualDisk
 
 **VirtualImage (vi.spec.type):**
-- `vi`: creates image through ContainerRegistry
-- `pvc`: creates image through PersistentVolumeClaim
+- `vi`: creates image that stored in container registry
+- `pvc`: creates image that stored in persistent volume claim
 
 ## 🎯 Testing Scenarios
 
