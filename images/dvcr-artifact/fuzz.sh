@@ -85,7 +85,7 @@ for file in ${files}; do
         wait "$fuzz_pid" 2>/dev/null || true
 
         # kill workers if they are still running
-        pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
+        pids=$(pgrep -f fuzzworker)
         if [[ ! -z "$pids" ]]; then
           echo "$pids" | xargs kill 2>/dev/null || true
           sleep 1  # wait a moment for them to terminate
