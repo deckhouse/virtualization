@@ -1,10 +1,13 @@
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc
 - git pkg-config cmake
-- hardlink binutils glibc-kernheaders
+- binutils
 - make bison python3
+- tree
+packages:
+- util-linux
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -33,11 +36,8 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
@@ -53,7 +53,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -64,18 +64,35 @@ shell:
     mkdir /build
     cd /build
 
+    cat > configparms << EOF
+    libdir=/usr/lib64
+    slibdir=/usr/lib64
+    rootsbindir=/usr/sbin
+    EOF
+
     ../src/configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
+      --sbindir=/usr/sbin \
       --disable-crypt \
       --disable-profile \
       --enable-bind-now \
       --enable-obsolete-rpc \
       --enable-stack-protector=strong \
-      --enable-fortify-source=3 \
+      --enable-fortify-source=3
 
     make -j$(nproc)
 
-    make DESTDIR=$OUTDIR install
+    make install_root=$OUTDIR install
+    # remove systemd dir
+    rm -rf $OUTDIR/usr/lib
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -hp $OUTDIR
 
 {{- end }}

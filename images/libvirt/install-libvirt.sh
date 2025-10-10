@@ -203,7 +203,7 @@ $SRC_BASE/include/libvirt/libvirt-event.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
@@ -541,10 +541,10 @@ $SRC_BUILD/tools/libvirt-guests.sh to /usr/libexec
 # $SRC_BUILD/tools/bash-completion/virsh to /usr/share/bash-completion/completions
 # $SRC_BUILD/tools/bash-completion/virt-admin to /usr/share/bash-completion/completions
 # $SRC_BUILD/tools/ssh-proxy/30-libvirt-ssh-proxy.conf to /etc/ssh/ssh_config.d
-# $SRC_BUILD/libvirt.pc to /usr/lib64/pkgconfig
-# $SRC_BUILD/libvirt-qemu.pc to /usr/lib64/pkgconfig
-# $SRC_BUILD/libvirt-lxc.pc to /usr/lib64/pkgconfig
-# $SRC_BUILD/libvirt-admin.pc to /usr/lib64/pkgconfig
+$SRC_BUILD/libvirt.pc to /usr/lib64/pkgconfig
+$SRC_BUILD/libvirt-qemu.pc to /usr/lib64/pkgconfig
+$SRC_BUILD/libvirt-lxc.pc to /usr/lib64/pkgconfig
+$SRC_BUILD/libvirt-admin.pc to /usr/lib64/pkgconfig
 EOF
 )
 

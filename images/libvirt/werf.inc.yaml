@@ -56,7 +56,8 @@ altPackages:
 - parted
 - qemu-img open-iscsi
 - xml-utils xsltproc
-- systemd-container polkit
+- polkit
+- glibc-utils
 - python3 python3-devel
 - python3-module-pytest python3-module-docutils
 - python3-tools python3-module-pip
@@ -64,20 +65,16 @@ altPackages:
 - mdevctl tshark
 - dmsetup pm-utils
 altLibraries:
-- libudev-devel
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
-- libpcap-devel libnl-devel
+- libpcap-devel
 - libparted-devel
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libsystemd-devel
 - systemtap-sdt-devel
-- glibc-utils
 - wireshark-devel
 - libclocale
-- libslirp-devel
 - libyajl-devel
 packages:
 - dmidecode lvm2 libattr libbsd libmd util-linux
@@ -92,6 +89,7 @@ packages:
 - libtasn1 libtirpc
 - glib2 acl libunistring libxml2
 - gnutls
+- systemd libnl3 libslirp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -205,7 +203,21 @@ shell:
 
   setup:
   - |
-    /install-libvirt.sh --version-num "{{ $version }}" \
-                        -s /{{ $gitRepoName }}-{{ $version }} \
-                        -d /BINS \
-                        -b build
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get install -y tree
+  {{- include "alt packages clean" . | nindent 2 }}
+  - echo 'TREE OF SRC'
+  - tree /{{ $gitRepoName }}-{{ $version }}
+  - echo 'TREE OF BUILD'
+  - tree /{{ $gitRepoName }}-{{ $version }}/build
+  - |
+    cd /{{ $gitRepoName }}-{{ $version }}
+    DESTDIR=/BINS ninja -C build install
+    rm -rf /BINS/var
+    find /BINS -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+  - echo 'TREE OF BINS'
+  - tree /BINS

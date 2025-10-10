@@ -28,9 +28,9 @@ shell:
 altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
-- libjansson-devel
 packages:
 - libmnl libxml2
+- libjansson4
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -65,7 +65,7 @@ shell:
     OUTDIR=/out
 
     cd /src
-    
+
     ./autogen.sh
     ./configure \
       --prefix=/usr \
@@ -78,7 +78,7 @@ shell:
     make DESTDIR=$OUTDIR install
 
     rm -rf ${OUTDIR}/usr/share
-    
+
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
