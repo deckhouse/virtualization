@@ -1,8 +1,11 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $gitRepoName := "3p-kubevirt" }}
+{{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $tag := get $.Core $gitRepoName }}
-{{- $version := (split "-" $tag)._0 }}
+{{/* {{- $version := (split "-" $tag)._0 }} */}}
+{{- $version := "1.3.1" }}
+
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
@@ -12,10 +15,13 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /src/kubevirt
+    echo "Git clone {{ $gitRepoName }} repository..."
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
+
+    rm -rf /src/kubevirt/.git
 
 ---
 
@@ -81,29 +87,30 @@ shell:
     export GOPROXY=$(cat /run/secrets/GOPROXY)
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     cd /kubevirt
-    go mod download
-    go get github.com/opencontainers/runc@v1.1.14
-    go get github.com/containers/common@v0.60.4
-
-  - |
-    echo Download Go modules.
+    
     go mod download
 
-    echo Update modules to mitigate CVEs...
-    go get github.com/opencontainers/runc@v1.1.14
-    go get github.com/containers/common@v0.60.4
+    # go get github.com/opencontainers/runc@v1.1.14
+    # go get github.com/containers/common@v0.60.4
 
-    go get github.com/go-openapi/strfmt@v0.23.0
-    go get github.com/onsi/gomega/matchers/support/goraph/bipartitegraph@v1.34.1
-    go get github.com/cilium/ebpf/btf@v0.11.0
-    go get github.com/cilium/ebpf/internal@v0.11.0
+    # echo Download Go modules.
+    # go mod download
 
-    # CVE-2024-45337,CVE-2025-22869
-    go get golang.org/x/crypto@v0.38.0
-    # CVE-2025-22870, CVE-2025-22872
-    go get golang.org/x/net@v0.40.0
-    # CVE-2025-22868
-    go get golang.org/x/oauth2@v0.27.0
+    # echo Update modules to mitigate CVEs...
+    # go get github.com/opencontainers/runc@v1.1.14
+    # go get github.com/containers/common@v0.60.4
+
+    # go get github.com/go-openapi/strfmt@v0.23.0
+    # go get github.com/onsi/gomega/matchers/support/goraph/bipartitegraph@v1.34.1
+    # go get github.com/cilium/ebpf/btf@v0.11.0
+    # go get github.com/cilium/ebpf/internal@v0.11.0
+
+    # # CVE-2024-45337,CVE-2025-22869
+    # go get golang.org/x/crypto@v0.38.0
+    # # CVE-2025-22870, CVE-2025-22872
+    # go get golang.org/x/net@v0.40.0
+    # # CVE-2025-22868
+    # go get golang.org/x/oauth2@v0.27.0
 
     go mod vendor
 
