@@ -35,8 +35,8 @@ secrets:
 shell:
   install:
   - |
-    echo "Git clone CDI repository..."
-    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
+    echo "Git clone {{ $gitRepoName }} repository..."
+    git clone --depth=1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
     rm -rf /src/containerized-data-importer/.git
 
@@ -81,19 +81,19 @@ shell:
     cd /containerized-data-importer
     go mod download
 
-    echo Update modules to mitigate CVEs...
+    # echo Update modules to mitigate CVEs...
 
-    # CVE-2024-45337,CVE-2025-22869
-    go get golang.org/x/crypto@v0.38.0
-    # CVE-2025-22870, CVE-2025-22872
-    go get golang.org/x/net@v0.40.0
-    # CVE-2025-27144
-    go get github.com/go-jose/go-jose/v3@v3.0.4
-    # CVE-2025-22868
-    go get golang.org/x/oauth2@v0.27.0
+    # # CVE-2024-45337,CVE-2025-22869
+    # go get golang.org/x/crypto@v0.38.0
+    # # CVE-2025-22870, CVE-2025-22872
+    # go get golang.org/x/net@v0.40.0
+    # # CVE-2025-27144
+    # go get github.com/go-jose/go-jose/v3@v3.0.4
+    # # CVE-2025-22868
+    # go get golang.org/x/oauth2@v0.27.0
 
-    go mod tidy
     go mod vendor
+
     # Apply patch for json-patch from 3p-cdi repo
     git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
