@@ -84,7 +84,7 @@ shell:
 
     make -j$(nproc)
 
-    make DESTDIR=$OUTDIR install
+    make install_root=$OUTDIR install
     # remove systemd dir
     rm -rf $OUTDIR/usr/lib
     find $OUTDIR -type f -executable | while read -r execfile; do
