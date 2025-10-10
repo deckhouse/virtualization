@@ -66,6 +66,7 @@ shell:
 
     ../src/configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --sbindir=/usr/sbin \
       --disable-crypt \
