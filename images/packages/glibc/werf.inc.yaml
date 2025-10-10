@@ -64,6 +64,11 @@ shell:
     mkdir /build
     cd /build
 
+    cat > configparms << EOF
+    rootlibdir=/usr/lib64
+    rootsbindir=/usr/sbin
+    EOF
+
     ../src/configure \
       --prefix=/usr \
       --exec-prefix=/usr \
