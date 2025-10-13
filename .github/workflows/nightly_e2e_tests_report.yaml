@@ -45,7 +45,7 @@ jobs:
           markdown_table=""
 
           header="| CSI | Status | Passed | Failed	| Pending	| Skipped	| Date | Time | Branch|\n"
-          separator="|---|---|---|---|---|---|---|---|\n"
+          separator="|---|---|---|---|---|---|---|---|---|\n"
 
           markdown_table+="$header"
           markdown_table+="$separator"
