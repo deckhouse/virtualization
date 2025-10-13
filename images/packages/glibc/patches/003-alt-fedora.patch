@@ -1,0 +1,3391 @@
+diff --git a/ChangeLog.old/ChangeLog.19 b/ChangeLog.old/ChangeLog.19
+index 84d56ed5e8..4f419bb129 100644
+--- a/ChangeLog.old/ChangeLog.19
++++ b/ChangeLog.old/ChangeLog.19
+@@ -22943,6 +22943,12 @@
+ 	versions of gcc, binutils, texinfo, gawk, bison, and sed.
+ 	* INSTALL: Regenerated.
+ 
++2018-01-30  Dmitry V. Levin  <ldv@altlinux.org>
++
++	*  stdlib/test-atexit-race-common.c: Include <unistd.h>.
++	(kNumThreads): Remove const qualifier.
++	(do_test): Limit kNumThreads to sysconf (_SC_CHILD_MAX) / 8.
++
+ 2018-01-30  Samuel Thibault  <samuel.thibault@ens-lyon.org>
+ 
+ 	* sysdeps/pthread/allocalim.h (__libc_use_alloca): Use __glibc_likely
+diff --git a/Makeconfig b/Makeconfig
+index 3a2c864b04..6b0ba6ef4d 100644
+--- a/Makeconfig
++++ b/Makeconfig
+@@ -195,7 +195,7 @@ inst_zonedir = $(install_root)$(zonedir)
+ # Where to install the compiled binary locale archive and compiled
+ # binary locale files.
+ ifndef complocaledir
+-complocaledir = $(libdir)/locale
++complocaledir = $(exec_prefix)/lib/locale
+ endif
+ inst_complocaledir = $(install_root)$(complocaledir)
+ 
+@@ -380,6 +380,16 @@ relro-LDFLAGS = -Wl,-z,relro
+ LDFLAGS.so += $(relro-LDFLAGS)
+ LDFLAGS-rtld += $(relro-LDFLAGS)
+ 
++ifeq (yes,$(have-hash-style))
++# We unconditionally use 'both'.  The reason is that certain proprietary
++# software depends on glibc being built with the 'both' hash style.
++# See https://bugzilla.altlinux.org/47150 .
++# See https://bugs.archlinux.org/task/79292 .
++hashstyle-LDFLAGS = -Wl,--hash-style=both
++LDFLAGS.so += $(hashstyle-LDFLAGS)
++LDFLAGS-rtld += $(hashstyle-LDFLAGS)
++endif
++
+ # Linker options to enable and disable DT_RELR.
+ ifeq ($(have-dt-relr),yes)
+ dt-relr-ldflag = -Wl,-z,pack-relative-relocs
+diff --git a/Makerules b/Makerules
+index 018780c818..745505b3d4 100644
+--- a/Makerules
++++ b/Makerules
+@@ -1014,6 +1014,7 @@ $(inst_libdir)/libc.so: $(common-objpfx)format.lds \
+ 	 cat $<; \
+ 	 echo 'GROUP ( $(slibdir)/libc.so$(libc.so-version)' \
+ 	      '$(libdir)/$(patsubst %,$(libtype.oS),$(libprefix)$(libc-name))'\
++	      '$(slibdir)/libc.so$(libc.so-version)' \
+ 	      ' AS_NEEDED (' $(rtlddir)/$(rtld-installed-name) ') )' \
+ 	) > $@.new
+ 	mv -f $@.new $@
+diff --git a/argp/argp-help.c b/argp/argp-help.c
+index d019ed58d2..3bf0380499 100644
+--- a/argp/argp-help.c
++++ b/argp/argp-help.c
+@@ -166,7 +166,7 @@ static const struct uparam_name uparam_names[] =
+ static void
+ fill_in_uparams (const struct argp_state *state)
+ {
+-  const char *var = getenv ("ARGP_HELP_FMT");
++  const char *var = __libc_secure_getenv ("ARGP_HELP_FMT");
+ 
+ #define SKIPWS(p) do { while (isspace ((unsigned char) *p)) p++; } while (0);
+ 
+diff --git a/bits/confname.h b/bits/confname.h
+index d6142640c3..59d8239213 100644
+--- a/bits/confname.h
++++ b/bits/confname.h
+@@ -549,6 +549,10 @@ enum
+ #define _CS_GNU_LIBC_VERSION	_CS_GNU_LIBC_VERSION
+     _CS_GNU_LIBPTHREAD_VERSION,
+ #define _CS_GNU_LIBPTHREAD_VERSION	_CS_GNU_LIBPTHREAD_VERSION
++    _CS_LIBDIR = 100,
++#define _CS_LIBDIR	_CS_LIBDIR
++    _CS_SLIB,
++#define _CS_SLIB	_CS_SLIB
+ 
+     _CS_V5_WIDTH_RESTRICTED_ENVS,
+ #define _CS_V5_WIDTH_RESTRICTED_ENVS	_CS_V5_WIDTH_RESTRICTED_ENVS
+diff --git a/catgets/catgets.c b/catgets/catgets.c
+index f4ee411ec1..f0bbc0eeea 100644
+--- a/catgets/catgets.c
++++ b/catgets/catgets.c
+@@ -48,7 +48,7 @@ catopen (const char *cat_name, int flag)
+ 	  || (__libc_enable_secure && strchr (env_var, '/') != NULL))
+ 	env_var = "C";
+ 
+-      nlspath = getenv ("NLSPATH");
++      nlspath = __libc_secure_getenv ("NLSPATH");
+       if (nlspath != NULL && *nlspath != '\0')
+ 	{
+ 	  /* Append the system dependent directory.  */
+diff --git a/config.make.in b/config.make.in
+index d487a4f4e9..163569210d 100644
+--- a/config.make.in
++++ b/config.make.in
+@@ -71,6 +71,7 @@ have-libaudit = @have_libaudit@
+ have-libcap = @have_libcap@
+ have-cc-with-libunwind = @libc_cv_cc_with_libunwind@
+ bind-now = @bindnow@
++have-hash-style = @libc_cv_hashstyle@
+ have-cxx-thread_local = @libc_cv_cxx_thread_local@
+ have-loop-to-function = @libc_cv_cc_loop_to_function@
+ have-textrel_ifunc = @libc_cv_textrel_ifunc@
+diff --git a/configure b/configure
+index 4ef387146d..a9dc29c97b 100755
+--- a/configure
++++ b/configure
+@@ -655,6 +655,7 @@ libc_cv_cc_submachine
+ libc_cv_cc_nofma
+ libc_cv_mtls_dialect_gnu2
+ libc_cv_has_glob_dat
++libc_cv_hashstyle
+ libc_cv_fpie
+ libc_cv_z_execstack
+ ASFLAGS_config
+@@ -7108,6 +7109,34 @@ printf "%s\n" "$libc_cv_fpie" >&6; }
+ 
+ 
+ 
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for --hash-style option" >&5
++printf %s "checking for --hash-style option... " >&6; }
++if test ${libc_cv_hashstyle+y}
++then :
++  printf %s "(cached) " >&6
++else $as_nop
++  cat > conftest.c <<EOF
++int _start (void) { return 42; }
++EOF
++if { ac_try='${CC-cc} $CFLAGS $CPPFLAGS $LDFLAGS $no_ssp
++			    -fPIC -shared -o conftest.so conftest.c
++			    -Wl,--hash-style=both -nostdlib 1>&5'
++  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  printf "%s\n" "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
++  test $ac_status = 0; }; }
++then
++  libc_cv_hashstyle=yes
++else
++  libc_cv_hashstyle=no
++fi
++rm -f conftest*
++fi
++{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $libc_cv_hashstyle" >&5
++printf "%s\n" "$libc_cv_hashstyle" >&6; }
++
++
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for GLOB_DAT reloc" >&5
+ printf %s "checking for GLOB_DAT reloc... " >&6; }
+ if test ${libc_cv_has_glob_dat+y}
+@@ -7416,7 +7445,7 @@ if test "$with_gd" != "no"; then
+   old_LDFLAGS="$LDFLAGS"
+   LDFLAGS="$LDFLAGS $libgd_ldflags"
+   old_LIBS="$LIBS"
+-  LIBS="$LIBS -lgd -lpng -lz -lm"
++  LIBS="$LIBS -lgd"
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+ #include <gd.h>
+diff --git a/configure.ac b/configure.ac
+index 12d1f50b14..20d74a2f73 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1339,6 +1339,22 @@ LIBC_TRY_CC_OPTION([-fpie], [libc_cv_fpie=yes], [libc_cv_fpie=no])
+ 
+ AC_SUBST(libc_cv_fpie)
+ 
++AC_CACHE_CHECK(for --hash-style option,
++	       libc_cv_hashstyle, [dnl
++cat > conftest.c <<EOF
++int _start (void) { return 42; }
++EOF
++if AC_TRY_COMMAND([${CC-cc} $CFLAGS $CPPFLAGS $LDFLAGS $no_ssp
++			    -fPIC -shared -o conftest.so conftest.c
++			    -Wl,--hash-style=both -nostdlib 1>&AS_MESSAGE_LOG_FD])
++then
++  libc_cv_hashstyle=yes
++else
++  libc_cv_hashstyle=no
++fi
++rm -f conftest*])
++AC_SUBST(libc_cv_hashstyle)
++
+ AC_CACHE_CHECK(for GLOB_DAT reloc,
+ 	       libc_cv_has_glob_dat, [dnl
+ cat > conftest.c <<EOF
+@@ -1524,7 +1540,7 @@ if test "$with_gd" != "no"; then
+   old_LDFLAGS="$LDFLAGS"
+   LDFLAGS="$LDFLAGS $libgd_ldflags"
+   old_LIBS="$LIBS"
+-  LIBS="$LIBS -lgd -lpng -lz -lm"
++  LIBS="$LIBS -lgd"
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <gd.h>]], [[gdImagePng (0, 0)]])],
+ 		 [LIBGD=yes], [LIBGD=no])
+   CFLAGS="$old_CFLAGS"
+diff --git a/debug/Makefile b/debug/Makefile
+index 434e52f780..741bbc9ba9 100644
+--- a/debug/Makefile
++++ b/debug/Makefile
+@@ -119,7 +119,7 @@ routines = \
+   wmemset_chk \
+   wprintf_chk \
+   # routines
+-static-only-routines := stack_chk_fail_local
++static-only-routines := warning-nop stack_chk_fail_local
+ 
+ # Don't add stack_chk_fail_local.o to libc.a since __stack_chk_fail_local
+ # is an alias of __stack_chk_fail in stack_chk_fail.o.
+@@ -328,13 +328,11 @@ $(foreach t, $(tests-all-chk), $(eval $(call chk-gen-locales,$(t))))
+ $(foreach t, $(tests-all-time64-chk), $(eval $(call chk-gen-locales,$(t))))
+ endif
+ 
+-sLIBdir := $(shell echo $(slibdir) | sed 's,lib\(\|64\)$$,\\\\$$LIB,')
+-
+ $(objpfx)pcprofiledump: $(objpfx)pcprofiledump.o
+ 
+ $(objpfx)xtrace: xtrace.sh
+ 	rm -f $@.new
+-	sed -e 's|@VERSION@|$(version)|' -e 's|@SLIBDIR@|$(sLIBdir)|' \
++	sed -e 's|@VERSION@|$(version)|' -e 's|@SLIBDIR@|$(libdir)|' \
+ 	    -e 's|@BINDIR@|$(bindir)|' -e 's|@PKGVERSION@|$(PKGVERSION)|' \
+ 	    -e 's|@REPORT_BUGS_TO@|$(REPORT_BUGS_TO)|' $^ > $@.new \
+ 	&& rm -f $@ && mv $@.new $@ && chmod +x $@
+diff --git a/debug/Versions b/debug/Versions
+index 9cf2725992..33539272c8 100644
+--- a/debug/Versions
++++ b/debug/Versions
+@@ -55,6 +55,10 @@ libc {
+   GLIBC_2.16 {
+     __poll_chk; __ppoll_chk;
+   }
++  ALT_2.24 {
++    __strlcpy_chk;
++    __strlcat_chk;
++  }
+   GLIBC_2.25 {
+     __explicit_bzero_chk;
+   }
+diff --git a/debug/pcprofile.c b/debug/pcprofile.c
+index bb78006280..8bd1e84fca 100644
+--- a/debug/pcprofile.c
++++ b/debug/pcprofile.c
+@@ -35,7 +35,7 @@ install (void)
+ {
+   /* See whether the environment variable `PCPROFILE_OUTPUT' is defined.
+      If yes, it should name a FIFO.  We open it and mark ourself as active.  */
+-  const char *outfile = getenv ("PCPROFILE_OUTPUT");
++  const char *outfile = __libc_secure_getenv ("PCPROFILE_OUTPUT");
+ 
+   if (outfile != NULL && *outfile != '\0')
+     {
+diff --git a/debug/strlcat_chk.c b/debug/strlcat_chk.c
+index 888a62fad5..029963765c 100644
+--- a/debug/strlcat_chk.c
++++ b/debug/strlcat_chk.c
+@@ -17,11 +17,12 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include <string.h>
++#include <shlib-compat.h>
+ 
+ /* Check that the user-supplied size does not exceed the
+    compiler-determined size, and then forward to strlcat.  */
+ size_t
+-__strlcat_chk (char *__restrict s1, const char *__restrict s2,
++__libc_strlcat_chk (char *__restrict s1, const char *__restrict s2,
+ 	       size_t n, size_t s1len)
+ {
+   if (__glibc_unlikely (s1len < n))
+@@ -29,3 +30,9 @@ __strlcat_chk (char *__restrict s1, const char *__restrict s2,
+ 
+   return __strlcat (s1, s2, n);
+ }
++
++versioned_symbol (libc, __libc_strlcat_chk, __strlcat_chk, GLIBC_2_38);
++
++#if SHLIB_COMPAT (libc, GLIBC_2_24, GLIBC_2_38)
++compat_symbol (libc, __libc_strlcat_chk, __strlcat_chk, ALT_2_24);
++#endif
+diff --git a/debug/strlcpy_chk.c b/debug/strlcpy_chk.c
+index 768a3af686..18ea01263d 100644
+--- a/debug/strlcpy_chk.c
++++ b/debug/strlcpy_chk.c
+@@ -17,11 +17,12 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include <string.h>
++#include <shlib-compat.h>
+ 
+ /* Check that the user-supplied size does not exceed the
+    compiler-determined size, and then forward to strlcpy.  */
+ size_t
+-__strlcpy_chk (char *__restrict s1, const char *__restrict s2,
++__libc_strlcpy_chk (char *__restrict s1, const char *__restrict s2,
+ 	       size_t n, size_t s1len)
+ {
+   if (__glibc_unlikely (s1len < n))
+@@ -29,3 +30,9 @@ __strlcpy_chk (char *__restrict s1, const char *__restrict s2,
+ 
+   return __strlcpy (s1, s2, n);
+ }
++
++versioned_symbol (libc, __libc_strlcpy_chk, __strlcpy_chk, GLIBC_2_38);
++
++#if SHLIB_COMPAT (libc, GLIBC_2_24, GLIBC_2_38)
++compat_symbol (libc, __libc_strlcpy_chk, __strlcpy_chk, ALT_2_24);
++#endif
+diff --git a/debug/warning-nop.c b/debug/warning-nop.c
+new file mode 100644
+index 0000000000..4ab7e182b7
+--- /dev/null
++++ b/debug/warning-nop.c
+@@ -0,0 +1,70 @@
++/* Dummy nop functions to elicit link-time warnings.
++   Copyright (C) 2005-2020 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   In addition to the permissions in the GNU Lesser General Public
++   License, the Free Software Foundation gives you unlimited
++   permission to link the compiled version of this file with other
++   programs, and to distribute those programs without any restriction
++   coming from the use of this file. (The GNU Lesser General Public
++   License restrictions do apply in other respects; for example, they
++   cover modification of the file, and distribution when not linked
++   into another program.)
++
++   Note that people who make modified versions of this file are not
++   obligated to grant this special exception for their modified
++   versions; it is their choice whether to do so. The GNU Lesser
++   General Public License gives permission to release a modified
++   version without this exception; this exception also makes it
++   possible to release a modified version which carries forward this
++   exception.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, see
++   <https://www.gnu.org/licenses/>.  */
++
++#include <sys/cdefs.h>
++
++static void
++__attribute__ ((used))
++nop (void)
++{
++}
++
++/* Don't insert any other #include's before this #undef!  */
++
++#undef __warndecl
++#define __warndecl(name, msg) \
++  extern void name (void) __attribute__ ((alias ("nop"))) attribute_hidden; \
++  link_warning (name, msg)
++
++#undef	__USE_FORTIFY_LEVEL
++#define __USE_FORTIFY_LEVEL 99
++
++/* Following here we need an #include for each public header file
++   that uses __warndecl.  */
++
++/* Define away to avoid warnings with compilers that do not have these
++   builtins.  */
++#define __builtin___memcpy_chk(dest, src, len, bos) NULL
++#define __builtin___memmove_chk(dest, src, len, bos) NULL
++#define __builtin___mempcpy_chk(dest, src, len, bos) NULL
++#define __builtin___memset_chk(dest, ch, len, bos) NULL
++#define __builtin___stpcpy_chk(dest, src, bos) NULL
++#define __builtin___strcat_chk(dest, src, bos) NULL
++#define __builtin___strcpy_chk(dest, src, bos) NULL
++#define __builtin___strncat_chk(dest, src, len, bos) NULL
++#define __builtin___strncpy_chk(dest, src, len, bos) NULL
++#define __builtin_object_size(bos, level) 0
++
++#include <string.h>
+diff --git a/debug/xtrace.sh b/debug/xtrace.sh
+index 3d1f2af43a..218b66a40a 100755
+--- a/debug/xtrace.sh
++++ b/debug/xtrace.sh
+@@ -87,8 +87,8 @@ format_line() {
+ # If the variable COLUMNS is not set do this now.
+ COLUMNS=${COLUMNS:-80}
+ 
+-# If `TERMINAL_PROG' is not set, set it to `xterm'.
+-TERMINAL_PROG=${TERMINAL_PROG:-xterm}
++# If `TERMINAL_PROG' is not set, set it to `xvt'.
++TERMINAL_PROG=${TERMINAL_PROG:-xvt}
+ 
+ # The data file to process, if any.
+ data=
+@@ -150,6 +150,14 @@ if test ! -x "$program"; then
+   help_info
+ fi
+ 
++fifodir=
++cleanup()
++{
++	trap - EXIT
++	[ -z "$fifodir" ] || rm -rf -- "$fifodir"
++	exit "$@"
++}
++
+ # We have two modes.  If a data file is given simply print the included data.
+ printf "%-20s  %-*s  %6s\n" Function $(expr $COLUMNS - 30) File Line
+ for i in $(seq 1 $COLUMNS); do printf -; done; printf '\n'
+@@ -164,8 +172,14 @@ if test -n "$data"; then
+     fi
+   done
+ else
+-  fifo=$(mktemp -ut xtrace.XXXXXX) || exit
+-  trap 'rm -f "$fifo"; exit 1' HUP INT QUIT TERM PIPE
++  fifodir="$(mktemp -dt xtrace.XXXXXXXXXX)" || exit
++  trap 'cleanup $?' EXIT
++  trap 'exit 129' HUP
++  trap 'exit 130' INT
++  trap 'exit 131' QUIT
++  trap 'exit 141' PIPE
++  trap 'exit 143' TERM
++  fifo="$fifodir/fifo"
+   mkfifo -m 0600 $fifo || exit 1
+ 
+   # Now start the program and let it write to the FIFO.
+@@ -185,7 +199,6 @@ else
+   done
+   read -p "Press return here to close $TERMINAL_PROG($program)."
+   echo > "$fifo"
+-  rm "$fifo"
+ fi
+ 
+ exit 0
+diff --git a/elf/Versions b/elf/Versions
+index 4614acea3e..02a63355c4 100644
+--- a/elf/Versions
++++ b/elf/Versions
+@@ -37,6 +37,7 @@ libc {
+ ld {
+   GLIBC_2.0 {
+     _r_debug;
++    __libc_enable_secure;
+   }
+   GLIBC_2.1 {
+     # functions used in other libraries
+@@ -57,7 +58,6 @@ ld {
+   }
+   GLIBC_PRIVATE {
+     # Those are in the dynamic linker, but used by libc.so.
+-    __libc_enable_secure;
+     _dl_allocate_tls; _dl_allocate_tls_init;
+     _dl_argv; _dl_find_dso_for_object; _dl_get_tls_static_info;
+     _dl_deallocate_tls; _dl_make_stack_executable;
+@@ -68,6 +68,9 @@ ld {
+     # Only here for gdb while a better method is developed.
+     _dl_debug_state;
+ 
++    # For sanitizing environment.
++    __libc_security_mask;
++
+     # Pointer protection.
+     __pointer_chk_guard;
+ 
+diff --git a/elf/dl-environ.c b/elf/dl-environ.c
+index 1ab533e853..502ae728d3 100644
+--- a/elf/dl-environ.c
++++ b/elf/dl-environ.c
+@@ -82,3 +82,33 @@ unsetenv (const char *name)
+ 
+   return 0;
+ }
++
++void
++unset_unsafe_env (const char *name)
++{
++  char **ep;
++
++  ep = __environ;
++  while (*ep != NULL)
++    {
++      size_t cnt = 0;
++
++      while ((*ep)[cnt] == name[cnt] && name[cnt] != '\0')
++	++cnt;
++
++      if (name[cnt] == '\0' && (*ep)[cnt] == '=' &&
++	  ((*ep)[++cnt] == '.' || strchr((*ep)+cnt, '/')))
++	{
++	  /* Found it.  Remove this pointer by moving later ones to
++	     the front.  */
++	  char **dp = ep;
++
++	  do
++	    dp[0] = dp[1];
++	  while (*dp++);
++	  /* Continue the loop in case NAME appears again.  */
++	}
++      else
++	++ep;
++    }
++}
+diff --git a/elf/dl-support.c b/elf/dl-support.c
+index 44a54dea07..e8b7a64bfb 100644
+--- a/elf/dl-support.c
++++ b/elf/dl-support.c
+@@ -276,7 +276,7 @@ _dl_non_dynamic_init (void)
+   _dl_main_map.l_phdr = GL(dl_phdr);
+   _dl_main_map.l_phnum = GL(dl_phnum);
+ 
+-  _dl_verbose = *(getenv ("LD_WARN") ?: "") == '\0' ? 0 : 1;
++  _dl_verbose = *(__libc_secure_getenv ("LD_WARN") ?: "") == '\0' ? 0 : 1;
+ 
+   /* Set up the data structures for the system-supplied DSO early,
+      so they can influence _dl_init_paths.  */
+@@ -287,7 +287,7 @@ _dl_non_dynamic_init (void)
+ 
+   /* Initialize the data structures for the search paths for shared
+      objects.  */
+-  _dl_init_paths (getenv ("LD_LIBRARY_PATH"), "LD_LIBRARY_PATH",
++  _dl_init_paths (__libc_secure_getenv ("LD_LIBRARY_PATH"), "LD_LIBRARY_PATH",
+ 		  /* No glibc-hwcaps selection support in statically
+ 		     linked binaries.  */
+ 		  NULL, NULL);
+@@ -295,13 +295,13 @@ _dl_non_dynamic_init (void)
+   /* Remember the last search directory added at startup.  */
+   _dl_init_all_dirs = GL(dl_all_dirs);
+ 
+-  _dl_lazy = *(getenv ("LD_BIND_NOW") ?: "") == '\0';
++  _dl_lazy = *(__libc_secure_getenv ("LD_BIND_NOW") ?: "") == '\0';
+ 
+-  _dl_bind_not = *(getenv ("LD_BIND_NOT") ?: "") != '\0';
++  _dl_bind_not = *(__libc_secure_getenv ("LD_BIND_NOT") ?: "") != '\0';
+ 
+-  _dl_dynamic_weak = *(getenv ("LD_DYNAMIC_WEAK") ?: "") == '\0';
++  _dl_dynamic_weak = *(__libc_secure_getenv ("LD_DYNAMIC_WEAK") ?: "") == '\0';
+ 
+-  _dl_profile_output = getenv ("LD_PROFILE_OUTPUT");
++  _dl_profile_output = __libc_secure_getenv ("LD_PROFILE_OUTPUT");
+   if (_dl_profile_output == NULL || _dl_profile_output[0] == '\0')
+     _dl_profile_output
+       = &"/var/tmp\0/var/profile"[__libc_enable_secure ? 9 : 0];
+@@ -311,6 +311,8 @@ _dl_non_dynamic_init (void)
+       static const char unsecure_envvars[] =
+ 	UNSECURE_ENVVARS
+ 	;
++      static const char restricted_envvars[] =
++	RESTRICTED_ENVVARS;
+       const char *cp = unsecure_envvars;
+ 
+       while (cp < unsecure_envvars + sizeof (unsecure_envvars))
+@@ -318,6 +320,32 @@ _dl_non_dynamic_init (void)
+ 	  __unsetenv (cp);
+ 	  cp = strchr (cp, '\0') + 1;
+ 	}
++
++      if (__libc_security_mask & 2)
++	{
++	  static const char unsecure_uid_envvars[] =
++	    UNSECURE_UID_ENVVARS;
++
++	  cp = unsecure_uid_envvars;
++	  while (cp < unsecure_uid_envvars + sizeof (unsecure_uid_envvars))
++	    {
++	      __unsetenv (cp);
++	      cp = (const char *) __rawmemchr (cp, '\0') + 1;
++	    }
++	}
++
++      /* This loop is buggy: it will only check the first occurrence of each
++	 variable (but will correctly remove all in case of a match).  This
++	 may be a problem if the list is later re-ordered or accessed by an
++	 application with something other than the glibc getenv().  */
++      cp = restricted_envvars;
++      while (cp < restricted_envvars + sizeof (restricted_envvars))
++	{
++	  const char *value = getenv (cp);
++	  if (value && (value[0] == '.' || strchr(value, '/')))
++	    __unsetenv (cp);
++	  cp = (const char *) __rawmemchr (cp, '\0') + 1;
++	}
+     }
+ 
+ #ifdef DL_PLATFORM_INIT
+diff --git a/elf/dl-tunables.c b/elf/dl-tunables.c
+index cae67efa0a..5ed1600506 100644
+--- a/elf/dl-tunables.c
++++ b/elf/dl-tunables.c
+@@ -277,6 +277,9 @@ __tunables_init (char **envp)
+   size_t len = 0;
+   char **prev_envp = envp;
+ 
++  if (__glibc_unlikely (__libc_enable_secure))
++    return;
++
+   maybe_enable_malloc_check ();
+ 
+   while ((envp = get_next_env (envp, &envname, &len, &envval,
+diff --git a/elf/dl-version.c b/elf/dl-version.c
+index 5b8693de04..e5b7aa310c 100644
+--- a/elf/dl-version.c
++++ b/elf/dl-version.c
+@@ -203,15 +203,15 @@ _dl_check_map_versions (struct link_map *map, int verbose, int trace_mode)
+ 	     and no stub entry was created.  This should never happen.  */
+ 	  assert (needed != NULL);
+ 
+-	  /* Make sure this is no stub we created because of a missing
+-	     dependency.  */
+-	  if (__builtin_expect (! trace_mode, 1)
+-	      || ! __builtin_expect (needed->l_faked, 0))
++	  /* NEEDED is the map for the file we need.  Now look for the
++	     dependency symbols.  */
++	  aux = (ElfW (Vernaux) *) ((char *) ent + ent->vn_aux);
++	  while (1)
+ 	    {
+-	      /* NEEDED is the map for the file we need.  Now look for the
+-		 dependency symbols.  */
+-	      aux = (ElfW(Vernaux) *) ((char *) ent + ent->vn_aux);
+-	      while (1)
++	      /* Make sure this is no stub we created because of a missing
++	         dependency.  */
++	      if (__builtin_expect (!trace_mode, 1)
++		  || !__builtin_expect (needed->l_faked, 0))
+ 		{
+ 		  /* Match the symbol.  */
+ 		  const char *string = strtab + aux->vna_name;
+@@ -226,18 +226,18 @@ _dl_check_map_versions (struct link_map *map, int verbose, int trace_mode)
+ 						 "GLIBC_ABI_DT_RELR")
+ 					 == 0))
+ 		    map->l_dt_relr_ref = 1;
+-
+-		  /* Compare the version index.  */
+-		  if ((unsigned int) (aux->vna_other & 0x7fff) > ndx_high)
+-		    ndx_high = aux->vna_other & 0x7fff;
+-
+-		  if (aux->vna_next == 0)
+-		    /* No more symbols.  */
+-		    break;
+-
+-		  /* Next symbol.  */
+-		  aux = (ElfW(Vernaux) *) ((char *) aux + aux->vna_next);
+ 		}
++
++	      /* Compare the version index.  */
++	      if ((unsigned int) (aux->vna_other & 0x7fff) > ndx_high)
++		ndx_high = aux->vna_other & 0x7fff;
++
++	      if (aux->vna_next == 0)
++		/* No more symbols.  */
++		break;
++
++	      /* Next symbol.  */
++	      aux = (ElfW(Vernaux) *) ((char *) aux + aux->vna_next);
+ 	    }
+ 
+ 	  if (ent->vn_next == 0)
+diff --git a/elf/enbl-secure.c b/elf/enbl-secure.c
+index 1522192722..7675e788d5 100644
+--- a/elf/enbl-secure.c
++++ b/elf/enbl-secure.c
+@@ -28,3 +28,4 @@
+ 
+ /* Safest assumption, if somehow the initializer isn't run.  */
+ int __libc_enable_secure = 1;
++unsigned __libc_security_mask = -1U;
+diff --git a/elf/ldconfig.c b/elf/ldconfig.c
+index d26eef1fb4..92edbff5aa 100644
+--- a/elf/ldconfig.c
++++ b/elf/ldconfig.c
+@@ -832,6 +832,7 @@ search_dir (const struct dir_entry *entry)
+       if (soname == NULL)
+ 	soname = xstrdup (direntry->d_name);
+ 
++#if 0
+       /* A link may just point to itself.  */
+       if (is_link)
+ 	{
+@@ -870,6 +871,7 @@ search_dir (const struct dir_entry *entry)
+ 		is_link = 0;
+ 	    }
+ 	}
++#endif
+ 
+       if (real_name != real_file_name)
+ 	free (real_name);
+@@ -1165,6 +1167,9 @@ main (int argc, char **argv)
+   /* Set the text message domain.  */
+   textdomain (_libc_intl_domainname);
+ 
++  if (getenv ("RPM_INSTALL_NAME"))
++    exit (0);
++
+   /* Parse and process arguments.  */
+   int remaining;
+   argp_parse (&argp, argc, argv, 0, &remaining, NULL);
+diff --git a/elf/ldd.bash.in b/elf/ldd.bash.in
+index e45dec5894..289f87e514 100644
+--- a/elf/ldd.bash.in
++++ b/elf/ldd.bash.in
+@@ -74,6 +74,7 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+     ;;
+   -u | --u | --un | --unu | --unus | --unuse | --unused)
+     unused=yes
++    bind_now=yes
+     shift
+     ;;
+   --v | --ve | --ver)
+@@ -150,8 +151,6 @@ for file do
+     echo "ldd: ${file}:" $"not regular file" >&2
+     result=1
+   elif test -r "$file"; then
+-    test -x "$file" || echo 'ldd:' $"\
+-warning: you do not have execution permission for" "\`$file'" >&2
+     RTLD=
+     ret=1
+     for rtld in ${RTLDLIST}; do
+diff --git a/elf/rtld.c b/elf/rtld.c
+index b58f3e4aca..16634dd3d7 100644
+--- a/elf/rtld.c
++++ b/elf/rtld.c
+@@ -2546,6 +2546,7 @@ process_envvars (struct dl_main_state *state)
+   GLRO(dl_profile_output)
+     = &"/var/tmp\0/var/profile"[__libc_enable_secure ? 9 : 0];
+ 
++  if (__glibc_likely (!__libc_enable_secure))
+   while ((envline = _dl_next_ld_env_entry (&runp)) != NULL)
+     {
+       size_t len = 0;
+@@ -2612,22 +2613,19 @@ process_envvars (struct dl_main_state *state)
+ 	case 9:
+ 	  /* Test whether we want to see the content of the auxiliary
+ 	     array passed up from the kernel.  */
+-	  if (!__libc_enable_secure
+-	      && memcmp (envline, "SHOW_AUXV", 9) == 0)
++	  if (memcmp (envline, "SHOW_AUXV", 9) == 0)
+ 	    _dl_show_auxv ();
+ 	  break;
+ 
+ 	case 11:
+ 	  /* Path where the binary is found.  */
+-	  if (!__libc_enable_secure
+-	      && memcmp (envline, "ORIGIN_PATH", 11) == 0)
++	  if (memcmp (envline, "ORIGIN_PATH", 11) == 0)
+ 	    GLRO(dl_origin_path) = &envline[12];
+ 	  break;
+ 
+ 	case 12:
+ 	  /* The library search path.  */
+-	  if (!__libc_enable_secure
+-	      && memcmp (envline, "LIBRARY_PATH", 12) == 0)
++	  if (memcmp (envline, "LIBRARY_PATH", 12) == 0)
+ 	    {
+ 	      state->library_path = &envline[13];
+ 	      state->library_path_source = "LD_LIBRARY_PATH";
+@@ -2641,15 +2639,13 @@ process_envvars (struct dl_main_state *state)
+ 	      break;
+ 	    }
+ 
+-	  if (!__libc_enable_secure
+-	      && memcmp (envline, "DYNAMIC_WEAK", 12) == 0)
++	  if (memcmp (envline, "DYNAMIC_WEAK", 12) == 0)
+ 	    GLRO(dl_dynamic_weak) = 1;
+ 	  break;
+ 
+ 	case 14:
+ 	  /* Where to place the profiling data file.  */
+-	  if (!__libc_enable_secure
+-	      && memcmp (envline, "PROFILE_OUTPUT", 14) == 0
++	  if (memcmp (envline, "PROFILE_OUTPUT", 14) == 0
+ 	      && envline[15] != '\0')
+ 	    GLRO(dl_profile_output) = &envline[15];
+ 	  break;
+@@ -2670,13 +2666,34 @@ process_envvars (struct dl_main_state *state)
+      variables.  */
+   if (__glibc_unlikely (__libc_enable_secure))
+     {
+-      const char *nextp = UNSECURE_ENVVARS;
+-      do
++      static const char unsecure_envvars[] = UNSECURE_ENVVARS;
++      static const char restricted_envvars[] = RESTRICTED_ENVVARS;
++      const char *nextp;
++
++      for (nextp = unsecure_envvars; *nextp != '\0';
++	   nextp = (char *) rawmemchr (nextp, '\0') + 1)
+ 	{
+ 	  unsetenv (nextp);
+-	  nextp = strchr (nextp, '\0') + 1;
+ 	}
+-      while (*nextp != '\0');
++
++      if (__glibc_unlikely (__libc_security_mask & 2))
++	{
++	  static const char unsecure_uid_envvars[] =
++	    UNSECURE_UID_ENVVARS;
++
++	  for (nextp = unsecure_uid_envvars; *nextp != '\0';
++	       nextp = (char *) rawmemchr (nextp, '\0') + 1)
++	    {
++	      unsetenv (nextp);
++	    }
++	}
++
++      for (nextp = restricted_envvars; *nextp != '\0';
++	   nextp = (char *) rawmemchr (nextp, '\0') + 1)
++	{
++	  extern void unset_unsafe_env (const char *) __THROW;
++	  unset_unsafe_env (nextp);
++	}
+ 
+       if (__access ("/etc/suid-debug", F_OK) != 0)
+ 	GLRO(dl_debug_mask) = 0;
+diff --git a/gmon/gmon.c b/gmon/gmon.c
+index 6439ed1caa..f97371a3f4 100644
+--- a/gmon/gmon.c
++++ b/gmon/gmon.c
+@@ -378,8 +378,8 @@ write_gmon (void)
+     int fd = -1;
+     char *env;
+ 
+-    env = getenv ("GMON_OUT_PREFIX");
+-    if (env != NULL && !__libc_enable_secure)
++    env = __libc_secure_getenv ("GMON_OUT_PREFIX");
++    if (env != NULL)
+       {
+ 	size_t len = strlen (env);
+ 	char buf[len + 20];
+diff --git a/iconv/gconv_cache.c b/iconv/gconv_cache.c
+index 87136e2402..6831de2382 100644
+--- a/iconv/gconv_cache.c
++++ b/iconv/gconv_cache.c
+@@ -53,7 +53,7 @@ __gconv_load_cache (void)
+ 
+   /* We cannot use the cache if the GCONV_PATH environment variable is
+      set.  */
+-  __gconv_path_envvar = getenv ("GCONV_PATH");
++  __gconv_path_envvar = __libc_secure_getenv ("GCONV_PATH");
+   if (__gconv_path_envvar != NULL)
+     return -1;
+ 
+diff --git a/iconv/iconv_prog.c b/iconv/iconv_prog.c
+index cf32cf9b44..7fe0887a45 100644
+--- a/iconv/iconv_prog.c
++++ b/iconv/iconv_prog.c
+@@ -63,6 +63,7 @@ static const struct argp_option options[] =
+   { "list", 'l', NULL, 0, N_("list all known coded character sets") },
+   { NULL, 0, NULL, 0, N_("Output control:") },
+   { NULL, 'c', NULL, 0, N_("omit invalid characters from output") },
++  { "replace", 'r', N_("SYMBOL"), OPTION_ARG_OPTIONAL, N_("replace invalid characters with specified symbol") },
+   { "output", 'o', N_("FILE"), 0, N_("output file") },
+   { "silent", 's', NULL, 0, N_("suppress warnings") },
+   { "verbose", OPT_VERBOSE, NULL, 0, N_("print progress information") },
+@@ -103,6 +104,9 @@ static int list;
+ /* If nonzero omit invalid character from output.  */
+ int omit_invalid;
+ 
++/* If nonzero replace invalid character.  */
++static char replace_invalid;
++
+ /* Prototypes for the functions doing the actual work.  */
+ static int process_block (iconv_t cd, char *addr, size_t len, FILE **output,
+ 			  const char *output_file);
+@@ -363,6 +367,10 @@ parse_opt (int key, char *arg, struct argp_state *state)
+       /* Omit invalid characters from output.  */
+       omit_invalid = 1;
+       break;
++    case 'r':
++      /* Replace invalid characters.  */
++      replace_invalid = (arg && *arg) ? *arg : '?';
++      break;
+     case OPT_VERBOSE:
+       verbose = 1;
+       break;
+@@ -445,6 +453,21 @@ conversion stopped due to problem in writing the output"));
+ }
+ 
+ 
++static int
++write_invalid (iconv_t cd, char **addr, size_t *len, FILE **output,
++	       const char *output_file)
++{
++  if (write_output(&replace_invalid, &replace_invalid + 1, output, output_file))
++    return -1;
++  int needed_from = ((__gconv_t) cd)->__steps->__min_needed_from;
++  if (needed_from > *len)
++    needed_from = *len;
++  *addr += needed_from;
++  *len -= needed_from;
++  return 0;
++}
++
++
+ static int
+ process_block (iconv_t cd, char *addr, size_t len, FILE **output,
+ 	       const char *output_file)
+@@ -510,12 +533,27 @@ process_block (iconv_t cd, char *addr, size_t len, FILE **output,
+ 	  switch (errno)
+ 	    {
+ 	    case EILSEQ:
++	      if (replace_invalid)
++		{
++		  if (write_invalid(cd, &addr, &len, output, output_file))
++		    return -1;
++		  else
++		    continue;
++		}
+ 	      if (! omit_invalid)
+ 		error (0, 0, _("illegal input sequence at position %ld"),
+ 		       (long int) (addr - start));
+ 	      break;
+ 	    case EINVAL:
+-	      error (0, 0, _("\
++	      if (replace_invalid)
++		{
++		  if (write_invalid(cd, &addr, &len, output, output_file))
++		    return -1;
++		  else
++		    continue;
++		}
++	      if (! omit_invalid)
++		error (0, 0, _("\
+ incomplete character or shift sequence at end of buffer"));
+ 	      break;
+ 	    case EBADF:
+diff --git a/include/stdlib.h b/include/stdlib.h
+index 7deb8193d7..d8917e848d 100644
+--- a/include/stdlib.h
++++ b/include/stdlib.h
+@@ -86,6 +86,7 @@ extern __typeof (qsort_r) __qsort_r;
+ libc_hidden_proto (__qsort_r)
+ libc_hidden_proto (lrand48_r)
+ libc_hidden_proto (wctomb)
++libc_hidden_proto (__locale_getenv)
+ 
+ extern long int __random (void) attribute_hidden;
+ extern void __srandom (unsigned int __seed);
+diff --git a/include/sys/stat.h b/include/sys/stat.h
+index 4a29e842de..edc9b9ae71 100644
+--- a/include/sys/stat.h
++++ b/include/sys/stat.h
+@@ -67,7 +67,6 @@ extern int __chmod (const char *__file, __mode_t __mode);
+ libc_hidden_proto (__chmod)
+ extern int __fchmod (int __fd, __mode_t __mode);
+ extern int __fchmodat (int __fd, const char *__file, mode_t __mode, int __flag);
+-libc_hidden_proto (fchmodat)
+ extern __mode_t __umask (__mode_t __mask);
+ extern int __mkdir (const char *__path, __mode_t __mode);
+ libc_hidden_proto (__mkdir)
+diff --git a/include/unistd.h b/include/unistd.h
+index e241603b81..3ce517f0d2 100644
+--- a/include/unistd.h
++++ b/include/unistd.h
+@@ -201,7 +201,9 @@ libc_hidden_proto (__tcsetpgrp)
+    and some functions contained in the C library ignore various
+    environment variables that normally affect them.  */
+ extern int __libc_enable_secure attribute_relro;
++extern unsigned __libc_security_mask attribute_relro;
+ rtld_hidden_proto (__libc_enable_secure)
++rtld_hidden_proto (__libc_security_mask)
+ 
+ 
+ /* Various internal function.  */
+diff --git a/inet/bindresvport.c b/inet/bindresvport.c
+index da33c05101..e55f3be78e 100644
+--- a/inet/bindresvport.c
++++ b/inet/bindresvport.c
+@@ -29,7 +29,11 @@
+  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++#include <stdio.h>
++#include <stdio_ext.h>
++#include <ctype.h>
+ #include <errno.h>
++#include <stdlib.h>
+ #include <unistd.h>
+ #include <string.h>
+ #include <sys/types.h>
+@@ -42,21 +46,95 @@
+  */
+ __libc_lock_define_initialized (static, lock);
+ 
++#define STARTPORT 600
++#define LOWPORT 512
++#define ENDPORT (IPPORT_RESERVED - 1)
++#define NPORTS	(ENDPORT - STARTPORT + 1)
++
++/*
++ * Read the file /etc/bindresvport.blacklist, so that we don't bind
++ * to this ports.
++ */
++
++static int blacklist_read;
++static int *list;
++static int list_size = 0;
++
++static void
++load_blacklist (void)
++{
++  FILE *fp;
++  char *buf = NULL;
++  size_t buflen = 0;
++  int size = 0, ptr = 0;
++
++  blacklist_read = 1;
++
++  if (!(fp = fopen ("/etc/bindresvport.blacklist", "r")))
++    return;
++  __fsetlocking (fp, FSETLOCKING_BYCALLER);
++  while (!feof_unlocked (fp))
++    {
++      unsigned long port;
++      char *tmp, *cp;
++      ssize_t n = __getline (&buf, &buflen, fp);
++      if (n < 1)
++        break;
++
++      cp = buf;
++      tmp = strchr (cp, '#');  /* remove comments */
++      if (tmp)
++        *tmp = '\0';
++      while (isspace ((int)*cp))    /* remove spaces and tabs */
++        ++cp;
++      if (*cp == '\0')        /* ignore empty lines */
++        continue;
++      if (cp[strlen (cp) - 1] == '\n')
++        cp[strlen (cp) - 1] = '\0';
++
++      port = strtoul (cp, &tmp, 0);
++      if (*tmp != '\0' || (port == ULONG_MAX && errno == ERANGE))
++	continue;
++
++      /* Don't bother with out-of-range ports */
++      if (port < LOWPORT || port > ENDPORT)
++        continue;
++
++      if (ptr >= size)
++	{
++	  size += 10;
++	  list = realloc (list, size * sizeof (int));
++	  if (list == NULL)
++	    {
++	      free (buf);
++	      return;
++	    }
++	}
++
++      list[ptr++] = port;
++    }
++
++  fclose (fp);
++
++  if (buf)
++    free (buf);
++
++  list_size = ptr;
++}
++
+ /*
+  * Bind a socket to a privileged IP port
+  */
+ int
+ bindresvport (int sd, struct sockaddr_in *sin)
+ {
++  static short startport = STARTPORT;
+   static short port;
+   struct sockaddr_in myaddr;
+   int i;
+ 
+-#define STARTPORT 600
+-#define LOWPORT 512
+-#define ENDPORT (IPPORT_RESERVED - 1)
+-#define NPORTS	(ENDPORT - STARTPORT + 1)
+-  static short startport = STARTPORT;
++  if (!blacklist_read)
++    load_blacklist ();
+ 
+   if (sin == (struct sockaddr_in *) 0)
+     {
+@@ -75,6 +153,7 @@ bindresvport (int sd, struct sockaddr_in *sin)
+       port = (__getpid () % NPORTS) + STARTPORT;
+     }
+ 
++  __set_errno (EADDRINUSE);
+   /* Initialize to make gcc happy.  */
+   int res = -1;
+ 
+@@ -86,12 +165,22 @@ bindresvport (int sd, struct sockaddr_in *sin)
+  again:
+   for (i = 0; i < nports; ++i)
+     {
+-      sin->sin_port = htons (port++);
+-      if (port > endport)
+-	port = startport;
++      int j;
++
++      sin->sin_port = htons (port);
++
++      /* Check, if this port is not blacklisted.  */
++      for (j = 0; j < list_size; j++)
++	if (port == list[j])
++	  goto try_next_port;
++
+       res = __bind (sd, sin, sizeof (struct sockaddr_in));
+       if (res >= 0 || errno != EADDRINUSE)
+ 	break;
++
++try_next_port:
++      if (++port > endport)
++	port = startport;
+     }
+ 
+   if (i == nports && startport != LOWPORT)
+diff --git a/intl/dcigettext.c b/intl/dcigettext.c
+index 7886ac9545..7e4741c7ad 100644
+--- a/intl/dcigettext.c
++++ b/intl/dcigettext.c
+@@ -1605,7 +1605,7 @@ get_output_charset (struct binding *domainbinding)
+ 
+       if (!output_charset_cached)
+ 	{
+-	  const char *value = getenv ("OUTPUT_CHARSET");
++	  const char *value = __libc_secure_getenv ("OUTPUT_CHARSET");
+ 
+ 	  if (value != NULL && value[0] != '\0')
+ 	    {
+diff --git a/io/Makefile b/io/Makefile
+index 8a3c83a3bb..0555e572a3 100644
+--- a/io/Makefile
++++ b/io/Makefile
+@@ -204,7 +204,6 @@ tests := \
+   tst-futimesat \
+   tst-getcwd \
+   tst-getcwd-abspath \
+-  tst-lchmod \
+   tst-linkat \
+   tst-lockf \
+   tst-lutimes \
+@@ -234,7 +233,6 @@ tests-time64 := \
+   tst-futimens-time64 \
+   tst-futimes-time64\
+   tst-futimesat-time64 \
+-  tst-lchmod-time64 \
+   tst-lutimes-time64 \
+   tst-stat-time64 \
+   tst-utime-time64 \
+diff --git a/io/fchmodat.c b/io/fchmodat.c
+index 0f60b0ec70..a84e9707df 100644
+--- a/io/fchmodat.c
++++ b/io/fchmodat.c
+@@ -42,4 +42,3 @@ fchmodat (int fd, const char *file, mode_t mode, int flag)
+   return -1;
+ }
+ stub_warning (fchmodat)
+-libc_hidden_def (fchmodat)
+diff --git a/io/getdirname.c b/io/getdirname.c
+index 5be2cb818f..1eb32dde4a 100644
+--- a/io/getdirname.c
++++ b/io/getdirname.c
+@@ -30,7 +30,7 @@ get_current_dir_name (void)
+   char *pwd;
+   struct __stat64_t64 dotstat, pwdstat;
+ 
+-  pwd = getenv ("PWD");
++  pwd = __libc_secure_getenv ("PWD");
+   if (pwd != NULL
+       && __stat64_time64 (".", &dotstat) == 0
+       && __stat64_time64 (pwd, &pwdstat) == 0
+diff --git a/io/lchmod.c b/io/lchmod.c
+index 4307c95e23..da09650cce 100644
+--- a/io/lchmod.c
++++ b/io/lchmod.c
+@@ -1,4 +1,4 @@
+-/* lchmod -- Change the protections of a file or symbolic link.  Generic version.
++/* lchmod -- Change the protections of a file or symbolic link.  Stub version.
+    Copyright (C) 2002-2023 Free Software Foundation, Inc.
+    This file is part of the GNU C Library.
+ 
+@@ -16,12 +16,16 @@
+    License along with the GNU C Library; if not, see
+    <https://www.gnu.org/licenses/>.  */
+ 
+-#include <fcntl.h>
++#include <errno.h>
+ #include <sys/stat.h>
++#include <sys/types.h>
+ 
+ /* Change the protections of FILE to MODE.  */
+ int
+ lchmod (const char *file, mode_t mode)
+ {
+-  return fchmodat (AT_FDCWD, file, mode, AT_SYMLINK_NOFOLLOW);
++  __set_errno (ENOSYS);
++  return -1;
+ }
++
++stub_warning (lchmod)
+diff --git a/libio/iofread.c b/libio/iofread.c
+index d61d658764..570f24112b 100644
+--- a/libio/iofread.c
++++ b/libio/iofread.c
+@@ -34,6 +34,11 @@ _IO_fread (void *buf, size_t size, size_t count, FILE *fp)
+   CHECK_FILE (fp, 0);
+   if (bytes_requested == 0)
+     return 0;
++#define HALF_INTERNAL_SIZE_T \
++  (((size_t) 1) << (8 * sizeof (size_t) / 2))
++  if (__builtin_expect ((count | size) >= HALF_INTERNAL_SIZE_T, 0))
++    if (bytes_requested / size != count)
++      return 0;
+   _IO_acquire_lock (fp);
+   bytes_read = _IO_sgetn (fp, (char *) buf, bytes_requested);
+   _IO_release_lock (fp);
+diff --git a/libio/iofread_u.c b/libio/iofread_u.c
+index fc3f8124d5..d5d9bb13ac 100644
+--- a/libio/iofread_u.c
++++ b/libio/iofread_u.c
+@@ -37,6 +37,11 @@ __fread_unlocked (void *buf, size_t size, size_t count, FILE *fp)
+   CHECK_FILE (fp, 0);
+   if (bytes_requested == 0)
+     return 0;
++#define HALF_INTERNAL_SIZE_T \
++  (((size_t) 1) << (8 * sizeof (size_t) / 2))
++  if (__builtin_expect ((count | size) >= HALF_INTERNAL_SIZE_T, 0))
++    if (bytes_requested / size != count)
++      return 0;
+   bytes_read = _IO_sgetn (fp, (char *) buf, bytes_requested);
+   return bytes_requested == bytes_read ? count : bytes_read / size;
+ }
+diff --git a/libio/iofwrite.c b/libio/iofwrite.c
+index 774668a47c..5dfd499dcc 100644
+--- a/libio/iofwrite.c
++++ b/libio/iofwrite.c
+@@ -34,6 +34,11 @@ _IO_fwrite (const void *buf, size_t size, size_t count, FILE *fp)
+   CHECK_FILE (fp, 0);
+   if (request == 0)
+     return 0;
++#define HALF_INTERNAL_SIZE_T \
++  (((size_t) 1) << (8 * sizeof (size_t) / 2))
++  if (__builtin_expect ((count | size) >= HALF_INTERNAL_SIZE_T, 0))
++    if (request / size != count)
++      return 0;
+   _IO_acquire_lock (fp);
+   if (_IO_vtable_offset (fp) != 0 || _IO_fwide (fp, -1) == -1)
+     written = _IO_sputn (fp, (const char *) buf, request);
+diff --git a/libio/iofwrite_u.c b/libio/iofwrite_u.c
+index 141cc6ff5f..004d8b6546 100644
+--- a/libio/iofwrite_u.c
++++ b/libio/iofwrite_u.c
+@@ -37,6 +37,11 @@ fwrite_unlocked (const void *buf, size_t size, size_t count, FILE *fp)
+   CHECK_FILE (fp, 0);
+   if (request == 0)
+     return 0;
++#define HALF_INTERNAL_SIZE_T \
++  (((size_t) 1) << (8 * sizeof (size_t) / 2))
++  if (__builtin_expect ((count | size) >= HALF_INTERNAL_SIZE_T, 0))
++    if (request / size != count)
++      return 0;
+   if (_IO_fwide (fp, -1) == -1)
+     {
+       written = _IO_sputn (fp, (const char *) buf, request);
+diff --git a/libio/oldtmpfile.c b/libio/oldtmpfile.c
+index 6584d95a65..4e329bbbd8 100644
+--- a/libio/oldtmpfile.c
++++ b/libio/oldtmpfile.c
+@@ -35,7 +35,7 @@ __old_tmpfile (void)
+   int fd;
+   FILE *f;
+ 
+-  if (__path_search (buf, FILENAME_MAX, NULL, "tmpf", 0))
++  if (__path_search (buf, FILENAME_MAX, NULL, "tmpf", 1))
+     return NULL;
+   fd = __gen_tempname (buf, 0, 0, __GT_FILE);
+   if (fd < 0)
+diff --git a/libio/vasprintf.c b/libio/vasprintf.c
+index facc224295..0bb09f0e6b 100644
+--- a/libio/vasprintf.c
++++ b/libio/vasprintf.c
+@@ -105,6 +105,7 @@ __vasprintf_internal (char **result_ptr, const char *format, va_list args,
+     {
+       if (buf.base.write_base != buf.direct)
+ 	free (buf.base.write_base);
++      *result_ptr = NULL;
+       return done;
+     }
+ 
+diff --git a/locale/newlocale.c b/locale/newlocale.c
+index 108d2428bf..ff4f4562f9 100644
+--- a/locale/newlocale.c
++++ b/locale/newlocale.c
+@@ -101,7 +101,7 @@ __newlocale (int category_mask, const char *locale, locale_t base)
+   locale_path = NULL;
+   locale_path_len = 0;
+ 
+-  locpath_var = getenv ("LOCPATH");
++  locpath_var = __libc_secure_getenv ("LOCPATH");
+   if (locpath_var != NULL && locpath_var[0] != '\0')
+     {
+       if (__argz_create_sep (locpath_var, ':',
+diff --git a/locale/programs/localedef.c b/locale/programs/localedef.c
+index 1b751bb7be..c49648c6eb 100644
+--- a/locale/programs/localedef.c
++++ b/locale/programs/localedef.c
+@@ -70,7 +70,7 @@ const char *alias_file;
+ static struct localedef_t *locales;
+ 
+ /* If true don't add locale data to archive.  */
+-bool no_archive;
++bool no_archive = true;
+ 
+ /* If true add named locales to archive.  */
+ static bool add_to_archive;
+@@ -103,6 +103,7 @@ void (*argp_program_version_hook) (FILE *, struct argp_state *) = print_version;
+ #define OPT_REPLACE 307
+ #define OPT_DELETE_FROM_ARCHIVE 308
+ #define OPT_LIST_ARCHIVE 309
++#define OPT_ARCHIVE 310
+ #define OPT_LITTLE_ENDIAN 400
+ #define OPT_BIG_ENDIAN 401
+ #define OPT_NO_WARN 402
+@@ -138,6 +139,8 @@ static const struct argp_option options[] =
+        "supported warnings are: ascii, intcurrsym") },
+ 
+   { NULL, 0, NULL, 0, N_("Archive control:") },
++  { "archive", OPT_ARCHIVE, NULL, 0,
++    N_("Add new data to archive") },
+   { "no-archive", OPT_NO_ARCHIVE, NULL, 0,
+     N_("Don't add new data to archive") },
+   { "add-to-archive", OPT_ADD_TO_ARCHIVE, NULL, 0,
+@@ -366,6 +369,9 @@ parse_opt (int key, char *arg, struct argp_state *state)
+     case OPT_PREFIX:
+       output_prefix = arg;
+       break;
++    case OPT_ARCHIVE:
++      no_archive = false;
++      break;
+     case OPT_NO_ARCHIVE:
+       no_archive = true;
+       break;
+diff --git a/locale/setlocale.c b/locale/setlocale.c
+index 6a902faa50..faded7ecf8 100644
+--- a/locale/setlocale.c
++++ b/locale/setlocale.c
+@@ -249,7 +249,7 @@ setlocale (int category, const char *locale)
+   locale_path = NULL;
+   locale_path_len = 0;
+ 
+-  locpath_var = getenv ("LOCPATH");
++  locpath_var = __libc_secure_getenv ("LOCPATH");
+   if (locpath_var != NULL && locpath_var[0] != '\0')
+     {
+       if (__argz_create_sep (locpath_var, ':',
+diff --git a/localedata/SUPPORTED b/localedata/SUPPORTED
+index a0e4a41d7c..51f3980de9 100644
+--- a/localedata/SUPPORTED
++++ b/localedata/SUPPORTED
+@@ -383,10 +383,13 @@ rif_MA/UTF-8 \
+ ro_RO.UTF-8/UTF-8 \
+ ro_RO/ISO-8859-2 \
+ ru_RU.KOI8-R/KOI8-R \
++ru_RU.CP1251/CP1251 \
+ ru_RU.UTF-8/UTF-8 \
+-ru_RU/ISO-8859-5 \
++ru_RU.IBM866/IBM866 \
++ru_RU.ISO-8859-5/ISO-8859-5 \
+ ru_UA.UTF-8/UTF-8 \
+-ru_UA/KOI8-U \
++ru_UA.CP1251/CP1251 \
++ru_UA.KOI8-U/KOI8-U \
+ rw_RW/UTF-8 \
+ sa_IN/UTF-8 \
+ sah_RU/UTF-8 \
+@@ -457,7 +460,8 @@ tt_RU/UTF-8 \
+ tt_RU@iqtelif/UTF-8 \
+ ug_CN/UTF-8 \
+ uk_UA.UTF-8/UTF-8 \
+-uk_UA/KOI8-U \
++uk_UA.KOI8-U/KOI8-U \
++uk_UA.CP1251/CP1251 \
+ unm_US/UTF-8 \
+ ur_IN/UTF-8 \
+ ur_PK/UTF-8 \
+diff --git a/malloc/Makefile b/malloc/Makefile
+index c1db3347d8..93054447db 100644
+--- a/malloc/Makefile
++++ b/malloc/Makefile
+@@ -249,7 +249,7 @@ cpp-srcs-left := $(memusagestat-modules)
+ lib := memusagestat
+ include $(patsubst %,$(..)libof-iterator.mk,$(cpp-srcs-left))
+ 
+-LDLIBS-memusagestat = $(libgd-LDFLAGS) -lgd -lpng -lz -lm
++LDLIBS-memusagestat = $(libgd-LDFLAGS) -lgd
+ 
+ ifeq ($(run-built-tests),yes)
+ ifeq (yes,$(build-shared))
+@@ -298,8 +298,6 @@ CPPFLAGS-malloc.c += -DUSE_TCACHE=1
+ # Uncomment this for test releases.  For public releases it is too expensive.
+ #CPPFLAGS-malloc.o += -DMALLOC_DEBUG=1
+ 
+-sLIBdir := $(shell echo $(slibdir) | sed 's,lib\(\|64\)$$,\\\\$$LIB,')
+-
+ $(objpfx)mtrace: mtrace.pl
+ 	rm -f $@.new
+ 	sed -e 's|@PERL@|$(PERL)|' -e 's|@XXX@|$(address-width)|' \
+@@ -310,7 +308,7 @@ $(objpfx)mtrace: mtrace.pl
+ 
+ $(objpfx)memusage: memusage.sh
+ 	rm -f $@.new
+-	sed -e 's|@VERSION@|$(version)|' -e 's|@SLIBDIR@|$(sLIBdir)|' \
++	sed -e 's|@VERSION@|$(version)|' -e 's|@SLIBDIR@|$(libdir)|' \
+ 	    -e 's|@BINDIR@|$(bindir)|' -e 's|@PKGVERSION@|$(PKGVERSION)|' \
+ 	    -e 's|@REPORT_BUGS_TO@|$(REPORT_BUGS_TO)|' $^ > $@.new \
+ 	&& rm -f $@ && mv $@.new $@ && chmod +x $@
+diff --git a/malloc/memusage.c b/malloc/memusage.c
+index cd675e16a6..e9583cdd0b 100644
+--- a/malloc/memusage.c
++++ b/malloc/memusage.c
+@@ -251,7 +251,7 @@ int_handler (int signo)
+ static void
+ me (void)
+ {
+-  const char *env = getenv ("MEMUSAGE_PROG_NAME");
++  const char *env = __libc_secure_getenv ("MEMUSAGE_PROG_NAME");
+   size_t prog_len = strlen (__progname);
+ 
+   initialized = -1;
+@@ -287,7 +287,7 @@ me (void)
+       if (!start_sp)
+         start_sp = __thread_stack_pointer ();
+ 
+-      outname = getenv ("MEMUSAGE_OUTPUT");
++      outname = __libc_secure_getenv ("MEMUSAGE_OUTPUT");
+       if (outname != NULL && outname[0] != '\0'
+           && (access (outname, R_OK | W_OK) == 0 || errno == ENOENT))
+         {
+@@ -310,7 +310,7 @@ me (void)
+               /* Determine the buffer size.  We use the default if the
+                  environment variable is not present.  */
+               buffer_size = DEFAULT_BUFFER_SIZE;
+-              const char *str_buffer_size = getenv ("MEMUSAGE_BUFFER_SIZE");
++              const char *str_buffer_size = __libc_secure_getenv ("MEMUSAGE_BUFFER_SIZE");
+               if (str_buffer_size != NULL)
+                 {
+                   buffer_size = atoi (str_buffer_size);
+@@ -319,7 +319,7 @@ me (void)
+                 }
+ 
+               /* Possibly enable timer-based stack pointer retrieval.  */
+-              if (getenv ("MEMUSAGE_NO_TIMER") == NULL)
++              if (__libc_secure_getenv ("MEMUSAGE_NO_TIMER") == NULL)
+                 {
+                   struct sigaction act;
+ 
+@@ -340,7 +340,7 @@ me (void)
+             }
+         }
+ 
+-      if (!not_me && getenv ("MEMUSAGE_TRACE_MMAP") != NULL)
++      if (!not_me && __libc_secure_getenv ("MEMUSAGE_TRACE_MMAP") != NULL)
+         trace_mmap = true;
+     }
+ }
+diff --git a/manual/stdio.texi b/manual/stdio.texi
+index a54cd369db..922854188d 100644
+--- a/manual/stdio.texi
++++ b/manual/stdio.texi
+@@ -2526,7 +2526,9 @@ location.
+ 
+ The return value is the number of characters allocated for the buffer, or
+ less than zero if an error occurred.  Usually this means that the buffer
+-could not be allocated.
++could not be allocated, and the value of @var{ptr} in this situation is
++implementation-dependent (in glibc, @var{ptr} will be set to the null
++pointer, but this behavior should not be relied upon).
+ 
+ Here is how to use @code{asprintf} to get the same result as the
+ @code{snprintf} example, but more easily:
+diff --git a/misc/sys/cdefs.h b/misc/sys/cdefs.h
+index 90c21e2703..6404f7c424 100644
+--- a/misc/sys/cdefs.h
++++ b/misc/sys/cdefs.h
+@@ -209,10 +209,13 @@
+ #endif
+ 
+ #if __GNUC_PREREQ (4,3)
++# define __warndecl(name, msg) \
++  extern void name (void) __attribute__((__warning__ (msg)))
+ # define __warnattr(msg) __attribute__((__warning__ (msg)))
+ # define __errordecl(name, msg) \
+   extern void name (void) __attribute__((__error__ (msg)))
+ #else
++# define __warndecl(name, msg) extern void name (void)
+ # define __warnattr(msg)
+ # define __errordecl(name, msg) extern void name (void)
+ #endif
+diff --git a/misc/syslog.c b/misc/syslog.c
+index 4af87f54fd..8e559789d0 100644
+--- a/misc/syslog.c
++++ b/misc/syslog.c
+@@ -48,6 +48,7 @@ static int LogFile = -1;		/* fd for log */
+ static bool connected;			/* have done connect */
+ static int LogStat;			/* status bits, set by openlog() */
+ static const char *LogTag;		/* string to tag the entry with */
++static char *LogTagDynamic;		/* same as LogTag if malloc()'ed */
+ static int LogFacility = LOG_USER;	/* default facility code */
+ static int LogMask = 0xff;		/* mask of priorities to be logged */
+ extern char *__progname;		/* Program name, from crt0. */
+@@ -113,6 +114,52 @@ ___syslog_chk (int pri, int flag, const char *fmt, ...)
+ ldbl_hidden_def (___syslog_chk, __syslog_chk)
+ ldbl_strong_alias (___syslog_chk, __syslog_chk)
+ 
++static void
++init_syslog_ident(void)
++{
++	char *ident, *safe_progname, *p;
++	uid_t uid, euid;
++	gid_t gid, egid;
++	int rc;
++
++	LogTagDynamic = NULL;
++
++	if (!__libc_enable_secure) {
++		LogTag = __progname;
++		return;
++	}
++
++	safe_progname = __strdup (__progname);
++	if (!safe_progname) {
++		LogTag = "NO MEMORY";
++		return;
++	}
++	for (p = safe_progname; *p; p++)
++		if ((*p & 0x7f) < 0x20 || *p == 0x7f || *p == '"')
++			*p = '?';
++
++	uid = __getuid ();
++	euid = __geteuid ();
++	gid = __getgid ();
++	egid = __getegid ();
++	if (uid != euid || gid == egid)
++		rc = __asprintf (&ident,
++		    "UNSPECIFIED (__progname=\"%s\" uid=%u euid=%u)",
++		    safe_progname, uid, euid);
++	else
++		rc = __asprintf (&ident,
++		    "UNSPECIFIED (__progname=\"%s\" uid=%u gid=%u egid=%u)",
++		    safe_progname, uid, gid, egid);
++	free (safe_progname);
++	if (rc < 0) {
++		LogTag = "NO MEMORY";
++		return;
++	}
++
++	LogTag = ident;
++	LogTagDynamic = ident;
++}
++
+ void
+ __vsyslog_chk (int pri, int flag, const char *fmt, va_list ap)
+ {
+@@ -170,10 +217,13 @@ __vsyslog_internal (int pri, const char *fmt, va_list ap,
+     __strftime_l (timestamp, sizeof timestamp, "%h %e %T ", now_tmp,
+ 		  _nl_C_locobj_ptr);
+ 
++  /* The syslog_lock is already locked. */
++  if (LogTag == NULL)
++      init_syslog_ident ();
++
+ #define SYSLOG_HEADER(__pri, __timestamp, __msgoff, pid) \
+   "<%d>%s%n%s%s%.0d%s: ",                                \
+-  __pri, __timestamp, __msgoff,                          \
+-  LogTag == NULL ? __progname : LogTag,                  \
++  __pri, __timestamp, __msgoff, LogTag,                  \
+   "[" + (pid == 0), pid, "]" + (pid == 0)
+ 
+ #define SYSLOG_HEADER_WITHOUT_TS(__pri, __msgoff)        \
+@@ -333,8 +383,11 @@ static const struct sockaddr_un SyslogAddr =
+ static void
+ openlog_internal (const char *ident, int logstat, int logfac)
+ {
+-  if (ident != NULL)
++  if (ident != NULL) {
++    free (LogTagDynamic);
++    LogTagDynamic = NULL;
+     LogTag = ident;
++  }
+   LogStat = logstat;
+   if ((logfac & ~LOG_FACMASK) == 0)
+     LogFacility = logfac;
+@@ -407,6 +460,8 @@ closelog (void)
+   __libc_lock_lock (syslog_lock);
+ 
+   closelog_internal ();
++  free (LogTagDynamic);
++  LogTagDynamic = NULL;
+   LogTag = NULL;
+   LogType = SOCK_DGRAM; /* this is the default */
+ 
+diff --git a/nis/nis_defaults.c b/nis/nis_defaults.c
+index b7b1aba6de..0d9fda9040 100644
+--- a/nis/nis_defaults.c
++++ b/nis/nis_defaults.c
+@@ -358,7 +358,7 @@ __nis_default_owner (char *defaults)
+ 
+   char *cptr = defaults;
+   if (cptr == NULL)
+-    cptr = getenv ("NIS_DEFAULTS");
++    cptr = __libc_secure_getenv ("NIS_DEFAULTS");
+ 
+   if (cptr != NULL)
+     {
+@@ -385,7 +385,7 @@ __nis_default_group (char *defaults)
+ 
+   char *cptr = defaults;
+   if (cptr == NULL)
+-    cptr = getenv ("NIS_DEFAULTS");
++    cptr = __libc_secure_getenv ("NIS_DEFAULTS");
+ 
+   if (cptr != NULL)
+     {
+@@ -417,7 +417,7 @@ __nis_default_ttl (char *defaults)
+ 	return searchttl (defaults);
+     }
+ 
+-  cptr = getenv ("NIS_DEFAULTS");
++  cptr = __libc_secure_getenv ("NIS_DEFAULTS");
+   if (cptr == NULL)
+     return DEFAULT_TTL;
+ 
+@@ -446,7 +446,7 @@ __nis_default_access (char *param, unsigned int defaults)
+     result = searchaccess (param, result);
+   else
+     {
+-      cptr = getenv ("NIS_DEFAULTS");
++      cptr = __libc_secure_getenv ("NIS_DEFAULTS");
+       if (cptr != NULL && strstr (cptr, "access=") != NULL)
+ 	result = searchaccess (cptr, result);
+     }
+diff --git a/nis/nis_local_names.c b/nis/nis_local_names.c
+index 699ca04e66..7784acbed3 100644
+--- a/nis/nis_local_names.c
++++ b/nis/nis_local_names.c
+@@ -29,7 +29,7 @@ nis_local_group (void)
+ 
+   char *cptr;
+   if (__nisgroup[0] == '\0'
+-      && (cptr = getenv ("NIS_GROUP")) != NULL
++      && (cptr = __libc_secure_getenv ("NIS_GROUP")) != NULL
+       && cptr[0] != '\0'
+       && strlen (cptr) < NIS_MAXNAMELEN)
+     {
+diff --git a/nis/nis_subr.c b/nis/nis_subr.c
+index f52a6e20cb..fd50c32370 100644
+--- a/nis/nis_subr.c
++++ b/nis/nis_subr.c
+@@ -176,7 +176,7 @@ nis_getnames (const_nis_name name)
+     }
+ 
+   /* Get the search path, where we have to search "name" */
+-  path = getenv ("NIS_PATH");
++  path = __libc_secure_getenv ("NIS_PATH");
+   if (path == NULL)
+     path = strdupa ("$");
+   else
+diff --git a/nptl/tst-pthread-attr-affinity-fail.c b/nptl/tst-pthread-attr-affinity-fail.c
+index fa50c6f205..56189c5cf9 100644
+--- a/nptl/tst-pthread-attr-affinity-fail.c
++++ b/nptl/tst-pthread-attr-affinity-fail.c
+@@ -22,6 +22,7 @@
+ #include <support/xunistd.h>
+ #include <support/xthread.h>
+ #include <stdlib.h>
++#include <sys/sysinfo.h>
+ 
+ static void *
+ thr_func (void *arg)
+@@ -33,7 +34,7 @@ thr_func (void *arg)
+ static int
+ do_test (void)
+ {
+-  int max_cpu = xsysconf (_SC_NPROCESSORS_CONF) + 1;
++  int max_cpu = get_nprocs_conf() + 1;
+   /* Set a affinity mask with an invalid CPU.  */
+   cpu_set_t *cpuset = CPU_ALLOC (max_cpu);
+   TEST_VERIFY_EXIT (cpuset != NULL);
+diff --git a/nscd/nscd.conf b/nscd/nscd.conf
+index 487ffe461d..027c324970 100644
+--- a/nscd/nscd.conf
++++ b/nscd/nscd.conf
+@@ -32,14 +32,14 @@
+ #	max-db-size		<service> <number bytes>
+ #	auto-propagate		<service> <yes|no>
+ #
+-# Currently supported cache names (services): passwd, group, hosts, services
++# Currently supported cache names (services): passwd, group, hosts, services, netgroup
+ #
+ 
+ 
+ #	logfile			/var/log/nscd.log
+ #	threads			4
+ #	max-threads		32
+-#	server-user		nobody
++	server-user		nscd
+ #	stat-user		somebody
+ 	debug-level		0
+ #	reload-count		5
+@@ -66,7 +66,7 @@
+ 	max-db-size		group		33554432
+ 	auto-propagate		group		yes
+ 
+-	enable-cache		hosts		yes
++	enable-cache		hosts		no
+ 	positive-time-to-live	hosts		3600
+ 	negative-time-to-live	hosts		20
+ 	suggested-size		hosts		211
+diff --git a/nscd/nscd.h b/nscd/nscd.h
+index 04f82fc0b0..e9610b04e1 100644
+--- a/nscd/nscd.h
++++ b/nscd/nscd.h
+@@ -160,11 +160,11 @@ struct database_dyn
+ 
+ 
+ /* Paths of the file for the persistent storage.  */
+-#define _PATH_NSCD_PASSWD_DB	"/var/db/nscd/passwd"
+-#define _PATH_NSCD_GROUP_DB	"/var/db/nscd/group"
+-#define _PATH_NSCD_HOSTS_DB	"/var/db/nscd/hosts"
+-#define _PATH_NSCD_SERVICES_DB	"/var/db/nscd/services"
+-#define _PATH_NSCD_NETGROUP_DB	"/var/db/nscd/netgroup"
++#define _PATH_NSCD_PASSWD_DB	"/var/lib/nscd/passwd"
++#define _PATH_NSCD_GROUP_DB	"/var/lib/nscd/group"
++#define _PATH_NSCD_HOSTS_DB	"/var/lib/nscd/hosts"
++#define _PATH_NSCD_SERVICES_DB	"/var/lib/nscd/services"
++#define _PATH_NSCD_NETGROUP_DB	"/var/lib/nscd/netgroup"
+ 
+ /* Path used when not using persistent storage.  */
+ #define _PATH_NSCD_XYZ_DB_TMP	"/var/run/nscd/dbXXXXXX"
+diff --git a/posix/Makefile b/posix/Makefile
+index 3d368b91f6..ea67f16ba3 100644
+--- a/posix/Makefile
++++ b/posix/Makefile
+@@ -568,6 +568,7 @@ CFLAGS-wait4.c += -fexceptions -fasynchronous-unwind-tables
+ CFLAGS-getopt.c += -fexceptions
+ CFLAGS-wordexp.c += -fexceptions
+ CFLAGS-wordexp.os = -fomit-frame-pointer
++CFLAGS-confstr.c += -DLIBDIR='"$(libdir)"' -DSLIB='"$(shell basename $(slibdir))"'
+ CFLAGS-sysconf.c += -fexceptions -DGETCONF_DIR='"$(libexecdir)/getconf"'
+ CFLAGS-pathconf.c += -fexceptions
+ CFLAGS-fpathconf.c += -fexceptions
+diff --git a/posix/confstr.c b/posix/confstr.c
+index 0f6e8d1ca4..1ac0ce1fab 100644
+--- a/posix/confstr.c
++++ b/posix/confstr.c
+@@ -272,6 +272,16 @@ __confstr (int name, char *buf, size_t len)
+       string_len = sizeof ("POSIXLY_CORRECT=1");
+       break;
+ 
++    case _CS_LIBDIR:
++      string = LIBDIR;
++      string_len = sizeof LIBDIR;
++      break;
++
++    case _CS_SLIB:
++      string = SLIB;
++      string_len = sizeof SLIB;
++      break;
++
+     default:
+       __set_errno (EINVAL);
+       return 0;
+diff --git a/posix/execvpe.c b/posix/execvpe.c
+index 871bb4c498..06f15cef15 100644
+--- a/posix/execvpe.c
++++ b/posix/execvpe.c
+@@ -89,7 +89,7 @@ __execvpe_common (const char *file, char *const argv[], char *const envp[],
+       return -1;
+     }
+ 
+-  const char *path = getenv ("PATH");
++  const char *path = __libc_secure_getenv ("PATH");
+   if (!path)
+     path = CS_PATH;
+   /* Although GLIBC does not enforce NAME_MAX, we set it as the maximum
+diff --git a/posix/getconf.c b/posix/getconf.c
+index 60248f856e..aa49ac6350 100644
+--- a/posix/getconf.c
++++ b/posix/getconf.c
+@@ -379,6 +379,8 @@ static const struct conf vars[] =
+     { "SYMLINK_MAX", _PC_SYMLINK_MAX, PATHCONF },
+     { "GNU_LIBC_VERSION", _CS_GNU_LIBC_VERSION, CONFSTR },
+     { "GNU_LIBPTHREAD_VERSION", _CS_GNU_LIBPTHREAD_VERSION, CONFSTR },
++    { "LIBDIR", _CS_LIBDIR, CONFSTR },
++    { "SLIB", _CS_SLIB, CONFSTR },
+     { "POSIX2_SYMLINKS", _PC_2_SYMLINKS, PATHCONF },
+ 
+     { "LEVEL1_ICACHE_SIZE", _SC_LEVEL1_ICACHE_SIZE, SYSCONF },
+diff --git a/posix/glob.c b/posix/glob.c
+index f2e359f385..6a0309034c 100644
+--- a/posix/glob.c
++++ b/posix/glob.c
+@@ -62,6 +62,8 @@
+ # define readdir(str) __readdir64 (str)
+ # define getpwnam_r(name, bufp, buf, len, res) \
+     __getpwnam_r (name, bufp, buf, len, res)
++# define getpwuid_r(uid, bufp, buf, len, res) \
++    __getpwuid_r (uid, bufp, buf, len, res)
+ # define FLEXIBLE_ARRAY_MEMBER
+ # ifndef struct_stat
+ #  define struct_stat           struct stat
+@@ -620,7 +622,7 @@ __glob (const char *pattern, int flags, int (*errfunc) (const char *, int),
+               && (dirname[2] == '\0' || dirname[2] == '/')))
+         {
+           /* Look up home directory.  */
+-          char *home_dir = getenv ("HOME");
++          char *home_dir = __libc_secure_getenv ("HOME");
+           int malloc_home_dir = 0;
+           if (home_dir == NULL || home_dir[0] == '\0')
+             {
+@@ -648,19 +650,18 @@ __glob (const char *pattern, int flags, int (*errfunc) (const char *, int),
+               struct passwd pwbuf;
+               struct scratch_buffer s;
+               scratch_buffer_init (&s);
++              uid_t uid = __getuid ();
+               while (true)
+                 {
+                   p = NULL;
+-                  err = __getlogin_r (s.data, s.length);
+-                  if (err == 0)
+                     {
+ # if defined HAVE_GETPWNAM_R || defined _LIBC
+                       size_t ssize = strlen (s.data) + 1;
+                       char *sdata = s.data;
+-                      err = getpwnam_r (sdata, &pwbuf, sdata + ssize,
++                      err = getpwuid_r (uid, &pwbuf, sdata + ssize,
+                                         s.length - ssize, &p);
+ # else
+-                      p = getpwnam (s.data);
++                      p = getpwuid (uid);
+                       if (p == NULL)
+                         err = errno;
+ # endif
+diff --git a/posix/wordexp.c b/posix/wordexp.c
+index 994d79161f..575682e689 100644
+--- a/posix/wordexp.c
++++ b/posix/wordexp.c
+@@ -289,7 +289,7 @@ parse_tilde (char **word, size_t *word_length, size_t *max_length,
+ 	 results are unspecified.  We do a lookup on the uid if
+ 	 HOME is unset. */
+ 
+-      home = getenv ("HOME");
++      home = __libc_secure_getenv ("HOME");
+       if (home != NULL)
+ 	{
+ 	  *word = w_addstr (*word, word_length, max_length, home);
+@@ -1489,7 +1489,7 @@ envsubst:
+ 	}
+     }
+   else
+-    value = getenv (env);
++    value = __libc_secure_getenv (env);
+ 
+   if (value == NULL && (flags & WRDE_UNDEF))
+     {
+@@ -2248,7 +2248,7 @@ wordexp (const char *words, wordexp_t *pwordexp, int flags)
+   /* Find out what the field separators are.
+    * There are two types: whitespace and non-whitespace.
+    */
+-  ifs = getenv ("IFS");
++  ifs = __libc_secure_getenv ("IFS");
+ 
+   if (ifs == NULL)
+     /* IFS unset - use <space><tab><newline>. */
+diff --git a/resolv/res_context_hostalias.c b/resolv/res_context_hostalias.c
+index 0f1dccc2eb..932ed0e085 100644
+--- a/resolv/res_context_hostalias.c
++++ b/resolv/res_context_hostalias.c
+@@ -100,7 +100,7 @@ __res_context_hostalias (struct resolv_context *ctx,
+ 
+   if (ctx->resp->options & RES_NOALIASES)
+     return NULL;
+-  file = getenv ("HOSTALIASES");
++  file = __libc_secure_getenv ("HOSTALIASES");
+   if (file == NULL || (fp = fopen (file, "rce")) == NULL)
+     return NULL;
+   buf[sizeof (buf) - 1] = '\0';
+diff --git a/resolv/res_hconf.c b/resolv/res_hconf.c
+index 89bd20be38..c71ff2702c 100644
+--- a/resolv/res_hconf.c
++++ b/resolv/res_hconf.c
+@@ -274,7 +274,7 @@ do_init (void)
+ 
+   memset (&_res_hconf, '\0', sizeof (_res_hconf));
+ 
+-  hconf_name = getenv (ENV_HOSTCONF);
++  hconf_name = __libc_secure_getenv (ENV_HOSTCONF);
+   if (hconf_name == NULL)
+     hconf_name = _PATH_HOSTCONF;
+ 
+@@ -293,19 +293,19 @@ do_init (void)
+       fclose (fp);
+     }
+ 
+-  envval = getenv (ENV_MULTI);
++  envval = __libc_secure_getenv (ENV_MULTI);
+   if (envval)
+     arg_bool (ENV_MULTI, 1, envval, HCONF_FLAG_MULTI);
+ 
+-  envval = getenv (ENV_REORDER);
++  envval = __libc_secure_getenv (ENV_REORDER);
+   if (envval)
+     arg_bool (ENV_REORDER, 1, envval, HCONF_FLAG_REORDER);
+ 
+-  envval = getenv (ENV_TRIM_ADD);
++  envval = __libc_secure_getenv (ENV_TRIM_ADD);
+   if (envval)
+     arg_trimdomain_list (ENV_TRIM_ADD, 1, envval);
+ 
+-  envval = getenv (ENV_TRIM_OVERR);
++  envval = __libc_secure_getenv (ENV_TRIM_OVERR);
+   if (envval)
+     {
+       _res_hconf.num_trimdomains = 0;
+diff --git a/resolv/res_init.c b/resolv/res_init.c
+index cce842fa93..ba9f0d1b50 100644
+--- a/resolv/res_init.c
++++ b/resolv/res_init.c
+@@ -260,7 +260,7 @@ res_vinit_1 (FILE *fp, struct resolv_conf_parser *parser)
+   bool haveenv = false;
+ 
+   /* Allow user to override the local domain definition.  */
+-  if ((cp = getenv ("LOCALDOMAIN")) != NULL)
++  if ((cp = __libc_secure_getenv ("LOCALDOMAIN")) != NULL)
+     {
+       /* The code below splits the string in place.  */
+       cp = __strdup (cp);
+@@ -535,7 +535,7 @@ res_vinit_1 (FILE *fp, struct resolv_conf_parser *parser)
+         }
+     }
+ 
+-  if ((cp = getenv ("RES_OPTIONS")) != NULL)
++  if ((cp = __libc_secure_getenv ("RES_OPTIONS")) != NULL)
+     res_setoptions (parser, cp);
+ 
+   if (nameserver_list_has_failed (&parser->nameserver_list)
+diff --git a/stdio-common/tmpfile.c b/stdio-common/tmpfile.c
+index 8d193e6a0e..a0744f7226 100644
+--- a/stdio-common/tmpfile.c
++++ b/stdio-common/tmpfile.c
+@@ -48,7 +48,7 @@ tmpfile (void)
+     {
+       char buf[FILENAME_MAX];
+ 
+-      if (__path_search (buf, sizeof buf, NULL, "tmpf", 0))
++      if (__path_search (buf, sizeof buf, NULL, "tmpf", 1))
+ 	return NULL;
+ 
+       fd = __gen_tempname (buf, 0, flags, __GT_FILE);
+diff --git a/stdlib/Makefile b/stdlib/Makefile
+index 750810ee92..65e3f7142d 100644
+--- a/stdlib/Makefile
++++ b/stdlib/Makefile
+@@ -204,7 +204,6 @@ tests := \
+   tst-canon-bz26341 \
+   tst-cxa_atexit \
+   tst-environ \
+-  tst-getrandom \
+   tst-labs \
+   tst-limits \
+   tst-llabs \
+diff --git a/stdlib/Versions b/stdlib/Versions
+index 6a861c54a1..78e5efe11a 100644
+--- a/stdlib/Versions
++++ b/stdlib/Versions
+@@ -95,6 +95,8 @@ libc {
+     # used by new G++ ABI
+     __cxa_atexit; __cxa_finalize;
+   }
++  GLIBC_2.2.4 {
++    __locale_getenv;
+   GLIBC_2.3 {
+     # Silent change in SUS.
+     realpath;
+diff --git a/stdlib/fmtmsg.c b/stdlib/fmtmsg.c
+index 3d9a0edf12..f70b283570 100644
+--- a/stdlib/fmtmsg.c
++++ b/stdlib/fmtmsg.c
+@@ -203,8 +203,8 @@ fmtmsg (long int classification, const char *label, int severity,
+ static void
+ init (void)
+ {
+-  const char *msgverb_var = getenv ("MSGVERB");
+-  const char *sevlevel_var = getenv ("SEV_LEVEL");
++  const char *msgverb_var = __libc_secure_getenv ("MSGVERB");
++  const char *sevlevel_var = __libc_secure_getenv ("SEV_LEVEL");
+ 
+   if (msgverb_var != NULL && msgverb_var[0] != '\0')
+     {
+diff --git a/stdlib/secure-getenv.c b/stdlib/secure-getenv.c
+index 1c1ff68aa6..df4384a587 100644
+--- a/stdlib/secure-getenv.c
++++ b/stdlib/secure-getenv.c
+@@ -17,6 +17,7 @@
+ 
+ #include <stdlib.h>
+ #include <unistd.h>
++#include <string.h>
+ 
+ #include <shlib-compat.h>
+ 
+@@ -32,5 +33,16 @@ weak_alias (__libc_secure_getenv, secure_getenv)
+ libc_hidden_weak (__libc_secure_getenv)
+ 
+ #if SHLIB_COMPAT (libc, GLIBC_2_0, GLIBC_2_17)
+-compat_symbol (libc, __libc_secure_getenv, __secure_getenv, GLIBC_2_0);
++weak_alias (__libc_secure_getenv, __secure_getenv)
+ #endif
++
++char *
++__locale_getenv (const char *name)
++{
++  char *value = getenv (name);
++  if ( value &&
++      __libc_enable_secure && (('.' == value[0]) || strchr(value, '/')) )
++    return NULL;
++  return value;
++}
++libc_hidden_def (__locale_getenv)
+diff --git a/stdlib/stdlib.h b/stdlib/stdlib.h
+index 631b0cbbed..3b0e3ae988 100644
+--- a/stdlib/stdlib.h
++++ b/stdlib/stdlib.h
+@@ -774,10 +774,18 @@ extern char *getenv (const char *__name) __THROW __nonnull ((1)) __wur;
+ 
+ #ifdef __USE_GNU
+ /* This function is similar to the above but returns NULL if the
+-   programs is running with SUID or SGID enabled.  */
++   program is privileged, e.g. is running with SUID or SGID enabled.  */
+ extern char *secure_getenv (const char *__name)
+      __THROW __nonnull ((1)) __wur;
+ #endif
++extern char *__secure_getenv (const char *__name)
++     __THROW __nonnull ((1)) __wur;
++
++/* This function is similar to the above but returns NULL if the
++   program is privileged, e.g. is running with SUID or SGID enabled,
++   and value starts with "." symbol or contains "/" symbols.  */
++extern char *__locale_getenv (const char *__name)
++     __THROW __nonnull ((1)) __wur;
+ 
+ #if defined __USE_MISC || defined __USE_XOPEN
+ /* The SVID says this is in <stdio.h>, but this seems a better place.	*/
+diff --git a/stdlib/test-atexit-race-common.c b/stdlib/test-atexit-race-common.c
+index 63863b8efd..81e961aded 100644
+--- a/stdlib/test-atexit-race-common.c
++++ b/stdlib/test-atexit-race-common.c
+@@ -33,11 +33,12 @@
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <unistd.h>
+ #include <support/xthread.h>
+ #include <limits.h>
+ 
+-const size_t kNumThreads = 1024;
+-const size_t kNumHandlers = 1024;
++static size_t kNumThreads = 1024;
++static const size_t kNumHandlers = 1024;
+ 
+ static void *
+ threadfunc (void *unused)
+@@ -69,6 +70,11 @@ do_test (void)
+ 
+   xpthread_attr_setstacksize (&attr, kStacksize);
+ 
++  long nproc = sysconf (_SC_CHILD_MAX);
++
++  if (nproc > 0 && nproc / 8 < kNumThreads)
++    kNumThreads = nproc / 8;
++
+   for (i = 0; i < kNumThreads; ++i) {
+     xpthread_create (&attr, threadfunc, NULL);
+   }
+diff --git a/string/Versions b/string/Versions
+index c56e372a3c..ca5af249d6 100644
+--- a/string/Versions
++++ b/string/Versions
+@@ -73,6 +73,9 @@ libc {
+     # m*
+     memrchr;
+   }
++  GLIBC_2.2.5 {
++    strlcat; strlcpy;
++  }
+   GLIBC_2.3.4 {
+     # x*
+     __xpg_strerror_r;
+diff --git a/string/strlcat.c b/string/strlcat.c
+index dce4c255d1..00be1407b7 100644
+--- a/string/strlcat.c
++++ b/string/strlcat.c
+@@ -18,6 +18,7 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
++#include <shlib-compat.h>
+ 
+ size_t
+ __strlcat (char *__restrict dest, const char *__restrict src, size_t size)
+@@ -56,4 +57,8 @@ __strlcat (char *__restrict dest, const char *__restrict src, size_t size)
+   return dest_length + src_length;
+ }
+ libc_hidden_def (__strlcat)
+-weak_alias (__strlcat, strlcat)
++versioned_symbol (libc, __strlcat, strlcat, GLIBC_2_38);
++
++#if SHLIB_COMPAT (libc, GLIBC_2_2_5, GLIBC_2_38)
++compat_symbol (libc, __strlcat, strlcat, GLIBC_2_2_5);
++#endif
+diff --git a/string/strlcpy.c b/string/strlcpy.c
+index 7a0df3ebb6..b840103d82 100644
+--- a/string/strlcpy.c
++++ b/string/strlcpy.c
+@@ -17,6 +17,7 @@
+    <https://www.gnu.org/licenses/>.  */
+ 
+ #include <string.h>
++#include <shlib-compat.h>
+ 
+ size_t
+ __strlcpy (char *__restrict dest, const char *__restrict src, size_t size)
+@@ -43,4 +44,8 @@ __strlcpy (char *__restrict dest, const char *__restrict src, size_t size)
+   return src_length;
+ }
+ libc_hidden_def (__strlcpy)
+-weak_alias (__strlcpy, strlcpy)
++versioned_symbol (libc, __strlcpy, strlcpy, GLIBC_2_38);
++
++#if SHLIB_COMPAT (libc, GLIBC_2_2_5, GLIBC_2_38)
++compat_symbol (libc, __strlcpy, strlcpy, GLIBC_2_2_5);
++#endif
+diff --git a/sysdeps/generic/unsecvars.h b/sysdeps/generic/unsecvars.h
+index 8278c50a84..adda22053f 100644
+--- a/sysdeps/generic/unsecvars.h
++++ b/sysdeps/generic/unsecvars.h
+@@ -2,25 +2,86 @@
+    all stuffed in a single string which means they have to be terminated
+    with a '\0' explicitly.  */
+ #define UNSECURE_ENVVARS \
+-  "GCONV_PATH\0"							      \
+-  "GETCONF_DIR\0"							      \
+-  "HOSTALIASES\0"							      \
+-  "LD_AUDIT\0"								      \
+-  "LD_DEBUG\0"								      \
+-  "LD_DEBUG_OUTPUT\0"							      \
+-  "LD_DYNAMIC_WEAK\0"							      \
+-  "LD_HWCAP_MASK\0"							      \
+-  "LD_LIBRARY_PATH\0"							      \
+-  "LD_ORIGIN_PATH\0"							      \
+-  "LD_PRELOAD\0"							      \
+-  "LD_PROFILE\0"							      \
+-  "LD_SHOW_AUXV\0"							      \
+-  "LOCALDOMAIN\0"							      \
+-  "LOCPATH\0"								      \
+-  "MALLOC_TRACE\0"							      \
+-  "NIS_PATH\0"								      \
+-  "NLSPATH\0"								      \
+-  "RESOLV_HOST_CONF\0"							      \
+-  "RES_OPTIONS\0"							      \
+-  "TMPDIR\0"								      \
++  "ARGP_HELP_FMT\0"							\
++  "DATEMSK\0"								\
++  "GCONV_PATH\0"							\
++  "GETCONF_DIR\0"							\
++  "GLIBC_TUNABLES\0"							\
++  "GMON_OUT_PREFIX\0"							\
++  "HESIOD_CONFIG\0"							\
++  "HES_DOMAIN\0"							\
++  "HOSTALIASES\0"							\
++  "LD_AUDIT\0"								\
++  "LD_BIND_NOT\0"							\
++  "LD_BIND_NOW\0"							\
++  "LD_DEBUG\0"								\
++  "LD_DEBUG_OUTPUT\0"							\
++  "LD_DYNAMIC_WEAK\0"							\
++  "LD_HWCAP_MASK\0"							\
++  "LD_LIBRARY_PATH\0"							\
++  "LD_ORIGIN_PATH\0"							\
++  "LD_PRELOAD\0"							\
++  "LD_PROFILE\0"							\
++  "LD_PROFILE_OUTPUT\0"							\
++  "LD_SHOW_AUXV\0"							\
++  "LD_TRACE_LOADED_OBJECTS\0"						\
++  "LD_TRACE_PRELINKING\0"						\
++  "LD_USE_LOAD_BIAS\0"							\
++  "LD_VERBOSE\0"							\
++  "LD_WARN\0"								\
++  "LOCALDOMAIN\0"							\
++  "LOCPATH\0"								\
++  "MALLOC_CHECK_\0"							\
++  "MALLOC_MMAP_MAX_\0"							\
++  "MALLOC_MMAP_THRESHOLD_\0"						\
++  "MALLOC_PERTURB_\0"							\
++  "MALLOC_TOP_PAD_\0"							\
++  "MALLOC_TRACE\0"							\
++  "MALLOC_TRIM_THRESHOLD_\0"						\
++  "MEMUSAGE_BUFFER_SIZE\0"						\
++  "MEMUSAGE_NO_TIMER\0"							\
++  "MEMUSAGE_OUTPUT\0"							\
++  "MEMUSAGE_PROG_NAME\0"						\
++  "MEMUSAGE_TRACE_MMAP\0"						\
++  "MSGVERB\0"								\
++  "NIS_DEFAULTS\0"							\
++  "NIS_GROUP\0"								\
++  "NIS_PATH\0"								\
++  "NLSPATH\0"								\
++  "PCPROFILE_OUTPUT\0"							\
++  "POSIXLY_CORRECT\0"							\
++  "PWD\0"								\
++  "RESOLV_ADD_TRIM_DOMAINS\0"						\
++  "RESOLV_HOST_CONF\0"							\
++  "RESOLV_MULTI\0"							\
++  "RESOLV_OVERRIDE_TRIM_DOMAINS\0"					\
++  "RESOLV_REORDER\0"							\
++  "RESOLV_SPOOF_CHECK\0"						\
++  "RES_OPTIONS\0"							\
++  "SEGFAULT_OUTPUT_NAME\0"						\
++  "SEGFAULT_SIGNALS\0"							\
++  "SEGFAULT_USE_ALTSTACK\0"						\
++  "SEV_LEVEL\0"								\
++  "TZ\0"								\
+   "TZDIR\0"
++
++#define UNSECURE_UID_ENVVARS \
++  "TMPDIR\0"
++
++#define RESTRICTED_ENVVARS \
++  "LANG\0"								\
++  "LANGUAGE\0"								\
++  "LC_ADDRESS\0"							\
++  "LC_ALL\0"								\
++  "LC_COLLATE\0"							\
++  "LC_CTYPE\0"								\
++  "LC_IDENTIFICATION\0"							\
++  "LC_MEASUREMENT\0"							\
++  "LC_MESSAGES\0"							\
++  "LC_MONETARY\0"							\
++  "LC_NAME\0"								\
++  "LC_NUMERIC\0"							\
++  "LC_PAPER\0"								\
++  "LC_TELEPHONE\0"							\
++  "LC_TIME\0"								\
++  "LC_XXX\0"
+diff --git a/sysdeps/mach/hurd/fchmodat.c b/sysdeps/mach/hurd/fchmodat.c
+index 7ccbd0e345..263ba4de45 100644
+--- a/sysdeps/mach/hurd/fchmodat.c
++++ b/sysdeps/mach/hurd/fchmodat.c
+@@ -39,4 +39,3 @@ __fchmodat (int fd, const char *file, mode_t mode, int flag)
+ }
+ 
+ weak_alias (__fchmodat, fchmodat)
+-libc_hidden_def (fchmodat)
+diff --git a/sysdeps/unix/sysv/linux/aarch64/configure b/sysdeps/unix/sysv/linux/aarch64/configure
+index b872b9870c..9632183906 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/configure
++++ b/sysdeps/unix/sysv/linux/aarch64/configure
+@@ -7,7 +7,7 @@ test -n "$libc_cv_slibdir" ||
+ case "$prefix" in
+ /usr | /usr/)
+   libc_cv_slibdir='/lib64'
+-  libc_cv_rtlddir='/lib'
++  libc_cv_rtlddir='/lib64'
+   if test "$libdir" = '${exec_prefix}/lib'; then
+     libdir='${exec_prefix}/lib64';
+     # Locale data can be shared between 32-bit and 64-bit libraries.
+diff --git a/sysdeps/unix/sysv/linux/aarch64/configure.ac b/sysdeps/unix/sysv/linux/aarch64/configure.ac
+index 211fa9c317..281e988474 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/configure.ac
++++ b/sysdeps/unix/sysv/linux/aarch64/configure.ac
+@@ -3,4 +3,4 @@ GLIBC_PROVIDES dnl See aclocal.m4 in the top level source directory.
+ 
+ arch_minimum_kernel=3.7.0
+ 
+-LIBC_SLIBDIR_RTLDDIR([lib64], [lib])
++LIBC_SLIBDIR_RTLDDIR([lib64], [lib64])
+diff --git a/sysdeps/unix/sysv/linux/aarch64/ld.abilist b/sysdeps/unix/sysv/linux/aarch64/ld.abilist
+index 5151c0781d..9c2ef33fba 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/aarch64/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.17 __libc_enable_secure D 0x4
+ GLIBC_2.17 __libc_stack_end D 0x8
+ GLIBC_2.17 __stack_chk_guard D 0x8
+ GLIBC_2.17 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/aarch64/libc.abilist b/sysdeps/unix/sysv/linux/aarch64/libc.abilist
+index c49363e70e..d11a28fe73 100644
+--- a/sysdeps/unix/sysv/linux/aarch64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/aarch64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.17 _Exit F
+ GLIBC_2.17 _IO_2_1_stderr_ D 0xe0
+ GLIBC_2.17 _IO_2_1_stdin_ D 0xe0
+@@ -289,6 +291,7 @@ GLIBC_2.17 __libc_realloc F
+ GLIBC_2.17 __libc_sa_len F
+ GLIBC_2.17 __libc_start_main F
+ GLIBC_2.17 __libc_valloc F
++GLIBC_2.17 __locale_getenv F
+ GLIBC_2.17 __longjmp_chk F
+ GLIBC_2.17 __lseek F
+ GLIBC_2.17 __lxstat F
+@@ -1929,6 +1932,8 @@ GLIBC_2.17 strfmon_l F
+ GLIBC_2.17 strfry F
+ GLIBC_2.17 strftime F
+ GLIBC_2.17 strftime_l F
++GLIBC_2.17 strlcat F
++GLIBC_2.17 strlcpy F
+ GLIBC_2.17 strlen F
+ GLIBC_2.17 strncasecmp F
+ GLIBC_2.17 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/alpha/ld.abilist b/sysdeps/unix/sysv/linux/alpha/ld.abilist
+index 3e296c5473..173548327e 100644
+--- a/sysdeps/unix/sysv/linux/alpha/ld.abilist
++++ b/sysdeps/unix/sysv/linux/alpha/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x28
++GLIBC_2.1 __libc_enable_secure D 0x4
+ GLIBC_2.1 __libc_stack_end D 0x8
+ GLIBC_2.1 _dl_mcount F
+ GLIBC_2.3 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/alpha/libc.abilist b/sysdeps/unix/sysv/linux/alpha/libc.abilist
+index d6b1dcaae6..13f41154ee 100644
+--- a/sysdeps/unix/sysv/linux/alpha/libc.abilist
++++ b/sysdeps/unix/sysv/linux/alpha/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2151,9 +2153,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/arm/be/ld.abilist b/sysdeps/unix/sysv/linux/arm/be/ld.abilist
+index f1da2c636d..3cbef3ea49 100644
+--- a/sysdeps/unix/sysv/linux/arm/be/ld.abilist
++++ b/sysdeps/unix/sysv/linux/arm/be/ld.abilist
+@@ -2,6 +2,7 @@ GLIBC_2.34 __rtld_version_placeholder F
+ GLIBC_2.35 __rseq_flags D 0x4
+ GLIBC_2.35 __rseq_offset D 0x4
+ GLIBC_2.35 __rseq_size D 0x4
++GLIBC_2.4 __libc_enable_secure D 0x4
+ GLIBC_2.4 __libc_stack_end D 0x4
+ GLIBC_2.4 __stack_chk_guard D 0x4
+ GLIBC_2.4 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/arm/le/ld.abilist b/sysdeps/unix/sysv/linux/arm/le/ld.abilist
+index f1da2c636d..3cbef3ea49 100644
+--- a/sysdeps/unix/sysv/linux/arm/le/ld.abilist
++++ b/sysdeps/unix/sysv/linux/arm/le/ld.abilist
+@@ -2,6 +2,7 @@ GLIBC_2.34 __rtld_version_placeholder F
+ GLIBC_2.35 __rseq_flags D 0x4
+ GLIBC_2.35 __rseq_offset D 0x4
+ GLIBC_2.35 __rseq_size D 0x4
++GLIBC_2.4 __libc_enable_secure D 0x4
+ GLIBC_2.4 __libc_stack_end D 0x4
+ GLIBC_2.4 __stack_chk_guard D 0x4
+ GLIBC_2.4 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/arm/le/libc.abilist b/sysdeps/unix/sysv/linux/arm/le/libc.abilist
+index 03d6f7ae2d..7d40964ad3 100644
+--- a/sysdeps/unix/sysv/linux/arm/le/libc.abilist
++++ b/sysdeps/unix/sysv/linux/arm/le/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.10 __cxa_at_quick_exit F
+ GLIBC_2.10 __posix_getopt F
+ GLIBC_2.10 accept4 F
+@@ -839,6 +841,7 @@ GLIBC_2.4 __libc_realloc F
+ GLIBC_2.4 __libc_sa_len F
+ GLIBC_2.4 __libc_start_main F
+ GLIBC_2.4 __libc_valloc F
++GLIBC_2.4 __locale_getenv F
+ GLIBC_2.4 __lseek F
+ GLIBC_2.4 __lxstat F
+ GLIBC_2.4 __lxstat64 F
+@@ -2381,6 +2384,8 @@ GLIBC_2.4 strfmon_l F
+ GLIBC_2.4 strfry F
+ GLIBC_2.4 strftime F
+ GLIBC_2.4 strftime_l F
++GLIBC_2.4 strlcat F
++GLIBC_2.4 strlcpy F
+ GLIBC_2.4 strlen F
+ GLIBC_2.4 strncasecmp F
+ GLIBC_2.4 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/dl-parse_auxv.h b/sysdeps/unix/sysv/linux/dl-parse_auxv.h
+index cf5e81bf2c..a314ba441f 100644
+--- a/sysdeps/unix/sysv/linux/dl-parse_auxv.h
++++ b/sysdeps/unix/sysv/linux/dl-parse_auxv.h
+@@ -29,6 +29,10 @@ typedef ElfW(Addr) dl_parse_auxv_t[AT_MINSIGSTKSZ + 1];
+ static inline
+ void _dl_parse_auxv (ElfW(auxv_t) *av, dl_parse_auxv_t auxv_values)
+ {
++  uid_t uid = 0;
++  gid_t gid = 0;
++  unsigned security_mask = 0;
++
+   auxv_values[AT_ENTRY] = (ElfW(Addr)) ENTRY_POINT;
+   auxv_values[AT_PAGESZ] = EXEC_PAGESIZE;
+   auxv_values[AT_FPUCW] = _FPU_DEFAULT;
+@@ -43,7 +47,14 @@ void _dl_parse_auxv (ElfW(auxv_t) *av, dl_parse_auxv_t auxv_values)
+       auxv_values[av->a_type] = av->a_un.a_val;
+ 
+   GLRO(dl_pagesize) = auxv_values[AT_PAGESZ];
+-  __libc_enable_secure = auxv_values[AT_SECURE];
++  uid ^= auxv_values[AT_UID];
++  uid ^= auxv_values[AT_EUID];
++  gid ^= auxv_values[AT_GID];
++  gid ^= auxv_values[AT_EGID];
++  security_mask |= auxv_values[AT_SECURE] != 0;
++  security_mask |= ((uid != 0) << 1) | ((gid != 0) << 2);
++  __libc_security_mask = security_mask;
++  __libc_enable_secure = __libc_security_mask != 0;
+   GLRO(dl_platform) = (void *) auxv_values[AT_PLATFORM];
+   GLRO(dl_hwcap) = auxv_values[AT_HWCAP];
+   GLRO(dl_hwcap2) = auxv_values[AT_HWCAP2];
+diff --git a/sysdeps/unix/sysv/linux/dl-sysdep.c b/sysdeps/unix/sysv/linux/dl-sysdep.c
+index 1b3dd869b5..0dbdea344b 100644
+--- a/sysdeps/unix/sysv/linux/dl-sysdep.c
++++ b/sysdeps/unix/sysv/linux/dl-sysdep.c
+@@ -51,8 +51,10 @@ extern char _end[] attribute_hidden;
+ /* Protect SUID program against misuse of file descriptors.  */
+ extern void __libc_check_standard_fds (void);
+ 
+-int __libc_enable_secure attribute_relro = 0;
++int __libc_enable_secure attribute_relro = 1;
+ rtld_hidden_data_def (__libc_enable_secure)
++unsigned __libc_security_mask attribute_relro = -1U;
++rtld_hidden_data_def (__libc_security_mask)
+ /* This variable contains the lowest stack address ever used.  */
+ void *__libc_stack_end attribute_relro = NULL;
+ rtld_hidden_data_def(__libc_stack_end)
+diff --git a/sysdeps/unix/sysv/linux/fchmodat.c b/sysdeps/unix/sysv/linux/fchmodat.c
+index 99527a3727..232337253c 100644
+--- a/sysdeps/unix/sysv/linux/fchmodat.c
++++ b/sysdeps/unix/sysv/linux/fchmodat.c
+@@ -88,4 +88,3 @@ fchmodat (int fd, const char *file, mode_t mode, int flag)
+       return ret;
+     }
+ }
+-libc_hidden_def (fchmodat)
+diff --git a/sysdeps/unix/sysv/linux/hppa/ld.abilist b/sysdeps/unix/sysv/linux/hppa/ld.abilist
+index 7f5527fb30..ec09110475 100644
+--- a/sysdeps/unix/sysv/linux/hppa/ld.abilist
++++ b/sysdeps/unix/sysv/linux/hppa/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x4
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.2 _r_debug D 0x14
+diff --git a/sysdeps/unix/sysv/linux/hppa/libc.abilist b/sysdeps/unix/sysv/linux/hppa/libc.abilist
+index 82a14f8ace..81912b24bb 100644
+--- a/sysdeps/unix/sysv/linux/hppa/libc.abilist
++++ b/sysdeps/unix/sysv/linux/hppa/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.0 __dn_comp F
+ GLIBC_2.0 __dn_skipname F
+ GLIBC_2.0 __res_dnok F
+@@ -1996,9 +1998,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/i386/ld.abilist b/sysdeps/unix/sysv/linux/i386/ld.abilist
+index 9c4a45d8dc..77eec08cbb 100644
+--- a/sysdeps/unix/sysv/linux/i386/ld.abilist
++++ b/sysdeps/unix/sysv/linux/i386/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.0 __libc_enable_secure D 0x4
+ GLIBC_2.0 _r_debug D 0x14
+ GLIBC_2.1 __libc_stack_end D 0x4
+ GLIBC_2.1 _dl_mcount F
+diff --git a/sysdeps/unix/sysv/linux/i386/libc.abilist b/sysdeps/unix/sysv/linux/i386/libc.abilist
+index 1950b15d5d..c9e433b5e0 100644
+--- a/sysdeps/unix/sysv/linux/i386/libc.abilist
++++ b/sysdeps/unix/sysv/linux/i386/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2164,9 +2166,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/ia64/ld.abilist b/sysdeps/unix/sysv/linux/ia64/ld.abilist
+index 5471b24d59..281e3da60e 100644
+--- a/sysdeps/unix/sysv/linux/ia64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/ia64/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x8
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.2 _r_debug D 0x28
+diff --git a/sysdeps/unix/sysv/linux/ia64/libc.abilist b/sysdeps/unix/sysv/linux/ia64/libc.abilist
+index d0b9cb279b..675831d489 100644
+--- a/sysdeps/unix/sysv/linux/ia64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/ia64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.0 __dn_comp F
+ GLIBC_2.0 __dn_skipname F
+ GLIBC_2.0 __res_dnok F
+@@ -2018,9 +2020,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.2.6 getunwind F
+ GLIBC_2.22 fmemopen F
+diff --git a/sysdeps/unix/sysv/linux/m68k/coldfire/ld.abilist b/sysdeps/unix/sysv/linux/m68k/coldfire/ld.abilist
+index f1da2c636d..3cbef3ea49 100644
+--- a/sysdeps/unix/sysv/linux/m68k/coldfire/ld.abilist
++++ b/sysdeps/unix/sysv/linux/m68k/coldfire/ld.abilist
+@@ -2,6 +2,7 @@ GLIBC_2.34 __rtld_version_placeholder F
+ GLIBC_2.35 __rseq_flags D 0x4
+ GLIBC_2.35 __rseq_offset D 0x4
+ GLIBC_2.35 __rseq_size D 0x4
++GLIBC_2.4 __libc_enable_secure D 0x4
+ GLIBC_2.4 __libc_stack_end D 0x4
+ GLIBC_2.4 __stack_chk_guard D 0x4
+ GLIBC_2.4 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/m68k/coldfire/libc.abilist b/sysdeps/unix/sysv/linux/m68k/coldfire/libc.abilist
+index 35785a3d5f..ef2bccefbc 100644
+--- a/sysdeps/unix/sysv/linux/m68k/coldfire/libc.abilist
++++ b/sysdeps/unix/sysv/linux/m68k/coldfire/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.10 __cxa_at_quick_exit F
+ GLIBC_2.10 __posix_getopt F
+ GLIBC_2.10 accept4 F
+@@ -827,6 +829,7 @@ GLIBC_2.4 __libc_realloc F
+ GLIBC_2.4 __libc_sa_len F
+ GLIBC_2.4 __libc_start_main F
+ GLIBC_2.4 __libc_valloc F
++GLIBC_2.4 __locale_getenv F
+ GLIBC_2.4 __lseek F
+ GLIBC_2.4 __lxstat F
+ GLIBC_2.4 __lxstat64 F
+@@ -2364,6 +2367,8 @@ GLIBC_2.4 strfmon_l F
+ GLIBC_2.4 strfry F
+ GLIBC_2.4 strftime F
+ GLIBC_2.4 strftime_l F
++GLIBC_2.4 strlcat F
++GLIBC_2.4 strlcpy F
+ GLIBC_2.4 strlen F
+ GLIBC_2.4 strncasecmp F
+ GLIBC_2.4 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/m68k/m680x0/ld.abilist b/sysdeps/unix/sysv/linux/m68k/m680x0/ld.abilist
+index dadbf852d0..746c012407 100644
+--- a/sysdeps/unix/sysv/linux/m68k/m680x0/ld.abilist
++++ b/sysdeps/unix/sysv/linux/m68k/m680x0/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x14
++GLIBC_2.1 __libc_enable_secure D 0x4
+ GLIBC_2.1 __libc_stack_end D 0x4
+ GLIBC_2.1 _dl_mcount F
+ GLIBC_2.3 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/m68k/m680x0/libc.abilist b/sysdeps/unix/sysv/linux/m68k/m680x0/libc.abilist
+index 4ab2426e0a..6e23a692ac 100644
+--- a/sysdeps/unix/sysv/linux/m68k/m680x0/libc.abilist
++++ b/sysdeps/unix/sysv/linux/m68k/m680x0/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2120,9 +2122,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/microblaze/ld.abilist b/sysdeps/unix/sysv/linux/microblaze/ld.abilist
+index 89a0b7e4fd..9634ee1cc1 100644
+--- a/sysdeps/unix/sysv/linux/microblaze/ld.abilist
++++ b/sysdeps/unix/sysv/linux/microblaze/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.18 __libc_enable_secure D 0x4
+ GLIBC_2.18 __libc_stack_end D 0x4
+ GLIBC_2.18 __stack_chk_guard D 0x4
+ GLIBC_2.18 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/microblaze/le/libc.abilist b/sysdeps/unix/sysv/linux/microblaze/le/libc.abilist
+index 374d658988..3af689e83b 100644
+--- a/sysdeps/unix/sysv/linux/microblaze/le/libc.abilist
++++ b/sysdeps/unix/sysv/linux/microblaze/le/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.18 _Exit F
+ GLIBC_2.18 _IO_2_1_stderr_ D 0x98
+ GLIBC_2.18 _IO_2_1_stdin_ D 0x98
+@@ -290,6 +292,7 @@ GLIBC_2.18 __libc_realloc F
+ GLIBC_2.18 __libc_sa_len F
+ GLIBC_2.18 __libc_start_main F
+ GLIBC_2.18 __libc_valloc F
++GLIBC_2.18 __locale_getenv F
+ GLIBC_2.18 __longjmp_chk F
+ GLIBC_2.18 __lseek F
+ GLIBC_2.18 __lxstat F
+@@ -1933,6 +1936,8 @@ GLIBC_2.18 strfmon_l F
+ GLIBC_2.18 strfry F
+ GLIBC_2.18 strftime F
+ GLIBC_2.18 strftime_l F
++GLIBC_2.18 strlcat F
++GLIBC_2.18 strlcpy F
+ GLIBC_2.18 strlen F
+ GLIBC_2.18 strncasecmp F
+ GLIBC_2.18 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/fpu/libc.abilist b/sysdeps/unix/sysv/linux/mips/mips32/fpu/libc.abilist
+index fcc5e88e91..7e4d3e31a6 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips32/fpu/libc.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips32/fpu/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2090,9 +2092,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/ld.abilist b/sysdeps/unix/sysv/linux/mips/mips32/ld.abilist
+index e304d1bb46..b98af457e1 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips32/ld.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips32/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x14
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x4
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.3 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips32/nofpu/libc.abilist b/sysdeps/unix/sysv/linux/mips/mips32/nofpu/libc.abilist
+index 01eb96cd93..65fa9e2dbd 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips32/nofpu/libc.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips32/nofpu/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2088,9 +2090,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n32/ld.abilist b/sysdeps/unix/sysv/linux/mips/mips64/n32/ld.abilist
+index e304d1bb46..b98af457e1 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n32/ld.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n32/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x14
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x4
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.3 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n32/libc.abilist b/sysdeps/unix/sysv/linux/mips/mips64/n32/libc.abilist
+index a2748b7b74..d4805919cc 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n32/libc.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n32/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2086,9 +2088,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n64/ld.abilist b/sysdeps/unix/sysv/linux/mips/mips64/n64/ld.abilist
+index f26e594a13..34eec8bc90 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n64/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x28
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x8
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.3 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/mips/mips64/n64/libc.abilist b/sysdeps/unix/sysv/linux/mips/mips64/n64/libc.abilist
+index 0ae7ba499d..c626eea70e 100644
+--- a/sysdeps/unix/sysv/linux/mips/mips64/n64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/mips/mips64/n64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2082,9 +2084,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/nios2/ld.abilist b/sysdeps/unix/sysv/linux/nios2/ld.abilist
+index 811ae9da2f..713b75436b 100644
+--- a/sysdeps/unix/sysv/linux/nios2/ld.abilist
++++ b/sysdeps/unix/sysv/linux/nios2/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.21 __libc_enable_secure D 0x4
+ GLIBC_2.21 __libc_stack_end D 0x4
+ GLIBC_2.21 __stack_chk_guard D 0x4
+ GLIBC_2.21 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/nios2/libc.abilist b/sysdeps/unix/sysv/linux/nios2/libc.abilist
+index 947495a0e2..0ad6977e57 100644
+--- a/sysdeps/unix/sysv/linux/nios2/libc.abilist
++++ b/sysdeps/unix/sysv/linux/nios2/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.21 _Exit F
+ GLIBC_2.21 _IO_2_1_stderr_ D 0x98
+ GLIBC_2.21 _IO_2_1_stdin_ D 0x98
+@@ -319,6 +321,7 @@ GLIBC_2.21 __libc_realloc F
+ GLIBC_2.21 __libc_sa_len F
+ GLIBC_2.21 __libc_start_main F
+ GLIBC_2.21 __libc_valloc F
++GLIBC_2.21 __locale_getenv F
+ GLIBC_2.21 __longjmp_chk F
+ GLIBC_2.21 __lseek F
+ GLIBC_2.21 __ltdf2 F
+@@ -1975,6 +1978,8 @@ GLIBC_2.21 strfmon_l F
+ GLIBC_2.21 strfry F
+ GLIBC_2.21 strftime F
+ GLIBC_2.21 strftime_l F
++GLIBC_2.21 strlcat F
++GLIBC_2.21 strlcpy F
+ GLIBC_2.21 strlen F
+ GLIBC_2.21 strncasecmp F
+ GLIBC_2.21 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/paths.h b/sysdeps/unix/sysv/linux/paths.h
+index 1342ab3a96..ea86d9625b 100644
+--- a/sysdeps/unix/sysv/linux/paths.h
++++ b/sysdeps/unix/sysv/linux/paths.h
+@@ -62,7 +62,7 @@
+ #define	_PATH_TTY	"/dev/tty"
+ #define	_PATH_UNIX	"/boot/vmlinux"
+ #define	_PATH_UTMP	"/var/run/utmp"
+-#define	_PATH_VI	"/usr/bin/vi"
++#define	_PATH_VI	"/bin/vi"
+ #define	_PATH_WTMP	"/var/log/wtmp"
+ 
+ /* Provide trailing slash, since mostly used for building pathnames. */
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc32/fpu/libc.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc32/fpu/libc.abilist
+index 19c4c325b0..3c0b54e9b7 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc32/fpu/libc.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc32/fpu/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2124,9 +2126,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc32/ld.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc32/ld.abilist
+index 5a68aeb9ee..a15037eecd 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc32/ld.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc32/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x14
++GLIBC_2.1 __libc_enable_secure D 0x4
+ GLIBC_2.1 __libc_stack_end D 0x4
+ GLIBC_2.1 _dl_mcount F
+ GLIBC_2.22 __tls_get_addr_opt F
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc32/nofpu/libc.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc32/nofpu/libc.abilist
+index 3e043c4044..9fd72c6827 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc32/nofpu/libc.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc32/nofpu/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2128,9 +2130,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/ld.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/ld.abilist
+index 21f472e674..7b194ef692 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/ld.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/ld.abilist
+@@ -1,5 +1,6 @@
+ GLIBC_2.22 __tls_get_addr_opt F
+ GLIBC_2.23 __parse_hwcap_and_convert_at_platform F
++GLIBC_2.3 __libc_enable_secure D 0x4
+ GLIBC_2.3 __libc_stack_end D 0x8
+ GLIBC_2.3 __tls_get_addr F
+ GLIBC_2.3 _dl_mcount F
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/libc.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/libc.abilist
+index e4f3a766bb..4df9996ea9 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/libc.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/be/libc.abilist
+@@ -1,4 +1,7 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.10 __cxa_at_quick_exit F
++GLIBC_2.10 __locale_getenv F
+ GLIBC_2.10 __posix_getopt F
+ GLIBC_2.10 accept4 F
+ GLIBC_2.10 endsgent F
+@@ -1809,6 +1812,8 @@ GLIBC_2.3 strfmon_l F
+ GLIBC_2.3 strfry F
+ GLIBC_2.3 strftime F
+ GLIBC_2.3 strftime_l F
++GLIBC_2.3 strlcat F
++GLIBC_2.3 strlcpy F
+ GLIBC_2.3 strlen F
+ GLIBC_2.3 strncasecmp F
+ GLIBC_2.3 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/ld.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/ld.abilist
+index 9c9c40450d..acbdcbd760 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/ld.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.17 __libc_enable_secure D 0x4
+ GLIBC_2.17 __libc_stack_end D 0x8
+ GLIBC_2.17 __tls_get_addr F
+ GLIBC_2.17 _dl_mcount F
+diff --git a/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/libc.abilist b/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/libc.abilist
+index dafe1c4a59..dd3b1bf734 100644
+--- a/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/libc.abilist
++++ b/sysdeps/unix/sysv/linux/powerpc/powerpc64/le/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.17 _Exit F
+ GLIBC_2.17 _IO_2_1_stderr_ D 0xe0
+ GLIBC_2.17 _IO_2_1_stdin_ D 0xe0
+@@ -288,6 +290,7 @@ GLIBC_2.17 __libc_realloc F
+ GLIBC_2.17 __libc_sa_len F
+ GLIBC_2.17 __libc_start_main F
+ GLIBC_2.17 __libc_valloc F
++GLIBC_2.17 __locale_getenv F
+ GLIBC_2.17 __longjmp_chk F
+ GLIBC_2.17 __lseek F
+ GLIBC_2.17 __lxstat F
+@@ -2017,6 +2020,8 @@ GLIBC_2.17 strfmon_l F
+ GLIBC_2.17 strfry F
+ GLIBC_2.17 strftime F
+ GLIBC_2.17 strftime_l F
++GLIBC_2.17 strlcat F
++GLIBC_2.17 strlcpy F
+ GLIBC_2.17 strlen F
+ GLIBC_2.17 strncasecmp F
+ GLIBC_2.17 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/riscv/configure b/sysdeps/unix/sysv/linux/riscv/configure
+index 79bf5efa25..cf6c4f3d5c 100755
+--- a/sysdeps/unix/sysv/linux/riscv/configure
++++ b/sysdeps/unix/sysv/linux/riscv/configure
+@@ -217,56 +217,28 @@ config_vars="$config_vars
+ default-abi = $libc_cv_riscv_int_abi$libc_cv_riscv_float_abi"
+ 
+ case $libc_cv_riscv_int_abi$libc_cv_riscv_float_abi-$machine in
+-lp64-riscv/rv64/*)
++lp64-riscv/rv64/*|lp64d-riscv/rv64/*)
+   test -n "$libc_cv_slibdir" ||
+ case "$prefix" in
+ /usr | /usr/)
+-  libc_cv_slibdir='/lib64/lp64'
+-  libc_cv_rtlddir='/lib'
++  libc_cv_slibdir='/lib64'
++  libc_cv_rtlddir='/lib64'
+   if test "$libdir" = '${exec_prefix}/lib'; then
+-    libdir='${exec_prefix}/lib64/lp64';
++    libdir='${exec_prefix}/lib64';
+     # Locale data can be shared between 32-bit and 64-bit libraries.
+     libc_cv_complocaledir='${exec_prefix}/lib/locale'
+   fi
+   ;;
+ esac
+   ;;
+-lp64d-riscv/rv64/*)
++ilp32-riscv/rv32/*|ilp32d-riscv/rv32/*)
+   test -n "$libc_cv_slibdir" ||
+ case "$prefix" in
+ /usr | /usr/)
+-  libc_cv_slibdir='/lib64/lp64d'
++  libc_cv_slibdir='/lib'
+   libc_cv_rtlddir='/lib'
+   if test "$libdir" = '${exec_prefix}/lib'; then
+-    libdir='${exec_prefix}/lib64/lp64d';
+-    # Locale data can be shared between 32-bit and 64-bit libraries.
+-    libc_cv_complocaledir='${exec_prefix}/lib/locale'
+-  fi
+-  ;;
+-esac
+-  ;;
+-ilp32-riscv/rv32/*)
+-  test -n "$libc_cv_slibdir" ||
+-case "$prefix" in
+-/usr | /usr/)
+-  libc_cv_slibdir='/lib32/ilp32'
+-  libc_cv_rtlddir='/lib'
+-  if test "$libdir" = '${exec_prefix}/lib'; then
+-    libdir='${exec_prefix}/lib32/ilp32';
+-    # Locale data can be shared between 32-bit and 64-bit libraries.
+-    libc_cv_complocaledir='${exec_prefix}/lib/locale'
+-  fi
+-  ;;
+-esac
+-  ;;
+-ilp32d-riscv/rv32/*)
+-  test -n "$libc_cv_slibdir" ||
+-case "$prefix" in
+-/usr | /usr/)
+-  libc_cv_slibdir='/lib32/ilp32d'
+-  libc_cv_rtlddir='/lib'
+-  if test "$libdir" = '${exec_prefix}/lib'; then
+-    libdir='${exec_prefix}/lib32/ilp32d';
++    libdir='${exec_prefix}/lib';
+     # Locale data can be shared between 32-bit and 64-bit libraries.
+     libc_cv_complocaledir='${exec_prefix}/lib/locale'
+   fi
+diff --git a/sysdeps/unix/sysv/linux/riscv/configure.ac b/sysdeps/unix/sysv/linux/riscv/configure.ac
+index 9c736415f7..5fa9093030 100644
+--- a/sysdeps/unix/sysv/linux/riscv/configure.ac
++++ b/sysdeps/unix/sysv/linux/riscv/configure.ac
+@@ -33,17 +33,11 @@ fi
+ LIBC_CONFIG_VAR([default-abi], [$libc_cv_riscv_int_abi$libc_cv_riscv_float_abi])
+ 
+ case $libc_cv_riscv_int_abi$libc_cv_riscv_float_abi-$machine in
+-lp64-riscv/rv64/*)
+-  LIBC_SLIBDIR_RTLDDIR([lib64/lp64], [lib])
++lp64-riscv/rv64/*|lp64d-riscv/rv64/*)
++  LIBC_SLIBDIR_RTLDDIR([lib64], [lib64])
+   ;;
+-lp64d-riscv/rv64/*)
+-  LIBC_SLIBDIR_RTLDDIR([lib64/lp64d], [lib])
+-  ;;
+-ilp32-riscv/rv32/*)
+-  LIBC_SLIBDIR_RTLDDIR([lib32/ilp32], [lib])
+-  ;;
+-ilp32d-riscv/rv32/*)
+-  LIBC_SLIBDIR_RTLDDIR([lib32/ilp32d], [lib])
++ilp32-riscv/rv32/*|ilp32d-riscv/rv32/*)
++  LIBC_SLIBDIR_RTLDDIR([lib], [lib])
+   ;;
+ esac
+ 
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv64/ld.abilist b/sysdeps/unix/sysv/linux/riscv/rv64/ld.abilist
+index a7758a0e52..2532a7bc3c 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/riscv/rv64/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.27 __libc_enable_secure D 0x4
+ GLIBC_2.27 __libc_stack_end D 0x8
+ GLIBC_2.27 __stack_chk_guard D 0x8
+ GLIBC_2.27 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/riscv/rv64/libc.abilist b/sysdeps/unix/sysv/linux/riscv/rv64/libc.abilist
+index e3b4656aa2..f5bc37b1be 100644
+--- a/sysdeps/unix/sysv/linux/riscv/rv64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/riscv/rv64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.27 _Exit F
+ GLIBC_2.27 _IO_2_1_stderr_ D 0xe0
+ GLIBC_2.27 _IO_2_1_stdin_ D 0xe0
+@@ -291,6 +293,7 @@ GLIBC_2.27 __libc_realloc F
+ GLIBC_2.27 __libc_sa_len F
+ GLIBC_2.27 __libc_start_main F
+ GLIBC_2.27 __libc_valloc F
++GLIBC_2.27 __locale_getenv F
+ GLIBC_2.27 __longjmp_chk F
+ GLIBC_2.27 __lseek F
+ GLIBC_2.27 __lxstat F
+@@ -1931,6 +1934,8 @@ GLIBC_2.27 strfroml F
+ GLIBC_2.27 strfry F
+ GLIBC_2.27 strftime F
+ GLIBC_2.27 strftime_l F
++GLIBC_2.27 strlcat F
++GLIBC_2.27 strlcpy F
+ GLIBC_2.27 strlen F
+ GLIBC_2.27 strncasecmp F
+ GLIBC_2.27 strncasecmp_l F
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-32/ld.abilist b/sysdeps/unix/sysv/linux/s390/s390-32/ld.abilist
+index c15288394a..538301fdbb 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-32/ld.abilist
++++ b/sysdeps/unix/sysv/linux/s390/s390-32/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x14
++GLIBC_2.1 __libc_enable_secure D 0x4
+ GLIBC_2.1 __libc_stack_end D 0x4
+ GLIBC_2.1 _dl_mcount F
+ GLIBC_2.3 __tls_get_offset F
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-32/libc.abilist b/sysdeps/unix/sysv/linux/s390/s390-32/libc.abilist
+index 84cb7a50ed..2f5628828b 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-32/libc.abilist
++++ b/sysdeps/unix/sysv/linux/s390/s390-32/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2123,9 +2125,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-64/ld.abilist b/sysdeps/unix/sysv/linux/s390/s390-64/ld.abilist
+index 78d071600b..4aa44d1e2b 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/s390/s390-64/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x8
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.2 _r_debug D 0x28
+diff --git a/sysdeps/unix/sysv/linux/s390/s390-64/libc.abilist b/sysdeps/unix/sysv/linux/s390/s390-64/libc.abilist
+index 33df3b1646..7fc12c9571 100644
+--- a/sysdeps/unix/sysv/linux/s390/s390-64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/s390/s390-64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2008,9 +2010,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/sh/be/ld.abilist b/sysdeps/unix/sysv/linux/sh/be/ld.abilist
+index 7f5527fb30..ec09110475 100644
+--- a/sysdeps/unix/sysv/linux/sh/be/ld.abilist
++++ b/sysdeps/unix/sysv/linux/sh/be/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x4
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.2 _r_debug D 0x14
+diff --git a/sysdeps/unix/sysv/linux/sh/le/libc.abilist b/sysdeps/unix/sysv/linux/sh/le/libc.abilist
+index 3bb316a787..bd925e7870 100644
+--- a/sysdeps/unix/sysv/linux/sh/le/libc.abilist
++++ b/sysdeps/unix/sysv/linux/sh/le/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2000,9 +2002,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc32/ld.abilist b/sysdeps/unix/sysv/linux/sparc/sparc32/ld.abilist
+index 3aac73f3df..964713fd28 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc32/ld.abilist
++++ b/sysdeps/unix/sysv/linux/sparc/sparc32/ld.abilist
+@@ -1,4 +1,5 @@
+ GLIBC_2.0 _r_debug D 0x14
++GLIBC_2.1 __libc_enable_secure D 0x4
+ GLIBC_2.1 __libc_stack_end D 0x4
+ GLIBC_2.1 _dl_mcount F
+ GLIBC_2.3 __tls_get_addr F
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc32/libc.abilist b/sysdeps/unix/sysv/linux/sparc/sparc32/libc.abilist
+index 6341b491b4..99a8af11e5 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc32/libc.abilist
++++ b/sysdeps/unix/sysv/linux/sparc/sparc32/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2117,9 +2119,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc64/ld.abilist b/sysdeps/unix/sysv/linux/sparc/sparc64/ld.abilist
+index 5471b24d59..281e3da60e 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/sparc/sparc64/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.2 __libc_enable_secure D 0x4
+ GLIBC_2.2 __libc_stack_end D 0x8
+ GLIBC_2.2 _dl_mcount F
+ GLIBC_2.2 _r_debug D 0x28
+diff --git a/sysdeps/unix/sysv/linux/sparc/sparc64/libc.abilist b/sysdeps/unix/sysv/linux/sparc/sparc64/libc.abilist
+index 8ed1ea2926..aa6c45ed32 100644
+--- a/sysdeps/unix/sysv/linux/sparc/sparc64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/sparc/sparc64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GCC_3.0 _Unwind_Find_FDE F
+ GCC_3.0 __deregister_frame_info_bases F
+ GCC_3.0 __register_frame_info_bases F
+@@ -2044,9 +2046,12 @@ GLIBC_2.2.3 gai_suspend F
+ GLIBC_2.2.3 getaddrinfo_a F
+ GLIBC_2.2.3 pthread_getattr_np F
+ GLIBC_2.2.3 sprofil F
++GLIBC_2.2.4 __locale_getenv F
+ GLIBC_2.2.4 dl_iterate_phdr F
+ GLIBC_2.2.4 getgrouplist F
+ GLIBC_2.2.4 sockatmark F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.6 __nanosleep F
+ GLIBC_2.22 fmemopen F
+ GLIBC_2.23 fts64_children F
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/ld.abilist b/sysdeps/unix/sysv/linux/x86_64/64/ld.abilist
+index 5a8bd322cd..94a22741ed 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/ld.abilist
++++ b/sysdeps/unix/sysv/linux/x86_64/64/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.2.5 __libc_enable_secure D 0x4
+ GLIBC_2.2.5 __libc_stack_end D 0x8
+ GLIBC_2.2.5 _dl_mcount F
+ GLIBC_2.2.5 _r_debug D 0x28
+diff --git a/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist b/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist
+index 57cfcc2086..f6b409a0b2 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist
++++ b/sysdeps/unix/sysv/linux/x86_64/64/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.10 __cxa_at_quick_exit F
+ GLIBC_2.10 __posix_getopt F
+ GLIBC_2.10 accept4 F
+@@ -337,6 +339,7 @@ GLIBC_2.2.5 __libc_realloc F
+ GLIBC_2.2.5 __libc_sa_len F
+ GLIBC_2.2.5 __libc_start_main F
+ GLIBC_2.2.5 __libc_valloc F
++GLIBC_2.2.5 __locale_getenv F
+ GLIBC_2.2.5 __lseek F
+ GLIBC_2.2.5 __lxstat F
+ GLIBC_2.2.5 __lxstat64 F
+@@ -1690,6 +1693,8 @@ GLIBC_2.2.5 strerror_r F
+ GLIBC_2.2.5 strfmon F
+ GLIBC_2.2.5 strfry F
+ GLIBC_2.2.5 strftime F
++GLIBC_2.2.5 strlcat F
++GLIBC_2.2.5 strlcpy F
+ GLIBC_2.2.5 strlen F
+ GLIBC_2.2.5 strncasecmp F
+ GLIBC_2.2.5 strncat F
+diff --git a/sysdeps/unix/sysv/linux/x86_64/x32/ld.abilist b/sysdeps/unix/sysv/linux/x86_64/x32/ld.abilist
+index e17496d124..1825b06b18 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/x32/ld.abilist
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/ld.abilist
+@@ -1,3 +1,4 @@
++GLIBC_2.16 __libc_enable_secure D 0x4
+ GLIBC_2.16 __libc_stack_end D 0x4
+ GLIBC_2.16 __tls_get_addr F
+ GLIBC_2.16 _dl_mcount F
+diff --git a/sysdeps/unix/sysv/linux/x86_64/x32/libc.abilist b/sysdeps/unix/sysv/linux/x86_64/x32/libc.abilist
+index 3f0a9f6d82..185d280931 100644
+--- a/sysdeps/unix/sysv/linux/x86_64/x32/libc.abilist
++++ b/sysdeps/unix/sysv/linux/x86_64/x32/libc.abilist
+@@ -1,3 +1,5 @@
++ALT_2.24 __strlcat_chk F
++ALT_2.24 __strlcpy_chk F
+ GLIBC_2.16 _Exit F
+ GLIBC_2.16 _IO_2_1_stderr_ D 0xa0
+ GLIBC_2.16 _IO_2_1_stdin_ D 0xa0
+@@ -290,6 +292,7 @@ GLIBC_2.16 __libc_realloc F
+ GLIBC_2.16 __libc_sa_len F
+ GLIBC_2.16 __libc_start_main F
+ GLIBC_2.16 __libc_valloc F
++GLIBC_2.16 __locale_getenv F
+ GLIBC_2.16 __longjmp_chk F
+ GLIBC_2.16 __lseek F
+ GLIBC_2.16 __lxstat F
+@@ -1935,6 +1938,8 @@ GLIBC_2.16 strfmon_l F
+ GLIBC_2.16 strfry F
+ GLIBC_2.16 strftime F
+ GLIBC_2.16 strftime_l F
++GLIBC_2.16 strlcat F
++GLIBC_2.16 strlcpy F
+ GLIBC_2.16 strlen F
+ GLIBC_2.16 strncasecmp F
+ GLIBC_2.16 strncasecmp_l F
+diff --git a/sysdeps/x86/tst-cpu-features-supports.c b/sysdeps/x86/tst-cpu-features-supports.c
+index f85356b589..0d45012cfd 100644
+--- a/sysdeps/x86/tst-cpu-features-supports.c
++++ b/sysdeps/x86/tst-cpu-features-supports.c
+@@ -138,7 +138,7 @@ do_test (int argc, char **argv)
+   fails += CHECK_FEATURE_PRESENT (ibt, IBT);
+   fails += CHECK_FEATURE_ACTIVE (lahf_lm, LAHF64_SAHF64);
+   fails += CHECK_FEATURE_PRESENT (lm, LM);
+-  fails += CHECK_FEATURE_ACTIVE (lwp, LWP);
++  fails += CHECK_FEATURE_PRESENT (lwp, LWP);
+   fails += CHECK_FEATURE_ACTIVE (lzcnt, LZCNT);
+ #endif
+   fails += CHECK_FEATURE_ACTIVE (mmx, MMX);
+diff --git a/time/getdate.c b/time/getdate.c
+index ca058394a3..182c25a2d5 100644
+--- a/time/getdate.c
++++ b/time/getdate.c
+@@ -116,7 +116,7 @@ __getdate_r (const char *string, struct tm *tp)
+   bool mday_ok = false;
+   bool found = false;
+ 
+-  datemsk = getenv ("DATEMSK");
++  datemsk = __libc_secure_getenv ("DATEMSK");
+   if (datemsk == NULL || *datemsk == '\0')
+     return 1;
+ 
+diff --git a/time/tzfile.c b/time/tzfile.c
+index 8a923d0ccc..bffb6380a1 100644
+--- a/time/tzfile.c
++++ b/time/tzfile.c
+@@ -146,7 +146,7 @@ __tzfile_read (const char *file, size_t extra, char **extrap)
+     {
+       const char *tzdir;
+ 
+-      tzdir = getenv ("TZDIR");
++      tzdir = __libc_secure_getenv ("TZDIR");
+       if (tzdir == NULL || *tzdir == '\0')
+ 	tzdir = default_tzdir;
+       if (__asprintf (&new, "%s/%s", tzdir, file) == -1)
+diff --git a/time/tzset.c b/time/tzset.c
+index 78c18f8147..abc852ae68 100644
+--- a/time/tzset.c
++++ b/time/tzset.c
+@@ -373,8 +373,11 @@ tzset_internal (int always)
+     return;
+   is_initialized = 1;
+ 
+-  /* Examine the TZ environment variable.  */
+-  tz = getenv ("TZ");
++  /* Examine the TZ environment variable.  This doesn't really have to be
++     a __libc_secure_getenv() call as __tzfile_read() tries to only read files
++     found under a trusted directory, but this helps reduce the amount of
++     security-critical code.  */
++  tz = __libc_secure_getenv ("TZ");
+   if (tz && *tz == '\0')
+     /* User specified the empty string; use UTC explicitly.  */
+     tz = "Universal";
