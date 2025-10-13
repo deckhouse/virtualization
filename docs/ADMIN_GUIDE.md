@@ -863,7 +863,11 @@ Virtual machine migration is an important feature in virtualized infrastructure 
 - Upgrading a virtual machine firmware: The migration allows you to upgrade the firmware of virtual machines without interrupting their operation.
 
 {{< alert level="warning" >}}
+<<<<<<< HEAD
 Live migration has the following limitations:
+=======
+When performing live migration, the following limitations apply:
+>>>>>>> 01257d90 (docs: fix live migration)
 
 - Only one virtual machine can migrate from each node simultaneously.
 - The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
