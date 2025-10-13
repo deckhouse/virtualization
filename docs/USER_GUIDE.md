@@ -2279,12 +2279,13 @@ The trigger for live migration is the appearance of the `VirtualMachineOperation
 
 The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
 
-| Type of system event | Resource name prefix |
-|----------------------------------|------------------------|
-| Firmware-update-* | firmware-update-* |
-| Load shifting | evacuation-* |
-| Drain node | evacuation-* |
-| Modify placement parameters | nodeplacement-update-* |
+| Type of system event            | Resource name prefix   |
+|---------------------------------|------------------------|
+| Firmware update                 | firmware-update-*      |
+| Load shifting                   | evacuation-*           |
+| Drain node                      | evacuation-*           |
+| Modify placement parameters     | nodeplacement-update-* |
+| Disk storage migration          | volume-migration-*     |
 
 This resource can be in the following states:
 
