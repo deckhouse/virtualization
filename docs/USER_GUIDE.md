@@ -2174,8 +2174,19 @@ The live migration process involves several steps:
 
 ![](./images/migration.png)
 
+{{< alert level="warning" >}}
+For successful live migration, all disks attached to the VM must be accessible on the target nodes to which the migration is planned.
+
+If a disk uses storage with local disks, such storage must be available to create a new local volume on the target node.
+
+Otherwise, migration will not be possible.
+{{< /alert >}}
+
+
 {{< alert level="warning">}}
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
+
+To manage the migration process, configure the live migration policy using [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the VM settings.
 {{< /alert >}}
 
 #### AutoConverge mechanism
