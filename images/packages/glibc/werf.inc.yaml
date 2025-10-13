@@ -84,9 +84,11 @@ shell:
 
     make -j$(nproc)
 
-    make install_root=$OUTDIR install
+    make DESTDIR=$OUTDIR install
     # remove systemd dir
     rm -rf $OUTDIR/usr/lib
+    mv $OUTDIR/lib64/* $OUTDIR/usr/lib64/
+    rm -rf $OUTDIR/lib64
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
