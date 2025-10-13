@@ -1310,6 +1310,17 @@ Starting the agent service:
 sudo systemctl enable --now qemu-guest-agent
 ```
 
+You can automate the installation of the agent for Linux OS using a cloud-init initialization script. Below is an example snippet of such a script to install qemu-guest-agent:
+
+```yaml
+  #cloud-config
+  package_update: true
+  packages:
+    - qemu-guest-agent
+  run_cmd:
+    - systemctl enable --now qemu-guest-agent.service
+```
+
 ### Connecting to a virtual machine
 
 The following methods are available for connecting to the virtual machine:

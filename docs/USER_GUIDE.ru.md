@@ -1325,6 +1325,17 @@ sudo yum install qemu-guest-agent
 sudo systemctl enable --now qemu-guest-agent
 ```
 
+Установку агента для Linux ОС можно автоматизировать с помощью сценария первичной инициализации cloud-init. Ниже приведён пример фрагмента такого сценария для установки qemu-guest-agent:
+
+```yaml
+  #cloud-config
+  package_update: true
+  packages:
+    - qemu-guest-agent
+  run_cmd:
+    - systemctl enable --now qemu-guest-agent.service
+```
+
 ### Подключение к виртуальной машине
 
 Для подключения к виртуальной машине доступны следующие способы:
