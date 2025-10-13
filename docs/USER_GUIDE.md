@@ -1858,9 +1858,9 @@ Block devices and their features are shown in the table below:
 | `ClusterVirtualImage` | connected in read-only mode, or as a cdrom for iso images |
 | `VirtualDisk`         | connects in read/write mode                               |
 
-#### Static block devices
+#### Boot Block Devices
 
-Static block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
+Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
 
 Changing the composition and order of devices in the `.spec.blockDeviceRefs` block is possible only with a reboot of the virtual machine.
 
@@ -1875,19 +1875,19 @@ spec:
       name: <virtual-image-name>
 ```
 
-How to work with static block devices in the web interface:
+How to work with bootable block devices in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, resize, and reorder static block devices in the "Boot Disks" section.
+- You can add, extract, delete, resize, and reorder bootable block devices in the "Boot Disks" section.
 
-#### Dynamic Block Devices
+#### Additional Block Devices
 
-Dynamic block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
+Additional block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices.
+The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect additional block devices.
 
 As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
 
@@ -1966,13 +1966,13 @@ spec:
 EOF
 ```
 
-How to work with dynamic block devices in the web interface:
+How to work with additional block devices in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, and resize dynamic block devices in the "Additional Disks" section.
+- You can add, extract, delete, and resize additional block devices in the "Additional Disks" section.
 
 ### Organizing interaction with virtual machines
 
