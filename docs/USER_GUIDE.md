@@ -1362,7 +1362,7 @@ The virtual machine startup policy is intended for automated virtual machine sta
 
 - `AlwaysOnUnlessStoppedManually` - (default) after creation, the VM is always in a running state. In case of failures the VM operation is restored automatically. It is possible to stop the VM only by calling the `d8 v stop` command or creating a corresponding operation.
 - `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means. In case of failures the VM operation is restored automatically.
-- `Manual` - after creation, the state of the VM is controlled manually by the user using commands or operations.
+- `Manual` - after creation, the state of the VM is controlled manually by the user using commands or operations. The VM is powered off immediately after creation. To power it on, the `d8 v start` command must be executed.
 - `AlwaysOff` - after creation the VM is always in the off state. There is no possibility to turn on the VM through commands/operations.
 
 How to select a VM startup policy in the web interface:
