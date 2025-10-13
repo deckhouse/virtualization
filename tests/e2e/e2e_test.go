@@ -170,7 +170,7 @@ var _ = SynchronizedBeforeSuite(func() {
 		log.Println("Run test in REUSABLE mode")
 	}
 
-	Expect(defaultLogStreamer.Start()).To(Succeed())
+	Expect(defaultLogStreamer.Start(ns)).To(Succeed())
 
 	DeferCleanup(func() {
 		if config.IsCleanUpNeeded() {
@@ -203,6 +203,7 @@ type logStreamer struct {
 	cancel  context.CancelFunc
 	closers []io.Closer
 	wg      *sync.WaitGroup
+	ns      string
 
 	resultNum int
 	resultErr error
@@ -211,15 +212,16 @@ type logStreamer struct {
 
 var defaultLogStreamer = &logStreamer{}
 
-// This function is used to detect `v12n-controller` errors while the test suite is running.
-func (l *logStreamer) Start() error {
+// Start is used to detect `v12n-controller` errors while the test suite is running.
+// Note: errors scope is reduced to namespaces created during this test.
+func (l *logStreamer) Start(ourNamespacesPrefix string) error {
 	l.ctx, l.cancel = context.WithCancel(context.Background())
 	l.wg = &sync.WaitGroup{}
 
 	c := framework.GetConfig()
 	excludePatterns := c.LogFilter
 	excludeRegexpPatterns := c.RegexpLogFilter
-	logStreamer := el.NewLogStreamer(excludePatterns, excludeRegexpPatterns)
+	logStreamer := el.NewLogStreamer(excludePatterns, excludeRegexpPatterns, ourNamespacesPrefix)
 
 	kubeClient := framework.GetClients().KubeClient()
 	pods, err := kubeClient.CoreV1().Pods(VirtualizationNamespace).List(l.ctx, metav1.ListOptions{

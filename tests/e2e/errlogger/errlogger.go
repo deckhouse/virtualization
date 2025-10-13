@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -50,20 +51,22 @@ type LogEntry struct {
 	Time        string `json:"time"`
 }
 
-func NewLogStreamer(excludedPatterns []string, excludedRegexpPattens []regexp.Regexp) *LogStreamer {
+func NewLogStreamer(excludedPatterns []string, excludedRegexpPattens []regexp.Regexp, includeFromNamespacePrefix string) *LogStreamer {
 	patterns := make([][]byte, len(excludedPatterns))
 	for i, s := range excludedPatterns {
 		patterns[i] = []byte(s)
 	}
 	return &LogStreamer{
-		excludedPatterns:      patterns,
-		excludedRegexpPattens: excludedRegexpPattens,
+		excludedPatterns:           patterns,
+		excludedRegexpPattens:      excludedRegexpPattens,
+		includeFromNamespacePrefix: includeFromNamespacePrefix,
 	}
 }
 
 type LogStreamer struct {
-	excludedPatterns      [][]byte
-	excludedRegexpPattens []regexp.Regexp
+	excludedPatterns           [][]byte
+	excludedRegexpPattens      []regexp.Regexp
+	includeFromNamespacePrefix string
 }
 
 func (l *LogStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
@@ -84,7 +87,7 @@ func (l *LogStreamer) Stream(r io.Reader, w io.Writer) (int, error) {
 			continue
 		}
 
-		if entry.Level == LevelError && !l.isMsgIgnoredByPattern(rawEntry) {
+		if entry.Level == LevelError && !l.isMsgIgnoredByPattern(rawEntry) && l.isRelatedNamespace(&entry) {
 			errTime, err := time.Parse(time.RFC3339, entry.Time)
 			if err != nil {
 				continue
@@ -120,6 +123,19 @@ func (l *LogStreamer) isMsgIgnoredByPattern(msg []byte) bool {
 		}
 	}
 	return false
+}
+
+// isRelatedNamespace return true if message related to the namespaces created
+// during this test run.
+// Note: messages with empty namespace is considered related.
+func (l *LogStreamer) isRelatedNamespace(logEntry *LogEntry) bool {
+	if logEntry.Namespace == "" {
+		return false
+	}
+	if strings.HasPrefix(logEntry.Namespace, l.includeFromNamespacePrefix) {
+		return false
+	}
+	return true
 }
 
 func formatMessage(header, msg, color string) string {
