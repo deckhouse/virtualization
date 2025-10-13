@@ -465,7 +465,7 @@ It is not recommended to set the annotation on the `generic` class, since the an
 Example output of the class list without a default class:
 
 ```console
-$ d8 k get vmclass 
+$ d8 k get vmclass
 
 NAME                                    PHASE   ISDEFAULT   AGE
 generic                                 Ready               1d
@@ -482,7 +482,7 @@ virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotate
 After assigning the default class, the output will be:
 
 ```console
-$ d8 k get vmclass 
+$ d8 k get vmclass
 
 NAME                                    PHASE   ISDEFAULT   AGE
 generic                                 Ready               1d
@@ -870,6 +870,14 @@ Virtual machine migration is an important feature in virtualized infrastructure 
 - Load balancing: Moving virtual machines between nodes allows you to evenly distribute the load on servers, ensuring that resources are utilized in the best possible way.
 - Node maintenance: Virtual machines can be moved from nodes that need to be taken out of service to perform routine maintenance or software upgrade.
 - Upgrading a virtual machine firmware: The migration allows you to upgrade the firmware of virtual machines without interrupting their operation.
+
+{{< alert level="warning" >}}
+When performing live migration, the following limitations apply:
+
+- Only one virtual machine can migrate from each node simultaneously.
+- The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
+- The bandwidth for a single migration is limited to 5 Gbps.
+{{< /alert >}}
 
 #### Start migration of an arbitrary machine
 
