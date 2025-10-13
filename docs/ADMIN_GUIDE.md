@@ -863,11 +863,7 @@ Virtual machine migration is an important feature in virtualized infrastructure 
 - Upgrading a virtual machine firmware: The migration allows you to upgrade the firmware of virtual machines without interrupting their operation.
 
 {{< alert level="warning" >}}
-<<<<<<< HEAD
-Live migration has the following limitations:
-=======
 When performing live migration, the following limitations apply:
->>>>>>> 01257d90 (docs: fix live migration)
 
 - Only one virtual machine can migrate from each node simultaneously.
 - The total number of concurrent migrations in the cluster cannot exceed the number of nodes where running virtual machines is permitted.
@@ -977,13 +973,8 @@ Live migration of virtual machines between cluster nodes is used for rebalancing
 
 After the module is enabled, the system automatically monitors the distribution of virtual machines and maintains optimal node utilization. The main features of the module are:
 
-<<<<<<< HEAD
 - Load balancing: The system monitors CPU reservation on each node. If more than 80% of CPU resources are reserved on a node, some virtual machines will be automatically migrated to less-loaded nodes. This helps avoid overloads and ensures stable VM operation.
 - Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
-=======
-- Load balancing — the system monitors CPU reservation on each node. If more than 80% of CPU resources are reserved on a node, some virtual machines will be automatically migrated to less loaded nodes. This helps avoid overloads and ensures stable VM operation.
-- Correct placement — the system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
->>>>>>> 6840c4e3 (docs: fix rebalancing)
 
 ### ColdStandby
 
