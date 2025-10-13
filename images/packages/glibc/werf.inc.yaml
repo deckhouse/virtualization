@@ -13,7 +13,7 @@ packages:
 {{- $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "glibc.git" }}
+{{- $gitRepoUrl := "glibc-alt.git" }}
 
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
 {{- if eq .ModuleNamePrefix "" }}
