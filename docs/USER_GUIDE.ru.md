@@ -1336,6 +1336,43 @@ sudo systemctl enable --now qemu-guest-agent
     - systemctl enable --now qemu-guest-agent.service
 ```
 
+### Настройка пользователя для cloud-образов
+
+При использовании cloud-образов (с поддержкой cloud-init) обязательно задайте SSH-ключ или пароль для предустановленного пользователя, либо создайте нового пользователя с заданным паролем или SSH-ключом через cloud-init. В противном случае войти в виртуальную машину будет невозможно!
+
+Примеры:
+
+1. Установка пароля для существующего пользователя (например, `ubuntu`, часто присутствует в официальных cloud-образах):
+
+   Во многих cloud-образах пользователь по умолчанию уже предопределён (например, `ubuntu` в Ubuntu Cloud Images) и его имя не всегда можно переопределить через `cloud-init` с помощью блока `users`. В таких случаях рекомендуется использовать специализированные параметры cloud-init для управления дефолтным пользователем.
+
+   При использовании облачного образа можно добавить публичный SSH-ключ для пользователя по умолчанию с помощью параметра `ssh_authorized_keys` на корневом уровне cloud-init:
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+2. Создание нового пользователя с паролем и SSH-ключом:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+{{< alert level="info" >}}
+Значение поля `passwd` — это захешированный пароль (например, можно получить командой `mkpasswd --method=SHA-512 --rounds=4096`).
+{{< /alert >}}
+
 ### Подключение к виртуальной машине
 
 Для подключения к виртуальной машине доступны следующие способы:

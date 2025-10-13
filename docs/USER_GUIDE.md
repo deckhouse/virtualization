@@ -1321,6 +1321,43 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
     - systemctl enable --now qemu-guest-agent.service
 ```
 
+### User Configuration for Cloud Images
+
+When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
+
+Examples:
+
+1. Setting a password for an existing user (for example, `ubuntu` is often present in official cloud images):
+
+   In many cloud images, the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
+
+   In a cloud image, you can add a public SSH key for the default user using the `ssh_authorized_keys` parameter at the root level of cloud-init:
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+2. Creating a new user with a password and SSH key:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+{{< alert level="info" >}}
+The value of the `passwd` field is a hashed password (for example, you can generate it using `mkpasswd --method=SHA-512 --rounds=4096`).
+{{< /alert >}}
+
 ### Connecting to a virtual machine
 
 The following methods are available for connecting to the virtual machine:
