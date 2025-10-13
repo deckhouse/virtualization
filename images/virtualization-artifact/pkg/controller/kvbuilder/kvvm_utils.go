@@ -133,7 +133,7 @@ func ApplyVirtualMachineSpec(
 			})
 		}
 
-		if volume.ContainerDisk != nil && isHotplugged(volume, vm, vmbdas) {
+		if volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable {
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
 				VolumeName: volume.Name,
 				Image:      volume.ContainerDisk.Image,
@@ -320,16 +320,4 @@ func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) er
 	}
 	kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
 	return nil
-}
-
-func isHotplugged(volume virtv1.Volume, vm *v1alpha2.VirtualMachine, vmbdas map[v1alpha2.VMBDAObjectRef][]*v1alpha2.VirtualMachineBlockDeviceAttachment) bool {
-	name, kind := GetOriginalDiskName(volume.Name)
-	for _, bdRef := range vm.Spec.BlockDeviceRefs {
-		if bdRef.Name == name && bdRef.Kind == kind {
-			return false
-		}
-	}
-
-	_, ok := vmbdas[v1alpha2.VMBDAObjectRef{Name: name, Kind: v1alpha2.VMBDAObjectRefKind(kind)}]
-	return ok
 }

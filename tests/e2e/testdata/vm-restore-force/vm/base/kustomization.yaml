@@ -5,8 +5,7 @@ resources:
   - ./vd-root.yaml
   - ./vd-blank.yaml
   - ./vmbda-vd.yaml
-# When vmbda is deleted, it may stay in Terminating; a fix is planned.
-# - ./vmbda-vi.yaml
+  - ./vmbda-vi.yaml
 configurations:
   - transformer.yaml
 generatorOptions:
