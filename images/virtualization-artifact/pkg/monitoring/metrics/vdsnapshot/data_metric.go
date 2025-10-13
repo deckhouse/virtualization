@@ -21,10 +21,11 @@ import (
 )
 
 type dataMetric struct {
-	Name      string
-	Namespace string
-	UID       string
-	Phase     v1alpha2.VirtualDiskSnapshotPhase
+	Name        string
+	Namespace   string
+	UID         string
+	Phase       v1alpha2.VirtualDiskSnapshotPhase
+	VirtualDisk string
 }
 
 // DO NOT mutate VirtualDiskSnapshot!
@@ -34,9 +35,10 @@ func newDataMetric(vds *v1alpha2.VirtualDiskSnapshot) *dataMetric {
 	}
 
 	return &dataMetric{
-		Name:      vds.Name,
-		Namespace: vds.Namespace,
-		UID:       string(vds.UID),
-		Phase:     vds.Status.Phase,
+		Name:        vds.Name,
+		Namespace:   vds.Namespace,
+		UID:         string(vds.UID),
+		Phase:       vds.Status.Phase,
+		VirtualDisk: vds.Spec.VirtualDiskName,
 	}
 }
