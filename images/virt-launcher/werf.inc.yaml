@@ -74,7 +74,6 @@ altLibs:
   - hwclock
   - iptables
   - passt
-  - pcre
   - procps
   - policycoreutils
   - psmisc
@@ -120,7 +119,7 @@ packages:
 - liburing libunistring
 - libslirp ncurses libpng libseccomp
 - systemd multipath-tools bzip2 libnl3
-- glibc
+- glibc pcre2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
