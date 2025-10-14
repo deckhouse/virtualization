@@ -398,7 +398,7 @@ git:
 import:
 - image: {{ .ModuleNamePrefix }}libvirt
   add: /BINS
-  to: /libvirt-bins
+  to: /libvirt
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
