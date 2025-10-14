@@ -268,6 +268,11 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		if mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
 			msg += ": " + mig.Status.MigrationState.FailureReason
 		}
+		msgByFailedReason := getMessageByMigrationFailedReason(mig)
+		if msgByFailedReason != "" {
+			msg += ": " + msgByFailedReason
+		}
+
 		completedCond.
 			Status(metav1.ConditionFalse).
 			Reason(vmopcondition.ReasonOperationFailed).
@@ -292,10 +297,15 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 
+	msg, err := h.getConditionCompletedMessageByReason(ctx, reason, mig)
+	if err != nil {
+		return err
+	}
+
 	completedCond.
 		Status(metav1.ConditionFalse).
 		Reason(reason).
-		Message("Wait until operation is completed")
+		Message(msg)
 	conditions.SetCondition(completedCond, &vmop.Status.Conditions)
 
 	return nil
@@ -435,9 +445,11 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 
 	// The Operation is successfully executed.
 	// Turn the phase to InProgress and set the send signal condition to true.
-	msg := fmt.Sprintf("Sent signal %q to VM without errors.", vmop.Spec.Type)
-	log.Debug(msg)
-	h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPInProgress, msg)
+	{
+		msg := fmt.Sprintf("Sent signal %q to VM without errors.", vmop.Spec.Type)
+		log.Debug(msg)
+		h.recorder.Event(vmop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPInProgress, msg)
+	}
 
 	mig, err := h.migration.GetMigration(ctx, vmop)
 	if mig == nil || err != nil {
@@ -450,11 +462,16 @@ func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMac
 		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 	}
 
+	msg, err := h.getConditionCompletedMessageByReason(ctx, reason, mig)
+	if err != nil {
+		return err
+	}
+
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 			Generation(vmop.GetGeneration()).
 			Reason(reason).
-			Message("Wait for operation to complete").
+			Message(msg).
 			Status(metav1.ConditionFalse),
 		&vmop.Status.Conditions)
 	conditions.SetCondition(
@@ -497,4 +514,75 @@ var mapMigrationPhaseToReason = map[virtv1.VirtualMachineInstanceMigrationPhase]
 	virtv1.MigrationRunning:     vmopcondition.ReasonMigrationRunning,
 	virtv1.MigrationSucceeded:   vmopcondition.ReasonOperationCompleted,
 	virtv1.MigrationFailed:      vmopcondition.ReasonOperationFailed,
+}
+
+func getMessageByMigrationFailedReason(mig *virtv1.VirtualMachineInstanceMigration) string {
+	cond, found := conditions.GetKVVMIMCondition(virtv1.VirtualMachineInstanceMigrationFailed, mig.Status.Conditions)
+
+	if cond.Status == corev1.ConditionTrue && found {
+		switch cond.Reason {
+		case virtv1.VirtualMachineInstanceMigrationFailedReasonVMIDoesNotExist, virtv1.VirtualMachineInstanceMigrationFailedReasonVMIIsShutdown:
+			return "VirtualMachine is stopped"
+		default:
+			return cond.Message
+		}
+	}
+
+	return ""
+}
+
+func (h LifecycleHandler) getTargetPod(ctx context.Context, mig *virtv1.VirtualMachineInstanceMigration) (*corev1.Pod, error) {
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			virtv1.AppLabel:          "virt-launcher",
+			virtv1.MigrationJobLabel: string(mig.UID),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	pods := &corev1.PodList{}
+	err = h.client.List(ctx, pods, client.InNamespace(mig.Namespace), client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pods.Items) > 0 {
+		return &pods.Items[0], nil
+	}
+
+	return nil, nil
+}
+
+func isPodPendingUnschedulable(pod *corev1.Pod) bool {
+	if pod == nil {
+		return false
+	}
+	if pod.Status.Phase != corev1.PodPending || pod.DeletionTimestamp != nil {
+		return false
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodScheduled &&
+			condition.Status == corev1.ConditionFalse &&
+			condition.Reason == corev1.PodReasonUnschedulable {
+			return true
+		}
+	}
+	return false
+}
+
+func (h LifecycleHandler) getConditionCompletedMessageByReason(ctx context.Context, reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) (string, error) {
+	msg := "Wait until operation is completed"
+	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonMigrationPrepareTarget {
+		pod, err := h.getTargetPod(ctx, mig)
+		if err != nil {
+			return "", err
+		}
+		if isPodPendingUnschedulable(pod) {
+			msg += fmt.Sprintf(" (target pod is unschedulable: %s/%s)", pod.Namespace, pod.Name)
+		}
+	}
+	return msg + ".", nil
 }
