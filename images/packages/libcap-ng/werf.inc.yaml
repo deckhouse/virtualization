@@ -28,10 +28,10 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools
-- glibc-kernheaders
 - tree
 packages:
 - libattr
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -77,7 +77,7 @@ shell:
       --with-python3=no
     make -j$(nproc)
     make DESTDIR=$OUTDIR install-strip
-    
+
     rm -rf $OUTDIR/usr/share/man
-    
+
     tree -sp $OUTDIR

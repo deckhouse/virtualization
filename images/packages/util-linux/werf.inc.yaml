@@ -7,12 +7,12 @@ altPackages:
 - bison flex
 - pkgconf asciidoctor
 - python3-devel python3-module-setuptools
-- glibc-devel-static
 - libpopt-devel
 - klibc-devel libsqlite3
 packages:
 - libcap-ng zlib
 - ncurses
+- glibc
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}

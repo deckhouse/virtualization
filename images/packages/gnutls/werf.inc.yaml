@@ -41,7 +41,7 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc gcc-c++ git gperf glibc-devel-static pkgconfig
+- gcc gcc-c++ git gperf pkgconfig
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
@@ -58,6 +58,7 @@ packages:
 - readline
 - libtasn1
 - libunistring
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
