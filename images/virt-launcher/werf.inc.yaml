@@ -71,7 +71,6 @@ altLibs:
   - libLLVMSPIRVLib-devel
   - ethtool
   - fdisk
-  - glibc-gconv-modules
   - hwclock
   - iptables
   - passt
@@ -121,6 +120,7 @@ packages:
 - liburing libunistring
 - libslirp ncurses libpng libseccomp
 - systemd multipath-tools bzip2 libnl3
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

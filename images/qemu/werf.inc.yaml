@@ -87,7 +87,6 @@ altPackages:
 - python3-module-sphinx_rtd_theme
 - python3-module-black
 altLibraries:
-- glibc-devel-static
 - libattr-devel-static
 - libdw-devel-static
 - libatomic-devel-static
@@ -96,7 +95,6 @@ altLibraries:
 - libxfs-devel
 - libpci-devel
 - libgvnc-devel
-- glibc-kernheaders
 - libfdt-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
@@ -135,6 +133,7 @@ packages:
 - liburing libuserspace-rcu libunistring systemd
 - multipath-tools
 - libslirp libseccomp gnutls bzip2
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
