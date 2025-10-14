@@ -60,7 +60,7 @@ secrets:
   value: {{ .GOPROXY }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /kubevirt
+  add: /src/kubevirt
   to: /kubevirt
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
