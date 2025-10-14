@@ -27,13 +27,14 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- gcc git make glibc-devel-static musl-devel-static
+- gcc git make musl-devel-static
 - autoconf automake libtool makeinfo
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gettext-devel po4a
 - tree
 packages:
 - zlib
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

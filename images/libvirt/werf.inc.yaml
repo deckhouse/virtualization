@@ -57,7 +57,6 @@ altPackages:
 - qemu-img open-iscsi
 - xml-utils xsltproc
 - polkit
-- glibc-utils
 - python3 python3-devel
 - python3-module-pytest python3-module-docutils
 - python3-tools python3-module-pip
@@ -90,6 +89,7 @@ packages:
 - glib2 acl libunistring libxml2
 - gnutls
 - systemd libnl3 libslirp
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

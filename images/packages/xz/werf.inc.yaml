@@ -21,15 +21,17 @@ secrets:
 shell:
   install:
   - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
+
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - git gcc automake make
-- glibc-devel-static gettext-devel
+- gettext-devel
 - libtool po4a doxygen
 - tree
+packages:
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -42,6 +44,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -53,6 +56,13 @@ shell:
 
   install:
   - |
+    echo "Install packages"
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
 
     cd /src
@@ -63,7 +73,7 @@ shell:
       --libdir=/usr/lib64 \
       --enable-dynamic \
       --disable-scripts
-    
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 

@@ -2,12 +2,12 @@
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- glibc-utils
 - xfsprogs xfstests
 packages:
 - libssh libssh2
 - libffi e2fsprogs
 - util-linux
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
