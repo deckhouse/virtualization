@@ -134,16 +134,14 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
-				cond, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
-				Expect(exists).To(BeTrue())
-				Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
-				Expect(cond.Reason).To(Equal(conditions.ReasonUnknown.String()))
+				_, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
+				Expect(exists).To(BeFalse())
 				Expect(newVM.Status.Networks).NotTo(BeNil())
 			})
 		})
 
 		Describe("NetworkSpec have only 'Main' interface", func() {
-			It("Network status is not exist; Condition should have status 'False'", func() {
+			It("Condition should have status 'Unknown'", func() {
 				networkSpec := []v1alpha2.NetworksSpec{
 					{
 						Type: v1alpha2.NetworksTypeMain,
@@ -157,10 +155,8 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
-				cond, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
-				Expect(exists).To(BeTrue())
-				Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
-				Expect(cond.Reason).To(Equal(conditions.ReasonUnknown.String()))
+				_, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
+				Expect(exists).To(BeFalse())
 				Expect(newVM.Status.Networks).NotTo(BeNil())
 			})
 		})
