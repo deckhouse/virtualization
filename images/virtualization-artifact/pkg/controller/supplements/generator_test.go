@@ -94,4 +94,3 @@ var _ = Describe("Generator", func() {
 		)
 	})
 })
-
