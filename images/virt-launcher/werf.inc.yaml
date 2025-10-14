@@ -120,7 +120,7 @@ packages:
 - liburing libunistring
 - libslirp ncurses libpng libseccomp
 - systemd multipath-tools bzip2 libnl3
-- glibc pcre2
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -396,25 +396,20 @@ git:
       install:
       - '**/*'
 import:
+- image: {{ .ModuleNamePrefix }}libvirt
+  add: /BINS
+  to: /libvirt-bins
+  before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 shell:
   install:
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - |
-    echo "install deps libvirt-dev"
-{{- if eq $.SVACE_ENABLED "false" }}
-    apt-get install -y libvirt-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
-  - apt-get -qq install -y libvirt-devel
-  {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
+    PKGS+=" libvirt"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
