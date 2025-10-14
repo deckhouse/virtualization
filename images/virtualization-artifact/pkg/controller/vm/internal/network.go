@@ -65,7 +65,11 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		Generation(vm.GetGeneration())
 
 	defer func() {
-		conditions.SetCondition(cb, &vm.Status.Conditions)
+		if cb.Condition().Status == metav1.ConditionUnknown {
+			conditions.RemoveCondition(vmcondition.TypeNetworkReady, &vm.Status.Conditions)
+		} else {
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+		}
 	}()
 
 	if len(vm.Spec.Networks) > 1 {
