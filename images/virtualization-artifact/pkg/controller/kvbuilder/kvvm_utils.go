@@ -240,7 +240,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(device.PVCName),
 				IsHotplugged:          true,
-				Serial:                diskSerials[device.VolumeName],
+				Serial:                device.Serial,
 			}); err != nil {
 				return err
 			}
@@ -248,7 +248,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(device.Image),
 				IsHotplugged:  true,
-				Serial:        diskSerials[device.VolumeName],
+				Serial:        device.Serial,
 			}); err != nil {
 				return err
 			}
