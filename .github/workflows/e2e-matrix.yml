@@ -135,26 +135,25 @@ jobs:
         run: |
           if [ -n "${{ vars.E2E_K8S_URL }}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
             KCFG='${{ env.TMP_ROOT }}/shared/parent-admin.conf'
-            cat > "$KCFG" <<EOF
-            apiVersion: v1
-            kind: Config
-            clusters:
-            - cluster:
-                server: ${{ vars.E2E_K8S_URL }}
-                insecure-skip-tls-verify: true
-              name: parent
-            contexts:
-            - context:
-                cluster: parent
-                user: sa
-              name: parent
-            current-context: parent
-            users:
-            - name: sa
-              user:
-                token: $(echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}' | base64 -d 2>/dev/null || \
-                  echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}')
-            EOF
+            TOKEN="$(echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}' | base64 -d 2>/dev/null || echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}')"
+            printf '%s\n' \
+              'apiVersion: v1' \
+              'kind: Config' \
+              'clusters:' \
+              '- cluster:' \
+              "    server: ${{ vars.E2E_K8S_URL }}" \
+              '    insecure-skip-tls-verify: true' \
+              '  name: parent' \
+              'contexts:' \
+              '- context:' \
+              '    cluster: parent' \
+              '    user: sa' \
+              '  name: parent' \
+              'current-context: parent' \
+              'users:' \
+              '- name: sa' \
+              '  user:' \
+              "    token: ${TOKEN}" > "$KCFG"
             chmod 600 "$KCFG"
             echo "PARENT_KUBECONFIG_FILE=$KCFG" >> "$GITHUB_ENV"
           else
@@ -295,26 +294,25 @@ jobs:
         run: |
           if [ -n "${{ vars.E2E_K8S_URL }}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
             mkdir -p ~/.kube
-            cat > ~/.kube/config <<EOF
-            apiVersion: v1
-            kind: Config
-            clusters:
-            - cluster:
-                server: ${{ vars.E2E_K8S_URL }}
-                insecure-skip-tls-verify: true
-              name: parent
-            contexts:
-            - context:
-                cluster: parent
-                user: sa
-              name: parent
-            current-context: parent
-            users:
-            - name: sa
-              user:
-                token: $(echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}' | base64 -d 2>/dev/null || \
-                  echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}')
-            EOF
+            TOKEN="$(echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}' | base64 -d 2>/dev/null || echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}')"
+            printf '%s\n' \
+              'apiVersion: v1' \
+              'kind: Config' \
+              'clusters:' \
+              '- cluster:' \
+              "    server: ${{ vars.E2E_K8S_URL }}" \
+              '    insecure-skip-tls-verify: true' \
+              '  name: parent' \
+              'contexts:' \
+              '- context:' \
+              '    cluster: parent' \
+              '    user: sa' \
+              '  name: parent' \
+              'current-context: parent' \
+              'users:' \
+              '- name: sa' \
+              '  user:' \
+              "    token: ${TOKEN}" > ~/.kube/config
             chmod 600 ~/.kube/config
           else
             echo "⚠️ Cannot setup kubeconfig for cleanup - secrets not available"
