@@ -166,7 +166,7 @@ jobs:
         env:
           KUBECONFIG: ${{ env.PARENT_KUBECONFIG_FILE }}
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
-          TEST_TIMEOUT: ${{ inputs.timeout || '4h' }}
+          TIMEOUT: ${{ inputs.timeout || '4h' }}
           E2E_PREFIX: ${{ env.RUN_ID }}
         run: |
           task run:ci
