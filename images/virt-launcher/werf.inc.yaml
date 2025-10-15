@@ -396,6 +396,10 @@ git:
       install:
       - '**/*'
 import:
+- image: {{ .ModuleNamePrefix }}libvirt
+  add: /BINS
+  to: /libvirt
+  before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
@@ -405,6 +409,7 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
+    PKGS+=" libvirt"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
