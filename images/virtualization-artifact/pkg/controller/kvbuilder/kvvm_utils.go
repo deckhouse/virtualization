@@ -85,6 +85,7 @@ type HotPlugDeviceSettings struct {
 	PVCName        string
 	Image          string
 	DataVolumeName string
+	Serial         string
 }
 
 func ApplyVirtualMachineSpec(
@@ -124,12 +125,20 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	diskSerials := make(map[string]string)
+	for _, disk := range kvvm.Resource.Spec.Template.Spec.Domain.Devices.Disks {
+		if disk.Serial != "" {
+			diskSerials[disk.Name] = disk.Serial
+		}
+	}
+
 	hotpluggedDevices := make([]HotPlugDeviceSettings, 0)
 	for _, volume := range kvvm.Resource.Spec.Template.Spec.Volumes {
 		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
 				VolumeName: volume.Name,
 				PVCName:    volume.PersistentVolumeClaim.ClaimName,
+				Serial:     diskSerials[volume.Name],
 			})
 		}
 
@@ -137,6 +146,7 @@ func ApplyVirtualMachineSpec(
 			hotpluggedDevices = append(hotpluggedDevices, HotPlugDeviceSettings{
 				VolumeName: volume.Name,
 				Image:      volume.ContainerDisk.Image,
+				Serial:     diskSerials[volume.Name],
 			})
 		}
 	}
@@ -230,6 +240,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(device.PVCName),
 				IsHotplugged:          true,
+				Serial:                diskSerials[device.VolumeName],
 			}); err != nil {
 				return err
 			}
@@ -237,6 +248,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(device.Image),
 				IsHotplugged:  true,
+				Serial:        diskSerials[device.VolumeName],
 			}); err != nil {
 				return err
 			}
