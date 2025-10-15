@@ -79,7 +79,6 @@ altLibs:
   - psmisc
   - msulogin
   - iproute2
-  - ca-certificates
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -410,7 +409,7 @@ secrets:
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get install -y golang
+  - apt-get install -y golang ca-certificates
   {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
