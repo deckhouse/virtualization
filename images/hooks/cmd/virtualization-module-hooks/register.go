@@ -18,6 +18,7 @@ package main
 import (
 	_ "hooks/pkg/hooks/ca-discovery"
 	_ "hooks/pkg/hooks/copy-custom-certificate"
+	_ "hooks/pkg/hooks/create-generic-vmclass"
 	_ "hooks/pkg/hooks/discovery-clusterip-service-for-dvcr"
 	_ "hooks/pkg/hooks/discovery-workload-nodes"
 	_ "hooks/pkg/hooks/drop-openshift-labels"
@@ -29,5 +30,6 @@ import (
 	_ "hooks/pkg/hooks/tls-certificates-api-proxy"
 	_ "hooks/pkg/hooks/tls-certificates-controller"
 	_ "hooks/pkg/hooks/tls-certificates-dvcr"
+	_ "hooks/pkg/hooks/update-module-state"
 	_ "hooks/pkg/hooks/validate-module-config"
 )
