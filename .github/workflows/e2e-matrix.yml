@@ -130,37 +130,11 @@ jobs:
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
-      - name: Build parent kubeconfig
-        shell: bash
-        run: |
-          if [ -n "${E2E_K8S_URL}" ] && [ -n "${{ secrets.K8S_CLUSTER_SECRET }}" ]; then
-            KCFG='${{ env.TMP_ROOT }}/shared/parent-admin.conf'
-            TOKEN="$(jq -r '.[8].kubeconfig' <<< '${{ secrets.K8S_CLUSTER_SECRET }}')"
-            TOKEN="$(printf '%s' "$TOKEN" | tr -d '\r\n')"
-            printf '%s\n' \
-              'apiVersion: v1' \
-              'kind: Config' \
-              'clusters:' \
-              '- cluster:' \
-              "    server: ${E2E_K8S_URL}" \
-              '    insecure-skip-tls-verify: true' \
-              '  name: parent' \
-              'contexts:' \
-              '- context:' \
-              '    cluster: parent' \
-              '    user: sa' \
-              '  name: parent' \
-              'current-context: parent' \
-              'users:' \
-              '- name: sa' \
-              '  user:' \
-              "    token: \"${TOKEN}\"" > "$KCFG"
-            chmod 600 "$KCFG"
-            echo "PARENT_KUBECONFIG_FILE=$KCFG" >> "$GITHUB_ENV"
-          else
-            echo "E2E_K8S_URL/E2E_VIRTUALIZATION_SA_SECRET not set" >&2
-            exit 1
-          fi
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: https://api.e2e.virtlab.flant.com
+          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
 
       - name: Run E2E tests (Taskfile)
         working-directory: tests/e2e
@@ -286,35 +260,11 @@ jobs:
 
       - uses: ./.github/actions/setup-e2e-tools
 
-      - name: Setup kubeconfig for cleanup
-        run: |
-          if [ -n "${E2E_K8S_URL}" ] && [ -n "${{ secrets.K8S_CLUSTER_SECRET }}" ]; then
-            mkdir -p ~/.kube
-            TOKEN="$(jq -r '.[8].kubeconfig' <<< '${{ secrets.K8S_CLUSTER_SECRET }}')"
-            TOKEN="$(printf '%s' "$TOKEN" | tr -d '\r\n')"
-            printf '%s\n' \
-              'apiVersion: v1' \
-              'kind: Config' \
-              'clusters:' \
-              '- cluster:' \
-              "    server: ${E2E_K8S_URL}" \
-              '    insecure-skip-tls-verify: true' \
-              '  name: parent' \
-              'contexts:' \
-              '- context:' \
-              '    cluster: parent' \
-              '    user: sa' \
-              '  name: parent' \
-              'current-context: parent' \
-              'users:' \
-              '- name: sa' \
-              '  user:' \
-              "    token: \"${TOKEN}\"" > ~/.kube/config
-            chmod 600 ~/.kube/config
-          else
-            echo "⚠️ Cannot setup kubeconfig for cleanup - secrets not available"
-            exit 0
-          fi
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: https://api.e2e.virtlab.flant.com
+          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
 
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
