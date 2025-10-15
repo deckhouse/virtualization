@@ -121,7 +121,7 @@ packages:
 - systemd multipath-tools bzip2 libnl3
 - pcre2
 - glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 libgmp
-- openldap
+- openldap openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
