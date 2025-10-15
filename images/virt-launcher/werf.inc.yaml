@@ -120,7 +120,7 @@ packages:
 - libslirp ncurses libpng libseccomp
 - systemd multipath-tools bzip2 libnl3
 - pcre2
-- glibc
+- glibc nghttp3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
