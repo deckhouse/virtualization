@@ -99,51 +99,6 @@ jobs:
         if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}
         uses: ./.github/actions/remove-unwanted-software
 
-      - name: Start ssh-agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{secrets.SOURCE_REPO_SSH_KEY}}
-            ${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}
-
-      - name: Add ssh_known_hosts
-        run: |
-          HOST=$(grep -oP '(?<=@)[^/:]+' <<< ${{secrets.SOURCE_REPO_GIT}})
-          echo "::add-mask::$HOST"
-          IPS=$(nslookup "$HOST" | awk '/^Address: / { print $2 }')
-          for IP in $IPS; do
-            echo "::add-mask::$IP"
-          done
-          mkdir -p ~/.ssh
-          touch ~/.ssh/known_hosts
-          HOST_KEYS=$(ssh-keyscan -H "$HOST" 2>/dev/null)
-          while IFS= read -r KEY_LINE; do
-            CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
-            if ! grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
-              echo "$KEY_LINE" >> ~/.ssh/known_hosts
-            fi
-          done <<< "$HOST_KEYS"
-
-      - name: Add svace analyze server to ssh_known_hosts
-        continue-on-error: true
-        run: |
-          host=${{ secrets.SVACE_ANALYZE_HOST }}
-
-          host_ip=$(nslookup "$host" | awk '/^Address: / { print $2 }')
-          echo "::add-mask::$host_ip"
-
-          mkdir -p ~/.ssh
-          touch ~/.ssh/known_hosts
-          HOST_KEYS=$(ssh-keyscan -H "$host" 2>/dev/null)
-          while IFS= read -r KEY_LINE; do
-              CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
-              if grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
-                  ssh-keygen -R $host
-                  ssh-keygen -R $host_ip
-              fi
-              echo "$KEY_LINE" >> ~/.ssh/known_hosts
-          done <<< "$HOST_KEYS"
-
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
@@ -155,6 +110,7 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
           svace_enabled: "true"
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
