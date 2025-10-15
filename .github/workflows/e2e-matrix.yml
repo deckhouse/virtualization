@@ -133,9 +133,10 @@ jobs:
       - name: Build parent kubeconfig
         shell: bash
         run: |
-          if [ -n "${E2E_K8S_URL}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
+          if [ -n "${E2E_K8S_URL}" ] && [ -n "${{ secrets.K8S_CLUSTER_SECRET }}" ]; then
             KCFG='${{ env.TMP_ROOT }}/shared/parent-admin.conf'
-            TOKEN="${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}"
+            TOKEN="$(jq -r '.[8].kubeconfig' <<< '${{ secrets.K8S_CLUSTER_SECRET }}')"
+            TOKEN="$(printf '%s' "$TOKEN" | tr -d '\r\n')"
             printf '%s\n' \
               'apiVersion: v1' \
               'kind: Config' \
@@ -287,9 +288,10 @@ jobs:
 
       - name: Setup kubeconfig for cleanup
         run: |
-          if [ -n "${E2E_K8S_URL}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
+          if [ -n "${E2E_K8S_URL}" ] && [ -n "${{ secrets.K8S_CLUSTER_SECRET }}" ]; then
             mkdir -p ~/.kube
-            TOKEN="${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}"
+            TOKEN="$(jq -r '.[8].kubeconfig' <<< '${{ secrets.K8S_CLUSTER_SECRET }}')"
+            TOKEN="$(printf '%s' "$TOKEN" | tr -d '\r\n')"
             printf '%s\n' \
               'apiVersion: v1' \
               'kind: Config' \
