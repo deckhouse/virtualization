@@ -120,6 +120,34 @@ jobs:
 
       - uses: ./.github/actions/setup-e2e-tools
 
+      - name: Build e2e-runner (via Taskfile wrapper)
+        working-directory: ci/dvp-e2e
+        run: |
+          mkdir -p bin
+          cat > bin/e2e-runner <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          RUN_ID=""
+          TIMEOUT="4h"
+          JUNIT=""
+          PROFILE=""
+          while [[ $# -gt 0 ]]; do
+            case "$1" in
+              --run-id) RUN_ID="$2"; shift 2 ;;
+              --timeout) TIMEOUT="$2"; shift 2 ;;
+              --junit) JUNIT="$2"; shift 2 ;;
+              sds|cephrbd) PROFILE="$1"; shift ;;
+              *) shift ;;
+            esac
+          done
+          export E2E_PREFIX="$RUN_ID"
+          export TEST_TIMEOUT="$TIMEOUT"
+          mkdir -p "$(dirname "$JUNIT")"
+          cd ../../tests/e2e
+          task run:ci
+          EOF
+          chmod +x bin/e2e-runner
+
       - name: Prepare environment
         id: prep
         run: |
