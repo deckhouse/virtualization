@@ -88,11 +88,13 @@ func (s *scraper) updateMetricDiskInfo(m *dataMetric) {
 }
 
 func (s *scraper) updateMetricDiskStatusInUse(m *dataMetric) {
-	value := float64(0)
-	if m.InUse {
-		value = 1
+	if m.InUse && len(m.AttachedVirtualMachines) > 0 {
+		for _, vmName := range m.AttachedVirtualMachines {
+			s.defaultUpdate(MetricDiskStatusInUse, 1, m, vmName)
+		}
+	} else {
+		s.defaultUpdate(MetricDiskStatusInUse, 0, m, "")
 	}
-	s.defaultUpdate(MetricDiskStatusInUse, value, m, m.AttachedVirtualMachine)
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {

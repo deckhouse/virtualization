@@ -29,17 +29,17 @@ import (
 )
 
 type dataMetric struct {
-	Name                   string
-	Namespace              string
-	UID                    string
-	Phase                  v1alpha2.DiskPhase
-	Labels                 map[string]string
-	Annotations            map[string]string
-	CapacityBytes          int64
-	StorageClass           string
-	PersistentVolumeClaim  string
-	InUse                  bool
-	AttachedVirtualMachine string
+	Name                    string
+	Namespace               string
+	UID                     string
+	Phase                   v1alpha2.DiskPhase
+	Labels                  map[string]string
+	Annotations             map[string]string
+	CapacityBytes           int64
+	StorageClass            string
+	PersistentVolumeClaim   string
+	InUse                   bool
+	AttachedVirtualMachines []string
 }
 
 // DO NOT mutate VirtualDisk!
@@ -49,7 +49,7 @@ func newDataMetric(vd *v1alpha2.VirtualDisk) *dataMetric {
 	}
 
 	capacityBytes := parseCapacityBytes(vd.Status.Capacity)
-	inUse, attachedVM := getInUseStatus(vd)
+	inUse, attachedVMs := getInUseStatus(vd)
 
 	return &dataMetric{
 		Name:      vd.Name,
@@ -62,11 +62,11 @@ func newDataMetric(vd *v1alpha2.VirtualDisk) *dataMetric {
 		Annotations: promutil.WrapPrometheusLabels(vd.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
-		CapacityBytes:          capacityBytes,
-		StorageClass:           vd.Status.StorageClassName,
-		PersistentVolumeClaim:  vd.Status.Target.PersistentVolumeClaim,
-		InUse:                  inUse,
-		AttachedVirtualMachine: attachedVM,
+		CapacityBytes:           capacityBytes,
+		StorageClass:            vd.Status.StorageClassName,
+		PersistentVolumeClaim:   vd.Status.Target.PersistentVolumeClaim,
+		InUse:                   inUse,
+		AttachedVirtualMachines: attachedVMs,
 	}
 }
 
@@ -85,20 +85,20 @@ func parseCapacityBytes(capacity string) int64 {
 	return value
 }
 
-func getInUseStatus(vd *v1alpha2.VirtualDisk) (bool, string) {
+func getInUseStatus(vd *v1alpha2.VirtualDisk) (bool, []string) {
 	inUseCond, found := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if !found {
-		return false, ""
+		return false, nil
 	}
 
 	if inUseCond.Status != metav1.ConditionTrue {
-		return false, ""
+		return false, nil
 	}
 
-	var vmName string
-	if len(vd.Status.AttachedToVirtualMachines) > 0 {
-		vmName = vd.Status.AttachedToVirtualMachines[0].Name
+	vmNames := make([]string, 0, len(vd.Status.AttachedToVirtualMachines))
+	for _, vm := range vd.Status.AttachedToVirtualMachines {
+		vmNames = append(vmNames, vm.Name)
 	}
 
-	return true, vmName
+	return true, vmNames
 }
