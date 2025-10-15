@@ -40,6 +40,9 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricDiskStatusPhase(m)
 	s.updateMetricDiskLabels(m)
 	s.updateMetricDiskAnnotations(m)
+	s.updateMetricDiskCapacityBytes(m)
+	s.updateMetricDiskInfo(m)
+	s.updateMetricDiskStatusInUse(m)
 }
 
 func (s *scraper) updateMetricDiskStatusPhase(m *dataMetric) {
@@ -74,6 +77,22 @@ func (s *scraper) updateMetricDiskLabels(m *dataMetric) {
 
 func (s *scraper) updateMetricDiskAnnotations(m *dataMetric) {
 	s.updateDynamic(MetricDiskAnnotations, 1, m, nil, m.Annotations)
+}
+
+func (s *scraper) updateMetricDiskCapacityBytes(m *dataMetric) {
+	s.defaultUpdate(MetricDiskCapacityBytes, float64(m.CapacityBytes), m)
+}
+
+func (s *scraper) updateMetricDiskInfo(m *dataMetric) {
+	s.defaultUpdate(MetricDiskInfo, 1, m, m.StorageClass, m.PersistentVolumeClaim)
+}
+
+func (s *scraper) updateMetricDiskStatusInUse(m *dataMetric) {
+	value := float64(0)
+	if m.InUse {
+		value = 1
+	}
+	s.defaultUpdate(MetricDiskStatusInUse, value, m, m.AttachedVirtualMachine)
 }
 
 func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, labels ...string) {
