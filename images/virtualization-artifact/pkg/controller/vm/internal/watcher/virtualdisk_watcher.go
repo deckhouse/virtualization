@@ -43,7 +43,7 @@ import (
 func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 	return &VirtualDiskWatcher{
 		client: client,
-		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualMachineKind)),
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualDiskKind)),
 	}
 }
 
