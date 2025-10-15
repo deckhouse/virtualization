@@ -1,0 +1,691 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuites tests="214" disabled="205" errors="0" failures="3" time="1804.199617333">
+      <testsuite name="Tests" package="/Users/antont/ansible_deckhouse/virtualization-full/tests/e2e" tests="214" disabled="0" skipped="205" errors="0" failures="3" time="1804.199617333" timestamp="2025-10-06T20:06:10">
+          <properties>
+              <property name="SuiteSucceeded" value="false"></property>
+              <property name="SuiteHasProgrammaticFocus" value="false"></property>
+              <property name="SpecialSuiteFailureReason" value="Suite Timeout Elapsed"></property>
+              <property name="SuiteLabels" value="[]"></property>
+              <property name="RandomSeed" value="1759770359"></property>
+              <property name="RandomizeAllSpecs" value="false"></property>
+              <property name="LabelFilter" value=""></property>
+              <property name="FocusStrings" value=""></property>
+              <property name="SkipStrings" value=""></property>
+              <property name="FocusFiles" value=""></property>
+              <property name="SkipFiles" value=""></property>
+              <property name="FailOnPending" value="false"></property>
+              <property name="FailOnEmpty" value="false"></property>
+              <property name="FailFast" value="false"></property>
+              <property name="FlakeAttempts" value="0"></property>
+              <property name="DryRun" value="false"></property>
+              <property name="ParallelTotal" value="1"></property>
+              <property name="OutputInterceptorMode" value=""></property>
+          </properties>
+          <testcase name="[SynchronizedBeforeSuite]" classname="Tests" status="passed" time="3.74774375">
+              <system-err>&gt; Enter [SynchronizedBeforeSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:137 @ 10/06/25 20:06:10.139&#xA;&lt; Exit [SynchronizedBeforeSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:137 @ 10/06/25 20:06:13.887 (3.748s)&#xA;&gt; Enter [SynchronizedBeforeSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:137 @ 10/06/25 20:06:13.887&#xA;&lt; Exit [SynchronizedBeforeSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:137 @ 10/06/25 20:06:13.887 (0s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When resources are applied result should be succeeded" classname="Tests" status="passed" time="5.8980084999999995">
+              <system-err>&gt; Enter [BeforeAll] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:52 @ 10/06/25 20:06:13.888&#xA;&lt; Exit [BeforeAll] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:52 @ 10/06/25 20:06:15.858 (1.97s)&#xA;&gt; Enter [BeforeEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:64 @ 10/06/25 20:06:15.858&#xA;&lt; Exit [BeforeEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:64 @ 10/06/25 20:06:15.859 (0s)&#xA;&gt; Enter [It] result should be succeeded - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:77 @ 10/06/25 20:06:15.859&#xA;&lt; Exit [It] result should be succeeded - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:77 @ 10/06/25 20:06:19.786 (3.927s)&#xA;&gt; Enter [AfterEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:70 @ 10/06/25 20:06:19.786&#xA;&lt; Exit [AfterEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:70 @ 10/06/25 20:06:19.786 (0s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When virtual images are applied checks VIs phases" classname="Tests" status="passed" time="6.257775459">
+              <system-err>&gt; Enter [BeforeEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:64 @ 10/06/25 20:06:19.786&#xA;&lt; Exit [BeforeEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:64 @ 10/06/25 20:06:19.786 (0s)&#xA;&gt; Enter [It] checks VIs phases - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:87 @ 10/06/25 20:06:19.786&#xA;STEP: VIs should be in Ready phases - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:88 @ 10/06/25 20:06:19.786&#xA;&lt; Exit [It] checks VIs phases - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:87 @ 10/06/25 20:06:26.044 (6.258s)&#xA;&gt; Enter [AfterEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:70 @ 10/06/25 20:06:26.044&#xA;&lt; Exit [AfterEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:70 @ 10/06/25 20:06:26.044 (0s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When virtual disks are applied checks VDs phases" classname="Tests" status="failed" time="1006.622280333">
+              <failure message="Expected&#xA;    &lt;[]string | len:1, cap:1&gt;: [&#xA;        &#34;cmd: kubectl wait virtualdisks.virtualization.deckhouse.io head-45bdb83d-vd-root-automatic-with-hotplug-standalone --namespace head-45bdb83d-end-to-end-vm-disk-attachment --for=&#39;jsonpath={.status.phase}=Ready&#39; --timeout=16m40s\nstderr: error: timed out waiting for the condition on virtualdisks/head-45bdb83d-vd-root-automatic-with-hotplug-standalone\n&#34;,&#xA;    ]&#xA;to be empty" type="failed">[FAILED] Expected&#xA;    &lt;[]string | len:1, cap:1&gt;: [&#xA;        &#34;cmd: kubectl wait virtualdisks.virtualization.deckhouse.io head-45bdb83d-vd-root-automatic-with-hotplug-standalone --namespace head-45bdb83d-end-to-end-vm-disk-attachment --for=&#39;jsonpath={.status.phase}=Ready&#39; --timeout=16m40s\nstderr: error: timed out waiting for the condition on virtualdisks/head-45bdb83d-vd-root-automatic-with-hotplug-standalone\n&#34;,&#xA;    ]&#xA;to be empty&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:100 @ 10/06/25 20:23:07.695&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:64 @ 10/06/25 20:06:26.044&#xA;&lt; Exit [BeforeEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:64 @ 10/06/25 20:06:26.044 (0s)&#xA;&gt; Enter [It] checks VDs phases - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:98 @ 10/06/25 20:06:26.044&#xA;STEP: VDs with consumers should be in Ready phases - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:99 @ 10/06/25 20:06:26.044&#xA;[FAILED] Expected&#xA;    &lt;[]string | len:1, cap:1&gt;: [&#xA;        &#34;cmd: kubectl wait virtualdisks.virtualization.deckhouse.io head-45bdb83d-vd-root-automatic-with-hotplug-standalone --namespace head-45bdb83d-end-to-end-vm-disk-attachment --for=&#39;jsonpath={.status.phase}=Ready&#39; --timeout=16m40s\nstderr: error: timed out waiting for the condition on virtualdisks/head-45bdb83d-vd-root-automatic-with-hotplug-standalone\n&#34;,&#xA;    ]&#xA;to be empty&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:100 @ 10/06/25 20:23:07.695&#xA;&lt; Exit [It] checks VDs phases - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:98 @ 10/06/25 20:23:07.695 (16m41.659s)&#xA;&gt; Enter [AfterEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:70 @ 10/06/25 20:23:07.695&#xA;&lt; Exit [AfterEach] VirtualDiskAttachment - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:70 @ 10/06/25 20:23:12.658 (4.964s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When virtual machines are applied checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:116 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready get disk count before attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:128 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready attaches virtual disk" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:133 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready checks VM and VMBDA phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:136 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready compares disk count before and after attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:150 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases get disk count before detachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:166 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases detaches virtual disk" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:171 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases checks VM phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:179 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases compares disk count before and after detachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:187 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_disk_attachment_test.go:201 @ 10/06/25 20:23:12.659&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtualization resources are applied: result should be succeeded" classname="Tests" status="failed" time="6.499768625">
+              <failure message="immediate storage class cannot be nil; please set up the immediate storage class in the cluster&#xA;Expected&#xA;    &lt;*v1.StorageClass | 0x0&gt;: nil&#xA;not to be nil" type="failed">[FAILED] immediate storage class cannot be nil; please set up the immediate storage class in the cluster&#xA;Expected&#xA;    &lt;*v1.StorageClass | 0x0&gt;: nil&#xA;not to be nil&#xA;In [BeforeAll] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:66 @ 10/06/25 20:23:14.645&#xA;</failure>
+              <system-err>&gt; Enter [BeforeAll] VirtualDiskSnapshots - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:54 @ 10/06/25 20:23:12.659&#xA;[FAILED] immediate storage class cannot be nil; please set up the immediate storage class in the cluster&#xA;Expected&#xA;    &lt;*v1.StorageClass | 0x0&gt;: nil&#xA;not to be nil&#xA;In [BeforeAll] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:66 @ 10/06/25 20:23:14.645&#xA;&lt; Exit [BeforeAll] VirtualDiskSnapshots - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:54 @ 10/06/25 20:23:14.645 (1.986s)&#xA;&gt; Enter [AfterEach] VirtualDiskSnapshots - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:78 @ 10/06/25 20:23:14.645&#xA;&lt; Exit [AfterEach] VirtualDiskSnapshots - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:78 @ 10/06/25 20:23:19.159 (4.514s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual images are applied: checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:95 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual disks are applied: checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:106 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines are applied: checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:117 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machine block device attachments are applied: checks VMBDAs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:128 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When unattached VDs in phase Ready: creates VDs snapshots with `requiredConsistency`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:139 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When unattached VDs in phase Ready: checks snapshots of unattached VDs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:159 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase creates snapshots with `requiredConsistency` of attached VDs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:180 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase creates `vdSnapshots` concurrently" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:224 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase checks snapshots" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:285 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase checks `FileSystemFrozen` status of VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:331 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped - Spec skipped because an earlier spec in an ordered container failed"></skipped>
+              <system-err>[SKIPPED] Spec skipped because an earlier spec in an ordered container failed&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vd_snapshots_test.go:357 @ 10/06/25 20:23:19.159&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the virtualization resources are applied result should be succeeded [SIG-Restoration]" classname="Tests" status="passed" time="8.806216292">
+              <system-err>&gt; Enter [BeforeAll] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:55 @ 10/06/25 20:23:19.159&#xA;&lt; Exit [BeforeAll] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:55 @ 10/06/25 20:23:21.128 (1.968s)&#xA;&gt; Enter [BeforeEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:64 @ 10/06/25 20:23:21.128&#xA;&lt; Exit [BeforeEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:64 @ 10/06/25 20:23:21.128 (0s)&#xA;&gt; Enter [It] result should be succeeded - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:80 @ 10/06/25 20:23:21.128&#xA;&lt; Exit [It] result should be succeeded - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:80 @ 10/06/25 20:23:27.966 (6.838s)&#xA;&gt; Enter [AfterEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:71 @ 10/06/25 20:23:27.966&#xA;&lt; Exit [AfterEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:71 @ 10/06/25 20:23:27.966 (0s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the virtualization resources are applied checks the resources phase [SIG-Restoration]" classname="Tests" status="timedout" time="762.248047583">
+              <failure message="A suite timeout occurred" type="timedout">[TIMEDOUT] A suite timeout occurred&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111 @ 10/06/25 20:36:05.075&#xA;&#xA;This is the Progress Report generated when the suite timeout occurred:&#xA;  VirtualMachineRestoreForce When the virtualization resources are applied checks the resources phase (Spec Runtime: 12m37.118s)&#xA;    /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111&#xA;    In [It] (Node Runtime: 12m37.118s)&#xA;      /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111&#xA;      At [By Step] `VirtualMachine` agent should be ready (Step Runtime: 12m37.118s)&#xA;        /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:112&#xA;&#xA;      Spec Goroutine&#xA;      goroutine 275 [sync.WaitGroup.Wait, 13 minutes]&#xA;        sync.runtime_SemacquireWaitGroup(0x1029c4b30?, 0x40?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sema.go:114&#xA;        sync.(*WaitGroup).Wait(0x1400089e670)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/sync/waitgroup.go:206&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources({0x14000a84620, 0x2, 0x104434e70?}, {0x1041530d7, 0x2a}, {{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, ...}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:349&#xA;            | &#x9;&#x9;}()&#xA;            | &#x9;}&#xA;            &gt; &#x9;wg.Wait()&#xA;            | &#x9;Expect(waitErr).To(BeEmpty())&#xA;            | }&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitByLabel({0x1041530d7, 0x2a}, {{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, 0x29}, {0x14000651440, 0x22}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:308&#xA;            | &#x9;&#x9;resources = strings.Split(res.StdOut(), &#34; &#34;)&#xA;            | &#x9;}&#xA;            &gt; &#x9;WaitResources(resources, resource, opts)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitPhaseByLabel({0x1041530d7, 0x2a}, {0x10411037b, 0x7}, {{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, 0x29}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:290&#xA;            | &#x9;GinkgoHelper()&#xA;            | &#x9;opts.For = fmt.Sprintf(&#34;&#39;jsonpath={.status.phase}=%s&#39;&#34;, phase)&#xA;            &gt; &#x9;WaitByLabel(resource, opts)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitVMAgentReady({{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, 0x29}, {0x0, 0x0}, 0xe8d4a51000})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:274&#xA;            | func WaitVMAgentReady(opts kc.WaitOptions) {&#xA;            | &#x9;GinkgoHelper()&#xA;            &gt; &#x9;WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)&#xA;            | &#x9;WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)&#xA;            | }&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.init.func21.4.2.1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:113&#xA;            | It(&#34;checks the resources phase&#34;, func() {&#xA;            | &#x9;By(&#34;`VirtualMachine` agent should be ready&#34;, func() {&#xA;            &gt; &#x9;&#x9;WaitVMAgentReady(kc.WaitOptions{&#xA;            | &#x9;&#x9;&#x9;Labels:    testCaseLabel,&#xA;            | &#x9;&#x9;&#x9;Namespace: namespace,&#xA;        github.com/onsi/ginkgo/v2/internal.(*Suite).By(0x1400016f508, {0x10414a434, 0x26}, {0x14000ba3f48, 0x1, 0x1040a3584?})&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/suite.go:323&#xA;        github.com/onsi/ginkgo/v2.By({0x10414a434?, 0x104acc210?}, {0x1400048d748?, 0x140001a2690?, 0x1400048d758?})&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/core_dsl.go:600&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.init.func21.4.2()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:112&#xA;            | &#xA;            | It(&#34;checks the resources phase&#34;, func() {&#xA;            &gt; &#x9;By(&#34;`VirtualMachine` agent should be ready&#34;, func() {&#xA;            | &#x9;&#x9;WaitVMAgentReady(kc.WaitOptions{&#xA;            | &#x9;&#x9;&#x9;Labels:    testCaseLabel,&#xA;        github.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3({0x0?, 0x0?})&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/node.go:475&#xA;        github.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3()&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/suite.go:894&#xA;        github.com/onsi/ginkgo/v2/internal.(*Suite).runNode in goroutine 8&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/suite.go:881&#xA;&#xA;      Goroutines of Interest&#xA;      goroutine 259 [syscall, 13 minutes]&#xA;        syscall.syscall6(0x1009f86b0?, 0x130262d00?, 0x106d1ca78?, 0x90?, 0x14000101808?, 0x140008bc5a0?, 0x14000982a68?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sys_darwin.go:60&#xA;        syscall.wait4(0x14000982a98?, 0x102a466fc?, 0x90?, 0x104a34660?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/zsyscall_darwin_arm64.go:44&#xA;        syscall.Wait4(0x14000274cb0?, 0x14000982ad4, 0x140009f86b0?, 0x14000274c40?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/syscall_bsd.go:144&#xA;        os.(*Process).pidWait.func1(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:64&#xA;        os.ignoringEINTR2[...](...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/file_posix.go:266&#xA;        os.(*Process).pidWait(0x140000e7bc0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:63&#xA;        os.(*Process).wait(0x140004f3888?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:28&#xA;        os.(*Process).Wait(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec.go:340&#xA;        os/exec.(*Cmd).Wait(0x140004ea300)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:922&#xA;        os/exec.(*Cmd).Run(0x140004ea300)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:626&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecuteContext({{0x140002c74b0?, 0x104acc1e8?, 0x14000274b60?}}, {0x104aec808?, 0x14000274b60?}, {0x140009f41a0?, 0xc2311da345c668a8?}, {0x104ac5120, 0x140000e7a80}, {0x104ac5120, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:76&#xA;            | &#x9;cmd.Stderr = stderr&#xA;            | &#x9;cmd.Stdout = stdout&#xA;            &gt; &#x9;return cmd.Run()&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecContext({{0x140002c74b0?, 0x105fd3668?, 0x105fa9ee0?}}, {0x104aec808, 0x14000274b60}, {0x140009f41a0, 0xd0})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:49&#xA;            | stdout := new(Buffer)&#xA;            | stderr := new(Buffer)&#xA;            &gt; err := e.ExecuteContext(ctx, command, stdout, stderr)&#xA;            | cmdResult := &amp;CMDResult{&#xA;            | &#x9;stdOut:  stdout,&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/kubectl.KubectlCMD.WaitResource({{0x104af0e48?, 0x14000039740?}, {0x104110924?, 0x0?}}, {0x1041530d7, 0x2a}, {0x140009a6d20, 0x28}, {{0x0, 0x0, ...}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/kubectl/kubectl.go:259&#xA;            | &#x9;ctx, cancel := context.WithTimeout(context.Background(), timeout)&#xA;            | &#x9;defer cancel()&#xA;            &gt; &#x9;return k.ExecContext(ctx, cmd)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources.func1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:341&#xA;            | go func() {&#xA;            | &#x9;defer wg.Done()&#xA;            &gt; &#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;            | &#x9;if res.Error() != nil {&#xA;            | &#x9;&#x9;mu.Lock()&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources in goroutine 275&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:339&#xA;            | for _, name := range resources {&#xA;            | &#x9;wg.Add(1)&#xA;            &gt; &#x9;go func() {&#xA;            | &#x9;&#x9;defer wg.Done()&#xA;            | &#x9;&#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;&#xA;      goroutine 131 [sync.Cond.Wait, 3 minutes]&#xA;        sync.runtime_notifyListWait(0x140008c2348, 0xa9)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sema.go:606&#xA;        sync.(*Cond).Wait(0x140008c2338)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/sync/cond.go:71&#xA;        golang.org/x/net/http2.(*pipe).Read(0x140008c2330, {0x14000915000, 0x1000, 0x1000})&#xA;          /Users/antont/go/pkg/mod/golang.org/x/net@v0.39.0/http2/pipe.go:76&#xA;        golang.org/x/net/http2.transportResponseBody.Read({0x140008e20f0?}, {0x14000915000?, 0x1045a1640?, 0x14000188f20?})&#xA;          /Users/antont/go/pkg/mod/golang.org/x/net@v0.39.0/http2/transport.go:2560&#xA;        bufio.(*Reader).fill(0x140005280c0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/bufio/bufio.go:113&#xA;        bufio.(*Reader).ReadByte(0x140005280c0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/bufio/bufio.go:273&#xA;        compress/flate.(*decompressor).moreBits(0x140008f8008)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/flate/inflate.go:697&#xA;        compress/flate.(*decompressor).nextBlock(0x140008f8008)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/flate/inflate.go:304&#xA;        compress/flate.(*decompressor).Read(0x140008f8008, {0x14000ac17e6, 0xda81a, 0x102b09c74?})&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/flate/inflate.go:348&#xA;        compress/gzip.(*Reader).Read(0x14000150848, {0x14000ac17e6, 0xda81a, 0xda81a})&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/gzip/gunzip.go:252&#xA;        golang.org/x/net/http2.(*gzipReader).Read(0x0?, {0x14000ac17e6?, 0x140008e4778?, 0x14000ac1694?})&#xA;          /Users/antont/go/pkg/mod/golang.org/x/net@v0.39.0/http2/transport.go:3151&#xA;        bufio.(*Scanner).Scan(0x1400091bda0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/bufio/scan.go:219&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/errlogger.(*LogStreamer).Stream(0x140008e3110, {0x1302f1000, 0x14000610840}, {0x104ac5920, 0x14000119620})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/errlogger/errlogger.go:78&#xA;            | num := 0&#xA;            | &#xA;            &gt; for scanner.Scan() {&#xA;            | &#x9;rawEntry := scanner.Bytes()&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.(*logStreamer).Start.func1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:248&#xA;            | defer l.wg.Done()&#xA;            | &#xA;            &gt; n, err := logStreamer.Stream(readCloser, GinkgoWriter)&#xA;            | l.mu.Lock()&#xA;            | defer l.mu.Unlock()&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.(*logStreamer).Start in goroutine 31&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:245&#xA;            | &#xA;            | l.wg.Add(1)&#xA;            &gt; go func() {&#xA;            | &#x9;defer l.wg.Done()&#xA;            | &#xA;&#xA;      goroutine 260 [syscall, 13 minutes]&#xA;        syscall.syscall6(0x10089e6b0?, 0x106d2bd70?, 0x106d1cf30?, 0x90?, 0x105fac3c0?, 0x140007fec60?, 0x140000b4a68?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sys_darwin.go:60&#xA;        syscall.wait4(0x140000b4a98?, 0x102a466fc?, 0x90?, 0x104a34660?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/zsyscall_darwin_arm64.go:44&#xA;        syscall.Wait4(0x140002f6d20?, 0x140000b4ad4, 0x1400089e6b0?, 0x140002f6cb0?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/syscall_bsd.go:144&#xA;        os.(*Process).pidWait.func1(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:64&#xA;        os.ignoringEINTR2[...](...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/file_posix.go:266&#xA;        os.(*Process).pidWait(0x14000521800)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:63&#xA;        os.(*Process).wait(0x14000522008?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:28&#xA;        os.(*Process).Wait(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec.go:340&#xA;        os/exec.(*Cmd).Wait(0x140008c2600)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:922&#xA;        os/exec.(*Cmd).Run(0x140008c2600)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:626&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecuteContext({{0x140002c74b0?, 0x104acc1e8?, 0x140002f6b60?}}, {0x104aec808?, 0x140002f6b60?}, {0x140008684e0?, 0xc2311da345c668a8?}, {0x104ac5120, 0x14000521700}, {0x104ac5120, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:76&#xA;            | &#x9;cmd.Stderr = stderr&#xA;            | &#x9;cmd.Stdout = stdout&#xA;            &gt; &#x9;return cmd.Run()&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecContext({{0x140002c74b0?, 0x105fd3668?, 0x105fa9ee0?}}, {0x104aec808, 0x140002f6b60}, {0x140008684e0, 0xc6})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:49&#xA;            | stdout := new(Buffer)&#xA;            | stderr := new(Buffer)&#xA;            &gt; err := e.ExecuteContext(ctx, command, stdout, stderr)&#xA;            | cmdResult := &amp;CMDResult{&#xA;            | &#x9;stdOut:  stdout,&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/kubectl.KubectlCMD.WaitResource({{0x104af0e48?, 0x14000039740?}, {0x104110924?, 0x14000851e98?}}, {0x1041530d7, 0x2a}, {0x140009a6d49, 0x1e}, {{0x0, 0x0, ...}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/kubectl/kubectl.go:259&#xA;            | &#x9;ctx, cancel := context.WithTimeout(context.Background(), timeout)&#xA;            | &#x9;defer cancel()&#xA;            &gt; &#x9;return k.ExecContext(ctx, cmd)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources.func1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:341&#xA;            | go func() {&#xA;            | &#x9;defer wg.Done()&#xA;            &gt; &#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;            | &#x9;if res.Error() != nil {&#xA;            | &#x9;&#x9;mu.Lock()&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources in goroutine 275&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:339&#xA;            | for _, name := range resources {&#xA;            | &#x9;wg.Add(1)&#xA;            &gt; &#x9;go func() {&#xA;            | &#x9;&#x9;defer wg.Done()&#xA;            | &#x9;&#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;</failure>
+              <system-err>&gt; Enter [BeforeEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:64 @ 10/06/25 20:23:27.966&#xA;&lt; Exit [BeforeEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:64 @ 10/06/25 20:23:27.966 (0s)&#xA;&gt; Enter [It] checks the resources phase - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111 @ 10/06/25 20:23:27.966&#xA;STEP: `VirtualMachine` agent should be ready - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:112 @ 10/06/25 20:23:27.966&#xA;[TIMEDOUT] A suite timeout occurred&#xA;In [It] at: /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111 @ 10/06/25 20:36:05.075&#xA;&#xA;This is the Progress Report generated when the suite timeout occurred:&#xA;  VirtualMachineRestoreForce When the virtualization resources are applied checks the resources phase (Spec Runtime: 12m37.118s)&#xA;    /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111&#xA;    In [It] (Node Runtime: 12m37.118s)&#xA;      /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111&#xA;      At [By Step] `VirtualMachine` agent should be ready (Step Runtime: 12m37.118s)&#xA;        /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:112&#xA;&#xA;      Spec Goroutine&#xA;      goroutine 275 [sync.WaitGroup.Wait, 13 minutes]&#xA;        sync.runtime_SemacquireWaitGroup(0x1029c4b30?, 0x40?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sema.go:114&#xA;        sync.(*WaitGroup).Wait(0x1400089e670)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/sync/waitgroup.go:206&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources({0x14000a84620, 0x2, 0x104434e70?}, {0x1041530d7, 0x2a}, {{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, ...}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:349&#xA;            | &#x9;&#x9;}()&#xA;            | &#x9;}&#xA;            &gt; &#x9;wg.Wait()&#xA;            | &#x9;Expect(waitErr).To(BeEmpty())&#xA;            | }&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitByLabel({0x1041530d7, 0x2a}, {{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, 0x29}, {0x14000651440, 0x22}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:308&#xA;            | &#x9;&#x9;resources = strings.Split(res.StdOut(), &#34; &#34;)&#xA;            | &#x9;}&#xA;            &gt; &#x9;WaitResources(resources, resource, opts)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitPhaseByLabel({0x1041530d7, 0x2a}, {0x10411037b, 0x7}, {{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, 0x29}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:290&#xA;            | &#x9;GinkgoHelper()&#xA;            | &#x9;opts.For = fmt.Sprintf(&#34;&#39;jsonpath={.status.phase}=%s&#39;&#34;, phase)&#xA;            &gt; &#x9;WaitByLabel(resource, opts)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitVMAgentReady({{0x0, 0x0, 0x0}, 0x140005d37d0, {0x14000a27800, 0x29}, {0x0, 0x0}, 0xe8d4a51000})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:274&#xA;            | func WaitVMAgentReady(opts kc.WaitOptions) {&#xA;            | &#x9;GinkgoHelper()&#xA;            &gt; &#x9;WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)&#xA;            | &#x9;WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)&#xA;            | }&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.init.func21.4.2.1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:113&#xA;            | It(&#34;checks the resources phase&#34;, func() {&#xA;            | &#x9;By(&#34;`VirtualMachine` agent should be ready&#34;, func() {&#xA;            &gt; &#x9;&#x9;WaitVMAgentReady(kc.WaitOptions{&#xA;            | &#x9;&#x9;&#x9;Labels:    testCaseLabel,&#xA;            | &#x9;&#x9;&#x9;Namespace: namespace,&#xA;        github.com/onsi/ginkgo/v2/internal.(*Suite).By(0x1400016f508, {0x10414a434, 0x26}, {0x14000ba3f48, 0x1, 0x1040a3584?})&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/suite.go:323&#xA;        github.com/onsi/ginkgo/v2.By({0x10414a434?, 0x104acc210?}, {0x1400048d748?, 0x140001a2690?, 0x1400048d758?})&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/core_dsl.go:600&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.init.func21.4.2()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:112&#xA;            | &#xA;            | It(&#34;checks the resources phase&#34;, func() {&#xA;            &gt; &#x9;By(&#34;`VirtualMachine` agent should be ready&#34;, func() {&#xA;            | &#x9;&#x9;WaitVMAgentReady(kc.WaitOptions{&#xA;            | &#x9;&#x9;&#x9;Labels:    testCaseLabel,&#xA;        github.com/onsi/ginkgo/v2/internal.extractBodyFunction.func3({0x0?, 0x0?})&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/node.go:475&#xA;        github.com/onsi/ginkgo/v2/internal.(*Suite).runNode.func3()&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/suite.go:894&#xA;        github.com/onsi/ginkgo/v2/internal.(*Suite).runNode in goroutine 8&#xA;          /Users/antont/go/pkg/mod/github.com/onsi/ginkgo/v2@v2.22.0/internal/suite.go:881&#xA;&#xA;      Goroutines of Interest&#xA;      goroutine 259 [syscall, 13 minutes]&#xA;        syscall.syscall6(0x1009f86b0?, 0x130262d00?, 0x106d1ca78?, 0x90?, 0x14000101808?, 0x140008bc5a0?, 0x14000982a68?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sys_darwin.go:60&#xA;        syscall.wait4(0x14000982a98?, 0x102a466fc?, 0x90?, 0x104a34660?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/zsyscall_darwin_arm64.go:44&#xA;        syscall.Wait4(0x14000274cb0?, 0x14000982ad4, 0x140009f86b0?, 0x14000274c40?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/syscall_bsd.go:144&#xA;        os.(*Process).pidWait.func1(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:64&#xA;        os.ignoringEINTR2[...](...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/file_posix.go:266&#xA;        os.(*Process).pidWait(0x140000e7bc0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:63&#xA;        os.(*Process).wait(0x140004f3888?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:28&#xA;        os.(*Process).Wait(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec.go:340&#xA;        os/exec.(*Cmd).Wait(0x140004ea300)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:922&#xA;        os/exec.(*Cmd).Run(0x140004ea300)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:626&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecuteContext({{0x140002c74b0?, 0x104acc1e8?, 0x14000274b60?}}, {0x104aec808?, 0x14000274b60?}, {0x140009f41a0?, 0xc2311da345c668a8?}, {0x104ac5120, 0x140000e7a80}, {0x104ac5120, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:76&#xA;            | &#x9;cmd.Stderr = stderr&#xA;            | &#x9;cmd.Stdout = stdout&#xA;            &gt; &#x9;return cmd.Run()&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecContext({{0x140002c74b0?, 0x105fd3668?, 0x105fa9ee0?}}, {0x104aec808, 0x14000274b60}, {0x140009f41a0, 0xd0})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:49&#xA;            | stdout := new(Buffer)&#xA;            | stderr := new(Buffer)&#xA;            &gt; err := e.ExecuteContext(ctx, command, stdout, stderr)&#xA;            | cmdResult := &amp;CMDResult{&#xA;            | &#x9;stdOut:  stdout,&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/kubectl.KubectlCMD.WaitResource({{0x104af0e48?, 0x14000039740?}, {0x104110924?, 0x0?}}, {0x1041530d7, 0x2a}, {0x140009a6d20, 0x28}, {{0x0, 0x0, ...}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/kubectl/kubectl.go:259&#xA;            | &#x9;ctx, cancel := context.WithTimeout(context.Background(), timeout)&#xA;            | &#x9;defer cancel()&#xA;            &gt; &#x9;return k.ExecContext(ctx, cmd)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources.func1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:341&#xA;            | go func() {&#xA;            | &#x9;defer wg.Done()&#xA;            &gt; &#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;            | &#x9;if res.Error() != nil {&#xA;            | &#x9;&#x9;mu.Lock()&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources in goroutine 275&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:339&#xA;            | for _, name := range resources {&#xA;            | &#x9;wg.Add(1)&#xA;            &gt; &#x9;go func() {&#xA;            | &#x9;&#x9;defer wg.Done()&#xA;            | &#x9;&#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;&#xA;      goroutine 131 [sync.Cond.Wait, 3 minutes]&#xA;        sync.runtime_notifyListWait(0x140008c2348, 0xa9)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sema.go:606&#xA;        sync.(*Cond).Wait(0x140008c2338)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/sync/cond.go:71&#xA;        golang.org/x/net/http2.(*pipe).Read(0x140008c2330, {0x14000915000, 0x1000, 0x1000})&#xA;          /Users/antont/go/pkg/mod/golang.org/x/net@v0.39.0/http2/pipe.go:76&#xA;        golang.org/x/net/http2.transportResponseBody.Read({0x140008e20f0?}, {0x14000915000?, 0x1045a1640?, 0x14000188f20?})&#xA;          /Users/antont/go/pkg/mod/golang.org/x/net@v0.39.0/http2/transport.go:2560&#xA;        bufio.(*Reader).fill(0x140005280c0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/bufio/bufio.go:113&#xA;        bufio.(*Reader).ReadByte(0x140005280c0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/bufio/bufio.go:273&#xA;        compress/flate.(*decompressor).moreBits(0x140008f8008)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/flate/inflate.go:697&#xA;        compress/flate.(*decompressor).nextBlock(0x140008f8008)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/flate/inflate.go:304&#xA;        compress/flate.(*decompressor).Read(0x140008f8008, {0x14000ac17e6, 0xda81a, 0x102b09c74?})&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/flate/inflate.go:348&#xA;        compress/gzip.(*Reader).Read(0x14000150848, {0x14000ac17e6, 0xda81a, 0xda81a})&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/compress/gzip/gunzip.go:252&#xA;        golang.org/x/net/http2.(*gzipReader).Read(0x0?, {0x14000ac17e6?, 0x140008e4778?, 0x14000ac1694?})&#xA;          /Users/antont/go/pkg/mod/golang.org/x/net@v0.39.0/http2/transport.go:3151&#xA;        bufio.(*Scanner).Scan(0x1400091bda0)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/bufio/scan.go:219&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/errlogger.(*LogStreamer).Stream(0x140008e3110, {0x1302f1000, 0x14000610840}, {0x104ac5920, 0x14000119620})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/errlogger/errlogger.go:78&#xA;            | num := 0&#xA;            | &#xA;            &gt; for scanner.Scan() {&#xA;            | &#x9;rawEntry := scanner.Bytes()&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.(*logStreamer).Start.func1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:248&#xA;            | defer l.wg.Done()&#xA;            | &#xA;            &gt; n, err := logStreamer.Stream(readCloser, GinkgoWriter)&#xA;            | l.mu.Lock()&#xA;            | defer l.mu.Unlock()&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.(*logStreamer).Start in goroutine 31&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:245&#xA;            | &#xA;            | l.wg.Add(1)&#xA;            &gt; go func() {&#xA;            | &#x9;defer l.wg.Done()&#xA;            | &#xA;&#xA;      goroutine 260 [syscall, 13 minutes]&#xA;        syscall.syscall6(0x10089e6b0?, 0x106d2bd70?, 0x106d1cf30?, 0x90?, 0x105fac3c0?, 0x140007fec60?, 0x140000b4a68?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/runtime/sys_darwin.go:60&#xA;        syscall.wait4(0x140000b4a98?, 0x102a466fc?, 0x90?, 0x104a34660?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/zsyscall_darwin_arm64.go:44&#xA;        syscall.Wait4(0x140002f6d20?, 0x140000b4ad4, 0x1400089e6b0?, 0x140002f6cb0?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/syscall/syscall_bsd.go:144&#xA;        os.(*Process).pidWait.func1(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:64&#xA;        os.ignoringEINTR2[...](...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/file_posix.go:266&#xA;        os.(*Process).pidWait(0x14000521800)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:63&#xA;        os.(*Process).wait(0x14000522008?)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec_unix.go:28&#xA;        os.(*Process).Wait(...)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec.go:340&#xA;        os/exec.(*Cmd).Wait(0x140008c2600)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:922&#xA;        os/exec.(*Cmd).Run(0x140008c2600)&#xA;          /opt/homebrew/Cellar/go/1.25.1/libexec/src/os/exec/exec.go:626&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecuteContext({{0x140002c74b0?, 0x104acc1e8?, 0x140002f6b60?}}, {0x104aec808?, 0x140002f6b60?}, {0x140008684e0?, 0xc2311da345c668a8?}, {0x104ac5120, 0x14000521700}, {0x104ac5120, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:76&#xA;            | &#x9;cmd.Stderr = stderr&#xA;            | &#x9;cmd.Stdout = stdout&#xA;            &gt; &#x9;return cmd.Run()&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/executor.CMDExecutor.ExecContext({{0x140002c74b0?, 0x105fd3668?, 0x105fa9ee0?}}, {0x104aec808, 0x140002f6b60}, {0x140008684e0, 0xc6})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/executor/executor.go:49&#xA;            | stdout := new(Buffer)&#xA;            | stderr := new(Buffer)&#xA;            &gt; err := e.ExecuteContext(ctx, command, stdout, stderr)&#xA;            | cmdResult := &amp;CMDResult{&#xA;            | &#x9;stdOut:  stdout,&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e/kubectl.KubectlCMD.WaitResource({{0x104af0e48?, 0x14000039740?}, {0x104110924?, 0x14000851e98?}}, {0x1041530d7, 0x2a}, {0x140009a6d49, 0x1e}, {{0x0, 0x0, ...}, ...})&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/kubectl/kubectl.go:259&#xA;            | &#x9;ctx, cancel := context.WithTimeout(context.Background(), timeout)&#xA;            | &#x9;defer cancel()&#xA;            &gt; &#x9;return k.ExecContext(ctx, cmd)&#xA;            | }&#xA;            | &#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources.func1()&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:341&#xA;            | go func() {&#xA;            | &#x9;defer wg.Done()&#xA;            &gt; &#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;            | &#x9;if res.Error() != nil {&#xA;            | &#x9;&#x9;mu.Lock()&#xA;      &gt; github.com/deckhouse/virtualization/tests/e2e.WaitResources in goroutine 275&#xA;          /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/util_test.go:339&#xA;            | for _, name := range resources {&#xA;            | &#x9;wg.Add(1)&#xA;            &gt; &#x9;go func() {&#xA;            | &#x9;&#x9;defer wg.Done()&#xA;            | &#x9;&#x9;res := kubectl.WaitResource(resource, name, waitOpts)&#xA;&lt; Exit [It] checks the resources phase - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:111 @ 10/06/25 20:36:05.08 (12m37.123s)&#xA;&gt; Enter [AfterEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:71 @ 10/06/25 20:36:05.08&#xA;&lt; Exit [AfterEach] VirtualMachineRestoreForce - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/vm_restore_force_test.go:71 @ 10/06/25 20:36:10.205 (5.125s)&#xA;</system-err>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the virtualization resources are applied add additional interface to virtual machines [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the resources are ready to use restore the `VirtualMachines` with `forced` mode [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the resources are ready to use check the .status.networks of each VM after restore [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When test is completed deletes test case resources [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtualization resources are applied: result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtualization resources are applied: checks the resources phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtual machines agents are ready checks the `status.nodeName` field of the `VirtualMachines`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtual machine `node-selector` agent is ready sets the `spec.nodeSelector` field" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtual machine `node-affinity` agent is ready sets the `spec.affinity.nodeAffinity` field" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When base virtual resources are ready checks VD phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When base virtual resources are ready checks VDSnapshot phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When virtual images are applied checks CVIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the virtualization resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the virtualization resources are applied checks the resources phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use retrieves the test objects" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use retrieves the disk count before the images attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use attaches the images into the `VirtualMachine`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use checks the `VirtualMachine` and the `VirtualMachineBlockDeviceAttachments` phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use compares the disk count before and after attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use checks that the `ISO` image is attached as `CD-ROM`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use check that the images are attached as the `ReadOnly` devices" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use detaches the images" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use compares the disk count after detachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the virtualization resources are applied result should be succeeded [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the virtualization resources are applied checks the resources phase [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the virtualization resources are applied add additional interface to virtual machines [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the resources are ready to use restore the `VirtualMachines` with `Safe` mode [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the resources are ready to use check the .status.networks of each VM after restore [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When test is completed deletes test case resources [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineCancelMigration Cancel migrate [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] IPAM vmip with type Auto Creates vmip with type Auto" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] IPAM vmip with type Static Creates vmip with type Static" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful when only root disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful when root disk on local storage and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful when only additional disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted when only root disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted when root disk on local storage and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted when only additional disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful two migrations in a row [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted first and completed second [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted because virtual machine stopped when virtual machine deleting [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted because virtual machine stopped when virtual machine stopped from OS [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks Migrate to not matched node should reverted because migration canceled when pod pending [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be failed with RWO VMBDA [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When resources are applied result should be succeeded [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When virtual machines are applied checks VMs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When virtual machines are applied checks network availability [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When virtual machine agents and network are ready starts migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When VMs migrations are applied checks VMs and VMOPs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When VMs migrations are applied checks VMs external connection after migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When VMs migrations are applied checks network availability after migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When test is completed deletes test case resources [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when only root disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when root disk changed storage class and one local additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when root disk changed storage class and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when only additional disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when only root disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when root disk changed storage class and one local additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when root disk changed storage class and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when only additional disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful two migrations in a row [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual images are applied checks `VirtualImages` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual disks are applied checks `VirtualDisks` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual machine are applied checks `VirtualMachine` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual machine are applied retrieves the test objects" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual machine block device attachment is applied checks `VirtualMachineBlockDeviceAttachment` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready obtains the disks metadata before resizing" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready resizes the disks" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready checks `VirtualDisks`, `VirtualMachine` and `VirtualMachineBlockDeviceAttachment` phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready obtains and compares the disks metadata after resizing" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual disks are applied checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machines are applied checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When run curl-helper status should be in Running phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets VMs and SVCs objects" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready check ssh connection via `d8 v` to VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready checks VMs connection to external network" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready check nginx status via `d8 v` on VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets page from service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets page from service head-45bdb83d-vm-connectivity-b" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready changes selector in service head-45bdb83d-vm-connectivity-a with selector from service head-45bdb83d-vm-connectivity-b" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready checks selector in service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets page from service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready changes back selector in service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready checks selector in service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual disks are applied checks VDs phases with map[vm:not-existing-vmclass-with-changing] and map[vm:not-existing-vmclass-with-creating] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual disks are applied checks VDs phases with map[vm:existing-vmclass] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual machines are applied checks VMs phases with map[vm:not-existing-vmclass-with-changing] and map[vm:not-existing-vmclass-with-creating] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual machines are applied checks VMs phases with map[vm:existing-vmclass] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-changing] in phase Pending checks condition status before changing &#39;virtulaMachineCLass` field with existing class" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-changing] in phase Pending changes VMClassName in VM specification with existing VMClass" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-changing] in phase Pending checks VM phase and condition status after changing" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending checks condition status before creating `VirtualMachineClass`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending creates new `VirtualMachineClass`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending checks VM phase and condition after creating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual machines in phase Running checks sizing policy match" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtualization resources are applied result should be succeeded [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtualization resources are applied should fill empty virtualMachineClassName with the default class name [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual images are applied checks VIs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When cluster virtual images are applied checks CVIs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machine classes are applied checks VMClasses phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machines IP addresses are applied patches custom VMIP with unassigned address [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machines IP addresses are applied checks VMIPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual disks are applied checks VDs phases with consumers [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual disks are applied checks VDs phases with no consumers [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machines are applied checks VMs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machine block device attachments are applied checks VMBDAs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest External connection When Virtual machine agents are ready checks VMs external connectivity [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by VMOPs stops VMs by VMOPs [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by VMOPs checks VMOPs and VMs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by VMOPs cleanup AlwaysOn VM VMOPs [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are starting starts VMs by VMOP [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are starting checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh stops VMs by ssh [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh checks VMs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh start not AlwaysOn VMs [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting by VMOP reboot VMs by VMOP [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting by VMOP checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting by ssh reboot VMs by ssh [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting after deleting their pods reboots the VMs by deleting their pods [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting after deleting their pods checks VMs external connection after reboot [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Migrations When Virtual machine agents are ready starts migrations [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Migrations When VMs migrations are applied checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Migrations When VMs migrations are applied checks VMs external connection after migrations [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When test is completed deletes test case resources [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When virtual disks are applied should be in Ready phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When virtual machines are applied should be ready" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine agents are ready changes the number of processor cores" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine is patched checks the number of processor cores in specification" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine is restarted should be ready" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine agents are ready checks that the number of processor cores was changed" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine is in Running phase changes the number of processor cores" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine is patched checks the number of processor cores in specification" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine is restarted should be ready" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine agents are ready checks that the number of processor cores was changed" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual disks are applied checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machines are applied checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running marks VMs with label map[&#34;specialKey&#34;:&#34;specialValue&#34;]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running checks VMs and pods labels after VMs labeling" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running removes label map[specialKey:specialValue] from VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running checks VMs and pods labels after VMs unlabeling" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase marks VMs with annotation map[&#34;specialKey&#34;:&#34;specialValue&#34;]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase checks VMs and pods annotations after VMs annotating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase removes annotation map[specialKey:specialValue] from VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase checks VMs and pods annotations after VMs unannotating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtualization resources are applied: result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual disks are applied: checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual machines are applied: checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual machines are ready: has qemu version in the status" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual machines are ready: has libvirt version in the status" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy Project creates project" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy Project checks project readiness" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied When virtual images are applied" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied When virtual disks are applied" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied When virtual machines are applied" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When resources are applied result should be succeeded [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When virtual machines are applied checks VMs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When virtual machine agents are ready starts migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When VMs migrations are applied checks VMs and VMOPs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When VMs migrations are applied checks VMs external connection after migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When test is completed deletes test case resources [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineEvacuation Evacuation [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[SynchronizedAfterSuite]" classname="Tests" status="passed" time="0.186160333">
+              <system-err>&gt; Enter [SynchronizedAfterSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:182 @ 10/06/25 20:36:10.207&#xA;&lt; Exit [SynchronizedAfterSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:182 @ 10/06/25 20:36:10.207 (0s)&#xA;&gt; Enter [SynchronizedAfterSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:182 @ 10/06/25 20:36:10.207&#xA;&lt; Exit [SynchronizedAfterSuite] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:182 @ 10/06/25 20:36:10.393 (186ms)&#xA;</system-err>
+          </testcase>
+          <testcase name="[DeferCleanup (Suite)]" classname="Tests" status="passed" time="3.928378125">
+              <system-err>&gt; Enter [DeferCleanup (Suite)] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:175 @ 10/06/25 20:36:10.393&#xA;&lt; Exit [DeferCleanup (Suite)] TOP-LEVEL - /Users/antont/ansible_deckhouse/virtualization-full/tests/e2e/e2e_test.go:175 @ 10/06/25 20:36:14.321 (3.928s)&#xA;</system-err>
+          </testcase>
+      </testsuite>
+  </testsuites>

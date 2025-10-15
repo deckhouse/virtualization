@@ -1,0 +1,658 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuites tests="211" disabled="211" errors="0" failures="0" time="0.003301">
+      <testsuite name="Tests" package="/Users/antont/ansible_deckhouse/virtualization-full/tests/e2e" tests="211" disabled="0" skipped="211" errors="0" failures="0" time="0.003301" timestamp="2025-10-08T15:59:10">
+          <properties>
+              <property name="SuiteSucceeded" value="true"></property>
+              <property name="SuiteHasProgrammaticFocus" value="false"></property>
+              <property name="SpecialSuiteFailureReason" value=""></property>
+              <property name="SuiteLabels" value="[]"></property>
+              <property name="RandomSeed" value="1759928337"></property>
+              <property name="RandomizeAllSpecs" value="false"></property>
+              <property name="LabelFilter" value=""></property>
+              <property name="FocusStrings" value="vm_configuration|vm_connectivity"></property>
+              <property name="SkipStrings" value=""></property>
+              <property name="FocusFiles" value=""></property>
+              <property name="SkipFiles" value=""></property>
+              <property name="FailOnPending" value="false"></property>
+              <property name="FailOnEmpty" value="false"></property>
+              <property name="FailFast" value="false"></property>
+              <property name="FlakeAttempts" value="0"></property>
+              <property name="DryRun" value="false"></property>
+              <property name="ParallelTotal" value="1"></property>
+              <property name="OutputInterceptorMode" value=""></property>
+          </properties>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful when only root disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful when root disk on local storage and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful when only additional disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted when only root disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted when root disk on local storage and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted when only additional disk on local storage [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be successful two migrations in a row [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted first and completed second [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted because virtual machine stopped when virtual machine deleting [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be reverted because virtual machine stopped when virtual machine stopped from OS [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks Migrate to not matched node should reverted because migration canceled when pod pending [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration with local disks should be failed with RWO VMBDA [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When virtual disks are applied should be in Ready phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When virtual machines are applied should be ready" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine agents are ready changes the number of processor cores" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine is patched checks the number of processor cores in specification" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine is restarted should be ready" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Manual restart approval mode 1 When virtual machine agents are ready checks that the number of processor cores was changed" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine is in Running phase changes the number of processor cores" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine is patched checks the number of processor cores in specification" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine is restarted should be ready" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 Automatic restart approval mode 1 When virtual machine agents are ready checks that the number of processor cores was changed" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConfiguration 1 When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy Project creates project" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy Project checks project readiness" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied When virtual images are applied" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied When virtual disks are applied" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImporterNetworkPolicy When resources are applied When virtual machines are applied" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineCancelMigration Cancel migrate [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When base virtual resources are ready checks VD phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When base virtual resources are ready checks VDSnapshot phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When virtual images are applied checks CVIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualImageCreation When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual disks are applied checks VDs phases with map[vm:not-existing-vmclass-with-changing] and map[vm:not-existing-vmclass-with-creating] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual disks are applied checks VDs phases with map[vm:existing-vmclass] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual machines are applied checks VMs phases with map[vm:not-existing-vmclass-with-changing] and map[vm:not-existing-vmclass-with-creating] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual machines are applied checks VMs phases with map[vm:existing-vmclass] label" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-changing] in phase Pending checks condition status before changing &#39;virtulaMachineCLass` field with existing class" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-changing] in phase Pending changes VMClassName in VM specification with existing VMClass" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-changing] in phase Pending checks VM phase and condition status after changing" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending checks condition status before creating `VirtualMachineClass`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending creates new `VirtualMachineClass`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy Not existing virtual machine class When virtual machine with label map[vm:not-existing-vmclass-with-creating] in phase Pending checks VM phase and condition after creating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When virtual machines in phase Running checks sizing policy match" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] SizingPolicy When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When resources are applied result should be succeeded [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When virtual machines are applied checks VMs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When virtual machines are applied checks network availability [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When virtual machine agents and network are ready starts migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When VMs migrations are applied checks VMs and VMOPs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When VMs migrations are applied checks VMs external connection after migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When VMs migrations are applied checks network availability after migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAdditionalNetworkInterfaces When test is completed deletes test case resources [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual images are applied checks `VirtualImages` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual disks are applied checks `VirtualDisks` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual machine are applied checks `VirtualMachine` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual machine are applied retrieves the test objects" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When the virtual machine block device attachment is applied checks `VirtualMachineBlockDeviceAttachment` phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready obtains the disks metadata before resizing" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready resizes the disks" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready checks `VirtualDisks`, `VirtualMachine` and `VirtualMachineBlockDeviceAttachment` phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing Resizing When the virtual machine is ready obtains and compares the disks metadata after resizing" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskResizing When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtualization resources are applied: result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtualization resources are applied: checks the resources phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtual machines agents are ready checks the `status.nodeName` field of the `VirtualMachines`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtual machine `node-selector` agent is ready sets the `spec.nodeSelector` field" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When the virtual machine `node-affinity` agent is ready sets the `spec.affinity.nodeAffinity` field" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineAffinityAndToleration When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the virtualization resources are applied result should be succeeded [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the virtualization resources are applied checks the resources phase [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the virtualization resources are applied add additional interface to virtual machines [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the resources are ready to use restore the `VirtualMachines` with `forced` mode [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When the resources are ready to use check the .status.networks of each VM after restore [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreForce When test is completed deletes test case resources [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual disks are applied checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machines are applied checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running marks VMs with label map[&#34;specialKey&#34;:&#34;specialValue&#34;]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running checks VMs and pods labels after VMs labeling" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running removes label map[specialKey:specialValue] from VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When virtual machine is running checks VMs and pods labels after VMs unlabeling" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase marks VMs with annotation map[&#34;specialKey&#34;:&#34;specialValue&#34;]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase checks VMs and pods annotations after VMs annotating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase removes annotation map[specialKey:specialValue] from VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation Annotate `VirtualMachines` in Running phase checks VMs and pods annotations after VMs unannotating" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineLabelAndAnnotation When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the virtualization resources are applied result should be succeeded [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the virtualization resources are applied checks the resources phase [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the virtualization resources are applied add additional interface to virtual machines [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the resources are ready to use restore the `VirtualMachines` with `Safe` mode [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When the resources are ready to use check the .status.networks of each VM after restore [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineRestoreSafe When test is completed deletes test case resources [SIG-Restoration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtualization resources are applied: result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual disks are applied: checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual machines are applied: checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual machines are ready: has qemu version in the status" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When virtual machines are ready: has libvirt version in the status" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineVersions When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the virtualization resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the virtualization resources are applied checks the resources phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use retrieves the test objects" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use retrieves the disk count before the images attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use attaches the images into the `VirtualMachine`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use checks the `VirtualMachine` and the `VirtualMachineBlockDeviceAttachments` phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use compares the disk count before and after attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use checks that the `ISO` image is attached as `CD-ROM`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use check that the images are attached as the `ReadOnly` devices" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use detaches the images" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When the resources are ready to use compares the disk count after detachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ImageHotplug When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtualization resources are applied: result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual images are applied: checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual disks are applied: checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines are applied: checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machine block device attachments are applied: checks VMBDAs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When unattached VDs in phase Ready: creates VDs snapshots with `requiredConsistency`" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When unattached VDs in phase Ready: checks snapshots of unattached VDs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase creates snapshots with `requiredConsistency` of attached VDs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase creates `vdSnapshots` concurrently" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase checks snapshots" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When virtual machines in Running phase checks `FileSystemFrozen` status of VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskSnapshots When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual disks are applied checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machines are applied checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When run curl-helper status should be in Running phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets VMs and SVCs objects" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready check ssh connection via `d8 v` to VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready checks VMs connection to external network" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready check nginx status via `d8 v` on VMs" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets page from service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets page from service head-45bdb83d-vm-connectivity-b" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready changes selector in service head-45bdb83d-vm-connectivity-a with selector from service head-45bdb83d-vm-connectivity-b" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready checks selector in service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready gets page from service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready changes back selector in service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When virtual machine agents are ready checks selector in service head-45bdb83d-vm-connectivity-a" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineConnectivity When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] IPAM vmip with type Auto Creates vmip with type Auto" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] IPAM vmip with type Static Creates vmip with type Static" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineEvacuation Evacuation [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When resources are applied result should be succeeded [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When virtual machines are applied checks VMs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When virtual machine agents are ready starts migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When VMs migrations are applied checks VMs and VMOPs phases [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When VMs migrations are applied checks VMs external connection after migrations [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualMachineMigration When test is completed deletes test case resources [SIG-Migration]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When resources are applied result should be succeeded" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When virtual images are applied checks VIs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When virtual disks are applied checks VDs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When virtual machines are applied checks VMs phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready get disk count before attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready attaches virtual disk" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready checks VM and VMBDA phases" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Attachment When virtual machine agents are ready compares disk count before and after attachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases get disk count before detachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases detaches virtual disk" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases checks VM phase" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment Detachment When virtual machines are in Running phases compares disk count before and after detachment" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] VirtualDiskAttachment When test is completed deletes test case resources" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtualization resources are applied result should be succeeded [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtualization resources are applied should fill empty virtualMachineClassName with the default class name [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual images are applied checks VIs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When cluster virtual images are applied checks CVIs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machine classes are applied checks VMClasses phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machines IP addresses are applied patches custom VMIP with unassigned address [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machines IP addresses are applied checks VMIPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual disks are applied checks VDs phases with consumers [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual disks are applied checks VDs phases with no consumers [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machines are applied checks VMs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When virtual machine block device attachments are applied checks VMBDAs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest External connection When Virtual machine agents are ready checks VMs external connectivity [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by VMOPs stops VMs by VMOPs [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by VMOPs checks VMOPs and VMs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by VMOPs cleanup AlwaysOn VM VMOPs [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are starting starts VMs by VMOP [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are starting checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh stops VMs by ssh [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh checks VMs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh start not AlwaysOn VMs [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are stopping by ssh checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting by VMOP reboot VMs by VMOP [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting by VMOP checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting by ssh reboot VMs by ssh [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting after deleting their pods reboots the VMs by deleting their pods [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Power state checks Verify that the virtual machines are restarting after deleting their pods checks VMs external connection after reboot [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Migrations When Virtual machine agents are ready starts migrations [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Migrations When VMs migrations are applied checks VMs and VMOPs phases [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest Migrations When VMs migrations are applied checks VMs external connection after migrations [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] ComplexTest When test is completed deletes test case resources [Serial]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when only root disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when root disk changed storage class and one local additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when root disk changed storage class and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful when only additional disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when only root disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when root disk changed storage class and one local additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when root disk changed storage class and one additional disk [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be reverted when only additional disk changed storage class [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+          <testcase name="[It] [sig-storage] Volume migration when storage class changed should be successful two migrations in a row [SIG-Storage]" classname="Tests" status="skipped" time="0">
+              <skipped message="skipped"></skipped>
+          </testcase>
+      </testsuite>
+  </testsuites>
