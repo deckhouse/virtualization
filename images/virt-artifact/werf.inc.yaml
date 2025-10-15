@@ -84,7 +84,6 @@ shell:
     done
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     cd /kubevirt
 
     go mod download
