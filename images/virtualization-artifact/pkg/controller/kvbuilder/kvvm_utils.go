@@ -225,14 +225,18 @@ func ApplyVirtualMachineSpec(
 	}
 
 	for _, device := range hotpluggedDevices {
+		_, kind := GetOriginalDiskName(device.VolumeName)
+
 		var obj metav1.Object
-		switch {
-		case strings.HasPrefix(device.VolumeName, VDDiskPrefix):
-			obj = vdByName[strings.TrimPrefix(device.VolumeName, VDDiskPrefix)]
-		case strings.HasPrefix(device.VolumeName, VIDiskPrefix):
-			obj = viByName[strings.TrimPrefix(device.VolumeName, VIDiskPrefix)]
-		case strings.HasPrefix(device.VolumeName, CVIDiskPrefix):
-			obj = cviByName[strings.TrimPrefix(device.VolumeName, CVIDiskPrefix)]
+		switch kind {
+		case v1alpha2.ImageDevice:
+			obj = viByName[device.VolumeName]
+		case v1alpha2.ClusterImageDevice:
+			obj = cviByName[device.VolumeName]
+		case v1alpha2.DiskDevice:
+			obj = vdByName[device.VolumeName]
+		default:
+			return fmt.Errorf("unknown block device kind %q. %w", kind, common.ErrUnknownType)
 		}
 
 		switch {
