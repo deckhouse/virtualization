@@ -42,6 +42,9 @@ const (
 	moduleStateSecretName = "module-state"
 
 	apiVersion = core.GroupName + "/" + v1alpha2.Version
+
+	// State fields configuration
+	genericVMClassStateKey = "generic-vmclass-created"
 )
 
 var _ = registry.RegisterFunc(config, Reconcile)
@@ -79,6 +82,26 @@ var config = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
+type ModuleState struct {
+	GenericVMClassCreated bool
+}
+
+func (ms ModuleState) ToSecretData() map[string][]byte {
+	value := fmt.Sprintf("%t", ms.GenericVMClassCreated)
+	return map[string][]byte{
+		genericVMClassStateKey: []byte(base64.StdEncoding.EncodeToString([]byte(value))),
+	}
+}
+
+func (ms ModuleState) ToPatchData() map[string]interface{} {
+	value := fmt.Sprintf("%t", ms.GenericVMClassCreated)
+	return map[string]interface{}{
+		"data": map[string]string{
+			genericVMClassStateKey: base64.StdEncoding.EncodeToString([]byte(value)),
+		},
+	}
+}
+
 func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	vmClasses := input.Snapshots.Get(vmClassSnapshot)
 	moduleStateSecrets := input.Snapshots.Get(moduleStateSecretSnapshot)
@@ -91,7 +114,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	if len(moduleStateSecrets) > 0 {
 		moduleStateData := make(map[string]interface{})
 		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err == nil {
-			if genericCreatedEncoded, exists := moduleStateData["generic-vmclass-created"]; exists {
+			if genericCreatedEncoded, exists := moduleStateData[genericVMClassStateKey]; exists {
 				if encodedStr, ok := genericCreatedEncoded.(string); ok {
 					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
 						currentState = string(decodedBytes) == "true"
@@ -117,24 +140,12 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	}
 
 	if needsUpdate {
+		state := ModuleState{GenericVMClassCreated: vmClassExists}
+
 		if len(moduleStateSecrets) > 0 {
-			patchData := map[string]interface{}{
-				"data": map[string]string{
-					"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%t", vmClassExists))),
-				},
-			}
-			input.PatchCollector.PatchWithMerge(patchData, "v1", "Secret", settings.ModuleNamespace, moduleStateSecretName)
+			input.PatchCollector.PatchWithMerge(state.ToPatchData(), "v1", "Secret", settings.ModuleNamespace, moduleStateSecretName)
 			input.Logger.Info("Updated module-state secret")
 		} else {
-			secretData := map[string]string{
-				"generic-vmclass-created": fmt.Sprintf("%t", vmClassExists),
-			}
-
-			encodedData := make(map[string][]byte)
-			for key, value := range secretData {
-				encodedData[key] = []byte(base64.StdEncoding.EncodeToString([]byte(value)))
-			}
-
 			secret := &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "v1",
@@ -147,7 +158,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 						"module": settings.ModuleName,
 					},
 				},
-				Data: encodedData,
+				Data: state.ToSecretData(),
 				Type: "Opaque",
 			}
 			input.PatchCollector.Create(secret)

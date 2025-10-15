@@ -79,18 +79,15 @@ var config = &pkg.HookConfig{
 }
 
 func Reconcile(_ context.Context, input *pkg.HookInput) error {
-	// Проверяем, есть ли запись о том, что generic vmclass был создан ранее
 	moduleStateSecrets := input.Snapshots.Get(moduleStateSecretSnapshot)
 	vmClasses := input.Snapshots.Get(vmClassSnapshot)
 
-	// Если секрет module-state существует и содержит информацию о создании generic vmclass
 	shouldCreateVMClass := false
 	if len(moduleStateSecrets) > 0 {
 		moduleStateData := make(map[string]interface{})
 		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err == nil {
 			if genericCreatedEncoded, exists := moduleStateData["generic-vmclass-created"]; exists {
 				if encodedStr, ok := genericCreatedEncoded.(string); ok {
-					// Декодируем base64 строку
 					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
 						if string(decodedBytes) == "true" {
 							shouldCreateVMClass = true
@@ -102,12 +99,8 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		}
 	}
 
-	// Проверяем, существует ли generic vmclass
 	vmClassExists := len(vmClasses) > 0
 
-	// Создаем vmclass generic если:
-	// 1. В секрете module-state есть запись о том, что он был создан ранее
-	// 2. И vmclass generic отсутствует
 	if shouldCreateVMClass && !vmClassExists {
 		input.Logger.Info("Creating generic VirtualMachineClass as it was previously created but is now missing")
 
@@ -120,9 +113,6 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 				Name: genericVMClassName,
 				Labels: map[string]string{
 					"module": settings.ModuleName,
-				},
-				Annotations: map[string]string{
-					"helm.sh/resource-policy": "keep",
 				},
 			},
 			Spec: v1alpha2.VirtualMachineClassSpec{
