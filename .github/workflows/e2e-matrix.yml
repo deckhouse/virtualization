@@ -153,7 +153,7 @@ jobs:
               'users:' \
               '- name: sa' \
               '  user:' \
-              "    token: ${TOKEN}" > "$KCFG"
+              "    token: \"${TOKEN}\"" > "$KCFG"
             chmod 600 "$KCFG"
             echo "PARENT_KUBECONFIG_FILE=$KCFG" >> "$GITHUB_ENV"
           else
@@ -168,6 +168,8 @@ jobs:
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
           TIMEOUT: ${{ inputs.timeout || '4h' }}
           E2E_PREFIX: ${{ env.RUN_ID }}
+          LABELS: '[]'
+          FOCUS_JSON: 'null'
         run: |
           task run:ci
 
@@ -305,7 +307,7 @@ jobs:
               'users:' \
               '- name: sa' \
               '  user:' \
-              "    token: ${TOKEN}" > ~/.kube/config
+              "    token: \"${TOKEN}\"" > ~/.kube/config
             chmod 600 ~/.kube/config
           else
             echo "⚠️ Cannot setup kubeconfig for cleanup - secrets not available"
