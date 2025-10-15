@@ -79,6 +79,7 @@ altLibs:
   - psmisc
   - msulogin
   - iproute2
+  - ca-certificates
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
