@@ -1,0 +1,24 @@
+# Bootstrap no-op workflow to enable PR runs for future e2e matrix
+
+name: E2E Matrix Tests (bootstrap)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - feat/ci-e2e-matrix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  noop:
+    name: Bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "Bootstrap workflow OK"
+
+
