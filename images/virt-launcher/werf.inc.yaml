@@ -409,7 +409,7 @@ secrets:
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get install -y golang ca-certificates
+  - apt-get install -y golang ca-certificates gcc
   {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
@@ -422,6 +422,7 @@ shell:
     done
   - mkdir -p /binaries
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
+  - export CGO_ENABLED=1
   - |
     echo "Build node-labeller binaries"
     cd /node-labeller
