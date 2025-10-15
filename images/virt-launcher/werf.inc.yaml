@@ -122,6 +122,7 @@ packages:
 - pcre2
 - glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 libgmp
 - openldap openssl
+- e2fsprogs libxcrypt lvm2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
