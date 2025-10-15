@@ -120,34 +120,6 @@ jobs:
 
       - uses: ./.github/actions/setup-e2e-tools
 
-      - name: Build e2e-runner (via Taskfile wrapper)
-        working-directory: ci/dvp-e2e
-        run: |
-          mkdir -p bin
-          cat > bin/e2e-runner <<'EOF'
-          #!/usr/bin/env bash
-          set -euo pipefail
-          RUN_ID=""
-          TIMEOUT="4h"
-          JUNIT=""
-          PROFILE=""
-          while [[ $# -gt 0 ]]; do
-            case "$1" in
-              --run-id) RUN_ID="$2"; shift 2 ;;
-              --timeout) TIMEOUT="$2"; shift 2 ;;
-              --junit) JUNIT="$2"; shift 2 ;;
-              sds|cephrbd) PROFILE="$1"; shift ;;
-              *) shift ;;
-            esac
-          done
-          export E2E_PREFIX="$RUN_ID"
-          export TEST_TIMEOUT="$TIMEOUT"
-          mkdir -p "$(dirname "$JUNIT")"
-          cd ../../tests/e2e
-          task run:ci
-          EOF
-          chmod +x bin/e2e-runner
-
       - name: Prepare environment
         id: prep
         run: |
@@ -189,20 +161,13 @@ jobs:
             exit 1
           fi
 
-      - name: Run E2E tests
-        working-directory: ci/dvp-e2e
+      - name: Run E2E tests (Taskfile)
+        working-directory: tests/e2e
         env:
           KUBECONFIG: ${{ env.PARENT_KUBECONFIG_FILE }}
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
-          TMP_ROOT: ${{ env.TMP_ROOT }}
-          PARENT_KUBECONFIG_FILE: ${{ env.PARENT_KUBECONFIG_FILE }}
-          E2E_DIR: ${{ github.workspace }}/tests/e2e
         run: |
-          ./bin/e2e-runner \
-            --run-id "${RUN_ID}" \
-            --timeout "${{ inputs.timeout || '4h' }}" \
-            --junit "../../artifacts/${RUN_ID}/junit.xml" \
-            ${{ matrix.profile }}
+          task run:ci TIMEOUT="${{ inputs.timeout || '4h' }}"
 
       - name: Upload test logs
         if: always()
