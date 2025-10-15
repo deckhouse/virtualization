@@ -211,9 +211,15 @@ jobs:
           path: ./results
 
       - name: Send individual reports to Loop
-        if: ${{ always() && (secrets.LOOP_WEBHOOK_URL != '' || secrets.LOOP_WEBHOOK != '') }}
         working-directory: ci/dvp-e2e
+        env:
+          LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
         run: |
+          if [ -z "${LOOP_WEBHOOK}" ]; then
+            echo "No LOOP_WEBHOOK configured; skipping report sending."
+            exit 0
+          fi
+
           # Send individual reports for each profile
           for junit_file in ../../results/junit-*/junit.xml; do
             if [ -f "$junit_file" ]; then
