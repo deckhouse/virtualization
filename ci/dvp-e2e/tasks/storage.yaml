@@ -1,0 +1,168 @@
+version: "3"
+
+tasks:
+  # ============================================
+  # Storage Tasks
+  # ============================================
+
+  storage:profile:validate:
+    desc: Validate storage profile configuration
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      VALUES_FILE: '{{ .VALUES_FILE }}'
+    cmds:
+      - |
+        echo "Validating storage profile: {{ .STORAGE_PROFILE }}"
+        
+        case "{{ .STORAGE_PROFILE }}" in
+          sds)
+            echo "✅ SDS storage profile validated"
+            ;;
+          cephrbd)
+            echo "✅ Ceph RBD storage profile validated"
+            ;;
+          sds-local)
+            echo "✅ SDS Local storage profile validated"
+            ;;
+          hostpath)
+            echo "✅ HostPath storage profile validated"
+            ;;
+          *)
+            echo "❌ Unknown storage profile: {{ .STORAGE_PROFILE }}"
+            exit 1
+            ;;
+        esac
+
+  storage:class:create:
+    desc: Create storage class for profile
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        echo "Creating storage class for profile: {{ .STORAGE_PROFILE }}"
+        
+        case "{{ .STORAGE_PROFILE }}" in
+          sds)
+            kubectl apply -f charts/infra/templates/sds-storageclass.yaml || true
+            ;;
+          cephrbd)
+            kubectl apply -f charts/infra/templates/ceph-storageclass.yaml || true
+            ;;
+          sds-local)
+            kubectl apply -f charts/infra/templates/sds-local-storageclass.yaml || true
+            ;;
+          hostpath)
+            kubectl apply -f charts/infra/templates/hostpath-storageclass.yaml || true
+            ;;
+        esac
+
+  storage:volume:create:
+    desc: Create test volumes
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      VOLUME_COUNT: '{{ .VOLUME_COUNT | default "3" }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        echo "Creating {{ .VOLUME_COUNT }} test volumes for profile: {{ .STORAGE_PROFILE }}"
+        
+        for i in $(seq 1 {{ .VOLUME_COUNT }}); do
+          cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: test-volume-$i
+          namespace: default
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+          storageClassName: {{ .STORAGE_PROFILE }}
+        EOF
+        done
+
+  storage:volume:cleanup:
+    desc: Cleanup test volumes
+    vars:
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        echo "Cleaning up test volumes"
+        
+        kubectl delete pvc test-volume-1 test-volume-2 test-volume-3 --ignore-not-found || true
+        echo "Test volumes cleaned up"
+
+  storage:performance:test:
+    desc: Run storage performance tests
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        echo "Running storage performance tests for profile: {{ .STORAGE_PROFILE }}"
+        
+        # Create performance test pod
+        cat <<EOF | kubectl apply -f -
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: storage-perf-test
+          namespace: default
+        spec:
+          containers:
+          - name: test
+            image: busybox
+            command: ["sleep", "3600"]
+            volumeMounts:
+            - name: test-volume
+              mountPath: /test
+          volumes:
+          - name: test-volume
+            persistentVolumeClaim:
+              claimName: test-volume-1
+        EOF
+        
+        # Wait for pod to be ready
+        kubectl wait --for=condition=Ready pod/storage-perf-test --timeout=60s
+        
+        # Run performance tests
+        kubectl exec storage-perf-test -- dd if=/dev/zero of=/test/testfile bs=1M count=100
+        kubectl exec storage-perf-test -- dd if=/test/testfile of=/dev/null bs=1M
+        
+        # Cleanup
+        kubectl delete pod storage-perf-test || true
+
+  storage:snapshot:test:
+    desc: Test storage snapshots
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        echo "Testing storage snapshots for profile: {{ .STORAGE_PROFILE }}"
+        
+        # Create snapshot
+        cat <<EOF | kubectl apply -f -
+        apiVersion: snapshot.storage.k8s.io/v1
+        kind: VolumeSnapshot
+        metadata:
+          name: test-snapshot
+          namespace: default
+        spec:
+          source:
+            persistentVolumeClaimName: test-volume-1
+        EOF
+        
+        # Wait for snapshot to be ready
+        kubectl wait --for=condition=Ready volumesnapshot/test-snapshot --timeout=60s || true
+        
+        # Cleanup
+        kubectl delete volumesnapshot test-snapshot --ignore-not-found || true

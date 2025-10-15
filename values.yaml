@@ -1,0 +1,8 @@
+virtualization:
+  internal:
+    moduleConfig:
+      dvcr:
+        storage:
+          # Default empty type to avoid nil pointer during template linting
+          type: ""
+

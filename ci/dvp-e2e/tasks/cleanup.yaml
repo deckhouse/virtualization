@@ -1,0 +1,113 @@
+version: "3"
+
+tasks:
+  # ============================================
+  # Cleanup Tasks
+  # ============================================
+
+  cleanup:namespaces:safe:
+    desc: Safe cleanup of test namespaces
+    vars:
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-" }}'
+      CONFIRM: '{{ .CONFIRM | default "false" }}'
+      KUBECONFIG: '{{ .KUBECONFIG }}'
+    cmds:
+      - |
+        if [ "{{ .CONFIRM }}" != "true" ]; then
+          echo "⚠️  CONFIRM not set to 'true', skipping cleanup"
+          exit 0
+        fi
+        
+        export KUBECONFIG="{{ .KUBECONFIG }}"
+        echo "🧹 Cleaning up namespaces with prefix: {{ .FILTER_PREFIX }}"
+        
+        # Get namespaces matching the prefix
+        namespaces=$(kubectl get namespaces -o name | grep "{{ .FILTER_PREFIX }}" || true)
+        
+        if [ -z "$namespaces" ]; then
+          echo "No namespaces found with prefix {{ .FILTER_PREFIX }}"
+          exit 0
+        fi
+        
+        echo "Found namespaces to clean:"
+        echo "$namespaces"
+        
+        # Delete each namespace
+        for ns in $namespaces; do
+          ns_name=$(echo "$ns" | cut -d/ -f2)
+          echo "Deleting namespace: $ns_name"
+          kubectl delete namespace "$ns_name" --wait=false || true
+        done
+        
+        # Wait for deletion and force cleanup if needed
+        for ns in $namespaces; do
+          ns_name=$(echo "$ns" | cut -d/ -f2)
+          echo "Waiting for namespace $ns_name to be deleted..."
+          ./scripts/undeploy-finalizers.sh "$ns_name" || true
+        done
+
+  cleanup:resources:force:
+    desc: Force cleanup of all test resources
+    vars:
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-" }}'
+      KUBECONFIG: '{{ .KUBECONFIG }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .KUBECONFIG }}"
+        echo "🔥 Force cleaning up resources with prefix: {{ .FILTER_PREFIX }}"
+        
+        # Force delete all resources with the prefix
+        kubectl get all --all-namespaces -o name | grep "{{ .FILTER_PREFIX }}" | xargs -r kubectl delete --force --grace-period=0 || true
+        
+        # Clean up namespaces
+        task: cleanup:namespaces:safe FILTER_PREFIX="{{ .FILTER_PREFIX }}" CONFIRM=true
+
+  cleanup:artifacts:remove:
+    desc: Remove test artifacts
+    vars:
+      TMP_ROOT: '{{ .TMP_ROOT }}'
+      RUN_ID: '{{ .RUN_ID }}'
+    cmds:
+      - |
+        echo "🗑️  Removing artifacts for run: {{ .RUN_ID }}"
+        
+        # Remove run-specific artifacts
+        if [ -d "{{ .TMP_ROOT }}/{{ .RUN_ID }}" ]; then
+          rm -rf "{{ .TMP_ROOT }}/{{ .RUN_ID }}"
+          echo "Removed run artifacts: {{ .TMP_ROOT }}/{{ .RUN_ID }}"
+        fi
+        
+        # Remove old artifacts (older than 7 days)
+        find "{{ .TMP_ROOT }}" -type d -name "nightly-*" -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+        echo "Cleaned up old artifacts"
+
+  cleanup:logs:archive:
+    desc: Archive test logs
+    vars:
+      LOG_DIR: '{{ .LOG_DIR }}'
+      ARCHIVE_DIR: '{{ .ARCHIVE_DIR }}'
+      RUN_ID: '{{ .RUN_ID }}'
+    cmds:
+      - |
+        echo "📦 Archiving logs for run: {{ .RUN_ID }}"
+        
+        mkdir -p "{{ .ARCHIVE_DIR }}"
+        
+        if [ -d "{{ .LOG_DIR }}" ]; then
+          tar -czf "{{ .ARCHIVE_DIR }}/logs-{{ .RUN_ID }}.tar.gz" -C "{{ .LOG_DIR }}" .
+          echo "Logs archived to: {{ .ARCHIVE_DIR }}/logs-{{ .RUN_ID }}.tar.gz"
+        else
+          echo "No logs found in {{ .LOG_DIR }}"
+        fi
+
+  cleanup:complete:
+    desc: Complete cleanup (namespaces + artifacts + logs)
+    vars:
+      RUN_ID: '{{ .RUN_ID }}'
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-" }}'
+      KUBECONFIG: '{{ .KUBECONFIG }}'
+      TMP_ROOT: '{{ .TMP_ROOT }}'
+    cmds:
+      - task: cleanup:namespaces:safe FILTER_PREFIX="{{ .FILTER_PREFIX }}" CONFIRM=true
+      - task: cleanup:artifacts:remove
+      - task: cleanup:logs:archive

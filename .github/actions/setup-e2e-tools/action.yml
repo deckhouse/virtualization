@@ -1,0 +1,60 @@
+name: Setup E2E Tools
+description: Install kubectl, helm, d8, task, yq with caching
+
+runs:
+  using: composite
+  steps:
+    - name: Cache binaries
+      uses: actions/cache@v4
+      id: cache
+      with:
+        path: ~/.local/bin
+        key: e2e-tools-${{ runner.os }}-v2
+    
+    - name: Install tools
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/.local/bin
+        
+        # Install system dependencies
+        sudo apt-get update
+        sudo apt-get install -y jq apache2-utils curl bash ca-certificates
+        
+        # Install kubectl
+        KUBECTL_VERSION=$(curl -Ls https://dl.k8s.io/release/stable.txt)
+        curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+        chmod +x kubectl && mv kubectl ~/.local/bin/
+        
+        # Install helm
+        curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        mv /usr/local/bin/helm ~/.local/bin/ || true
+        
+        # Install d8
+        curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+        bash d8-install.sh
+        mv /usr/local/bin/d8 ~/.local/bin/ || true
+        
+        # Install yq
+        curl -L -o ~/.local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
+        chmod +x ~/.local/bin/yq
+        
+        # Install task
+        sh -c "$(curl -fsSL https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
+        
+        # Cleanup
+        rm -f d8-install.sh
+    
+    - name: Add to PATH
+      shell: bash
+      run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+    
+    - name: Verify installation
+      shell: bash
+      run: |
+        echo "✅ Installed tools:"
+        kubectl version --client --short || echo "⚠️ kubectl not found"
+        helm version --short || echo "⚠️ helm not found"
+        d8 version || echo "⚠️ d8 not found"
+        yq --version || echo "⚠️ yq not found"
+        task --version || echo "⚠️ task not found"

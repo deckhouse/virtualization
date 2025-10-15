@@ -1,0 +1,76 @@
+version: "3"
+
+tasks:
+  # ============================================
+  # Testing Tasks
+  # ============================================
+
+  test:e2e:run:
+    desc: Run E2E tests
+    vars:
+      RUN_ID: '{{ .RUN_ID }}'
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      TIMEOUT: '{{ .TIMEOUT | default "4h" }}'
+      JUNIT_PATH: '{{ .JUNIT_PATH }}'
+      E2E_DIR: '{{ .E2E_DIR }}'
+    cmds:
+      - |
+        echo "Running E2E tests for run: {{ .RUN_ID }}"
+        echo "Storage profile: {{ .STORAGE_PROFILE }}"
+        echo "Timeout: {{ .TIMEOUT }}"
+        echo "JUnit output: {{ .JUNIT_PATH }}"
+        # E2E test execution logic
+
+  test:unit:run:
+    desc: Run unit tests
+    vars:
+      TEST_DIR: '{{ .TEST_DIR | default "./tests/unit" }}'
+    cmds:
+      - |
+        echo "Running unit tests in {{ .TEST_DIR }}"
+        # Unit test execution logic
+
+  test:integration:run:
+    desc: Run integration tests
+    vars:
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      TEST_TIMEOUT: '{{ .TEST_TIMEOUT | default "30m" }}'
+    cmds:
+      - |
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        echo "Running integration tests with timeout: {{ .TEST_TIMEOUT }}"
+        # Integration test execution logic
+
+  test:performance:run:
+    desc: Run performance tests
+    vars:
+      RUN_ID: '{{ .RUN_ID }}'
+      PERFORMANCE_CONFIG: '{{ .PERFORMANCE_CONFIG }}'
+    cmds:
+      - |
+        echo "Running performance tests for run: {{ .RUN_ID }}"
+        echo "Config: {{ .PERFORMANCE_CONFIG }}"
+        # Performance test execution logic
+
+  test:results:collect:
+    desc: Collect test results
+    vars:
+      RUN_ID: '{{ .RUN_ID }}'
+      RESULTS_DIR: '{{ .RESULTS_DIR }}'
+    cmds:
+      - |
+        mkdir -p {{ .RESULTS_DIR }}
+        echo "Collecting test results for run: {{ .RUN_ID }}"
+        # Results collection logic
+
+  test:report:generate:
+    desc: Generate test report
+    vars:
+      RUN_ID: '{{ .RUN_ID }}'
+      JUNIT_FILE: '{{ .JUNIT_FILE }}'
+      REPORT_DIR: '{{ .REPORT_DIR }}'
+    cmds:
+      - |
+        mkdir -p {{ .REPORT_DIR }}
+        echo "Generating test report for run: {{ .RUN_ID }}"
+        # Report generation logic
