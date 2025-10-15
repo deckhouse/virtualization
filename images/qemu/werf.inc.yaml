@@ -32,6 +32,7 @@ shell:
   {{- include "alt packages clean" . | nindent 2}}
   install:
   - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
 
     cd /src/{{ $gitRepoName }}-{{ $version }}
