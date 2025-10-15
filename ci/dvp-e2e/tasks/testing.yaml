@@ -8,11 +8,11 @@ tasks:
   test:e2e:run:
     desc: Run E2E tests
     vars:
-      RUN_ID: '{{ .RUN_ID }}'
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
+      RUN_ID: "{{ .RUN_ID }}"
+      STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
       TIMEOUT: '{{ .TIMEOUT | default "4h" }}'
-      JUNIT_PATH: '{{ .JUNIT_PATH }}'
-      E2E_DIR: '{{ .E2E_DIR }}'
+      JUNIT_PATH: "{{ .JUNIT_PATH }}"
+      E2E_DIR: "{{ .E2E_DIR }}"
     cmds:
       - |
         echo "Running E2E tests for run: {{ .RUN_ID }}"
@@ -33,7 +33,7 @@ tasks:
   test:integration:run:
     desc: Run integration tests
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       TEST_TIMEOUT: '{{ .TEST_TIMEOUT | default "30m" }}'
     cmds:
       - |
@@ -44,8 +44,8 @@ tasks:
   test:performance:run:
     desc: Run performance tests
     vars:
-      RUN_ID: '{{ .RUN_ID }}'
-      PERFORMANCE_CONFIG: '{{ .PERFORMANCE_CONFIG }}'
+      RUN_ID: "{{ .RUN_ID }}"
+      PERFORMANCE_CONFIG: "{{ .PERFORMANCE_CONFIG }}"
     cmds:
       - |
         echo "Running performance tests for run: {{ .RUN_ID }}"
@@ -55,8 +55,8 @@ tasks:
   test:results:collect:
     desc: Collect test results
     vars:
-      RUN_ID: '{{ .RUN_ID }}'
-      RESULTS_DIR: '{{ .RESULTS_DIR }}'
+      RUN_ID: "{{ .RUN_ID }}"
+      RESULTS_DIR: "{{ .RESULTS_DIR }}"
     cmds:
       - |
         mkdir -p {{ .RESULTS_DIR }}
@@ -66,9 +66,9 @@ tasks:
   test:report:generate:
     desc: Generate test report
     vars:
-      RUN_ID: '{{ .RUN_ID }}'
-      JUNIT_FILE: '{{ .JUNIT_FILE }}'
-      REPORT_DIR: '{{ .REPORT_DIR }}'
+      RUN_ID: "{{ .RUN_ID }}"
+      JUNIT_FILE: "{{ .JUNIT_FILE }}"
+      REPORT_DIR: "{{ .REPORT_DIR }}"
     cmds:
       - |
         mkdir -p {{ .REPORT_DIR }}

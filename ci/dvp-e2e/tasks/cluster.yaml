@@ -8,10 +8,10 @@ tasks:
   cluster:deploy:
     desc: Deploy cluster configuration
     vars:
-      RUN_ID: '{{ .RUN_ID }}'
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
-      VALUES_FILE: '{{ .VALUES_FILE }}'
+      RUN_ID: "{{ .RUN_ID }}"
+      STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      VALUES_FILE: "{{ .VALUES_FILE }}"
     cmds:
       - |
         echo "Deploying cluster for run: {{ .RUN_ID }}"
@@ -22,8 +22,8 @@ tasks:
   cluster:config:apply:
     desc: Apply cluster configuration
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
-      CONFIG_FILE: '{{ .CONFIG_FILE }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      CONFIG_FILE: "{{ .CONFIG_FILE }}"
     cmds:
       - |
         export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
@@ -32,38 +32,38 @@ tasks:
   cluster:status:check:
     desc: Check cluster status
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
     cmds:
       - |
         export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
         echo "🔍 Checking cluster status..."
-        
+
         # Check nodes status
         echo "📊 Node status:"
         kubectl get nodes -o wide
         echo ""
-        
+
         # Check system pods
         echo "🚀 System pods status:"
         kubectl get pods --all-namespaces -o wide | grep -E "(kube-system|d8-|deckhouse)"
         echo ""
-        
+
         # Check critical pods
         echo "⚠️  Critical pods status:"
         kubectl get pods --all-namespaces -o wide | grep -E "(Pending|Error|CrashLoopBackOff|ImagePullBackOff)"
         echo ""
-        
+
         # Check storage classes
         echo "💿 Storage classes:"
         kubectl get storageclass
         echo ""
-        
+
         # Overall cluster health
         echo "✅ Cluster health summary:"
         ready_nodes=$(kubectl get nodes --no-headers | grep -c "Ready")
         total_nodes=$(kubectl get nodes --no-headers | wc -l)
         echo "Ready nodes: $ready_nodes/$total_nodes"
-        
+
         if [ "$ready_nodes" -eq "$total_nodes" ] && [ "$total_nodes" -gt 0 ]; then
           echo "✅ All nodes are ready"
         else
@@ -74,7 +74,7 @@ tasks:
   cluster:scaling:adjust:
     desc: Adjust cluster scaling
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       SCALE_FACTOR: '{{ .SCALE_FACTOR | default "1" }}'
     cmds:
       - |
@@ -85,8 +85,8 @@ tasks:
   cluster:backup:create:
     desc: Create cluster backup
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
-      BACKUP_DIR: '{{ .BACKUP_DIR }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      BACKUP_DIR: "{{ .BACKUP_DIR }}"
     cmds:
       - |
         export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"

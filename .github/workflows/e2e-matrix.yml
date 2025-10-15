@@ -21,17 +21,17 @@ on:
       - main
       - feat/ci-e2e-matrix
   schedule:
-    - cron: '30 2 * * *'
+    - cron: "30 2 * * *"
   workflow_dispatch:
     inputs:
       profiles:
-        description: 'Storage profiles (comma-separated): sds, cephrbd'
+        description: "Storage profiles (comma-separated): sds, cephrbd"
         required: false
-        default: 'sds,cephrbd'
+        default: "sds,cephrbd"
       timeout:
-        description: 'Ginkgo timeout (e.g. 2h, 4h)'
+        description: "Ginkgo timeout (e.g. 2h, 4h)"
         required: false
-        default: '4h'
+        default: "4h"
 
 permissions:
   contents: read
@@ -50,14 +50,14 @@ jobs:
       profiles: ${{ steps.load.outputs.profiles }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Load storage profiles
         id: load
         run: |
           # For now, use hardcoded profiles. Later this can be made dynamic
           PROFILES='["sds", "cephrbd"]'
           echo "profiles=$PROFILES" >> "$GITHUB_OUTPUT"
-      
+
       - name: Print matrix
         run: |
           echo "Will test profiles: ${{ steps.load.outputs.profiles }}"
@@ -71,13 +71,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Validate YAML syntax
         run: |
           echo "✓ Checking YAML syntax..."
           python3 -c "import yaml; yaml.safe_load(open('ci/dvp-e2e/values.yaml')); print('✅ values.yaml YAML syntax is valid')"
           python3 -c "import yaml; yaml.safe_load(open('.github/workflows/e2e-matrix.yml')); print('✅ e2e-matrix.yml YAML syntax is valid')"
-      
+
       - name: Check required secrets
         run: |
           echo "✓ Checking required secrets..."
@@ -103,9 +103,9 @@ jobs:
       fail-fast: false
       matrix:
         profile: ${{ fromJson(needs.setup.outputs.profiles) }}
-    
+
     env:
-      GO_VERSION: '1.24.6'
+      GO_VERSION: "1.24.6"
       TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
       LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
       LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
@@ -203,13 +203,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Download all JUnit reports
         uses: actions/download-artifact@v4
         with:
           pattern: junit-*
           path: ./results
-      
+
       - name: Send individual reports to Loop
         if: ${{ always() && (secrets.LOOP_WEBHOOK_URL != '' || secrets.LOOP_WEBHOOK != '') }}
         working-directory: ci/dvp-e2e
@@ -226,7 +226,7 @@ jobs:
                 TEST_TIMEOUT="${{ inputs.timeout || '4h' }}"
             fi
           done
-      
+
       - name: Generate matrix summary
         if: always()
         working-directory: ci/dvp-e2e
@@ -254,7 +254,7 @@ jobs:
             summary: |
               $(cat matrix_summary.md | sed 's/^/      /')
           EOF
-      
+
       - name: Create test summary
         if: always()
         run: |
@@ -262,7 +262,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Profile | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Check each profile result
           for profile in sds cephrbd; do
             if [ -f "./results/junit-${profile}-*/junit.xml" ]; then
@@ -282,9 +282,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: ./.github/actions/setup-e2e-tools
-      
+
       - name: Setup kubeconfig for cleanup
         run: |
           if [ -n "${{ vars.E2E_K8S_URL }}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
@@ -314,7 +314,7 @@ jobs:
             echo "⚠️ Cannot setup kubeconfig for cleanup - secrets not available"
             exit 0
           fi
-      
+
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
         run: |
@@ -322,7 +322,7 @@ jobs:
           task cleanup:namespaces:safe \
             FILTER_PREFIX="nightly-" \
             CONFIRM=true || echo "⚠️ Cleanup completed with warnings"
-      
+
       - name: Report cleanup results
         if: always()
         run: |

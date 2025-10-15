@@ -5,7 +5,7 @@ cluster:
   name: ""
   namespace: ""
   domain: ""
-  
+
 # Instance configuration (from original values.yaml)
 instances:
   masterNodes:

@@ -4,19 +4,19 @@ tasks:
   # ============================================
   # Infrastructure Tasks
   # ============================================
-  
+
   infra:ceph:bootstrap:
     desc: Bootstrap Rook Ceph CRDs/operator in nested cluster
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
     cmds:
       - ./scripts/ceph-bootstrap.sh {{ .NESTED_KUBECONFIG }}
 
   infra:storage:prepare:
     desc: Prepare storage infrastructure for testing
     vars:
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE }}'
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
     cmds:
       - |
         case "{{ .STORAGE_PROFILE }}" in
@@ -35,8 +35,8 @@ tasks:
   infra:registry:setup:
     desc: Setup container registry configuration
     vars:
-      REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG }}'
-      TMP_DIR: '{{ .TMP_DIR }}'
+      REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
+      TMP_DIR: "{{ .TMP_DIR }}"
     cmds:
       - mkdir -p {{ .TMP_DIR }}
       - |
@@ -50,8 +50,8 @@ tasks:
   infra:network:prepare:
     desc: Prepare network configuration
     vars:
-      RUN_ID: '{{ .RUN_ID }}'
-      RUN_DOMAIN: '{{ .RUN_DOMAIN }}'
+      RUN_ID: "{{ .RUN_ID }}"
+      RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
     cmds:
       - |
         echo "Preparing network for run: {{ .RUN_ID }}"
@@ -61,7 +61,7 @@ tasks:
   infra:monitoring:setup:
     desc: Setup monitoring and observability
     vars:
-      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
     cmds:
       - |
         echo "Setting up monitoring for cluster"
