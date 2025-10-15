@@ -191,29 +191,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	if ad.PVCName != "" {
-		pvc, err := h.attacher.GetPersistentVolumeClaim(ctx, ad)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if pvc != nil {
-			available, err := h.attacher.IsPVAvailableOnVMNode(ctx, pvc, kvvmi)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			if !available {
-				vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vmbdacondition.DeviceNotAvailableOnNode).
-					Message(fmt.Sprintf("PersistentVolume %q is not available on node %q where the virtual machine is running", pvc.Spec.VolumeName, kvvmi.Status.NodeName))
-				return reconcile.Result{}, nil
-			}
-		}
-	}
-
 	log = log.With("vmName", vm.Name, "attachmentDiskName", ad.Name)
 	log.Info("Check if hot plug is completed and disk is attached")
 
@@ -256,6 +233,29 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMac
 				Reason(vmbdacondition.NotAttached).
 				Message("Virtual machine block device capacity reached.")
 			return reconcile.Result{}, nil
+		}
+
+		if ad.PVCName != "" {
+			pvc, err := h.attacher.GetPersistentVolumeClaim(ctx, ad)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			if pvc != nil {
+				available, err := h.attacher.IsPVAvailableOnVMNode(ctx, pvc, kvvmi)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+
+				if !available {
+					vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vmbdacondition.DeviceNotAvailableOnNode).
+						Message(fmt.Sprintf("PersistentVolume %q is not available on node %q where the virtual machine is running", pvc.Spec.VolumeName, kvvmi.Status.NodeName))
+					return reconcile.Result{}, nil
+				}
+			}
 		}
 
 		log.Info("Send attachment request")
