@@ -32,6 +32,7 @@ on:
         description: "Ginkgo timeout (e.g. 2h, 4h)"
         required: false
         default: "4h"
+  workflow_dispatch:
 
 permissions:
   contents: read
