@@ -19,7 +19,10 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -34,18 +37,24 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewVirtualImageWatcher() *VirtualImageWatcher {
-	return &VirtualImageWatcher{}
+func NewVirtualImageWatcher(client client.Client) *VirtualImageWatcher {
+	return &VirtualImageWatcher{
+		client: client,
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualImageKind)),
+	}
 }
 
-type VirtualImageWatcher struct{}
+type VirtualImageWatcher struct {
+	client client.Client
+	logger *slog.Logger
+}
 
 func (w *VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
 			&v1alpha2.VirtualImage{},
-			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*v1alpha2.VirtualImage](mgr.GetClient())),
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueue),
 			predicate.TypedFuncs[*v1alpha2.VirtualImage]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualImage]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
@@ -58,40 +67,26 @@ func (w *VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controll
 	return nil
 }
 
-func enqueueRequestsBlockDevice[T client.Object](cl client.Client) func(ctx context.Context, obj T) []reconcile.Request {
-	return func(ctx context.Context, obj T) []reconcile.Request {
-		var opts []client.ListOption
-		switch obj.GetObjectKind().GroupVersionKind().Kind {
-		case v1alpha2.VirtualImageKind:
-			opts = append(opts,
-				client.InNamespace(obj.GetNamespace()),
-				client.MatchingFields{indexer.IndexFieldVMByVI: obj.GetName()},
-			)
-		case v1alpha2.ClusterVirtualImageKind:
-			opts = append(opts,
-				client.MatchingFields{indexer.IndexFieldVMByCVI: obj.GetName()},
-			)
-		case v1alpha2.VirtualDiskKind:
-			opts = append(opts,
-				client.InNamespace(obj.GetNamespace()),
-				client.MatchingFields{indexer.IndexFieldVMByVD: obj.GetName()},
-			)
-		default:
-			return nil
-		}
-		var vms v1alpha2.VirtualMachineList
-		if err := cl.List(ctx, &vms, opts...); err != nil {
-			return nil
-		}
-		var result []reconcile.Request
-		for _, vm := range vms.Items {
-			result = append(result, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      vm.GetName(),
-					Namespace: vm.GetNamespace(),
-				},
-			})
-		}
-		return result
+func (w *VirtualImageWatcher) enqueue(ctx context.Context, vi *v1alpha2.VirtualImage) []reconcile.Request {
+	var vms v1alpha2.VirtualMachineList
+	err := w.client.List(ctx, &vms, &client.ListOptions{
+		Namespace:     vi.Namespace,
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByVI, vi.Name),
+	})
+	if err != nil {
+		w.logger.Error(fmt.Sprintf("failed to list virtual machines: %v", err))
+		return nil
 	}
+
+	var result []reconcile.Request
+	for _, vm := range vms.Items {
+		result = append(result, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      vm.GetName(),
+				Namespace: vm.GetNamespace(),
+			},
+		})
+	}
+
+	return result
 }
