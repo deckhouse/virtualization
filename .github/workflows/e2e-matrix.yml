@@ -1,0 +1,379 @@
+name: E2E Matrix Tests (bootstrap)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - feat/ci-e2e-matrix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  noop:
+    name: Bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "Bootstrap workflow OK"
+
+# Bootstrap no-op workflow to enable PR runs for future e2e matrix
+
+name: E2E Matrix Tests (bootstrap)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - feat/ci-e2e-matrix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  noop:
+    name: Bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "Bootstrap workflow OK"
+
+# Copyright 2025 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: E2E Matrix Tests (DVP-over-DVP)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - feat/ci-e2e-matrix
+  schedule:
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      profiles:
+        description: "Storage profiles (comma-separated): sds, cephrbd"
+        required: false
+        default: "sds,cephrbd"
+      timeout:
+        description: "Ginkgo timeout (e.g. 2h, 4h)"
+        required: false
+        default: "4h"
+
+permissions:
+  contents: read
+
+env:
+  E2E_K8S_URL: https://api.e2e.virtlab.flant.com
+
+jobs:
+  # ============================================
+  # 1. SETUP - Environment preparation
+  # ============================================
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    outputs:
+      profiles: ${{ steps.load.outputs.profiles }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load storage profiles
+        id: load
+        run: |
+          # For now, use hardcoded profiles. Later this can be made dynamic
+          PROFILES='["sds", "cephrbd"]'
+          echo "profiles=$PROFILES" >> "$GITHUB_OUTPUT"
+
+      - name: Print matrix
+        run: |
+          echo "Will test profiles: ${{ steps.load.outputs.profiles }}"
+
+  # ============================================
+  # 2. VALIDATE - Configuration validation
+  # ============================================
+  validate:
+    name: Validate Configuration
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate YAML syntax
+        run: |
+          echo "✓ Checking YAML syntax..."
+          python3 -c "import yaml; yaml.safe_load(open('ci/dvp-e2e/values.yaml')); print('✅ values.yaml YAML syntax is valid')"
+          python3 -c "import yaml; yaml.safe_load(open('.github/workflows/e2e-matrix.yml')); print('✅ e2e-matrix.yml YAML syntax is valid')"
+
+      - name: Check required secrets
+        run: |
+          echo "✓ Checking required secrets..."
+          if [ -z "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
+            echo "❌ E2E_VIRTUALIZATION_SA_SECRET secret is required"
+            exit 1
+          fi
+          echo "✅ Required secrets are present"
+          echo "✅ E2E_K8S_URL is set as workflow variable: ${{ vars.E2E_K8S_URL }}"
+
+  # ============================================
+  # 3. E2E - Parallel test execution
+  # ============================================
+  e2e:
+    name: E2E (${{ matrix.profile }})
+    needs: [setup, validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    concurrency:
+      group: e2e-${{ github.ref }}-${{ matrix.profile }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
+
+    env:
+      GO_VERSION: "1.24.6"
+      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
+      LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
+      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - uses: ./.github/actions/setup-e2e-tools
+
+      - name: Prepare environment
+        id: prep
+        run: |
+          RUN_ID="nightly-${{ matrix.profile }}-${{ github.run_id }}"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
+          echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
+          mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
+
+      - name: Build parent kubeconfig
+        shell: bash
+        run: |
+          if [ -n "${{ vars.E2E_K8S_URL }}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
+            KCFG='${{ env.TMP_ROOT }}/shared/parent-admin.conf'
+            TOKEN="$(echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}' | base64 -d 2>/dev/null || echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}')"
+            printf '%s\n' \
+              'apiVersion: v1' \
+              'kind: Config' \
+              'clusters:' \
+              '- cluster:' \
+              "    server: ${{ vars.E2E_K8S_URL }}" \
+              '    insecure-skip-tls-verify: true' \
+              '  name: parent' \
+              'contexts:' \
+              '- context:' \
+              '    cluster: parent' \
+              '    user: sa' \
+              '  name: parent' \
+              'current-context: parent' \
+              'users:' \
+              '- name: sa' \
+              '  user:' \
+              "    token: ${TOKEN}" > "$KCFG"
+            chmod 600 "$KCFG"
+            echo "PARENT_KUBECONFIG_FILE=$KCFG" >> "$GITHUB_ENV"
+          else
+            echo "E2E_K8S_URL/E2E_VIRTUALIZATION_SA_SECRET not set" >&2
+            exit 1
+          fi
+
+      - name: Run E2E tests
+        working-directory: ci/dvp-e2e
+        env:
+          KUBECONFIG: ${{ env.PARENT_KUBECONFIG_FILE }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
+          TMP_ROOT: ${{ env.TMP_ROOT }}
+          PARENT_KUBECONFIG_FILE: ${{ env.PARENT_KUBECONFIG_FILE }}
+          E2E_DIR: ${{ github.workspace }}/tests/e2e
+        run: |
+          ./bin/e2e-runner \
+            --run-id "${RUN_ID}" \
+            --timeout "${{ inputs.timeout || '4h' }}" \
+            --junit "../../artifacts/${RUN_ID}/junit.xml" \
+            ${{ matrix.profile }}
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.profile }}-${{ steps.prep.outputs.run_id }}
+          path: ci/dvp-e2e/tmp/matrix-logs/*.log
+          if-no-files-found: warn
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.profile }}-${{ steps.prep.outputs.run_id }}
+          path: ci/dvp-e2e/artifacts/**/junit.xml
+          if-no-files-found: warn
+
+  # ============================================
+  # 4. REPORT - Result aggregation
+  # ============================================
+  report:
+    name: Report Results
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all JUnit reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-*
+          path: ./results
+
+      - name: Send individual reports to Loop
+        working-directory: ci/dvp-e2e
+        env:
+          LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
+        run: |
+          if [ -z "${LOOP_WEBHOOK}" ]; then
+            echo "No LOOP_WEBHOOK configured; skipping report sending."
+            exit 0
+          fi
+
+          # Send individual reports for each profile
+          for junit_file in ../../results/junit-*/junit.xml; do
+            if [ -f "$junit_file" ]; then
+              profile=$(echo "$junit_file" | sed 's/.*junit-\([^-]*\)-.*/\1/')
+              run_id=$(echo "$junit_file" | sed 's/.*-\([^-]*\)\/junit.xml/\1/')
+              task loop:junit:parse \
+                JUNIT_FILE="$junit_file" \
+                RUN_ID="$run_id" \
+                STORAGE_PROFILE="$profile" \
+                TEST_TIMEOUT="${{ inputs.timeout || '4h' }}"
+            fi
+          done
+
+      - name: Generate matrix summary
+        if: always()
+        working-directory: ci/dvp-e2e
+        env:
+          KUBECONFIG: ${{ env.PARENT_KUBECONFIG_FILE }}
+        run: |
+          python3 scripts/loop_matrix_summary.py \
+            --profiles "sds,cephrbd" \
+            --run-id-prefix "nightly" \
+            --log-dir "tmp/matrix-logs" \
+            --webhook-url "${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}" \
+            --channel "${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }}" > matrix_summary.md || true
+          DATE=$(date +"%Y-%m-%d")
+          HASH=$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 8)
+          kubectl apply -f - <<EOF || true
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "e2e-matrix-report-${DATE}-${HASH:0:8}"
+            namespace: default
+            labels:
+              storageClass: "matrix"
+          type: Opaque
+          stringData:
+            summary: |
+              $(cat matrix_summary.md | sed 's/^/      /')
+          EOF
+
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "### E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Profile | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Check each profile result
+          for profile in sds cephrbd; do
+            if [ -f "./results/junit-${profile}-*/junit.xml" ]; then
+              echo "| $profile | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $profile | ❌ Failed/Missing |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+  # ============================================
+  # 5. CLEANUP - Resource cleanup
+  # ============================================
+  cleanup:
+    name: Cleanup Resources
+    needs: e2e
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-e2e-tools
+
+      - name: Setup kubeconfig for cleanup
+        run: |
+          if [ -n "${{ vars.E2E_K8S_URL }}" ] && [ -n "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
+            mkdir -p ~/.kube
+            TOKEN="$(echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}' | base64 -d 2>/dev/null || echo '${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}')"
+            printf '%s\n' \
+              'apiVersion: v1' \
+              'kind: Config' \
+              'clusters:' \
+              '- cluster:' \
+              "    server: ${{ vars.E2E_K8S_URL }}" \
+              '    insecure-skip-tls-verify: true' \
+              '  name: parent' \
+              'contexts:' \
+              '- context:' \
+              '    cluster: parent' \
+              '    user: sa' \
+              '  name: parent' \
+              'current-context: parent' \
+              'users:' \
+              '- name: sa' \
+              '  user:' \
+              "    token: ${TOKEN}" > ~/.kube/config
+            chmod 600 ~/.kube/config
+          else
+            echo "⚠️ Cannot setup kubeconfig for cleanup - secrets not available"
+            exit 0
+          fi
+
+      - name: Cleanup test namespaces
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧹 Cleaning up test namespaces..."
+          task cleanup:namespaces:safe \
+            FILTER_PREFIX="nightly-" \
+            CONFIRM=true || echo "⚠️ Cleanup completed with warnings"
+
+      - name: Report cleanup results
+        if: always()
+        run: |
+          echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
+          echo "🧹 Attempted to clean up namespaces matching 'nightly-*'" >> $GITHUB_STEP_SUMMARY
