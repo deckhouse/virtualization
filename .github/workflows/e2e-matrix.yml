@@ -145,6 +145,16 @@ jobs:
           chmod 600 ~/.docker/config.json
           docker info >/dev/null
 
+      - name: Write CI values (registry cfg)
+        working-directory: ci/dvp-e2e
+        shell: bash
+        run: |
+          mkdir -p tmp
+          cat > tmp/values-ci.yaml <<EOF
+          deckhouse:
+            registryDockerCfg: "${{ secrets.REGISTRY_DOCKER_CFG }}"
+          EOF
+
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
         env:
@@ -156,7 +166,8 @@ jobs:
             STORAGE_PROFILE="${PROFILE}" \
             TIMEOUT="${{ inputs.timeout || '4h' }}" \
             JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}"
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            VALUES_FILE="tmp/values-ci.yaml"
 
       - name: Collect JUnit for this run
         if: always()
