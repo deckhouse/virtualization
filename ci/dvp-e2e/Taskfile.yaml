@@ -280,59 +280,6 @@ tasks:
         seconds=$((difference%60))
         printf 'Infra deployment time: %02d:%02d:%02d\n' "$hours" "$minutes" "$seconds"
 
-  diag:vm:
-    internal: true
-    desc: Diagnostics / Collect VM, disks, PVCs, pods and events by RUN_ID
-    vars:
-      RUN_ID: "{{ .RUN_ID }}"
-      VALUES_FILE: '{{ printf "%s/%s/%s/%s" "." "tmp" "runs" (printf "%s/%s" .RUN_ID "values.yaml") }}'
-      NAMESPACE:
-        sh: |
-          if [ -f {{ .VALUES_FILE }} ]; then
-            yq eval '.namespace' {{ .VALUES_FILE }}
-          else
-            printf "dvp-e2e-%s" {{ .RUN_ID }}
-          fi
-    env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-    cmds:
-      - |
-        set -euo pipefail
-        ns='{{ .NAMESPACE }}'
-        echo "[DIAG] Namespace: $ns"
-        echo "[DIAG] StorageClasses:"
-        kubectl get sc
-        echo
-        echo "[DIAG] VirtualMachines in $ns:"
-        kubectl -n "$ns" get vm -o wide || true
-        echo
-        echo "[DIAG] VirtualDisks in $ns:"
-        kubectl -n "$ns" get vd -o wide || true
-        echo
-        echo "[DIAG] PVCs in $ns:"
-        kubectl -n "$ns" get pvc -o wide || true
-        echo
-        echo "[DIAG] Pods in $ns (wide):"
-        kubectl -n "$ns" get pods -o wide || true
-        echo
-        echo "[DIAG] Events (last 200):"
-        kubectl -n "$ns" get events --sort-by=.lastTimestamp | tail -n 200 || true
-        echo
-
-        master_vm=$(kubectl -n "$ns" get vm -o jsonpath='{.items[?(@.metadata.labels["dvp.deckhouse.io/node-group"]=="master")].metadata.name}' 2>/dev/null || true)
-        if [ -n "${master_vm:-}" ]; then
-          echo "[DIAG] Describe VM $master_vm:"
-          kubectl -n "$ns" describe vm "$master_vm" || true
-          echo
-          echo "[DIAG] VM-related pods:"
-          kubectl -n "$ns" get pods -l virtualization.deckhouse.io/vmName="$master_vm" -o wide || true
-          for p in $(kubectl -n "$ns" get pods -l virtualization.deckhouse.io/vmName="$master_vm" -o name 2>/dev/null || true); do
-            echo "[DIAG] Describe $p:"
-            kubectl -n "$ns" describe "$p" || true
-            echo
-          done
-        fi
-        echo "[DIAG] Done."
 
   infra-undeploy:
     desc: Destroy infra (Namespace/RBAC/Jumphost/...)
@@ -564,11 +511,6 @@ tasks:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
       TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
     cmds:
-      - task: cleanup-before-install
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          NAMESPACE: "{{ .NAMESPACE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
       - task: infra-deploy
         vars:
           TMP_DIR: "{{ .TMP_DIR }}"
@@ -603,27 +545,9 @@ tasks:
           TMP_DIR: "{{ .TMP_DIR }}"
           VALUES_FILE: "{{ .VALUES_FILE }}"
 
-  cleanup-before-install:
-    desc: Cleanup existing resources before fresh install
-    vars:
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-      NAMESPACE: "{{ .NAMESPACE }}"
-    env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-    cmds:
-      - echo "Cleaning up namespace {{ .NAMESPACE }} and run directory {{ .TMP_DIR }}..."
-      - kubectl -n {{ .NAMESPACE }} delete vm --all --force --grace-period=0 || true
-      - kubectl -n {{ .NAMESPACE }} delete vd --all --force --grace-period=0 || true
-      - kubectl -n {{ .NAMESPACE }} delete vmip --all --force --grace-period=0 || true
-      - kubectl delete namespace {{ .NAMESPACE }} --ignore-not-found=true --timeout=60s || true
-      - rm -rf "{{ .TMP_DIR }}"
-      - sleep 5
+  
 
-  clean:
-    desc: Remove infra and artifacts for the current context
-    cmds:
-      - task: infra-undeploy
-      - rm -rf "{{ .TMP_ROOT }}"
+  
 
   cleanup:namespaces:safe:
     desc: Safely delete old dvp-e2e-* namespaces that belong to this project
@@ -1957,6 +1881,7 @@ tasks:
           PARENT_KUBECONFIG: "{{ .RUN_PARENT_KUBECONFIG }}"
 
   nested:debug:bootstrap:
+    internal: true
     desc: Step-by-step / Bootstrap nested cluster for debugging
     vars:
       RUN_ID: '{{ .RUN_ID | default (printf "debug-%s" (now | date "20060102-150405")) }}'
@@ -1976,6 +1901,7 @@ tasks:
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
 
   nested:debug:storage:
+    internal: true
     desc: Step-by-step / Configure storage profile for existing debug run
     vars:
       RUN_ID: '{{ .RUN_ID | default "" }}'
@@ -2039,6 +1965,7 @@ tasks:
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
 
   nested:debug:tests:
+    internal: true
     desc: Step-by-step / Run virtualization E2E tests for debug run
     vars:
       RUN_ID: '{{ .RUN_ID | default "" }}'
@@ -2119,6 +2046,7 @@ tasks:
           TIMEOUT: "{{ .TIMEOUT }}"
 
   nested:debug:destroy:
+    internal: true
     desc: Step-by-step / Cleanup debug run resources
     vars:
       RUN_ID: '{{ .RUN_ID | default "" }}'
@@ -2137,6 +2065,7 @@ tasks:
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
 
   nested:debug:full:
+    internal: true
     desc: Step-by-step debug workflow (bootstrap -> storage -> tests)
     vars:
       RUN_ID: '{{ .RUN_ID | default (printf "debug-%s" (now | date "20060102-150405")) }}'
@@ -2199,72 +2128,4 @@ tasks:
           RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
 
-  nested:test-matrix:
-    desc: Run nested test matrix over storage profiles
-    vars:
-      PROFILES: '{{ .PROFILES | default "hostpath" }}'
-      RUN_ID_PREFIX: '{{ .RUN_ID_PREFIX | default "matrix" }}'
-      MAX_RETRIES: '{{ .MAX_RETRIES | default "2" }}'
-      FOCUS: '{{ .FOCUS | default "" }}'
-      SKIP: '{{ .SKIP | default "" }}'
-      LABELS: '{{ .LABELS | default "" }}'
-      SKIP_CLEANUP: '{{ .SKIP_CLEANUP | default "false" }}'
-      STOP_ON_FAILURE: '{{ .STOP_ON_FAILURE | default "true" }}'
-      PROMPT_BETWEEN: '{{ .PROMPT_BETWEEN | default "false" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        # resolve dvp-over-dvp Taskfile location (absolute)
-        REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-        DVPDIR_candidates=(
-          "$REPO_ROOT/reference/dvp-over-dvp"
-          "$REPO_ROOT/../reference/dvp-over-dvp"
-          "reference/dvp-over-dvp"
-          "../../reference/dvp-over-dvp"
-        )
-        DVPDIR=""
-        for d in "${DVPDIR_candidates[@]}"; do
-          [ -d "$d" ] && { DVPDIR="$d"; break; }
-        done
-        if [ -z "$DVPDIR" ]; then
-          echo "[ERR] cannot locate reference/dvp-over-dvp Taskfile; checked: ${DVPDIR_candidates[*]}" >&2
-          exit 1
-        fi
-        echo "[INFO] using dvp-over-dvp at: $DVPDIR"
-
-        echo "{{ .PROFILES }}" | tr ',' '\n' | while IFS= read -r profile; do
-          profile_trimmed="$(echo "$profile" | xargs)"
-          [ -z "$profile_trimmed" ] && continue
-          run_id="{{ .RUN_ID_PREFIX }}-${profile_trimmed}-$(date +%Y%m%d-%H%M%S)"
-          attempt=1
-          success=0
-          while [ $attempt -le {{ .MAX_RETRIES }} ]; do
-            echo "[INFO] running profile $profile_trimmed (attempt $attempt)"
-            if task -d "$DVPDIR" nested:test-run \
-              RUN_ID="$run_id" \
-              STORAGE_PROFILE="$profile_trimmed" \
-              FOCUS="{{ .FOCUS }}" \
-              SKIP="{{ .SKIP }}" \
-              LABELS="{{ .LABELS }}" \
-              SKIP_CLEANUP="{{ .SKIP_CLEANUP }}" \
-              PARENT_KUBECONFIG="{{ .PARENT_KUBECONFIG | default "" }}" \
-              SSH_FILE_NAME="{{ .SSH_FILE_NAME }}"; then
-              echo "[OK] profile $profile_trimmed succeeded"
-              success=1
-              break
-            fi
-            echo "[WARN] profile $profile_trimmed failed (attempt $attempt)"
-            attempt=$((attempt+1))
-            sleep 5
-          done
-          if [ $success -ne 1 ]; then
-            echo "[ERR] profile $profile_trimmed exhausted retries"
-            if [ "{{ .STOP_ON_FAILURE }}" = "true" ]; then
-              echo "[INFO] STOP_ON_FAILURE=true, aborting matrix run"
-              exit 1
-            fi
-          fi
-          if [ "{{ .PROMPT_BETWEEN }}" = "true" ]; then
-            printf '%s' "[DEBUG] Completed profile $profile_trimmed. Press enter to continue..."; read _ || true
-          fi
-        done
+  

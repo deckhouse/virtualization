@@ -222,6 +222,11 @@ jobs:
           path: ci/dvp-e2e/artifacts
           if-no-files-found: ignore
 
+      - name: Purge local artifacts and tmp
+        if: always()
+        run: |
+          rm -rf ci/dvp-e2e/artifacts ci/dvp-e2e/tmp || true
+
   # ============================================
   # 3. REPORT - Result aggregation
   # ============================================
