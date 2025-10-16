@@ -100,6 +100,10 @@ binaries:
   - /usr/bin/bash
   - /usr/bin/ldd
   - /usr/bin/strace
+  - /usr/bin/df
+  - /usr/bin/ls
+  - /usr/bin/cat
+  - /usr/bin/grep
 packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
