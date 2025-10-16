@@ -7,17 +7,17 @@ weight: 70
 
 ## Fixes
 
-- [core] Fixed hot-plugging of disks with volume mode Filesystem on containerdv2
-- [core] Added error reporting in the status of disks and images when the data source url is broken.
-- [vi] Virtual images now honor spec.persistentVolumeClaim.storageClassName when created from virtual disk snapshots. Previously, this setting was ignored in this case.
-- [vm] The Network condition of virtual machine will now be displayed only if the sdn module is present or if there are user-actionable messages. Previously, it remained in the Unknown state.
-- [vm] Prohibit duplicate networks in the virtual machine .spec.network specification.
-- [vmbda] Fixed an issue where detaching a hot-attached image from a virtual machine could hang. Previously, deletion of the VirtualMachineBlockDeviceAttachment resource could get stuck in the Terminating state.
-- [vmip] Added validation for static ip addresses to ensure that the requested address is not already in use within the cluster.
+[core] Fixed an issue in containerdv2 where storage providing a PVC with the FileSystem type was incorrectly attached via `VirtualMachineBlockDeviceAttachment`.
+- [core] Added error reporting in the status of disks and images when the data source (URL) is unavailable.
+- [vi] When creating virtual images from virtual disk snapshots, the `spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it could be ignored.
+- [vm] Fixed the `NetworkReady` condition output: it no longer shows the `Unknown` state and appears only when needed.
+- [vm] Prohibit duplicate networks in the virtual machine `.spec.network` specification.
+- [vmip] Added validation for static IP addresses to avoid creating a `VirtualMachineIPAddress` resource with an IP already in use in the cluster.
+- [vmbda] Fixed a bug where, when detaching a virtual image through `VirtualMachineBlockDeviceAttachment`, the resource could get stuck in the Terminating state.
 
 ## Other
 
-- [observability] Added Prometheus metrics for virtual machine and virtual disk snapshots (`d8_virtualization_virtualmachinesnapshot_info` and `d8_virtualization_virtualdisksnapshot_info`), allowing users to monitor the presence of snapshots through their observability dashboards.
+- [observability] Added Prometheus metrics for virtual machine snapshots (`d8_virtualization_virtualmachinesnapshot_info`) and virtual disk snapshots (`d8_virtualization_virtualdisksnapshot_info`), showing which objects they are associated with.
 
 ## Security
 
@@ -41,6 +41,7 @@ weight: 70
 
 ## Fixes
 
+- [vmclass] Fixed an issue in VirtualMachineClass types Features and Discovery that caused nested virtualization not to work on nodes with AMD processors.
 - [vmop/restore] Fixed a bug where the controller sometimes started a restored VM before its disks were fully restored, resulting in the VM starting with old (unrestored) disks.
 - [vmsnapshot] Fixed behavior when creating a VM snapshot with uncommitted changes: the snapshot now instantly captures the current state of the virtual machine, including all current changes.
 - [module] Fixed an issue with installing the module on RedOS 8.X OS.
