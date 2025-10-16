@@ -108,12 +108,8 @@ func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup supplemen
 }
 
 func (s BounderPodService) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
-	pod, err := bounder.FindPod(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return pod, nil
+	pod := &corev1.Pod{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementBounderPod, pod)
 }
 
 func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *bounder.PodSettings {

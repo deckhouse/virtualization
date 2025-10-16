@@ -41,7 +41,7 @@ func (h *InitHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (rec
 	// We should have different names for support migration volumes.
 	// If the PVC name is empty, we should generate it and update the status immediately.
 	if vd.Status.Target.PersistentVolumeClaim == "" {
-		name := fmt.Sprintf("vd-%s-%s", vd.UID, pwgen.LowerAlpha(5))
+		name := fmt.Sprintf("d8v-vd-%s-%s", vd.UID, pwgen.LowerAlpha(5))
 		vdsupplements.SetPVCName(vd, name)
 		return reconcile.Result{RequeueAfter: 100 * time.Millisecond}, reconciler.ErrStopHandlerChain
 	}

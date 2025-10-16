@@ -41,9 +41,9 @@ type Importer interface {
 	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
-	DeletePod(ctx context.Context, obj client.Object, controllerName string) (bool, error)
-	Protect(ctx context.Context, pod *corev1.Pod) error
-	Unprotect(ctx context.Context, pod *corev1.Pod) error
+	DeletePod(ctx context.Context, obj client.Object, controllerName string, sup supplements.Generator) (bool, error)
+	Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
+	Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
 }
 
@@ -53,8 +53,8 @@ type Uploader interface {
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
 	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
 	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
-	Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
-	Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string
 	GetInClusterURL(ctx context.Context, svc *corev1.Service) string
 }

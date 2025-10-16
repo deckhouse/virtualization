@@ -23,13 +23,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 )
@@ -384,12 +382,4 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			},
 		)
 	}
-}
-
-type PodNamer interface {
-	ImporterPod() types.NamespacedName
-}
-
-func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
-	return object.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
 }
