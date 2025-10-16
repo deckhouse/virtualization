@@ -39,6 +39,7 @@ dirs:
   - /etc/podinfo
   - /var/cache/libvirt
   - /var/lib/libvirt
+  - /var/lib/libvirt/qemu
   - /var/lib/libvirt/swtpm
   - /var/lib/libvirt/qemu/nvram
   - /var/lib/kubevirt-node-labeller
