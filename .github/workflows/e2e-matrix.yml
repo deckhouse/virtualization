@@ -333,17 +333,12 @@ jobs:
 
       - uses: ./.github/actions/setup-e2e-tools
 
-      - uses: azure/k8s-set-context@v4
+      - name: Set k8s context (privileged SA)
+        uses: azure/k8s-set-context@v4
         with:
           method: service-account
           k8s-url: https://api.e2e.virtlab.flant.com
           k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
-
-      - name: Use default kubeconfig path
-        run: |
-          mkdir -p ~/.kube
-          cp "$KUBECONFIG" ~/.kube/config
-          chmod 600 ~/.kube/config
 
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
@@ -351,7 +346,7 @@ jobs:
           echo "🧹 Cleaning up test namespaces..."
           task cleanup:namespaces:safe \
             FILTER_PREFIX="nightly-" \
-            CONFIRM=true || echo "⚠️ Cleanup completed with warnings"
+            CONFIRM=true
 
       - name: Report cleanup results
         if: always()
