@@ -137,16 +137,21 @@ jobs:
           chmod 600 ~/.kube/config
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Configure registry auth (simple)
-        if: ${{ secrets.REGISTRY_DOCKER_CFG != '' }}
+      - name: Configure registry auth
         shell: bash
+        env:
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
         run: |
           set -euo pipefail
+          if [ -z "${REGISTRY_DOCKER_CFG:-}" ]; then
+            echo "❌ Missing secret REGISTRY_DOCKER_CFG" >&2
+            exit 1
+          fi
           mkdir -p ~/.docker
-          # Try base64 -> fallback to raw JSON
-          echo '${{ secrets.REGISTRY_DOCKER_CFG }}' | base64 -d > ~/.docker/config.json 2>/dev/null \
-            || echo '${{ secrets.REGISTRY_DOCKER_CFG }}' > ~/.docker/config.json
+          # Expect base64-encoded dockerconfigjson only
+          echo "$REGISTRY_DOCKER_CFG" | base64 -d > ~/.docker/config.json
           chmod 600 ~/.docker/config.json
+          echo "✅ Docker auth configured"
 
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
