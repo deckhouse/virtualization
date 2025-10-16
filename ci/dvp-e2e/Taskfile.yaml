@@ -210,7 +210,6 @@ tasks:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
-      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
       SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
       DOMAIN:
@@ -238,12 +237,6 @@ tasks:
         else
           echo "[WARN] DOMAIN is empty; leaving .domain unchanged"
         fi
-      - |
-        # Set storageClass for infra (e.g., NFS PVC) if provided by caller
-        if [ -n "{{ .TARGET_STORAGE_CLASS }}" ]; then
-          export NFS_SC='{{ .TARGET_STORAGE_CLASS }}'
-          yq eval --inplace '.storageClass = env(NFS_SC)' {{ .GENERATED_VALUES_FILE }}
-        fi
       - helm template dvp-over-dvp-infra ./charts/infra -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/infra.yaml
 
   infra-deploy:
@@ -253,7 +246,6 @@ tasks:
         vars:
           TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
           VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-          TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
           PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
@@ -575,7 +567,6 @@ tasks:
         vars:
           TMP_DIR: "{{ .TMP_DIR }}"
           VALUES_FILE: "{{ .VALUES_FILE }}"
-          TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
           PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
       - |
