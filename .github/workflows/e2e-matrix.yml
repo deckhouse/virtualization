@@ -154,11 +154,11 @@ jobs:
           if [ -z "${{ secrets.REGISTRY_DOCKER_CFG }}" ]; then
             echo "REGISTRY_DOCKER_CFG is empty/unavailable" >&2; exit 1
           fi
-          cat > tmp/values-ci.yaml <<EOF
-          deckhouse:
-            registryDockerCfg: "${{ secrets.REGISTRY_DOCKER_CFG }}"
-          EOF
-          chmod 600 tmp/values-ci.yaml
+          # merge overlay into base values to preserve all fields
+          cp values.yaml tmp/values-merged.yaml
+          REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' tmp/values-merged.yaml
+          chmod 600 tmp/values-merged.yaml
+          echo "VALUES_TEMPLATE_FILE=$PWD/tmp/values-merged.yaml" >> $GITHUB_ENV
 
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
@@ -171,8 +171,7 @@ jobs:
             STORAGE_PROFILE="${PROFILE}" \
             TIMEOUT="${{ inputs.timeout || '4h' }}" \
             JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}" \
-            VALUES_FILE="tmp/values-ci.yaml"
+            PARENT_KUBECONFIG="${KUBECONFIG}"
 
       - name: Collect JUnit for this run
         if: always()
