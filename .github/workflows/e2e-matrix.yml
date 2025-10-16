@@ -149,11 +149,16 @@ jobs:
         working-directory: ci/dvp-e2e
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p tmp
+          if [ -z "${{ secrets.REGISTRY_DOCKER_CFG }}" ]; then
+            echo "REGISTRY_DOCKER_CFG is empty/unavailable" >&2; exit 1
+          fi
           cat > tmp/values-ci.yaml <<EOF
           deckhouse:
             registryDockerCfg: "${{ secrets.REGISTRY_DOCKER_CFG }}"
           EOF
+          chmod 600 tmp/values-ci.yaml
 
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
