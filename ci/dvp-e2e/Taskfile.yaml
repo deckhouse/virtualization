@@ -460,6 +460,14 @@ tasks:
         export NEW_KUBECONFIG_B64="$(cat {{ .TMP_DIR }}/kubeconfig.yaml | base64 | tr -d '\n')"
         yq eval --inplace '.kubeconfigDataBase64 = env(NEW_KUBECONFIG_B64)' {{ .GENERATED_VALUES_FILE }}
       - |
+        # Optionally inject registry Docker config from environment into values
+        if [ -n "${REGISTRY_DOCKER_CFG:-}" ]; then
+          yq eval --inplace '.deckhouse.registryDockerCfg = env(REGISTRY_DOCKER_CFG)' {{ .GENERATED_VALUES_FILE }}
+          echo "[INFO] Applied REGISTRY_DOCKER_CFG into generated values"
+        else
+          echo "[INFO] REGISTRY_DOCKER_CFG not set; leaving deckhouse.registryDockerCfg unchanged"
+        fi
+      - |
 
         export CP_SC='{{ .TARGET_STORAGE_CLASS }}'
         yq eval --inplace '.storageClasses.controlPlane.root = env(CP_SC)' {{ .GENERATED_VALUES_FILE }}
