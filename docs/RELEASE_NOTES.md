@@ -41,7 +41,7 @@ weight: 70
 
 ## Fixes
 
-- [vmclass] Fixed an issue in VirtualMachineClass types Features and Discovery that caused nested virtualization not to work on nodes with AMD processors.
+- [vmclass] Fixed an issue in `VirtualMachineClass` types Features and Discovery that caused nested virtualization not to work on nodes with AMD processors.
 - [vmop/restore] Fixed a bug where the controller sometimes started a restored VM before its disks were fully restored, resulting in the VM starting with old (unrestored) disks.
 - [vmsnapshot] Fixed behavior when creating a VM snapshot with uncommitted changes: the snapshot now instantly captures the current state of the virtual machine, including all current changes.
 - [module] Fixed an issue with installing the module on RedOS 8.X OS.
