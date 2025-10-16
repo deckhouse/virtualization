@@ -79,6 +79,7 @@ altLibs:
   - psmisc
   - msulogin
   - iproute2
+  - strace
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -96,6 +97,9 @@ binaries:
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Iproute2
   - /usr/sbin/tc
+  - /usr/bin/bash
+  - /usr/bin/ldd
+  - /usr/bin/strace
 packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
@@ -442,7 +446,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
