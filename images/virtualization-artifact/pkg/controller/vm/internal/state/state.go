@@ -70,7 +70,7 @@ type state struct {
 	client client.Client
 	vm     *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	shared Shared
-	refs   []blockDeviceRef
+	bdRefs []blockDeviceRef
 }
 
 type blockDeviceRef struct {
@@ -88,9 +88,9 @@ func (s *state) fill() {
 		mapRefs[blockDeviceRef{Name: bd.Name, Kind: bd.Kind}] = struct{}{}
 	}
 
-	s.refs = make([]blockDeviceRef, 0)
+	s.bdRefs = make([]blockDeviceRef, 0)
 	for ref := range mapRefs {
-		s.refs = append(s.refs, ref)
+		s.bdRefs = append(s.bdRefs, ref)
 	}
 }
 
@@ -194,7 +194,7 @@ func (s *state) ClusterVirtualImage(ctx context.Context, name string) (*v1alpha2
 
 func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.VirtualDisk, error) {
 	vdByName := make(map[string]*v1alpha2.VirtualDisk)
-	for _, bd := range s.refs {
+	for _, bd := range s.bdRefs {
 		switch bd.Kind {
 		case v1alpha2.DiskDevice:
 			vd, err := object.FetchObject(ctx, types.NamespacedName{
@@ -217,7 +217,7 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.Vi
 
 func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.VirtualImage, error) {
 	viByName := make(map[string]*v1alpha2.VirtualImage)
-	for _, bd := range s.refs {
+	for _, bd := range s.bdRefs {
 		switch bd.Kind {
 		case v1alpha2.ImageDevice:
 			vi, err := object.FetchObject(ctx, types.NamespacedName{
@@ -240,7 +240,7 @@ func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.V
 
 func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.ClusterVirtualImage, error) {
 	cviByName := make(map[string]*v1alpha2.ClusterVirtualImage)
-	for _, bd := range s.refs {
+	for _, bd := range s.bdRefs {
 		switch bd.Kind {
 		case v1alpha2.ClusterImageDevice:
 			cvi, err := object.FetchObject(ctx, types.NamespacedName{
