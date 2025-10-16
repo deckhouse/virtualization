@@ -7,7 +7,7 @@ weight: 70
 
 ## Fixes
 
-[core] Fixed an issue in containerdv2 where storage providing a PVC with the FileSystem type was incorrectly attached via `VirtualMachineBlockDeviceAttachment`.
+[core] Fixed an issue in the containerd v2 where storage providing a PVC with the FileSystem type was incorrectly attached via `VirtualMachineBlockDeviceAttachment`.
 - [core] Added error reporting in the status of disks and images when the data source (URL) is unavailable.
 - [vi] When creating virtual images from virtual disk snapshots, the `spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it could be ignored.
 - [vm] Fixed the `NetworkReady` condition output: it no longer shows the `Unknown` state and appears only when needed.
@@ -21,7 +21,7 @@ weight: 70
 
 ## Security
 
-- [module] Fixed CVE-2025-58058 and CVE-2025-54410
+- [module] Fixed vulnerabilities CVE-2025-58058 and CVE-2025-54410.
 
 # v1.1.0
 
