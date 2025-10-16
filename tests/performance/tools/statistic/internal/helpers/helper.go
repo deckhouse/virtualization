@@ -97,13 +97,10 @@ func DurationToString(d *metav1.Duration) string {
 	return dur
 }
 
-func SaveToFile(content string, resType string, ns string) {
+func SaveToFile(content string, resType string, ns string, outputDir string) {
 	filepath := fmt.Sprintf("/%s-%s-%s.csv", resType, ns, time.Now().Format("2006-01-02_15-04-05"))
-	execpath, err := os.Getwd()
-	if err != nil {
-		os.Exit(1)
-	}
-	file, err := os.Create(execpath + filepath)
+
+	file, err := os.Create(outputDir + filepath)
 	if err != nil {
 		fmt.Printf("Error creating file: %v\n", err)
 		return

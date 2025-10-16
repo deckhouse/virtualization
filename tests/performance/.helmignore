@@ -3,5 +3,11 @@
 
 # Match any file or path named .git
 .git
+*.sh
+*.sh.bak*
 
 tools/
+ssh/
+scenarios/
+report/
+monitoring/
