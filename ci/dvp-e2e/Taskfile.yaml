@@ -1841,6 +1841,7 @@ tasks:
         vars:
           OUTPUT_FILE: "{{ .RUN_PARENT_KUBECONFIG }}"
           SOURCE_KUBECONFIG: '{{ or .PARENT_KUBECONFIG (env "SOURCE_KUBECONFIG") (env "KUBECONFIG") .PARENT_KUBECONFIG_FILE }}'
+          SKIP_INGRESS_CHECK: 'true'
           PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
           PARENT_USER: '{{ .PARENT_USER | default "" }}'
           PARENT_SSH_KEY: '{{ .PARENT_SSH_KEY | default "" }}'

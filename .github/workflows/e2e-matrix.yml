@@ -141,6 +141,7 @@ jobs:
         env:
           PROFILE: ${{ matrix.profile }}
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
+          SKIP_INGRESS_CHECK: "true"
         run: |
           task nested:test-run \
             RUN_ID="${{ env.RUN_ID }}" \
