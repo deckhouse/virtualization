@@ -1701,7 +1701,7 @@ tasks:
         SNAPSHOT_STORAGE_CLASS_NAME={{ .SNAPSHOT_STORAGE_CLASS }} \
         SKIP_IMMEDIATE_SC_CHECK=yes \
         GOWORK=off \
-        go tool ginkgo -vv --github-output -r --timeout={{ .TIMEOUT }} "${EXTRA[@]}"
+        go run github.com/onsi/ginkgo/v2/ginkgo@v2.22.0 -v -r --timeout={{ .TIMEOUT }} "${EXTRA[@]}"
 
   nested:cluster:create:
     desc: Create nested DVP cluster (infra + bootstrap)
@@ -1787,7 +1787,7 @@ tasks:
       SKIP: '{{ .SKIP | default "" }}'
       LABELS: '{{ .LABELS | default "" }}'
       STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath{{ end }}'
-      IMAGE_STORAGE_CLASS: '{{ if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd-immediate{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r1-immediate{{ else }}hostpath{{ end }}'
+      IMAGE_STORAGE_CLASS: '{{ if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd-immediate{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath{{ end }}'
       SNAPSHOT_STORAGE_CLASS: '{{ if .SNAPSHOT_STORAGE_CLASS }}{{ .SNAPSHOT_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd-immediate{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath{{ end }}'
       TIMEOUT: '{{ .TIMEOUT | default "4h" }}'
       NFS_VI_SC_NAME: '{{ .NFS_VI_SC_NAME | default "" }}'
