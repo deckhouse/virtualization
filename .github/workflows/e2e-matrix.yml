@@ -174,19 +174,19 @@ jobs:
           esac
 
           task nested:test-run \
-            RUN_ID="${{ env.RUN_ID }}" \
+            RUN_ID="dvp-e2e-${{ env.RUN_ID }}" \
             STORAGE_PROFILE="${PROFILE}" \
             STORAGE_CLASS="$SC" \
             IMAGE_STORAGE_CLASS="$IMG_SC" \
             SNAPSHOT_STORAGE_CLASS="$SNAP_SC" \
             TIMEOUT="${{ inputs.timeout || '4h' }}" \
-            JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
+            JUNIT_PATH="../../artifacts/dvp-e2e-${{ env.RUN_ID }}/junit.xml" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
       - name: Collect JUnit for this run
         if: always()
         run: |
-          JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
+          JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/dvp-e2e-${{ env.RUN_ID }}/junit.xml"
           mkdir -p "$(dirname "$JUNIT_OUT")"
           # JUnit file should already be created by nested:test-run task
           if [ -f "$JUNIT_OUT" ]; then
@@ -199,7 +199,7 @@ jobs:
         if: always()
         run: |
           mkdir -p ci/dvp-e2e/tmp/matrix-logs
-          LOG="ci/dvp-e2e/tmp/matrix-logs/${RUN_ID}.log"
+          LOG="ci/dvp-e2e/tmp/matrix-logs/dvp-e2e-${RUN_ID}.log"
           {
             echo "[START] run_id=${RUN_ID} time=$(date -Iseconds)"
             echo "[FINISH] run_id=${RUN_ID} status=ok time=$(date -Iseconds)"
@@ -210,7 +210,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ matrix.profile }}-${{ env.RUN_ID }}
+          name: logs-${{ matrix.profile }}-dvp-e2e-${{ env.RUN_ID }}
           path: ci/dvp-e2e/tmp/matrix-logs
           if-no-files-found: ignore
 
@@ -218,7 +218,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-${{ matrix.profile }}-${{ env.RUN_ID }}
+          name: junit-${{ matrix.profile }}-dvp-e2e-${{ env.RUN_ID }}
           path: ci/dvp-e2e/artifacts
           if-no-files-found: ignore
 

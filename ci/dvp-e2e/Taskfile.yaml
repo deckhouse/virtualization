@@ -1757,7 +1757,7 @@ tasks:
         SNAPSHOT_STORAGE_CLASS_NAME={{ .SNAPSHOT_STORAGE_CLASS }} \
         SKIP_IMMEDIATE_SC_CHECK=yes \
         GOWORK=off \
-        go run github.com/onsi/ginkgo/v2/ginkgo@v2.22.0 -v -r --timeout={{ .TIMEOUT }} "${EXTRA[@]}"
+        go run github.com/onsi/ginkgo/v2/ginkgo@v2.22.0 -vv --github-output -r --timeout={{ .TIMEOUT }} "${EXTRA[@]}"
 
   nested:cluster:create:
     desc: Create nested DVP cluster (infra + bootstrap)
