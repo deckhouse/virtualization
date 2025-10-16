@@ -136,29 +136,29 @@ jobs:
           k8s-url: https://api.e2e.virtlab.flant.com
           k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
 
-      - name: Run E2E tests (Taskfile)
-        working-directory: tests/e2e
+      - name: Run DVP-over-DVP E2E tests
+        working-directory: ci/dvp-e2e
         env:
+          PROFILE: ${{ matrix.profile }}
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
-          TIMEOUT: ${{ inputs.timeout || '4h' }}
-          E2E_PREFIX: ${{ env.RUN_ID }}
-          LABELS: '[]'
-          FOCUS_JSON: 'null'
         run: |
-          task run:ci
+          task nested:test-run \
+            RUN_ID="${{ env.RUN_ID }}" \
+            STORAGE_PROFILE="${PROFILE}" \
+            TIMEOUT="${{ inputs.timeout || '4h' }}" \
+            JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}"
 
       - name: Collect JUnit for this run
         if: always()
-        working-directory: tests/e2e
         run: |
           JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
           mkdir -p "$(dirname "$JUNIT_OUT")"
-          FOUND="$(ls -1t **/junit.xml junit.xml 2>/dev/null | head -n1 || true)"
-          if [ -n "$FOUND" ]; then
-            cp "$FOUND" "$JUNIT_OUT"
-            echo "✅ Copied JUnit: $FOUND -> $JUNIT_OUT"
+          # JUnit file should already be created by nested:test-run task
+          if [ -f "$JUNIT_OUT" ]; then
+            echo "✅ JUnit file found: $JUNIT_OUT"
           else
-            echo "⚠️ junit.xml not found; skipping copy"
+            echo "⚠️ junit.xml not found at expected location: $JUNIT_OUT"
           fi
 
       - name: Collect matrix log
