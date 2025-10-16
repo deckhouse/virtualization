@@ -1,0 +1,519 @@
+#!/usr/bin/env bash
+
+set -eEo pipefail
+# set -x
+
+# Performance testing script for Kubernetes Virtual Machines - Refactored Version
+# This script provides both full scenario execution and individual step execution capabilities
+
+# Source all library modules
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/common.sh"
+source "$SCRIPT_DIR/lib/vm_operations.sh"
+source "$SCRIPT_DIR/lib/migration.sh"
+source "$SCRIPT_DIR/lib/statistics.sh"
+source "$SCRIPT_DIR/lib/controller.sh"
+source "$SCRIPT_DIR/lib/reporting.sh"
+source "$SCRIPT_DIR/lib/scenarios.sh"
+
+# Parse command line arguments
+parse_arguments() {
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -s|--scenario)
+        SCENARIO_NUMBER="$2"
+        shift 2
+        ;;
+      -c|--count)
+        MAIN_COUNT_RESOURCES="$2"
+        shift 2
+        ;;
+      --step)
+        INDIVIDUAL_STEP="$2"
+        shift 2
+        ;;
+      --list-steps)
+        list_available_steps
+        exit 0
+        ;;
+      --scenario-dir)
+        SCENARIO_DIR="$2"
+        shift 2
+        ;;
+      --vi-type)
+        VI_TYPE="$2"
+        shift 2
+        ;;
+      -h|--help)
+        show_help
+        exit 0
+        ;;
+      *)
+        echo "Unknown option: $1"
+        show_help
+        exit 1
+        ;;
+    esac
+  done
+}
+
+show_help() {
+  cat << EOF
+Usage: $0 [OPTIONS]
+
+Performance testing script for Kubernetes Virtual Machines
+
+OPTIONS:
+  -s, --scenario NUMBER    Scenario number to run (1 or 2, default: 1)
+  -c, --count NUMBER       Number of resources to create (default: 2)
+  --step STEP_NAME         Run a specific step only
+  --list-steps             List all available steps
+  --scenario-dir DIR       Directory for scenario data (required for individual steps)
+  --vi-type TYPE           Virtual image type (required for some steps)
+  -h, --help              Show this help message
+
+EXAMPLES:
+  # Full scenario execution (original behavior)
+  $0                       # Run scenario 1 with 2 resources (default)
+  $0 -s 1 -c 4            # Run scenario 1 with 4 resources
+  $0 -s 2 -c 10           # Run scenario 2 with 10 resources
+
+  # Individual step execution (new feature)
+  $0 --list-steps         # List available steps
+  $0 --step cleanup --scenario-dir /path/to/scenario --vi-type persistentVolumeClaim
+  $0 --step vm-deployment --scenario-dir /path/to/scenario --vi-type persistentVolumeClaim
+  $0 --step statistics-collection --scenario-dir /path/to/scenario
+  $0 --step vm-operations --scenario-dir /path/to/scenario
+  $0 --step migration-tests --scenario-dir /path/to/scenario
+  $0 --step controller-restart --scenario-dir /path/to/scenario --vi-type persistentVolumeClaim
+  $0 --step final-operations --scenario-dir /path/to/scenario
+
+SCENARIOS:
+  1 - persistentVolumeClaim (default)
+  2 - containerRegistry (currently disabled)
+
+AVAILABLE STEPS:
+  1. cleanup - Clean up existing resources
+  2. vm-deployment - Deploy VMs with disks
+  3. statistics-collection - Gather initial statistics
+  4. vm-operations - Stop and start all VMs
+  5. vm-undeploy-deploy - Undeploy and redeploy 10% VMs
+  6. vm-operations-test - Test stop/start operations on 10% VMs
+  7. migration-tests - Run migration tests (5% and 10%)
+  8. controller-restart - Test controller restart with VM creation
+  9. final-operations - Final statistics and cleanup
+
+EOF
+}
+
+list_available_steps() {
+  cat << EOF
+Available test steps:
+
+1. cleanup - Clean up existing resources
+2. vm-deployment - Deploy VMs with disks
+3. statistics-collection - Gather initial statistics
+4. vm-operations - Stop and start all VMs
+5. vm-undeploy-deploy - Undeploy and redeploy 10% VMs
+6. vm-operations-test - Test stop/start operations on 10% VMs
+7. migration-tests - Run migration tests (5% and 10%)
+8. controller-restart - Test controller restart with VM creation
+9. final-operations - Final statistics and cleanup
+
+Usage: $0 --step STEP_NAME --scenario-dir DIR [--vi-type TYPE]
+EOF
+}
+
+# Individual step execution functions
+run_step_cleanup() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: cleanup ==="
+  init_logging "step_cleanup" "$vi_type"
+  
+  log_step_start "Cleanup existing resources"
+  local cleanup_start=$(get_timestamp)
+  stop_migration
+  remove_vmops
+  undeploy_resources
+  local cleanup_end=$(get_timestamp)
+  local cleanup_duration=$((cleanup_end - cleanup_start))
+  log_step_end "Cleanup existing resources" "$cleanup_duration"
+  
+  log_success "Cleanup step completed"
+}
+
+run_step_vm_deployment() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: vm-deployment ==="
+  init_logging "step_vm-deployment" "$vi_type"
+  
+  log_step_start "Deploy VMs [$MAIN_COUNT_RESOURCES]"
+  local deploy_start=$(get_timestamp)
+  deploy_vms_with_disks $MAIN_COUNT_RESOURCES $vi_type
+  local deploy_end=$(get_timestamp)
+  local deploy_duration=$((deploy_end - deploy_start))
+  log_step_end "Deploy VMs [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
+  
+  log_success "VM deployment step completed"
+}
+
+run_step_statistics_collection() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: statistics-collection ==="
+  init_logging "step_statistics-collection" "$vi_type"
+  
+  log_step_start "Statistics Collection"
+  local stats_start=$(get_timestamp)
+  gather_all_statistics "$scenario_dir/statistics"
+  collect_vpa "$scenario_dir"
+  local stats_end=$(get_timestamp)
+  local stats_duration=$((stats_end - stats_start))
+  log_step_end "Statistics Collection" "$stats_duration"
+  
+  log_success "Statistics collection step completed"
+}
+
+run_step_vm_operations() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: vm-operations ==="
+  init_logging "step_vm-operations" "$vi_type"
+  
+  log_info "Stopping all VMs [$MAIN_COUNT_RESOURCES]"
+  log_step_start "VM Stop"
+  local stop_start=$(get_timestamp)
+  stop_vm
+  local stop_end=$(get_timestamp)
+  local stop_duration=$((stop_end - stop_start))
+  log_step_end "VM Stop" "$stop_duration"
+  
+  log_info "Waiting 10 seconds before starting VMs"
+  sleep 10
+  
+  log_info "Starting all VMs [$MAIN_COUNT_RESOURCES]"
+  log_step_start "VM Start"
+  local start_vm_start=$(get_timestamp)
+  start_vm
+  local start_vm_end=$(get_timestamp)
+  local start_vm_duration=$((start_vm_end - start_vm_start))
+  log_step_end "VM Start" "$start_vm_duration"
+  
+  log_success "VM operations step completed"
+}
+
+run_step_vm_undeploy_deploy() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: vm-undeploy-deploy ==="
+  init_logging "step_vm-undeploy-deploy" "$vi_type"
+  
+  log_info "Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
+  log_step_start "VM Undeploy 10% VMs [$PERCENT_RESOURCES]"
+  local undeploy_start=$(get_timestamp)
+  undeploy_vms_only $PERCENT_RESOURCES
+  local undeploy_end=$(get_timestamp)
+  local undeploy_duration=$((undeploy_end - undeploy_start))
+  log_step_end "VM Undeploy 10% VMs [$PERCENT_RESOURCES]" "$undeploy_duration"
+  
+  log_info "Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
+  log_step_start "Deploying 10% VMs [$PERCENT_RESOURCES]"
+  local deploy_remaining_start=$(get_timestamp)
+  deploy_vms_only $MAIN_COUNT_RESOURCES
+  local deploy_remaining_end=$(get_timestamp)
+  local deploy_remaining_duration=$((deploy_remaining_end - deploy_remaining_start))
+  log_step_end "Deploying 10% VMs [$PERCENT_RESOURCES]" "$deploy_remaining_duration"
+  
+  log_success "VM undeploy/deploy step completed"
+}
+
+run_step_vm_operations_test() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: vm-operations-test ==="
+  init_logging "step_vm-operations-test" "$vi_type"
+  
+  log_info "Testing VM stop/start operations for 10% VMs"
+  log_step_start "VM Operations Test"
+  local vm_ops_start=$(get_timestamp)
+  
+  log_step_start "VM Operations: Stopping VMs [$PERCENT_RESOURCES]"
+  local vm_ops_stop_start=$(get_timestamp)
+  stop_vm $PERCENT_RESOURCES
+  local vm_ops_stop_end=$(get_timestamp)
+  local vm_ops_stop_duration=$((vm_ops_stop_end - vm_ops_stop_start))
+  log_step_end "VM Operations: Stopping VMs [$PERCENT_RESOURCES]" "$vm_ops_stop_duration"
+  
+  sleep 2
+  
+  log_step_start "VM Operations: Start VMs [$PERCENT_RESOURCES]"
+  local vm_ops_start_vm_start=$(get_timestamp)
+  start_vm $PERCENT_RESOURCES
+  local vm_ops_start_vm_end=$(get_timestamp)
+  local vm_ops_start_vm_duration=$((vm_ops_start_vm_end - vm_ops_start_vm_start))
+  log_step_end "VM Operations: Start VMs [$PERCENT_RESOURCES]" "$vm_ops_start_vm_duration"
+  
+  local vm_ops_end=$(get_timestamp)
+  local vm_ops_duration=$((vm_ops_end - vm_ops_start))
+  log_step_end "VM Operations Test" "$vm_ops_duration"
+  
+  log_success "VM operations test step completed"
+}
+
+run_step_migration_tests() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: migration-tests ==="
+  init_logging "step_migration-tests" "$vi_type"
+  
+  # Start 5% migration in background
+  local migration_duration_time="0m"
+  log_info "Starting migration test ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
+  log_step_start "Migration Setup"
+  local migration_start=$(get_timestamp)
+  start_migration $migration_duration_time $MIGRATION_PERCENTAGE_5
+  local migration_end=$(get_timestamp)
+  local migration_duration=$((migration_end - migration_start))
+  log_info "Migration test ${MIGRATION_PERCENTAGE_5}% VMs setup completed in $(format_duration $migration_duration)"
+  log_step_end "Migration Setup ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs) Started" "$migration_duration"
+  
+  # VM operations test - stop/start 10% VMs while migration is running in background
+  log_info "Testing VM stop/start operations for 10% VMs while migration is running"
+  log_step_start "VM Operations"
+  local vm_ops_start=$(get_timestamp)
+  
+  log_step_start "VM Operations: Stopping VMs [$PERCENT_RESOURCES]"
+  local vm_ops_stop_start=$(get_timestamp)
+  stop_vm $PERCENT_RESOURCES
+  local vm_ops_stop_end=$(get_timestamp)
+  local vm_ops_stop_duration=$((vm_ops_stop_end - vm_ops_stop_start))
+  log_step_end "VM Operations: Stopping VMs [$PERCENT_RESOURCES]" "$vm_ops_stop_duration"
+  
+  sleep 2
+  
+  log_step_start "VM Operations: Start VMs [$PERCENT_RESOURCES]"
+  local vm_ops_start_vm_start=$(get_timestamp)
+  start_vm $PERCENT_RESOURCES
+  local vm_ops_start_vm_end=$(get_timestamp)
+  local vm_ops_start_vm_duration=$((vm_ops_start_vm_end - vm_ops_start_vm_start))
+  log_step_end "VM Operations: Start VMs [$PERCENT_RESOURCES]" "$vm_ops_start_vm_duration"
+  
+  local vm_ops_end=$(get_timestamp)
+  local vm_ops_duration=$((vm_ops_end - vm_ops_start))
+  log_info "VM operations test completed in $(format_duration $vm_ops_duration)"
+  log_step_end "VM Operations: Stop/Start VMs [$PERCENT_RESOURCES]" "$vm_ops_duration"
+  
+  # Stop migration and wait for completion
+  log_step_start "Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
+  local cleanup_ops_start=$(get_timestamp)
+  stop_migration
+  wait_migration_completion
+  remove_vmops
+  local cleanup_ops_end=$(get_timestamp)
+  local cleanup_ops_duration=$((cleanup_ops_end - cleanup_ops_start))
+  log_info "Migration stop and cleanup completed in $(format_duration $cleanup_ops_duration)"
+  log_step_end "Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)" "$cleanup_ops_duration"
+  
+  # Migration percentage test - Migrate 10% VMs
+  log_info "Testing migration of ${MIGRATION_10_COUNT} VMs (10%)"
+  log_step_start "Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
+  local migration_percent_start=$(get_timestamp)
+  migration_percent_vms $MIGRATION_10_COUNT
+  local migration_percent_end=$(get_timestamp)
+  local migration_percent_duration=$((migration_percent_end - migration_percent_start))
+  log_step_end "Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$migration_percent_duration"
+  
+  log_success "Migration tests step completed"
+}
+
+run_step_controller_restart() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: controller-restart ==="
+  init_logging "step_controller-restart" "$vi_type"
+  
+  log_info "Testing controller restart with 1 VM creation"
+  log_step_start "Controller Restart"
+  local controller_start=$(get_timestamp)
+  
+  # Stop controller first
+  stop_virtualization_controller
+  
+  # Create 1 VM and disk while controller is stopped
+  log_info "Creating 1 VM and disk while controller is stopped [$((MAIN_COUNT_RESOURCES + 1)) VMs total]"
+  create_vm_while_controller_stopped $vi_type
+  
+  # Start controller and measure time for VM to become ready
+  log_info "Starting controller and waiting for VM to become ready"
+  start_virtualization_controller
+  wait_for_new_vm_after_controller_start
+  local controller_end_time=$(get_timestamp)
+  local controller_duration=$((controller_end_time - controller_start))
+  
+  log_info "Controller restart test completed in $(format_duration $controller_duration)"
+  log_step_end "Controller Restart" "$controller_duration"
+  
+  log_success "Controller restart step completed"
+}
+
+run_step_final_operations() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  
+  log_info "=== Running step: final-operations ==="
+  init_logging "step_final-operations" "$vi_type"
+  
+  log_step_start "Final Statistics"
+  local final_stats_start=$(get_timestamp)
+  gather_all_statistics "$scenario_dir/statistics"
+  collect_vpa "$scenario_dir"
+  local final_stats_end=$(get_timestamp)
+  local final_stats_duration=$((final_stats_end - final_stats_start))
+  log_step_end "Final Statistics" "$final_stats_duration"
+  
+  log_info "Waiting 30 seconds before cleanup"
+  sleep 30
+  
+  log_step_start "Final Cleanup"
+  local final_cleanup_start=$(get_timestamp)
+  undeploy_resources
+  local final_cleanup_end=$(get_timestamp)
+  local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
+  log_step_end "Final Cleanup" "$final_cleanup_duration"
+  
+  log_success "Final operations step completed"
+}
+
+# Main execution function for individual steps
+run_individual_step() {
+  local step_name="$1"
+  local scenario_dir="$2"
+  local vi_type="$3"
+  
+  case "$step_name" in
+    "cleanup")
+      run_step_cleanup "$scenario_dir" "$vi_type"
+      ;;
+    "vm-deployment")
+      run_step_vm_deployment "$scenario_dir" "$vi_type"
+      ;;
+    "statistics-collection")
+      run_step_statistics_collection "$scenario_dir" "$vi_type"
+      ;;
+    "vm-operations")
+      run_step_vm_operations "$scenario_dir" "$vi_type"
+      ;;
+    "vm-undeploy-deploy")
+      run_step_vm_undeploy_deploy "$scenario_dir" "$vi_type"
+      ;;
+    "vm-operations-test")
+      run_step_vm_operations_test "$scenario_dir" "$vi_type"
+      ;;
+    "migration-tests")
+      run_step_migration_tests "$scenario_dir" "$vi_type"
+      ;;
+    "controller-restart")
+      run_step_controller_restart "$scenario_dir" "$vi_type"
+      ;;
+    "final-operations")
+      run_step_final_operations "$scenario_dir" "$vi_type"
+      ;;
+    *)
+      log_error "Unknown step: $step_name"
+      echo "Available steps:"
+      list_available_steps
+      exit 1
+      ;;
+  esac
+}
+
+# === Test configuration ===
+# Default values (can be overridden by command line arguments)
+SCENARIO_NUMBER=${SCENARIO_NUMBER:-1}
+MAIN_COUNT_RESOURCES=${MAIN_COUNT_RESOURCES:-2} # vms and vds (reduced for testing)
+PERCENT_VMS=10  # 10% of total resources
+MIGRATION_DURATION="1m"
+MIGRATION_PERCENTAGE_10=10  # 10% for migration
+MIGRATION_PERCENTAGE_5=5    # 5% for migration
+WAIT_MIGRATION=$( echo "$MIGRATION_DURATION" | sed 's/m//' )
+
+# Parse command line arguments
+parse_arguments "$@"
+
+# Recalculate resources after parsing command line arguments
+PERCENT_RESOURCES=$(( $MAIN_COUNT_RESOURCES * $PERCENT_VMS / 100 ))
+if [ $PERCENT_RESOURCES -eq 0 ]; then
+  PERCENT_RESOURCES=1
+fi
+
+# Calculate resources for migration percentages
+MIGRATION_5_COUNT=$(( $MAIN_COUNT_RESOURCES * $MIGRATION_PERCENTAGE_5 / 100 ))
+MIGRATION_10_COUNT=$(( $MAIN_COUNT_RESOURCES * $MIGRATION_PERCENTAGE_10 / 100 ))
+if [ $MIGRATION_5_COUNT -eq 0 ]; then
+  MIGRATION_5_COUNT=1
+fi
+if [ $MIGRATION_10_COUNT -eq 0 ]; then
+  MIGRATION_10_COUNT=1
+fi
+
+# Display configuration
+log_info "=== Performance Test Configuration ==="
+log_info "Scenario Number: $SCENARIO_NUMBER"
+log_info "Resource Count: $MAIN_COUNT_RESOURCES"
+log_info "Percent Resources (10%): $PERCENT_RESOURCES"
+log_info "Migration 5% Count: $MIGRATION_5_COUNT"
+log_info "Migration 10% Count: $MIGRATION_10_COUNT"
+log_info "========================================"
+
+# Main execution
+prepare_for_tests
+
+# Check if running individual step or full scenario
+if [ -n "$INDIVIDUAL_STEP" ]; then
+  # Individual step execution
+  if [ -z "$SCENARIO_DIR" ]; then
+    log_error "Scenario directory is required for individual step execution"
+    echo "Usage: $0 --step $INDIVIDUAL_STEP --scenario-dir DIR [--vi-type TYPE]"
+    exit 1
+  fi
+  
+  # Set default VI_TYPE if not provided
+  if [ -z "$VI_TYPE" ]; then
+    VI_TYPE="persistentVolumeClaim"
+  fi
+  
+  log_info "Running individual step: $INDIVIDUAL_STEP"
+  run_individual_step "$INDIVIDUAL_STEP" "$SCENARIO_DIR" "$VI_TYPE"
+  log_success "Individual step completed successfully"
+else
+  # Full scenario execution (original behavior)
+  case $SCENARIO_NUMBER in
+    1)
+      VI_TYPE="persistentVolumeClaim"
+      run_scenario "scenario_1" "$VI_TYPE"
+      log_success "Scenario 1 (persistentVolumeClaim) completed successfully"
+      ;;
+    2)
+      VI_TYPE="containerRegistry"
+      run_scenario "scenario_2" "$VI_TYPE"
+      log_success "Scenario 2 (containerRegistry) completed successfully"
+      ;;
+    *)
+      log_error "Invalid scenario number: $SCENARIO_NUMBER. Use 1 or 2."
+      exit 1
+      ;;
+  esac
+  
+  undeploy_resources
+  log_success "All scenarios completed successfully"
+fi

@@ -4,17 +4,20 @@ silent: true
 
 vars:
   NAMESPACE: '{{ .NAMESPACE | default "perf" }}'
+  OUTPUT_DIR: '{{ .OUTPUT_DIR | default "." }}'
+  VM_COUNT: '{{ .VM_COUNT | default "0" }}'
+  VD_COUNT: '{{ .VD_COUNT | default "0" }}'
 
 tasks:
   get-stat:vd:
     desc: "Run collect stat from vds"
     cmds:
-      - go run cmd/statistic/main.go -d -n {{.NAMESPACE}}
+      - go run cmd/statistic/main.go -d -n {{.NAMESPACE}} -O {{.OUTPUT_DIR}} -C {{.VD_COUNT}}
   get-stat:vm:
     desc: "Run collect stat from vms"
     cmds:
-      - go run cmd/statistic/main.go -v -n {{.NAMESPACE}}
+      - go run cmd/statistic/main.go -v -n {{.NAMESPACE}} -O {{.OUTPUT_DIR}} -c {{.VM_COUNT}}
   get-stat:all:
     desc: "Run collect stat from vds and vms"
     cmds:
-      - go run cmd/statistic/main.go -n {{.NAMESPACE}}
+      - go run cmd/statistic/main.go -n {{.NAMESPACE}} -O {{.OUTPUT_DIR}} -c {{.VM_COUNT}} -C {{.VD_COUNT}}

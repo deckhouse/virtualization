@@ -40,14 +40,10 @@ type VMs struct {
 	Items []VM `json:"items"`
 }
 
-func (vms *VMs) SaveToCSV(ns string) {
+func (vms *VMs) SaveToCSV(ns string, outputDir string) {
 	filepath := fmt.Sprintf("/all-%s-%s-%s.csv", "vm", ns, time.Now().Format("2006-01-02_15-04-05"))
-	execpath, err := os.Getwd()
-	if err != nil {
-		os.Exit(1)
-	}
 
-	file, err := os.Create(execpath + filepath)
+	file, err := os.Create(outputDir + filepath)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -78,7 +74,13 @@ func (vms *VMs) SaveToCSV(ns string) {
 	fmt.Println("Data of VD saved successfully to csv", file.Name())
 }
 
-func GetStatistic(client kubeclient.Client, namespace string) {
+func GetStatistic(client kubeclient.Client, namespace string, outputDir string, vmCount int) {
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Printf("Failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
 	vmList, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		fmt.Printf("Failed to get vm: %v\n", err)
@@ -93,9 +95,15 @@ func GetStatistic(client kubeclient.Client, namespace string) {
 	)
 
 	totalItems := len(vmList.Items)
+	processedCount := 0
 
+	// Filter VMs by count if specified
 	for _, vm := range vmList.Items {
 		if string(vm.Status.Phase) == "Running" {
+			// If vmCount is specified and we've reached the limit, break
+			if vmCount > 0 && processedCount >= vmCount {
+				break
+			}
 
 			vms.Items = append(vms.Items, VM{
 				Name: vm.Name,
@@ -109,26 +117,34 @@ func GetStatistic(client kubeclient.Client, namespace string) {
 			sumWaitingForDependencies += helpers.ToSeconds(vm.Status.Stats.LaunchTimeDuration.WaitingForDependencies)
 			sumVirtualMachineStarting += helpers.ToSeconds(vm.Status.Stats.LaunchTimeDuration.VirtualMachineStarting)
 			sumGuestOSAgentStarting += helpers.ToSeconds(vm.Status.Stats.LaunchTimeDuration.GuestOSAgentStarting)
+			processedCount++
 		}
 	}
 
-	avgWaitingForDependencies := sumWaitingForDependencies / float64(totalItems)
-	avgVirtualMachineStarting := sumVirtualMachineStarting / float64(totalItems)
-	avgGuestOSAgentStarting := sumGuestOSAgentStarting / float64(totalItems)
+	// Use processed count for averages
+	actualCount := processedCount
+	if actualCount == 0 {
+		actualCount = 1 // Avoid division by zero
+	}
+
+	avgWaitingForDependencies := sumWaitingForDependencies / float64(actualCount)
+	avgVirtualMachineStarting := sumVirtualMachineStarting / float64(actualCount)
+	avgGuestOSAgentStarting := sumGuestOSAgentStarting / float64(actualCount)
 
 	saveData := fmt.Sprintf(
 		"Total VMs count: %d\n"+
+			"Processed VMs count: %d\n"+
 			"Average WaitingForDependencies in seconds: %.2f\n"+
 			"Average VirtualMachineStarting in seconds: %.2f\n"+
 			"Average GuestOSAgentStarting in seconds: %.2f\n",
-		totalItems, avgWaitingForDependencies, avgVirtualMachineStarting, avgGuestOSAgentStarting,
+		totalItems, processedCount, avgWaitingForDependencies, avgVirtualMachineStarting, avgGuestOSAgentStarting,
 	)
 
-	helpers.SaveToFile(saveData, "avg-vm", namespace)
+	helpers.SaveToFile(saveData, "avg-vm", namespace, outputDir)
 
 	fmt.Println(saveData)
 
-	vms.SaveToCSV(namespace)
+	vms.SaveToCSV(namespace, outputDir)
 }
 
 func getStoppingAndStoppedDuration(vm v1alpha2.VirtualMachine) time.Duration {

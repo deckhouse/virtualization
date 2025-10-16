@@ -39,14 +39,10 @@ type VDs struct {
 	Items []VD `json:"items"`
 }
 
-func (vds *VDs) SaveToCSV(ns string) {
+func (vds *VDs) SaveToCSV(ns string, outputDir string) {
 	filepath := fmt.Sprintf("/all-%s-%s-%s.csv", "vd", ns, time.Now().Format("2006-01-02_15-04-05"))
-	execpath, err := os.Getwd()
-	if err != nil {
-		os.Exit(1)
-	}
 
-	file, err := os.Create(execpath + filepath)
+	file, err := os.Create(outputDir + filepath)
 	if err != nil {
 		os.Exit(1)
 	}
@@ -77,7 +73,13 @@ func (vds *VDs) SaveToCSV(ns string) {
 	fmt.Println("Data of VD saved successfully to csv", file.Name())
 }
 
-func GetStatistic(client kubeclient.Client, namespace string) {
+func GetStatistic(client kubeclient.Client, namespace string, outputDir string, vdCount int) {
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		fmt.Printf("Failed to create output directory: %v\n", err)
+		os.Exit(1)
+	}
+
 	var (
 		vds                       VDs
 		sumWaitingForDependencies float64
@@ -88,14 +90,19 @@ func GetStatistic(client kubeclient.Client, namespace string) {
 	// Limit & Continue for separete call res
 	vdList, err := client.VirtualDisks(namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		fmt.Printf("Failed to get vm: %v\n", err)
+		fmt.Printf("Failed to get vd: %v\n", err)
 		os.Exit(1)
 	}
 
 	totalItems := len(vdList.Items)
+	processedCount := 0
 
 	for _, vd := range vdList.Items {
 		if string(vd.Status.Phase) == "Ready" {
+			// If vdCount is specified and we've reached the limit, break
+			if vdCount > 0 && processedCount >= vdCount {
+				break
+			}
 
 			vds.Items = append(vds.Items, VD{
 				Name: vd.Name,
@@ -109,24 +116,32 @@ func GetStatistic(client kubeclient.Client, namespace string) {
 			sumWaitingForDependencies += helpers.ToSeconds(vd.Status.Stats.CreationDuration.WaitingForDependencies)
 			sumDVCRProvisioning += helpers.ToSeconds(vd.Status.Stats.CreationDuration.DVCRProvisioning)
 			sumTotalProvisioning += helpers.ToSeconds(vd.Status.Stats.CreationDuration.TotalProvisioning)
+			processedCount++
 		}
 	}
 
-	avgWaitingForDependencies := sumWaitingForDependencies / float64(totalItems)
-	avgDVCRProvisioning := sumDVCRProvisioning / float64(totalItems)
-	avgTotalProvisioning := sumTotalProvisioning / float64(totalItems)
+	// Use processed count for averages
+	actualCount := processedCount
+	if actualCount == 0 {
+		actualCount = 1 // Avoid division by zero
+	}
+
+	avgWaitingForDependencies := sumWaitingForDependencies / float64(actualCount)
+	avgDVCRProvisioning := sumDVCRProvisioning / float64(actualCount)
+	avgTotalProvisioning := sumTotalProvisioning / float64(actualCount)
 
 	saveData := fmt.Sprintf(
 		"Total VDs count: %d\n"+
+			"Processed VDs count: %d\n"+
 			"Average WaitingForDependencies in seconds: %.2f\n"+
 			"Average DVCRProvisioning in seconds: %.2f\n"+
 			"Average TotalProvisioning in seconds: %.2f\n",
-		totalItems, avgWaitingForDependencies, avgDVCRProvisioning, avgTotalProvisioning,
+		totalItems, processedCount, avgWaitingForDependencies, avgDVCRProvisioning, avgTotalProvisioning,
 	)
 
-	helpers.SaveToFile(saveData, "avg-vd", namespace)
+	helpers.SaveToFile(saveData, "avg-vd", namespace, outputDir)
 
 	fmt.Println(saveData)
 
-	vds.SaveToCSV(namespace)
+	vds.SaveToCSV(namespace, outputDir)
 }
