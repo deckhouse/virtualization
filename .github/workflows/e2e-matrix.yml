@@ -130,18 +130,42 @@ jobs:
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
-      - uses: azure/k8s-set-context@v4
-        with:
-          method: service-account
-          k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+      - name: Build parent kubeconfig from secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.kube
+          TOK='${{ secrets.E2E_NESTED_SA_SECRET }}'
+          if [ -z "$TOK" ]; then
+            echo "❌ Missing secret E2E_NESTED_SA_SECRET"; exit 1
+          fi
+          cat > ~/.kube/config <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${TOK}"
+          EOF
+          chmod 600 ~/.kube/config
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
         env:
           PROFILE: ${{ matrix.profile }}
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
-          SKIP_INGRESS_CHECK: "true"
         run: |
           task nested:test-run \
             RUN_ID="${{ env.RUN_ID }}" \
