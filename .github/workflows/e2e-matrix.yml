@@ -153,6 +153,30 @@ jobs:
           chmod 600 ~/.docker/config.json
           echo "✅ Docker auth configured"
 
+      - name: Ensure default StorageClass in parent (per profile)
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.profile }}" in
+            cephrbd|ceph|ceph-rbd)
+              SC="ceph-pool-r2-csi-rbd" ;;
+            sds|sds-local|sds_replicated|sds-replicated)
+              SC="linstor-thin-r2" ;;
+            nfs|nfs-4-1-wffc)
+              SC="nfs-4-1-wffc" ;;
+            hostpath|hp)
+              SC="hostpath-immediate" ;;
+            *)
+              SC="" ;;
+          esac
+          if [ -n "$SC" ]; then
+            echo "[SET] default SC -> $SC"
+            kubectl annotate sc "$SC" storageclass.kubernetes.io/is-default-class=true --overwrite
+            kubectl get sc | grep '(default)' || true
+          else
+            echo "[WARN] profile has no mapped default SC; skipping"
+          fi
+
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
         env:
