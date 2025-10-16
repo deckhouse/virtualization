@@ -24,6 +24,7 @@ import (
 
 const (
 	MetricVDSnapshotStatusPhase = "virtualdisksnapshot_status_phase"
+	MetricVDSnapshotInfo        = "virtualdisksnapshot_info"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
@@ -50,6 +51,14 @@ var vdsnapshotMetrics = map[string]metrics.MetricInfo{
 		"The virtualdisksnapshot current phase.",
 		prometheus.GaugeValue,
 		WithBaseLabels("phase"),
+		nil,
+	),
+
+	MetricVDSnapshotInfo: metrics.NewMetricInfo(
+		MetricVDSnapshotInfo,
+		"The virtualdisksnapshot virtualdisk name.",
+		prometheus.GaugeValue,
+		WithBaseLabels("virtualdisk"),
 		nil,
 	),
 }
