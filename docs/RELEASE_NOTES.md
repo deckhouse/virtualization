@@ -3,6 +3,26 @@ title: "Release Notes"
 weight: 70
 ---
 
+# v1.1.1
+
+## Fixes
+
+- [core] Fixed hot-plugging of disks with volume mode Filesystem on containerdv2
+- [core] Added error reporting in the status of disks and images when the data source url is broken.
+- [vi] Virtual images now honor spec.persistentVolumeClaim.storageClassName when created from virtual disk snapshots. Previously, this setting was ignored in this case.
+- [vm] The Network condition of virtual machine will now be displayed only if the sdn module is present or if there are user-actionable messages. Previously, it remained in the Unknown state.
+- [vm] Prohibit duplicate networks in the virtual machine .spec.network specification.
+- [vmbda] Fixed an issue where detaching a hot-attached image from a virtual machine could hang. Previously, deletion of the VirtualMachineBlockDeviceAttachment resource could get stuck in the Terminating state.
+- [vmip] Added validation for static ip addresses to ensure that the requested address is not already in use within the cluster.
+
+## Other
+
+- [observability] Added Prometheus metrics for virtual machine and virtual disk snapshots (`d8_virtualization_virtualmachinesnapshot_info` and `d8_virtualization_virtualdisksnapshot_info`), allowing users to monitor the presence of snapshots through their observability dashboards.
+
+## Security
+
+- [module] Fixed CVE-2025-58058 and CVE-2025-54410
+
 # v1.1.0
 
 ## New features
