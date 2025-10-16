@@ -88,7 +88,7 @@ func (s *state) fill() {
 		mapRefs[blockDeviceRef{Name: bd.Name, Kind: bd.Kind}] = struct{}{}
 	}
 
-	s.bdRefs = make([]blockDeviceRef, 0)
+	s.bdRefs = make([]blockDeviceRef, len(mapRefs))
 	for ref := range mapRefs {
 		s.bdRefs = append(s.bdRefs, ref)
 	}

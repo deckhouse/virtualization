@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -227,19 +228,21 @@ func ApplyVirtualMachineSpec(
 	for _, device := range hotpluggedDevices {
 		name, kind := GetOriginalDiskName(device.VolumeName)
 
-		var obj metav1.Object
+		var obj client.Object
+		var exists bool
+
 		switch kind {
 		case v1alpha2.ImageDevice:
-			obj = viByName[name]
+			obj, exists = viByName[name]
 		case v1alpha2.ClusterImageDevice:
-			obj = cviByName[name]
+			obj, exists = cviByName[name]
 		case v1alpha2.DiskDevice:
-			obj = vdByName[name]
+			obj, exists = vdByName[name]
 		default:
 			return fmt.Errorf("unknown block device kind %q. %w", kind, common.ErrUnknownType)
 		}
 
-		if obj == nil {
+		if !exists || obj == nil || obj.GetUID() == "" {
 			continue
 		}
 
