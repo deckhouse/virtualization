@@ -1688,6 +1688,12 @@ tasks:
         fi
         rm -rf /tmp/testdata
         cp -a testdata /tmp/testdata
+        # Ensure default StorageClass is set in nested cluster to avoid initE2E failure
+        if ! KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system patch moduleconfig global --type merge -p '{"spec":{"settings":{"defaultClusterStorageClass":"{{ .TARGET_STORAGE_CLASS }}"}}}' >/dev/null 2>&1; then
+          echo "[INFO] ModuleConfig/global not found, creating with defaultClusterStorageClass='{{ .TARGET_STORAGE_CLASS }}'"
+          MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 2\n  settings:\n    defaultClusterStorageClass: {{ .TARGET_STORAGE_CLASS }}'
+          printf '%s\n' "$MANIFEST" | KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system apply -f -
+        fi
         KUBECONFIG="$KUBECONFIG_ABS" \
         E2E_CLUSTERTRANSPORT_KUBECONFIG="$KUBECONFIG_ABS" \
         STORAGE_CLASS_NAME={{ .TARGET_STORAGE_CLASS }} \
