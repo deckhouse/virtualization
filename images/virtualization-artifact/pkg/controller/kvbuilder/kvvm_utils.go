@@ -239,6 +239,10 @@ func ApplyVirtualMachineSpec(
 			return fmt.Errorf("unknown block device kind %q. %w", kind, common.ErrUnknownType)
 		}
 
+		if obj == nil {
+			continue
+		}
+
 		switch {
 		case device.PVCName != "":
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
