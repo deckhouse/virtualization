@@ -28,7 +28,7 @@ const (
 	MetricDiskAnnotations   = "virtualdisk_annotations"
 	MetricDiskCapacityBytes = "virtualdisk_capacity_bytes"
 	MetricDiskInfo          = "virtualdisk_info"
-	MetricDiskStatusInUse   = "virtualdisk_status_inuse"
+	MetricDiskStatusInUse   = "virtualdisk_status_in_use"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
