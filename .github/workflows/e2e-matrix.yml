@@ -183,6 +183,34 @@ jobs:
             JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
+      - name: Print failed specs (if any)
+        if: failure()
+        shell: bash
+        run: |
+          set -euo pipefail
+          F="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
+          if [ -s "$F" ]; then
+            python3 - <<'PY' "$F"
+import sys, xml.etree.ElementTree as ET
+f=sys.argv[1]
+try:
+    r=ET.parse(f).getroot()
+except Exception as e:
+    print(f"Failed to parse junit: {e}")
+    sys.exit(0)
+fails=[]
+for tc in r.iter('testcase'):
+    for ff in tc.findall('failure'):
+        name=f"{tc.get('classname')}.{tc.get('name')}"
+        msg=(ff.get('message') or '').strip()
+        text=(ff.text or '').strip()
+        fails.append(f"{name}: {(msg or text)[:500]}")
+print("\n".join(fails[:30]) if fails else "No failures parsed from junit.xml")
+PY
+          else
+            echo "No junit.xml found"
+          fi
+
       - name: Collect JUnit for this run
         if: always()
         run: |
@@ -350,7 +378,7 @@ jobs:
         run: |
           echo "🧹 Cleaning up test namespaces..."
           task cleanup:namespaces:safe \
-            FILTER_PREFIX="dvp-e2e-" \
+            FILTER_PREFIX="dvp-e2e-nightly-" \
             CONFIRM=true
 
       - name: Report cleanup results
