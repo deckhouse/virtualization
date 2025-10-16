@@ -19,7 +19,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -58,20 +57,9 @@ type VirtualMachineState interface {
 }
 
 func New(c client.Client, vm *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]) VirtualMachineState {
-	var refs []blockDeviceRef
-
-	for _, bd := range vm.Current().Spec.BlockDeviceRefs {
-		refs = append(refs, blockDeviceRef{Name: bd.Name, Kind: bd.Kind})
-	}
-	for _, bd := range vm.Current().Status.BlockDeviceRefs {
-		refs = append(refs, blockDeviceRef{Name: bd.Name, Kind: bd.Kind})
-	}
-
-	refs = slices.CompactFunc(refs, func(l, r blockDeviceRef) bool {
-		return l.Name == r.Name && l.Kind == r.Kind
-	})
-
-	return &state{client: c, vm: vm, refs: refs}
+	state := &state{client: c, vm: vm}
+	state.fill()
+	return state
 }
 
 type Shared struct {
@@ -88,6 +76,22 @@ type state struct {
 type blockDeviceRef struct {
 	Name string
 	Kind v1alpha2.BlockDeviceKind
+}
+
+func (s *state) fill() {
+	mapRefs := make(map[blockDeviceRef]struct{})
+
+	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
+		mapRefs[blockDeviceRef{Name: bd.Name, Kind: bd.Kind}] = struct{}{}
+	}
+	for _, bd := range s.vm.Current().Status.BlockDeviceRefs {
+		mapRefs[blockDeviceRef{Name: bd.Name, Kind: bd.Kind}] = struct{}{}
+	}
+
+	s.refs = make([]blockDeviceRef, 0)
+	for ref := range mapRefs {
+		s.refs = append(s.refs, ref)
+	}
 }
 
 func (s *state) Shared(fn func(s *Shared)) {
