@@ -98,7 +98,7 @@ jobs:
     timeout-minutes: 300
     concurrency:
       group: e2e-${{ github.ref }}-${{ matrix.profile }}
-      cancel-in-progress: false
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
