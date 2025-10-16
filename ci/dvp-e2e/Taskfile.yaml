@@ -210,6 +210,7 @@ tasks:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
+      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
       SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
       DOMAIN:
@@ -237,6 +238,12 @@ tasks:
         else
           echo "[WARN] DOMAIN is empty; leaving .domain unchanged"
         fi
+      - |
+        # Set storageClass for infra (e.g., NFS PVC) if provided by caller
+        if [ -n "{{ .TARGET_STORAGE_CLASS }}" ]; then
+          export NFS_SC='{{ .TARGET_STORAGE_CLASS }}'
+          yq eval --inplace '.storageClass = env(NFS_SC)' {{ .GENERATED_VALUES_FILE }}
+        fi
       - helm template dvp-over-dvp-infra ./charts/infra -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/infra.yaml
 
   infra-deploy:
@@ -246,6 +253,7 @@ tasks:
         vars:
           TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
           VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+          TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
           PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
@@ -272,26 +280,6 @@ tasks:
           exit 1
         fi
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=nfs-server --timeout=300s
-      - |
-        # Ensure base VirtualImage is ready to avoid long bootstrap hangs
-        set -euo pipefail
-        echo "[WAIT] Waiting for VirtualImage/image to be Ready..."
-        for i in $(seq 1 60); do # up to ~10 minutes
-          phase=$(kubectl -n {{ .NAMESPACE }} get virtualimage image -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
-          if [ "$phase" = "Ready" ]; then
-            echo "[OK] VirtualImage/image is Ready"
-            break
-          fi
-          if [ $i -eq 60 ]; then
-            echo "[ERR] VirtualImage/image not Ready after timeout (phase='$phase')" >&2
-            echo "[DIAG] virtualimage describe:" >&2
-            kubectl -n {{ .NAMESPACE }} describe virtualimage image || true
-            echo "[DIAG] pods in namespace (importers):" >&2
-            kubectl -n {{ .NAMESPACE }} get pods -o wide || true
-            exit 1
-          fi
-          sleep 10
-        done
       - |
         end_time=$(date +%s)
         difference=$((end_time - {{ .start_time }}))
@@ -587,6 +575,7 @@ tasks:
         vars:
           TMP_DIR: "{{ .TMP_DIR }}"
           VALUES_FILE: "{{ .VALUES_FILE }}"
+          TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
           PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
       - |
