@@ -23,9 +23,12 @@ import (
 )
 
 const (
-	MetricDiskStatusPhase = "virtualdisk_status_phase"
-	MetricDiskLabels      = "virtualdisk_labels"
-	MetricDiskAnnotations = "virtualdisk_annotations"
+	MetricDiskStatusPhase   = "virtualdisk_status_phase"
+	MetricDiskLabels        = "virtualdisk_labels"
+	MetricDiskAnnotations   = "virtualdisk_annotations"
+	MetricDiskCapacityBytes = "virtualdisk_capacity_bytes"
+	MetricDiskInfo          = "virtualdisk_info"
+	MetricDiskStatusInUse   = "virtualdisk_status_in_use"
 )
 
 var baseLabels = []string{"name", "namespace", "uid"}
@@ -66,6 +69,30 @@ var diskMetrics = map[string]metrics.MetricInfo{
 		"Kubernetes annotations converted to Prometheus labels.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
+		nil,
+	),
+
+	MetricDiskCapacityBytes: metrics.NewMetricInfo(
+		MetricDiskCapacityBytes,
+		"The virtualdisk capacity in bytes.",
+		prometheus.GaugeValue,
+		baseLabels,
+		nil,
+	),
+
+	MetricDiskInfo: metrics.NewMetricInfo(
+		MetricDiskInfo,
+		"Information about the virtualdisk.",
+		prometheus.GaugeValue,
+		WithBaseLabels("storageclass", "persistentvolumeclaim"),
+		nil,
+	),
+
+	MetricDiskStatusInUse: metrics.NewMetricInfo(
+		MetricDiskStatusInUse,
+		"Whether the virtualdisk is in use (1 - yes, 0 - no).",
+		prometheus.GaugeValue,
+		WithBaseLabels("virtualmachine"),
 		nil,
 	),
 }
