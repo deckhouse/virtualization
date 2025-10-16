@@ -126,6 +126,10 @@ func (s WaitForDVStep) setForProvisioning(vd *v1alpha2.VirtualDisk) (set bool) {
 }
 
 func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1alpha2.VirtualDisk) (set bool, err error) {
+	if vd.Status.StorageClassName == "" {
+		return false, nil
+	}
+
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
 	if err != nil {
 		return false, fmt.Errorf("get sc: %w", err)
