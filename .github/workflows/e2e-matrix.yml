@@ -137,28 +137,7 @@ jobs:
           chmod 600 ~/.kube/config
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Docker login (Deckhouse registry)
-        shell: bash
-        run: |
-          mkdir -p ~/.docker
-          echo '${{ secrets.REGISTRY_DOCKER_CFG }}' | base64 -d 2>/dev/null > ~/.docker/config.json || echo '${{ secrets.REGISTRY_DOCKER_CFG }}' > ~/.docker/config.json
-          chmod 600 ~/.docker/config.json
-          docker info >/dev/null
-
-      - name: Write CI values (registry cfg)
-        working-directory: ci/dvp-e2e
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p tmp
-          if [ -z "${{ secrets.REGISTRY_DOCKER_CFG }}" ]; then
-            echo "REGISTRY_DOCKER_CFG is empty/unavailable" >&2; exit 1
-          fi
-          # merge overlay into base values to preserve all fields
-          cp values.yaml tmp/values-merged.yaml
-          REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' tmp/values-merged.yaml
-          chmod 600 tmp/values-merged.yaml
-          echo "VALUES_TEMPLATE_FILE=$PWD/tmp/values-merged.yaml" >> $GITHUB_ENV
+      # docker login and values overlay removed per simplification
 
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
@@ -166,9 +145,26 @@ jobs:
           PROFILE: ${{ matrix.profile }}
           REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
         run: |
+          # Map storage classes per profile (restore previous behavior)
+          case "${PROFILE}" in
+            sds|sds-local|sds_local|sds-replicated|sds_replicated)
+              SC="linstor-thin-r2"; IMG_SC="linstor-thin-r2"; SNAP_SC="linstor-thin-r2" ;;
+            ceph|ceph-rbd|cephrbd|ceph-pool-r2-csi-rbd)
+              SC="ceph-pool-r2-csi-rbd"; IMG_SC="ceph-pool-r2-csi-rbd-immediate"; SNAP_SC="ceph-pool-r2-csi-rbd-immediate" ;;
+            nfs|nfs-4-1-wffc)
+              SC="nfs-4-1-wffc"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
+            hostpath|hp)
+              SC="hostpath-immediate"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
+            *)
+              SC="hostpath-immediate"; IMG_SC=""; SNAP_SC="" ;;
+          esac
+
           task nested:test-run \
             RUN_ID="${{ env.RUN_ID }}" \
             STORAGE_PROFILE="${PROFILE}" \
+            STORAGE_CLASS="$SC" \
+            IMAGE_STORAGE_CLASS="$IMG_SC" \
+            SNAPSHOT_STORAGE_CLASS="$SNAP_SC" \
             TIMEOUT="${{ inputs.timeout || '4h' }}" \
             JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
