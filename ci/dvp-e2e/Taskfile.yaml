@@ -473,6 +473,12 @@ tasks:
         yq eval --inplace '.storageClasses.controlPlane.root = env(CP_SC)' {{ .GENERATED_VALUES_FILE }}
         yq eval --inplace '.storageClasses.controlPlane.etcd = env(CP_SC)' {{ .GENERATED_VALUES_FILE }}
       - |
+        # Ensure infra storageClass is explicitly set to avoid relying on parent's default SC
+        if [ -n "{{ .TARGET_STORAGE_CLASS }}" ]; then
+          export NFS_SC='{{ .TARGET_STORAGE_CLASS }}'
+          yq eval --inplace '.storageClass = env(NFS_SC)' {{ .GENERATED_VALUES_FILE }}
+        fi
+      - |
 
         export WK_SC='{{ .TARGET_STORAGE_CLASS }}'
         yq eval --inplace '.storageClasses.workers.root = env(WK_SC)' {{ .GENERATED_VALUES_FILE }}
