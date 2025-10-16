@@ -10,7 +10,6 @@ git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
   includePaths:
-  - install-libvirt.sh
   - patches
   excludePaths:
     - patches/README.md
@@ -104,10 +103,6 @@ import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src/patches
   to: /patches
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/install-libvirt.sh
-  to: /install-libvirt.sh
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
