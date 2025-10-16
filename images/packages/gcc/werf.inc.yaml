@@ -9,6 +9,7 @@ import:
   before: setup
   includePaths:
   - usr/lib64/libgcc_s.so.1
+  - usr/lib64/libstdc++.so.6
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
@@ -31,11 +32,8 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -46,7 +44,7 @@ altPackages:
 - autogen dejagnu glibc-devel-static
 - tree
 packages:
-- zlib 
+- zlib
 - zstd
 {{- end -}}
 
@@ -78,7 +76,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
+
     OUTDIR=/out
 
     cd /src
@@ -105,4 +103,4 @@ shell:
     make DESTDIR=$OUTDIR install-strip
     rm -rf $OUTDIR/usr/share
 
-    tree -sp $OUTDIR
+    tree -hp $OUTDIR

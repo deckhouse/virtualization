@@ -4,8 +4,7 @@ resources:
   - overlays/default
   - overlays/always-on
   - overlays/embedded-cloudinit
-  # TODO: the custom IP address loses its lease and becomes Lost.
-  # - overlays/custom-ip
+  - overlays/custom-ip
   - overlays/automatic
   - overlays/automatic-with-hotplug
   - overlays/hotplug

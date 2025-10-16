@@ -104,20 +104,20 @@ func IndexVMByClass() (obj client.Object, field string, extractValue client.Inde
 }
 
 func IndexVMByVD() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &v1alpha2.VirtualMachine{}, IndexFieldVMByVD, func(object client.Object) []string {
-		return getBlockDeviceNamesByKind(object, v1alpha2.DiskDevice)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByVD, func(vm client.Object) []string {
+		return getBlockDeviceNamesByKind(vm, v1alpha2.DiskDevice)
 	}
 }
 
 func IndexVMByVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &v1alpha2.VirtualMachine{}, IndexFieldVMByVI, func(object client.Object) []string {
-		return getBlockDeviceNamesByKind(object, v1alpha2.ImageDevice)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByVI, func(vm client.Object) []string {
+		return getBlockDeviceNamesByKind(vm, v1alpha2.ImageDevice)
 	}
 }
 
 func IndexVMByCVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &v1alpha2.VirtualMachine{}, IndexFieldVMByCVI, func(object client.Object) []string {
-		return getBlockDeviceNamesByKind(object, v1alpha2.ClusterImageDevice)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByCVI, func(vm client.Object) []string {
+		return getBlockDeviceNamesByKind(vm, v1alpha2.ClusterImageDevice)
 	}
 }
 
@@ -136,12 +136,27 @@ func getBlockDeviceNamesByKind(obj client.Object, kind v1alpha2.BlockDeviceKind)
 	if !ok || vm == nil {
 		return nil
 	}
-	var res []string
-	for _, bdr := range vm.Spec.BlockDeviceRefs {
-		if bdr.Kind != kind {
-			continue
+
+	seen := make(map[string]struct{})
+	var result []string
+
+	for _, ref := range vm.Spec.BlockDeviceRefs {
+		if ref.Kind == kind {
+			if _, exists := seen[ref.Name]; !exists {
+				seen[ref.Name] = struct{}{}
+				result = append(result, ref.Name)
+			}
 		}
-		res = append(res, bdr.Name)
 	}
-	return res
+
+	for _, ref := range vm.Status.BlockDeviceRefs {
+		if ref.Kind == kind {
+			if _, exists := seen[ref.Name]; !exists {
+				seen[ref.Name] = struct{}{}
+				result = append(result, ref.Name)
+			}
+		}
+	}
+
+	return result
 }

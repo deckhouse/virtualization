@@ -3,8 +3,8 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: v1.3.1-v12n.15
-  3p-containerized-data-importer: v1.60.3-v12n.10
+  3p-kubevirt: v1.3.1-v12n.17
+  3p-containerized-data-importer: v1.60.3-v12n.12
   distribution: 2.8.3
 package:
   acl: v2.3.1
@@ -13,7 +13,7 @@ package:
   dtc: v1.7.2
   e2fsprogs: v1.47.1
   file: FILE5_45
-  gcc: releases/gcc-14.2.0
+  gcc: releases/gcc-13.2.0
   glib2: 2.84.2
   glibc: glibc-2.38
   libgmp: 6.3.0
@@ -84,8 +84,9 @@ package:
   readline: readline-8.2
   cyrus-sasl2: cyrus-sasl-2.1.28 # libsasl2-3
   libseccomp: v2.6.0
-  selinux: 3.6
+  selinux: 3.8
   libslirp: v4.8.0
+  libxkbcommon: xkbcommon-1.10.0
   snappy: 1.2.2 # libsnappy
   systemd: v255
   zlib: v1.3.1

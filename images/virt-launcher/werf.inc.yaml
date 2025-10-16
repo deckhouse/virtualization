@@ -39,7 +39,6 @@ altLibs:
   - libsoundio-devel
   - libjpeg-devel
   - libpng-devel
-  - libxkbcommon-devel
   - xkeyboard-config-devel
   - libgtk+3-devel
   - libvte
@@ -78,8 +77,6 @@ altLibs:
   - libfuse-devel
   - libsystemd-devel
   - systemtap-sdt-devel
-  - glib2-devel
-  - libgio-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
@@ -129,6 +126,8 @@ packages:
 - cyrus-sasl2
 - snappy
 - libtasn1 libtirpc
+- glib2
+- libxkbcommon
 - libaio
 - liburing libunistring
 {{- end -}}
@@ -450,7 +449,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries

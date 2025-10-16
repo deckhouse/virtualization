@@ -69,22 +69,26 @@ type VirtualMachineOperationRestoreSpec struct {
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 }
 
+// +kubebuilder:validation:XValidation:rule="(has(self.customization) && ((has(self.customization.namePrefix) && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix) && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement) && size(self.nameReplacement) > 0)",message="At least one of customization.namePrefix, customization.nameSuffix, or nameReplacement must be set"
 // VirtualMachineOperationCloneSpec defines the clone operation.
 type VirtualMachineOperationCloneSpec struct {
 	Mode VMOPRestoreMode `json:"mode"`
 	// NameReplacement defines rules for renaming resources during cloning.
+	// +kubebuilder:validation:XValidation:rule="self.all(nr, has(nr.to) && size(nr.to) >= 1 && size(nr.to) <= 59)",message="Each nameReplacement.to must be between 1 and 59 characters"
 	NameReplacement []NameReplacement `json:"nameReplacement,omitempty"`
 	// Customization defines customization options for cloning.
 	Customization *VirtualMachineOperationCloneCustomization `json:"customization,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!has(self.namePrefix) || (size(self.namePrefix) >= 1 && size(self.namePrefix) <= 59)",message="namePrefix length must be between 1 and 59 characters if set"
+// +kubebuilder:validation:XValidation:rule="!has(self.nameSuffix) || (size(self.nameSuffix) >= 1 && size(self.nameSuffix) <= 59)",message="nameSuffix length must be between 1 and 59 characters if set"
 // VirtualMachineOperationCloneCustomization defines customization options for cloning.
 type VirtualMachineOperationCloneCustomization struct {
 	// NamePrefix adds a prefix to resource names during cloning.
-	// Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+	// Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
 	NamePrefix string `json:"namePrefix,omitempty"`
 	// NameSuffix adds a suffix to resource names during cloning.
-	// Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.
+	// Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
 	NameSuffix string `json:"nameSuffix,omitempty"`
 }
 

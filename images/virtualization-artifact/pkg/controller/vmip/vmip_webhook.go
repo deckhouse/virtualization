@@ -82,7 +82,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	return warnings, nil
 }
 
-func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldVmip, ok := oldObj.(*v1alpha2.VirtualMachineIPAddress)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineIP but got a %T", oldObj)
@@ -101,6 +101,20 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	err := v.validateSpecFields(newVmip)
 	if err != nil {
 		return nil, fmt.Errorf("error validating VirtualMachineIP update: %w", err)
+	}
+
+	var warnings admission.Warnings
+
+	if newVmip.Spec.StaticIP != "" && oldVmip.Spec.StaticIP != newVmip.Spec.StaticIP {
+		err = v.validateAllocatedIPAddresses(ctx, newVmip.Spec.StaticIP)
+		switch {
+		case err == nil:
+			// OK.
+		case errors.Is(err, service.ErrIPAddressOutOfRange):
+			warnings = append(warnings, fmt.Sprintf("The requested address %s is out of the valid range", newVmip.Spec.StaticIP))
+		default:
+			return nil, err
+		}
 	}
 
 	boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, oldVmip.Status.Conditions)
@@ -123,7 +137,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		}
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
