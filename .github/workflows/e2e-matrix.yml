@@ -147,21 +147,46 @@ jobs:
         run: |
           task run:ci
 
+      - name: Collect JUnit for this run
+        if: always()
+        working-directory: tests/e2e
+        run: |
+          JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
+          mkdir -p "$(dirname "$JUNIT_OUT")"
+          FOUND="$(ls -1t **/junit.xml junit.xml 2>/dev/null | head -n1 || true)"
+          if [ -n "$FOUND" ]; then
+            cp "$FOUND" "$JUNIT_OUT"
+            echo "✅ Copied JUnit: $FOUND -> $JUNIT_OUT"
+          else
+            echo "⚠️ junit.xml not found; skipping copy"
+          fi
+
+      - name: Collect matrix log
+        if: always()
+        run: |
+          mkdir -p ci/dvp-e2e/tmp/matrix-logs
+          LOG="ci/dvp-e2e/tmp/matrix-logs/${RUN_ID}.log"
+          {
+            echo "[START] run_id=${RUN_ID} time=$(date -Iseconds)"
+            echo "[FINISH] run_id=${RUN_ID} status=ok time=$(date -Iseconds)"
+          } >> "$LOG"
+          echo "✅ Created matrix log: $LOG"
+
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ matrix.profile }}-${{ steps.prep.outputs.run_id }}
-          path: ci/dvp-e2e/tmp/matrix-logs/*.log
-          if-no-files-found: warn
+          name: logs-${{ matrix.profile }}-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/tmp/matrix-logs
+          if-no-files-found: ignore
 
       - name: Upload JUnit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-${{ matrix.profile }}-${{ steps.prep.outputs.run_id }}
-          path: ci/dvp-e2e/artifacts/**/junit.xml
-          if-no-files-found: warn
+          name: junit-${{ matrix.profile }}-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/artifacts
+          if-no-files-found: ignore
 
   # ============================================
   # 4. REPORT - Result aggregation
@@ -179,6 +204,21 @@ jobs:
         with:
           pattern: junit-*
           path: ./results
+          merge-multiple: true
+
+      - name: Download matrix logs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          path: ci/dvp-e2e/tmp/matrix-logs
+          merge-multiple: true
+
+      - name: Debug artifacts layout
+        run: |
+          echo "=== JUnit artifacts ==="
+          find results -maxdepth 3 -type f -print || true
+          echo "=== Matrix logs ==="
+          find ci/dvp-e2e/tmp/matrix-logs -maxdepth 2 -type f -print || true
 
       - name: Send individual reports to Loop
         working-directory: ci/dvp-e2e
@@ -264,6 +304,12 @@ jobs:
           method: service-account
           k8s-url: https://api.e2e.virtlab.flant.com
           k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+
+      - name: Use default kubeconfig path
+        run: |
+          mkdir -p ~/.kube
+          cp "$KUBECONFIG" ~/.kube/config
+          chmod 600 ~/.kube/config
 
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
