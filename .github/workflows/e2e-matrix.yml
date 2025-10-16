@@ -137,7 +137,16 @@ jobs:
           chmod 600 ~/.kube/config
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      # docker login and values overlay removed per simplification
+      - name: Configure registry auth (simple)
+        if: ${{ secrets.REGISTRY_DOCKER_CFG != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.docker
+          # Try base64 -> fallback to raw JSON
+          echo '${{ secrets.REGISTRY_DOCKER_CFG }}' | base64 -d > ~/.docker/config.json 2>/dev/null \
+            || echo '${{ secrets.REGISTRY_DOCKER_CFG }}' > ~/.docker/config.json
+          chmod 600 ~/.docker/config.json
 
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e

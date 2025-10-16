@@ -509,7 +509,6 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-
         IMAGE="dev-registry.deckhouse.io/sys/deckhouse-oss/install:main"
         docker pull --platform=linux/amd64 "$IMAGE"
         docker run --rm --platform=linux/amd64 \
