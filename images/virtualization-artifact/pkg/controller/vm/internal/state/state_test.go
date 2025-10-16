@@ -98,7 +98,7 @@ var _ = Describe("State fill check", func() {
 
 			state.fill()
 
-			Expect(state.refs).To(HaveLen(args.uniqueRefs))
+			Expect(state.bdRefs).To(HaveLen(args.uniqueRefs))
 		},
 		Entry("Should has 3 refs; all non unique", StateTestArgs{
 			uniqueRefs: 3,
