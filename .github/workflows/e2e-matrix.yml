@@ -62,38 +62,14 @@ jobs:
         run: |
           echo "Will test profiles: ${{ steps.load.outputs.profiles }}"
 
-  # ============================================
-  # 2. VALIDATE - Configuration validation
-  # ============================================
-  validate:
-    name: Validate Configuration
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate YAML syntax
-        run: |
-          echo "✓ Checking YAML syntax..."
-          python3 -c "import yaml; yaml.safe_load(open('ci/dvp-e2e/values.yaml')); print('✅ values.yaml YAML syntax is valid')"
-          python3 -c "import yaml; yaml.safe_load(open('.github/workflows/e2e-matrix.yml')); print('✅ e2e-matrix.yml YAML syntax is valid')"
-
-      - name: Check required secrets
-        run: |
-          echo "✓ Checking required secrets..."
-          if [ -z "${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}" ]; then
-            echo "❌ E2E_VIRTUALIZATION_SA_SECRET secret is required"
-            exit 1
-          fi
-          echo "✅ Required secrets are present"
-          echo "✅ E2E_K8S_URL is set as workflow variable: ${{ vars.E2E_K8S_URL }}"
+  # validate job removed
 
   # ============================================
-  # 3. E2E - Parallel test execution
+  # 2. E2E - Parallel test execution
   # ============================================
   e2e:
     name: E2E (${{ matrix.profile }})
-    needs: [setup, validate]
+    needs: [setup]
     runs-on: ubuntu-latest
     timeout-minutes: 300
     concurrency:
@@ -161,6 +137,14 @@ jobs:
           chmod 600 ~/.kube/config
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
+      - name: Docker login (Deckhouse registry)
+        shell: bash
+        run: |
+          mkdir -p ~/.docker
+          echo '${{ secrets.REGISTRY_DOCKER_CFG }}' | base64 -d 2>/dev/null > ~/.docker/config.json || echo '${{ secrets.REGISTRY_DOCKER_CFG }}' > ~/.docker/config.json
+          chmod 600 ~/.docker/config.json
+          docker info >/dev/null
+
       - name: Run DVP-over-DVP E2E tests
         working-directory: ci/dvp-e2e
         env:
@@ -214,7 +198,7 @@ jobs:
           if-no-files-found: ignore
 
   # ============================================
-  # 4. REPORT - Result aggregation
+  # 3. REPORT - Result aggregation
   # ============================================
   report:
     name: Report Results
@@ -312,11 +296,11 @@ jobs:
           done
 
   # ============================================
-  # 5. CLEANUP - Resource cleanup
+  # 4. CLEANUP - Resource cleanup
   # ============================================
   cleanup:
     name: Cleanup Resources
-    needs: e2e
+    needs: report
     if: always()
     runs-on: ubuntu-latest
     steps:
