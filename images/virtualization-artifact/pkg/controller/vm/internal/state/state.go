@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -57,7 +58,20 @@ type VirtualMachineState interface {
 }
 
 func New(c client.Client, vm *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]) VirtualMachineState {
-	return &state{client: c, vm: vm}
+	var refs []blockDeviceRef
+
+	for _, bd := range vm.Current().Spec.BlockDeviceRefs {
+		refs = append(refs, blockDeviceRef{Name: bd.Name, Kind: bd.Kind})
+	}
+	for _, bd := range vm.Current().Status.BlockDeviceRefs {
+		refs = append(refs, blockDeviceRef{Name: bd.Name, Kind: bd.Kind})
+	}
+
+	refs = slices.CompactFunc(refs, func(l, r blockDeviceRef) bool {
+		return l.Name == r.Name && l.Kind == r.Kind
+	})
+
+	return &state{client: c, vm: vm, refs: refs}
 }
 
 type Shared struct {
@@ -68,6 +82,12 @@ type state struct {
 	client client.Client
 	vm     *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 	shared Shared
+	refs   []blockDeviceRef
+}
+
+type blockDeviceRef struct {
+	Name string
+	Kind v1alpha2.BlockDeviceKind
 }
 
 func (s *state) Shared(fn func(s *Shared)) {
@@ -170,7 +190,7 @@ func (s *state) ClusterVirtualImage(ctx context.Context, name string) (*v1alpha2
 
 func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.VirtualDisk, error) {
 	vdByName := make(map[string]*v1alpha2.VirtualDisk)
-	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
+	for _, bd := range s.refs {
 		switch bd.Kind {
 		case v1alpha2.DiskDevice:
 			vd, err := object.FetchObject(ctx, types.NamespacedName{
@@ -193,7 +213,7 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*v1alpha2.Vi
 
 func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.VirtualImage, error) {
 	viByName := make(map[string]*v1alpha2.VirtualImage)
-	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
+	for _, bd := range s.refs {
 		switch bd.Kind {
 		case v1alpha2.ImageDevice:
 			vi, err := object.FetchObject(ctx, types.NamespacedName{
@@ -216,7 +236,7 @@ func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.V
 
 func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*v1alpha2.ClusterVirtualImage, error) {
 	cviByName := make(map[string]*v1alpha2.ClusterVirtualImage)
-	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
+	for _, bd := range s.refs {
 		switch bd.Kind {
 		case v1alpha2.ClusterImageDevice:
 			cvi, err := object.FetchObject(ctx, types.NamespacedName{
