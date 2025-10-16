@@ -1267,7 +1267,7 @@ tasks:
           scanInterval: 15s
         EOF
         echo "[INFO] Applying ModuleConfig/virtualization for Ceph"
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
+        cat > /tmp/mc-virtualization-ceph.yaml <<'EOF'
         apiVersion: deckhouse.io/v1alpha1
         kind: ModuleConfig
         metadata:
@@ -1296,6 +1296,13 @@ tasks:
                 matchNames:
                   - {{ .CEPH_SC_NAME }}
         EOF
+        for i in $(seq 1 12); do
+          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-ceph.yaml; then
+            echo "[OK] Applied ModuleConfig/virtualization (Ceph)"; break
+          fi
+          echo "[WAIT] webhook not ready or API transient error; retry $i/12"; sleep 10
+          if [ "$i" = "12" ]; then echo "[ERR] failed to apply ModuleConfig/virtualization (Ceph) after retries" >&2; exit 1; fi
+        done
         echo "[INFO] Restoring CDI controllers"
         KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization scale deploy cdi-deployment --replicas=${DEP_REPLICAS}
         KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization scale deploy cdi-operator --replicas=${OP_REPLICAS}
@@ -1345,7 +1352,7 @@ tasks:
         done
       - |
         set -euo pipefail
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
+        cat > /tmp/mc-virtualization-sds.yaml <<'EOF'
         apiVersion: deckhouse.io/v1alpha1
         kind: ModuleConfig
         metadata:
@@ -1376,6 +1383,13 @@ tasks:
                   - {{ .SDS_VI_SC_NAME }}
             {{ end }}
         EOF
+        for i in $(seq 1 12); do
+          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-sds.yaml; then
+            echo "[OK] Applied ModuleConfig/virtualization (SDS)"; break
+          fi
+          echo "[WAIT] webhook not ready or API transient error; retry $i/12"; sleep 10
+          if [ "$i" = "12" ]; then echo "[ERR] failed to apply ModuleConfig/virtualization (SDS) after retries" >&2; exit 1; fi
+        done
       - |
         set -euo pipefail
         PATCH='{"spec":{"settings":{"defaultClusterStorageClass":"{{ .SDS_SC_NAME }}"}}}}'
