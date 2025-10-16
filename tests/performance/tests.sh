@@ -1456,6 +1456,7 @@ if [ $MIGRATION_10_COUNT -eq 0 ]; then
 fi
 
 # Function to run a single scenario
+GLOBAL_WAIT_TIME_STEP=60
 run_scenario() {
   local scenario_name=$1
   local vi_type=$2
@@ -1500,8 +1501,8 @@ run_scenario() {
   log_info "Statistics collection completed in $(format_duration $stats_duration)"
   log_step_end "End Statistics Collection" "$stats_duration"
   
-  log_info "Waiting 10 seconds before stopping VMs"
-  sleep 10
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before stopping VMs"
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   log_info "Stopping all VMs [$MAIN_COUNT_RESOURCES]"
   log_step_start "VM Stop"
@@ -1512,8 +1513,8 @@ run_scenario() {
   log_info "VM stop completed in $(format_duration $stop_duration)"
   log_step_end "End Stopping VMs [$MAIN_COUNT_RESOURCES]" "$stop_duration"
   
-  log_info "Waiting 10 seconds before starting VMs"
-  sleep 10
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before starting VMs"
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   log_info "Starting all VMs [$MAIN_COUNT_RESOURCES]"
   log_step_start "VM Start [$MAIN_COUNT_RESOURCES]"
@@ -1523,6 +1524,9 @@ run_scenario() {
   local start_vm_duration=$((start_vm_end - start_vm_start))
   log_info "VM start completed in $(format_duration $start_vm_duration)"
   log_step_end "End VM Start [$MAIN_COUNT_RESOURCES]" "$start_vm_duration"
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   log_info "Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   log_step_start "VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
@@ -1533,6 +1537,9 @@ run_scenario() {
   log_info "VM Undeploy 10% VMs [$PERCENT_RESOURCES] completed in $(format_duration $undeploy_duration)"
   log_step_end "VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$undeploy_duration"
 
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
+  sleep $GLOBAL_WAIT_TIME_STEP
+
   # CORRECTED ORDER: Deploy 10% VMs and gather statistics (пункт 8)
   log_info "Deploying 10% VMs ([$PERCENT_RESOURCES] VMs) and gathering statistics"
   log_step_start "Deploying 10% VMs [$PERCENT_RESOURCES]"
@@ -1542,6 +1549,9 @@ run_scenario() {
   local deploy_remaining_duration=$((deploy_remaining_end - deploy_remaining_start))
   log_info "10% VMs deployment completed in $(format_duration $deploy_remaining_duration)"
   log_step_end "End Deploying 10% VMs ([$PERCENT_RESOURCES] VMs) " "$deploy_remaining_duration"
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   # Gather statistics for 10% VMs (пункт 8.1)
   log_step_start "VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
@@ -1552,6 +1562,9 @@ run_scenario() {
   log_info "VM statistics collection completed in $(format_duration $vm_stats_duration)"
   log_step_end "End VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)" "$vm_stats_duration"
   
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Starting migration test ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
+  sleep $GLOBAL_WAIT_TIME_STEP
+
   # Start 5% migration in background (пункт 7)
   local migration_duration_time="0m"
   log_info "Starting migration test ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
@@ -1575,7 +1588,7 @@ run_scenario() {
   local vm_ops_stop_duration=$((vm_ops_stop_end - vm_ops_stop_start))
   log_step_end "VM Operations: Stopping VMs [$PERCENT_RESOURCES]" "$vm_ops_stop_duration"
   
-  sleep 2
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   log_step_start "VM Operations: Start VMs [$PERCENT_RESOURCES]"
   local vm_ops_start_vm_start=$(get_timestamp)
@@ -1599,6 +1612,9 @@ run_scenario() {
   local cleanup_ops_duration=$((cleanup_ops_end - cleanup_ops_start))
   log_info "Migration stop and cleanup completed in $(format_duration $cleanup_ops_duration)"
   log_step_end "Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)" "$cleanup_ops_duration"
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   # Migration percentage test - Migrate 10% VMs (пункт 12)
   log_info "Testing migration of ${MIGRATION_10_COUNT} VMs (10%)"
@@ -1610,8 +1626,8 @@ run_scenario() {
   log_info "Migration percentage test completed in $(format_duration $migration_percent_duration)"
   log_step_end "End Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$migration_percent_duration"
 
-  log_info "Waiting 30 seconds"
-  sleep 30
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
+  sleep $GLOBAL_WAIT_TIME_STEP
 
   # Controller restart test
   log_info "Testing controller restart with 1 VM creation"
@@ -1652,6 +1668,9 @@ run_scenario() {
   # local final_deploy_duration=$((final_deploy_end - final_deploy_start))
   # log_info "Final deployment completed in $(format_duration $final_deploy_duration)"
   # log_step_end "Final Deployment" "$final_deploy_duration"
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
+  sleep $GLOBAL_WAIT_TIME_STEP
   
   log_step_start "Final Statistics"
   local final_stats_start=$(get_timestamp)
