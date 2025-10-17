@@ -865,7 +865,7 @@ tasks:
     desc: Ensure parent kubeconfig (scoped) is built via SA token and ingress
     vars:
       OUTPUT_FILE: "{{ .OUTPUT_FILE }}"
-      SOURCE_KUBECONFIG: '{{ .SOURCE_KUBECONFIG | default (or .PARENT_KUBECONFIG (env "KUBECONFIG") (env "PARENT_KUBECONFIG_FILE")) | default "" }}'
+      SOURCE_KUBECONFIG: '{{ .SOURCE_KUBECONFIG | default "" }}'
       SKIP_INGRESS_CHECK: '{{ .SKIP_INGRESS_CHECK | default (env "SKIP_INGRESS_CHECK") | default "false" }}'
       PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
       PARENT_USER: '{{ .PARENT_USER | default "" }}'
@@ -1797,8 +1797,8 @@ tasks:
       - task: parent:kubeconfig:ensure-scoped
         vars:
           OUTPUT_FILE: "{{ .RUN_PARENT_KUBECONFIG }}"
-          SOURCE_KUBECONFIG: '{{ or .PARENT_KUBECONFIG (env "SOURCE_KUBECONFIG") (env "KUBECONFIG") .PARENT_KUBECONFIG_FILE }}'
-          SKIP_INGRESS_CHECK: 'true'
+          SOURCE_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+          SKIP_INGRESS_CHECK: 'false'
           PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
           PARENT_USER: '{{ .PARENT_USER | default "" }}'
           PARENT_SSH_KEY: '{{ .PARENT_SSH_KEY | default "" }}'
