@@ -30,6 +30,12 @@ binaries:
 packages:
 - nbdkit libnbd
 - libtasn1 libxml2
+- xz
+- libunistring
+- libffi libgmp gnutls
+- nettle libidn2
+- p11-kit libunistring zlib
+- glibc
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
