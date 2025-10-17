@@ -106,11 +106,13 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v2
+        uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
@@ -160,11 +162,13 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v2
+        uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
@@ -208,11 +212,13 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v2
+        uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
@@ -260,11 +266,13 @@ jobs:
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v2
+        uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
