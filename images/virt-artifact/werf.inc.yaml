@@ -39,6 +39,7 @@ packages:
 - libtirpc libmd util-linux
 - pcre2
 - glibc
+- libvirt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -59,10 +60,6 @@ import:
   add: /src/kubevirt
   to: /kubevirt
   before: install
-- image: {{ .ModuleNamePrefix }}libvirt
-  add: /BINS
-  to: /libvirt
-  before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
@@ -77,7 +74,6 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" libvirt"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

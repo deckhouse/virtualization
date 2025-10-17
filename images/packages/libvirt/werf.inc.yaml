@@ -1,13 +1,23 @@
 ---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+
+---
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Firmware $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
   to: /src
   includePaths:
   - patches
@@ -92,15 +102,15 @@ packages:
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src/patches
   to: /patches
   before: install
@@ -198,14 +208,15 @@ shell:
 
   setup:
   - |
+    OUTDIR=/out
     cd /{{ $gitRepoName }}-{{ $version }}
-    DESTDIR=/BINS ninja -C build install
-    rm -rf /BINS/var
-    rm -rf /BINS/etc/libvirt/qemu.conf
-    rm -rf /BINS/etc/libvirt/virtqemud.conf
-    find /BINS -type f -executable | while read -r execfile; do
+    DESTDIR=$OUTDIR ninja -C build install
+    rm -rf $OUTDIR/var
+    rm -rf $OUTDIR/etc/libvirt/qemu.conf
+    rm -rf $OUTDIR/etc/libvirt/virtqemud.conf
+    find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
-
+    tree -hp $OUTDIR

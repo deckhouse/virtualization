@@ -131,6 +131,7 @@ packages:
 - glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 libgmp
 - openldap openssl
 - e2fsprogs libxcrypt lvm2 libjson-glib
+- libvirt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -161,8 +162,8 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: {{ .ModuleNamePrefix }}libvirt
-  add: /BINS
+- image: {{ .ModuleNamePrefix }}packages/libvirt
+  add: /libvirt
   to: /libvirt-bins
   before: install
 - image: {{ .ModuleNamePrefix }}qemu
@@ -405,11 +406,6 @@ git:
     stageDependencies:
       install:
       - '**/*'
-import:
-- image: {{ .ModuleNamePrefix }}libvirt
-  add: /BINS
-  to: /libvirt
-  before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
@@ -423,7 +419,6 @@ shell:
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
-    PKGS+=" libvirt"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
