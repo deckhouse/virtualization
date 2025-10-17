@@ -230,7 +230,8 @@ create_summary_report() {
     local migration_percent_duration="${20:-0}"
     local controller_duration="${21:-0}"
     local final_stats_duration="${22:-0}"
-    local final_cleanup_duration="${23:-0}"
+    local drain_stats_duration="${23:-0}"
+    local final_cleanup_duration="${24:-0}"
     
     local summary_file="$scenario_dir/summary.txt"
     
@@ -251,6 +252,7 @@ create_summary_report() {
     local migration_percent_percent=$(calculate_percentage "$migration_percent_duration" "$total_duration")
     local controller_percent=$(calculate_percentage "$controller_duration" "$total_duration")
     local final_stats_percent=$(calculate_percentage "$final_stats_duration" "$total_duration")
+    local drain_stats_percent=$(calculate_percentage "$drain_stats_duration" "$total_duration")
     local final_cleanup_percent=$(calculate_percentage "$final_cleanup_duration" "$total_duration")
     
     cat > "$summary_file" << EOF
@@ -292,6 +294,7 @@ $(printf "%-55s %10s  %10s\n" "Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGR
 $(printf "%-55s %10s  %10s\n" "Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$(format_duration $migration_percent_duration)" "$(printf "%5.1f" $migration_percent_percent)%")
 $(printf "%-55s %10s  %10s\n" "Controller Restart" "$(format_duration $controller_duration)" "$(printf "%5.1f" $controller_percent)%")
 $(printf "%-55s %10s  %10s\n" "Final Statistics" "$(format_duration $final_stats_duration)" "$(printf "%5.1f" $final_stats_percent)%")
+$(printf "%-55s %10s  %10s\n" "Drain node" "$(format_duration $drain_stats_duration)" "$(printf "%5.1f" $drain_stats_percent)%")
 $(printf "%-55s %10s  %10s\n" "Final Cleanup" "$(format_duration $final_cleanup_duration)" "$(printf "%5.1f" $final_cleanup_percent)%")
 
 ================================================================================
@@ -305,6 +308,7 @@ $(printf "%-25s %10s\n" "VM Start Time:" "$(format_duration $start_vm_duration)"
 $(printf "%-25s %10s\n" "Controller Restart Time:" "$(format_duration $controller_duration)")
 $(printf "%-25s %10s\n" "Migration 5% Time:" "$(format_duration $migration_duration)")
 $(printf "%-25s %10s\n" "Migration 10% Time:" "$(format_duration $migration_percent_duration)")
+$(printf "%-25s %10s\n" "Migration 10% Time:" "$(format_duration $drain_cleanup_duration)")
 ================================================================================
                             FILES GENERATED
 ================================================================================
@@ -1377,7 +1381,6 @@ start_virtualization_controller() {
 
 }
 
-# FIXED: Create VM while controller is stopped using task apply:all
 create_vm_while_controller_stopped() {
   local vi_type=$1
   local start_time=$(get_timestamp)
@@ -1429,6 +1432,28 @@ wait_for_new_vm_after_controller_start() {
     sleep 5
   done
 }
+
+drain_node() {
+  local start_time=$(get_timestamp)
+
+  log_info "Start draining node"
+  log_info "Start time: $(formatted_date $start_time)"
+  
+  local task_start=$(get_timestamp)
+  
+  local KUBECONFIG=$(cat ~/.kube/config | base64 -w 0)
+  KUBECONFIG_BASE64=$KUBECONFIG task shatal:run
+  
+  local end_time=$(get_timestamp)
+  local task_duration=$((task_end - task_start))
+  local formatted_duration=$(format_duration "$task_duration")
+  
+  log_info "Duration node completed - End time: $(formatted_date $end_time)"
+  log_info "Task Duration node execution: $(format_duration $task_duration)"
+  log_success "Duration node completed in $formatted_duration"
+  echo "$task_duration"
+}
+
 
 # === Test configuration ===
 # Default values (can be overridden by command line arguments)
@@ -1677,6 +1702,17 @@ run_scenario() {
   log_info "Final statistics collection completed in $(format_duration $final_stats_duration)"
   log_step_end "Final Statistics" "$final_stats_duration"
   
+  log_info "Waiting 30 second before drain node"
+  sleep 30
+
+  log_step_start "Drain node"
+  local drain_node_start=$(get_timestamp)
+  drain_node
+  local drain_stats_end=$(get_timestamp)
+  local drain_stats_duration=$((drain_stats_end - drain_stats_start))
+  log_info "Drain node completed in $(format_duration $drain_stats_duration)"
+  log_step_end "Drain node" "$drain_stats_duration"
+
   log_info "Waiting 30 second before cleanup"
   sleep 30
   
@@ -1696,11 +1732,14 @@ run_scenario() {
   log_info "Scenario ended at $(formatted_date $end_time)"
   
   # Create summary report
-  create_summary_report "$scenario_name" "$vi_type" "$scenario_dir" "$start_time" "$end_time" "$duration" \
-    "$cleanup_duration" "$deploy_duration" "$stats_duration" "$stop_duration" "$start_vm_duration" \
-    "$undeploy_duration" "$deploy_remaining_duration" "$vm_stats_duration" \
-    "$vm_ops_duration" "$vm_ops_stop_duration" "$vm_ops_start_vm_duration" "$migration_duration" "$cleanup_ops_duration" "$migration_percent_duration" \
-    "$controller_duration" "$final_stats_duration" "$final_cleanup_duration"
+  create_summary_report "$scenario_name" "$vi_type" "$scenario_dir" \
+    "$start_time" "$end_time" "$duration" \
+    "$cleanup_duration" "$deploy_duration" "$stats_duration" \
+    "$stop_duration" "$start_vm_duration" "$undeploy_duration" \
+    "$deploy_remaining_duration" "$vm_stats_duration" "$vm_ops_duration" \
+    "$vm_ops_stop_duration" "$vm_ops_start_vm_duration" "$migration_duration" \
+    "$cleanup_ops_duration" "$migration_percent_duration" "$controller_duration" \
+    "$final_stats_duration" "$drain_stats_duration" "$final_cleanup_duration"
   
   # Summary of all step durations
   log_info "=== Scenario $scenario_name Duration Summary ==="
@@ -1720,6 +1759,7 @@ run_scenario() {
   log_duration "Migration Percentage" "$migration_percent_duration"
   log_duration "Controller Restart" "$controller_duration"
   log_duration "Final Statistics" "$final_stats_duration"
+  log_duration "Drain node" "$drain_stats_duration"
   log_duration "Final Cleanup" "$final_cleanup_duration"
   log_duration "Total Scenario Duration" "$duration"
   log_info "=== End Duration Summary ==="
