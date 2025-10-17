@@ -1442,7 +1442,7 @@ drain_node() {
   local task_start=$(get_timestamp)
   
   local KUBECONFIG=$(cat ~/.kube/config | base64 -w 0)
-  KUBECONFIG_BASE64=$KUBECONFIG task run
+  KUBECONFIG_BASE64=$KUBECONFIG task shatal:run
   
   local end_time=$(get_timestamp)
   local task_duration=$((task_end - task_start))
