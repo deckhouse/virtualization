@@ -406,6 +406,7 @@ git:
     stageDependencies:
       install:
       - '**/*'
+import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 secrets:
 - id: GOPROXY
