@@ -34,7 +34,7 @@ packages:
 - libunistring
 - libffi libgmp gnutls
 - nettle libidn2
-- p11-kit libunistring zlib
+- p11-kit zlib
 - glibc
 {{- end -}}
 
