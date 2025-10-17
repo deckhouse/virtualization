@@ -14,7 +14,10 @@ packages:
 - xz
 - libtasn1
 - libunistring
-- glibc 
+- libffi libgmp gnutls
+- nettle libidn2
+- p11-kit libunistring zlib
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
