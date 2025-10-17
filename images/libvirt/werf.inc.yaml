@@ -198,21 +198,14 @@ shell:
 
   setup:
   - |
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get install -y tree
-  {{- include "alt packages clean" . | nindent 2 }}
-  - echo 'TREE OF SRC'
-  - tree /{{ $gitRepoName }}-{{ $version }}
-  - echo 'TREE OF BUILD'
-  - tree /{{ $gitRepoName }}-{{ $version }}/build
-  - |
     cd /{{ $gitRepoName }}-{{ $version }}
     DESTDIR=/BINS ninja -C build install
     rm -rf /BINS/var
+    rm -rf /BINS/etc/libvirt/qemu.conf
+    rm -rf /BINS/etc/libvirt/virtqemud.conf
     find /BINS -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
-  - echo 'TREE OF BINS'
-  - tree /BINS
+
