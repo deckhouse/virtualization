@@ -31,13 +31,13 @@ altPackages:
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
 - flex bison asciidoc-a2x
-- libnftnl-devel
-- gmp-devel libedit-devel
+- libedit-devel
 - python3-devel python3-module-setuptools
 packages:
 - libgmp libmnl libjansson4
 - readline
 - ncurses
+- libnftnl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

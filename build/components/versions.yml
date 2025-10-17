@@ -3,7 +3,7 @@ firmware:
   libvirt: v10.9.0
   edk2: stable202411
 core:
-  3p-kubevirt: v1.3.1-v12n.17
+  3p-kubevirt: chore/ci/debug-virt-launcher
   3p-containerized-data-importer: v1.60.3-v12n.12
   distribution: 2.8.3
 package:
@@ -15,7 +15,7 @@ package:
   file: FILE5_45
   gcc: releases/gcc-13.2.0
   glib2: 2.84.2
-  glibc: glibc-2.38
+  glibc: 650a0aaaffa9ddb44732fa6156b31c5f30ee596f
   libgmp: 6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
