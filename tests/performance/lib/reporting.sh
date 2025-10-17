@@ -120,3 +120,4 @@ EOF
 
     log_info "Summary report created: $summary_file"
 }
+

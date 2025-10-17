@@ -244,3 +244,4 @@ prepare_for_tests() {
   log_info "Preparing for tests"
   log_info "Operating System: $OS_TYPE"
 }
+

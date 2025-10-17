@@ -285,9 +285,9 @@ $(printf "%-55s %10s  %10s\n" "VM Start [$MAIN_COUNT_RESOURCES]" "$(format_durat
 $(printf "%-55s %10s  %10s\n" "VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$(format_duration $undeploy_duration)" "$(printf "%5.1f" $undeploy_percent)%")
 $(printf "%-55s %10s  %10s\n" "Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$(format_duration $deploy_remaining_duration)" "$(printf "%5.1f" $deploy_remaining_percent)%")
 $(printf "%-55s %10s  %10s\n" "VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)" "$(format_duration $vm_stats_duration)" "$(printf "%5.1f" $vm_stats_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration Setup (${MIGRATION_PERCENTAGE_5}% - ${MIGRATION_5_COUNT} VMs)" "$(format_duration $migration_duration)" "$(printf "%5.1f" $migration_percent)%")
 $(printf "%-55s %10s  %10s\n" "VM Operations: Stopping VMs [$PERCENT_RESOURCES]" "$(format_duration $vm_ops_stop_duration)" "$(printf "%5.1f" $vm_ops_stop_percent)%")
 $(printf "%-55s %10s  %10s\n" "VM Operations: Start VMs [$PERCENT_RESOURCES]" "$(format_duration $vm_ops_start_duration)" "$(printf "%5.1f" $vm_ops_start_percent)%")
-$(printf "%-55s %10s  %10s\n" "Migration Setup (${MIGRATION_PERCENTAGE_5}% - ${MIGRATION_5_COUNT} VMs)" "$(format_duration $migration_duration)" "$(printf "%5.1f" $migration_percent)%")
 $(printf "%-55s %10s  %10s\n" "Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)" "$(format_duration $cleanup_ops_duration)" "$(printf "%5.1f" $cleanup_ops_percent)%")
 $(printf "%-55s %10s  %10s\n" "Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$(format_duration $migration_percent_duration)" "$(printf "%5.1f" $migration_percent_percent)%")
 $(printf "%-55s %10s  %10s\n" "Controller Restart" "$(format_duration $controller_duration)" "$(printf "%5.1f" $controller_percent)%")
@@ -519,7 +519,7 @@ collect_vpa() {
   fi
   
   local collect_start=$(get_timestamp)
-  for vpa in $VPAS; do
+  for vpa in ${#VPAS[@]}; do
     vpa_name=$(echo $vpa | cut -d "/" -f2)
     file="vpa_${vpa_name}.yaml"
     kubectl -n d8-virtualization get $vpa -o yaml > "${vpa_dir}/${file}_$(formatted_date $(get_timestamp))" 2>/dev/null || true
