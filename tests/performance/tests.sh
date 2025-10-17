@@ -1068,10 +1068,6 @@ migration_percent_vms() {
     d8 v -n $NAMESPACE evict $vm --wait=false
   done
 
-  # Additional wait using kubectl wait
-  # log_info "Additional wait for deployment to be fully available..."
-  # kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
-
   wait_vmops_complete
 
   local end_time=$(get_timestamp)
