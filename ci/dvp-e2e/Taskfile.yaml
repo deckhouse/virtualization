@@ -1694,6 +1694,16 @@ tasks:
           MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 1\n  settings:\n    defaultClusterStorageClass: {{ .TARGET_STORAGE_CLASS }}'
           printf '%s\n' "$MANIFEST" | KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system apply -f -
         fi
+        # Pre-flight diagnostics for nested API
+        echo "[CHK] /readyz"
+        if ! KUBECONFIG="${KUBECONFIG_ABS}" kubectl --request-timeout=10s get --raw=/readyz; then
+          echo "[ERR] /readyz failed"; KUBECONFIG="${KUBECONFIG_ABS}" kubectl cluster-info || true
+        fi
+        echo "[CHK] nodes"
+        KUBECONFIG="${KUBECONFIG_ABS}" kubectl get nodes -o wide || true
+        echo "[CHK] api-resources (top 50)"
+        KUBECONFIG="${KUBECONFIG_ABS}" kubectl api-resources | head -n 50 || true
+
         KUBECONFIG="$KUBECONFIG_ABS" \
         E2E_CLUSTERTRANSPORT_KUBECONFIG="$KUBECONFIG_ABS" \
         STORAGE_CLASS_NAME={{ .TARGET_STORAGE_CLASS }} \
@@ -1701,7 +1711,15 @@ tasks:
         SNAPSHOT_STORAGE_CLASS_NAME={{ .SNAPSHOT_STORAGE_CLASS }} \
         SKIP_IMMEDIATE_SC_CHECK=yes \
         GOWORK=off \
-        go run github.com/onsi/ginkgo/v2/ginkgo@v2.22.0 -v -r --timeout={{ .TIMEOUT }} "${EXTRA[@]}"
+        GINKGO_NO_COLOR=1 \
+        go run github.com/onsi/ginkgo/v2/ginkgo@v2.22.0 \
+          -v -r --trace --progress --fail-on-pending --keep-going \
+          --flake-attempts=1 --timeout={{ .TIMEOUT }} "${EXTRA[@]}" || {
+            echo "[DIAG] ginkgo failed; dumping namespaces and pods..."
+            KUBECONFIG="${KUBECONFIG_ABS}" kubectl get ns || true
+            KUBECONFIG="${KUBECONFIG_ABS}" kubectl get pods -A -o wide | sed -n '1,200p' || true
+            exit 1
+          }
 
   nested:cluster:create:
     desc: Create nested DVP cluster (infra + bootstrap)
