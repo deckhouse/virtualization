@@ -75,7 +75,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v2
+      - uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
