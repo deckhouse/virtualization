@@ -1691,7 +1691,7 @@ tasks:
         # Ensure default StorageClass is set in nested cluster to avoid initE2E failure
         if ! KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system patch moduleconfig global --type merge -p '{"spec":{"settings":{"defaultClusterStorageClass":"{{ .TARGET_STORAGE_CLASS }}"}}}' >/dev/null 2>&1; then
           echo "[INFO] ModuleConfig/global not found, creating with defaultClusterStorageClass='{{ .TARGET_STORAGE_CLASS }}'"
-          MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 2\n  settings:\n    defaultClusterStorageClass: {{ .TARGET_STORAGE_CLASS }}'
+          MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 1\n  settings:\n    defaultClusterStorageClass: {{ .TARGET_STORAGE_CLASS }}'
           printf '%s\n' "$MANIFEST" | KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system apply -f -
         fi
         KUBECONFIG="$KUBECONFIG_ABS" \
@@ -1726,7 +1726,7 @@ tasks:
           TMP_DIR: "{{ .RUN_WORK_DIR }}"
           VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          TARGET_STORAGE_CLASS: '{{ if .TARGET_STORAGE_CLASS }}{{ .TARGET_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}sds-local-storage{{ else }}hostpath-immediate{{ end }}'
+          TARGET_STORAGE_CLASS: '{{ if .TARGET_STORAGE_CLASS }}{{ .TARGET_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath-immediate{{ end }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
       - |
         set -euo pipefail
@@ -1822,7 +1822,7 @@ tasks:
           if kubectl --kubeconfig="${NESTED_KUBECONFIG}" get crd moduleconfigs.deckhouse.io >/dev/null 2>&1; then
             kubectl --kubeconfig="${NESTED_KUBECONFIG}" patch moduleconfig global \
               --type merge \
-              -p '{"spec":{"enabled":true,"version":2,"settings":{"defaultClusterStorageClass":"'"${TARGET_SC}"'"}}}' >/dev/null 2>&1 || true
+              -p '{"spec":{"enabled":true,"version":1,"settings":{"defaultClusterStorageClass":"'"${TARGET_SC}"'"}}}' >/dev/null 2>&1 || true
           else
             kubectl --kubeconfig="${NESTED_KUBECONFIG}" annotate storageclass "${TARGET_SC}" storageclass.kubernetes.io/is-default-class=true --overwrite 2>/dev/null || true
           fi
