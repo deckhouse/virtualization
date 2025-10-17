@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -225,11 +226,32 @@ func ApplyVirtualMachineSpec(
 	}
 
 	for _, device := range hotpluggedDevices {
+		name, kind := GetOriginalDiskName(device.VolumeName)
+
+		var obj client.Object
+		var exists bool
+
+		switch kind {
+		case v1alpha2.ImageDevice:
+			obj, exists = viByName[name]
+		case v1alpha2.ClusterImageDevice:
+			obj, exists = cviByName[name]
+		case v1alpha2.DiskDevice:
+			obj, exists = vdByName[name]
+		default:
+			return fmt.Errorf("unknown block device kind %q. %w", kind, common.ErrUnknownType)
+		}
+
+		if !exists || obj == nil || obj.GetUID() == "" {
+			continue
+		}
+
 		switch {
 		case device.PVCName != "":
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(device.PVCName),
 				IsHotplugged:          true,
+				Serial:                GenerateSerialFromObject(obj),
 			}); err != nil {
 				return err
 			}
@@ -237,6 +259,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(device.Image),
 				IsHotplugged:  true,
+				Serial:        GenerateSerialFromObject(obj),
 			}); err != nil {
 				return err
 			}
