@@ -1084,7 +1084,7 @@ tasks:
             ready=true; break
           fi
           echo "[WAIT] nested API warming up... ($i/30)";
-          sleep 30
+          sleep 20
         done
         if ! $ready; then
           echo "[DIAG] nested API is not ready after wait; collecting diagnostics..." >&2
@@ -1097,14 +1097,19 @@ tasks:
           KUBECONFIG={{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }} kubectl -n {{ .NAMESPACE }} get ep dvp-over-dvp-443 -o yaml | sed -n '1,120p' || true
         fi
 
-        for i in $(seq 1 5); do
+        nodes_ok=false
+        for i in $(seq 1 10); do
           if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl --request-timeout=8s get nodes >/dev/null 2>&1; then
-            echo "Generated nested kubeconfig at {{ .NESTED_KUBECONFIG }}"
-            break
+            nodes_ok=true; break
           fi
-          echo "[WARN] kubectl get nodes failed (attempt $i), retrying..."
-          sleep 5
+          echo "[WAIT] nested API nodes endpoint not ready yet... retry $i/10";
+          sleep 10
         done
+        if ! $nodes_ok; then
+          echo "[ERR] nested API nodes endpoint not ready after retries" >&2
+          exit 1
+        fi
+        echo "Generated nested kubeconfig at {{ .NESTED_KUBECONFIG }}"
 
   nested:ensure-sc:
     desc: Ensure StorageClass exists and set as global default
