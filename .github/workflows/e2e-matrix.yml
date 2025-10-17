@@ -164,7 +164,7 @@ jobs:
             sds|sds-local|sds_local|sds-replicated|sds_replicated)
               SC="linstor-thin-r2"; IMG_SC="linstor-thin-r1-immediate"; SNAP_SC="linstor-thin-r2" ;;
             ceph|ceph-rbd|cephrbd|ceph-pool-r2-csi-rbd)
-              SC="ceph-pool-r2-csi-rbd"; IMG_SC="ceph-pool-r2-csi-rbd-immediate"; SNAP_SC="ceph-pool-r2-csi-rbd-immediate" ;;
+              SC="ceph-pool-r2-csi-rbd-immediate"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
             nfs|nfs-4-1-wffc)
               SC="nfs-4-1-wffc"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
             hostpath|hp)

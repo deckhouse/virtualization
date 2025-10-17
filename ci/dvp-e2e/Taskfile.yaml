@@ -184,7 +184,7 @@ tasks:
         PREFIX_INPUT="{{ .RUN_CLUSTER_PREFIX }}"
         BASE_PREFIX="{{ .BASE_CLUSTER_PREFIX }}"
         if [ -z "$PREFIX_INPUT" ]; then
-          
+
           if command -v shasum >/dev/null 2>&1; then
             RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | shasum | awk '{print $1}' | cut -c1-6)
           else
@@ -545,9 +545,9 @@ tasks:
           TMP_DIR: "{{ .TMP_DIR }}"
           VALUES_FILE: "{{ .VALUES_FILE }}"
 
-  
 
-  
+
+
 
   cleanup:namespaces:safe:
     desc: Safely delete old dvp-e2e-* namespaces that belong to this project
@@ -1208,7 +1208,7 @@ tasks:
       NAMESPACE: "{{ .NAMESPACE }}"
       NESTED_DIR: "{{ .NESTED_DIR }}"
       NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-      CEPH_SC_NAME: '{{ .CEPH_SC_NAME | default "ceph-pool-r2-csi-rbd" }}'
+      CEPH_SC_NAME: '{{ .CEPH_SC_NAME | default "ceph-pool-r2-csi-rbd-immediate" }}'
       CEPH_DVCR_SIZE: '{{ .CEPH_DVCR_SIZE | default "5Gi" }}'
       VIRTUALIZATION_IMAGE_TAG: '{{ .VIRTUALIZATION_IMAGE_TAG | default "main" }}'
     cmds:
@@ -1253,7 +1253,7 @@ tasks:
             ],
             "cloneStrategy": "csi-clone",
             "dataImportCronSourceFormat": "pvc",
-            "provisioner": "rook-ceph.rbd.csi.ceph.com",
+            "provisioner": "rbd.csi.ceph.com",
             "snapshotClass": "{{ .CEPH_SC_NAME }}",
             "storageClass": "{{ .CEPH_SC_NAME }}"
           }
@@ -2171,4 +2171,4 @@ tasks:
           RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
 
-  
+
