@@ -9,13 +9,24 @@ runs:
       id: cache
       with:
         path: ~/.local/bin
-        key: e2e-tools-${{ runner.os }}-v2
+        key: e2e-tools-${{ runner.os }}-v3
 
-    - name: Install tools
-      if: steps.cache.outputs.cache-hit != 'true'
+    - name: Ensure tools installed (install if missing or cache empty)
       shell: bash
       run: |
+        set -euo pipefail
         mkdir -p ~/.local/bin
+
+        need_install=false
+        for bin in kubectl helm d8 yq task; do
+          if ! command -v "$bin" >/dev/null 2>&1; then
+            echo "missing: $bin"; need_install=true
+          fi
+        done
+        if [ "${need_install}" != "true" ] && [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
+          echo "All tools present from cache, skipping install."
+          exit 0
+        fi
 
         # Install system dependencies
         sudo apt-get update
@@ -28,12 +39,12 @@ runs:
 
         # Install helm
         curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-        mv /usr/local/bin/helm ~/.local/bin/ || true
+        if [ -x /usr/local/bin/helm ]; then mv /usr/local/bin/helm ~/.local/bin/; fi
 
         # Install d8
         curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-        bash d8-install.sh
-        mv /usr/local/bin/d8 ~/.local/bin/ || true
+        bash d8-install.sh || true
+        if [ -x /usr/local/bin/d8 ]; then mv /usr/local/bin/d8 ~/.local/bin/; fi
 
         # Install yq
         curl -L -o ~/.local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
