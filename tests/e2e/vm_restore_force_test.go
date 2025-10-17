@@ -149,6 +149,8 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 				patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
 				Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
 
+				// TODO: Remove manual restart when the VM restart issue is fixed.
+				// This manual restart is only needed for tracking the problem and should be removed from the test in the future.
 				RebootVirtualMachinesByVMOP(testCaseLabel, namespace, vmNames...)
 			})
 
