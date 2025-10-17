@@ -72,6 +72,7 @@ altPackages:
 - python3-module-black
 - mdevctl tshark
 - dmsetup pm-utils
+- tree
 altLibraries:
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
