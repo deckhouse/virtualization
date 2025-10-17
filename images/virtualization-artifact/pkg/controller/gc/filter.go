@@ -56,17 +56,24 @@ func DefaultFilter(objs []client.Object, isCandidate IsCandidate, ttl time.Durat
 	}
 
 	result := expired
+	result = append(result, KeepLastRemoveOld(nonExpired, indexFunc, maxCount, now)...)
+
+	return result
+}
+
+func KeepLastRemoveOld(objs []client.Object, indexFunc IndexFunc, maxCount int, now time.Time) []client.Object {
 	if maxCount <= 0 {
-		return result
+		return nil
 	}
 
-	slices.SortFunc(nonExpired, func(a, b client.Object) int {
+	slices.SortFunc(objs, func(a, b client.Object) int {
 		return cmp.Compare(getAge(a, now), getAge(b, now))
 	})
 
-	// Keep maxCount first items (most recently created) for each common index. Index example: virtual machine name.
+	var result []client.Object
+
 	indexed := make(map[string]int)
-	for _, obj := range nonExpired {
+	for _, obj := range objs {
 		index := indexFunc(obj)
 		count := indexed[index]
 		if count >= maxCount {
