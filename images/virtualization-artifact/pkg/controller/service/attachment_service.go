@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -250,6 +251,10 @@ func (s AttachmentService) GetPersistentVolumeClaim(ctx context.Context, ad *Att
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: ad.Namespace, Name: ad.PVCName}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
+func (s AttachmentService) GetPersistentVolume(ctx context.Context, pvName string) (*corev1.PersistentVolume, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: pvName}, s.client, &corev1.PersistentVolume{})
+}
+
 func (s AttachmentService) GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &v1alpha2.VirtualMachine{})
 }
@@ -260,6 +265,48 @@ func (s AttachmentService) GetKVVM(ctx context.Context, vm *v1alpha2.VirtualMach
 
 func (s AttachmentService) GetKVVMI(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachineInstance{})
+}
+
+func (s AttachmentService) IsPVAvailableOnVMNode(ctx context.Context, pvc *corev1.PersistentVolumeClaim, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if pvc == nil {
+		return false, errors.New("pvc is nil")
+	}
+	if kvvmi == nil {
+		return false, errors.New("kvvmi is nil")
+	}
+	if pvc.Spec.VolumeName == "" || kvvmi.Status.NodeName == "" {
+		return true, nil
+	}
+
+	pv, err := s.GetPersistentVolume(ctx, pvc.Spec.VolumeName)
+	if err != nil {
+		return false, fmt.Errorf("failed to get PersistentVolume %q: %w", pvc.Spec.VolumeName, err)
+	}
+	if pv == nil {
+		return false, fmt.Errorf("PersistentVolume %q not found", pvc.Spec.VolumeName)
+	}
+
+	if pv.Spec.NodeAffinity == nil || pv.Spec.NodeAffinity.Required == nil {
+		return true, nil
+	}
+
+	nodeName := kvvmi.Status.NodeName
+	node := &corev1.Node{}
+	err = s.client.Get(ctx, types.NamespacedName{Name: nodeName}, node)
+	if err != nil {
+		return false, fmt.Errorf("failed to get Node %q: %w", nodeName, err)
+	}
+
+	selector, err := nodeaffinity.NewNodeSelector(pv.Spec.NodeAffinity.Required)
+	if err != nil {
+		return false, fmt.Errorf("failed to get node selector: %w", err)
+	}
+
+	if !selector.Match(node) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func isSameBlockDeviceRefs(a, b v1alpha2.VMBDAObjectRef) bool {
