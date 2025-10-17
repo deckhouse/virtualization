@@ -1,0 +1,5 @@
+module:
+  fixes:
+    - summary: fix CVE-2025-58058 and CVE-2025-54410
+      pull_request: https://github.com/deckhouse/virtualization/pull/1556
+
