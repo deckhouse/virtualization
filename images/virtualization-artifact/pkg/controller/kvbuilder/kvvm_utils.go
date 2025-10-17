@@ -151,7 +151,10 @@ func ApplyVirtualMachineSpec(
 			// Attach ephemeral disk for storage: Kubernetes.
 			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
-			vi := viByName[bd.Name]
+			vi, ok := viByName[bd.Name]
+			if !ok || vi == nil {
+				return fmt.Errorf("unexpected error: virtual image %q should exist in the cluster; please recreate it", bd.Name)
+			}
 
 			name := GenerateVIDiskName(bd.Name)
 			switch vi.Spec.Storage {
@@ -183,7 +186,10 @@ func ApplyVirtualMachineSpec(
 		case v1alpha2.ClusterImageDevice:
 			// ClusterVirtualImage is attached as containerDisk.
 
-			cvi := cviByName[bd.Name]
+			cvi, ok := cviByName[bd.Name]
+			if !ok || cvi == nil {
+				return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
+			}
 
 			name := GenerateCVIDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
@@ -199,7 +205,10 @@ func ApplyVirtualMachineSpec(
 		case v1alpha2.DiskDevice:
 			// VirtualDisk is attached as a regular disk.
 
-			vd := vdByName[bd.Name]
+			vd, ok := vdByName[bd.Name]
+			if !ok || vd == nil {
+				return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", bd.Name)
+			}
 
 			pvcName := vd.Status.Target.PersistentVolumeClaim
 			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
