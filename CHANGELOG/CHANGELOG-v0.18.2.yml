@@ -1,5 +1,19 @@
+api:
+  fixes:
+    - summary: fix snapshotting process
+      pull_request: https://github.com/deckhouse/virtualization/pull/1118
 module:
   fixes:
     - summary: Fix the polk alerts annotations of the virtual machine state.
       pull_request: https://github.com/deckhouse/virtualization/pull/1094
+vd:
+  fixes:
+    - summary: >-
+        Fix the display of the StorageClass column, which could remain empty when running the
+        `kubectl get` command.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1126
+vm:
+  fixes:
+    - summary: fix BlockDevicesReady VM's condition was set to 'not ready for use' when VD ready.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1120
 
