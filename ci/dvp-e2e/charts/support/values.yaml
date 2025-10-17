@@ -1,0 +1,62 @@
+# Support components values for E2E testing
+
+# Namespace configuration
+namespace: nightly-e2e
+
+# Loop integration
+loop:
+  webhook: ""
+  channel: "test-virtualization-loop-alerts"
+  enabled: true
+
+# Logging configuration
+logging:
+  level: "info"
+  format: "json"
+  retention: "7d"
+
+# Notification settings
+notifications:
+  slack:
+    enabled: false
+    webhook: ""
+    channel: ""
+  email:
+    enabled: false
+    smtp:
+      host: ""
+      port: 587
+      username: ""
+      password: ""
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: "7d"
+  storage:
+    type: "local"
+    path: "/backups"
+
+# Health checks
+healthChecks:
+  enabled: true
+  interval: "30s"
+  timeout: "10s"
+  retries: 3
+
+# Resource monitoring
+monitoring:
+  enabled: true
+  metrics:
+    enabled: true
+    port: 8080
+  alerts:
+    enabled: true
+    rules: []
+
+# Debug settings
+debug:
+  enabled: false
+  verbose: false
+  trace: false
