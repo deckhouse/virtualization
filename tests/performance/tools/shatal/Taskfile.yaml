@@ -12,5 +12,14 @@ tasks:
         if [[ -n "$KUBECONFIG_BASE64" ]] ; then
           KUBECONFIG_BASE64=$KUBECONFIG_BASE64 go run cmd/shatal/main.go
         else
-          go run cmd/shatal/main.go
+          KUBECONFIG_BASE64={{ .KUBECONFIG_BASE64 }} go run cmd/shatal/main.go
         fi
+  
+  run:local:
+    desc: "Run emulation of virtual machine movements"
+    vars:
+      KUBECONFIG: '{{ .KUBECONFIG | default "~/.kube/config" }}'
+    cmds:
+      - |
+        KUBECONFIG=$(cat ~/.kube/clusters/srv01/config | base64 -w 0)
+        KUBECONFIG_BASE64=$KUBECONFIG task run

@@ -274,3 +274,4 @@ migration_percent_vms() {
   log_success "Migrated $target_count VMs in $formatted_duration"
   log_vm_operation "Migration completed - Migrated $target_count VMs in $formatted_duration"
 }
+

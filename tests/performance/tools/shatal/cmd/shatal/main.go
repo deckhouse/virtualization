@@ -56,7 +56,12 @@ func main() {
 	exit := make(chan os.Signal, 1)
 	signal.Notify(exit, syscall.SIGINT, syscall.SIGTERM)
 
-	<-exit
-
-	service.Stop()
+	// Wait for either a signal or for the service to complete naturally
+	select {
+	case <-exit:
+		service.Stop()
+	case <-service.Done():
+		// Service completed naturally (e.g., when once: true)
+		service.Stop()
+	}
 }

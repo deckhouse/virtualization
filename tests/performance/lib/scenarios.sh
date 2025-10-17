@@ -265,3 +265,4 @@ run_scenario() {
   log_duration "Total Scenario Duration" "$duration"
   log_info "=== End Duration Summary ==="
 }
+

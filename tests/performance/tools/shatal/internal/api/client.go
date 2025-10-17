@@ -119,7 +119,7 @@ func (c *Client) DrainNode(ctx context.Context, node string) error {
 		Client:              c.clientset,
 		IgnoreAllDaemonSets: true,
 		DeleteEmptyDirData:  true,
-		PodSelector:         "vm=" + c.resourcePrefix,
+		PodSelector:         "vms=" + c.resourcePrefix,
 		Out:                 logWriter,
 		ErrOut:              logWriter,
 		OnPodDeletionOrEvictionStarted: func(pod *corev1.Pod, usingEviction bool) {
