@@ -15,6 +15,10 @@ parse_arguments() {
         MAIN_COUNT_RESOURCES="$2"
         shift 2
         ;;
+      --clean-reports)
+        CLEAN_REPORTS=true
+        shift
+        ;;
       -h|--help)
         show_help
         exit 0
@@ -37,6 +41,7 @@ Performance testing script for Kubernetes Virtual Machines
 OPTIONS:
   -s, --scenario NUMBER    Scenario number to run (1 or 2, default: 1)
   -c, --count NUMBER       Number of resources to create (default: 2)
+  --clean-reports          Clean all report directories before running
   -h, --help              Show this help message
 
 EXAMPLES:
@@ -44,6 +49,7 @@ EXAMPLES:
   $0 -s 1 -c 4            # Run scenario 1 with 4 resources
   $0 -s 2 -c 10           # Run scenario 2 with 10 resources
   $0 --scenario 1 --count 6 # Run scenario 1 with 6 resources
+  $0 --clean-reports      # Clean all reports and run default scenario
 
 SCENARIOS:
   1 - persistentVolumeClaim (default)
@@ -96,9 +102,12 @@ NC='\033[0m' # No Color
 init_logging() {
     local scenario_name=$1
     local vi_type=$2
-    LOG_FILE="$REPORT_DIR/${scenario_name}_${vi_type}/test.log"
-    VM_OPERATIONS_LOG="$REPORT_DIR/${scenario_name}_${vi_type}/vm_operations.log"
-    CURRENT_SCENARIO="${scenario_name}_${vi_type}"
+    local count=$3
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local scenario_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
+    LOG_FILE="$scenario_dir/test.log"
+    VM_OPERATIONS_LOG="$scenario_dir/vm_operations.log"
+    CURRENT_SCENARIO="${scenario_name}_${vi_type}_${count}vm_${timestamp}"
     mkdir -p "$(dirname "$LOG_FILE")"
     echo "=== Test started at $(get_current_date) ===" > "$LOG_FILE"
     echo "=== VM Operations Report started at $(get_current_date) ===" > "$VM_OPERATIONS_LOG"
@@ -396,7 +405,9 @@ get_default_storage_class() {
 create_report_dir() {
   local scenario_name=$1
   local vi_type=$2
-  local base_dir="$REPORT_DIR/${scenario_name}_${vi_type}"
+  local count=$3
+  local timestamp=$(date +"%Y%m%d_%H%M%S")
+  local base_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
   mkdir -p "$base_dir/statistics"
   mkdir -p "$base_dir/vpa"
   echo "$base_dir"
@@ -405,6 +416,16 @@ create_report_dir() {
 remove_report_dir() {
   local dir=${1:-$REPORT_DIR}
   rm -rf $dir
+}
+
+clean_all_reports() {
+  if [ -d "$REPORT_DIR" ]; then
+    log_info "Cleaning all report directories in $REPORT_DIR"
+    rm -rf "$REPORT_DIR"/*
+    log_success "All report directories cleaned"
+  else
+    log_info "Report directory $REPORT_DIR does not exist, nothing to clean"
+  fi
 }
 
 gather_all_statistics() {
@@ -523,7 +544,7 @@ collect_vpa() {
   fi
   
   local collect_start=$(get_timestamp)
-  for vpa in ${#VPAS[@]}; do
+  for vpa in "${VPAS[@]}"; do
     vpa_name=$(echo $vpa | cut -d "/" -f2)
     file="vpa_${vpa_name}.yaml"
     kubectl -n d8-virtualization get $vpa -o yaml > "${vpa_dir}/${file}_$(formatted_date $(get_timestamp))" 2>/dev/null || true
@@ -1485,9 +1506,8 @@ run_scenario() {
   log_info "=== Starting scenario: $scenario_name with $vi_type ==="
   
   # Initialize logging and create report directory
-  init_logging "$scenario_name" "$vi_type"
-  remove_report_dir "$REPORT_DIR/${scenario_name}_${vi_type}"
-  local scenario_dir=$(create_report_dir "$scenario_name" "$vi_type")
+  init_logging "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES"
+  local scenario_dir=$(create_report_dir "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES")
   
   # Clean up any existing resources
   log_info "Cleaning up existing resources"
@@ -1769,6 +1789,12 @@ run_scenario() {
 prepare_for_tests() {
   log_info "Preparing for tests"
   log_info "Operating System: $OS_TYPE"
+  
+  # Clean reports if requested
+  if [ "${CLEAN_REPORTS:-false}" = "true" ]; then
+    clean_all_reports
+  fi
+  
   # remove_report_dir
   # stop_migration
   # remove_vmops
