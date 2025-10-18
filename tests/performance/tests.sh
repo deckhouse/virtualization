@@ -15,6 +15,10 @@ parse_arguments() {
         MAIN_COUNT_RESOURCES="$2"
         shift 2
         ;;
+      --clean-reports)
+        CLEAN_REPORTS=true
+        shift
+        ;;
       -h|--help)
         show_help
         exit 0
@@ -37,6 +41,7 @@ Performance testing script for Kubernetes Virtual Machines
 OPTIONS:
   -s, --scenario NUMBER    Scenario number to run (1 or 2, default: 1)
   -c, --count NUMBER       Number of resources to create (default: 2)
+  --clean-reports          Clean all report directories before running
   -h, --help              Show this help message
 
 EXAMPLES:
@@ -44,6 +49,7 @@ EXAMPLES:
   $0 -s 1 -c 4            # Run scenario 1 with 4 resources
   $0 -s 2 -c 10           # Run scenario 2 with 10 resources
   $0 --scenario 1 --count 6 # Run scenario 1 with 6 resources
+  $0 --clean-reports      # Clean all reports and run default scenario
 
 SCENARIOS:
   1 - persistentVolumeClaim (default)
@@ -96,9 +102,12 @@ NC='\033[0m' # No Color
 init_logging() {
     local scenario_name=$1
     local vi_type=$2
-    LOG_FILE="$REPORT_DIR/${scenario_name}_${vi_type}/test.log"
-    VM_OPERATIONS_LOG="$REPORT_DIR/${scenario_name}_${vi_type}/vm_operations.log"
-    CURRENT_SCENARIO="${scenario_name}_${vi_type}"
+    local count=$3
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local scenario_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
+    LOG_FILE="$scenario_dir/test.log"
+    VM_OPERATIONS_LOG="$scenario_dir/vm_operations.log"
+    CURRENT_SCENARIO="${scenario_name}_${vi_type}_${count}vm_${timestamp}"
     mkdir -p "$(dirname "$LOG_FILE")"
     echo "=== Test started at $(get_current_date) ===" > "$LOG_FILE"
     echo "=== VM Operations Report started at $(get_current_date) ===" > "$VM_OPERATIONS_LOG"
@@ -396,7 +405,9 @@ get_default_storage_class() {
 create_report_dir() {
   local scenario_name=$1
   local vi_type=$2
-  local base_dir="$REPORT_DIR/${scenario_name}_${vi_type}"
+  local count=$3
+  local timestamp=$(date +"%Y%m%d_%H%M%S")
+  local base_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
   mkdir -p "$base_dir/statistics"
   mkdir -p "$base_dir/vpa"
   echo "$base_dir"
@@ -405,6 +416,16 @@ create_report_dir() {
 remove_report_dir() {
   local dir=${1:-$REPORT_DIR}
   rm -rf $dir
+}
+
+clean_all_reports() {
+  if [ -d "$REPORT_DIR" ]; then
+    log_info "Cleaning all report directories in $REPORT_DIR"
+    rm -rf "$REPORT_DIR"/*
+    log_success "All report directories cleaned"
+  else
+    log_info "Report directory $REPORT_DIR does not exist, nothing to clean"
+  fi
 }
 
 gather_all_statistics() {
@@ -523,7 +544,7 @@ collect_vpa() {
   fi
   
   local collect_start=$(get_timestamp)
-  for vpa in ${#VPAS[@]}; do
+  for vpa in "${VPAS[@]}"; do
     vpa_name=$(echo $vpa | cut -d "/" -f2)
     file="vpa_${vpa_name}.yaml"
     kubectl -n d8-virtualization get $vpa -o yaml > "${vpa_dir}/${file}_$(formatted_date $(get_timestamp))" 2>/dev/null || true
@@ -1444,7 +1465,7 @@ drain_node() {
   local KUBECONFIG=$(cat ~/.kube/config | base64 -w 0)
   KUBECONFIG_BASE64=$KUBECONFIG task shatal:run
   
-  local end_time=$(get_timestamp)
+  local task_end=$(get_timestamp)
   local task_duration=$((task_end - task_start))
   local formatted_duration=$(format_duration "$task_duration")
   
@@ -1452,6 +1473,50 @@ drain_node() {
   log_info "Task Duration node execution: $(format_duration $task_duration)"
   log_success "Duration node completed in $formatted_duration"
   echo "$task_duration"
+}
+
+migration_config() {
+  # default values
+  #   {
+  #     "bandwidthPerMigration": "640Mi",
+  #     "completionTimeoutPerGiB": 800,
+  #     "parallelMigrationsPerCluster": 8, # count all nodes
+  #     "parallelOutboundMigrationsPerNode": 1,
+  #     "progressTimeout": 150
+  #   }
+  local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+
+  local bandwidthPerMigration=${1:-"640Mi"}
+  local completionTimeoutPerGiB=${2:-"800"}
+  local parallelMigrationsPerCluster=${3:-$amountNodes}
+  local parallelOutboundMigrationsPerNode=${4:-"1"}
+  local progressTimeout=${5:-"150"}
+
+  patch_json=$(cat <<EOF
+{
+  "spec": {
+    "configuration": {
+      "migrations": {
+        "bandwidthPerMigration": "$bandwidthPerMigration",
+        "completionTimeoutPerGiB": $completionTimeoutPerGiB,
+        "parallelMigrationsPerCluster": $parallelMigrationsPerCluster,
+        "parallelOutboundMigrationsPerNode": $parallelOutboundMigrationsPerNode,
+        "progressTimeout": $progressTimeout
+      }
+    }
+  }
+}
+EOF
+  )
+
+  if kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy >/dev/null 2>&1; then
+    kubectl delete validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy
+  fi
+
+  kubectl -n d8-virtualization patch \
+    --as=system:sudouser \
+    internalvirtualizationkubevirts.internal.virtualization.deckhouse.io config \
+    --type=merge -p "$patch_json"
 }
 
 
@@ -1485,9 +1550,8 @@ run_scenario() {
   log_info "=== Starting scenario: $scenario_name with $vi_type ==="
   
   # Initialize logging and create report directory
-  init_logging "$scenario_name" "$vi_type"
-  remove_report_dir "$REPORT_DIR/${scenario_name}_${vi_type}"
-  local scenario_dir=$(create_report_dir "$scenario_name" "$vi_type")
+  init_logging "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES"
+  local scenario_dir=$(create_report_dir "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES")
   
   # Clean up any existing resources
   log_info "Cleaning up existing resources"
@@ -1650,6 +1714,53 @@ run_scenario() {
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
+  #========
+  # Migration config
+  #    bandwidthPerMigration=${1:-"640Mi"}
+  #    completionTimeoutPerGiB=${2:-"800"}
+  #    parallelMigrationsPerCluster=${3:-$amountNodes}
+  #    parallelOutboundMigrationsPerNode=${4:-"1"}
+  #    progressTimeout=${5:-"150"}
+  local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+
+  local migration_parallelMigrationsPerCluster=$(( $amountNodes*2 ))
+  local migration_parallelMigrationsPerCluster_start=$(get_timestamp)
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  migration_config "640Mi" "800" "$migration_parallelMigrationsPerCluster" "1" "150"
+  migration_percent_vms $MIGRATION_10_COUNT
+  local migration_parallelMigrationsPerCluster_end=$(get_timestamp)
+  local migration_parallelMigrationsPerCluster_duration=$((migration_parallelMigrationsPerCluster_end - migration_parallelMigrationsPerCluster_start))
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
+  sleep $GLOBAL_WAIT_TIME_STEP
+
+  local migration_parallelMigrationsPerCluster=$(( $amountNodes*4 ))
+  local migration_parallelMigrationsPerCluster_start=$(get_timestamp)
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  migration_config "640Mi" "800" "$migration_parallelMigrationsPerCluster" "1" "150"
+  migration_percent_vms $MIGRATION_10_COUNT
+  local migration_parallelMigrationsPerCluster_end=$(get_timestamp)
+  local migration_parallelMigrationsPerCluster_duration=$((migration_parallelMigrationsPerCluster_end - migration_parallelMigrationsPerCluster_start))
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
+  sleep $GLOBAL_WAIT_TIME_STEP
+
+  local migration_parallelMigrationsPerCluster=$(( $amountNodes*8 ))
+  local migration_parallelMigrationsPerCluster_start=$(get_timestamp)
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  migration_config "640Mi" "800" "$migration_parallelMigrationsPerCluster" "1" "150"
+  migration_percent_vms $MIGRATION_10_COUNT
+  local migration_parallelMigrationsPerCluster_end=$(get_timestamp)
+  local migration_parallelMigrationsPerCluster_duration=$((migration_parallelMigrationsPerCluster_end - migration_parallelMigrationsPerCluster_start))
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+
+  #========
+
   # Controller restart test
   log_info "Testing controller restart with 1 VM creation"
   log_step_start "Controller Restart"
@@ -1769,6 +1880,12 @@ run_scenario() {
 prepare_for_tests() {
   log_info "Preparing for tests"
   log_info "Operating System: $OS_TYPE"
+  
+  # Clean reports if requested
+  if [ "${CLEAN_REPORTS:-false}" = "true" ]; then
+    clean_all_reports
+  fi
+  
   # remove_report_dir
   # stop_migration
   # remove_vmops
