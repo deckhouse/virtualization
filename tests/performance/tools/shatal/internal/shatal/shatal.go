@@ -39,6 +39,7 @@ type Shatal struct {
 
 	logger *slog.Logger
 	exit   chan struct{}
+	done   chan struct{}
 	wg     sync.WaitGroup
 
 	forceInterruption bool
@@ -49,6 +50,7 @@ func New(api *api.Client, conf config.Config, log *slog.Logger) (*Shatal, error)
 		api:               api,
 		logger:            log,
 		exit:              make(chan struct{}),
+		done:              make(chan struct{}),
 		forceInterruption: conf.ForceInterruption,
 	}
 
@@ -62,8 +64,14 @@ func New(api *api.Client, conf config.Config, log *slog.Logger) (*Shatal, error)
 		nodeLocks[node.Name] = &sync.Mutex{}
 	}
 
-	watcher := NewWatcher(api, conf.Interval, nodeLocks, log)
-	shatal.runners = append(shatal.runners, watcher)
+	// Only add watcher if there are operations that need it
+	needWatcher := conf.Modifier.Enabled || conf.Deleter.Enabled || conf.Nothing.Enabled
+
+	var watcher *Watcher
+	if needWatcher {
+		watcher = NewWatcher(api, conf.Interval, nodeLocks, log)
+		shatal.runners = append(shatal.runners, watcher)
+	}
 
 	if conf.Drainer.Enabled {
 		if len(nodes) < 1 {
@@ -97,21 +105,27 @@ func New(api *api.Client, conf config.Config, log *slog.Logger) (*Shatal, error)
 		shatal.logger.With("weight", conf.Modifier.Weight).Info("With modifier")
 
 		modifier := NewModifier(api, conf.Namespace, log)
-		watcher.Subscribe(modifier, conf.Modifier.Weight)
+		if watcher != nil {
+			watcher.Subscribe(modifier, conf.Modifier.Weight)
+		}
 	}
 
 	if conf.Deleter.Enabled {
 		shatal.logger.With("weight", conf.Deleter.Weight).Info("With deleter")
 
 		deleter := NewDeleter(api, log)
-		watcher.Subscribe(deleter, conf.Deleter.Weight)
+		if watcher != nil {
+			watcher.Subscribe(deleter, conf.Deleter.Weight)
+		}
 	}
 
 	if conf.Nothing.Enabled {
 		shatal.logger.With("weight", conf.Nothing.Weight).Info("With nothing")
 
 		nothing := NewNothing(log)
-		watcher.Subscribe(nothing, conf.Nothing.Weight)
+		if watcher != nil {
+			watcher.Subscribe(nothing, conf.Nothing.Weight)
+		}
 	}
 
 	return &shatal, nil
@@ -132,6 +146,13 @@ func (s *Shatal) Run() {
 		}()
 	}
 
+	// Monitor when all runners complete
+	go func() {
+		s.wg.Wait()
+		s.logger.Info("All runners completed")
+		close(s.done)
+	}()
+
 	go func() {
 		select {
 		case <-s.exit:
@@ -145,6 +166,10 @@ func (s *Shatal) Run() {
 		case <-ctx.Done():
 		}
 	}()
+}
+
+func (s *Shatal) Done() <-chan struct{} {
+	return s.done
 }
 
 func (s *Shatal) Stop() {

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netchecker
+  namespace: netchecker
+  labels:
+    app: netchecker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netchecker
+  template:
+    metadata:
+      labels:
+        app: netchecker
+    spec:
+      containers:
+      - name: netchecker
+        image: registry-dvp.dev.flant.dev/tools/netchecker:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: netchecker-config
+        # livenessProbe:
+        #   httpGet:
+        #     path: /health
+        #     port: 8080
+        #   initialDelaySeconds: 30
+        #   periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

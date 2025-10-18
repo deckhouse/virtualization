@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: netchecker-config
+  namespace: netchecker
+data:
+  SERVER_PORT: "8080"
+  METRICS_PORT: "9090"
+  LOG_INTERVAL: "10s"
+  CLIENT_TIMEOUT: "30s"
+  LOG_LEVEL: "info"
+  CLIENT_CLEANUP_TIMEOUT: "1h"
