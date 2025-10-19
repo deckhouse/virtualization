@@ -151,10 +151,8 @@ jobs:
         env:
           PROFILE: ${{ matrix.profile }}
         run: |
-          # Get storage class configuration from profiles.json
           PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
           
-          # Parse the output and set variables
           STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "STORAGE_CLASS=" | cut -d'=' -f2)
           IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
           SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
@@ -164,7 +162,6 @@ jobs:
           echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
           echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
           
-          # Export for next steps
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
@@ -376,9 +373,8 @@ jobs:
         working-directory: ci/dvp-e2e
         run: |
           echo "🧹 Cleaning up test namespaces..."
-          task cleanup:namespaces:safe \
-            FILTER_PREFIX="nightly-nested-e2e-" \
-            CONFIRM=true
+          task cleanup:namespaces \
+            FILTER_PREFIX="nightly-nested-e2e-"
 
       - name: Report cleanup results
         if: always()
