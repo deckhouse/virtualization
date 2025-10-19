@@ -151,17 +151,20 @@ jobs:
         env:
           PROFILE: ${{ matrix.profile }}
         run: |
+          # Get storage class configuration from profiles.json
           PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
           
-          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "STORAGE_CLASS=" | cut -d'=' -f2)
-          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
-          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          # Parse the output more carefully
+          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
+          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
+          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
           
           echo "Profile: ${PROFILE}"
           echo "Storage Class: ${STORAGE_CLASS}"
           echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
           echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
           
+          # Export variables safely
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
