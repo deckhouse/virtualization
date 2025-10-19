@@ -11,16 +11,33 @@ tasks:
       - |
         echo "🧹 Cleaning up namespaces with prefix: {{ .FILTER_PREFIX }}"
         
-        kubectl get namespaces -o name | grep "{{ .FILTER_PREFIX }}" | while read ns; do
+        # Get namespaces to delete
+        namespaces=$(kubectl get namespaces -o name | grep "{{ .FILTER_PREFIX }}" || true)
+        
+        if [ -z "$namespaces" ]; then
+          echo "No namespaces found with prefix {{ .FILTER_PREFIX }}"
+          exit 0
+        fi
+        
+        # Delete namespaces
+        echo "$namespaces" | while read ns; do
           ns_name=$(echo "$ns" | cut -d/ -f2)
           echo "Deleting namespace: $ns_name"
           kubectl delete namespace "$ns_name" --wait=false || true
         done
         
+        # Wait for deletions with better error handling
         echo "Waiting for namespace deletions to complete..."
-        kubectl get namespaces -o name | grep "{{ .FILTER_PREFIX }}" | while read ns; do
+        echo "$namespaces" | while read ns; do
           ns_name=$(echo "$ns" | cut -d/ -f2)
-          kubectl wait --for=delete namespace/"$ns_name" --timeout=600s || true
+          if kubectl get namespace "$ns_name" >/dev/null 2>&1; then
+            echo "Waiting for namespace $ns_name to be deleted..."
+            kubectl wait --for=delete namespace/"$ns_name" --timeout=600s || {
+              echo "⚠️  Namespace $ns_name still exists after timeout"
+            }
+          else
+            echo "✅ Namespace $ns_name already deleted"
+          fi
         done
         
         echo "✅ Cleanup completed"

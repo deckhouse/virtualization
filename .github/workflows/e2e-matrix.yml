@@ -136,7 +136,7 @@ jobs:
         with:
           method: service-account
           k8s-url: ${{ env.E2E_K8S_URL }}
-          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+          k8s-secret: ${{ secrets.E2E_NESTED_SA_SECRET }}
 
       - name: Configure registry auth
         uses: deckhouse/modules-actions/setup@v2
@@ -370,7 +370,7 @@ jobs:
         with:
           method: service-account
           k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+          k8s-secret: ${{ secrets.E2E_NESTED_SA_SECRET }}
 
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
