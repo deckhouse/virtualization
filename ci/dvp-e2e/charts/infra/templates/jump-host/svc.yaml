@@ -10,5 +10,6 @@ spec:
     app: jump-host
   ports:
     - protocol: TCP
+      # NodePort SSH entrypoint for jump-host; 2222 is chosen to avoid default SSH port 22 conflicts
       port: 2222
       targetPort: 2222

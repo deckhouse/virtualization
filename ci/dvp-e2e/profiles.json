@@ -1,0 +1,34 @@
+[
+  {
+    "name": "sds",
+    "aliases": ["sds-local", "sds_local", "sds-replicated", "sds_replicated"],
+    "storage_class": "linstor-thin-r2",
+    "image_storage_class": "linstor-thin-r1-immediate",
+    "snapshot_storage_class": "linstor-thin-r2",
+    "description": "SDS storage with LINSTOR thin provisioning"
+  },
+  {
+    "name": "cephrbd",
+    "aliases": ["ceph", "ceph-rbd", "ceph-pool-r2-csi-rbd"],
+    "storage_class": "ceph-pool-r2-csi-rbd-immediate",
+    "image_storage_class": "ceph-pool-r2-csi-rbd-immediate",
+    "snapshot_storage_class": "ceph-pool-r2-csi-rbd-immediate",
+    "description": "Ceph RBD storage with immediate provisioning"
+  },
+  {
+    "name": "nfs",
+    "aliases": ["nfs-4-1-wffc"],
+    "storage_class": "nfs-4-1-wffc",
+    "image_storage_class": "nfs-4-1-wffc",
+    "snapshot_storage_class": "nfs-4-1-wffc",
+    "description": "NFS storage with WaitForFirstConsumer"
+  },
+  {
+    "name": "hostpath",
+    "aliases": ["hp"],
+    "storage_class": "hostpath-immediate",
+    "image_storage_class": "hostpath-immediate",
+    "snapshot_storage_class": "hostpath-immediate",
+    "description": "HostPath storage for local testing"
+  }
+]

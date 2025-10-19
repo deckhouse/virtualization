@@ -3,8 +3,6 @@ dotenv:
   - ".env"
 
 includes:
-  vm:
-    taskfile: Taskfile.vm.yaml
   infra:
     taskfile: ./tasks/infra.yaml
   cluster:
@@ -15,6 +13,8 @@ includes:
     taskfile: ./tasks/testing.yaml
   cleanup:
     taskfile: ./tasks/cleanup.yaml
+  loop:
+    taskfile: ./tasks/loop.yaml
 
 vars:
   REPO_ROOT:
@@ -907,122 +907,6 @@ tasks:
         echo "[ERR] Unable to build parent kubeconfig: provide SOURCE_KUBECONFIG or PARENT_HOST/PARENT_USER, or ensure current context points to parent cluster." >&2
         exit 1
 
-  loop:notify:
-    desc: Send message to Loop webhook
-    vars:
-      LOOP_WEBHOOK: "{{ .LOOP_WEBHOOK }}"
-      LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-      MESSAGE: '{{ .MESSAGE | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .LOOP_WEBHOOK }}" ]; then
-          echo "[ERR] Set LOOP_WEBHOOK variable (webhook URL)" >&2
-          exit 1
-        fi
-        if [ -z "{{ .MESSAGE }}" ]; then
-          echo "[ERR] Set MESSAGE with text to send" >&2
-          exit 1
-        fi
-        python3 scripts/loop_notify.py \
-          --url "{{ .LOOP_WEBHOOK }}" \
-          --channel "{{ .LOOP_CHANNEL }}" \
-          --text "{{ .MESSAGE }}"
-
-  loop:junit:parse:
-    desc: Parse JUnit XML and send results to Loop
-    vars:
-      JUNIT_FILE: "{{ .JUNIT_FILE }}"
-      RUN_ID: "{{ .RUN_ID }}"
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "unknown" }}'
-      LOOP_WEBHOOK: "{{ .LOOP_WEBHOOK }}"
-      LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-      TEST_TIMEOUT: '{{ .TEST_TIMEOUT | default "240m" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .LOOP_WEBHOOK }}" ]; then
-          echo "[ERR] Set LOOP_WEBHOOK variable (webhook URL)" >&2
-          exit 1
-        fi
-        if [ ! -f "{{ .JUNIT_FILE }}" ]; then
-          echo "[ERR] JUnit file not found: {{ .JUNIT_FILE }}" >&2
-          exit 1
-        fi
-        python3 scripts/loop_junit_notify.py \
-          --junit-file "{{ .JUNIT_FILE }}" \
-          --run-id "{{ .RUN_ID }}" \
-          --storage-profile "{{ .STORAGE_PROFILE }}" \
-          --webhook-url "{{ .LOOP_WEBHOOK }}" \
-          --channel "{{ .LOOP_CHANNEL }}" \
-          --timeout "{{ .TEST_TIMEOUT }}"
-
-  loop:test:start:
-    desc: Send test start notification to Loop
-    vars:
-      RUN_ID: "{{ .RUN_ID }}"
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "unknown" }}'
-      TEST_TIMEOUT: '{{ .TEST_TIMEOUT | default "240m" }}'
-      LOOP_WEBHOOK: "{{ .LOOP_WEBHOOK }}"
-      LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .LOOP_WEBHOOK }}" ]; then
-          echo "[INFO] LOOP_WEBHOOK not set, skipping notification"
-          exit 0
-        fi
-        MESSAGE="🚀 Starting virtualization E2E tests\n📋 Run ID: {{ .RUN_ID }}\n💾 Storage: {{ .STORAGE_PROFILE }}\n⏱️ Timeout: {{ .TEST_TIMEOUT }}\n🕐 Time: $(date '+%Y-%m-%d %H:%M:%S')"
-        python3 scripts/loop_notify.py \
-          --url "{{ .LOOP_WEBHOOK }}" \
-          --channel "{{ .LOOP_CHANNEL }}" \
-          --text "$MESSAGE"
-
-  loop:test:matrix:start:
-    desc: Send matrix test start notification to Loop
-    dotenv: [".env"]
-    vars:
-      PROFILES: "{{ .PROFILES }}"
-      RUN_ID_PREFIX: "{{ .RUN_ID_PREFIX }}"
-      TIMEOUT: '{{ .TIMEOUT | default "4h" }}'
-      LOOP_WEBHOOK: "{{ .LOOP_WEBHOOK }}"
-      LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .LOOP_WEBHOOK }}" ]; then
-          echo "[INFO] LOOP_WEBHOOK not set, skipping notification"
-          exit 0
-        fi
-        MESSAGE="🚀 Starting virtualization E2E matrix\n📋 Run ID Prefix: {{ .RUN_ID_PREFIX }}\n💾 Profiles: {{ .PROFILES }}\n⏱️ Timeout: {{ .TIMEOUT }}\n🕐 Time: $(date '+%Y-%m-%d %H:%M:%S')"
-        python3 scripts/loop_notify.py \
-          --url "{{ .LOOP_WEBHOOK }}" \
-          --channel "{{ .LOOP_CHANNEL }}" \
-          --text "$MESSAGE"
-
-  loop:test:matrix:summary:
-    desc: Send matrix test results summary to Loop
-    dotenv: [".env"]
-    vars:
-      PROFILES: "{{ .PROFILES }}"
-      RUN_ID_PREFIX: "{{ .RUN_ID_PREFIX }}"
-      LOG_DIR: "{{ .LOG_DIR }}"
-      LOOP_WEBHOOK: '{{ .LOOP_WEBHOOK | default (env "LOOP_WEBHOOK") }}'
-      LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .LOOP_WEBHOOK }}" ]; then
-          echo "[INFO] LOOP_WEBHOOK not set, skipping notification"
-          exit 0
-        fi
-        python3 scripts/loop_matrix_summary.py \
-          --profiles "{{ .PROFILES }}" \
-          --run-id-prefix "{{ .RUN_ID_PREFIX }}" \
-          --log-dir "{{ .LOG_DIR }}" \
-          --webhook-url "{{ .LOOP_WEBHOOK }}" \
-          --channel "{{ .LOOP_CHANNEL }}"
-
   nested:kubeconfig:
     desc: Build kubeconfig for nested cluster via jump-host
     vars:
@@ -1768,6 +1652,7 @@ tasks:
 
   nested:cluster:destroy:
     desc: Destroy nested cluster and cleanup run directory
+    # NOTE: This task may be useful for E2E tests in PR workflows for immediate cleanup
     vars:
       RUN_ID: "{{ .RUN_ID }}"
       RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"

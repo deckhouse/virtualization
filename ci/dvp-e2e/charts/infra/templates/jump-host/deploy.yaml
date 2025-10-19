@@ -26,6 +26,7 @@ spec:
               cpu: "200m"
               memory: "200Mi"
           ports:
+            # SSH service for jump-host; use non-default port 2222 to avoid collisions
             - containerPort: 2222
           env:
             - name: SSH_KEY

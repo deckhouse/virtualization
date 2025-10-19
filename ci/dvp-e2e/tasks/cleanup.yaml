@@ -39,11 +39,14 @@ tasks:
           kubectl delete namespace "$ns_name" --wait=false || true
         done
 
-        # Wait for deletion and force cleanup if needed
+        # Wait for deletion with timeout (graceful cleanup)
         for ns in $namespaces; do
           ns_name=$(echo "$ns" | cut -d/ -f2)
-          echo "Waiting for namespace $ns_name to be deleted..."
-          ./scripts/undeploy-finalizers.sh "$ns_name" || true
+          echo "Waiting for namespace $ns_name to be deleted (timeout: 10 minutes)..."
+          # Use kubectl wait with timeout instead of forcing finalizer removal
+          kubectl wait --for=delete namespace/"$ns_name" --timeout=600s || {
+            echo "⚠️  Namespace $ns_name still exists after timeout, but continuing..."
+          }
         done
 
   cleanup:resources:force:

@@ -54,8 +54,9 @@ jobs:
       - name: Load storage profiles
         id: load
         run: |
-          # For now, use hardcoded profiles. Later this can be made dynamic
-          PROFILES='["sds", "cephrbd"]'
+          # Load profiles dynamically from profiles.json
+          cd ci/dvp-e2e
+          PROFILES=$(jq -r '[.[].name] | @json' profiles.json)
           echo "profiles=$PROFILES" >> "$GITHUB_OUTPUT"
 
       - name: Print matrix
@@ -94,94 +95,137 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - uses: ./.github/actions/setup-e2e-tools
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Install Deckhouse CLI
+        run: |
+          echo "Installing d8 CLI..."
+          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+          bash d8-install.sh
+          rm -f d8-install.sh
+
+      - name: Install yq
+        run: |
+          echo "Installing yq..."
+          curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
 
       - name: Prepare environment
         id: prep
         run: |
-          RUN_ID="nightly-${{ matrix.profile }}-${{ github.run_id }}"
+          RUN_ID="nightly-nested-e2e-${{ matrix.profile }}-$(date +%m%d-%H%M)"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
           echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
-      - name: Build parent kubeconfig from secret
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p ~/.kube
-          TOK='${{ secrets.E2E_NESTED_SA_SECRET }}'
-          if [ -z "$TOK" ]; then
-            echo "❌ Missing secret E2E_NESTED_SA_SECRET"; exit 1
-          fi
-          cat > ~/.kube/config <<EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              server: ${E2E_K8S_URL}
-              insecure-skip-tls-verify: true
-            name: parent
-          contexts:
-          - context:
-              cluster: parent
-              user: sa
-            name: parent
-          current-context: parent
-          users:
-          - name: sa
-            user:
-              token: "${TOK}"
-          EOF
-          chmod 600 ~/.kube/config
-          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+      - name: Set Kubernetes context (parent cluster)
+        uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: ${{ env.E2E_K8S_URL }}
+          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
 
       - name: Configure registry auth
-        shell: bash
-        env:
-          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
-        run: |
-          set -euo pipefail
-          if [ -z "${REGISTRY_DOCKER_CFG:-}" ]; then
-            echo "❌ Missing secret REGISTRY_DOCKER_CFG" >&2
-            exit 1
-          fi
-          mkdir -p ~/.docker
-          # Expect base64-encoded dockerconfigjson only
-          echo "$REGISTRY_DOCKER_CFG" | base64 -d > ~/.docker/config.json
-          chmod 600 ~/.docker/config.json
-          echo "✅ Docker auth configured"
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - name: Run DVP-over-DVP E2E tests
+      - name: Configure storage profile
         working-directory: ci/dvp-e2e
+        id: profile-config
         env:
           PROFILE: ${{ matrix.profile }}
-          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
         run: |
-          # Map storage classes per profile (restore previous behavior)
-          case "${PROFILE}" in
-            sds|sds-local|sds_local|sds-replicated|sds_replicated)
-              SC="linstor-thin-r2"; IMG_SC="linstor-thin-r1-immediate"; SNAP_SC="linstor-thin-r2" ;;
-            ceph|ceph-rbd|cephrbd|ceph-pool-r2-csi-rbd)
-              SC="ceph-pool-r2-csi-rbd-immediate"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
-            nfs|nfs-4-1-wffc)
-              SC="nfs-4-1-wffc"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
-            hostpath|hp)
-              SC="hostpath-immediate"; IMG_SC="$SC"; SNAP_SC="$SC" ;;
-            *)
-              SC="hostpath-immediate"; IMG_SC=""; SNAP_SC="" ;;
-          esac
+          # Get storage class configuration from profiles.json
+          PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
+          
+          # Parse the output and set variables
+          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "STORAGE_CLASS=" | cut -d'=' -f2)
+          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
+          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          
+          echo "Profile: ${PROFILE}"
+          echo "Storage Class: ${STORAGE_CLASS}"
+          echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
+          echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
+          
+          # Export for next steps
+          echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
 
-          task nested:test-run \
+      - name: Bootstrap nested cluster
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🚀 Starting cluster bootstrap for profile: ${{ matrix.profile }}"
+          task nested:cluster:create \
             RUN_ID="${{ env.RUN_ID }}" \
-            STORAGE_PROFILE="${PROFILE}" \
-            STORAGE_CLASS="$SC" \
-            IMAGE_STORAGE_CLASS="$IMG_SC" \
-            SNAPSHOT_STORAGE_CLASS="$SNAP_SC" \
-            TIMEOUT="${{ inputs.timeout || '4h' }}" \
+            RUN_NAMESPACE="${{ env.RUN_ID }}" \
+            STORAGE_PROFILE="${{ matrix.profile }}" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="cloud"
+
+      - name: Configure storage classes
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "💾 Configuring storage classes for profile: ${{ matrix.profile }}"
+          task nested:storage:configure \
+            STORAGE_PROFILE="${{ matrix.profile }}" \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+
+      - name: Run E2E tests
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧪 Running E2E tests for profile: ${{ matrix.profile }}"
+          task nested:e2e \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            STORAGE_PROFILE="${{ matrix.profile }}" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             JUNIT_PATH="../../artifacts/${{ env.RUN_ID }}/junit.xml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}"
+            FOCUS="" \
+            SKIP="" \
+            LABELS="" \
+            STORAGE_CLASS="${STORAGE_CLASS}" \
+            IMAGE_STORAGE_CLASS="${IMAGE_STORAGE_CLASS}" \
+            SNAPSHOT_STORAGE_CLASS="${SNAPSHOT_STORAGE_CLASS}" \
+            TIMEOUT="${{ inputs.timeout || '4h' }}"
 
       - name: Collect JUnit for this run
         if: always()
@@ -210,7 +254,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-${{ matrix.profile }}-${{ env.RUN_ID }}
+          name: logs-${{ env.RUN_ID }}
           path: ci/dvp-e2e/tmp/matrix-logs
           if-no-files-found: ignore
 
@@ -218,7 +262,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: junit-${{ matrix.profile }}-${{ env.RUN_ID }}
+          name: junit-${{ env.RUN_ID }}
           path: ci/dvp-e2e/artifacts
           if-no-files-found: ignore
 
@@ -259,35 +303,12 @@ jobs:
           echo "=== Matrix logs ==="
           find ci/dvp-e2e/tmp/matrix-logs -maxdepth 2 -type f -print || true
 
-      - name: Send individual reports to Loop
-        working-directory: ci/dvp-e2e
-        env:
-          LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
-        run: |
-          if [ -z "${LOOP_WEBHOOK}" ]; then
-            echo "No LOOP_WEBHOOK configured; skipping report sending."
-            exit 0
-          fi
-
-          # Send individual reports for each profile
-          for junit_file in ../../results/junit-*/junit.xml; do
-            if [ -f "$junit_file" ]; then
-              profile=$(echo "$junit_file" | sed 's/.*junit-\([^-]*\)-.*/\1/')
-              run_id=$(echo "$junit_file" | sed 's/.*-\([^-]*\)\/junit.xml/\1/')
-              task loop:junit:parse \
-                JUNIT_FILE="$junit_file" \
-                RUN_ID="$run_id" \
-                STORAGE_PROFILE="$profile" \
-                TEST_TIMEOUT="${{ inputs.timeout || '4h' }}"
-            fi
-          done
-
       - name: Generate matrix summary
         if: always()
         working-directory: ci/dvp-e2e
         run: |
           python3 scripts/loop_matrix_summary.py \
-            --profiles "sds,cephrbd" \
+            --profiles "${{ join(needs.setup.outputs.profiles, ',') }}" \
             --run-id-prefix "nightly" \
             --log-dir "tmp/matrix-logs" \
             --webhook-url "${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}" \
@@ -336,7 +357,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ./.github/actions/setup-e2e-tools
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
 
       - name: Set k8s context (privileged SA)
         uses: azure/k8s-set-context@v4
@@ -350,7 +377,7 @@ jobs:
         run: |
           echo "🧹 Cleaning up test namespaces..."
           task cleanup:namespaces:safe \
-            FILTER_PREFIX="dvp-e2e-nightly-" \
+            FILTER_PREFIX="nightly-nested-e2e-" \
             CONFIRM=true
 
       - name: Report cleanup results
@@ -358,4 +385,4 @@ jobs:
         run: |
           echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
           echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
-          echo "🧹 Attempted to clean up namespaces matching 'nightly-*'" >> $GITHUB_STEP_SUMMARY
+          echo "🧹 Attempted to clean up namespaces matching 'nightly-nested-e2e-*'" >> $GITHUB_STEP_SUMMARY
