@@ -165,6 +165,18 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
+      - name: Docker login for install image
+        run: |
+          set -euo pipefail
+          REGISTRY_HOST="${{ vars.DEV_REGISTRY || 'dev-registry.deckhouse.io' }}"
+          USERNAME="${{ vars.DEV_MODULES_REGISTRY_LOGIN }}"
+          PASSWORD="${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}"
+          if [ -z "$REGISTRY_HOST" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
+            echo "Missing registry credentials for install image pull" >&2
+            exit 1
+          fi
+          echo "$PASSWORD" | docker login "$REGISTRY_HOST" -u "$USERNAME" --password-stdin
+
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
         id: profile-config
