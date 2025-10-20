@@ -105,7 +105,8 @@ binaries:
   - /usr/bin/cat
   - /usr/bin/grep
   # qemu
-  - /usr/bin/elf2dmp
+  # commented out due to automatic relocate in `beforeInstall` step
+  # - /usr/bin/elf2dmp
 packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
