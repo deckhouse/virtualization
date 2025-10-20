@@ -1792,6 +1792,10 @@ run_scenario() {
   local migration_parallel_2x_duration=$((migration_parallel_2x_end - migration_parallel_2x_start))
   log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]" "$migration_parallel_2x_duration"
 
+  log_info "Waiting 2 seconds before Cleanup vmops"
+  sleep 2
+  remove_vmops
+
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
@@ -1804,6 +1808,10 @@ run_scenario() {
   local migration_parallel_4x_end=$(get_timestamp)
   local migration_parallel_4x_duration=$((migration_parallel_4x_end - migration_parallel_4x_start))
   log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)" "$migration_parallel_4x_duration"
+
+  log_info "Waiting 2 seconds before Cleanup vmops"
+  sleep 2
+  remove_vmops
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
@@ -1818,6 +1826,11 @@ run_scenario() {
   local migration_parallel_8x_duration=$((migration_parallel_8x_end - migration_parallel_8x_start))
   log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)" "$migration_parallel_8x_duration"
 
+  log_info "Waiting 2 seconds before Cleanup vmops"
+  sleep 2
+  remove_vmops
+
+  log_info "Back configuration migration back to original"
   migration_config
   log_info "Restoring original deckhouse controller replicas to [$ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS]"
   scale_deckhouse $ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS
