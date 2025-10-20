@@ -1489,7 +1489,9 @@ scale_deckhouse() {
   local replicas=${1}
   ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS=$(kubectl -n d8-system get deployment deckhouse -o jsonpath="{.spec.replicas}" 2>/dev/null || echo "1")
   log_info "Deckhouse controller replicas: $ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS"
+  log_info "Deckhouse controller scaled to $replicas"
   kubectl -n d8-virtualization scale --replicas $replicas deployment virtualization-controller
+  log_success "Deckhouse controller scaled to $replicas"
 }
 
 migration_config() {
@@ -1746,6 +1748,7 @@ run_scenario() {
   log_info "Set deckhouse controller replicas to [0]"
   scale_deckhouse 0
   local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+  sleep 5
 
   local migration_parallel_2x=$(( $amountNodes*2 ))
   local migration_parallel_2x_start=$(get_timestamp)
