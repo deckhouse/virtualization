@@ -241,6 +241,9 @@ create_summary_report() {
     local final_stats_duration="${22:-0}"
     local drain_stats_duration="${23:-0}"
     local final_cleanup_duration="${24:-0}"
+    local migration_parallel_2x_duration="${25:-0}"
+    local migration_parallel_4x_duration="${26:-0}"
+    local migration_parallel_8x_duration="${27:-0}"
     
     local summary_file="$scenario_dir/summary.txt"
     
@@ -263,6 +266,9 @@ create_summary_report() {
     local final_stats_percent=$(calculate_percentage "$final_stats_duration" "$total_duration")
     local drain_stats_percent=$(calculate_percentage "$drain_stats_duration" "$total_duration")
     local final_cleanup_percent=$(calculate_percentage "$final_cleanup_duration" "$total_duration")
+    local migration_parallel_2x_percent=$(calculate_percentage "$migration_parallel_2x_duration" "$total_duration")
+    local migration_parallel_4x_percent=$(calculate_percentage "$migration_parallel_4x_duration" "$total_duration")
+    local migration_parallel_8x_percent=$(calculate_percentage "$migration_parallel_8x_duration" "$total_duration")
     
     cat > "$summary_file" << EOF
 ================================================================================
@@ -305,6 +311,9 @@ $(printf "%-55s %10s  %10s\n" "Controller Restart" "$(format_duration $controlle
 $(printf "%-55s %10s  %10s\n" "Final Statistics" "$(format_duration $final_stats_duration)" "$(printf "%5.1f" $final_stats_percent)%")
 $(printf "%-55s %10s  %10s\n" "Drain node" "$(format_duration $drain_stats_duration)" "$(printf "%5.1f" $drain_stats_percent)%")
 $(printf "%-55s %10s  %10s\n" "Final Cleanup" "$(format_duration $final_cleanup_duration)" "$(printf "%5.1f" $final_cleanup_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration parallelMigrationsPerCluster 2x nodes" "$(format_duration $migration_parallel_2x_duration)" "$(printf "%5.1f" $migration_parallel_2x_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration parallelMigrationsPerCluster 4x nodes" "$(format_duration $migration_parallel_4x_duration)" "$(printf "%5.1f" $migration_parallel_4x_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration parallelMigrationsPerCluster 8x nodes" "$(format_duration $migration_parallel_8x_duration)" "$(printf "%5.1f" $migration_parallel_8x_percent)%")
 
 ================================================================================
                             PERFORMANCE METRICS
@@ -317,7 +326,7 @@ $(printf "%-25s %10s\n" "VM Start Time:" "$(format_duration $start_vm_duration)"
 $(printf "%-25s %10s\n" "Controller Restart Time:" "$(format_duration $controller_duration)")
 $(printf "%-25s %10s\n" "Migration 5% Time:" "$(format_duration $migration_duration)")
 $(printf "%-25s %10s\n" "Migration 10% Time:" "$(format_duration $migration_percent_duration)")
-$(printf "%-25s %10s\n" "Migration 10% Time:" "$(format_duration $drain_cleanup_duration)")
+$(printf "%-25s %10s\n" "Drain Node Time:" "$(format_duration $drain_stats_duration)")
 ================================================================================
                             FILES GENERATED
 ================================================================================
@@ -1723,41 +1732,41 @@ run_scenario() {
   #    progressTimeout=${5:-"150"}
   local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
 
-  local migration_parallelMigrationsPerCluster=$(( $amountNodes*2 ))
-  local migration_parallelMigrationsPerCluster_start=$(get_timestamp)
-  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
-  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
-  migration_config "640Mi" "800" "$migration_parallelMigrationsPerCluster" "1" "150"
+  local migration_parallel_2x=$(( $amountNodes*2 ))
+  local migration_parallel_2x_start=$(get_timestamp)
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x]"
+  migration_config "640Mi" "800" "$migration_parallel_2x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
-  local migration_parallelMigrationsPerCluster_end=$(get_timestamp)
-  local migration_parallelMigrationsPerCluster_duration=$((migration_parallelMigrationsPerCluster_end - migration_parallelMigrationsPerCluster_start))
-  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  local migration_parallel_2x_end=$(get_timestamp)
+  local migration_parallel_2x_duration=$((migration_parallel_2x_end - migration_parallel_2x_start))
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x]" "$migration_parallel_2x_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
-  local migration_parallelMigrationsPerCluster=$(( $amountNodes*4 ))
-  local migration_parallelMigrationsPerCluster_start=$(get_timestamp)
-  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
-  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
-  migration_config "640Mi" "800" "$migration_parallelMigrationsPerCluster" "1" "150"
+  local migration_parallel_4x=$(( $amountNodes*4 ))
+  local migration_parallel_4x_start=$(get_timestamp)
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x]"
+  migration_config "640Mi" "800" "$migration_parallel_4x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
-  local migration_parallelMigrationsPerCluster_end=$(get_timestamp)
-  local migration_parallelMigrationsPerCluster_duration=$((migration_parallelMigrationsPerCluster_end - migration_parallelMigrationsPerCluster_start))
-  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  local migration_parallel_4x_end=$(get_timestamp)
+  local migration_parallel_4x_duration=$((migration_parallel_4x_end - migration_parallel_4x_start))
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x]" "$migration_parallel_4x_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
-  local migration_parallelMigrationsPerCluster=$(( $amountNodes*8 ))
-  local migration_parallelMigrationsPerCluster_start=$(get_timestamp)
-  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
-  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
-  migration_config "640Mi" "800" "$migration_parallelMigrationsPerCluster" "1" "150"
+  local migration_parallel_8x=$(( $amountNodes*8 ))
+  local migration_parallel_8x_start=$(get_timestamp)
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x]"
+  migration_config "640Mi" "800" "$migration_parallel_8x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
-  local migration_parallelMigrationsPerCluster_end=$(get_timestamp)
-  local migration_parallelMigrationsPerCluster_duration=$((migration_parallelMigrationsPerCluster_end - migration_parallelMigrationsPerCluster_start))
-  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallelMigrationsPerCluster]"
+  local migration_parallel_8x_end=$(get_timestamp)
+  local migration_parallel_8x_duration=$((migration_parallel_8x_end - migration_parallel_8x_start))
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x]" "$migration_parallel_8x_duration"
 
   #========
 
@@ -1820,7 +1829,7 @@ run_scenario() {
   local drain_node_start=$(get_timestamp)
   drain_node
   local drain_stats_end=$(get_timestamp)
-  local drain_stats_duration=$((drain_stats_end - drain_stats_start))
+  local drain_stats_duration=$((drain_stats_end - drain_node_start))
   log_info "Drain node completed in $(format_duration $drain_stats_duration)"
   log_step_end "Drain node" "$drain_stats_duration"
 
@@ -1850,7 +1859,8 @@ run_scenario() {
     "$deploy_remaining_duration" "$vm_stats_duration" "$vm_ops_duration" \
     "$vm_ops_stop_duration" "$vm_ops_start_vm_duration" "$migration_duration" \
     "$cleanup_ops_duration" "$migration_percent_duration" "$controller_duration" \
-    "$final_stats_duration" "$drain_stats_duration" "$final_cleanup_duration"
+    "$final_stats_duration" "$drain_stats_duration" "$final_cleanup_duration" \
+    "$migration_parallel_2x_duration" "$migration_parallel_4x_duration" "$migration_parallel_8x_duration"
   
   # Summary of all step durations
   log_info "=== Scenario $scenario_name Duration Summary ==="
@@ -1872,6 +1882,9 @@ run_scenario() {
   log_duration "Final Statistics" "$final_stats_duration"
   log_duration "Drain node" "$drain_stats_duration"
   log_duration "Final Cleanup" "$final_cleanup_duration"
+  log_duration "Migration parallelMigrationsPerCluster 2x nodes" "$migration_parallel_2x_duration"
+  log_duration "Migration parallelMigrationsPerCluster 4x nodes" "$migration_parallel_4x_duration"
+  log_duration "Migration parallelMigrationsPerCluster 8x nodes" "$migration_parallel_8x_duration"
   log_duration "Total Scenario Duration" "$duration"
   log_info "=== End Duration Summary ==="
 }
