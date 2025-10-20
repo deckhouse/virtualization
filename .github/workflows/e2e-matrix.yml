@@ -416,7 +416,7 @@ jobs:
         working-directory: ci/dvp-e2e
         run: |
           echo "🧹 Cleaning up test namespaces..."
-          task cleanup:namespaces \
+          task cleanup:cleanup:namespaces \
             FILTER_PREFIX="nightly-nested-e2e-"
 
       - name: Report cleanup results
