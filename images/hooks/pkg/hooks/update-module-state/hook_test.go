@@ -175,7 +175,7 @@ var _ = Describe("Update Module State hook", func() {
 			Expect(patchCollector.PatchWithMergeMock.Calls()).To(HaveLen(0))
 		})
 
-		It("should update module-state secret when it exists but has wrong value", func() {
+		It("should keep historical record when vmclass doesn't exist but module-state indicates it was created", func() {
 			moduleStateData := map[string]interface{}{
 				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("true")),
 			}
@@ -189,24 +189,11 @@ var _ = Describe("Update Module State hook", func() {
 				}),
 			})
 
-			patchCollector.PatchWithMergeMock.Set(func(obj interface{}, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
-				patchData, ok := obj.(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				Expect(patchData).To(HaveKey("data"))
-
-				data, ok := patchData["data"].(map[string]string)
-				Expect(ok).To(BeTrue())
-				Expect(data).To(HaveKey("generic-vmclass-created"))
-
-				decoded, err := base64.StdEncoding.DecodeString(data["generic-vmclass-created"])
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(decoded)).To(Equal("false"))
-			})
-
+			patchCollector.PatchWithMergeMock.Optional()
 			patchCollector.CreateMock.Optional()
 
 			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.PatchWithMergeMock.Calls()).To(HaveLen(1))
+			Expect(patchCollector.PatchWithMergeMock.Calls()).To(HaveLen(0))
 			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
 		})
 	})

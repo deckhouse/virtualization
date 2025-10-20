@@ -134,15 +134,14 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		needsUpdate = true
 		input.Logger.Info("Generic VirtualMachineClass exists but module-state doesn't reflect this, updating secret")
 	} else if !vmClassExists && currentState {
-		needsUpdate = true
-		input.Logger.Info("Generic VirtualMachineClass doesn't exist but module-state indicates it was created, updating secret")
+		input.Logger.Info("Generic VirtualMachineClass doesn't exist but module-state indicates it was created previously - keeping historical record")
 	} else if len(moduleStateSecrets) == 0 {
 		needsUpdate = true
 		input.Logger.Info("Module-state secret doesn't exist, creating it")
 	} else if vmClassExists && currentState {
-		input.Logger.Info("Module-state correctly reflects that generic vmclass exists")
+		input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass exists")
 	} else {
-		input.Logger.Info("Module-state correctly reflects that generic vmclass doesn't exist")
+		input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass doesn't exist")
 	}
 
 	if needsUpdate {

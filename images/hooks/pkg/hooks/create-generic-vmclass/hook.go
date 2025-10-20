@@ -96,7 +96,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
 						if string(decodedBytes) == "true" {
 							shouldCreateVMClass = true
-							input.Logger.Info("Found record in module-state that generic vmclass was created previously")
+							input.Logger.Info("Found record in module-state that generic VirtualMachineClass was created previously")
 						}
 					}
 				}
@@ -107,7 +107,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	vmClassExists := len(vmClasses) > 0
 
 	if shouldCreateVMClass && !vmClassExists {
-		input.Logger.Info("Creating generic VirtualMachineClass as it was previously created but is now missing")
+		input.Logger.Info("Creating generic VirtualMachineClass")
 
 		vmClass := &v1alpha2.VirtualMachineClass{
 			TypeMeta: metav1.TypeMeta{
@@ -168,7 +168,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	} else if shouldCreateVMClass && vmClassExists {
 		input.Logger.Info("Generic VirtualMachineClass already exists, no action needed")
 	} else if !shouldCreateVMClass && !vmClassExists {
-		input.Logger.Info("No record of generic vmclass creation in module-state, skipping creation")
+		input.Logger.Info("No record of generic VirtualMachineClass creation in module-state, skipping creation")
 	}
 
 	return nil
