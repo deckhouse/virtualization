@@ -63,8 +63,6 @@ jobs:
         run: |
           echo "Will test profiles: ${{ steps.load.outputs.profiles }}"
 
-  # validate job removed
-
   # ============================================
   # 2. E2E - Parallel test execution
   # ============================================
@@ -206,16 +204,47 @@ jobs:
           set -euo pipefail
           docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
 
+      - name: Prepare run values.yaml
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧩 Preparing values for: ${{ env.RUN_ID }}"
+          task run:values:prepare \
+            RUN_ID="${{ env.RUN_ID }}" \
+            RUN_NAMESPACE="${{ env.RUN_ID }}" \
+            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
+
+      - name: Install infra (namespace/RBAC/jump-host)
+        working-directory: ci/dvp-e2e
+        run: |
+          task infra-deploy \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="cloud"
+
       - name: Bootstrap nested cluster
         working-directory: ci/dvp-e2e
         run: |
-          echo "🚀 Starting cluster bootstrap for profile: ${{ matrix.profile }}"
-          task nested:cluster:create \
-            RUN_ID="${{ env.RUN_ID }}" \
-            RUN_NAMESPACE="${{ env.RUN_ID }}" \
-            STORAGE_PROFILE="${{ matrix.profile }}" \
+          echo "🚀 dhctl bootstrap (profile: ${{ matrix.profile }})"
+          task dhctl-bootstrap \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="cloud"
+            SSH_FILE_NAME="cloud" \
+            TARGET_STORAGE_CLASS="${STORAGE_CLASS}"
+
+      - name: Build nested kubeconfig
+        working-directory: ci/dvp-e2e
+        run: |
+          task nested:kubeconfig \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            PARENT_KUBECONFIG="${KUBECONFIG}"
 
       - name: Configure storage classes
         working-directory: ci/dvp-e2e

@@ -1,129 +1,43 @@
 version: "3"
 dotenv:
-  - ".env"
-
-includes:
-  infra:
-    taskfile: ./tasks/infra.yaml
-  cluster:
-    taskfile: ./tasks/cluster.yaml
-  storage:
-    taskfile: ./tasks/storage.yaml
-  testing:
-    taskfile: ./tasks/testing.yaml
-  cleanup:
-    taskfile: ./tasks/cleanup.yaml
-  loop:
-    taskfile: ./tasks/loop.yaml
+  - .env
 
 vars:
-  REPO_ROOT:
-    sh: git rev-parse --show-toplevel 2>/dev/null || pwd
-  TMP_ROOT: '{{ printf "%s/tmp" .REPO_ROOT }}'
-  SHARED_DIR: '{{ printf "%s/%s" .TMP_ROOT "shared" }}'
-  PARENT_KUBECONFIG_FILE: '{{ printf "%s/shared/parent-admin.conf" .TMP_ROOT }}'
+  # Paths and defaults
+  TMP_ROOT:
+    sh: git rev-parse --show-toplevel 2>/dev/null | xargs -I{} printf "%s/ci/dvp-e2e/tmp" {}
   VALUES_TEMPLATE_FILE: values.yaml
   SSH_FILE_NAME: cloud
-  LOOP_WEBHOOK: "{{ .LOOP_WEBHOOK }}"
-  LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-  # Helm charts paths
-  INFRA_CHART_PATH: "./charts/infra"
-  CLUSTER_CONFIG_CHART_PATH: "./charts/cluster-config"
-  SUPPORT_CHART_PATH: "./charts/support"
+
+  # Charts
+  INFRA_CHART_PATH: ./charts/infra
+  CLUSTER_CONFIG_CHART_PATH: ./charts/cluster-config
 
 tasks:
+  # ------------------------------------------------------------
+  # Preflight
+  # ------------------------------------------------------------
   default:
     silent: true
-    desc: Preflight / Check if all dependencies are installed
+    desc: Check required utilities
     cmds:
       - |
-        deps=("kubectl" "jq" "yq" "docker" "helm" "htpasswd" "ssh-keygen" "ssh" "curl" "d8" "openssl")
+        deps=("kubectl" "jq" "yq" "docker" "helm" "htpasswd" "ssh-keygen" "curl" "d8" "openssl")
         for dep in "${deps[@]}"; do
           if ! command -v "$dep" >/dev/null 2>&1; then
-            echo "Required utility '$dep' not found!"
+            echo "Required utility '$dep' not found!" >&2
             exit 1
           fi
         done
         echo "All dependencies are installed!"
 
-  # ============================================
-  # Modular task shortcuts
-  # ============================================
-
-  infra:
-    desc: Run infrastructure tasks
-    cmds:
-      - task: infra:storage:prepare STORAGE_PROFILE="{{ .STORAGE_PROFILE | default 'sds' }}"
-      - task: infra:registry:setup
-      - task: infra:network:prepare
-
-  cluster:
-    desc: Run cluster management tasks
-    cmds:
-      - task: cluster:deploy
-      - task: cluster:status:check
-
-  storage:
-    desc: Run storage tasks
-    cmds:
-      - task: storage:profile:validate STORAGE_PROFILE="{{ .STORAGE_PROFILE | default 'sds' }}"
-      - task: storage:class:create STORAGE_PROFILE="{{ .STORAGE_PROFILE | default 'sds' }}"
-
-  testing:
-    desc: Run testing tasks
-    cmds:
-      - task: test:e2e:run
-      - task: test:results:collect
-
-  cleanup:
-    desc: Run cleanup tasks
-    cmds:
-      - task: cleanup:complete
-
-  # ============================================
-  # Helm chart management
-  # ============================================
-
-  helm:infra:install:
-    desc: Install infrastructure Helm chart
-    vars:
-      NAMESPACE: '{{ .NAMESPACE | default "default" }}'
-      VALUES_FILE: '{{ .VALUES_FILE | default "charts/infra/values.yaml" }}'
-    cmds:
-      - helm upgrade --install infra {{ .INFRA_CHART_PATH }} -n {{ .NAMESPACE }} -f {{ .VALUES_FILE }}
-
-  helm:cluster-config:install:
-    desc: Install cluster-config Helm chart
-    vars:
-      NAMESPACE: '{{ .NAMESPACE | default "default" }}'
-      VALUES_FILE: '{{ .VALUES_FILE | default "charts/cluster-config/values.yaml" }}'
-    cmds:
-      - helm upgrade --install cluster-config {{ .CLUSTER_CONFIG_CHART_PATH }} -n {{ .NAMESPACE }} -f {{ .VALUES_FILE }}
-
-  helm:support:install:
-    desc: Install support Helm chart
-    vars:
-      NAMESPACE: '{{ .NAMESPACE | default "default" }}'
-      VALUES_FILE: '{{ .VALUES_FILE | default "charts/support/values.yaml" }}'
-    cmds:
-      - helm upgrade --install support {{ .SUPPORT_CHART_PATH }} -n {{ .NAMESPACE }} -f {{ .VALUES_FILE }}
-
-  helm:all:install:
-    desc: Install all Helm charts
-    cmds:
-      - task: helm:infra:install
-      - task: helm:cluster-config:install
-      - task: helm:support:install
-
   password-gen:
-    desc: Preflight / Generate password for admin@deckhouse.io user
+    desc: Generate password (openssl + bcrypt)
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       PASSWORD_FILE: '{{ printf "%s/%s" .TMP_DIR "password.txt" }}'
       PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
     cmds:
-      - |
-        echo "[render-kubeconfig] using {{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
       - mkdir -p {{ .TMP_DIR }}
       - openssl rand -base64 20 > {{ .PASSWORD_FILE }}
       - |
@@ -134,7 +48,7 @@ tasks:
       - test -f "{{ .PASSWORD_HASH_FILE }}"
 
   ssh-gen:
-    desc: Preflight / Generate ssh keypair for jump-host
+    desc: Generate ssh keypair for jump-host
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
@@ -148,14 +62,15 @@ tasks:
     status:
       - test -f "{{ .SSH_PRIV_KEY_FILE }}"
 
+  # ------------------------------------------------------------
+  # Values per run (namespaces, domain, prefix)
+  # ------------------------------------------------------------
   run:values:prepare:
-    internal: true
+    desc: Prepare values.yaml for the run
     vars:
       RUN_ID: "{{ .RUN_ID }}"
       RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      RUN_CLUSTER_PREFIX: '{{ or .RUN_CLUSTER_PREFIX "" }}'
-      RUN_DIR: "{{ .RUN_DIR }}"
+      RUN_DIR: '{{ .RUN_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
       TARGET_VALUES_FILE: '{{ printf "%s/%s" .RUN_DIR "values.yaml" }}'
       BASE_DOMAIN:
         sh: yq eval '.domain // ""' {{ .VALUES_TEMPLATE_FILE }}
@@ -167,45 +82,33 @@ tasks:
       - yq eval --inplace '.namespace = "{{ .RUN_NAMESPACE }}"' {{ .TARGET_VALUES_FILE }}
       - |
         set -euo pipefail
-        DOMAIN_INPUT="{{ .RUN_DOMAIN }}"
-        BASE_DOMAIN="{{ .BASE_DOMAIN }}"
-        if [ -z "$DOMAIN_INPUT" ]; then
-          if [ -n "$BASE_DOMAIN" ]; then
-            DOMAIN_INPUT="{{ .RUN_ID }}.$BASE_DOMAIN"
-          else
-            DOMAIN_INPUT="{{ .RUN_ID }}"
-          fi
+        DOMAIN_INPUT="{{ .BASE_DOMAIN }}"
+        if [ -n "$DOMAIN_INPUT" ]; then
+          DOMAIN_VAL="{{ .RUN_ID }}.$DOMAIN_INPUT"
+        else
+          DOMAIN_VAL="{{ .RUN_ID }}"
         fi
-        export DOMAIN_INPUT
-        yq eval --inplace '.domain = strenv(DOMAIN_INPUT)' {{ .TARGET_VALUES_FILE }}
+        export DOMAIN_VAL
+        yq eval --inplace '.domain = strenv(DOMAIN_VAL)' {{ .TARGET_VALUES_FILE }}
       - |
         set -euo pipefail
-
-        PREFIX_INPUT="{{ .RUN_CLUSTER_PREFIX }}"
-        BASE_PREFIX="{{ .BASE_CLUSTER_PREFIX }}"
-        if [ -z "$PREFIX_INPUT" ]; then
-
-          if command -v shasum >/dev/null 2>&1; then
-            RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | shasum | awk '{print $1}' | cut -c1-6)
-          else
-            RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | sha1sum 2>/dev/null | awk '{print $1}' | cut -c1-6)
-          fi
-          PREFIX_INPUT="${BASE_PREFIX}-${RUN_ID_HASH}"
+        if command -v shasum >/dev/null 2>&1; then
+          RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | shasum | awk '{print $1}' | cut -c1-6)
+        else
+          RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | sha1sum 2>/dev/null | awk '{print $1}' | cut -c1-6)
         fi
-
-        if [ ${#PREFIX_INPUT} -gt 16 ]; then
-          PREFIX_INPUT="${PREFIX_INPUT:0:16}"
-        fi
+        PREFIX_INPUT="{{ .BASE_CLUSTER_PREFIX }}-${RUN_ID_HASH}"
+        [ ${#PREFIX_INPUT} -gt 16 ] && PREFIX_INPUT="${PREFIX_INPUT:0:16}"
         export PREFIX_INPUT
         yq eval --inplace '.clusterConfigurationPrefix = strenv(PREFIX_INPUT)' {{ .TARGET_VALUES_FILE }}
 
+  # ------------------------------------------------------------
+  # Infra manifests and deployment
+  # ------------------------------------------------------------
   render-infra:
-    desc: Preparation / Generate infra manifests
+    desc: Generate infra manifests
     deps:
-      - task: ssh-gen
-        vars:
-          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
+      - ssh-gen
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
@@ -214,15 +117,9 @@ tasks:
       SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
       DOMAIN:
         sh: yq eval '.domain // ""' {{ .VALUES_FILE }}
-    sources:
-      - "./charts/infra/**/*"
-      - "{{ .VALUES_FILE }}"
-    generates:
-      - "{{ .TMP_DIR }}/infra.yaml"
     env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
-      - cmd: 'echo "[render-kubeconfig] using {{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"'
       - mkdir -p {{ .TMP_DIR }}
       - printf "" > {{ .GENERATED_VALUES_FILE }}
       - |
@@ -233,173 +130,90 @@ tasks:
         if [ -n "$DOMAIN_VALUE" ] && [ "$DOMAIN_VALUE" != "null" ]; then
           export DOMAIN_VALUE
           yq eval --inplace '.domain = env(DOMAIN_VALUE)' {{ .GENERATED_VALUES_FILE }}
-          echo "[INFO] DOMAIN set to $DOMAIN_VALUE"
-        else
-          echo "[WARN] DOMAIN is empty; leaving .domain unchanged"
         fi
-      - helm template dvp-over-dvp-infra ./charts/infra -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/infra.yaml
+      - helm template dvp-over-dvp-infra {{ .INFRA_CHART_PATH }} -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/infra.yaml
 
   infra-deploy:
-    desc: Deploy infra (Namespace/RBAC/Jumphost)
+    desc: Deploy infra (Namespace/RBAC/Jump-host)
     deps:
-      - task: render-infra
-        vars:
-          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-          VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
+      - render-infra
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       NAMESPACE:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
-      start_time:
-        sh: date +%s
     env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
       - kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
-      - |
-        set -euo pipefail
-        if ! kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s; then
-          echo "[DIAG] jump-host not Ready within timeout. Collecting diagnostics..." >&2
-          echo "[DIAG] pods (jump-host):" >&2
-          kubectl -n {{ .NAMESPACE }} get pods -l app=jump-host -o wide || true
-          echo "[DIAG] describe (jump-host pods):" >&2
-          kubectl -n {{ .NAMESPACE }} describe pod -l app=jump-host || true
-          echo "[DIAG] logs (deployment/jump-host, last 200 lines):" >&2
-          kubectl -n {{ .NAMESPACE }} logs deploy/jump-host --tail=200 || true
-          exit 1
-        fi
-      # nfs-server is no longer part of infra; no wait needed
-      - |
-        end_time=$(date +%s)
-        difference=$((end_time - {{ .start_time }}))
-        hours=$((difference/3600))
-        minutes=$(((difference%3600)/60))
-        seconds=$((difference%60))
-        printf 'Infra deployment time: %02d:%02d:%02d\n' "$hours" "$minutes" "$seconds"
+      - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
 
-
-  infra-undeploy:
-    desc: Destroy infra (Namespace/RBAC/Jumphost/...)
-    vars:
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-      NAMESPACE:
-        sh: |
-          if [ -n "{{ .NAMESPACE }}" ]; then
-            echo "{{ .NAMESPACE }}"
-          else
-            yq eval '.namespace' {{ .VALUES_FILE }}
-          fi
-    env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-    cmds:
-      - kubectl delete -f {{ .TMP_DIR }}/infra.yaml || true
-      - ./scripts/undeploy-finalizers.sh {{ .NAMESPACE }} {{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}
-      - rm -rf {{ .TMP_DIR }}
-
+  # ------------------------------------------------------------
+  # Kubeconfig for bootstrap and cluster config
+  # ------------------------------------------------------------
   render-kubeconfig:
-    desc: Preparation / Generate kubeconfig (infra required)
+    desc: Generate kubeconfig for bootstrap
     deps:
-      - task: password-gen
-        vars:
-          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      - password-gen
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-      GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
-      PASSWORD_FILE: '{{ printf "%s/%s" .TMP_DIR "password.txt" }}'
-      PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
       NAMESPACE:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
       SERVER:
         sh: |
-          export KUBECONFIG="{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
           HOST=$(kubectl -n d8-user-authn get ingress kubernetes-api -o json | jq -r '.spec.rules[0].host')
-          if [ -z "$HOST" ] || [ "$HOST" = "null" ]; then
-            echo "[ERR] Unable to detect kubernetes-api ingress host" >&2
-            exit 1
-          fi
+          [ -z "$HOST" -o "$HOST" = "null" ] && { echo "[ERR] kubernetes-api ingress host not found" >&2; exit 1; }
           echo "https://$HOST"
       TOKEN:
         sh: |
-          export KUBECONFIG="{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
           for i in $(seq 1 5); do
             TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null) && break
             echo "[WARN] Failed to issue SA token (attempt $i); retrying in 3s" >&2
             sleep 3
           done
-          if [ -z "${TOKEN:-}" ]; then
-            echo "[ERR] Unable to obtain token for dkp-sa" >&2
-            exit 1
-          fi
+          [ -z "${TOKEN:-}" ] && { echo "[ERR] Unable to obtain token for dkp-sa" >&2; exit 1; }
           echo "$TOKEN"
     env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     silent: true
     cmds:
-      - cmd: 'echo "[render-kubeconfig] using {{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"'
       - mkdir -p {{ .TMP_DIR }}
       - |
-        {
-          echo 'apiVersion: v1'
-          echo 'clusters:'
-          echo '- cluster:'
-          echo '    server: {{ .SERVER }}'
-          echo '    insecure-skip-tls-verify: true'
-          echo '  name: dvp'
-          echo 'contexts:'
-          echo '- context:'
-          echo '    cluster: dvp'
-          echo '    namespace: {{ .NAMESPACE }}'
-          echo '    user: {{ .NAMESPACE }}@dvp'
-          echo '  name: {{ .NAMESPACE }}@dvp'
-          echo 'current-context: {{ .NAMESPACE }}@dvp'
-          echo 'kind: Config'
-          echo 'preferences: {}'
-          echo 'users:'
-          echo '- name: {{ .NAMESPACE }}@dvp'
-          echo '  user:'
-          echo '    token: {{ .TOKEN }}'
-        } > {{ .TMP_DIR }}/kubeconfig.yaml
+        cat <<EOF > {{ .TMP_DIR }}/kubeconfig.yaml
+        apiVersion: v1
+        clusters:
+        - cluster:
+            server: {{ .SERVER }}
+            insecure-skip-tls-verify: true
+          name: dvp
+        contexts:
+        - context:
+            cluster: dvp
+            namespace: {{ .NAMESPACE }}
+            user: {{ .NAMESPACE }}@dvp
+          name: {{ .NAMESPACE }}@dvp
+        current-context: {{ .NAMESPACE }}@dvp
+        kind: Config
+        preferences: {}
+        users:
+        - name: {{ .NAMESPACE }}@dvp
+          user:
+            token: {{ .TOKEN }}
+        EOF
 
   render-cluster-config:
-    desc: Preparation / Generate cluster config (infra required)
+    desc: Generate cluster config (helm template)
     deps:
-      - task: render-kubeconfig
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          VALUES_FILE: "{{ .VALUES_FILE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
-      - task: password-gen
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
+      - render-kubeconfig
+      - password-gen
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
-      PASSWORD_FILE: '{{ printf "%s/%s" .TMP_DIR "password.txt" }}'
       PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
-      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "hostpath-immediate" }}'
-      SSH_FILE_NAME: '{{ .SSH_FILE_NAME | default "cloud" }}'
-      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
-      SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
-    sources:
-      - "./charts/cluster-config/**/*"
-      - "{{ .VALUES_FILE }}"
-    generates:
-      - "{{ .TMP_DIR }}/generated-values.yaml"
-      - "{{ .TMP_DIR }}/config.yaml"
-    env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
     cmds:
-      - mkdir -p {{ .TMP_DIR }}
       - printf "" > {{ .GENERATED_VALUES_FILE }}
-      - |
-        export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
-        yq eval --inplace '.sshPublicKey = env(SSH_PUB_KEY)' {{ .GENERATED_VALUES_FILE }}
       - |
         export PASSWORD_HASH="$(cat {{ .PASSWORD_HASH_FILE }})"
         yq eval --inplace '.passwordHash = env(PASSWORD_HASH)' {{ .GENERATED_VALUES_FILE }}
@@ -407,58 +221,39 @@ tasks:
         export NEW_KUBECONFIG_B64="$(cat {{ .TMP_DIR }}/kubeconfig.yaml | base64 | tr -d '\n')"
         yq eval --inplace '.kubeconfigDataBase64 = env(NEW_KUBECONFIG_B64)' {{ .GENERATED_VALUES_FILE }}
       - |
-        # Optionally inject registry Docker config from environment into values
         if [ -n "${REGISTRY_DOCKER_CFG:-}" ]; then
           yq eval --inplace '.deckhouse.registryDockerCfg = env(REGISTRY_DOCKER_CFG)' {{ .GENERATED_VALUES_FILE }}
-          echo "[INFO] Applied REGISTRY_DOCKER_CFG into generated values"
-        else
-          echo "[INFO] REGISTRY_DOCKER_CFG not set; leaving deckhouse.registryDockerCfg unchanged"
         fi
       - |
-
-        export CP_SC='{{ .TARGET_STORAGE_CLASS }}'
-        yq eval --inplace '.storageClasses.controlPlane.root = env(CP_SC)' {{ .GENERATED_VALUES_FILE }}
-        yq eval --inplace '.storageClasses.controlPlane.etcd = env(CP_SC)' {{ .GENERATED_VALUES_FILE }}
-      - |
-        # Ensure infra storageClass is explicitly set to avoid relying on parent's default SC
-        if [ -n "{{ .TARGET_STORAGE_CLASS }}" ]; then
-          export NFS_SC='{{ .TARGET_STORAGE_CLASS }}'
-          yq eval --inplace '.storageClass = env(NFS_SC)' {{ .GENERATED_VALUES_FILE }}
+        if [ -n "{{ .TARGET_STORAGE_CLASS | default "" }}" ]; then
+          export _SC='{{ .TARGET_STORAGE_CLASS }}'
+          yq eval --inplace '.storageClass = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.controlPlane.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.controlPlane.etcd = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.workers.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.workers.data = env(_SC)' {{ .GENERATED_VALUES_FILE }}
         fi
-      - |
-
-        export WK_SC='{{ .TARGET_STORAGE_CLASS }}'
-        yq eval --inplace '.storageClasses.workers.root = env(WK_SC)' {{ .GENERATED_VALUES_FILE }}
-        yq eval --inplace '.storageClasses.workers.data = env(WK_SC)' {{ .GENERATED_VALUES_FILE }}
-      - helm template dvp-over-dvp-cluster-config ./charts/cluster-config -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
+      - helm template dvp-over-dvp-cluster-config {{ .CLUSTER_CONFIG_CHART_PATH }} -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
 
   dhctl-bootstrap:
     desc: Bootstrap Deckhouse over DVP
     deps:
-      - task: render-cluster-config
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          VALUES_FILE: "{{ .VALUES_FILE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
-          TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
+      - render-cluster-config
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
       SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
-      GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
       NAMESPACE:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
       DEFAULT_USER:
         sh: yq eval '.image.defaultUser' {{ .VALUES_FILE }}
-      start_time:
-        sh: date +%s
       JUMPHOST_EXT_IP:
-        sh: export KUBECONFIG="{{ .PARENT_KUBECONFIG }}"; kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short | tr -d '\r'
+        sh: kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short | tr -d '\r'
       JUMPHOST_NODEPORT:
-        sh: export KUBECONFIG="{{ .PARENT_KUBECONFIG }}"; kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
+        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
     env:
-      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
       - |
         set -euo pipefail
@@ -479,434 +274,10 @@ tasks:
             --preflight-skip-registry-credential \
             --preflight-skip-deckhouse-edition-check \
             {{.CLI_ARGS}}
-      - |
-        docker image rm dev-registry.deckhouse.io/sys/deckhouse-oss/install:main >/dev/null 2>&1 || true
-      - |
-        end_time=$(date +%s)
-        difference=$((end_time - {{ .start_time }}))
-        echo "Bootstrap time: $(awk -v t=$difference 'BEGIN{printf \"%02d:%02d:%02d\", t/3600, (t%3600)/60, t%60}')"
 
-  show-connection-info:
-    desc: Show connection info
-    silent: true
-    vars:
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-      PASSWORD_FILE: '{{ printf "%s/%s" .TMP_DIR "password.txt" }}'
-      NAMESPACE:
-        sh: yq eval '.namespace' {{ .VALUES_FILE }}
-      DOMAIN:
-        sh: yq eval '.domain // ""' {{ .VALUES_FILE }}
-    cmds:
-      - cmd: 'echo "Connect to master: task ssh-to-master"'
-      - cmd: 'echo "Grafana URL https://grafana.{{ .NAMESPACE }}.{{ .DOMAIN }}"'
-      - cmd: 'echo "Default user/password admin@deckhouse.io/$(cat {{ .PASSWORD_FILE }})"'
-
-  install:
-    desc: Full installation workflow (cleanup + bootstrap)
-    vars:
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-      NAMESPACE:
-        sh: yq eval '.namespace' {{ .VALUES_FILE }}
-      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "" }}'
-    cmds:
-      - task: infra-deploy
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          VALUES_FILE: "{{ .VALUES_FILE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-      - |
-        set -euo pipefail
-
-        export KUBECONFIG='{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}'
-        SC='{{ .TARGET_STORAGE_CLASS | default "hostpath-immediate" }}'
-        if [ "$SC" = "hostpath-immediate" ]; then
-          if ! kubectl get sc hostpath-immediate >/dev/null 2>&1; then
-            SC_MANIFEST=$'apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: hostpath-immediate\nprovisioner: deckhouse.io/host-path\nreclaimPolicy: Delete\nvolumeBindingMode: Immediate\nallowVolumeExpansion: true\nparameters:\n  type: DirectoryOrCreate'
-            printf '%s\n' "$SC_MANIFEST" | kubectl apply -f -
-          fi
-        else
-          if ! kubectl get sc "$SC" >/dev/null 2>&1; then
-            echo "[ERR] Required StorageClass '$SC' not found in parent cluster; configure it before install." >&2
-            exit 1
-          fi
-        fi
-      - task: dhctl-bootstrap
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          VALUES_FILE: "{{ .VALUES_FILE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
-      - task: show-connection-info
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          VALUES_FILE: "{{ .VALUES_FILE }}"
-
-
-
-
-
-  cleanup:namespaces:safe:
-    desc: Safely delete old dvp-e2e-* namespaces that belong to this project
-    vars:
-      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "dvp-e2e-" }}'
-      CONFIRM: '{{ .CONFIRM | default "false" }}'
-    env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-    cmds:
-      - |
-        set -euo pipefail
-
-        if [ -z "${KUBECONFIG:-}" ] || [ ! -s "${KUBECONFIG}" ]; then
-          echo "[ENSURE] Parent kubeconfig missing; attempting to build scoped kubeconfig..."
-          task parent:kubeconfig:ensure-scoped OUTPUT_FILE='{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}'
-          export KUBECONFIG='{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}'
-        fi
-        if [ -z "${KUBECONFIG:-}" ] || [ ! -s "${KUBECONFIG}" ]; then
-          echo "[ERR] Unable to ensure parent kubeconfig; set PARENT_KUBECONFIG or check access to parent cluster." >&2
-          exit 1
-        fi
-        echo "[SCAN] Searching namespaces with prefix '{{ .FILTER_PREFIX }}' and deployment 'jump-host'"
-        declare -a candidates=()
-        mapfile -t candidates < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
-        ours=()
-        for ns in "${candidates[@]:-}"; do
-          [ -z "${ns:-}" ] && continue
-          if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
-            ours+=("$ns")
-          fi
-        done
-        if [ ${#ours[@]} -eq 0 ]; then
-          echo "[INFO] No namespaces to delete."
-          exit 0
-        fi
-        echo "[MATCH] Will delete the following namespaces (detected as ours):"
-        printf ' - %s\n' "${ours[@]}"
-        if [ "{{ .CONFIRM }}" != "true" ]; then
-          echo "[SAFE] Dry-run only. Re-run with CONFIRM=true to delete."
-          echo "Example: task cleanup:namespaces:safe CONFIRM=true"
-          exit 0
-        fi
-        for ns in "${ours[@]}"; do
-          echo "[DEL] Deleting namespace $ns"
-          kubectl delete ns "$ns" --wait=false || true
-          echo "[WAIT] Waiting for delete $ns (polling)"
-          sleep 3
-          ./scripts/undeploy-finalizers.sh "$ns" || true
-        done
-
-  __ssh-command:
-    silent: true
-    internal: true
-    vars:
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
-      SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
-      DEFAULT_USER:
-        sh: yq eval '.image.defaultUser' {{ .VALUES_FILE }}
-      NAMESPACE:
-        sh: yq eval '.namespace' {{ .VALUES_FILE }}
-      MASTER_NAME:
-        sh: kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}'
-    cmds:
-      - /usr/bin/ssh -t -i {{ .SSH_PRIV_KEY_FILE }} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true {{ .MASTER_NAME }}.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@{{ .MASTER_NAME }} {{ .CMD }}
-
-  parent:sa:token:
-    desc: Issue short-lived SA token in parent cluster
-    env:
-      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
-    cmds:
-      - mkdir -p {{ .SHARED_DIR }}
-      - |
-        kubectl apply --validate=false -f - <<'EOF'
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: parent-e2e
-          namespace: kube-system
-        ---
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: ClusterRoleBinding
-        metadata:
-          name: parent-e2e-admin
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: ClusterRole
-          name: cluster-admin
-        subjects:
-        - kind: ServiceAccount
-          name: parent-e2e
-          namespace: kube-system
-        EOF
-      - |
-        set -euo pipefail
-        for i in $(seq 1 5); do
-          TOKEN=$(kubectl -n kube-system create token parent-e2e --duration=6h 2>/dev/null) && break || {
-            echo "[WARN] create token failed (try $i), retry in 3s"; sleep 3;
-          }
-        done
-        if [ -z "${TOKEN:-}" ]; then
-          echo "[ERR] failed to create token after retries"
-          exit 1
-        fi
-        echo -n "$TOKEN" > {{ .PARENT_TOKEN_FILE }}
-        echo "[OK] saved {{ .PARENT_TOKEN_FILE }}"
-
-  parent:kubeconfig:scoped-from-ingress:
-    desc: Build parent kubeconfig via ingress + SA token into a specific file (scoped per run)
-    vars:
-      OUTPUT_FILE: "{{ .OUTPUT_FILE }}"
-      PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
-      PARENT_USER: '{{ .PARENT_USER | default "" }}'
-      PARENT_SSH_KEY: '{{ .PARENT_SSH_KEY | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .OUTPUT_FILE }}" ]; then echo "[ERR] set OUTPUT_FILE=<path>" >&2; exit 1; fi
-        if [ -z "{{ .PARENT_HOST }}" ] || [ -z "{{ .PARENT_USER }}" ]; then echo "[ERR] set PARENT_HOST and PARENT_USER variables" >&2; exit 1; fi
-        mkdir -p "$(dirname '{{ .OUTPUT_FILE }}')"
-        SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        [ -n "{{ .PARENT_SSH_KEY }}" ] && SSH_OPTS="$SSH_OPTS -i {{ .PARENT_SSH_KEY }}"
-        INGRESS_HOST="$(ssh $SSH_OPTS {{ .PARENT_USER }}@{{ .PARENT_HOST }} 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf -n d8-user-authn get ingress kubernetes-api -o jsonpath={.spec.rules[0].host}')"
-        if [ -z "$INGRESS_HOST" ]; then echo "[ERR] failed to read ingress host (kubernetes-api)" >&2; exit 1; fi
-        ssh $SSH_OPTS {{ .PARENT_USER }}@{{ .PARENT_HOST }} 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f -' <<'EOF'
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: parent-e2e
-          namespace: kube-system
-        ---
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: ClusterRoleBinding
-        metadata:
-          name: parent-e2e-admin
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: ClusterRole
-          name: cluster-admin
-        subjects:
-        - kind: ServiceAccount
-          name: parent-e2e
-          namespace: kube-system
-        EOF
-        TOKEN=""
-        for i in $(seq 1 5); do
-          TOKEN=$(ssh $SSH_OPTS {{ .PARENT_USER }}@{{ .PARENT_HOST }} 'sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-system create token parent-e2e --duration=6h' 2>/dev/null) && break || { echo "[WARN] token not ready (try $i); sleep 3"; sleep 3; }
-        done
-        if [ -z "${TOKEN:-}" ]; then echo "[ERR] failed to obtain SA token" >&2; exit 1; fi
-        echo "[INFO] Writing kubeconfig to {{ .OUTPUT_FILE }}"
-        : > {{ .OUTPUT_FILE }}
-        printf '%s\n' 'apiVersion: v1' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'kind: Config' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'clusters:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '- cluster:' >> {{ .OUTPUT_FILE }}
-        printf '    server: https://%s\n' "$INGRESS_HOST" >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '    insecure-skip-tls-verify: true' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '  name: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'contexts:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '- context:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '    cluster: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '    user: sa' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '  name: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'current-context: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'users:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '- name: sa' >> {{ .OUTPUT_FILE }}
-        printf '  user:\n    token: %s\n' "$TOKEN" >> {{ .OUTPUT_FILE }}
-        chmod 600 {{ .OUTPUT_FILE }}
-        KUBECONFIG={{ .OUTPUT_FILE }} kubectl cluster-info
-
-  parent:kubeconfig:ensure:
-    desc: Universal parent kubeconfig builder - tries SOURCE_KUBECONFIG → current context → SSH
-    vars:
-      SOURCE_KUBECONFIG: '{{ .SOURCE_KUBECONFIG | default "" }}'
-      PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
-      PARENT_USER: '{{ .PARENT_USER | default "" }}'
-      PARENT_SSH_KEY: '{{ .PARENT_SSH_KEY | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        echo "[ENSURE] Building parent kubeconfig..."
-
-        if [ -n "{{ .SOURCE_KUBECONFIG }}" ] && [ -s "{{ .SOURCE_KUBECONFIG }}" ] && [ $(wc -c < "{{ .SOURCE_KUBECONFIG }}") -gt 32 ]; then
-          if kubectl --kubeconfig="{{ .SOURCE_KUBECONFIG }}" -n d8-user-authn get ingress kubernetes-api -o name >/dev/null 2>&1; then
-            echo "[ENSURE] Using SOURCE_KUBECONFIG={{ .SOURCE_KUBECONFIG }}"
-            task parent:kubeconfig:scoped-from-current OUTPUT_FILE='{{ .PARENT_KUBECONFIG_FILE }}' SOURCE_KUBECONFIG='{{ .SOURCE_KUBECONFIG }}'
-            exit 0
-          fi
-        fi
-
-        if kubectl config current-context >/dev/null 2>&1 && kubectl -n d8-user-authn get ingress kubernetes-api -o name >/dev/null 2>&1; then
-          echo "[ENSURE] Using current kubectl context"
-          task parent:kubeconfig:scoped-from-current OUTPUT_FILE='{{ .PARENT_KUBECONFIG_FILE }}'
-          exit 0
-        fi
-
-        if [ -n "{{ .PARENT_HOST }}" ] && [ -n "{{ .PARENT_USER }}" ]; then
-          echo "[ENSURE] Building parent kubeconfig via SSH (scoped-from-ingress) on {{ .PARENT_HOST }} as {{ .PARENT_USER }}"
-          task parent:kubeconfig:scoped-from-ingress OUTPUT_FILE='{{ .PARENT_KUBECONFIG_FILE }}' PARENT_HOST='{{ .PARENT_HOST }}' PARENT_USER='{{ .PARENT_USER }}' PARENT_SSH_KEY='{{ .PARENT_SSH_KEY }}'
-          exit 0
-        fi
-        echo "[ERR] Unable to build parent kubeconfig: provide SOURCE_KUBECONFIG or PARENT_HOST/PARENT_USER, or ensure current context points to parent cluster." >&2
-        exit 1
-
-  parent:kubeconfig:auto:
-    desc: Build parent kubeconfig using DEVRND_HOST/DEVRND_USER envs (legacy compatibility)
-    vars:
-      PARENT_HOST:
-        sh: |
-          echo "${DEVRND_HOST:-${PARENT_HOST:-$(grep -E '^(DEVRND_HOST|PARENT_HOST)=' ./.env 2>/dev/null | tail -n1 | cut -d= -f2-)}}"
-      PARENT_USER:
-        sh: |
-          echo "${DEVRND_USER:-${PARENT_USER:-$(grep -E '^(DEVRND_USER|PARENT_USER)=' ./.env 2>/dev/null | tail -n1 | cut -d= -f2-)}}"
-      PARENT_SSH_KEY:
-        sh: |
-          echo "${DEVRND_SSH_KEY:-${PARENT_SSH_KEY:-$(grep -E '^(DEVRND_SSH_KEY|PARENT_SSH_KEY)=' ./.env 2>/dev/null | tail -n1 | cut -d= -f2-)}}"
-    cmds:
-      - task: parent:kubeconfig:ensure
-        vars:
-          PARENT_HOST: "{{ .PARENT_HOST }}"
-          PARENT_USER: "{{ .PARENT_USER }}"
-          PARENT_SSH_KEY: "{{ .PARENT_SSH_KEY }}"
-
-  parent:kubeconfig:scoped-from-current:
-    desc: Build parent kubeconfig via current context into a specific file (scoped per run)
-    vars:
-      OUTPUT_FILE: "{{ .OUTPUT_FILE }}"
-      SOURCE_KUBECONFIG: '{{ .SOURCE_KUBECONFIG | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .OUTPUT_FILE }}" ]; then
-          echo "[ERR] set OUTPUT_FILE=<path>" >&2; exit 1;
-        fi
-        mkdir -p "$(dirname '{{ .OUTPUT_FILE }}')"
-        echo "[INFO] Detecting kubernetes-api ingress host..."
-        KCFG_ARGS=""
-        INGRESS_HOST=""
-
-        if [ -n "{{ .SOURCE_KUBECONFIG }}" ] && [ -s "{{ .SOURCE_KUBECONFIG }}" ] && [ $(wc -c < "{{ .SOURCE_KUBECONFIG }}") -gt 32 ]; then
-          echo "[INFO] Trying SOURCE_KUBECONFIG={{ .SOURCE_KUBECONFIG }}"
-          INGRESS_HOST=$(kubectl --kubeconfig="{{ .SOURCE_KUBECONFIG }}" -n d8-user-authn get ingress kubernetes-api -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || true)
-          if [ -n "${INGRESS_HOST:-}" ] && [ "${INGRESS_HOST}" != "null" ]; then
-            KCFG_ARGS="--kubeconfig={{ .SOURCE_KUBECONFIG }}"
-          else
-            INGRESS_HOST=""
-          fi
-        fi
-        if [ -z "${INGRESS_HOST:-}" ]; then
-          if kubectl config current-context >/dev/null 2>&1; then
-            echo "[INFO] Trying current kubectl context to detect ingress host"
-            INGRESS_HOST=$(kubectl -n d8-user-authn get ingress kubernetes-api -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || true)
-          fi
-        fi
-        if [ -z "${INGRESS_HOST:-}" ] || [ "${INGRESS_HOST}" = "null" ]; then
-          echo "[ERR] Unable to detect kubernetes-api ingress host. Provide valid SOURCE_KUBECONFIG or ensure current context points to the parent cluster with d8-user-authn/kubernetes-api." >&2
-          exit 1
-        fi
-
-        echo "[INFO] Ensuring SA and RBAC (parent-e2e) exist..."
-        kubectl $KCFG_ARGS apply --validate=false -f - <<'EOF'
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: parent-e2e
-          namespace: kube-system
-        ---
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: ClusterRoleBinding
-        metadata:
-          name: parent-e2e-admin
-        roleRef:
-          apiGroup: rbac.authorization.k8s.io
-          kind: ClusterRole
-          name: cluster-admin
-        subjects:
-        - kind: ServiceAccount
-          name: parent-e2e
-          namespace: kube-system
-        EOF
-        echo "[INFO] Issuing short-lived SA token..."
-        TOKEN=""
-        for i in $(seq 1 5); do
-          if TOKEN=$(kubectl $KCFG_ARGS -n kube-system create token parent-e2e --duration=6h 2>/dev/null); then
-            break
-          else
-            echo "[WARN] token not ready (try $i); sleep 3"
-            sleep 3
-          fi
-        done
-        if [ -z "${TOKEN:-}" ]; then echo "[ERR] failed to obtain SA token" >&2; exit 1; fi
-        echo "[INFO] Writing kubeconfig to {{ .OUTPUT_FILE }}"
-        : > {{ .OUTPUT_FILE }}
-        printf '%s\n' 'apiVersion: v1' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'kind: Config' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'clusters:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '- cluster:' >> {{ .OUTPUT_FILE }}
-        printf '    server: https://%s\n' "$INGRESS_HOST" >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '    insecure-skip-tls-verify: true' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '  name: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'contexts:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '- context:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '    cluster: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '    user: sa' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '  name: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'current-context: parent' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' 'users:' >> {{ .OUTPUT_FILE }}
-        printf '%s\n' '- name: sa' >> {{ .OUTPUT_FILE }}
-        printf '  user:\n    token: %s\n' "$TOKEN" >> {{ .OUTPUT_FILE }}
-        chmod 600 {{ .OUTPUT_FILE }}
-        KUBECONFIG={{ .OUTPUT_FILE }} kubectl cluster-info
-
-  parent:kubeconfig:ensure-scoped:
-    desc: Ensure parent kubeconfig (scoped) is built via SA token and ingress
-    vars:
-      OUTPUT_FILE: "{{ .OUTPUT_FILE }}"
-      SOURCE_KUBECONFIG: '{{ .SOURCE_KUBECONFIG | default "" }}'
-      SKIP_INGRESS_CHECK: '{{ .SKIP_INGRESS_CHECK | default (env "SKIP_INGRESS_CHECK") | default "false" }}'
-      PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
-      PARENT_USER: '{{ .PARENT_USER | default "" }}'
-      PARENT_SSH_KEY: '{{ .PARENT_SSH_KEY | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .OUTPUT_FILE }}" ]; then echo "[ERR] set OUTPUT_FILE=<path>" >&2; exit 1; fi
-        mkdir -p "$(dirname '{{ .OUTPUT_FILE }}')"
-        echo "[ENSURE] Building scoped kubeconfig via SA+ingress..."
-
-        # Optional fast path for environments without d8-user-authn/kubernetes-api ingress
-        if [ "{{ .SKIP_INGRESS_CHECK }}" = "true" ] && [ -n "{{ .SOURCE_KUBECONFIG }}" ] && [ -s "{{ .SOURCE_KUBECONFIG }}" ]; then
-          echo "[ENSURE] SKIP_INGRESS_CHECK=true — copying provided SOURCE_KUBECONFIG to OUTPUT_FILE"
-          cp "{{ .SOURCE_KUBECONFIG }}" "{{ .OUTPUT_FILE }}"
-          chmod 600 "{{ .OUTPUT_FILE }}"
-          exit 0
-        fi
-
-        if [ -n "{{ .SOURCE_KUBECONFIG }}" ] && [ -s "{{ .SOURCE_KUBECONFIG }}" ] && [ $(wc -c < "{{ .SOURCE_KUBECONFIG }}") -gt 32 ]; then
-          if kubectl --kubeconfig="{{ .SOURCE_KUBECONFIG }}" -n d8-user-authn get ingress kubernetes-api -o name >/dev/null 2>&1; then
-            echo "[ENSURE] Using SOURCE_KUBECONFIG={{ .SOURCE_KUBECONFIG }}"
-            task parent:kubeconfig:scoped-from-current OUTPUT_FILE='{{ .OUTPUT_FILE }}' SOURCE_KUBECONFIG='{{ .SOURCE_KUBECONFIG }}'
-            exit 0
-          fi
-        fi
-
-        if kubectl config current-context >/dev/null 2>&1 && kubectl -n d8-user-authn get ingress kubernetes-api -o name >/dev/null 2>&1; then
-          echo "[ENSURE] Using current kubectl context"
-          task parent:kubeconfig:scoped-from-current OUTPUT_FILE='{{ .OUTPUT_FILE }}'
-          exit 0
-        fi
-
-        if [ -n "{{ .PARENT_HOST }}" ] && [ -n "{{ .PARENT_USER }}" ]; then
-          echo "[ENSURE] Building parent kubeconfig via SSH (scoped-from-ingress) on {{ .PARENT_HOST }} as {{ .PARENT_USER }}"
-          task parent:kubeconfig:scoped-from-ingress OUTPUT_FILE='{{ .OUTPUT_FILE }}' PARENT_HOST='{{ .PARENT_HOST }}' PARENT_USER='{{ .PARENT_USER }}' PARENT_SSH_KEY='{{ .PARENT_SSH_KEY }}'
-          exit 0
-        fi
-        echo "[ERR] Unable to build parent kubeconfig: provide SOURCE_KUBECONFIG or PARENT_HOST/PARENT_USER, or ensure current context points to parent cluster." >&2
-        exit 1
-
+  # ------------------------------------------------------------
+  # Nested cluster helpers (SC + kubeconfig)
+  # ------------------------------------------------------------
   nested:kubeconfig:
     desc: Build kubeconfig for nested cluster via jump-host
     vars:
@@ -921,7 +292,7 @@ tasks:
       SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
       NESTED_DIR: '{{ .NESTED_DIR | default (printf "%s/nested-%s" .TMP_DIR .NAMESPACE) }}'
       NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG | default (printf "%s/kubeconfig" .NESTED_DIR) }}'
-      PARENT_KUBECONFIG_PATH: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+      PARENT_KUBECONFIG_PATH: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
       - |
         set -euo pipefail
@@ -931,112 +302,46 @@ tasks:
         fi
         mkdir -p {{ .NESTED_DIR }}
         MASTER_NAME=$(KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
-        KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} d8 v ssh --username={{ .DEFAULT_USER }} --identity-file={{ .SSH_PRIV_KEY_FILE }} --local-ssh=true --local-ssh-opts="-o StrictHostKeyChecking=no" --local-ssh-opts="-o UserKnownHostsFile=/dev/null" "${MASTER_NAME}.{{ .NAMESPACE }}" -c '
-          set -euo pipefail
-          SUDO="sudo /opt/deckhouse/bin/kubectl"
-          $SUDO -n kube-system get sa e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create sa e2e-admin >/dev/null 2>&1
-          $SUDO -n kube-system get clusterrolebinding e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create clusterrolebinding e2e-admin --clusterrole=cluster-admin --serviceaccount=kube-system:e2e-admin >/dev/null 2>&1
-          $SUDO -n kube-system create token e2e-admin --duration=240h
-        ' > {{ .NESTED_DIR }}/token.txt
-        KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} d8 v ssh --username={{ .DEFAULT_USER }} --identity-file={{ .SSH_PRIV_KEY_FILE }} --local-ssh=true --local-ssh-opts="-o StrictHostKeyChecking=no" --local-ssh-opts="-o UserKnownHostsFile=/dev/null" "${MASTER_NAME}.{{ .NAMESPACE }}" -c 'sudo cat /etc/kubernetes/admin.conf' > {{ .NESTED_DIR }}/admin.conf
-        NESTED_TOKEN=$(cat {{ .NESTED_DIR }}/token.txt)
-        SERVER_URL="https://api.{{ .NAMESPACE }}.{{ .DOMAIN }}"
-        {
-          printf 'apiVersion: v1\n'
-          printf 'kind: Config\n'
-          printf 'clusters:\n'
-          printf '- cluster:\n'
-          printf '    insecure-skip-tls-verify: true\n'
-          printf '    server: %s\n' "${SERVER_URL}"
-          printf '  name: nested\n'
-          printf 'contexts:\n'
-          printf '- context:\n'
-          printf '    cluster: nested\n'
-          printf '    user: e2e-admin\n'
-          printf '  name: nested\n'
-          printf 'current-context: nested\n'
-          printf 'users:\n'
-          printf '- name: e2e-admin\n'
-          printf '  user:\n'
-          printf '    token: %s\n' "${NESTED_TOKEN}"
-        } > {{ .NESTED_KUBECONFIG }}
-        chmod 600 {{ .NESTED_KUBECONFIG }}
-
-        ready=false
-        for i in $(seq 1 30); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl --request-timeout=8s get --raw=/readyz >/dev/null 2>&1; then
-            ready=true; break
-          fi
-          echo "[WAIT] nested API warming up... ($i/30)";
-          sleep 20
-        done
-        if ! $ready; then
-          echo "[DIAG] nested API is not ready after wait; collecting diagnostics..." >&2
-          echo "[DIAG] curl -I ${SERVER_URL}" >&2
-          curl -skI --max-time 8 "${SERVER_URL}" || true
-          echo "[DIAG] ingress wildcard-https (first 120 lines)" >&2
-          KUBECONFIG={{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }} kubectl -n {{ .NAMESPACE }} get ingress wildcard-https -o yaml | sed -n '1,120p' || true
-          echo "[DIAG] svc/ep dvp-over-dvp-443 (first 120 lines)" >&2
-          KUBECONFIG={{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }} kubectl -n {{ .NAMESPACE }} get svc dvp-over-dvp-443 -o yaml | sed -n '1,120p' || true
-          KUBECONFIG={{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }} kubectl -n {{ .NAMESPACE }} get ep dvp-over-dvp-443 -o yaml | sed -n '1,120p' || true
-        fi
-
-        nodes_ok=false
-        for i in $(seq 1 10); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl --request-timeout=8s get nodes >/dev/null 2>&1; then
-            nodes_ok=true; break
-          fi
-          echo "[WAIT] nested API nodes endpoint not ready yet... retry $i/10";
-          sleep 10
-        done
-        if ! $nodes_ok; then
-          echo "[ERR] nested API nodes endpoint not ready after retries" >&2
+        if [ -z "$MASTER_NAME" ]; then
+          echo "[ERR] master VM not found in namespace {{ .NAMESPACE }}" >&2
           exit 1
         fi
+        SERVER_URL="https://api.{{ .NAMESPACE }}.{{ .DOMAIN }}"
+        cat > {{ .NESTED_KUBECONFIG }} <<EOF
+        apiVersion: v1
+        kind: Config
+        clusters:
+        - cluster:
+            server: ${SERVER_URL}
+            insecure-skip-tls-verify: true
+          name: nested
+        contexts:
+        - context:
+            cluster: nested
+            user: sa
+          name: nested
+        current-context: nested
+        users:
+        - name: sa
+          user:
+            token: ""
+        EOF
+        chmod 600 {{ .NESTED_KUBECONFIG }}
         echo "Generated nested kubeconfig at {{ .NESTED_KUBECONFIG }}"
 
   nested:ensure-sc:
-    desc: Ensure StorageClass exists and set as global default
+    desc: Ensure StorageClass exists in nested cluster
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       NAMESPACE: "{{ .NAMESPACE }}"
       NESTED_DIR: '{{ .NESTED_DIR | default (printf "%s/nested-%s" .TMP_DIR .NAMESPACE) }}'
       NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG | default (printf "%s/kubeconfig" .NESTED_DIR) }}'
-      SC_NAME: '{{ .SC_NAME | default "hostpath-immediate" }}'
-      SET_AS_DEFAULT: '{{ .SET_AS_DEFAULT | default "true" }}'
+      SC_NAME: '{{ .SC_NAME | default "linstor-thin-r2" }}'
     cmds:
       - |
         set -euo pipefail
-        mkdir -p {{ .NESTED_DIR }}
-        if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get sc "{{ .SC_NAME }}" >/dev/null 2>&1; then
-          PROVISIONER=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get sc "{{ .SC_NAME }}" -o jsonpath='{.provisioner}' 2>/dev/null || true)
-          MODE=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get sc "{{ .SC_NAME }}" -o jsonpath='{.volumeBindingMode}' 2>/dev/null || true)
-          if [ "$PROVISIONER" = "deckhouse.io/host-path" ]; then
-            if [ "$MODE" != "Immediate" ]; then
-              echo "[INFO] Recreating StorageClass '{{ .SC_NAME }}' with Immediate binding"
-              KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl delete sc "{{ .SC_NAME }}" --wait=true >/dev/null 2>&1 || {
-                echo "[ERR] Failed to delete StorageClass '{{ .SC_NAME }}' for recreation"; exit 1;
-              }
-              SC_MANIFEST=$'apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: {{ .SC_NAME }}\nprovisioner: deckhouse.io/host-path\nreclaimPolicy: Delete\nvolumeBindingMode: Immediate\nallowVolumeExpansion: true\nparameters:\n  type: DirectoryOrCreate'
-              printf '%s\n' "$SC_MANIFEST" | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
-            else
-              echo "[INFO] StorageClass '{{ .SC_NAME }}' already exists with Immediate binding."
-            fi
-          else
-            echo "[INFO] StorageClass '{{ .SC_NAME }}' exists with provisioner '$PROVISIONER'; skipping reconciliation"
-          fi
-        else
-          if [ "{{ .SC_NAME }}" = "hostpath" ] || [ "{{ .SC_NAME }}" = "hostpath-immediate" ]; then
-            echo "[INFO] StorageClass '{{ .SC_NAME }}' not found, creating host-path provisioner"
-            SC_MANIFEST=$'apiVersion: storage.k8s.io/v1\nkind: StorageClass\nmetadata:\n  name: {{ .SC_NAME }}\nprovisioner: deckhouse.io/host-path\nreclaimPolicy: Delete\nvolumeBindingMode: Immediate\nallowVolumeExpansion: true\nparameters:\n  type: DirectoryOrCreate'
-            printf '%s\n' "$SC_MANIFEST" | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
-          else
-            echo "[ERR] StorageClass '{{ .SC_NAME }}' not found and automatic creation is unsupported"
-            exit 1
-          fi
-        fi
         if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get sc "{{ .SC_NAME }}" >/dev/null 2>&1; then
-          echo "[ERR] StorageClass '{{ .SC_NAME }}' is still missing after reconciliation"
+          echo "[ERR] StorageClass '{{ .SC_NAME }}' is missing in nested cluster"
           exit 1
         fi
 
@@ -1058,105 +363,22 @@ tasks:
           sleep 10
         done
 
-  nested:storage:hostpath:
-    desc: Configure hostpath storage profile in nested cluster
-    cmds:
-      - task: nested:ensure-sc
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          NAMESPACE: "{{ .NAMESPACE }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SC_NAME: '{{ .SC_NAME | default "hostpath-immediate" }}'
-      - |
-        set -euo pipefail
-        for i in $(seq 1 18); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic >/dev/null 2>&1; then
-            echo "[INFO] Ensuring vmclass generic-for-e2e exists and is default"
-            KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic -o json \
-              | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}}' \
-              | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - >/dev/null
-            break
-          fi
-          echo "[INFO] Waiting for vmclass/generic to appear (attempt $i)..."
-          sleep 10
-        done
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic-for-e2e >/dev/null 2>&1; then
-          echo "[WARN] vmclass/generic not available; skipping default class setup"
-        fi
-
   nested:storage:ceph:
-    desc: Configure ceph storage profile in nested cluster
+    desc: Configure Ceph storage profile in nested cluster
     vars:
-      TMP_DIR: "{{ .TMP_DIR }}"
-      NAMESPACE: "{{ .NAMESPACE }}"
-      NESTED_DIR: "{{ .NESTED_DIR }}"
       NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       CEPH_SC_NAME: '{{ .CEPH_SC_NAME | default "ceph-pool-r2-csi-rbd-immediate" }}'
       CEPH_DVCR_SIZE: '{{ .CEPH_DVCR_SIZE | default "5Gi" }}'
-      VIRTUALIZATION_IMAGE_TAG: '{{ .VIRTUALIZATION_IMAGE_TAG | default "main" }}'
     cmds:
-      - task: nested:storage:ceph:bootstrap
-        vars:
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      - ./scripts/ceph-bootstrap.sh {{ .NESTED_KUBECONFIG }}
       - |
         set -euo pipefail
         if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .CEPH_SC_NAME }} >/dev/null 2>&1; then
-          echo "[ERR] StorageClass '{{ .CEPH_SC_NAME }}' not found. Ensure Ceph is configured in the parent cluster and try again." >&2
+          echo "[ERR] StorageClass '{{ .CEPH_SC_NAME }}' not found in nested cluster" >&2
           exit 1
         fi
-      - task: nested:ensure-sc
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          NAMESPACE: "{{ .NAMESPACE }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SC_NAME: hostpath
-          SET_AS_DEFAULT: "false"
       - |
-        set -euo pipefail
-        echo "[WAIT] Waiting for virtualization-controller readiness in nested cluster"
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization wait --for=condition=Available deploy/virtualization-controller --timeout=600s || true
-        for i in $(seq 1 60); do
-          EP=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization get ep virtualization-controller -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null || true)
-          if [ -n "$EP" ]; then echo "[OK] virtualization-controller endpoint: $EP"; break; fi
-          echo "[WAIT] virtualization-controller endpoint not found (attempt $i)"; sleep 5
-        done
-        echo "[INFO] Stopping CDI controllers to update StorageProfile"
-        DEP_REPLICAS=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization get deploy cdi-deployment -o jsonpath='{.spec.replicas}' 2>/dev/null || echo 1)
-        OP_REPLICAS=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization get deploy cdi-operator -o jsonpath='{.spec.replicas}' 2>/dev/null || echo 1)
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization scale deploy cdi-deployment --replicas=0
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization scale deploy cdi-operator --replicas=0
-        cat <<'EOF' >/tmp/ivsp-ceph.json
-        {
-          "status": {
-            "claimPropertySets": [
-              {"accessModes": ["ReadWriteMany"], "volumeMode": "Block"},
-              {"accessModes": ["ReadWriteOnce"], "volumeMode": "Block"},
-              {"accessModes": ["ReadWriteOnce"], "volumeMode": "Filesystem"}
-            ],
-            "cloneStrategy": "csi-clone",
-            "dataImportCronSourceFormat": "pvc",
-            "provisioner": "rbd.csi.ceph.com",
-            "snapshotClass": "{{ .CEPH_SC_NAME }}",
-            "storageClass": "{{ .CEPH_SC_NAME }}"
-          }
-        }
-        EOF
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl patch internalvirtualizationstorageprofiles {{ .CEPH_SC_NAME }} --type merge --patch-file /tmp/ivsp-ceph.json >/dev/null
-        rm -f /tmp/ivsp-ceph.json
-        echo "[INFO] Applying ModulePullOverride/virtualization"
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: deckhouse.io/v1alpha2
-        kind: ModulePullOverride
-        metadata:
-          name: virtualization
-        spec:
-          imageTag: {{ .VIRTUALIZATION_IMAGE_TAG }}
-          scanInterval: 15s
-        EOF
-        echo "[INFO] Applying ModuleConfig/virtualization for Ceph"
-        cat > /tmp/mc-virtualization-ceph.yaml <<'EOF'
+        cat > /tmp/mc-virtualization-ceph.yaml <<EOF
         apiVersion: deckhouse.io/v1alpha1
         kind: ModuleConfig
         metadata:
@@ -1165,83 +387,30 @@ tasks:
           enabled: true
           version: 1
           settings:
-            highAvailability: true
             dvcr:
               storage:
                 type: PersistentVolumeClaim
                 persistentVolumeClaim:
                   storageClassName: {{ .CEPH_SC_NAME }}
                   size: {{ .CEPH_DVCR_SIZE }}
-            virtualMachineCIDRs:
-              - 10.67.0.0/16
-            virtualImages:
-              defaultStorageClassName: {{ .CEPH_SC_NAME }}
-              allowedStorageClassSelector:
-                matchNames:
-                  - {{ .CEPH_SC_NAME }}
-            virtualDisks:
-              defaultStorageClassName: {{ .CEPH_SC_NAME }}
-              allowedStorageClassSelector:
-                matchNames:
-                  - {{ .CEPH_SC_NAME }}
         EOF
-        for i in $(seq 1 12); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-ceph.yaml; then
-            echo "[OK] Applied ModuleConfig/virtualization (Ceph)"; break
-          fi
-          echo "[WAIT] webhook not ready or API transient error; retry $i/12"; sleep 10
-          if [ "$i" = "12" ]; then echo "[ERR] failed to apply ModuleConfig/virtualization (Ceph) after retries" >&2; exit 1; fi
-        done
-        echo "[INFO] Restoring CDI controllers"
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization scale deploy cdi-deployment --replicas=${DEP_REPLICAS}
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization scale deploy cdi-operator --replicas=${OP_REPLICAS}
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization rollout status deploy/cdi-deployment --timeout=180s >/dev/null 2>&1 || true
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization rollout status deploy/cdi-operator --timeout=180s >/dev/null 2>&1 || true
-      - |
-        set -euo pipefail
-        PATCH='{"spec":{"settings":{"defaultClusterStorageClass":"{{ .CEPH_SC_NAME }}"}}}}'
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-system patch moduleconfig global --type merge -p "$PATCH" >/dev/null 2>&1; then
-          echo "[INFO] ModuleConfig/global not found, creating with storageClass='{{ .CEPH_SC_NAME }}'"
-          MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 1\n  settings:\n    defaultClusterStorageClass: {{ .CEPH_SC_NAME }}'
-          printf '%s\n' "$MANIFEST" | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-system apply -f -
-        fi
-
-  nested:storage:ceph:bootstrap:
-    desc: Ensure Rook Ceph CRDs/operator are installed in the nested cluster (idempotent)
-    vars:
-      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-    cmds:
-      - ./scripts/ceph-bootstrap.sh {{ .NESTED_KUBECONFIG }}
+        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-ceph.yaml
 
   nested:storage:sds:
-    desc: Configure sds storage profile in nested cluster
+    desc: Configure SDS storage profile in nested cluster
     vars:
-      TMP_DIR: "{{ .TMP_DIR }}"
-      NAMESPACE: "{{ .NAMESPACE }}"
-      NESTED_DIR: "{{ .NESTED_DIR }}"
       NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       SDS_SC_NAME: '{{ .SDS_SC_NAME | default "linstor-thin-r2" }}'
       SDS_DVCR_SIZE: '{{ .SDS_DVCR_SIZE | default "5Gi" }}'
-      SDS_VI_SC_NAME: '{{ .SDS_VI_SC_NAME | default "" }}'
     cmds:
       - |
         set -euo pipefail
         if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .SDS_SC_NAME }} >/dev/null 2>&1; then
-          echo "[ERR] StorageClass '{{ .SDS_SC_NAME }}' not found. Ensure SDS modules are configured in the nested cluster."
+          echo "[ERR] StorageClass '{{ .SDS_SC_NAME }}' not found in nested cluster" >&2
           exit 1
         fi
       - |
-        set -euo pipefail
-        echo "[WAIT] Waiting for virtualization-controller readiness in nested cluster"
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization wait --for=condition=Available deploy/virtualization-controller --timeout=600s || true
-        for i in $(seq 1 60); do
-          EP=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-virtualization get ep virtualization-controller -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null || true)
-          if [ -n "$EP" ]; then echo "[OK] virtualization-controller endpoint: $EP"; break; fi
-          echo "[WAIT] virtualization-controller endpoint not found (attempt $i)"; sleep 5
-        done
-      - |
-        set -euo pipefail
-        cat > /tmp/mc-virtualization-sds.yaml <<'EOF'
+        cat > /tmp/mc-virtualization-sds.yaml <<EOF
         apiVersion: deckhouse.io/v1alpha1
         kind: ModuleConfig
         metadata:
@@ -1250,242 +419,24 @@ tasks:
           enabled: true
           version: 1
           settings:
-            highAvailability: true
             dvcr:
               storage:
                 type: PersistentVolumeClaim
                 persistentVolumeClaim:
                   storageClassName: {{ .SDS_SC_NAME }}
                   size: {{ .SDS_DVCR_SIZE }}
-            virtualMachineCIDRs:
-              - 10.67.0.0/16
-            virtualDisks:
-              defaultStorageClassName: {{ .SDS_SC_NAME }}
-              allowedStorageClassSelector:
-                matchNames:
-                  - {{ .SDS_SC_NAME }}
-            {{ if .SDS_VI_SC_NAME }}
-            virtualImages:
-              defaultStorageClassName: {{ .SDS_VI_SC_NAME }}
-              allowedStorageClassSelector:
-                matchNames:
-                  - {{ .SDS_VI_SC_NAME }}
-            {{ end }}
         EOF
-        for i in $(seq 1 12); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-sds.yaml; then
-            echo "[OK] Applied ModuleConfig/virtualization (SDS)"; break
-          fi
-          echo "[WAIT] webhook not ready or API transient error; retry $i/12"; sleep 10
-          if [ "$i" = "12" ]; then echo "[ERR] failed to apply ModuleConfig/virtualization (SDS) after retries" >&2; exit 1; fi
-        done
-      - |
-        set -euo pipefail
-        PATCH='{"spec":{"settings":{"defaultClusterStorageClass":"{{ .SDS_SC_NAME }}"}}}}'
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-system patch moduleconfig global --type merge -p "$PATCH" >/dev/null 2>&1; then
-          echo "[INFO] ModuleConfig/global not found, creating with storageClass='{{ .SDS_SC_NAME }}'"
-          MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 1\n  settings:\n    defaultClusterStorageClass: {{ .SDS_SC_NAME }}'
-          printf '%s\n' "$MANIFEST" | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n d8-system apply -f -
-        fi
-
-  nested:storage:nfs:
-    desc: Configure nfs storage profile in nested cluster
-    vars:
-      TMP_DIR: "{{ .TMP_DIR }}"
-      NAMESPACE: "{{ .NAMESPACE }}"
-      NESTED_DIR: "{{ .NESTED_DIR }}"
-      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-      NFS_NAMESPACE: '{{ .NFS_NAMESPACE | default "nfs-system" }}'
-      NFS_SC_NAME: '{{ .NFS_SC_NAME | default "nfs" }}'
-      NFS_BACKING_SC: '{{ .NFS_BACKING_SC | default "hostpath" }}'
-      NFS_CAPACITY: '{{ .NFS_CAPACITY | default "50Gi" }}'
-      NFS_VI_SC_NAME: '{{ .NFS_VI_SC_NAME | default "" }}'
-      VIRTUALIZATION_IMAGE_TAG: '{{ .VIRTUALIZATION_IMAGE_TAG | default "main" }}'
-    cmds:
-      - task: nested:ensure-sc
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          NAMESPACE: "{{ .NAMESPACE }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SC_NAME: hostpath
-      - |
-        set -euo pipefail
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl create namespace {{ .NFS_NAMESPACE }} --dry-run=client -o yaml | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: v1
-        kind: PersistentVolumeClaim
-        metadata:
-          name: nfs-data
-          namespace: {{ .NFS_NAMESPACE }}
-        spec:
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: {{ .NFS_CAPACITY }}
-          storageClassName: {{ .NFS_BACKING_SC }}
-        EOF
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: apps/v1
-        kind: Deployment
-        metadata:
-          name: nfs-server
-          namespace: {{ .NFS_NAMESPACE }}
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: nfs-server
-          template:
-            metadata:
-              labels:
-                app: nfs-server
-            spec:
-              containers:
-                - name: nfs-server
-                  image: itsthenetwork/nfs-server-alpine:latest
-                  ports:
-                    - containerPort: 2049
-                  securityContext:
-                    privileged: true
-                  env:
-                    - name: SHARED_DIRECTORY
-                      value: /export
-                  volumeMounts:
-                    - name: nfs-data
-                      mountPath: /export
-              volumes:
-                - name: nfs-data
-                  persistentVolumeClaim:
-                    claimName: nfs-data
-        EOF
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: v1
-        kind: Service
-        metadata:
-          name: nfs-server
-          namespace: {{ .NFS_NAMESPACE }}
-        spec:
-          selector:
-            app: nfs-server
-          ports:
-            - name: nfs
-              port: 2049
-              protocol: TCP
-              targetPort: 2049
-        EOF
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl -n {{ .NFS_NAMESPACE }} rollout status deployment/nfs-server --timeout=300s
-      - |
-        set -euo pipefail
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: deckhouse.io/v1alpha1
-        kind: ModuleConfig
-        metadata:
-          name: csi-nfs
-        spec:
-          enabled: true
-          version: 1
-        EOF
-      - |
-        set -euo pipefail
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: deckhouse.io/v1alpha2
-        kind: ModulePullOverride
-        metadata:
-          name: virtualization
-        spec:
-          imageTag: {{ .VIRTUALIZATION_IMAGE_TAG }}
-          scanInterval: 15s
-        EOF
-      - |
-        set -euo pipefail
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-        apiVersion: deckhouse.io/v1alpha1
-        kind: ModuleConfig
-        metadata:
-          name: virtualization
-        spec:
-          enabled: true
-          version: 1
-          settings:
-            highAvailability: true
-            dvcr:
-              storage:
-                type: PersistentVolumeClaim
-                persistentVolumeClaim:
-                  storageClassName: {{ .NFS_SC_NAME }}
-                  size: 5Gi
-            virtualMachineCIDRs:
-              - 10.67.0.0/16
-            {{ if .NFS_VI_SC_NAME }}
-            virtualImages:
-              defaultStorageClassName: {{ .NFS_VI_SC_NAME }}
-              allowedStorageClassSelector:
-                matchNames:
-                  - {{ .NFS_VI_SC_NAME }}
-            {{ end }}
-            virtualDisks:
-              defaultStorageClassName: {{ .NFS_SC_NAME }}
-              allowedStorageClassSelector:
-                matchNames:
-                  - {{ .NFS_SC_NAME }}
-        EOF
-      - |
-        set -euo pipefail
-        if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get nfsstorageclass {{ .NFS_SC_NAME }} >/dev/null 2>&1; then
-          echo "[INFO] NFSStorageClass '{{ .NFS_SC_NAME }}' already exists; skipping creation"
-        else
-          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
-          apiVersion: storage.deckhouse.io/v1alpha1
-          kind: NFSStorageClass
-          metadata:
-            name: {{ .NFS_SC_NAME }}
-          spec:
-            connection:
-              host: nfs-server.{{ .NFS_NAMESPACE }}.svc.cluster.local
-              share: /
-              nfsVersion: "4.2"
-            mountOptions:
-              mountMode: hard
-              timeout: 60
-              retransmissions: 3
-            reclaimPolicy: Delete
-            volumeBindingMode: Immediate
-        EOF
-        fi
-      - |
-        set -euo pipefail
-        for i in $(seq 1 30); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .NFS_SC_NAME }} >/dev/null 2>&1; then
-            echo "[INFO] StorageClass '{{ .NFS_SC_NAME }}' is available."
-            break
-          fi
-          echo "[INFO] Waiting for StorageClass '{{ .NFS_SC_NAME }}' to appear (attempt $i)..."
-          sleep 10
-        done
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .NFS_SC_NAME }} >/dev/null 2>&1; then
-          echo "[ERR] StorageClass '{{ .NFS_SC_NAME }}' not available after waiting."
-          exit 1
-        fi
-      - task: nested:ensure-sc
-        vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          NAMESPACE: "{{ .NAMESPACE }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SC_NAME: "{{ .NFS_SC_NAME }}"
+        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-sds.yaml
 
   nested:storage:configure:
-    desc: Configure storage profile inside nested cluster
+    desc: Configure storage profile inside nested cluster (Ceph or SDS)
     vars:
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "hostpath" }}'
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "sds" }}'
       STORAGE_PROFILE_NORMALIZED:
         sh: |
           case '{{ .STORAGE_PROFILE }}' in
             sds|sds-local|sds_local|sds-replicated|sds_replicated) echo sds ;;
             ceph|ceph-rbd|cephrbd) echo ceph ;;
-            hostpath|hp) echo hostpath ;;
             *) echo '{{ .STORAGE_PROFILE }}' ;;
           esac
     cmds:
@@ -1493,27 +444,18 @@ tasks:
       - |
         set -euo pipefail
         case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
-          hostpath|ceph|sds) ;;
+          ceph|sds) ;;
           *) echo "Unknown storage profile: {{ .STORAGE_PROFILE }}" >&2; exit 1 ;;
         esac
       - task: "nested:storage:{{ .STORAGE_PROFILE_NORMALIZED }}"
         vars:
-          TMP_DIR: "{{ .TMP_DIR }}"
-          VALUES_FILE: "{{ .VALUES_FILE }}"
-          GENERATED_VALUES_FILE: "{{ .GENERATED_VALUES_FILE }}"
-          SSH_DIR: "{{ .SSH_DIR }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          PASSWORD_FILE: "{{ .PASSWORD_FILE }}"
-          PASSWORD_HASH_FILE: "{{ .PASSWORD_HASH_FILE }}"
-          NAMESPACE: "{{ .NAMESPACE }}"
-          DOMAIN: "{{ .DOMAIN }}"
-          DEFAULT_USER: "{{ .DEFAULT_USER }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SC_NAME: '{{ if eq .STORAGE_PROFILE_NORMALIZED "hostpath" }}hostpath-immediate{{ else }}{{ .TARGET_STORAGE_CLASS }}{{ end }}'
-          NFS_VI_SC_NAME: '{{ .NFS_VI_SC_NAME | default "" }}'
-          VIRTUALIZATION_IMAGE_TAG: '{{ .VIRTUALIZATION_IMAGE_TAG | default "" }}'
+          CEPH_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
+          SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
 
+  # ------------------------------------------------------------
+  # Run E2E
+  # ------------------------------------------------------------
   nested:e2e:
     desc: Run virtualization E2E tests against nested cluster
     vars:
@@ -1522,16 +464,12 @@ tasks:
       NAMESPACE: "{{ .NAMESPACE }}"
       NESTED_DIR: '{{ .NESTED_DIR | default (printf "%s/nested-%s" .TMP_DIR .NAMESPACE) }}'
       NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG | default (printf "%s/kubeconfig" .NESTED_DIR) }}'
-      E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../virtualization-full/tests/e2e" }}'
+      E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../tests/e2e" }}'
       FOCUS: '{{ or .FOCUS "" }}'
       SKIP: '{{ or .SKIP "" }}'
       LABELS: '{{ or .LABELS "" }}'
       TIMEOUT: '{{ or .TIMEOUT "4h" }}'
-      JUNIT_PATH: '{{ or .JUNIT_PATH "" }}'
-      STORAGE_CLASS: '{{ or .STORAGE_CLASS "" }}'
-      IMAGE_STORAGE_CLASS: '{{ or .IMAGE_STORAGE_CLASS "" }}'
-      SNAPSHOT_STORAGE_CLASS: '{{ or .SNAPSHOT_STORAGE_CLASS "" }}'
-      TARGET_STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath-immediate{{ end }}'
+      TARGET_STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else }}linstor-thin-r2{{ end }}'
     cmds:
       - task: nested:kubeconfig
         vars:
@@ -1540,7 +478,7 @@ tasks:
           NAMESPACE: "{{ .NAMESPACE }}"
           NESTED_DIR: "{{ .NESTED_DIR }}"
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
       - task: nested:ensure-sc
         vars:
           TMP_DIR: "{{ .TMP_DIR }}"
@@ -1553,496 +491,6 @@ tasks:
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       - |
         set -euo pipefail
-        KUBECONFIG_ABS=$(python3 -c 'import os; print(os.path.abspath("{{ .NESTED_KUBECONFIG }}"))')
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
         cd {{ .E2E_DIR }}
-        EXTRA=( )
-        [ -n "{{ .FOCUS }}" ] && EXTRA+=( --focus "{{ .FOCUS }}" )
-        [ -n "{{ .SKIP }}" ] && EXTRA+=( --skip "{{ .SKIP }}" )
-        [ -n "{{ .LABELS }}" ] && EXTRA+=( --label-filter "{{ .LABELS }}" )
-        if [ -n "{{ .JUNIT_PATH }}" ]; then
-          JUNIT_ABS=$(python3 -c 'import os; print(os.path.abspath("{{ .JUNIT_PATH }}"))')
-          EXTRA+=( --junit-report="${JUNIT_ABS}" )
-          mkdir -p "$(dirname "$JUNIT_ABS")"
-        fi
-        rm -rf /tmp/testdata
-        cp -a testdata /tmp/testdata
-        # Ensure default StorageClass is set in nested cluster to avoid initE2E failure
-        if ! KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system patch moduleconfig global --type merge -p '{"spec":{"settings":{"defaultClusterStorageClass":"{{ .TARGET_STORAGE_CLASS }}"}}}' >/dev/null 2>&1; then
-          echo "[INFO] ModuleConfig/global not found, creating with defaultClusterStorageClass='{{ .TARGET_STORAGE_CLASS }}'"
-          MANIFEST=$'apiVersion: deckhouse.io/v1alpha1\nkind: ModuleConfig\nmetadata:\n  name: global\n  namespace: d8-system\nspec:\n  version: 1\n  settings:\n    defaultClusterStorageClass: {{ .TARGET_STORAGE_CLASS }}'
-          printf '%s\n' "$MANIFEST" | KUBECONFIG="${KUBECONFIG_ABS}" kubectl -n d8-system apply -f -
-        fi
-        # Pre-flight diagnostics for nested API
-        echo "[CHK] /readyz"
-        if ! KUBECONFIG="${KUBECONFIG_ABS}" kubectl --request-timeout=10s get --raw=/readyz; then
-          echo "[ERR] /readyz failed"; KUBECONFIG="${KUBECONFIG_ABS}" kubectl cluster-info || true
-        fi
-        echo "[CHK] nodes"
-        KUBECONFIG="${KUBECONFIG_ABS}" kubectl get nodes -o wide || true
-        echo "[CHK] api-resources (top 50)"
-        KUBECONFIG="${KUBECONFIG_ABS}" kubectl api-resources | head -n 50 || true
-
-        KUBECONFIG="$KUBECONFIG_ABS" \
-        E2E_CLUSTERTRANSPORT_KUBECONFIG="$KUBECONFIG_ABS" \
-        STORAGE_CLASS_NAME={{ .TARGET_STORAGE_CLASS }} \
-        IMAGE_STORAGE_CLASS_NAME={{ .IMAGE_STORAGE_CLASS }} \
-        SNAPSHOT_STORAGE_CLASS_NAME={{ .SNAPSHOT_STORAGE_CLASS }} \
-        SKIP_IMMEDIATE_SC_CHECK=yes \
-        GOWORK=off \
-        GINKGO_NO_COLOR=1 \
-        go run github.com/onsi/ginkgo/v2/ginkgo@v2.22.0 \
-          -v -r --trace --progress --fail-on-pending --keep-going \
-          --flake-attempts=1 --timeout={{ .TIMEOUT }} "${EXTRA[@]}" || {
-            echo "[DIAG] ginkgo failed; dumping namespaces and pods..."
-            KUBECONFIG="${KUBECONFIG_ABS}" kubectl get ns || true
-            KUBECONFIG="${KUBECONFIG_ABS}" kubectl get pods -A -o wide | sed -n '1,200p' || true
-            exit 1
-          }
-
-  nested:cluster:create:
-    desc: Create nested DVP cluster (infra + bootstrap)
-    vars:
-      RUN_ID: '{{ .RUN_ID | default (printf "run-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      RUN_CLUSTER_PREFIX: '{{ or .RUN_CLUSTER_PREFIX "" }}'
-      RUN_DIR: '{{ printf "%s/runs/%s" .TMP_ROOT .RUN_ID }}'
-      RUN_VALUES_FILE: '{{ printf "%s/values.yaml" .RUN_DIR }}'
-      RUN_WORK_DIR: '{{ printf "%s/work" .RUN_DIR }}'
-    cmds:
-      - task: run:values:prepare
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
-          RUN_CLUSTER_PREFIX: "{{ .RUN_CLUSTER_PREFIX }}"
-          RUN_DIR: "{{ .RUN_DIR }}"
-      - task: install
-        vars:
-          TMP_DIR: "{{ .RUN_WORK_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          TARGET_STORAGE_CLASS: '{{ if .TARGET_STORAGE_CLASS }}{{ .TARGET_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath-immediate{{ end }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-      - |
-        set -euo pipefail
-        SRC="{{ .RUN_WORK_DIR }}"
-        DST="{{ .RUN_DIR }}"
-        mkdir -p "$DST/ssh"
-        if [ -d "$SRC/ssh" ]; then
-          cp "$SRC/ssh/{{ .SSH_FILE_NAME }}" "$DST/ssh/{{ .SSH_FILE_NAME }}"
-          cp "$SRC/ssh/{{ .SSH_FILE_NAME }}.pub" "$DST/ssh/{{ .SSH_FILE_NAME }}.pub"
-          chmod 0600 "$DST/ssh/{{ .SSH_FILE_NAME }}"
-          chmod 0644 "$DST/ssh/{{ .SSH_FILE_NAME }}.pub"
-        fi
-        for f in password.txt password-hash.txt generated-values.yaml config.yaml infra.yaml kubeconfig.yaml; do
-          [ -f "$SRC/$f" ] && cp "$SRC/$f" "$DST/$f"
-        done
-
-  nested:cluster:destroy:
-    desc: Destroy nested cluster and cleanup run directory
-    # NOTE: This task may be useful for E2E tests in PR workflows for immediate cleanup
-    vars:
-      RUN_ID: "{{ .RUN_ID }}"
-      RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-      RUN_DIR: '{{ printf "%s/runs/%s" .TMP_ROOT .RUN_ID }}'
-      RUN_VALUES_FILE: '{{ printf "%s/values.yaml" .RUN_DIR }}'
-      RUN_WORK_DIR: '{{ printf "%s/work" .RUN_DIR }}'
-    cmds:
-      - task: infra-undeploy
-        vars:
-          TMP_DIR: "{{ .RUN_WORK_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-      - rm -rf '{{ .RUN_DIR }}'
-
-  nested:test-run:
-    desc: Full nested E2E cycle (create, configure, test, cleanup)
-    vars:
-      RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      RUN_CLUSTER_PREFIX: '{{ or .RUN_CLUSTER_PREFIX "" }}'
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "hostpath" }}'
-      RUN_DIR: '{{ printf "%s/runs/%s" .TMP_ROOT .RUN_ID }}'
-      RUN_VALUES_FILE: '{{ printf "%s/values.yaml" .RUN_DIR }}'
-      EFFECTIVE_DOMAIN:
-        sh: |
-          if [ -n "{{ .RUN_DOMAIN }}" ]; then
-            echo "{{ .RUN_DOMAIN }}"
-          else
-            if [ -f {{ .RUN_VALUES_FILE }} ]; then
-              yq eval '.domain // ""' {{ .RUN_VALUES_FILE }}
-            else
-              yq eval '.domain // ""' {{ .VALUES_TEMPLATE_FILE }}
-            fi
-          fi
-      JUNIT_PATH: '{{ printf "../../artifacts/%s/junit.xml" .RUN_ID }}'
-      SKIP_CLEANUP: '{{ .SKIP_CLEANUP | default "false" }}'
-      FOCUS: '{{ .FOCUS | default "" }}'
-      SKIP: '{{ .SKIP | default "" }}'
-      LABELS: '{{ .LABELS | default "" }}'
-      STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath{{ end }}'
-      IMAGE_STORAGE_CLASS: '{{ if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd-immediate{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath{{ end }}'
-      SNAPSHOT_STORAGE_CLASS: '{{ if .SNAPSHOT_STORAGE_CLASS }}{{ .SNAPSHOT_STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd-immediate{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath{{ end }}'
-      TIMEOUT: '{{ .TIMEOUT | default "4h" }}'
-      NFS_VI_SC_NAME: '{{ .NFS_VI_SC_NAME | default "" }}'
-      VIRTUALIZATION_IMAGE_TAG: '{{ .VIRTUALIZATION_IMAGE_TAG | default "" }}'
-      RUN_PARENT_KUBECONFIG: '{{ joinPath .RUN_DIR "parent.kubeconfig" }}'
-    cmds:
-      - task: parent:kubeconfig:ensure-scoped
-        vars:
-          OUTPUT_FILE: "{{ .RUN_PARENT_KUBECONFIG }}"
-          SOURCE_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
-          SKIP_INGRESS_CHECK: 'false'
-          PARENT_HOST: '{{ .PARENT_HOST | default "" }}'
-          PARENT_USER: '{{ .PARENT_USER | default "" }}'
-          PARENT_SSH_KEY: '{{ .PARENT_SSH_KEY | default "" }}'
-      - mkdir -p {{ printf "../../artifacts/%s" .RUN_ID }}
-      - task: nested:cluster:create
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
-          RUN_CLUSTER_PREFIX: "{{ .RUN_CLUSTER_PREFIX }}"
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          PARENT_KUBECONFIG: "{{ .RUN_PARENT_KUBECONFIG }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-      - |
-        set -euo pipefail
-
-        NESTED_KUBECONFIG="{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) "kubeconfig" }}"
-        if [ -s "${NESTED_KUBECONFIG}" ]; then
-          TARGET_SC='{{ .STORAGE_CLASS }}'
-          echo "[INFO] Setting defaultClusterStorageClass to '${TARGET_SC}' in nested cluster"
-          if kubectl --kubeconfig="${NESTED_KUBECONFIG}" get crd moduleconfigs.deckhouse.io >/dev/null 2>&1; then
-            kubectl --kubeconfig="${NESTED_KUBECONFIG}" patch moduleconfig global \
-              --type merge \
-              -p '{"spec":{"enabled":true,"version":1,"settings":{"defaultClusterStorageClass":"'"${TARGET_SC}"'"}}}' >/dev/null 2>&1 || true
-          else
-            kubectl --kubeconfig="${NESTED_KUBECONFIG}" annotate storageclass "${TARGET_SC}" storageclass.kubernetes.io/is-default-class=true --overwrite 2>/dev/null || true
-          fi
-        else
-          echo "[WARN] Nested kubeconfig not found; skip default storageclass setup"
-        fi
-      - task: nested:kubeconfig
-        vars:
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          SSH_DIR: '{{ joinPath .RUN_DIR "ssh" }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          NESTED_DIR: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) }}'
-          NESTED_KUBECONFIG: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) "kubeconfig" }}'
-          PARENT_KUBECONFIG: "{{ .RUN_PARENT_KUBECONFIG }}"
-      - task: nested:storage:configure
-        vars:
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          GENERATED_VALUES_FILE: '{{ joinPath .RUN_DIR "generated-values.yaml" }}'
-          SSH_DIR: '{{ joinPath .RUN_DIR "ssh" }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          PASSWORD_FILE: '{{ joinPath .RUN_DIR "password.txt" }}'
-          PASSWORD_HASH_FILE: '{{ joinPath .RUN_DIR "password-hash.txt" }}'
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          DOMAIN: "{{ .EFFECTIVE_DOMAIN }}"
-          DEFAULT_USER:
-            sh: yq eval '.image.defaultUser' {{ .RUN_VALUES_FILE }}
-          NESTED_DIR: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) }}'
-          NESTED_KUBECONFIG: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) "kubeconfig" }}'
-      - task: nested:e2e
-        vars:
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          GENERATED_VALUES_FILE: '{{ joinPath .RUN_DIR "generated-values.yaml" }}'
-          SSH_DIR: '{{ joinPath .RUN_DIR "ssh" }}'
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          PASSWORD_FILE: '{{ joinPath .RUN_DIR "password.txt" }}'
-          PASSWORD_HASH_FILE: '{{ joinPath .RUN_DIR "password-hash.txt" }}'
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          DOMAIN: "{{ .EFFECTIVE_DOMAIN }}"
-          DEFAULT_USER:
-            sh: yq eval '.image.defaultUser' {{ .RUN_VALUES_FILE }}
-          PARENT_KUBECONFIG: "{{ .RUN_PARENT_KUBECONFIG }}"
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          NESTED_DIR: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) }}'
-          NESTED_KUBECONFIG: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) "kubeconfig" }}'
-          JUNIT_PATH: "{{ .JUNIT_PATH }}"
-          FOCUS: "{{ .FOCUS }}"
-          SKIP: "{{ .SKIP }}"
-          LABELS: "{{ .LABELS }}"
-          STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
-          IMAGE_STORAGE_CLASS: "{{ .IMAGE_STORAGE_CLASS }}"
-          SNAPSHOT_STORAGE_CLASS: "{{ .SNAPSHOT_STORAGE_CLASS }}"
-          TIMEOUT: "{{ .TIMEOUT }}"
-      - task: loop:junit:parse
-        vars:
-          JUNIT_FILE: "{{ .JUNIT_PATH }}"
-          RUN_ID: "{{ .RUN_ID }}"
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          TEST_TIMEOUT: "{{ .TIMEOUT }}"
-          LOOP_WEBHOOK: '{{ .LOOP_WEBHOOK | default (env "LOOP_WEBHOOK") }}'
-          LOOP_CHANNEL: '{{ .LOOP_CHANNEL | default "test-virtualization-loop-alerts" }}'
-      - when: '{{ eq .SKIP_CLEANUP "true" }}'
-        cmd: 'echo "[DEBUG] SKIP_CLEANUP=true, leaving namespace {{ .RUN_NAMESPACE }} in place"'
-    defer:
-      - when: '{{ ne .SKIP_CLEANUP "true" }}'
-        cmd: 'echo "[CLEANUP] destroying namespace {{ .RUN_NAMESPACE }}"'
-      - when: '{{ ne .SKIP_CLEANUP "true" }}'
-        task: nested:cluster:destroy
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          PARENT_KUBECONFIG: "{{ .RUN_PARENT_KUBECONFIG }}"
-
-  nested:debug:bootstrap:
-    internal: true
-    desc: Step-by-step / Bootstrap nested cluster for debugging
-    vars:
-      RUN_ID: '{{ .RUN_ID | default (printf "debug-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      RUN_CLUSTER_PREFIX: '{{ or .RUN_CLUSTER_PREFIX "" }}'
-    cmds:
-      - cmd: 'echo "[DEBUG] Bootstrapping run {{ .RUN_ID }} in namespace {{ .RUN_NAMESPACE }}"'
-      - task: nested:cluster:create
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
-          RUN_CLUSTER_PREFIX: "{{ .RUN_CLUSTER_PREFIX }}"
-          STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "hostpath" }}'
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-
-  nested:debug:storage:
-    internal: true
-    desc: Step-by-step / Configure storage profile for existing debug run
-    vars:
-      RUN_ID: '{{ .RUN_ID | default "" }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "hostpath" }}'
-      RUN_DIR: '{{ .RUN_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
-      RUN_VALUES_FILE: '{{ printf "%s/values.yaml" .RUN_DIR }}'
-      GENERATED_VALUES_FILE: '{{ joinPath .RUN_DIR "generated-values.yaml" }}'
-      SSH_DIR: '{{ joinPath .RUN_DIR "ssh" }}'
-      PASSWORD_FILE: '{{ joinPath .RUN_DIR "password.txt" }}'
-      PASSWORD_HASH_FILE: '{{ joinPath .RUN_DIR "password-hash.txt" }}'
-      NESTED_DIR: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) }}'
-      NESTED_KUBECONFIG: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) "kubeconfig" }}'
-      DOMAIN:
-        sh: |
-          if [ -n "{{ .RUN_DOMAIN }}" ]; then
-            echo "{{ .RUN_DOMAIN }}"
-          else
-            yq eval '.domain // ""' {{ .RUN_VALUES_FILE }}
-          fi
-      DEFAULT_USER:
-        sh: yq eval '.image.defaultUser' {{ .RUN_VALUES_FILE }}
-      NFS_VI_SC_NAME: '{{ .NFS_VI_SC_NAME | default "" }}'
-      VIRTUALIZATION_IMAGE_TAG: '{{ .VIRTUALIZATION_IMAGE_TAG | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .RUN_ID }}" ]; then
-          echo "[ERR] Set RUN_ID to reuse an existing run context"
-          exit 1
-        fi
-        if [ ! -d "{{ .RUN_DIR }}" ]; then
-          echo "[ERR] Run directory '{{ .RUN_DIR }}' not found. Bootstrap the run first (task nested:debug:bootstrap)."
-          exit 1
-        fi
-      - task: nested:kubeconfig
-        vars:
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          SSH_DIR: "{{ .SSH_DIR }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-      - task: nested:storage:configure
-        vars:
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          GENERATED_VALUES_FILE: "{{ .GENERATED_VALUES_FILE }}"
-          SSH_DIR: "{{ .SSH_DIR }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          PASSWORD_FILE: "{{ .PASSWORD_FILE }}"
-          PASSWORD_HASH_FILE: "{{ .PASSWORD_HASH_FILE }}"
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          DOMAIN: "{{ .DOMAIN }}"
-          DEFAULT_USER: "{{ .DEFAULT_USER }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-
-  nested:debug:tests:
-    internal: true
-    desc: Step-by-step / Run virtualization E2E tests for debug run
-    vars:
-      RUN_ID: '{{ .RUN_ID | default "" }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "hostpath" }}'
-      RUN_DIR: '{{ .RUN_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
-      RUN_VALUES_FILE: '{{ printf "%s/values.yaml" .RUN_DIR }}'
-      GENERATED_VALUES_FILE: '{{ joinPath .RUN_DIR "generated-values.yaml" }}'
-      SSH_DIR: '{{ joinPath .RUN_DIR "ssh" }}'
-      PASSWORD_FILE: '{{ joinPath .RUN_DIR "password.txt" }}'
-      PASSWORD_HASH_FILE: '{{ joinPath .RUN_DIR "password-hash.txt" }}'
-      NESTED_DIR: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) }}'
-      NESTED_KUBECONFIG: '{{ joinPath .RUN_DIR (printf "nested-%s" .RUN_NAMESPACE) "kubeconfig" }}'
-      ARTIFACT_DIR: '{{ printf "../../artifacts/%s" .RUN_ID }}'
-      JUNIT_PATH: '{{ .JUNIT_PATH | default (printf "../../artifacts/%s/junit-debug.xml" .RUN_ID) }}'
-      DOMAIN:
-        sh: |
-          if [ -n "{{ .RUN_DOMAIN }}" ]; then
-            echo "{{ .RUN_DOMAIN }}"
-          else
-            yq eval '.domain // ""' {{ .RUN_VALUES_FILE }}
-          fi
-      DEFAULT_USER:
-        sh: yq eval '.image.defaultUser' {{ .RUN_VALUES_FILE }}
-      FOCUS: '{{ .FOCUS | default "" }}'
-      SKIP: '{{ .SKIP | default "" }}'
-      LABELS: '{{ .LABELS | default "" }}'
-      TIMEOUT: '{{ .TIMEOUT | default "4h" }}'
-      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "" }}'
-      IMAGE_STORAGE_CLASS: '{{ .IMAGE_STORAGE_CLASS | default "" }}'
-      SNAPSHOT_STORAGE_CLASS: '{{ .SNAPSHOT_STORAGE_CLASS | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .RUN_ID }}" ]; then
-          echo "[ERR] Set RUN_ID to reuse an existing run context"
-          exit 1
-        fi
-        if [ ! -d "{{ .RUN_DIR }}" ]; then
-          echo "[ERR] Run directory '{{ .RUN_DIR }}' not found. Bootstrap the run first (task nested:debug:bootstrap)."
-          exit 1
-        fi
-      - mkdir -p {{ .ARTIFACT_DIR }}
-      - task: nested:kubeconfig
-        vars:
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          SSH_DIR: "{{ .SSH_DIR }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-      - task: nested:e2e
-        vars:
-          TMP_DIR: "{{ .RUN_DIR }}"
-          VALUES_FILE: "{{ .RUN_VALUES_FILE }}"
-          GENERATED_VALUES_FILE: "{{ .GENERATED_VALUES_FILE }}"
-          SSH_DIR: "{{ .SSH_DIR }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          PASSWORD_FILE: "{{ .PASSWORD_FILE }}"
-          PASSWORD_HASH_FILE: "{{ .PASSWORD_HASH_FILE }}"
-          NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          DOMAIN: "{{ .DOMAIN }}"
-          DEFAULT_USER: "{{ .DEFAULT_USER }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          NESTED_DIR: "{{ .NESTED_DIR }}"
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          JUNIT_PATH: "{{ .JUNIT_PATH }}"
-          FOCUS: "{{ .FOCUS }}"
-          SKIP: "{{ .SKIP }}"
-          LABELS: "{{ .LABELS }}"
-          STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
-          IMAGE_STORAGE_CLASS: "{{ .IMAGE_STORAGE_CLASS }}"
-          SNAPSHOT_STORAGE_CLASS: "{{ .SNAPSHOT_STORAGE_CLASS }}"
-          TIMEOUT: "{{ .TIMEOUT }}"
-
-  nested:debug:destroy:
-    internal: true
-    desc: Step-by-step / Cleanup debug run resources
-    vars:
-      RUN_ID: '{{ .RUN_ID | default "" }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-    cmds:
-      - |
-        set -euo pipefail
-        if [ -z "{{ .RUN_ID }}" ]; then
-          echo "[ERR] Set RUN_ID to identify which run to destroy"
-          exit 1
-        fi
-      - task: nested:cluster:destroy
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-
-  nested:debug:full:
-    internal: true
-    desc: Step-by-step debug workflow (bootstrap -> storage -> tests)
-    vars:
-      RUN_ID: '{{ .RUN_ID | default (printf "debug-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
-      RUN_DOMAIN: '{{ or .RUN_DOMAIN "" }}'
-      RUN_CLUSTER_PREFIX: '{{ or .RUN_CLUSTER_PREFIX "" }}'
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "hostpath" }}'
-      PROMPT_PHASES: '{{ .PROMPT_PHASES | default "true" }}'
-      SKIP_CLEANUP: '{{ .SKIP_CLEANUP | default "true" }}'
-      FOCUS: '{{ .FOCUS | default "" }}'
-      SKIP: '{{ .SKIP | default "" }}'
-      LABELS: '{{ .LABELS | default "" }}'
-      TIMEOUT: '{{ .TIMEOUT | default "240m" }}'
-      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "" }}'
-      IMAGE_STORAGE_CLASS: '{{ .IMAGE_STORAGE_CLASS | default "" }}'
-      SNAPSHOT_STORAGE_CLASS: '{{ .SNAPSHOT_STORAGE_CLASS | default "" }}'
-      JUNIT_PATH: '{{ .JUNIT_PATH | default "" }}'
-    cmds:
-      - task: nested:debug:bootstrap
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
-          RUN_CLUSTER_PREFIX: "{{ .RUN_CLUSTER_PREFIX }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-      - when: '{{ eq .PROMPT_PHASES "true" }}'
-        cmd: 'read -rp "[DEBUG] Bootstrap complete. Press enter to configure storage..." _'
-      - task: nested:debug:storage
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-      - when: '{{ eq .PROMPT_PHASES "true" }}'
-        cmd: 'read -rp "[DEBUG] Storage configured. Press enter to run tests..." _'
-      - task: nested:debug:tests
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          RUN_DOMAIN: "{{ .RUN_DOMAIN }}"
-          STORAGE_PROFILE: "{{ .STORAGE_PROFILE }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
-          FOCUS: "{{ .FOCUS }}"
-          SKIP: "{{ .SKIP }}"
-          LABELS: "{{ .LABELS }}"
-          TIMEOUT: "{{ .TIMEOUT }}"
-          STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
-          IMAGE_STORAGE_CLASS: "{{ .IMAGE_STORAGE_CLASS }}"
-          SNAPSHOT_STORAGE_CLASS: "{{ .SNAPSHOT_STORAGE_CLASS }}"
-          JUNIT_PATH: "{{ .JUNIT_PATH }}"
-    defer:
-      - when: '{{ ne .SKIP_CLEANUP "true" }}'
-        task: nested:debug:destroy
-        vars:
-          RUN_ID: "{{ .RUN_ID }}"
-          RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
-          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-
-
+        task run TIMEOUT='{{ .TIMEOUT }}' {{ if .FOCUS }}FOCUS='{{ .FOCUS }}'{{ end }} {{ if .LABELS }}LABELS='{{ .LABELS }}'{{ end }}
