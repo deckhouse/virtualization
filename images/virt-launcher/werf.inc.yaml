@@ -132,6 +132,7 @@ packages:
 - openldap openssl
 - e2fsprogs libxcrypt lvm2 libjson-glib
 - libvirt
+- libffi
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
