@@ -33,7 +33,6 @@ var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), fu
 	var (
 		testCaseLabel = map[string]string{"testcase": "images-creation"}
 		ns            string
-		criticalError error
 	)
 
 	BeforeAll(func() {
@@ -74,12 +73,6 @@ var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), fu
 		}
 	})
 
-	BeforeEach(func() {
-		if criticalError != nil {
-			Skip(fmt.Sprintf("Skip because blinking error: %s", criticalError.Error()))
-		}
-	})
-
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -113,16 +106,11 @@ var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), fu
 	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", v1alpha2.ImageReady))
-			err := InterceptGomegaFailure(func() {
-				WaitPhaseByLabel(kc.ResourceVI, string(v1alpha2.ImageReady), kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Timeout:   MaxWaitTimeout,
-				})
+			WaitPhaseByLabel(kc.ResourceVI, string(v1alpha2.ImageReady), kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
 			})
-			if err != nil {
-				criticalError = err
-			}
 		})
 
 		It("checks CVIs phases", func() {
