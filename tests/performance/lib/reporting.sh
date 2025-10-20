@@ -30,7 +30,11 @@ create_summary_report() {
     local migration_percent_duration="${20:-0}"
     local controller_duration="${21:-0}"
     local final_stats_duration="${22:-0}"
-    local final_cleanup_duration="${23:-0}"
+    local drain_stats_duration="${23:-0}"
+    local final_cleanup_duration="${24:-0}"
+    local migration_parallel_2x_duration="${25:-0}"
+    local migration_parallel_4x_duration="${26:-0}"
+    local migration_parallel_8x_duration="${27:-0}"
     
     local summary_file="$scenario_dir/summary.txt"
     
@@ -51,7 +55,11 @@ create_summary_report() {
     local migration_percent_percent=$(calculate_percentage "$migration_percent_duration" "$total_duration")
     local controller_percent=$(calculate_percentage "$controller_duration" "$total_duration")
     local final_stats_percent=$(calculate_percentage "$final_stats_duration" "$total_duration")
+    local drain_stats_percent=$(calculate_percentage "$drain_stats_duration" "$total_duration")
     local final_cleanup_percent=$(calculate_percentage "$final_cleanup_duration" "$total_duration")
+    local migration_parallel_2x_percent=$(calculate_percentage "$migration_parallel_2x_duration" "$total_duration")
+    local migration_parallel_4x_percent=$(calculate_percentage "$migration_parallel_4x_duration" "$total_duration")
+    local migration_parallel_8x_percent=$(calculate_percentage "$migration_parallel_8x_duration" "$total_duration")
     
     cat > "$summary_file" << EOF
 ================================================================================
@@ -90,8 +98,12 @@ $(printf "%-55s %10s  %10s\n" "VM Operations: Start VMs [$PERCENT_RESOURCES]" "$
 $(printf "%-55s %10s  %10s\n" "Migration Setup (${MIGRATION_PERCENTAGE_5}% - ${MIGRATION_5_COUNT} VMs)" "$(format_duration $migration_duration)" "$(printf "%5.1f" $migration_percent)%")
 $(printf "%-55s %10s  %10s\n" "Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)" "$(format_duration $cleanup_ops_duration)" "$(printf "%5.1f" $cleanup_ops_percent)%")
 $(printf "%-55s %10s  %10s\n" "Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$(format_duration $migration_percent_duration)" "$(printf "%5.1f" $migration_percent_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration parallelMigrationsPerCluster 2x nodes" "$(format_duration $migration_parallel_2x_duration)" "$(printf "%5.1f" $migration_parallel_2x_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration parallelMigrationsPerCluster 4x nodes" "$(format_duration $migration_parallel_4x_duration)" "$(printf "%5.1f" $migration_parallel_4x_percent)%")
+$(printf "%-55s %10s  %10s\n" "Migration parallelMigrationsPerCluster 8x nodes" "$(format_duration $migration_parallel_8x_duration)" "$(printf "%5.1f" $migration_parallel_8x_percent)%")
 $(printf "%-55s %10s  %10s\n" "Controller Restart" "$(format_duration $controller_duration)" "$(printf "%5.1f" $controller_percent)%")
 $(printf "%-55s %10s  %10s\n" "Final Statistics" "$(format_duration $final_stats_duration)" "$(printf "%5.1f" $final_stats_percent)%")
+$(printf "%-55s %10s  %10s\n" "Drain node" "$(format_duration $drain_stats_duration)" "$(printf "%5.1f" $drain_stats_percent)%")
 $(printf "%-55s %10s  %10s\n" "Final Cleanup" "$(format_duration $final_cleanup_duration)" "$(printf "%5.1f" $final_cleanup_percent)%")
 
 ================================================================================
@@ -105,6 +117,7 @@ $(printf "%-25s %10s\n" "VM Start Time:" "$(format_duration $start_vm_duration)"
 $(printf "%-25s %10s\n" "Controller Restart Time:" "$(format_duration $controller_duration)")
 $(printf "%-25s %10s\n" "Migration 5% Time:" "$(format_duration $migration_duration)")
 $(printf "%-25s %10s\n" "Migration 10% Time:" "$(format_duration $migration_percent_duration)")
+$(printf "%-25s %10s\n" "Drain Node Time:" "$(format_duration $drain_stats_duration)")
 ================================================================================
                             FILES GENERATED
 ================================================================================
@@ -120,4 +133,5 @@ EOF
 
     log_info "Summary report created: $summary_file"
 }
+
 

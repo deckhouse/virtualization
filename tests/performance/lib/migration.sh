@@ -275,3 +275,100 @@ migration_percent_vms() {
   log_vm_operation "Migration completed - Migrated $target_count VMs in $formatted_duration"
 }
 
+drain_node() {
+  local start_time=$(get_timestamp)
+
+  log_info "Start draining node"
+  log_info "Start time: $(formatted_date $start_time)"
+  
+  local task_start=$(get_timestamp)
+  
+  local KUBECONFIG_MERGE=$(kubectl config view --merge --flatten | base64 -w 0)
+  KUBECONFIG_BASE64=$KUBECONFIG_MERGE task shatal:run
+  
+  local task_end=$(get_timestamp)
+  local task_duration=$((task_end - task_start))
+  local end_time=$(get_timestamp)
+  local formatted_duration=$(format_duration "$task_duration")
+  
+  log_info "Duration node completed - End time: $(formatted_date $end_time)"
+  log_info "Task Duration node execution: $(format_duration $task_duration)"
+  log_success "Duration node completed in $formatted_duration"
+  echo "$task_duration"
+}
+
+scale_deckhouse() {
+  local replicas=${1}
+  ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS=$(kubectl -n d8-system get deployment deckhouse -o jsonpath="{.spec.replicas}" 2>/dev/null || echo "1")
+  log_info "Deckhouse controller replicas: $ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS"
+  log_info "Deckhouse controller scaled to $replicas"
+  kubectl -n d8-system scale --replicas $replicas deployment deckhouse
+  log_success "Deckhouse controller scaled to $replicas"
+}
+
+migration_config() {
+  # default values
+  #   {
+  #     "bandwidthPerMigration": "640Mi",
+  #     "completionTimeoutPerGiB": 800,
+  #     "parallelMigrationsPerCluster": 8, # count all nodes
+  #     "parallelOutboundMigrationsPerNode": 1,
+  #     "progressTimeout": 150
+  #   }
+  local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+
+  local bandwidthPerMigration=${1:-"640Mi"}
+  local completionTimeoutPerGiB=${2:-"800"}
+  local parallelMigrationsPerCluster=${3:-$amountNodes}
+  local parallelOutboundMigrationsPerNode=${4:-"1"}
+  local progressTimeout=${5:-"150"}
+
+  echo "====== configure patch ======"
+  echo "bandwidthPerMigration: $bandwidthPerMigration"
+  echo "completionTimeoutPerGiB: $completionTimeoutPerGiB"
+  echo "parallelMigrationsPerCluster: $parallelMigrationsPerCluster"
+  echo "parallelOutboundMigrationsPerNode: $parallelOutboundMigrationsPerNode"
+  echo "progressTimeout: $progressTimeout"
+  
+  patch_json=$(
+  jq -n \
+    --arg bpm "$bandwidthPerMigration" \
+    --argjson ct $completionTimeoutPerGiB \
+    --argjson pmc $parallelMigrationsPerCluster \
+    --argjson pmon $parallelOutboundMigrationsPerNode \
+    --argjson pt $progressTimeout \
+    '{
+      spec: {
+        configuration: {
+          migrations: {
+            bandwidthPerMigration: $bpm,
+            completionTimeoutPerGiB: $ct,
+            parallelMigrationsPerCluster: $pmc,
+            parallelOutboundMigrationsPerNode: $pmon,
+            progressTimeout: $pt
+          }
+        }
+      }
+    }'
+  )
+  log_info "Checking restricted access policy"
+  
+  if kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy >/dev/null 2>&1; then
+    log_info "Deleting restricted access policy"
+    kubectl delete validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy
+  else
+    log_info "No restricted access policy"
+  fi
+
+  sleep 1
+
+  log_info "Patching kubevirt config"
+
+  kubectl -n d8-virtualization patch \
+    --as=system:sudouser \
+    internalvirtualizationkubevirts.internal.virtualization.deckhouse.io config \
+    --type=merge -p "$patch_json"
+
+  log_success "Migration settings applyed"
+}
+

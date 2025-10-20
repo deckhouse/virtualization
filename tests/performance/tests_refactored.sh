@@ -28,8 +28,16 @@ parse_arguments() {
         MAIN_COUNT_RESOURCES="$2"
         shift 2
         ;;
+      --clean-reports)
+        CLEAN_REPORTS=true
+        shift
+        ;;
       --step)
         INDIVIDUAL_STEP="$2"
+        shift 2
+        ;;
+      --from-step)
+        FROM_STEP="$2"
         shift 2
         ;;
       --list-steps)
@@ -43,6 +51,14 @@ parse_arguments() {
       --vi-type)
         VI_TYPE="$2"
         shift 2
+        ;;
+      --no-pre-cleanup)
+        NO_PRE_CLEANUP=true
+        shift
+        ;;
+      --no-post-cleanup)
+        NO_POST_CLEANUP=true
+        shift
         ;;
       -h|--help)
         show_help
@@ -67,9 +83,13 @@ OPTIONS:
   -s, --scenario NUMBER    Scenario number to run (1 or 2, default: 1)
   -c, --count NUMBER       Number of resources to create (default: 2)
   --step STEP_NAME         Run a specific step only
+  --from-step STEP_NAME    Run all steps starting from STEP_NAME
   --list-steps             List all available steps
   --scenario-dir DIR       Directory for scenario data (required for individual steps)
   --vi-type TYPE           Virtual image type (required for some steps)
+  --clean-reports          Clean all report directories before running
+  --no-pre-cleanup         Do not cleanup resources before running
+  --no-post-cleanup        Do not cleanup resources after running
   -h, --help              Show this help message
 
 EXAMPLES:
@@ -84,9 +104,21 @@ EXAMPLES:
   $0 --step vm-deployment --scenario-dir /path/to/scenario --vi-type persistentVolumeClaim
   $0 --step statistics-collection --scenario-dir /path/to/scenario
   $0 --step vm-operations --scenario-dir /path/to/scenario
+  $0 --step vm-undeploy-deploy --scenario-dir /path/to/scenario
+  $0 --step vm-operations-test --scenario-dir /path/to/scenario
   $0 --step migration-tests --scenario-dir /path/to/scenario
+  $0 --step migration-parallel-2x --scenario-dir /path/to/scenario
+  $0 --step migration-parallel-4x --scenario-dir /path/to/scenario
+  $0 --step migration-parallel-8x --scenario-dir /path/to/scenario
   $0 --step controller-restart --scenario-dir /path/to/scenario --vi-type persistentVolumeClaim
+  $0 --step drain-node --scenario-dir /path/to/scenario
   $0 --step final-operations --scenario-dir /path/to/scenario
+
+  # Run from a step
+  $0 --from-step vm-operations --scenario-dir /path/to/scenario --vi-type persistentVolumeClaim
+
+  # Skip cleanup before/after
+  $0 --no-pre-cleanup --no-post-cleanup
 
 SCENARIOS:
   1 - persistentVolumeClaim (default)
@@ -100,8 +132,12 @@ AVAILABLE STEPS:
   5. vm-undeploy-deploy - Undeploy and redeploy 10% VMs
   6. vm-operations-test - Test stop/start operations on 10% VMs
   7. migration-tests - Run migration tests (5% and 10%)
+  8. migration-parallel-2x - Migrate with parallelMigrationsPerCluster at 2x nodes
+  9. migration-parallel-4x - Migrate with parallelMigrationsPerCluster at 4x nodes
+ 10. migration-parallel-8x - Migrate with parallelMigrationsPerCluster at 8x nodes
   8. controller-restart - Test controller restart with VM creation
-  9. final-operations - Final statistics and cleanup
+ 11. drain-node - Run drain node workload
+ 12. final-operations - Final statistics and optional cleanup
 
 EOF
 }
@@ -117,20 +153,39 @@ Available test steps:
 5. vm-undeploy-deploy - Undeploy and redeploy 10% VMs
 6. vm-operations-test - Test stop/start operations on 10% VMs
 7. migration-tests - Run migration tests (5% and 10%)
+8. migration-parallel-2x - Migrate with parallelMigrationsPerCluster at 2x nodes
+9. migration-parallel-4x - Migrate with parallelMigrationsPerCluster at 4x nodes
+10. migration-parallel-8x - Migrate with parallelMigrationsPerCluster at 8x nodes
 8. controller-restart - Test controller restart with VM creation
-9. final-operations - Final statistics and cleanup
+11. drain-node - Run drain node workload
+12. final-operations - Final statistics and optional cleanup
 
 Usage: $0 --step STEP_NAME --scenario-dir DIR [--vi-type TYPE]
 EOF
+}
+
+# Helper function to get step number
+get_step_number() {
+  local step_name="$1"
+  local step_number=1
+  for step in "${ALL_STEPS[@]}"; do
+    if [ "$step" = "$step_name" ]; then
+      echo "$step_number"
+      return
+    fi
+    step_number=$((step_number + 1))
+  done
+  echo "0"
 }
 
 # Individual step execution functions
 run_step_cleanup() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "cleanup")
   
-  log_info "=== Running step: cleanup ==="
-  init_logging "step_cleanup" "$vi_type"
+  log_info "=== Running Step $step_number: cleanup ==="
+  init_logging "step_cleanup" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_step_start "Cleanup existing resources"
   local cleanup_start=$(get_timestamp)
@@ -147,9 +202,10 @@ run_step_cleanup() {
 run_step_vm_deployment() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "vm-deployment")
   
-  log_info "=== Running step: vm-deployment ==="
-  init_logging "step_vm-deployment" "$vi_type"
+  log_info "=== Running Step $step_number: vm-deployment ==="
+  init_logging "step_vm-deployment" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_step_start "Deploy VMs [$MAIN_COUNT_RESOURCES]"
   local deploy_start=$(get_timestamp)
@@ -164,9 +220,10 @@ run_step_vm_deployment() {
 run_step_statistics_collection() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "statistics-collection")
   
-  log_info "=== Running step: statistics-collection ==="
-  init_logging "step_statistics-collection" "$vi_type"
+  log_info "=== Running Step $step_number: statistics-collection ==="
+  init_logging "step_statistics-collection" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_step_start "Statistics Collection"
   local stats_start=$(get_timestamp)
@@ -182,9 +239,10 @@ run_step_statistics_collection() {
 run_step_vm_operations() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "vm-operations")
   
-  log_info "=== Running step: vm-operations ==="
-  init_logging "step_vm-operations" "$vi_type"
+  log_info "=== Running Step $step_number: vm-operations ==="
+  init_logging "step_vm-operations" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_info "Stopping all VMs [$MAIN_COUNT_RESOURCES]"
   log_step_start "VM Stop"
@@ -211,9 +269,10 @@ run_step_vm_operations() {
 run_step_vm_undeploy_deploy() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "vm-undeploy-deploy")
   
-  log_info "=== Running step: vm-undeploy-deploy ==="
-  init_logging "step_vm-undeploy-deploy" "$vi_type"
+  log_info "=== Running Step $step_number: vm-undeploy-deploy ==="
+  init_logging "step_vm-undeploy-deploy" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_info "Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   log_step_start "VM Undeploy 10% VMs [$PERCENT_RESOURCES]"
@@ -237,9 +296,10 @@ run_step_vm_undeploy_deploy() {
 run_step_vm_operations_test() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "vm-operations-test")
   
-  log_info "=== Running step: vm-operations-test ==="
-  init_logging "step_vm-operations-test" "$vi_type"
+  log_info "=== Running Step $step_number: vm-operations-test ==="
+  init_logging "step_vm-operations-test" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_info "Testing VM stop/start operations for 10% VMs"
   log_step_start "VM Operations Test"
@@ -271,9 +331,10 @@ run_step_vm_operations_test() {
 run_step_migration_tests() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "migration-tests")
   
-  log_info "=== Running step: migration-tests ==="
-  init_logging "step_migration-tests" "$vi_type"
+  log_info "=== Running Step $step_number: migration-tests ==="
+  init_logging "step_migration-tests" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   # Start 5% migration in background
   local migration_duration_time="0m"
@@ -338,9 +399,10 @@ run_step_migration_tests() {
 run_step_controller_restart() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "controller-restart")
   
-  log_info "=== Running step: controller-restart ==="
-  init_logging "step_controller-restart" "$vi_type"
+  log_info "=== Running Step $step_number: controller-restart ==="
+  init_logging "step_controller-restart" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_info "Testing controller restart with 1 VM creation"
   log_step_start "Controller Restart"
@@ -369,9 +431,10 @@ run_step_controller_restart() {
 run_step_final_operations() {
   local scenario_dir="$1"
   local vi_type="$2"
+  local step_number=$(get_step_number "final-operations")
   
-  log_info "=== Running step: final-operations ==="
-  init_logging "step_final-operations" "$vi_type"
+  log_info "=== Running Step $step_number: final-operations ==="
+  init_logging "step_final-operations" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
   log_step_start "Final Statistics"
   local final_stats_start=$(get_timestamp)
@@ -384,12 +447,16 @@ run_step_final_operations() {
   log_info "Waiting 30 seconds before cleanup"
   sleep 30
   
-  log_step_start "Final Cleanup"
-  local final_cleanup_start=$(get_timestamp)
-  undeploy_resources
-  local final_cleanup_end=$(get_timestamp)
-  local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
-  log_step_end "Final Cleanup" "$final_cleanup_duration"
+  if [ "${NO_POST_CLEANUP:-false}" = "true" ]; then
+    log_warning "Skipping final cleanup as requested"
+  else
+    log_step_start "Final Cleanup"
+    local final_cleanup_start=$(get_timestamp)
+    undeploy_resources
+    local final_cleanup_end=$(get_timestamp)
+    local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
+    log_step_end "Final Cleanup" "$final_cleanup_duration"
+  fi
   
   log_success "Final operations step completed"
 }
@@ -399,6 +466,17 @@ run_individual_step() {
   local step_name="$1"
   local scenario_dir="$2"
   local vi_type="$3"
+  
+  # Find step number
+  local step_number=1
+  for step in "${ALL_STEPS[@]}"; do
+    if [ "$step" = "$step_name" ]; then
+      break
+    fi
+    step_number=$((step_number + 1))
+  done
+  
+  log_info "=== Executing Step $step_number: $step_name ==="
   
   case "$step_name" in
     "cleanup")
@@ -422,8 +500,20 @@ run_individual_step() {
     "migration-tests")
       run_step_migration_tests "$scenario_dir" "$vi_type"
       ;;
+    "migration-parallel-2x")
+      run_step_migration_parallel_2x "$scenario_dir" "$vi_type"
+      ;;
+    "migration-parallel-4x")
+      run_step_migration_parallel_4x "$scenario_dir" "$vi_type"
+      ;;
+    "migration-parallel-8x")
+      run_step_migration_parallel_8x "$scenario_dir" "$vi_type"
+      ;;
     "controller-restart")
       run_step_controller_restart "$scenario_dir" "$vi_type"
+      ;;
+    "drain-node")
+      run_step_drain_node "$scenario_dir" "$vi_type"
       ;;
     "final-operations")
       run_step_final_operations "$scenario_dir" "$vi_type"
@@ -435,6 +525,119 @@ run_individual_step() {
       exit 1
       ;;
   esac
+}
+
+# Additional steps aligned with original tests.sh
+run_step_migration_parallel_2x() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  local step_number=$(get_step_number "migration-parallel-2x")
+
+  log_info "=== Running Step $step_number: migration-parallel-2x ==="
+  init_logging "step_migration-parallel-2x" "$vi_type" "$MAIN_COUNT_RESOURCES"
+  local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+  local migration_parallel_2x=$(( amountNodes*2 ))
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
+  log_step_start "Migration parallel 2x"
+  local start_ts=$(get_timestamp)
+  scale_deckhouse 0
+  migration_config "640Mi" "800" "$migration_parallel_2x" "1" "150"
+  migration_percent_vms $MIGRATION_10_COUNT
+  local end_ts=$(get_timestamp)
+  log_step_end "Migration parallel 2x" "$((end_ts-start_ts))"
+}
+
+run_step_migration_parallel_4x() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  local step_number=$(get_step_number "migration-parallel-4x")
+
+  log_info "=== Running Step $step_number: migration-parallel-4x ==="
+  init_logging "step_migration-parallel-4x" "$vi_type" "$MAIN_COUNT_RESOURCES"
+  local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+  local migration_parallel_4x=$(( amountNodes*4 ))
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x (4x)]"
+  log_step_start "Migration parallel 4x"
+  local start_ts=$(get_timestamp)
+  migration_config "640Mi" "800" "$migration_parallel_4x" "1" "150"
+  migration_percent_vms $MIGRATION_10_COUNT
+  local end_ts=$(get_timestamp)
+  log_step_end "Migration parallel 4x" "$((end_ts-start_ts))"
+}
+
+run_step_migration_parallel_8x() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  local step_number=$(get_step_number "migration-parallel-8x")
+
+  log_info "=== Running Step $step_number: migration-parallel-8x ==="
+  init_logging "step_migration-parallel-8x" "$vi_type" "$MAIN_COUNT_RESOURCES"
+  local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
+  local migration_parallel_8x=$(( amountNodes*8 ))
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x (8x)]"
+  log_step_start "Migration parallel 8x"
+  local start_ts=$(get_timestamp)
+  migration_config "640Mi" "800" "$migration_parallel_8x" "1" "150"
+  migration_percent_vms $MIGRATION_10_COUNT
+  migration_config
+  log_info "Restoring original deckhouse controller replicas to [$ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS]"
+  scale_deckhouse $ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS
+  local end_ts=$(get_timestamp)
+  log_step_end "Migration parallel 8x" "$((end_ts-start_ts))"
+}
+
+run_step_drain_node() {
+  local scenario_dir="$1"
+  local vi_type="$2"
+  local step_number=$(get_step_number "drain-node")
+
+  log_info "=== Running Step $step_number: drain-node ==="
+  init_logging "step_drain-node" "$vi_type" "$MAIN_COUNT_RESOURCES"
+  log_info "Draining node via workload"
+  log_step_start "Drain node"
+  local start_ts=$(get_timestamp)
+  drain_node
+  local end_ts=$(get_timestamp)
+  log_step_end "Drain node" "$((end_ts-start_ts))"
+}
+
+# Ordered steps for full step-runner alignment with original tests.sh
+ALL_STEPS=(
+  cleanup
+  vm-deployment
+  statistics-collection
+  vm-operations
+  vm-undeploy-deploy
+  vm-operations-test
+  migration-tests
+  migration-parallel-2x
+  migration-parallel-4x
+  migration-parallel-8x
+  controller-restart
+  drain-node
+  final-operations
+)
+
+run_steps_from() {
+  local start_step="$1"
+  local scenario_dir="$2"
+  local vi_type="$3"
+
+  local started=false
+  local step_number=1
+  for step in "${ALL_STEPS[@]}"; do
+    if [ "$started" = false ]; then
+      if [ "$step" = "$start_step" ]; then
+        started=true
+      else
+        step_number=$((step_number + 1))
+        continue
+      fi
+    fi
+    log_info "=== Executing Step $step_number: $step ==="
+    run_individual_step "$step" "$scenario_dir" "$vi_type"
+    step_number=$((step_number + 1))
+  done
 }
 
 # === Test configuration ===
@@ -479,7 +682,7 @@ log_info "========================================"
 prepare_for_tests
 
 # Check if running individual step or full scenario
-if [ -n "$INDIVIDUAL_STEP" ]; then
+if [ -n "$INDIVIDUAL_STEP" ] || [ -n "${FROM_STEP:-}" ]; then
   # Individual step execution
   if [ -z "$SCENARIO_DIR" ]; then
     log_error "Scenario directory is required for individual step execution"
@@ -491,10 +694,17 @@ if [ -n "$INDIVIDUAL_STEP" ]; then
   if [ -z "$VI_TYPE" ]; then
     VI_TYPE="persistentVolumeClaim"
   fi
-  
-  log_info "Running individual step: $INDIVIDUAL_STEP"
-  run_individual_step "$INDIVIDUAL_STEP" "$SCENARIO_DIR" "$VI_TYPE"
-  log_success "Individual step completed successfully"
+  # Optionally skip pre-cleanup by not running cleanup unless requested explicitly
+  if [ -n "${FROM_STEP:-}" ]; then
+    log_info "Running from step: $FROM_STEP"
+    run_steps_from "$FROM_STEP" "$SCENARIO_DIR" "$VI_TYPE"
+    log_success "From-step execution completed successfully"
+  else
+    log_info "Running individual step: $INDIVIDUAL_STEP"
+    # Respect NO_PRE_CLEANUP/NO_POST_CLEANUP within steps; cleanup step is separate
+    run_individual_step "$INDIVIDUAL_STEP" "$SCENARIO_DIR" "$VI_TYPE"
+    log_success "Individual step completed successfully"
+  fi
 else
   # Full scenario execution (original behavior)
   case $SCENARIO_NUMBER in

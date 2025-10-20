@@ -47,9 +47,12 @@ NC='\033[0m' # No Color
 init_logging() {
     local scenario_name=$1
     local vi_type=$2
-    LOG_FILE="$REPORT_DIR/${scenario_name}_${vi_type}/test.log"
-    VM_OPERATIONS_LOG="$REPORT_DIR/${scenario_name}_${vi_type}/vm_operations.log"
-    CURRENT_SCENARIO="${scenario_name}_${vi_type}"
+    local count=${3:-$MAIN_COUNT_RESOURCES}
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local scenario_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
+    LOG_FILE="$scenario_dir/test.log"
+    VM_OPERATIONS_LOG="$scenario_dir/vm_operations.log"
+    CURRENT_SCENARIO="${scenario_name}_${vi_type}_${count}vm_${timestamp}"
     mkdir -p "$(dirname "$LOG_FILE")"
     echo "=== Test started at $(get_current_date) ===" > "$LOG_FILE"
     echo "=== VM Operations Report started at $(get_current_date) ===" > "$VM_OPERATIONS_LOG"
@@ -228,7 +231,9 @@ get_default_storage_class() {
 create_report_dir() {
   local scenario_name=$1
   local vi_type=$2
-  local base_dir="$REPORT_DIR/${scenario_name}_${vi_type}"
+  local count=${3:-$MAIN_COUNT_RESOURCES}
+  local timestamp=$(date +"%Y%m%d_%H%M%S")
+  local base_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
   mkdir -p "$base_dir/statistics"
   mkdir -p "$base_dir/vpa"
   echo "$base_dir"
@@ -244,4 +249,5 @@ prepare_for_tests() {
   log_info "Preparing for tests"
   log_info "Operating System: $OS_TYPE"
 }
+
 
