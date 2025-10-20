@@ -271,7 +271,7 @@ tasks:
           kubectl -n {{ .NAMESPACE }} logs deploy/jump-host --tail=200 || true
           exit 1
         fi
-      - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=nfs-server --timeout=300s
+      # nfs-server is no longer part of infra; no wait needed
       - |
         end_time=$(date +%s)
         difference=$((end_time - {{ .start_time }}))
@@ -1433,17 +1433,9 @@ tasks:
         EOF
       - |
         set -euo pipefail
-        if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic >/dev/null 2>&1; then
-          echo "[INFO] Ensuring vmclass generic-for-e2e exists and is default"
-          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic -o json \
-            | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}}' \
-            | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - >/dev/null
+        if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get nfsstorageclass {{ .NFS_SC_NAME }} >/dev/null 2>&1; then
+          echo "[INFO] NFSStorageClass '{{ .NFS_SC_NAME }}' already exists; skipping creation"
         else
-          echo "[WARN] vmclass/generic not found in nested cluster; skipping default class setup"
-        fi
-      - |
-        set -euo pipefail
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get nfsstorageclass {{ .NFS_SC_NAME }} >/dev/null 2>&1; then
           KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - <<'EOF'
           apiVersion: storage.deckhouse.io/v1alpha1
           kind: NFSStorageClass
@@ -1461,8 +1453,6 @@ tasks:
             reclaimPolicy: Delete
             volumeBindingMode: Immediate
         EOF
-        else
-          echo "[INFO] NFSStorageClass '{{ .NFS_SC_NAME }}' already exists; skipping creation"
         fi
       - |
         set -euo pipefail
@@ -1495,7 +1485,6 @@ tasks:
           case '{{ .STORAGE_PROFILE }}' in
             sds|sds-local|sds_local|sds-replicated|sds_replicated) echo sds ;;
             ceph|ceph-rbd|cephrbd) echo ceph ;;
-            nfs|nfs-4-1-wffc) echo nfs ;;
             hostpath|hp) echo hostpath ;;
             *) echo '{{ .STORAGE_PROFILE }}' ;;
           esac
@@ -1504,7 +1493,7 @@ tasks:
       - |
         set -euo pipefail
         case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
-          hostpath|ceph|sds|nfs) ;;
+          hostpath|ceph|sds) ;;
           *) echo "Unknown storage profile: {{ .STORAGE_PROFILE }}" >&2; exit 1 ;;
         esac
       - task: "nested:storage:{{ .STORAGE_PROFILE_NORMALIZED }}"
@@ -1542,7 +1531,7 @@ tasks:
       STORAGE_CLASS: '{{ or .STORAGE_CLASS "" }}'
       IMAGE_STORAGE_CLASS: '{{ or .IMAGE_STORAGE_CLASS "" }}'
       SNAPSHOT_STORAGE_CLASS: '{{ or .SNAPSHOT_STORAGE_CLASS "" }}'
-      TARGET_STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "nfs") (eq .STORAGE_PROFILE "nfs-4-1-wffc") }}nfs-4-1-wffc{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath-immediate{{ end }}'
+      TARGET_STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else if or (eq .STORAGE_PROFILE "sds") (eq .STORAGE_PROFILE "sds-local") (eq .STORAGE_PROFILE "sds_local") (eq .STORAGE_PROFILE "sds-replicated") (eq .STORAGE_PROFILE "sds_replicated") }}linstor-thin-r2{{ else }}hostpath-immediate{{ end }}'
     cmds:
       - task: nested:kubeconfig
         vars:

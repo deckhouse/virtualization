@@ -1,4 +1,4 @@
----
+{{- if .Values.features.nfs.enabled }}
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -31,3 +31,4 @@ spec:
     retransmissions: 3
   reclaimPolicy: Delete
   volumeBindingMode: Immediate
+{{- end }}
