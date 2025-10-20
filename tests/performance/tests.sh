@@ -99,21 +99,6 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Centralized logging functions
-init_logging() {
-    local scenario_name=$1
-    local vi_type=$2
-    local count=$3
-    local timestamp=$(date +"%Y%m%d_%H%M%S")
-    local scenario_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
-    LOG_FILE="$scenario_dir/test.log"
-    VM_OPERATIONS_LOG="$scenario_dir/vm_operations.log"
-    CURRENT_SCENARIO="${scenario_name}_${vi_type}_${count}vm_${timestamp}"
-    mkdir -p "$(dirname "$LOG_FILE")"
-    echo "=== Test started at $(get_current_date) ===" > "$LOG_FILE"
-    echo "=== VM Operations Report started at $(get_current_date) ===" > "$VM_OPERATIONS_LOG"
-}
-
 log_info() {
     local message="$1"
     local timestamp=$(get_current_date)
@@ -199,6 +184,91 @@ log_step_end() {
         echo "[$timestamp] [STEP_END] $step_name completed in $formatted_duration" >> "$LOG_FILE"
     fi
 }
+
+exit_trap() {
+  echo ""
+  echo "Cleanup"
+  echo "Exiting..."
+  exit 0
+}
+
+format_duration() {
+  local total_seconds=$1
+  local hours=$((total_seconds / 3600))
+  local minutes=$(( (total_seconds % 3600) / 60 ))
+  local seconds=$((total_seconds % 60))
+  printf "%02d:%02d:%02d\n" "$hours" "$minutes" "$seconds"
+}
+
+formatted_date() {
+  local timestamp="$1"
+  
+  # Check if timestamp is valid (not empty and is a number)
+  if [ -z "$timestamp" ] || ! [[ "$timestamp" =~ ^[0-9]+$ ]]; then
+    # Use current time if timestamp is invalid
+    date +"%H:%M:%S %d-%m-%Y"
+    return
+  fi
+  
+  # Use OS-specific date command
+  case "$OS_TYPE" in
+    "macOS")
+      date -r "$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null || date +"%H:%M:%S %d-%m-%Y"
+      ;;
+    "Linux")
+      date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null || date +"%H:%M:%S %d-%m-%Y"
+      ;;
+    *)
+      # Fallback - try both methods
+      if date -r "$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null; then
+        # macOS style worked
+        date -r "$timestamp" +"%H:%M:%S %d-%m-%Y"
+      elif date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null; then
+        # Linux style worked
+        date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y"
+      else
+        # Last resort - use current time
+        date +"%H:%M:%S %d-%m-%Y"
+      fi
+      ;;
+  esac
+}
+
+get_current_date() {
+    date +"%H:%M:%S %d-%m-%Y"
+}
+
+get_timestamp() {
+    date +%s
+}
+
+trap exit_trap SIGINT SIGTERM
+
+get_default_storage_class() {
+    if [ -n "${STORAGE_CLASS:-}" ]; then
+        echo "$STORAGE_CLASS"
+    else
+        kubectl get storageclass -o json \
+            | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name'
+    fi
+}
+
+
+# Centralized logging functions
+init_logging() {
+    local scenario_name=$1
+    local vi_type=$2
+    local count=$3
+    local timestamp=$(date +"%Y%m%d_%H%M%S")
+    local scenario_dir="$REPORT_DIR/${scenario_name}_${vi_type}_${count}vm_${timestamp}"
+    LOG_FILE="$scenario_dir/test.log"
+    VM_OPERATIONS_LOG="$scenario_dir/vm_operations.log"
+    CURRENT_SCENARIO="${scenario_name}_${vi_type}_${count}vm_${timestamp}"
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "=== Test started at $(get_current_date) ===" > "$LOG_FILE"
+    echo "=== VM Operations Report started at $(get_current_date) ===" > "$VM_OPERATIONS_LOG"
+}
+
 
 # Function to calculate percentage safely
 calculate_percentage() {
@@ -344,73 +414,6 @@ EOF
     log_info "Summary report created: $summary_file"
 }
 
-exit_trap() {
-  echo ""
-  echo "Cleanup"
-  echo "Exiting..."
-  exit 0
-}
-
-format_duration() {
-  local total_seconds=$1
-  local hours=$((total_seconds / 3600))
-  local minutes=$(( (total_seconds % 3600) / 60 ))
-  local seconds=$((total_seconds % 60))
-  printf "%02d:%02d:%02d\n" "$hours" "$minutes" "$seconds"
-}
-
-formatted_date() {
-  local timestamp="$1"
-  
-  # Check if timestamp is valid (not empty and is a number)
-  if [ -z "$timestamp" ] || ! [[ "$timestamp" =~ ^[0-9]+$ ]]; then
-    # Use current time if timestamp is invalid
-    date +"%H:%M:%S %d-%m-%Y"
-    return
-  fi
-  
-  # Use OS-specific date command
-  case "$OS_TYPE" in
-    "macOS")
-      date -r "$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null || date +"%H:%M:%S %d-%m-%Y"
-      ;;
-    "Linux")
-      date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null || date +"%H:%M:%S %d-%m-%Y"
-      ;;
-    *)
-      # Fallback - try both methods
-      if date -r "$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null; then
-        # macOS style worked
-        date -r "$timestamp" +"%H:%M:%S %d-%m-%Y"
-      elif date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null; then
-        # Linux style worked
-        date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y"
-      else
-        # Last resort - use current time
-        date +"%H:%M:%S %d-%m-%Y"
-      fi
-      ;;
-  esac
-}
-
-get_current_date() {
-    date +"%H:%M:%S %d-%m-%Y"
-}
-
-get_timestamp() {
-    date +%s
-}
-
-trap exit_trap SIGINT SIGTERM
-
-get_default_storage_class() {
-    if [ -n "${STORAGE_CLASS:-}" ]; then
-        echo "$STORAGE_CLASS"
-    else
-        kubectl get storageclass -o json \
-            | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name'
-    fi
-}
 
 create_report_dir() {
   local scenario_name=$1
@@ -921,11 +924,13 @@ wait_ptc_vmops_complete() {
       if [ -n "$completed" ]; then
         ((migrated_vms++))
       fi
+    done
 
       if [ $migrated_vms -eq $target_count ]; then
         break
       fi
-    done
+  log_info "Migration progress: $migrated_vms/$target_count"
+  sleep "$sleep_time"
   done
 }
 
@@ -948,7 +953,7 @@ wait_vmops_complete() {
     # Consider vmops complete if they are either Completed or Failed (not InProgress)
     local VMOPFinished=$((VMOPCompleted + VMOPFailed))
     
-    if [ $VMOPFinished -eq $vmop_total ] && [ $VMOPInProgress -eq 0 ]; then
+    if [[ "$VMOPFinished" -eq "$vmop_total" ]] && [[ "$VMOPInProgress" -eq 0 ]]; then
       # Additional check: ensure all VMs are Running
       local VMRunning=$(kubectl -n $NAMESPACE get vm | grep "Running" | wc -l)
       local VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
@@ -1029,8 +1034,6 @@ stop_vm() {
   # Additional wait using kubectl wait
   # log_info "Additional wait for deployment to be fully available..."
   # kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
-    
-    stopped=${#stopped_vm[@]}
     
     if [ $stopped_vm -eq $total ]; then
       local end_time=$(get_timestamp)
@@ -1350,14 +1353,15 @@ undeploy_vms_only() {
   log_info "VM deletion commands completed in $(format_duration $delete_duration)"
   log_vm_operation "VM deletion commands completed in $(format_duration $delete_duration)"
 
+  local wait_start=$(get_timestamp)
   while true; do
     local remaining_vms=0
     local current_time=$(get_timestamp)
     
-    log_info "Deleting remaining VMs..."
+    # Check if any VMs still exist
     for vm in "${vms[@]}"; do
       if kubectl -n $NAMESPACE get $vm >/dev/null 2>&1; then
-        log_info "Deleting VM $vm"
+        log_info "VM $vm still exists, attempting deletion"
         kubectl -n $NAMESPACE delete $vm --wait=false || true
       fi
     done
@@ -1529,6 +1533,7 @@ drain_node() {
   
   local task_end=$(get_timestamp)
   local task_duration=$((task_end - task_start))
+  local end_time=$(get_timestamp)
   local formatted_duration=$(format_duration "$task_duration")
   
   log_info "Duration node completed - End time: $(formatted_date $end_time)"
@@ -1563,36 +1568,52 @@ migration_config() {
   local parallelOutboundMigrationsPerNode=${4:-"1"}
   local progressTimeout=${5:-"150"}
 
-  patch_json=$(cat <<EOF
-{
-  "spec": {
-    "configuration": {
-      "migrations": {
-        "bandwidthPerMigration": "$bandwidthPerMigration",
-        "completionTimeoutPerGiB": $completionTimeoutPerGiB,
-        "parallelMigrationsPerCluster": $parallelMigrationsPerCluster,
-        "parallelOutboundMigrationsPerNode": $parallelOutboundMigrationsPerNode,
-        "progressTimeout": $progressTimeout
+  echo "====== configure patch ======"
+  echo "bandwidthPerMigration: $bandwidthPerMigration"
+  echo "completionTimeoutPerGiB: $completionTimeoutPerGiB"
+  echo "parallelMigrationsPerCluster: $parallelMigrationsPerCluster"
+  echo "parallelOutboundMigrationsPerNode: $parallelOutboundMigrationsPerNode"
+  echo "progressTimeout: $progressTimeout"
+  
+  patch_json=$(
+  jq -n \
+    --arg bpm "$bandwidthPerMigration" \
+    --argjson ct $completionTimeoutPerGiB \
+    --argjson pmc $parallelMigrationsPerCluster \
+    --argjson pmon $parallelOutboundMigrationsPerNode \
+    --argjson pt $progressTimeout \
+    '{
+      spec: {
+        configuration: {
+          migrations: {
+            bandwidthPerMigration: $bpm,
+            completionTimeoutPerGiB: $ct,
+            parallelMigrationsPerCluster: $pmc,
+            parallelOutboundMigrationsPerNode: $pmon,
+            progressTimeout: $pt
+          }
+        }
       }
-    }
-  }
-}
-EOF
+    }'
   )
-
-  local policy_count
-  policy_count=$(kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy -o name 2>/dev/null | wc -l)
-  if [ "$policy_count" -ne 0 ]; then
+  log_info "Checking restricted access policy"
+  
+  if kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy >/dev/null 2>&1; then
+    log_info "Deleting restricted access policy"
     kubectl delete validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy
+  else
+    log_info "No restricted access policy"
   fi
 
   sleep 1
+
+  log_info "Patching kubevirt config"
 
   kubectl -n d8-virtualization patch \
     --as=system:sudouser \
     internalvirtualizationkubevirts.internal.virtualization.deckhouse.io config \
     --type=merge -p "$patch_json"
-  sleep 1
+
   log_success "Migration settings applyed"
 }
 
@@ -1709,7 +1730,7 @@ run_scenario() {
   local undeploy_pct_start=$(get_timestamp)
   deploy_vms_with_disks $((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES)) $vi_type
   local undeploy_pct_end=$(get_timestamp)
-  local undeploy_pct_duration=$((deploy_end - deploy_start))
+  local undeploy_pct_duration=$((undeploy_pct_end - undeploy_pct_start))
   log_info "Undeploy VMs 10% [$((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES))] completed in $(format_duration $undeploy_pct_duration)"
   log_step_end "Undeploy VMs 10% [$PERCENT_RESOURCES]" "$undeploy_pct_duration"
 
@@ -1720,9 +1741,9 @@ run_scenario() {
   local deploy_pct_start=$(get_timestamp)
   deploy_vms_with_disks $MAIN_COUNT_RESOURCES $vi_type
   local deploy_pct_end=$(get_timestamp)
-  local deploy_pct_duration=$((deploy_end - deploy_start))
-  log_info "Undeploy VMs 10% [$((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES))] completed in $(format_duration $deploy_pct_duration)"
-  log_step_end "Undeploy VMs 10% [$PERCENT_RESOURCES]" "$deploy_pct_duration"
+  local deploy_pct_duration=$((deploy_pct_end - deploy_pct_start))
+  log_info "Deploy VMs 10% [$PERCENT_RESOURCES] completed in $(format_duration $deploy_pct_duration)"
+  log_step_end "Deploy VMs 10% [$PERCENT_RESOURCES]" "$deploy_pct_duration"
   
   log_step_start "Start Statistics Collection Deploy 10% [$PERCENT_RESOURCES]"
   local stats_start=$(get_timestamp)
@@ -1904,6 +1925,7 @@ run_scenario() {
   # Create 1 VM and disk while controller is stopped
   log_info "Creating 1 VM and disk while controller is stopped [$((MAIN_COUNT_RESOURCES + 1)) VMs total]"
   local vm_creation_start=$(get_timestamp)
+  create_vm_while_controller_stopped $vi_type
   local vm_creation_end=$(get_timestamp)
   local vm_creation_duration=$((vm_creation_end - vm_creation_start))
   log_info "VM creation while controller stopped completed in $(format_duration $vm_creation_duration)"
