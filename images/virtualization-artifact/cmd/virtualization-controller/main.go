@@ -67,6 +67,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 const (
@@ -222,6 +223,7 @@ func main() {
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
 		v1alpha2.AddToScheme,
+		v1alpha3.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
