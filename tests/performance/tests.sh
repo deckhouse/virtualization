@@ -1619,7 +1619,7 @@ if [ $MIGRATION_10_COUNT -eq 0 ]; then
 fi
 
 # Function to run a single scenario
-GLOBAL_WAIT_TIME_STEP=60
+GLOBAL_WAIT_TIME_STEP=5
 run_scenario() {
   local scenario_name=$1
   local vi_type=$2
