@@ -85,6 +85,8 @@ binaries:
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
 - libseccomp zlib zstd
+- libffi libgmp gnutls nettle libidn2
+- p11-kit libtasn1 
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
