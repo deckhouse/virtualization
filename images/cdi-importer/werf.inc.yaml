@@ -36,7 +36,7 @@ packages:
 - nettle libidn2
 - p11-kit zlib
 - glibc
-- glib2 pcre2 libbsd
+- glib2 pcre2 libbsd libfuse3
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
