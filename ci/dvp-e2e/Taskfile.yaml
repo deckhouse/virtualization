@@ -494,3 +494,23 @@ tasks:
         export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
         cd {{ .E2E_DIR }}
         task run TIMEOUT='{{ .TIMEOUT }}' {{ if .FOCUS }}FOCUS='{{ .FOCUS }}'{{ end }} {{ if .LABELS }}LABELS='{{ .LABELS }}'{{ end }}
+
+  # ------------------------------------------------------------
+  # Cleanup used by workflow cleanup job
+  # ------------------------------------------------------------
+  cleanup:cleanup:namespaces:
+    desc: Cleanup test namespaces by prefix
+    vars:
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "Scanning namespaces with prefix: {{ .FILTER_PREFIX }}"
+        mapfile -t namespaces < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
+        if [ ${#namespaces[@]} -eq 0 ]; then
+          echo "No namespaces found to delete"; exit 0; fi
+        printf 'Will delete:\n'; printf ' - %s\n' "${namespaces[@]}"
+        for ns in "${namespaces[@]}"; do
+          kubectl delete ns "$ns" --wait=false || true
+        done
+        echo "Requested deletions triggered"
