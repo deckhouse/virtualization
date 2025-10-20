@@ -86,6 +86,7 @@ CONTROLLER_NAMESPACE="d8-virtualization"
 # Store original controller replicas count
 ORIGINAL_CONTROLLER_REPLICAS=""
 # Centralized logging
+ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS=""
 LOG_FILE=""
 CURRENT_SCENARIO=""
 VM_OPERATIONS_LOG=""
@@ -1099,7 +1100,7 @@ migration_percent_vms() {
   for vm in "${vms[@]}"; do
     log_info "Migrating VM [$vm] via evict"
     log_vm_operation "Migrating VM [$vm] via evict"
-    d8 v -n $NAMESPACE evict $vm --wait=false
+    d8 v -n $NAMESPACE evict $vm
   done
 
   wait_vmops_complete
@@ -1484,6 +1485,13 @@ drain_node() {
   echo "$task_duration"
 }
 
+scale_deckhouse() {
+  local replicas=${1}
+  ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS=$(kubectl -n d8-system get deployment deckhouse -o jsonpath="{.spec.replicas}" 2>/dev/null || echo "1")
+  log_info "Deckhouse controller replicas: $ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS"
+  kubectl -n d8-virtualization scale --replicas $replicas deployment virtualization-controller
+}
+
 migration_config() {
   # default values
   #   {
@@ -1518,9 +1526,13 @@ migration_config() {
 EOF
   )
 
-  if kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy >/dev/null 2>&1; then
+  local policy_count
+  policy_count=$(kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy -o name 2>/dev/null | wc -l)
+  if [ "$policy_count" -ne 0 ]; then
     kubectl delete validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy
   fi
+
+  sleep 1
 
   kubectl -n d8-virtualization patch \
     --as=system:sudouser \
@@ -1730,44 +1742,53 @@ run_scenario() {
   #    parallelMigrationsPerCluster=${3:-$amountNodes}
   #    parallelOutboundMigrationsPerNode=${4:-"1"}
   #    progressTimeout=${5:-"150"}
+  
+  log_info "Set deckhouse controller replicas to [0]"
+  scale_deckhouse 0
   local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
 
   local migration_parallel_2x=$(( $amountNodes*2 ))
   local migration_parallel_2x_start=$(get_timestamp)
-  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x]"
-  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x]"
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
   migration_config "640Mi" "800" "$migration_parallel_2x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_parallel_2x_end=$(get_timestamp)
   local migration_parallel_2x_duration=$((migration_parallel_2x_end - migration_parallel_2x_start))
-  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x]" "$migration_parallel_2x_duration"
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]" "$migration_parallel_2x_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
   local migration_parallel_4x=$(( $amountNodes*4 ))
   local migration_parallel_4x_start=$(get_timestamp)
-  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x]"
-  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x]"
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)"
   migration_config "640Mi" "800" "$migration_parallel_4x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_parallel_4x_end=$(get_timestamp)
   local migration_parallel_4x_duration=$((migration_parallel_4x_end - migration_parallel_4x_start))
-  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x]" "$migration_parallel_4x_duration"
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)" "$migration_parallel_4x_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
   local migration_parallel_8x=$(( $amountNodes*8 ))
   local migration_parallel_8x_start=$(get_timestamp)
-  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x]"
-  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x]"
+  log_info "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)"
+  log_step_start "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)"
   migration_config "640Mi" "800" "$migration_parallel_8x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_parallel_8x_end=$(get_timestamp)
   local migration_parallel_8x_duration=$((migration_parallel_8x_end - migration_parallel_8x_start))
-  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x]" "$migration_parallel_8x_duration"
+  log_step_end "Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)" "$migration_parallel_8x_duration"
 
+  migration_config
+  log_info "Restoring original deckhouse controller replicas to [$ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS]"
+  scale_deckhouse $ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS
+
+  log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
+  sleep $GLOBAL_WAIT_TIME_STEP
   #========
 
   # Controller restart test
