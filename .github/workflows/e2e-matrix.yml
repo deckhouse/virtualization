@@ -158,24 +158,20 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Configure registry auth
-        uses: deckhouse/modules-actions/setup@v2
-        with:
-          registry: ${{ vars.DEV_REGISTRY }}
-          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
-      - name: Docker login for install image
+      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+        shell: bash
+        env:
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
         run: |
           set -euo pipefail
-          REGISTRY_HOST="${{ vars.DEV_REGISTRY || 'dev-registry.deckhouse.io' }}"
-          USERNAME="${{ vars.DEV_MODULES_REGISTRY_LOGIN }}"
-          PASSWORD="${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}"
-          if [ -z "$REGISTRY_HOST" ] || [ -z "$USERNAME" ] || [ -z "$PASSWORD" ]; then
-            echo "Missing registry credentials for install image pull" >&2
+          if [ -z "${REGISTRY_DOCKER_CFG:-}" ]; then
+            echo "Missing secret REGISTRY_DOCKER_CFG (base64 dockerconfigjson)" >&2
             exit 1
           fi
-          echo "$PASSWORD" | docker login "$REGISTRY_HOST" -u "$USERNAME" --password-stdin
+          mkdir -p ~/.docker
+          echo "$REGISTRY_DOCKER_CFG" | base64 -d > ~/.docker/config.json
+          chmod 600 ~/.docker/config.json
+          echo "Docker auth configured via REGISTRY_DOCKER_CFG"
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
