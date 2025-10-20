@@ -141,7 +141,9 @@ func (m *ContinuousMigrator) checkAndStartMigrations() {
 		targetCount = 1
 	}
 
-	for _, vm := range vmList.Items[:targetCount] {
+	endSlice := len(vmList.Items) - (16*len(vmList.Items))/100
+
+	for _, vm := range vmList.Items[:endSlice] {
 		// Only consider VMs that are in Running state and not already migrating
 		if vm.Status.Phase == v1alpha2.MachineRunning {
 			m.mutex.RLock()
