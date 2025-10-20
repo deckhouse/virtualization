@@ -83,6 +83,7 @@ binaries:
 - /usr/lib64/libnbd.s*
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
+- libseccomp zlib zstd glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
