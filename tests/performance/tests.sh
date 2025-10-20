@@ -893,7 +893,44 @@ wait_vmops() {
   kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
 }
 
-# FIXED: Wait for vmops to complete (including Failed status) and check VMs are Running
+wait_ptc_vmops_complete() {
+  local sleep_time=${1:-2}
+  local target_count=${2:-$MIGRATION_10_COUNT}
+  local start_time=$(get_timestamp)
+  local migrated_vms=0
+
+  local vms_count=( $(kubectl -n $NAMESPACE get vm --no-headers | awk '{print $1}' | tail -n $target_count) )
+
+  while true; do
+    migrated_vms=0
+
+    for vm in "${vms_count[@]}"; do
+      completed=$(kubectl get vmop -n "$NAMESPACE" -o json | \
+        jq -r --arg vm "$vm" '
+          .items[] |
+          select(
+            .spec.virtualMachineName == $vm and
+            (
+              (.status.phase == "Completed") or
+              (any(.status.conditions[]; .type == "Completed" and .status == "True"))
+            )
+          ) |
+          .metadata.name
+        ' | head -n1
+        )
+      if [ -n "$completed" ]; then
+        ((migrated_vms++))
+      fi
+
+      if [ $migrated_vms -eq $target_count ]; then
+        break
+      fi
+    done
+  done
+}
+
+
+# Wait for vmops to complete (including Failed status) and check VMs are Running
 wait_vmops_complete() {
   local sleep_time=${1:-2}
   local start_time=$(get_timestamp)
@@ -1016,7 +1053,7 @@ stop_vm() {
   # kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
 }
 
-# FIXED: Properly wait for VMs to be Running
+# Properly wait for VMs to be Running
 start_vm() {
   local count=$1
   local sleep_time=${2:-5}
@@ -1114,6 +1151,34 @@ migration_percent_vms() {
   log_vm_operation "Migration completed - Migrated $target_count VMs in $formatted_duration"
 }
 
+migration_percent_vms_waitptc_vmops() {
+  local target_count=${1:-$PERCENT_RESOURCES}
+  local namespace=${2:-$NAMESPACE}
+  local start_time=$(get_timestamp)
+
+  log_info "Starting migration of $target_count VMs"
+  log_info "Start time: $(formatted_date $start_time)"
+  log_vm_operation "Starting migration of $target_count VMs"
+
+  local vms=( $(kubectl -n $NAMESPACE get vm --no-headers | awk '$2 == "Running" {print $1}' | tail -n $target_count) )
+
+  for vm in "${vms[@]}"; do
+    log_info "Migrating VM [$vm] via evict"
+    log_vm_operation "Migrating VM [$vm] via evict"
+    d8 v -n $NAMESPACE evict $vm
+  done
+
+  wait_ptc_vmops_complete
+
+  local end_time=$(get_timestamp)
+  local duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$duration")
+  
+  log_info "Migration completed - End time: $(formatted_date $end_time)"
+  log_success "Migrated $target_count VMs in $formatted_duration"
+  log_vm_operation "Migration completed - Migrated $target_count VMs in $formatted_duration"
+}
+
 undeploy_resources() {
   local sleep_time=${1:-5}
   local start_time=$(get_timestamp)
@@ -1129,21 +1194,8 @@ undeploy_resources() {
   # Wait a bit for Helm to process the deletion
   sleep 5
   
-  # # Force delete any remaining resources
-  # kubectl -n $NAMESPACE delete vm --all --ignore-not-found=true --force --grace-period=0
-  # kubectl -n $NAMESPACE delete vd --all --ignore-not-found=true --force --grace-period=0
-  # kubectl -n $NAMESPACE delete vi --all --ignore-not-found=true --force --grace-period=0  
-  # local max_wait_time=600  # Maximum wait time in seconds (10 minutes)
-  # local wait_timeout=$((start_time + max_wait_time))
-  
   while true; do
     local current_time=$(get_timestamp)
-    
-    # # Check for timeout
-    # if [ $current_time -gt $wait_timeout ]; then
-    #   log_warning "Timeout reached while waiting for resources to be destroyed"
-    #   break
-    # fi
     
     VDTotal=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
     VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
@@ -1541,7 +1593,7 @@ EOF
     internalvirtualizationkubevirts.internal.virtualization.deckhouse.io config \
     --type=merge -p "$patch_json"
   sleep 1
-  kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
+  log_success "Migration settings applyed"
 }
 
 
@@ -1765,6 +1817,8 @@ run_scenario() {
   local migration_percent_duration=$((migration_percent_end - migration_percent_start))
   log_info "Migration percentage test completed in $(format_duration $migration_percent_duration)"
   log_step_end "End Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$migration_percent_duration"
+
+  remove_vmops
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
