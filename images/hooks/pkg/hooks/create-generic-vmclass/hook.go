@@ -33,9 +33,8 @@ import (
 )
 
 const (
-	createGenericVMClassHookName = "Create generic VirtualMachineClass"
-	moduleStateSecretSnapshot    = "module-state-secret"
-	vmClassSnapshot              = "vmclass-generic"
+	moduleStateSecretSnapshot = "module-state-secret"
+	vmClassSnapshot           = "vmclass-generic"
 
 	moduleStateSecretName = "module-state"
 	genericVMClassName    = "generic"
@@ -70,6 +69,12 @@ var config = &pkg.HookConfig{
 			JqFilter:   `.metadata.name`,
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{genericVMClassName},
+			},
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":    "virtualization-controller",
+					"module": settings.ModuleName,
+				},
 			},
 			ExecuteHookOnSynchronization: ptr.To(false),
 		},
@@ -112,6 +117,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: genericVMClassName,
 				Labels: map[string]string{
+					"app":    "virtualization-controller",
 					"module": settings.ModuleName,
 				},
 			},

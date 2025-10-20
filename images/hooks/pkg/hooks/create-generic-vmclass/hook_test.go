@@ -82,6 +82,10 @@ var _ = Describe("Create Generic VMClass hook", func() {
 				vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
 				Expect(ok).To(BeTrue())
 				Expect(vmClass.Name).To(Equal("generic"))
+				Expect(vmClass.Labels).To(Equal(map[string]string{
+					"app":    "virtualization-controller",
+					"module": "virtualization",
+				}))
 			})
 
 			Expect(Reconcile(context.Background(), newInput())).To(Succeed())

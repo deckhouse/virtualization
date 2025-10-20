@@ -60,6 +60,12 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{genericVMClassName},
 			},
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":    "virtualization-controller",
+					"module": settings.ModuleName,
+				},
+			},
 			ExecuteHookOnSynchronization: ptr.To(false),
 		},
 		{
