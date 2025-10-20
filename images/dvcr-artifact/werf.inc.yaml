@@ -81,9 +81,10 @@ binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
+# do not include glibc, it will be replaced by one from qemu-img
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
-- libseccomp zlib zstd glibc
+- libseccomp zlib zstd
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
