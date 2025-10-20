@@ -74,6 +74,7 @@ binaries:
 - /usr/bin/xorrisofs
 packages:
 - libisoburn nftables acl libmnl libjansson4 libnftnl
+- glibc libattr pcre2 selinux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
