@@ -131,12 +131,32 @@ jobs:
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
-      - name: Set Kubernetes context (parent cluster)
-        uses: azure/k8s-set-context@v4
-        with:
-          method: service-account
-          k8s-url: ${{ env.E2E_K8S_URL }}
-          k8s-secret: ${{ secrets.E2E_NESTED_SA_SECRET }}
+      - name: Build parent kubeconfig from secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
       - name: Configure registry auth
         uses: deckhouse/modules-actions/setup@v2
@@ -365,12 +385,32 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Set k8s context (privileged SA)
-        uses: azure/k8s-set-context@v4
-        with:
-          method: service-account
-          k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.E2E_NESTED_SA_SECRET }}
+      - name: Build parent kubeconfig from secret (cleanup)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
