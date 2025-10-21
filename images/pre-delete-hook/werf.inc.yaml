@@ -40,6 +40,6 @@ import:
   after: install
 imageSpec:
   config:
-    user: "65532:65532"
+    user: 64535
     workingDir: "/"
     entrypoint: ["/pre-delete-hook"]
