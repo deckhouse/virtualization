@@ -205,15 +205,6 @@ jobs:
           mkdir -p "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
           cp values.yaml "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
 
-      - name: Generate SSH keypair
-        working-directory: ci/dvp-e2e
-        run: |
-          echo "🔑 Generating SSH keypair for: ${{ env.RUN_ID }}"
-          task ssh:generate \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
-            SSH_FILE_NAME="cloud"
-
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e
         run: |
