@@ -225,6 +225,8 @@ tasks:
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
       PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
     cmds:
       - printf "" > {{ .GENERATED_VALUES_FILE }}
       - |
@@ -246,6 +248,9 @@ tasks:
           yq eval --inplace '.storageClasses.workers.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
           yq eval --inplace '.storageClasses.workers.data = env(_SC)' {{ .GENERATED_VALUES_FILE }}
         fi
+      - |
+        export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
+        yq eval --inplace '.sshPublicKey = env(SSH_PUB_KEY)' {{ .GENERATED_VALUES_FILE }}
       - helm template dvp-over-dvp-cluster-config {{ .CLUSTER_CONFIG_CHART_PATH }} -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
 
   dhctl-bootstrap:
