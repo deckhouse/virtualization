@@ -158,6 +158,19 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                        schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":   schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.CPU":                                        schema_virtualization_api_core_v1alpha3_CPU(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuDiscovery":                               schema_virtualization_api_core_v1alpha3_CpuDiscovery(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuFeatures":                                schema_virtualization_api_core_v1alpha3_CpuFeatures(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.MemoryMinMax":                               schema_virtualization_api_core_v1alpha3_MemoryMinMax(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.NodeSelector":                               schema_virtualization_api_core_v1alpha3_NodeSelector(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicy":                               schema_virtualization_api_core_v1alpha3_SizingPolicy(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyCores":                          schema_virtualization_api_core_v1alpha3_SizingPolicyCores(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemory":                         schema_virtualization_api_core_v1alpha3_SizingPolicyMemory(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemoryPerCore":                  schema_virtualization_api_core_v1alpha3_SizingPolicyMemoryPerCore(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClass":                        schema_virtualization_api_core_v1alpha3_VirtualMachineClass(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassList":                    schema_virtualization_api_core_v1alpha3_VirtualMachineClassList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassSpec":                    schema_virtualization_api_core_v1alpha3_VirtualMachineClassSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassStatus":                  schema_virtualization_api_core_v1alpha3_VirtualMachineClassStatus(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation":     schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
@@ -1974,14 +1987,14 @@ func schema_virtualization_api_core_v1alpha2_SizingPolicy(ref common.ReferenceCa
 					},
 					"coreFractions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Allowed values of the `coreFraction` parameter in percentages (e.g., \"5%\", \"10%\", \"25%\", \"50%\", \"100%\").",
+							Description: "Allowed values of the `coreFraction` parameter.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: 0,
+										Type:    []string{"integer"},
+										Format:  "int32",
 									},
 								},
 							},
@@ -6058,6 +6071,581 @@ func schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinit
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinityTerm"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_CPU(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CPU defines the requirements for the virtual CPU model.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPU model name. For more information about CPU models and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of CPU instructions (features) required when type=Features. For more information about CPU features, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"discovery": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Create a CPU model based on intersecting CPU features for selected nodes.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha3.CpuDiscovery"),
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuDiscovery"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_CpuDiscovery(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A selection of nodes to be used as the basis for creating a universal CPU model.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_CpuFeatures(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CpuFeatures Information on CPU features supported by this model. Shown only for `Features` or `Discovery` types.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of CPU features for this model.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"notEnabledCommon": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of unused processor features additionally available for a given group of nodes.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_MemoryMinMax(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"min": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum amount of memory.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"max": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum amount of memory.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_NodeSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeSelector defines the nodes targeted for VM scheduling.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"matchLabels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A map of {key,value} pairs. A single {key,value} pair in the matchLabels map is equivalent to an element of matchExpressions whose key field is \"key\", operator is \"In\", and the value array contains only \"value\". The requirements are ANDed.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"matchExpressions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A list of node selector requirements by node's labels.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.NodeSelectorRequirement"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.NodeSelectorRequirement"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_SizingPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SizingPolicy defines a policy for allocating computational resources to VMs. It is represented as a list. The cores.min - cores.max ranges for different elements of the list must not overlap.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Memory sizing policy.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemory"),
+						},
+					},
+					"coreFractions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allowed values of the `coreFraction` parameter in percentages (e.g., \"5%\", \"10%\", \"25%\", \"50%\", \"100%\").",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"dedicatedCores": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Allowed values of the `dedicatedCores` parameter.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: false,
+										Type:    []string{"boolean"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"cores": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The policy applies for a specified range of the number of CPU cores.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyCores"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyCores", "github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemory"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_SizingPolicyCores(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"min": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum number of CPU cores.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"max": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum number of CPU cores.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"step": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Discretization step for the CPU core number. For example, the combination of `min=2`, `max=10`, and `step=4` allows to set the number of virtual machine CPU cores to 2, 6, or 10.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"min", "max"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_SizingPolicyMemory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"min": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum amount of memory.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"max": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum amount of memory.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"step": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Memory size discretization step. For example, the combination of `min=2Gi, `max=4Gi` and `step=1Gi` allows to set the virtual machine memory size to 2Gi, 3Gi, or 4Gi.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"perCore": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Amount of memory per CPU core.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemoryPerCore"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemoryPerCore", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_SizingPolicyMemoryPerCore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"min": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum amount of memory.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"max": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum amount of memory.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_VirtualMachineClass(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources. A resource cannot be deleted as long as it is used in one of the VMs.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassStatus"),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassSpec", "github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClassStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_VirtualMachineClassList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineClassList contains a list of VirtualMachineClasses.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items provides a list of VirtualMachineClasses.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClass"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.VirtualMachineClass", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_VirtualMachineClassSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.NodeSelector"),
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tolerations are the same as `spec.tolerations` for [pods](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/). These tolerations will be merged with the tolerations specified in the VirtualMachine resource. VirtualMachine tolerations have a higher priority.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.CPU"),
+						},
+					},
+					"sizingPolicies": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicy"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"cpu"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.CPU", "github.com/deckhouse/virtualization/api/core/v1alpha3.NodeSelector", "github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicy", "k8s.io/api/core/v1.Toleration"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha3_VirtualMachineClassStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"cpuFeatures": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha3.CpuFeatures"),
+						},
+					},
+					"availableNodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of nodes that support this CPU model. It is not displayed for the following types: `Host`, `HostPassthrough`.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"maxAllocatableResources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum amount of free CPU and memory resources observed among all available nodes.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The latest detailed observations of the VirtualMachineClass resource.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource generation last processed by the controller.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+				Required: []string{"phase"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha3.CpuFeatures", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
