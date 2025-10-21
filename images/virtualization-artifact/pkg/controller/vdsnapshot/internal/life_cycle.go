@@ -330,6 +330,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					return reconcile.Result{}, err
 				}
 			}
+		default:
+			if vdSnapshot.Spec.RequiredConsistency {
+				err := fmt.Errorf("virtual disk snapshot is not consistent because the virtual machine %s has not been stopped or its filesystem has not been frozen", vm.Name)
+				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+				return reconcile.Result{}, err
+			}
 		}
 
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady
@@ -369,7 +375,7 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdscondition.VirtualDiskSnapshotFailed).
-		Message(service.CapitalizeFirstLetter(err.Error()))
+		Message(service.CapitalizeFirstLetter(err.Error() + "."))
 }
 
 func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
