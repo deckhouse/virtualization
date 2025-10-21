@@ -107,6 +107,9 @@ binaries:
   # qemu
   # commented out due to automatic relocate in `beforeInstall` step
   # - /usr/bin/elf2dmp
+  # gobuilder
+  - /usr/bin/node-labeller
+  - /usr/bin/vlctl
 packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
@@ -136,7 +139,7 @@ packages:
 - e2fsprogs libxcrypt lvm2 libjson-glib
 - libvirt
 - libffi
-- libbrotli libntlm
+- libbrotli libntlm gcc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -211,7 +214,7 @@ import:
   - virt-tail
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
-  to: /relocate/usr/bin
+  to: /usr/bin
   before: setup
   includePaths:
   - node-labeller
