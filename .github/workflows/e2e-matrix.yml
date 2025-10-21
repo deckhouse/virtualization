@@ -173,14 +173,10 @@ jobs:
           username: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      
+      - name: Verify dev-registry access
+        run: |
+          set -euo pipefail
+          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
@@ -205,11 +201,6 @@ jobs:
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
-
-      - name: Verify dev-registry access
-        run: |
-          set -euo pipefail
-          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
 
       - name: Prepare run values.yaml
         working-directory: ci/dvp-e2e
