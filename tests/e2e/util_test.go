@@ -784,8 +784,12 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 	// Stdout may present even if error is occurred.
 	if len(clusterResource) > 0 || len(namespacedResource) > 0 {
 		delimiter := []byte("---\n")
-		result := append(clusterResource, delimiter...)
+
+		result := make([]byte, len(clusterResource)+len(delimiter)+len(namespacedResource))
+		result = append(result, clusterResource...)
+		result = append(result, delimiter...)
 		result = append(result, namespacedResource...)
+
 		err := os.WriteFile(resFileName, result, 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", resFileName, err)
@@ -797,7 +801,7 @@ func GetResource(resources string, opts kc.GetOptions) ([]byte, error) {
 	cmd := kubectl.Get(resources, opts)
 
 	if cmd.Error() != nil {
-		return []byte{}, fmt.Errorf("cmd: %s\nerror: %s\nstderr: %s\n", cmd.GetCmd(), cmd.Error(), cmd.StdErr())
+		return []byte{}, fmt.Errorf("cmd: %s\nerror: %w\nstderr: %s\n", cmd.GetCmd(), cmd.Error(), cmd.StdErr())
 	}
 
 	return cmd.StdOutBytes(), nil

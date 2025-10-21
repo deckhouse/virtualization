@@ -40,8 +40,5 @@ func CheckWithPostCleanUpOption() error {
 }
 
 func IsCleanUpNeeded() bool {
-	if os.Getenv(PostCleanUpEnv) == "no" {
-		return false
-	}
-	return true
+	return os.Getenv(PostCleanUpEnv) != "no"
 }
