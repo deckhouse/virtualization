@@ -21,6 +21,7 @@ import (
 	_ "hooks/pkg/hooks/create-generic-vmclass"
 	_ "hooks/pkg/hooks/discovery-clusterip-service-for-dvcr"
 	_ "hooks/pkg/hooks/discovery-workload-nodes"
+	_ "hooks/pkg/hooks/drop-helm-labels-from-generic-vmclass"
 	_ "hooks/pkg/hooks/drop-openshift-labels"
 	_ "hooks/pkg/hooks/generate-secret-for-dvcr"
 	_ "hooks/pkg/hooks/migrate-delete-renamed-validation-admission-policy"
