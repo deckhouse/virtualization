@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
@@ -43,7 +43,7 @@ func NewAttachedHandler(recorder eventrecord.EventRecorderLogger, client client.
 	}
 }
 
-func (h *AttachedHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error) {
+func (h *AttachedHandler) Handle(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmmaccondition.AttachedType).Generation(vmmac.GetGeneration())
 
 	vm, err := h.getAttachedVirtualMachine(ctx, vmmac)
@@ -63,7 +63,7 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachi
 			Reason(vmmaccondition.VirtualMachineNotFound).
 			Message("VirtualMachineMACAddress is not attached to any virtual machine.")
 		conditions.SetCondition(cb, &vmmac.Status.Conditions)
-		h.recorder.Event(vmmac, corev1.EventTypeWarning, virtv2.ReasonNotAttached, "VirtualMachineMACAddress is not attached to any virtual machine.")
+		h.recorder.Event(vmmac, corev1.EventTypeWarning, v1alpha2.ReasonNotAttached, "VirtualMachineMACAddress is not attached to any virtual machine.")
 		return reconcile.Result{}, nil
 	}
 
@@ -73,13 +73,13 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachi
 		Reason(vmmaccondition.Attached).
 		Message("")
 	conditions.SetCondition(cb, &vmmac.Status.Conditions)
-	h.recorder.Eventf(vmmac, corev1.EventTypeNormal, virtv2.ReasonAttached, "VirtualMachineMACAddress is attached to \"%s/%s\".", vm.Namespace, vm.Name)
+	h.recorder.Eventf(vmmac, corev1.EventTypeNormal, v1alpha2.ReasonAttached, "VirtualMachineMACAddress is attached to \"%s/%s\".", vm.Namespace, vm.Name)
 
 	return reconcile.Result{}, nil
 }
 
-func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachine, error) {
-	var vms virtv2.VirtualMachineList
+func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachine, error) {
+	var vms v1alpha2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{Namespace: vmmac.Namespace})
 	if err != nil {
 		return nil, fmt.Errorf("list vms: %w", err)
@@ -88,7 +88,7 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 	// Return the first one for which the status matches.
 	// If no status matches, return the first one for which the spec matches.
 	var found bool
-	var attachedVM *virtv2.VirtualMachine
+	var attachedVM *v1alpha2.VirtualMachine
 	for _, vm := range vms.Items {
 		for _, ns := range vm.Status.Networks {
 			if ns.VirtualMachineMACAddressName == vmmac.Name {

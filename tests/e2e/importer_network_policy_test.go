@@ -22,13 +22,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"github.com/deckhouse/virtualization/tests/e2e/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
 	var ns string
 
@@ -52,13 +53,14 @@ var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), 
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
 	Context("Project", func() {
 		It("creates project", func() {
-			config.PrepareProject(conf.TestData.ImporterNetworkPolicy)
+			//nolint:staticcheck // deprecated function is temporarily used
+			util.PrepareProject(conf.TestData.ImporterNetworkPolicy)
 
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ImporterNetworkPolicy + "/project"},
@@ -96,8 +98,8 @@ var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), 
 				Timeout:   MaxWaitTimeout,
 			})
 		},
-		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
-		Entry("When virtual disks are applied", "VD", kc.ResourceVD, string(virtv2.DiskReady)),
-		Entry("When virtual machines are applied", "VM", kc.ResourceVM, string(virtv2.MachineRunning)),
+		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(v1alpha2.ImageReady)),
+		Entry("When virtual disks are applied", "VD", kc.ResourceVD, string(v1alpha2.DiskReady)),
+		Entry("When virtual machines are applied", "VM", kc.ResourceVM, string(v1alpha2.MachineRunning)),
 	)
 })

@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -43,7 +43,7 @@ var _ = Describe("TestEvictHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
 	)
 
@@ -53,7 +53,7 @@ var _ = Describe("TestEvictHandler", func() {
 		vmState = nil
 	})
 
-	newVM := func(withCond bool) *virtv2.VirtualMachine {
+	newVM := func(withCond bool) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		if withCond {
 			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
@@ -81,11 +81,11 @@ var _ = Describe("TestEvictHandler", func() {
 	}
 
 	DescribeTable("Condition NeedEvict should be in expected state",
-		func(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, condShouldExists bool, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.Reason) {
+		func(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, condShouldExists bool, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.NeedsEvictReason) {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -99,7 +99,7 @@ var _ = Describe("TestEvictHandler", func() {
 			}
 		},
 		Entry("Should add NeedEvict condition when KVVM has evacuation node", newVM(false), newKVVMI("node1"), true, metav1.ConditionTrue, vmcondition.ReasonNeedsEvict),
-		Entry("Should remove NeedEvict condition when KVVM has no evacuation node", newVM(true), newKVVMI(""), false, metav1.ConditionStatus(""), vmcondition.Reason("")),
+		Entry("Should remove NeedEvict condition when KVVM has no evacuation node", newVM(true), newKVVMI(""), false, metav1.ConditionStatus(""), vmcondition.NeedsEvictReason("")),
 		Entry("Should not change NeedEvict condition when condition is present and KVVM has evacuation node", newVM(true), newKVVMI("node1"), true, metav1.ConditionTrue, vmcondition.ReasonNeedsEvict),
 	)
 })

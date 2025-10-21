@@ -77,6 +77,20 @@ func (v *VMBlockDeviceAttachmentHandler) Override(rules []v1alpha2.NameReplaceme
 	}
 }
 
+func (v *VMBlockDeviceAttachmentHandler) Customize(prefix, suffix string) {
+	v.vmbda.Spec.VirtualMachineName = common.ApplyNameCustomization(v.vmbda.Spec.VirtualMachineName, prefix, suffix)
+	v.vmbda.Name = common.ApplyNameCustomization(v.vmbda.Name, prefix, suffix)
+
+	switch v.vmbda.Spec.BlockDeviceRef.Kind {
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		v.vmbda.Spec.BlockDeviceRef.Name = common.ApplyNameCustomization(v.vmbda.Spec.BlockDeviceRef.Name, prefix, suffix)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		// Do not apply prefix/suffix customization to ClusterVirtualImage names
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		// Do not apply prefix/suffix customization to VirtualImage names
+	}
+}
+
 func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) error {
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
@@ -98,6 +112,28 @@ func (v *VMBlockDeviceAttachmentHandler) ValidateRestore(ctx context.Context) er
 }
 
 func (v *VMBlockDeviceAttachmentHandler) ValidateClone(ctx context.Context) error {
+	if err := common.ValidateResourceNameLength(v.vmbda.Name, v.vmbda.Kind); err != nil {
+		return err
+	}
+
+	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
+		if existed.Spec.VirtualMachineName != v.vmbda.Spec.VirtualMachineName {
+			return fmt.Errorf("VirtualMachineBlockDeviceAttachment with name %s already exists and attached to VirtualMachine %s", v.vmbda.Name, existed.Spec.VirtualMachineName)
+		}
+
+		return fmt.Errorf("VirtualMachineBlockDeviceAttachment with name %s already exists", v.vmbda.Name)
+	}
+
 	return nil
 }
 
@@ -157,6 +193,28 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 }
 
 func (v *VMBlockDeviceAttachmentHandler) ProcessClone(ctx context.Context) error {
+	err := v.ValidateClone(ctx)
+	if err != nil {
+		return err
+	}
+
+	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &v1alpha2.VirtualMachineBlockDeviceAttachment{})
+	if err != nil {
+		return err
+	}
+
+	if existed != nil {
+		if value, ok := existed.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+	}
+
+	err = v.client.Create(ctx, v.vmbda)
+	if err != nil {
+		return fmt.Errorf("failed to create the `VirtualMachineBlockDeviceAttachment`: %w", err)
+	}
+
 	return nil
 }
 

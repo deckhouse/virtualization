@@ -32,13 +32,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const deletionHandlerName = "DeletionHandler"
 
 type UnplugInterface interface {
-	IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool
+	IsAttached(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) bool
 	UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error
 }
 type DeletionHandler struct {
@@ -53,14 +53,14 @@ func NewDeletionHandler(unplug UnplugInterface, client client.Client) *DeletionH
 	}
 }
 
-func (h *DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
-	controllerutil.AddFinalizer(vmbda, virtv2.FinalizerVMBDACleanup)
+func (h *DeletionHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(vmbda, v1alpha2.FinalizerVMBDACleanup)
 
 	if vmbda.DeletionTimestamp == nil {
 		return reconcile.Result{}, nil
 	}
 
-	vm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv2.VirtualMachine{})
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch vm: %w", err)
 	}
@@ -81,23 +81,23 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 	log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
-	controllerutil.RemoveFinalizer(vmbda, virtv2.FinalizerVMBDACleanup)
+	controllerutil.RemoveFinalizer(vmbda, v1alpha2.FinalizerVMBDACleanup)
 	return reconcile.Result{}, nil
 }
 
-func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachine, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	if kvvm == nil {
 		return reconcile.Result{}, errors.New("intvirtvm not found to unplug")
 	}
 
 	var blockDeviceName string
 	switch vmbda.Spec.BlockDeviceRef.Kind {
-	case virtv2.VMBDAObjectRefKindVirtualDisk:
-		blockDeviceName = kvbuilder.GenerateVMDDiskName(vmbda.Spec.BlockDeviceRef.Name)
-	case virtv2.VMBDAObjectRefKindVirtualImage:
-		blockDeviceName = kvbuilder.GenerateVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
-	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-		blockDeviceName = kvbuilder.GenerateCVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
+		blockDeviceName = kvbuilder.GenerateVDDiskName(vmbda.Spec.BlockDeviceRef.Name)
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
+		blockDeviceName = kvbuilder.GenerateVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
+		blockDeviceName = kvbuilder.GenerateCVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))

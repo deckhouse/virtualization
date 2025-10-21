@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -48,7 +48,7 @@ func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
@@ -61,25 +61,31 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if vd.DeletionTimestamp != nil {
-		vd.Status.Phase = virtv2.DiskTerminating
+		vd.Status.Phase = v1alpha2.DiskTerminating
 		return reconcile.Result{}, nil
 	}
 
 	if vd.Status.Phase == "" {
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
+	}
+
+	migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+	if migrating.Status == metav1.ConditionTrue {
+		vd.Status.Phase = v1alpha2.DiskMigrating
+		return reconcile.Result{}, nil
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDSpecHasBeenChanged,
+			v1alpha2.ReasonVDSpecHasBeenChanged,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
 		// Reset status and start import again.
-		vd.Status = virtv2.VirtualDiskStatus{
-			Phase: virtv2.DiskPending,
+		vd.Status = v1alpha2.VirtualDiskStatus{
+			Phase: v1alpha2.DiskPending,
 		}
 
 		_, err := h.sources.CleanUp(ctx, vd)
@@ -91,17 +97,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+
 	if !source.IsDiskProvisioningFinished(readyCondition) {
-		datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-		if datasourceReadyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(datasourceReadyCondition, vd) {
+		ds, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+
+		if ds.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(ds, vd) {
 			message := "Datasource is not ready for provisioning."
-			if datasourceReadyCondition.Status == metav1.ConditionFalse && datasourceReadyCondition.Message != "" {
-				message = datasourceReadyCondition.Message
+			if ds.Status == metav1.ConditionFalse && ds.Message != "" {
+				message = ds.Message
 			}
+
 			reason := vdcondition.DatasourceIsNotReady
-			if datasourceReadyCondition.Reason == vdcondition.ImageNotFound.String() || datasourceReadyCondition.Reason == vdcondition.ClusterImageNotFound.String() {
+			if ds.Reason == vdcondition.ImageNotFound.String() || ds.Reason == vdcondition.ClusterImageNotFound.String() {
 				reason = vdcondition.DatasourceIsNotFound
 			}
+
 			cb.
 				Reason(reason).
 				Message(message).
@@ -140,11 +150,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	result, err := ds.Sync(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
-	}
-
-	readyConditionAfterSync, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if readyConditionAfterSync.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyConditionAfterSync, vd) {
-		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return result, nil

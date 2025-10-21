@@ -46,6 +46,7 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !has(self.force) || !self.force : true",message="The `Start` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
+// +kubebuilder:validation:XValidation:rule="self.type == 'Clone' ? has(self.clone) : true",message="Clone requires clone field."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.
@@ -57,6 +58,8 @@ type VirtualMachineOperationSpec struct {
 	Force *bool `json:"force,omitempty"`
 	// Restore defines the restore operation.
 	Restore *VirtualMachineOperationRestoreSpec `json:"restore,omitempty"`
+	// Clone defines the clone operation.
+	Clone *VirtualMachineOperationCloneSpec `json:"clone,omitempty"`
 }
 
 // VirtualMachineOperationRestoreSpec defines the restore operation.
@@ -64,6 +67,29 @@ type VirtualMachineOperationRestoreSpec struct {
 	Mode VMOPRestoreMode `json:"mode"`
 	// VirtualMachineSnapshotName defines the source of the restore operation.
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
+}
+
+// +kubebuilder:validation:XValidation:rule="(has(self.customization) && ((has(self.customization.namePrefix) && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix) && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement) && size(self.nameReplacement) > 0)",message="At least one of customization.namePrefix, customization.nameSuffix, or nameReplacement must be set"
+// VirtualMachineOperationCloneSpec defines the clone operation.
+type VirtualMachineOperationCloneSpec struct {
+	Mode VMOPRestoreMode `json:"mode"`
+	// NameReplacement defines rules for renaming resources during cloning.
+	// +kubebuilder:validation:XValidation:rule="self.all(nr, has(nr.to) && size(nr.to) >= 1 && size(nr.to) <= 59)",message="Each nameReplacement.to must be between 1 and 59 characters"
+	NameReplacement []NameReplacement `json:"nameReplacement,omitempty"`
+	// Customization defines customization options for cloning.
+	Customization *VirtualMachineOperationCloneCustomization `json:"customization,omitempty"`
+}
+
+// +kubebuilder:validation:XValidation:rule="!has(self.namePrefix) || (size(self.namePrefix) >= 1 && size(self.namePrefix) <= 59)",message="namePrefix length must be between 1 and 59 characters if set"
+// +kubebuilder:validation:XValidation:rule="!has(self.nameSuffix) || (size(self.nameSuffix) >= 1 && size(self.nameSuffix) <= 59)",message="nameSuffix length must be between 1 and 59 characters if set"
+// VirtualMachineOperationCloneCustomization defines customization options for cloning.
+type VirtualMachineOperationCloneCustomization struct {
+	// NamePrefix adds a prefix to resource names during cloning.
+	// Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
+	NamePrefix string `json:"namePrefix,omitempty"`
+	// NameSuffix adds a suffix to resource names during cloning.
+	// Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
+	NameSuffix string `json:"nameSuffix,omitempty"`
 }
 
 // VMOPRestoreMode defines the kind of the restore operation.
@@ -173,7 +199,8 @@ const (
 // * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
 // * `Evict`: Migrate the virtual machine to another node where it can be started.
 // * `Restore`: Restore the virtual machine from a snapshot.
-// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict,Restore}
+// * `Clone`: Clone the virtual machine to a new virtual machine.
+// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict,Restore,Clone}
 type VMOPType string
 
 const (
@@ -183,4 +210,5 @@ const (
 	VMOPTypeMigrate VMOPType = "Migrate"
 	VMOPTypeEvict   VMOPType = "Evict"
 	VMOPTypeRestore VMOPType = "Restore"
+	VMOPTypeClone   VMOPType = "Clone"
 )

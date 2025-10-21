@@ -34,25 +34,25 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 var _ = Describe("Resizing handler Run", func() {
-	var vd *virtv2.VirtualDisk
+	var vd *v1alpha2.VirtualDisk
 	var pvc *corev1.PersistentVolumeClaim
 	var diskService *DiskServiceMock
 
 	size := resource.MustParse("10G")
 
 	BeforeEach(func() {
-		vd = &virtv2.VirtualDisk{
-			Spec: virtv2.VirtualDiskSpec{
-				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+		vd = &v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 					Size: &size,
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.ReadyType.String(),
@@ -84,7 +84,7 @@ var _ = Describe("Resizing handler Run", func() {
 		}
 
 		diskService = &DiskServiceMock{
-			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
 			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
@@ -99,7 +99,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 	It("Resizing is in progress", func() {
 		vd.Spec.PersistentVolumeClaim.Size = nil
-		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 			pvc.Status.Conditions = []corev1.PersistentVolumeClaimCondition{
 				{
 					Type:   corev1.PersistentVolumeClaimResizing,
@@ -177,9 +177,9 @@ var _ = Describe("Resizing handler Run", func() {
 	})
 
 	DescribeTable("Resizing handler Handle", func(args handleTestArgs) {
-		vd := &virtv2.VirtualDisk{
-			Spec: virtv2.VirtualDiskSpec{},
-			Status: virtv2.VirtualDiskStatus{
+		vd := &v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{},
+			Status: v1alpha2.VirtualDiskStatus{
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.ResizingType.String(),
@@ -206,7 +206,7 @@ var _ = Describe("Resizing handler Run", func() {
 		}
 
 		diskService := &DiskServiceMock{
-			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				if args.isPVCGetError {
 					return nil, errors.New("test error")
 				}
@@ -237,7 +237,7 @@ var _ = Describe("Resizing handler Run", func() {
 			pvc:                          nil,
 			isErrorNil:                   true,
 			expectedReadyConditionStatus: metav1.ConditionUnknown,
-			expectedVdPhase:              virtv2.DiskTerminating,
+			expectedVdPhase:              v1alpha2.DiskTerminating,
 		}),
 		Entry("Virtual Disk is not ready", handleTestArgs{
 			isDiskDeleting:               false,
@@ -245,7 +245,7 @@ var _ = Describe("Resizing handler Run", func() {
 			pvc:                          nil,
 			isErrorNil:                   true,
 			expectedReadyConditionStatus: metav1.ConditionFalse,
-			expectedVdPhase:              virtv2.DiskPending,
+			expectedVdPhase:              v1alpha2.DiskPending,
 		}),
 		Entry("PVC get error", handleTestArgs{
 			isDiskDeleting:               false,
@@ -253,7 +253,7 @@ var _ = Describe("Resizing handler Run", func() {
 			pvc:                          nil,
 			isErrorNil:                   false,
 			expectedReadyConditionStatus: metav1.ConditionTrue,
-			expectedVdPhase:              virtv2.DiskPending,
+			expectedVdPhase:              v1alpha2.DiskPending,
 		}),
 		Entry("PVC is nil", handleTestArgs{
 			isDiskDeleting:               false,
@@ -261,7 +261,7 @@ var _ = Describe("Resizing handler Run", func() {
 			pvc:                          nil,
 			isErrorNil:                   true,
 			expectedReadyConditionStatus: metav1.ConditionTrue,
-			expectedVdPhase:              virtv2.DiskPending,
+			expectedVdPhase:              v1alpha2.DiskPending,
 		}),
 		Entry("PVC is not bound", handleTestArgs{
 			isDiskDeleting: false,
@@ -273,7 +273,7 @@ var _ = Describe("Resizing handler Run", func() {
 			},
 			isErrorNil:                   true,
 			expectedReadyConditionStatus: metav1.ConditionTrue,
-			expectedVdPhase:              virtv2.DiskPending,
+			expectedVdPhase:              v1alpha2.DiskPending,
 		}),
 		Entry("Everything is fine", handleTestArgs{
 			isDiskDeleting: false,
@@ -285,18 +285,18 @@ var _ = Describe("Resizing handler Run", func() {
 			},
 			isErrorNil:                   true,
 			expectedReadyConditionStatus: metav1.ConditionTrue,
-			expectedVdPhase:              virtv2.DiskPending,
+			expectedVdPhase:              v1alpha2.DiskPending,
 		}),
 	)
 
 	DescribeTable("Resizing handler ResizeNeeded", func(args resizeNeededArgs) {
-		vd := &virtv2.VirtualDisk{
-			Spec: virtv2.VirtualDiskSpec{
-				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+		vd := &v1alpha2.VirtualDisk{
+			Spec: v1alpha2.VirtualDiskSpec{
+				PersistentVolumeClaim: v1alpha2.VirtualDiskPersistentVolumeClaim{
 					Size: ptr.To(resource.Quantity{}),
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.ResizingType.String(),
@@ -314,7 +314,7 @@ var _ = Describe("Resizing handler Run", func() {
 						Reason: vdcondition.StorageClassReady.String(),
 					},
 				},
-				Phase: virtv2.DiskPending,
+				Phase: v1alpha2.DiskPending,
 			},
 		}
 
@@ -357,7 +357,7 @@ var _ = Describe("Resizing handler Run", func() {
 			isResizeReturnErr:       false,
 			expectedResizeCalled:    false,
 			expectedHaveError:       false,
-			expectedPhase:           virtv2.DiskPending,
+			expectedPhase:           v1alpha2.DiskPending,
 			expectedStatus:          metav1.ConditionFalse,
 			expectedReason:          vdcondition.ResizingNotAvailable.String(),
 		}),
@@ -367,7 +367,7 @@ var _ = Describe("Resizing handler Run", func() {
 			isResizeReturnErr:       false,
 			expectedResizeCalled:    false,
 			expectedHaveError:       false,
-			expectedPhase:           virtv2.DiskPending,
+			expectedPhase:           v1alpha2.DiskPending,
 			expectedStatus:          metav1.ConditionFalse,
 			expectedReason:          vdcondition.ResizingNotAvailable.String(),
 		}),
@@ -377,7 +377,7 @@ var _ = Describe("Resizing handler Run", func() {
 			isResizeReturnErr:       false,
 			expectedResizeCalled:    false,
 			expectedHaveError:       false,
-			expectedPhase:           virtv2.DiskPending,
+			expectedPhase:           v1alpha2.DiskPending,
 			expectedStatus:          metav1.ConditionFalse,
 			expectedReason:          vdcondition.ResizingNotAvailable.String(),
 		}),
@@ -387,7 +387,7 @@ var _ = Describe("Resizing handler Run", func() {
 			isResizeReturnErr:       true,
 			expectedResizeCalled:    true,
 			expectedHaveError:       true,
-			expectedPhase:           virtv2.DiskPending,
+			expectedPhase:           v1alpha2.DiskPending,
 			expectedStatus:          metav1.ConditionUnknown,
 			expectedReason:          conditions.ReasonUnknown.String(),
 		}),
@@ -397,7 +397,7 @@ var _ = Describe("Resizing handler Run", func() {
 			isResizeReturnErr:       false,
 			expectedResizeCalled:    true,
 			expectedHaveError:       false,
-			expectedPhase:           virtv2.DiskResizing,
+			expectedPhase:           v1alpha2.DiskResizing,
 			expectedStatus:          metav1.ConditionTrue,
 			expectedReason:          vdcondition.InProgress.String(),
 		}),
@@ -414,7 +414,7 @@ type handleTestArgs struct {
 	isErrorNil                   bool
 	pvc                          *corev1.PersistentVolumeClaim
 	expectedReadyConditionStatus metav1.ConditionStatus
-	expectedVdPhase              virtv2.DiskPhase
+	expectedVdPhase              v1alpha2.DiskPhase
 }
 
 type resizeNeededArgs struct {
@@ -423,7 +423,7 @@ type resizeNeededArgs struct {
 	isResizeReturnErr       bool
 	expectedResizeCalled    bool
 	expectedHaveError       bool
-	expectedPhase           virtv2.DiskPhase
+	expectedPhase           v1alpha2.DiskPhase
 	expectedStatus          metav1.ConditionStatus
 	expectedReason          string
 }

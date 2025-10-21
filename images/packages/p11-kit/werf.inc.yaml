@@ -20,18 +20,33 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    # Download subprojects/pkcs11-json
+    cd /src
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        submodule update --init --recursive --depth=1
+    fi
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
 - git gcc gcc-c++ make meson ninja-build pkg-config
-- glib2-devel libffi-devel gettext-devel
-- openssl-devel ca-certificates
+- gettext-devel
+- ca-certificates
 - tree
 packages:
 - libtasn1
+- libffi openssl
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

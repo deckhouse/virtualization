@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -48,14 +48,14 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	})
 
 	okBlockDeviceServiceMock := &BlockDeviceServiceMock{
-		CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+		CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (int, error) {
 			return 1, nil
 		},
 	}
 
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
+		v1alpha2.AddToScheme,
 		virtv1.AddToScheme,
 		corev1.AddToScheme,
 	} {
@@ -68,25 +68,25 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Name:      "vm",
 	}
 
-	getVMWithOneVD := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
-		return &virtv2.VirtualMachine{
+	getVMWithOneVD := func(phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespacedName.Name,
 				Namespace: namespacedName.Namespace,
 			},
-			Spec: virtv2.VirtualMachineSpec{
-				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 					{
-						Kind: virtv2.DiskDevice,
+						Kind: v1alpha2.DiskDevice,
 						Name: "vd1",
 					},
 				},
 			},
-			Status: virtv2.VirtualMachineStatus{
+			Status: v1alpha2.VirtualMachineStatus{
 				Phase: phase,
-				BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 					{
-						Kind: virtv2.DiskDevice,
+						Kind: v1alpha2.DiskDevice,
 						Name: "vd1",
 					},
 				},
@@ -94,13 +94,13 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		}
 	}
 
-	getNotReadyVD := func(name string, status metav1.ConditionStatus, reason string) *virtv2.VirtualDisk {
-		return &virtv2.VirtualDisk{
+	getNotReadyVD := func(name string, status metav1.ConditionStatus, reason string) *v1alpha2.VirtualDisk {
+		return &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespacedName.Namespace,
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				Conditions: []metav1.Condition{{
 					Type:   vdcondition.InUseType.String(),
 					Status: status,
@@ -113,7 +113,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	nameVD1 := "vd1"
 	nameVD2 := "vd2"
 
-	DescribeTable("One not ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+	DescribeTable("One not ready disk", func(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
@@ -132,21 +132,21 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd AttachedToVirtualMachine & Pending VM",
 			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Running VM",
 			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Stopped VM",
 			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
@@ -154,21 +154,21 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd UsedForImageCreation & Pending VM",
 			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 		Entry(
 			"vd UsedForImageCreation & Running VM",
 			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 		Entry(
 			"vd UsedForImageCreation & Stopped VM",
 			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
@@ -176,35 +176,35 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd NotInUse & Pending VM",
 			getNotReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 		Entry(
 			"vd NotInUse & Running VM",
 			getNotReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 		Entry(
 			"vd NotInUse & Stopped VM",
 			getNotReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready.",
 		),
 	)
 
-	getWFFCVD := func(status metav1.ConditionStatus, reason string) *virtv2.VirtualDisk {
-		return &virtv2.VirtualDisk{
+	getWFFCVD := func(status metav1.ConditionStatus, reason string) *v1alpha2.VirtualDisk {
+		return &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "vd1",
 				Namespace: namespacedName.Namespace,
 			},
-			Status: virtv2.VirtualDiskStatus{
-				Phase: virtv2.DiskWaitForFirstConsumer,
-				Target: virtv2.DiskTarget{
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase: v1alpha2.DiskWaitForFirstConsumer,
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "testPvc",
 				},
 				Conditions: []metav1.Condition{{
@@ -212,7 +212,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					Status: status,
 					Reason: reason,
 				}},
-				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 					{
 						Name:    namespacedName.Name,
 						Mounted: true,
@@ -222,7 +222,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		}
 	}
 
-	DescribeTable("One wffc disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+	DescribeTable("One wffc disk", func(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
@@ -241,21 +241,21 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd AttachedToVirtualMachine & Pending VM",
 			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound.",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Running VM",
 			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound.",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Stopped VM",
 			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the virtual machine to be starting.",
 		),
@@ -263,37 +263,37 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd NotInUse & Pending VM",
 			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready to use.",
 		),
 		Entry(
 			"vd NotInUse & Running VM",
 			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready to use.",
 		),
 		Entry(
 			"vd NotInUse & Stopped VM",
 			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the virtual machine to be starting.",
 		),
 	)
 
-	getReadyVD := func(name string, status metav1.ConditionStatus, reason string) *virtv2.VirtualDisk {
-		return &virtv2.VirtualDisk{
+	getReadyVD := func(name string, status metav1.ConditionStatus, reason string) *v1alpha2.VirtualDisk {
+		return &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespacedName.Namespace,
 			},
-			Status: virtv2.VirtualDiskStatus{
-				Target: virtv2.DiskTarget{
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "testPvc",
 				},
-				Phase: virtv2.DiskReady,
+				Phase: v1alpha2.DiskReady,
 				Conditions: []metav1.Condition{
 					{
 						Type:    vdcondition.ReadyType.String(),
@@ -307,7 +307,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 						Reason: reason,
 					},
 				},
-				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+				AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 					{
 						Name:    namespacedName.Name,
 						Mounted: true,
@@ -317,7 +317,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		}
 	}
 
-	DescribeTable("One ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+	DescribeTable("One ready disk", func(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
@@ -336,21 +336,21 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd AttachedToVirtualMachine & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionTrue,
 			"",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionTrue,
 			"",
 		),
 		Entry(
 			"vd AttachedToVirtualMachine & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionTrue,
 			"",
 		),
@@ -358,21 +358,21 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd UsedForImageCreation & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Virtual disk \"vd1\" is in use for image creation.",
 		),
 		Entry(
 			"vd UsedForImageCreation & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Virtual disk \"vd1\" is in use for image creation.",
 		),
 		Entry(
 			"vd UsedForImageCreation & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Virtual disk \"vd1\" is in use for image creation.",
 		),
@@ -380,53 +380,53 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		Entry(
 			"vd NotInUse & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachinePending),
+			getVMWithOneVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready to use.",
 		),
 		Entry(
 			"vd NotInUse & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachineRunning),
+			getVMWithOneVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block device \"vd1\" to be ready to use.",
 		),
 		Entry(
 			"vd NotInUse & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithOneVD(virtv2.MachineStopped),
+			getVMWithOneVD(v1alpha2.MachineStopped),
 			metav1.ConditionTrue,
 			"",
 		),
 	)
 
-	getVMWithTwoVD := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
-		return &virtv2.VirtualMachine{
+	getVMWithTwoVD := func(phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
+		return &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespacedName.Name,
 				Namespace: namespacedName.Namespace,
 			},
-			Spec: virtv2.VirtualMachineSpec{
-				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 					{
-						Kind: virtv2.DiskDevice,
+						Kind: v1alpha2.DiskDevice,
 						Name: "vd1",
 					},
 					{
-						Kind: virtv2.DiskDevice,
+						Kind: v1alpha2.DiskDevice,
 						Name: "vd2",
 					},
 				},
 			},
-			Status: virtv2.VirtualMachineStatus{
+			Status: v1alpha2.VirtualMachineStatus{
 				Phase: phase,
-				BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 					{
-						Kind: virtv2.DiskDevice,
+						Kind: v1alpha2.DiskDevice,
 						Name: "vd1",
 					},
 					{
-						Kind: virtv2.DiskDevice,
+						Kind: v1alpha2.DiskDevice,
 						Name: "vd2",
 					},
 				},
@@ -434,7 +434,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		}
 	}
 
-	DescribeTable("two disks: not ready disk & ready disk", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+	DescribeTable("two disks: not ready disk & ready disk", func(vd1, vd2 *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
 
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
@@ -454,7 +454,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 AttachedToVirtualMachine & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithTwoVD(virtv2.MachinePending),
+			getVMWithTwoVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -462,7 +462,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 AttachedToVirtualMachine & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithTwoVD(virtv2.MachineRunning),
+			getVMWithTwoVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -470,7 +470,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 AttachedToVirtualMachine & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithTwoVD(virtv2.MachineStopped),
+			getVMWithTwoVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -479,7 +479,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 UsedForImageCreation & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithTwoVD(virtv2.MachinePending),
+			getVMWithTwoVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -487,7 +487,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 UsedForImageCreation & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithTwoVD(virtv2.MachineRunning),
+			getVMWithTwoVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -495,7 +495,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 UsedForImageCreation & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithTwoVD(virtv2.MachineStopped),
+			getVMWithTwoVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -504,7 +504,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd NotInUse & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithTwoVD(virtv2.MachinePending),
+			getVMWithTwoVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -512,7 +512,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 NotInUse & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithTwoVD(virtv2.MachineRunning),
+			getVMWithTwoVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
@@ -520,13 +520,13 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 NotInUse & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getNotReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithTwoVD(virtv2.MachineStopped),
+			getVMWithTwoVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready: 1/2.",
 		),
 	)
 
-	DescribeTable("two disks: two ready disks", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+	DescribeTable("two disks: two ready disks", func(vd1, vd2 *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
 
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
@@ -546,7 +546,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 AttachedToVirtualMachine & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithTwoVD(virtv2.MachinePending),
+			getVMWithTwoVD(v1alpha2.MachinePending),
 			metav1.ConditionTrue,
 			"",
 		),
@@ -554,7 +554,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 AttachedToVirtualMachine & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithTwoVD(virtv2.MachineRunning),
+			getVMWithTwoVD(v1alpha2.MachineRunning),
 			metav1.ConditionTrue,
 			"",
 		),
@@ -562,7 +562,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 AttachedToVirtualMachine & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
-			getVMWithTwoVD(virtv2.MachineStopped),
+			getVMWithTwoVD(v1alpha2.MachineStopped),
 			metav1.ConditionTrue,
 			"",
 		),
@@ -571,7 +571,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 UsedForImageCreation & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithTwoVD(virtv2.MachinePending),
+			getVMWithTwoVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready to use: 1/2; Virtual disk \"vd2\" is in use for image creation.",
 		),
@@ -579,7 +579,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 UsedForImageCreation & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithTwoVD(virtv2.MachineRunning),
+			getVMWithTwoVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready to use: 1/2; Virtual disk \"vd2\" is in use for image creation.",
 		),
@@ -587,7 +587,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 UsedForImageCreation & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
-			getVMWithTwoVD(virtv2.MachineStopped),
+			getVMWithTwoVD(v1alpha2.MachineStopped),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready to use: 1/2; Virtual disk \"vd2\" is in use for image creation.",
 		),
@@ -596,7 +596,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd NotInUse & Pending VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithTwoVD(virtv2.MachinePending),
+			getVMWithTwoVD(v1alpha2.MachinePending),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready to use: 1/2.",
 		),
@@ -604,7 +604,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 NotInUse & Running VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithTwoVD(virtv2.MachineRunning),
+			getVMWithTwoVD(v1alpha2.MachineRunning),
 			metav1.ConditionFalse,
 			"Waiting for block devices to be ready to use: 1/2.",
 		),
@@ -612,7 +612,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			"vd2 NotInUse & Stopped VM",
 			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
 			getReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
-			getVMWithTwoVD(virtv2.MachineStopped),
+			getVMWithTwoVD(v1alpha2.MachineStopped),
 			metav1.ConditionTrue,
 			"",
 		),
@@ -620,40 +620,40 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 
 	Context("three not ready disks", func() {
 		It("blockDeviceReady condition set Status = False and Message = Waiting for block devices to be ready: 0/3.", func() {
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 					},
@@ -684,56 +684,56 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		"- one ready disk, "+
 		"- two disk using for create image", func() {
 		It("blockDeviceReady condition set Status = False and complex message.", func() {
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd4",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd5",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd4",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd5",
 						},
 					},
@@ -766,56 +766,56 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		"- one ready disk, one disk using for create image, "+
 		"- one disk attached to another vm", func() {
 		It("blockDeviceReady condition set Status = False and complex message.", func() {
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd4",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd5",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd4",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd5",
 						},
 					},
@@ -825,16 +825,16 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vd2 := getReadyVD("vd2", metav1.ConditionFalse, vdcondition.NotInUse.String())
 			vd3 := getReadyVD("vd3", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
 			vd4 := getReadyVD("vd4", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
-			vd5 := &virtv2.VirtualDisk{
+			vd5 := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vd5",
 					Namespace: namespacedName.Namespace,
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Target: virtv2.DiskTarget{
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{
 						PersistentVolumeClaim: "testPvc",
 					},
-					Phase: virtv2.DiskReady,
+					Phase: v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:    vdcondition.ReadyType.String(),
@@ -848,7 +848,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 							Reason: vdcondition.AttachedToVirtualMachine.String(),
 						},
 					},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "a-vm",
 							Mounted: true,
@@ -878,56 +878,56 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		"- two disks using for create image, "+
 		"- two disks attached to another vm", func() {
 		It("blockDeviceReady condition set Status = False and complex message.", func() {
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd4",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd5",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd2",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd3",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd4",
 						},
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd5",
 						},
 					},
@@ -936,16 +936,16 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vd1 := getReadyVD("vd1", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
 			vd2 := getReadyVD("vd2", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
 			vd3 := getReadyVD("vd3", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
-			vd4 := &virtv2.VirtualDisk{
+			vd4 := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vd4",
 					Namespace: namespacedName.Namespace,
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Target: virtv2.DiskTarget{
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{
 						PersistentVolumeClaim: "testPvc",
 					},
-					Phase: virtv2.DiskReady,
+					Phase: v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:    vdcondition.ReadyType.String(),
@@ -959,7 +959,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 							Reason: vdcondition.AttachedToVirtualMachine.String(),
 						},
 					},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "b-vm",
 							Mounted: true,
@@ -967,16 +967,16 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					},
 				},
 			}
-			vd5 := &virtv2.VirtualDisk{
+			vd5 := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vd5",
 					Namespace: namespacedName.Namespace,
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Target: virtv2.DiskTarget{
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{
 						PersistentVolumeClaim: "testPvc",
 					},
-					Phase: virtv2.DiskReady,
+					Phase: v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:    vdcondition.ReadyType.String(),
@@ -990,7 +990,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 							Reason: vdcondition.AttachedToVirtualMachine.String(),
 						},
 					},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "a-vm",
 							Mounted: true,
@@ -1017,39 +1017,39 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 
 	Context("one disk attached to another vm", func() {
 		It("blockDeviceReady condition set Status = False and Message = Virtual disk \"vd1\" is in use by another VM.", func() {
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 					},
 				},
 			}
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vd1",
 					Namespace: namespacedName.Namespace,
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Target: virtv2.DiskTarget{
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{
 						PersistentVolumeClaim: "testPvc",
 					},
-					Phase: virtv2.DiskReady,
+					Phase: v1alpha2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:    vdcondition.ReadyType.String(),
@@ -1063,7 +1063,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 							Reason: vdcondition.AttachedToVirtualMachine.String(),
 						},
 					},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "a-vm",
 							Mounted: true,
@@ -1090,39 +1090,39 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 
 	Context("one not ready disk attached to another vm", func() {
 		It("return false and message = Waiting for block device \"vd1\" to be ready", func() {
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedName.Name,
 					Namespace: namespacedName.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{
-					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+				Spec: v1alpha2.VirtualMachineSpec{
+					BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 					},
 				},
-				Status: virtv2.VirtualMachineStatus{
-					Phase: virtv2.MachinePending,
-					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+				Status: v1alpha2.VirtualMachineStatus{
+					Phase: v1alpha2.MachinePending,
+					BlockDeviceRefs: []v1alpha2.BlockDeviceStatusRef{
 						{
-							Kind: virtv2.DiskDevice,
+							Kind: v1alpha2.DiskDevice,
 							Name: "vd1",
 						},
 					},
 				},
 			}
-			vd := &virtv2.VirtualDisk{
+			vd := &v1alpha2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "vd1",
 					Namespace: namespacedName.Namespace,
 				},
-				Status: virtv2.VirtualDiskStatus{
-					Target: virtv2.DiskTarget{
+				Status: v1alpha2.VirtualDiskStatus{
+					Target: v1alpha2.DiskTarget{
 						PersistentVolumeClaim: "testPvc",
 					},
-					Phase: virtv2.DiskProvisioning,
+					Phase: v1alpha2.DiskProvisioning,
 					Conditions: []metav1.Condition{
 						{
 							Type:    vdcondition.ReadyType.String(),
@@ -1136,7 +1136,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 							Reason: vdcondition.AttachedToVirtualMachine.String(),
 						},
 					},
-					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					AttachedToVirtualMachines: []v1alpha2.AttachedVirtualMachine{
 						{
 							Name:    "a-vm",
 							Mounted: true,
@@ -1165,40 +1165,40 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 
 var _ = Describe("BlockDeviceHandler", func() {
 	var h *BlockDeviceHandler
-	var vm *virtv2.VirtualMachine
-	var vi *virtv2.VirtualImage
-	var cvi *virtv2.ClusterVirtualImage
-	var vdFoo *virtv2.VirtualDisk
-	var vdBar *virtv2.VirtualDisk
+	var vm *v1alpha2.VirtualMachine
+	var vi *v1alpha2.VirtualImage
+	var cvi *v1alpha2.ClusterVirtualImage
+	var vdFoo *v1alpha2.VirtualDisk
+	var vdBar *v1alpha2.VirtualDisk
 
 	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
-	blockDeviceHandlerMock.CountBlockDevicesAttachedToVMFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
+	blockDeviceHandlerMock.CountBlockDevicesAttachedToVMFunc = func(_ context.Context, vm *v1alpha2.VirtualMachine) (int, error) {
 		return 1, nil
 	}
 
-	getBlockDevicesState := func(vi *virtv2.VirtualImage, cvi *virtv2.ClusterVirtualImage, vdFoo, vdBar *virtv2.VirtualDisk) BlockDevicesState {
+	getBlockDevicesState := func(vi *v1alpha2.VirtualImage, cvi *v1alpha2.ClusterVirtualImage, vdFoo, vdBar *v1alpha2.VirtualDisk) BlockDevicesState {
 		return BlockDevicesState{
-			VIByName:  map[string]*virtv2.VirtualImage{vi.Name: vi},
-			CVIByName: map[string]*virtv2.ClusterVirtualImage{cvi.Name: cvi},
-			VDByName:  map[string]*virtv2.VirtualDisk{vdFoo.Name: vdFoo, vdBar.Name: vdBar},
+			VIByName:  map[string]*v1alpha2.VirtualImage{vi.Name: vi},
+			CVIByName: map[string]*v1alpha2.ClusterVirtualImage{cvi.Name: cvi},
+			VDByName:  map[string]*v1alpha2.VirtualDisk{vdFoo.Name: vdFoo, vdBar.Name: vdBar},
 		}
 	}
 
 	BeforeEach(func() {
 		h = NewBlockDeviceHandler(nil, blockDeviceHandlerMock)
-		vi = &virtv2.VirtualImage{
+		vi = &v1alpha2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
-			Status:     virtv2.VirtualImageStatus{Phase: virtv2.ImageReady},
+			Status:     v1alpha2.VirtualImageStatus{Phase: v1alpha2.ImageReady},
 		}
-		cvi = &virtv2.ClusterVirtualImage{
+		cvi = &v1alpha2.ClusterVirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "cvi-01"},
-			Status:     virtv2.ClusterVirtualImageStatus{Phase: virtv2.ImageReady},
+			Status:     v1alpha2.ClusterVirtualImageStatus{Phase: v1alpha2.ImageReady},
 		}
-		vdFoo = &virtv2.VirtualDisk{
+		vdFoo = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd1-foo"},
-			Status: virtv2.VirtualDiskStatus{
-				Phase:  virtv2.DiskReady,
-				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase:  v1alpha2.DiskReady,
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.ReadyType.String(),
@@ -1213,11 +1213,11 @@ var _ = Describe("BlockDeviceHandler", func() {
 				},
 			},
 		}
-		vdBar = &virtv2.VirtualDisk{
+		vdBar = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd1-bar"},
-			Status: virtv2.VirtualDiskStatus{
-				Phase:  virtv2.DiskReady,
-				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
+			Status: v1alpha2.VirtualDiskStatus{
+				Phase:  v1alpha2.DiskReady,
+				Target: v1alpha2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.ReadyType.String(),
@@ -1232,13 +1232,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 				},
 			},
 		}
-		vm = &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
-				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
-					{Name: vi.Name, Kind: virtv2.ImageDevice},
-					{Name: cvi.Name, Kind: virtv2.ClusterImageDevice},
-					{Name: vdFoo.Name, Kind: virtv2.DiskDevice},
-					{Name: vdBar.Name, Kind: virtv2.DiskDevice},
+		vm = &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				BlockDeviceRefs: []v1alpha2.BlockDeviceSpecRef{
+					{Name: vi.Name, Kind: v1alpha2.ImageDevice},
+					{Name: cvi.Name, Kind: v1alpha2.ClusterImageDevice},
+					{Name: vdFoo.Name, Kind: v1alpha2.DiskDevice},
+					{Name: vdBar.Name, Kind: v1alpha2.DiskDevice},
 				},
 			},
 		}
@@ -1265,7 +1265,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 	Context("Image is not ready", func() {
 		It("VirtualImage not ready: cannot start, no warnings", func() {
-			vi.Status.Phase = virtv2.ImagePending
+			vi.Status.Phase = v1alpha2.ImagePending
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
@@ -1274,7 +1274,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 		})
 
 		It("ClusterVirtualImage not ready: cannot start, no warnings", func() {
-			cvi.Status.Phase = virtv2.ImagePending
+			cvi.Status.Phase = v1alpha2.ImagePending
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
@@ -1285,7 +1285,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 	Context("VirtualDisk is not ready", func() {
 		It("VirtualDisk's target pvc is not yet created", func() {
-			vdFoo.Status.Phase = virtv2.DiskProvisioning
+			vdFoo.Status.Phase = v1alpha2.DiskProvisioning
 			vdFoo.Status.Target.PersistentVolumeClaim = ""
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
@@ -1295,7 +1295,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 		})
 
 		It("VirtualDisk's target pvc is created", func() {
-			vdFoo.Status.Phase = virtv2.DiskProvisioning
+			vdFoo.Status.Phase = v1alpha2.DiskProvisioning
 			vdFoo.Status.Conditions = []metav1.Condition{
 				{
 					Type:   vdcondition.ReadyType.String(),
@@ -1327,7 +1327,7 @@ var _ = Describe("Capacity check", func() {
 	Context("Handle call result based on the number of connected block devices", func() {
 		scheme := apiruntime.NewScheme()
 		for _, f := range []func(*apiruntime.Scheme) error{
-			virtv2.AddToScheme,
+			v1alpha2.AddToScheme,
 			virtv1.AddToScheme,
 			corev1.AddToScheme,
 		} {
@@ -1350,13 +1350,13 @@ var _ = Describe("Capacity check", func() {
 			},
 		}
 
-		vm := &virtv2.VirtualMachine{
+		vm := &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      namespacedName.Name,
 				Namespace: namespacedName.Namespace,
 			},
-			Spec: virtv2.VirtualMachineSpec{},
-			Status: virtv2.VirtualMachineStatus{
+			Spec: v1alpha2.VirtualMachineSpec{},
+			Status: v1alpha2.VirtualMachineStatus{
 				Conditions: []metav1.Condition{
 					{
 						Status:  metav1.ConditionUnknown,
@@ -1376,7 +1376,7 @@ var _ = Describe("Capacity check", func() {
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
 			okBlockDeviceServiceMock := &BlockDeviceServiceMock{
-				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (int, error) {
 					return 1, nil
 				},
 			}
@@ -1392,7 +1392,7 @@ var _ = Describe("Capacity check", func() {
 		})
 		It("There might be an issue since 16 or more devices are connected.", func() {
 			erroredBlockDeviceServiceMock := &BlockDeviceServiceMock{
-				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (int, error) {
 					return 17, nil
 				},
 			}
@@ -1411,14 +1411,14 @@ var _ = Describe("Capacity check", func() {
 	Context("When images are hotplugged into a VirtualMachine", func() {
 		It("checks that `VirtualMachine.Status.BlockDeviceRefs` contains the hotplugged images", func() {
 			blockDeviceServiceMock := &BlockDeviceServiceMock{
-				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (int, error) {
 					return 2, nil
 				},
 			}
 
 			scheme := apiruntime.NewScheme()
 			for _, f := range []func(*apiruntime.Scheme) error{
-				virtv2.AddToScheme,
+				v1alpha2.AddToScheme,
 				virtv1.AddToScheme,
 			} {
 				err := f(scheme)
@@ -1439,40 +1439,40 @@ var _ = Describe("Capacity check", func() {
 				Name: "cvi-hotplug",
 			}
 
-			vi := &virtv2.VirtualImage{
+			vi := &v1alpha2.VirtualImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedVirtualImage.Name,
 					Namespace: namespacedVirtualImage.Namespace,
 				},
-				Spec: virtv2.VirtualImageSpec{},
-				Status: virtv2.VirtualImageStatus{
-					Phase: virtv2.ImageReady,
-					Size: virtv2.ImageStatusSize{
+				Spec: v1alpha2.VirtualImageSpec{},
+				Status: v1alpha2.VirtualImageStatus{
+					Phase: v1alpha2.ImageReady,
+					Size: v1alpha2.ImageStatusSize{
 						Unpacked: "200Mi",
 					},
 				},
 			}
 
-			cvi := &virtv2.ClusterVirtualImage{
+			cvi := &v1alpha2.ClusterVirtualImage{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespacedClusterVirtualImage.Name,
 				},
-				Spec: virtv2.ClusterVirtualImageSpec{},
-				Status: virtv2.ClusterVirtualImageStatus{
-					Phase: virtv2.ImageReady,
-					Size: virtv2.ImageStatusSize{
+				Spec: v1alpha2.ClusterVirtualImageSpec{},
+				Status: v1alpha2.ClusterVirtualImageStatus{
+					Phase: v1alpha2.ImageReady,
+					Size: v1alpha2.ImageStatusSize{
 						Unpacked: "200Mi",
 					},
 				},
 			}
 
-			vm := &virtv2.VirtualMachine{
+			vm := &v1alpha2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedVirtualMachine.Name,
 					Namespace: namespacedVirtualMachine.Namespace,
 				},
-				Spec: virtv2.VirtualMachineSpec{},
-				Status: virtv2.VirtualMachineStatus{
+				Spec: v1alpha2.VirtualMachineSpec{},
+				Status: v1alpha2.VirtualMachineStatus{
 					Conditions: []metav1.Condition{
 						{
 							Status:  metav1.ConditionUnknown,
@@ -1518,37 +1518,37 @@ var _ = Describe("Capacity check", func() {
 				},
 			}
 
-			vmbdaVi := &virtv2.VirtualMachineBlockDeviceAttachment{
+			vmbdaVi := &v1alpha2.VirtualMachineBlockDeviceAttachment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedVirtualImage.Name,
 					Namespace: namespacedVirtualImage.Namespace,
 				},
-				Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+				Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 					VirtualMachineName: namespacedVirtualMachine.Name,
-					BlockDeviceRef: virtv2.VMBDAObjectRef{
-						Kind: virtv2.VMBDAObjectRefKindVirtualImage,
+					BlockDeviceRef: v1alpha2.VMBDAObjectRef{
+						Kind: v1alpha2.VMBDAObjectRefKindVirtualImage,
 						Name: namespacedVirtualImage.Name,
 					},
 				},
-				Status: virtv2.VirtualMachineBlockDeviceAttachmentStatus{
-					Phase: virtv2.BlockDeviceAttachmentPhaseAttached,
+				Status: v1alpha2.VirtualMachineBlockDeviceAttachmentStatus{
+					Phase: v1alpha2.BlockDeviceAttachmentPhaseAttached,
 				},
 			}
 
-			vmbdaCvi := &virtv2.VirtualMachineBlockDeviceAttachment{
+			vmbdaCvi := &v1alpha2.VirtualMachineBlockDeviceAttachment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedClusterVirtualImage.Name,
 					Namespace: namespacedVirtualMachine.Namespace,
 				},
-				Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+				Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 					VirtualMachineName: namespacedVirtualMachine.Name,
-					BlockDeviceRef: virtv2.VMBDAObjectRef{
-						Kind: virtv2.VMBDAObjectRefKindClusterVirtualImage,
+					BlockDeviceRef: v1alpha2.VMBDAObjectRef{
+						Kind: v1alpha2.VMBDAObjectRefKindClusterVirtualImage,
 						Name: namespacedClusterVirtualImage.Name,
 					},
 				},
-				Status: virtv2.VirtualMachineBlockDeviceAttachmentStatus{
-					Phase: virtv2.BlockDeviceAttachmentPhaseAttached,
+				Status: v1alpha2.VirtualMachineBlockDeviceAttachmentStatus{
+					Phase: v1alpha2.BlockDeviceAttachmentPhaseAttached,
 				},
 			}
 
@@ -1566,12 +1566,12 @@ var _ = Describe("Capacity check", func() {
 				Expect(bd.Attached).To(BeTrue(), "`attached` field should be `true`")
 				Expect(bd.Hotplugged).To(BeTrue(), "`hotplugged` field should be `true`")
 				switch bd.Kind {
-				case virtv2.ClusterVirtualImageKind:
+				case v1alpha2.ClusterVirtualImageKind:
 					Expect(bd.Name).To(Equal(namespacedClusterVirtualImage.Name), "`Name` should be %q", namespacedClusterVirtualImage.Name)
 					Expect(bd.VirtualMachineBlockDeviceAttachmentName).To(Equal(namespacedClusterVirtualImage.Name), "`VirtualMachineBlockDeviceAttachmentName` should be %q", namespacedClusterVirtualImage.Name)
 					Expect(bd.Size).To(Equal(cvi.Status.Size.Unpacked), "unpacked size of image should be %s", cvi.Status.Size.Unpacked)
 					Expect(bd.Target).To(Equal(cviTarget), "`target` field should be %s", cviTarget)
-				case virtv2.VirtualImageKind:
+				case v1alpha2.VirtualImageKind:
 					Expect(bd.Name).To(Equal(namespacedVirtualImage.Name), "`Name` should be %q", namespacedVirtualImage.Name)
 					Expect(bd.VirtualMachineBlockDeviceAttachmentName).To(Equal(namespacedVirtualImage.Name), "`VirtualMachineBlockDeviceAttachmentName` should be %q", namespacedVirtualImage.Name)
 					Expect(bd.Size).To(Equal(vi.Status.Size.Unpacked), "unpacked size of image should be %s", vi.Status.Size.Unpacked)
@@ -1582,12 +1582,12 @@ var _ = Describe("Capacity check", func() {
 	})
 })
 
-func vmFactoryByVM(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
-	return func() *virtv2.VirtualMachine {
+func vmFactoryByVM(vm *v1alpha2.VirtualMachine) func() *v1alpha2.VirtualMachine {
+	return func() *v1alpha2.VirtualMachine {
 		return vm
 	}
 }
 
-func vmStatusGetter(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
+func vmStatusGetter(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus {
 	return obj.Status
 }

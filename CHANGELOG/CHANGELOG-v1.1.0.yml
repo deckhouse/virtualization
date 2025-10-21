@@ -1,0 +1,82 @@
+ci:
+  features:
+    - summary: add alias linter for golangci-lint
+      pull_request: https://github.com/deckhouse/virtualization/pull/1387
+  fixes:
+    - summary: E2E tests no longer fail due to kubectl logs exit codes during teardown.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1466
+    - summary: fix variable name for delve debug
+      pull_request: https://github.com/deckhouse/virtualization/pull/1442
+core:
+  features:
+    - summary: add e2e framework
+      pull_request: https://github.com/deckhouse/virtualization/pull/1366
+docs:
+  fixes:
+    - summary: english documentation remove cyrillic characters cdi_kubevirt_patching
+      pull_request: https://github.com/deckhouse/virtualization/pull/1481
+module:
+  features:
+    - summary: >-
+        Added the `D8VirtualizationDVCRInsufficientCapacityRisk` alert, which warns of the risk of
+        insufficient free space in the virtual machine image storage (DVCR).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1461
+    - summary: >-
+        Added the `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown` alert, which is triggered
+        when the node hosting the virtual machines is about to shut down but VM evacuation is not
+        yet complete.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1268
+observability:
+  fixes:
+    - summary: >-
+        Fixed the graph on the virtual machine dashboard that displays memory copy statistics during
+        VM migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1474
+vd:
+  fixes:
+    - summary: respect user-specified storage class when restoring from snapshot
+      pull_request: https://github.com/deckhouse/virtualization/pull/1417
+vm:
+  features:
+    - summary: >-
+        Added the ability to migrate VMs using disks on local storage. Restrictions:
+
+        - The feature is not available in the CE edition.
+
+        - Migration is only possible for running VMs (`phase: Running`).
+
+        - Migration of VMs with local disks connected via `VirtualMachineBlockDeviceAttachment`
+        (hotplug) is not supported yet.
+
+
+        Added the ability to migrate storage for VM disks (change `StorageClass`). Restrictions:
+
+        - The feature is not available in the CE edition.
+
+        - Migration is only possible for running VMs (`phase: Running`).
+
+        - Storage migration for disks connected via `VirtualMachineBlockDeviceAttachment` (hotplug)
+        is not supported yet.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1360
+vmclass:
+  fixes:
+    - summary: >-
+        Use qemu64 CPU model for Discovery and Features types to fix nested virtualization on AMD
+        hosts
+      pull_request: https://github.com/deckhouse/virtualization/pull/1446
+vmop:
+  features:
+    - summary: >-
+        Added an operation with the `Clone` type to create a clone of a VM from an existing VM
+        (`VirtualMachineOperation` `.spec.type: Clone`).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1418
+  fixes:
+    - summary: >-
+        Fix the problem where a disk that in the "Terminating" phase  was wrongly added to kvvm's
+        volumes during a restore operation in Strict mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1493
+    - summary: >-
+        Fixed garbage collector behavior: previously, all VMOP objects were deleted after restarting
+        the virtualization controller, ignoring cleanup rules.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1471
+

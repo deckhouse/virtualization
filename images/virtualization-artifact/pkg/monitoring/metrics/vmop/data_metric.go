@@ -16,17 +16,17 @@ limitations under the License.
 
 package vmop
 
-import virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+import "github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 type dataMetric struct {
 	Name      string
 	Namespace string
 	UID       string
-	Phase     virtv2.VMOPPhase
+	Phase     v1alpha2.VMOPPhase
 }
 
 // DO NOT mutate VirtualMachineOperation!
-func newDataMetric(vmop *virtv2.VirtualMachineOperation) *dataMetric {
+func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 	if vmop == nil {
 		return nil
 	}

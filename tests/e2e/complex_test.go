@@ -24,24 +24,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
+const VirtualMachineCount = 12
+
+var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "complex-test"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
-		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
-		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "complex-test"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
+		alwaysOnLabel            = map[string]string{"alwaysOn": "complex-test"}
+		notAlwaysOnLabel         = map[string]string{"notAlwaysOn": "complex-test"}
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
+		f                        = framework.NewFramework("")
 	)
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -77,7 +81,10 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 		})
 
 		It("should fill empty virtualMachineClassName with the default class name", func() {
-			defaultVMLabels := testCaseLabel
+			defaultVMLabels := make(map[string]string, len(testCaseLabel)+1)
+			for k, v := range testCaseLabel {
+				defaultVMLabels[k] = v
+			}
 			defaultVMLabels["vm"] = "default"
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
@@ -127,7 +134,7 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 		It("patches custom VMIP with unassigned address", func() {
 			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
 			Eventually(func() error {
-				return AssignIPToVMIP(ns, vmipName)
+				return AssignIPToVMIP(f, ns, vmipName)
 			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
 		})
 
@@ -211,20 +218,21 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 
 		Context("Verify that the virtual machines are stopping by VMOPs", func() {
 			It("stops VMs by VMOPs", func() {
-				var vmList virtv2.VirtualMachineList
+				var vmList v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
+				Expect(len(vmList.Items)).To(Equal(VirtualMachineCount))
 
 				for _, vmObj := range vmList.Items {
-					if vmObj.Spec.RunPolicy == virtv2.AlwaysOnPolicy {
+					if vmObj.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
 						alwaysOnVMs = append(alwaysOnVMs, vmObj.Name)
-						alwaysOnVMStopVMOPs = append(alwaysOnVMStopVMOPs, fmt.Sprintf("%s-%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
+						alwaysOnVMStopVMOPs = append(alwaysOnVMStopVMOPs, fmt.Sprintf("%s-%s", vmObj.Name, strings.ToLower(string(v1alpha2.VMOPTypeStop))))
 					} else {
 						notAlwaysOnVMs = append(notAlwaysOnVMs, vmObj.Name)
-						notAlwaysOnVMStopVMs = append(notAlwaysOnVMStopVMs, fmt.Sprintf("%s-%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
+						notAlwaysOnVMStopVMs = append(notAlwaysOnVMStopVMs, fmt.Sprintf("%s-%s", vmObj.Name, strings.ToLower(string(v1alpha2.VMOPTypeStop))))
 					}
 				}
 
@@ -235,23 +243,23 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 			})
 
 			It("checks VMOPs and VMs phases", func() {
-				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseFailed))
-				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(virtv2.VMOPPhaseFailed), kc.WaitOptions{
+				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", v1alpha2.VMOPPhaseFailed))
+				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(v1alpha2.VMOPPhaseFailed), kc.WaitOptions{
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("Not AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-				WaitResourcesByPhase(notAlwaysOnVMStopVMs, kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+				By(fmt.Sprintf("Not AlwaysOn VM VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+				WaitResourcesByPhase(notAlwaysOnVMStopVMs, kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
-				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
+				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", v1alpha2.MachineRunning))
+				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(v1alpha2.MachineRunning), kc.WaitOptions{
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
-				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", v1alpha2.MachineStopped))
+				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(v1alpha2.MachineStopped), kc.WaitOptions{
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
@@ -270,16 +278,17 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 
 		Context("Verify that the virtual machines are starting", func() {
 			It("starts VMs by VMOP", func() {
-				var vms virtv2.VirtualMachineList
+				var vms v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Namespace: ns,
 					Labels:    testCaseLabel,
 				})
 				Expect(err).NotTo(HaveOccurred())
+				Expect(len(vms.Items)).To(Equal(VirtualMachineCount))
 
 				var notAlwaysOnVMs []string
 				for _, vm := range vms.Items {
-					if vm.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
+					if vm.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 						notAlwaysOnVMs = append(notAlwaysOnVMs, vm.Name)
 					}
 				}
@@ -288,8 +297,8 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 			})
 
 			It("checks VMs and VMOPs phases", func() {
-				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+				By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -305,17 +314,18 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 
 		Context("Verify that the virtual machines are stopping by ssh", func() {
 			It("stops VMs by ssh", func() {
-				var vmList virtv2.VirtualMachineList
+				var vmList v1alpha2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
+				Expect(len(vmList.Items)).To(Equal(VirtualMachineCount))
 
 				alwaysOnVMs = []string{}
 				notAlwaysOnVMs = []string{}
 				for _, vmObj := range vmList.Items {
-					if vmObj.Spec.RunPolicy == virtv2.AlwaysOnPolicy {
+					if vmObj.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
 						alwaysOnVMs = append(alwaysOnVMs, vmObj.Name)
 					} else {
 						notAlwaysOnVMs = append(notAlwaysOnVMs, vmObj.Name)
@@ -329,25 +339,25 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 			})
 
 			It("checks VMs phases", func() {
-				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
-				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", v1alpha2.MachineStopped))
+				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(v1alpha2.MachineStopped), kc.WaitOptions{
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
-				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
+				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", v1alpha2.MachineRunning))
+				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(v1alpha2.MachineRunning), kc.WaitOptions{
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
 
 			It("start not AlwaysOn VMs", func() {
-				CreateAndApplyVMOPsWithSuffix(testCaseLabel, "-after-ssh-stopping", virtv2.VMOPTypeStart, ns, notAlwaysOnVMs...)
+				CreateAndApplyVMOPsWithSuffix(testCaseLabel, "-after-ssh-stopping", v1alpha2.VMOPTypeStart, ns, notAlwaysOnVMs...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {
-				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+				By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -376,8 +386,8 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 			})
 
 			It("checks VMs and VMOPs phases", func() {
-				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+				By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -400,7 +410,7 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 					go func() {
 						defer GinkgoRecover()
 						defer wg.Done()
-						WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+						WaitPhaseByLabel(kc.ResourceVM, string(v1alpha2.MachineStopped), kc.WaitOptions{
 							Labels:    testCaseLabel,
 							Namespace: ns,
 							Timeout:   MaxWaitTimeout,
@@ -439,7 +449,7 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 					go func() {
 						defer GinkgoRecover()
 						defer wg.Done()
-						WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+						WaitPhaseByLabel(kc.ResourceVM, string(v1alpha2.MachineStopped), kc.WaitOptions{
 							Labels:    testCaseLabel,
 							Namespace: ns,
 							Timeout:   MaxWaitTimeout,
@@ -500,8 +510,8 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 
 		Context("When VMs migrations are applied", func() {
 			It("checks VMs and VMOPs phases", func() {
-				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+				By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -551,24 +561,32 @@ var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), fu
 	})
 })
 
-func AssignIPToVMIP(vmipNamespace, vmipName string) error {
+func AssignIPToVMIP(f *framework.Framework, vmipNamespace, vmipName string) error {
+	mc, err := f.GetVirtualizationModuleConfig()
+	if err != nil {
+		return err
+	}
+
 	assignErr := fmt.Sprintf("cannot patch VMIP %q with unnassigned IP address", vmipName)
 	unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
 	if err != nil {
 		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
-	patch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
+
+	patch := fmt.Sprintf(`{"spec":{"staticIP":%q}}`, unassignedIP)
 	err = MergePatchResource(kc.ResourceVMIP, vmipNamespace, vmipName, patch)
 	if err != nil {
 		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
-	vmip := virtv2.VirtualMachineIPAddress{}
+
+	vmip := v1alpha2.VirtualMachineIPAddress{}
 	err = GetObject(kc.ResourceVMIP, vmipName, &vmip, kc.GetOptions{
 		Namespace: vmipNamespace,
 	})
 	if err != nil {
 		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
+
 	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseAttached)
 	waitOpts := kc.WaitOptions{
 		Namespace: vmipNamespace,
@@ -579,5 +597,6 @@ func AssignIPToVMIP(vmipNamespace, vmipName string) error {
 	if res.Error() != nil {
 		return fmt.Errorf("%s\n%s", assignErr, res.StdErr())
 	}
+
 	return nil
 }

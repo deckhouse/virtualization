@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineSnapshotWatcher struct{}
@@ -42,8 +42,8 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&virtv2.VirtualMachineSnapshot{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) []reconcile.Request {
+			&v1alpha2.VirtualMachineSnapshot{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) []reconcile.Request {
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -53,8 +53,8 @@ func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller
 					},
 				}
 			}),
-			predicate.TypedFuncs[*virtv2.VirtualMachineSnapshot]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineSnapshot]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
 				},
 			},

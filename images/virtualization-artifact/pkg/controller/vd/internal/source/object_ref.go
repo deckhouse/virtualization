@@ -23,11 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const objectRefDataSource = "objectref"
@@ -52,25 +51,25 @@ func NewObjectRefDataSource(
 	}
 }
 
-func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return reconcile.Result{}, fmt.Errorf("not object ref data source, please report a bug")
 	}
 
 	switch vd.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
 		return ds.vdSnapshotSyncer.Sync(ctx, vd)
-	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+	case v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage:
 		return ds.cviSyncer.Sync(ctx, vd)
-	case virtv2.VirtualImageKind:
+	case v1alpha2.VirtualImageKind:
 		return ds.viSyncer.Sync(ctx, vd)
 	}
 
 	return reconcile.Result{}, fmt.Errorf("unexpected object ref kind %s, please report a bug", vd.Spec.DataSource.ObjectRef.Kind)
 }
 
-func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	supgen := vdsupplements.NewGenerator(vd)
 
 	requeue, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -80,17 +79,17 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDis
 	return requeue, nil
 }
 
-func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return fmt.Errorf("not object ref data source, please report a bug")
 	}
 
 	switch vd.Spec.DataSource.ObjectRef.Kind {
-	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
 		return ds.vdSnapshotSyncer.Validate(ctx, vd)
-	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+	case v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage:
 		return ds.cviSyncer.Validate(ctx, vd)
-	case virtv2.VirtualImageKind:
+	case v1alpha2.VirtualImageKind:
 		return ds.viSyncer.Validate(ctx, vd)
 	}
 

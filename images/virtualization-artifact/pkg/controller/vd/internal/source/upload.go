@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -42,10 +41,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -78,14 +78,15 @@ func NewUploadDataSource(
 	}
 }
 
-func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
 	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
+
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -118,7 +119,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	}
 
 	switch {
@@ -151,7 +152,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The Upload DataSource import to DVCR has started",
 		)
 
@@ -171,14 +172,14 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitForUserUpload).
@@ -195,19 +196,19 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			if ds.statService.IsUploaderReady(pod, svc, ing) {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
-				vd.Status.Phase = virtv2.DiskWaitForUserUpload
+				vd.Status.Phase = v1alpha2.DiskWaitForUserUpload
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.WaitForUserUpload).
 					Message("Waiting for the user upload.")
-				vd.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+				vd.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
 					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
 				}
 			} else {
 				log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 
-				vd.Status.Phase = virtv2.DiskPending
+				vd.Status.Phase = v1alpha2.DiskPending
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningNotStarted).
@@ -219,7 +220,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -236,17 +237,17 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The Upload DataSource import to PVC has started",
 		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vd.Status.Phase = virtv2.DiskFailed
+			vd.Status.Phase = v1alpha2.DiskFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningFailed).
@@ -289,7 +290,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -297,9 +298,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
-			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
 		cb.
 			Status(metav1.ConditionFalse).
@@ -307,9 +308,9 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Message(dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
-			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
 		cb.
 			Status(metav1.ConditionFalse).
@@ -318,7 +319,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -330,11 +331,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncCompleted,
+			v1alpha2.ReasonDataSourceSyncCompleted,
 			"The Upload DataSource import has completed",
 		)
 
-		vd.Status.Phase = virtv2.DiskReady
+		vd.Status.Phase = v1alpha2.DiskReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Ready).
@@ -342,7 +343,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
 		log.Info("Ready", "vd", vd.Name, "progress", vd.Status.Progress, "dv.phase", dv.Status.Phase)
 	default:
@@ -355,7 +356,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
@@ -377,8 +378,8 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+func (ds UploadDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	supgen := vdsupplements.NewGenerator(vd)
 
 	uploaderRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -393,8 +394,8 @@ func (ds UploadDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) 
 	return uploaderRequeue || diskRequeue, nil
 }
 
-func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+	supgen := vdsupplements.NewGenerator(vd)
 
 	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -413,7 +414,7 @@ func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.Vi
 	}
 }
 
-func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
+func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualDisk) error {
 	return nil
 }
 
@@ -421,7 +422,7 @@ func (ds UploadDataSource) Name() string {
 	return uploadDataSource
 }
 
-func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
@@ -434,7 +435,7 @@ func (ds UploadDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supple
 	return &settings
 }
 
-func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
@@ -451,7 +452,7 @@ func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImage
 	}
 }
 
-func (ds UploadDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod) (resource.Quantity, error) {
+func (ds UploadDataSource) getPVCSize(vd *v1alpha2.VirtualDisk, pod *corev1.Pod) (resource.Quantity, error) {
 	// Get size from the importer Pod to detect if specified PVC size is enough.
 	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
 	if err != nil {

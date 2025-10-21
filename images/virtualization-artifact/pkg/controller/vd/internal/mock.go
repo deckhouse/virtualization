@@ -7,7 +7,7 @@ import (
 	"context"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,16 +25,16 @@ var _ Handler = &HandlerMock{}
 //
 //		// make and configure a mocked Handler
 //		mockedHandler := &HandlerMock{
-//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
 //			NameFunc: func() string {
 //				panic("mock out the Name method")
 //			},
-//			SyncFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+//			SyncFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 //				panic("mock out the Sync method")
 //			},
-//			ValidateFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) error {
+//			ValidateFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 //				panic("mock out the Validate method")
 //			},
 //		}
@@ -45,16 +45,16 @@ var _ Handler = &HandlerMock{}
 //	}
 type HandlerMock struct {
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
 
 	// NameFunc mocks the Name method.
 	NameFunc func() string
 
 	// SyncFunc mocks the Sync method.
-	SyncFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
+	SyncFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error)
 
 	// ValidateFunc mocks the Validate method.
-	ValidateFunc func(ctx context.Context, vd *virtv2.VirtualDisk) error
+	ValidateFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -63,7 +63,7 @@ type HandlerMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 		// Name holds details about calls to the Name method.
 		Name []struct {
@@ -73,14 +73,14 @@ type HandlerMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 		// Validate holds details about calls to the Validate method.
 		Validate []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 	}
 	lockCleanUp  sync.RWMutex
@@ -90,13 +90,13 @@ type HandlerMock struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *HandlerMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (mock *HandlerMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("HandlerMock.CleanUpFunc: method is nil but Handler.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -113,11 +113,11 @@ func (mock *HandlerMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (b
 //	len(mockedHandler.CleanUpCalls())
 func (mock *HandlerMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -153,13 +153,13 @@ func (mock *HandlerMock) NameCalls() []struct {
 }
 
 // Sync calls SyncFunc.
-func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (mock *HandlerMock) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if mock.SyncFunc == nil {
 		panic("HandlerMock.SyncFunc: method is nil but Handler.Sync was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -176,11 +176,11 @@ func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 //	len(mockedHandler.SyncCalls())
 func (mock *HandlerMock) SyncCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockSync.RLock()
 	calls = mock.calls.Sync
@@ -189,13 +189,13 @@ func (mock *HandlerMock) SyncCalls() []struct {
 }
 
 // Validate calls ValidateFunc.
-func (mock *HandlerMock) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+func (mock *HandlerMock) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	if mock.ValidateFunc == nil {
 		panic("HandlerMock.ValidateFunc: method is nil but Handler.Validate was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -212,11 +212,11 @@ func (mock *HandlerMock) Validate(ctx context.Context, vd *virtv2.VirtualDisk) e
 //	len(mockedHandler.ValidateCalls())
 func (mock *HandlerMock) ValidateCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockValidate.RLock()
 	calls = mock.calls.Validate
@@ -234,13 +234,13 @@ var _ Sources = &SourcesMock{}
 //
 //		// make and configure a mocked Sources
 //		mockedSources := &SourcesMock{
-//			ChangedFunc: func(contextMoqParam context.Context, vi *virtv2.VirtualDisk) bool {
+//			ChangedFunc: func(contextMoqParam context.Context, vi *v1alpha2.VirtualDisk) bool {
 //				panic("mock out the Changed method")
 //			},
-//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//			CleanUpFunc: func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
-//			GetFunc: func(dsType virtv2.DataSourceType) (source.Handler, bool) {
+//			GetFunc: func(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 //				panic("mock out the Get method")
 //			},
 //		}
@@ -251,13 +251,13 @@ var _ Sources = &SourcesMock{}
 //	}
 type SourcesMock struct {
 	// ChangedFunc mocks the Changed method.
-	ChangedFunc func(contextMoqParam context.Context, vi *virtv2.VirtualDisk) bool
+	ChangedFunc func(contextMoqParam context.Context, vi *v1alpha2.VirtualDisk) bool
 
 	// CleanUpFunc mocks the CleanUp method.
-	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	CleanUpFunc func(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
 
 	// GetFunc mocks the Get method.
-	GetFunc func(dsType virtv2.DataSourceType) (source.Handler, bool)
+	GetFunc func(dsType v1alpha2.DataSourceType) (source.Handler, bool)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -266,19 +266,19 @@ type SourcesMock struct {
 			// ContextMoqParam is the contextMoqParam argument value.
 			ContextMoqParam context.Context
 			// Vi is the vi argument value.
-			Vi *virtv2.VirtualDisk
+			Vi *v1alpha2.VirtualDisk
 		}
 		// CleanUp holds details about calls to the CleanUp method.
 		CleanUp []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Vd is the vd argument value.
-			Vd *virtv2.VirtualDisk
+			Vd *v1alpha2.VirtualDisk
 		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// DsType is the dsType argument value.
-			DsType virtv2.DataSourceType
+			DsType v1alpha2.DataSourceType
 		}
 	}
 	lockChanged sync.RWMutex
@@ -287,13 +287,13 @@ type SourcesMock struct {
 }
 
 // Changed calls ChangedFunc.
-func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *virtv2.VirtualDisk) bool {
+func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *v1alpha2.VirtualDisk) bool {
 	if mock.ChangedFunc == nil {
 		panic("SourcesMock.ChangedFunc: method is nil but Sources.Changed was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam context.Context
-		Vi              *virtv2.VirtualDisk
+		Vi              *v1alpha2.VirtualDisk
 	}{
 		ContextMoqParam: contextMoqParam,
 		Vi:              vi,
@@ -310,11 +310,11 @@ func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *virtv2.Vir
 //	len(mockedSources.ChangedCalls())
 func (mock *SourcesMock) ChangedCalls() []struct {
 	ContextMoqParam context.Context
-	Vi              *virtv2.VirtualDisk
+	Vi              *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		ContextMoqParam context.Context
-		Vi              *virtv2.VirtualDisk
+		Vi              *v1alpha2.VirtualDisk
 	}
 	mock.lockChanged.RLock()
 	calls = mock.calls.Changed
@@ -323,13 +323,13 @@ func (mock *SourcesMock) ChangedCalls() []struct {
 }
 
 // CleanUp calls CleanUpFunc.
-func (mock *SourcesMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (mock *SourcesMock) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	if mock.CleanUpFunc == nil {
 		panic("SourcesMock.CleanUpFunc: method is nil but Sources.CleanUp was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}{
 		Ctx: ctx,
 		Vd:  vd,
@@ -346,11 +346,11 @@ func (mock *SourcesMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (b
 //	len(mockedSources.CleanUpCalls())
 func (mock *SourcesMock) CleanUpCalls() []struct {
 	Ctx context.Context
-	Vd  *virtv2.VirtualDisk
+	Vd  *v1alpha2.VirtualDisk
 } {
 	var calls []struct {
 		Ctx context.Context
-		Vd  *virtv2.VirtualDisk
+		Vd  *v1alpha2.VirtualDisk
 	}
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
@@ -359,12 +359,12 @@ func (mock *SourcesMock) CleanUpCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *SourcesMock) Get(dsType virtv2.DataSourceType) (source.Handler, bool) {
+func (mock *SourcesMock) Get(dsType v1alpha2.DataSourceType) (source.Handler, bool) {
 	if mock.GetFunc == nil {
 		panic("SourcesMock.GetFunc: method is nil but Sources.Get was just called")
 	}
 	callInfo := struct {
-		DsType virtv2.DataSourceType
+		DsType v1alpha2.DataSourceType
 	}{
 		DsType: dsType,
 	}
@@ -379,10 +379,10 @@ func (mock *SourcesMock) Get(dsType virtv2.DataSourceType) (source.Handler, bool
 //
 //	len(mockedSources.GetCalls())
 func (mock *SourcesMock) GetCalls() []struct {
-	DsType virtv2.DataSourceType
+	DsType v1alpha2.DataSourceType
 } {
 	var calls []struct {
-		DsType virtv2.DataSourceType
+		DsType v1alpha2.DataSourceType
 	}
 	mock.lockGet.RLock()
 	calls = mock.calls.Get
@@ -400,7 +400,7 @@ var _ DiskService = &DiskServiceMock{}
 //
 //		// make and configure a mocked DiskService
 //		mockedDiskService := &DiskServiceMock{
-//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
 //			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
@@ -414,7 +414,7 @@ var _ DiskService = &DiskServiceMock{}
 //	}
 type DiskServiceMock struct {
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
-	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// ResizeFunc mocks the Resize method.
 	ResizeFunc func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
@@ -426,7 +426,7 @@ type DiskServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup *supplements.Generator
+			Sup supplements.Generator
 		}
 		// Resize holds details about calls to the Resize method.
 		Resize []struct {
@@ -443,13 +443,13 @@ type DiskServiceMock struct {
 }
 
 // GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
-func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	if mock.GetPersistentVolumeClaimFunc == nil {
 		panic("DiskServiceMock.GetPersistentVolumeClaimFunc: method is nil but DiskService.GetPersistentVolumeClaim was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup *supplements.Generator
+		Sup supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -466,11 +466,11 @@ func (mock *DiskServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup *
 //	len(mockedDiskService.GetPersistentVolumeClaimCalls())
 func (mock *DiskServiceMock) GetPersistentVolumeClaimCalls() []struct {
 	Ctx context.Context
-	Sup *supplements.Generator
+	Sup supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup *supplements.Generator
+		Sup supplements.Generator
 	}
 	mock.lockGetPersistentVolumeClaim.RLock()
 	calls = mock.calls.GetPersistentVolumeClaim
@@ -534,7 +534,7 @@ var _ StorageClassService = &StorageClassServiceMock{}
 //			GetModuleStorageClassFunc: func(ctx context.Context) (*storagev1.StorageClass, error) {
 //				panic("mock out the GetModuleStorageClass method")
 //			},
-//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
 //			GetStorageClassFunc: func(ctx context.Context, sc string) (*storagev1.StorageClass, error) {
@@ -560,7 +560,7 @@ type StorageClassServiceMock struct {
 	GetModuleStorageClassFunc func(ctx context.Context) (*storagev1.StorageClass, error)
 
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
-	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
 	// GetStorageClassFunc mocks the GetStorageClass method.
 	GetStorageClassFunc func(ctx context.Context, sc string) (*storagev1.StorageClass, error)
@@ -588,7 +588,7 @@ type StorageClassServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
-			Sup *supplements.Generator
+			Sup supplements.Generator
 		}
 		// GetStorageClass holds details about calls to the GetStorageClass method.
 		GetStorageClass []struct {
@@ -681,13 +681,13 @@ func (mock *StorageClassServiceMock) GetModuleStorageClassCalls() []struct {
 }
 
 // GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
-func (mock *StorageClassServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+func (mock *StorageClassServiceMock) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 	if mock.GetPersistentVolumeClaimFunc == nil {
 		panic("StorageClassServiceMock.GetPersistentVolumeClaimFunc: method is nil but StorageClassService.GetPersistentVolumeClaim was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sup *supplements.Generator
+		Sup supplements.Generator
 	}{
 		Ctx: ctx,
 		Sup: sup,
@@ -704,11 +704,11 @@ func (mock *StorageClassServiceMock) GetPersistentVolumeClaim(ctx context.Contex
 //	len(mockedStorageClassService.GetPersistentVolumeClaimCalls())
 func (mock *StorageClassServiceMock) GetPersistentVolumeClaimCalls() []struct {
 	Ctx context.Context
-	Sup *supplements.Generator
+	Sup supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sup *supplements.Generator
+		Sup supplements.Generator
 	}
 	mock.lockGetPersistentVolumeClaim.RLock()
 	calls = mock.calls.GetPersistentVolumeClaim

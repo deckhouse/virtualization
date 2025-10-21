@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -43,9 +43,9 @@ func NewBlockDeviceHandler(cl client.Client, blockDeviceService BlockDeviceServi
 		client:             cl,
 		blockDeviceService: blockDeviceService,
 
-		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
-		cviProtection: service.NewProtectionService(cl, virtv2.FinalizerCVIProtection),
-		vdProtection:  service.NewProtectionService(cl, virtv2.FinalizerVDProtection),
+		viProtection:  service.NewProtectionService(cl, v1alpha2.FinalizerVIProtection),
+		cviProtection: service.NewProtectionService(cl, v1alpha2.FinalizerCVIProtection),
+		vdProtection:  service.NewProtectionService(cl, v1alpha2.FinalizerVDProtection),
 	}
 }
 
@@ -169,7 +169,7 @@ func (h *BlockDeviceHandler) handleBlockDeviceConflicts(ctx context.Context, s s
 	return false, nil
 }
 
-func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
+func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error) {
 	// Get number of connected block devices.
 	// If it's greater than the limit, then set the condition to false.
 	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVM(ctx, vm)
@@ -202,133 +202,65 @@ func (h *BlockDeviceHandler) getBlockDeviceWarnings(ctx context.Context, s state
 		return "", err
 	}
 
-	hotplugsByName := make(map[string]struct{})
-
-	for _, vmbdas := range vmbdasByBlockDevice {
-		for _, vmbda := range vmbdas {
-			switch vmbda.Status.Phase {
-			case virtv2.BlockDeviceAttachmentPhaseInProgress,
-				virtv2.BlockDeviceAttachmentPhaseAttached:
-			default:
-				continue
-			}
-
-			var (
-				cvi         *virtv2.ClusterVirtualImage
-				vi          *virtv2.VirtualImage
-				vd          *virtv2.VirtualDisk
-				bdStatusRef virtv2.BlockDeviceStatusRef
-			)
-
-			switch vmbda.Spec.BlockDeviceRef.Kind {
-			case virtv2.VMBDAObjectRefKindVirtualDisk:
-				vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
-				if err != nil {
-					return "", err
-				}
-
-				if vd == nil {
-					continue
-				}
-
-				bdStatusRef = h.getBlockDeviceStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
-				bdStatusRef.Size = vd.Status.Capacity
-			case virtv2.VMBDAObjectRefKindVirtualImage:
-				vi, err = s.VirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
-				if err != nil {
-					return "", err
-				}
-
-				if vi == nil {
-					continue
-				}
-
-				bdStatusRef = h.getBlockDeviceStatusRef(virtv2.ImageDevice, vmbda.Spec.BlockDeviceRef.Name)
-				bdStatusRef.Size = vi.Status.Size.Unpacked
-
-			case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-				cvi, err = s.ClusterVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
-				if err != nil {
-					return "", err
-				}
-
-				if cvi == nil {
-					continue
-				}
-
-				bdStatusRef = h.getBlockDeviceStatusRef(virtv2.ClusterImageDevice, vmbda.Spec.BlockDeviceRef.Name)
-				bdStatusRef.Size = cvi.Status.Size.Unpacked
-			default:
-				return "", fmt.Errorf("unacceptable `Kind` of `BlockDeviceRef`: %s", vmbda.Spec.BlockDeviceRef.Kind)
-			}
-
-			hotplugsByName[bdStatusRef.Name] = struct{}{}
-		}
-	}
-
 	var conflictedRefs []string
-	vm := s.VirtualMachine().Current()
 
-	for _, bdSpecRef := range vm.Spec.BlockDeviceRefs {
+	for _, bdSpecRef := range s.VirtualMachine().Current().Spec.BlockDeviceRefs {
 		// It is a precaution to not apply changes in spec.blockDeviceRefs if disk is already
 		// hotplugged using the VMBDA resource.
 		// spec check is done by VirtualDisk status
 		// the reverse check is done by the vmbda-controller.
-		if bdSpecRef.Kind == virtv2.DiskDevice {
-			if _, conflict := hotplugsByName[bdSpecRef.Name]; conflict {
-				conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
-				continue
-			}
-		}
-
-		if _, conflict := hotplugsByName[bdSpecRef.Name]; conflict {
-			conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
+		_, conflict := vmbdasByBlockDevice[v1alpha2.VMBDAObjectRef{
+			Kind: v1alpha2.VMBDAObjectRefKind(bdSpecRef.Kind),
+			Name: bdSpecRef.Name,
+		}]
+		if conflict {
+			conflictedRefs = append(conflictedRefs, fmt.Sprintf("%s/%s", strings.ToLower(string(bdSpecRef.Kind)), bdSpecRef.Name))
 			continue
 		}
 	}
 
 	var warning string
 	if len(conflictedRefs) > 0 {
-		warning = fmt.Sprintf("spec.blockDeviceRefs field contains hotplugged disks (%s): unplug or remove them from spec to continue.", strings.Join(conflictedRefs, ", "))
+		warning = fmt.Sprintf("spec.blockDeviceRefs field contains block devices to hotplug (%s): unplug or remove them from spec to continue.", strings.Join(conflictedRefs, ", "))
 	}
 
 	return warning, nil
 }
 
 // setFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.
-func (h *BlockDeviceHandler) setFinalizersOnBlockDevices(ctx context.Context, vm *virtv2.VirtualMachine, s BlockDevicesState) error {
+func (h *BlockDeviceHandler) setFinalizersOnBlockDevices(ctx context.Context, vm *v1alpha2.VirtualMachine, s BlockDevicesState) error {
 	return h.updateFinalizers(ctx, vm, s, func(p *service.ProtectionService) func(ctx context.Context, objs ...client.Object) error {
 		return p.AddProtection
 	})
 }
 
 // removeFinalizersOnBlockDevices remove protection finalizers on CVI,VI and VMD attached to the VM.
-func (h *BlockDeviceHandler) removeFinalizersOnBlockDevices(ctx context.Context, vm *virtv2.VirtualMachine, s BlockDevicesState) error {
+func (h *BlockDeviceHandler) removeFinalizersOnBlockDevices(ctx context.Context, vm *v1alpha2.VirtualMachine, s BlockDevicesState) error {
 	return h.updateFinalizers(ctx, vm, s, func(p *service.ProtectionService) func(ctx context.Context, objs ...client.Object) error {
 		return p.RemoveProtection
 	})
 }
 
 // updateFinalizers remove protection finalizers on CVI,VI and VD attached to the VM.
-func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *virtv2.VirtualMachine, s BlockDevicesState, update updaterProtection) error {
+func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *v1alpha2.VirtualMachine, s BlockDevicesState, update updaterProtection) error {
 	if vm == nil {
 		return fmt.Errorf("VM is empty")
 	}
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
-		case virtv2.ImageDevice:
+		case v1alpha2.ImageDevice:
 			if vi, hasKey := s.VIByName[bd.Name]; hasKey {
 				if err := update(h.viProtection)(ctx, vi); err != nil {
 					return err
 				}
 			}
-		case virtv2.ClusterImageDevice:
+		case v1alpha2.ClusterImageDevice:
 			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey {
 				if err := update(h.cviProtection)(ctx, cvi); err != nil {
 					return err
 				}
 			}
-		case virtv2.DiskDevice:
+		case v1alpha2.DiskDevice:
 			if vd, hasKey := s.VDByName[bd.Name]; hasKey {
 				if err := update(h.vdProtection)(ctx, vd); err != nil {
 					return err
@@ -344,17 +276,17 @@ func (h *BlockDeviceHandler) updateFinalizers(ctx context.Context, vm *virtv2.Vi
 func NewBlockDeviceState(s state.VirtualMachineState) BlockDevicesState {
 	return BlockDevicesState{
 		s:         s,
-		VIByName:  make(map[string]*virtv2.VirtualImage),
-		CVIByName: make(map[string]*virtv2.ClusterVirtualImage),
-		VDByName:  make(map[string]*virtv2.VirtualDisk),
+		VIByName:  make(map[string]*v1alpha2.VirtualImage),
+		CVIByName: make(map[string]*v1alpha2.ClusterVirtualImage),
+		VDByName:  make(map[string]*v1alpha2.VirtualDisk),
 	}
 }
 
 type BlockDevicesState struct {
 	s         state.VirtualMachineState
-	VIByName  map[string]*virtv2.VirtualImage
-	CVIByName map[string]*virtv2.ClusterVirtualImage
-	VDByName  map[string]*virtv2.VirtualDisk
+	VIByName  map[string]*v1alpha2.VirtualImage
+	CVIByName map[string]*v1alpha2.ClusterVirtualImage
+	VDByName  map[string]*v1alpha2.VirtualDisk
 }
 
 func (s *BlockDevicesState) Reload(ctx context.Context) error {

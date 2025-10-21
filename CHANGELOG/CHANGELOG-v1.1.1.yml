@@ -1,0 +1,66 @@
+api:
+  features:
+    - summary: Do not wait agent in label and annotation test.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1500
+ci:
+  fixes:
+    - summary: fix build qemu image
+      pull_request: https://github.com/deckhouse/virtualization/pull/1586
+    - summary: fix Nightly End-to-End tests report
+      pull_request: https://github.com/deckhouse/virtualization/pull/1565
+    - summary: Fixed mirrord health probes and certificate paths for local development.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1547
+    - summary: E2E test timeout errors now include the condition that was being waited for.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1514
+core:
+  features:
+    - summary: Add volumesnapshot resources to e2e fail dump.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1499
+  fixes:
+    - summary: fixing paths to source code
+      pull_request: https://github.com/deckhouse/virtualization/pull/1551
+    - summary: >-
+        Fixed an issue in containerdv2 where storage providing a PVC with the FileSystem type was
+        incorrectly attached via `VirtualMachineBlockDeviceAttachment`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1548
+    - summary: Fix setting LastTransitionTime in condition if reason changed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1543
+    - summary: >-
+        Added error reporting in the status of disks and images when the data source (URL) is
+        unavailable.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1534
+module:
+  fixes:
+    - summary: fix CVE-2025-58058 and CVE-2025-54410
+      pull_request: https://github.com/deckhouse/virtualization/pull/1572
+    - summary: This PR fix bring some fixes for fuzzing tests.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1261
+vi:
+  fixes:
+    - summary: >-
+        When creating virtual images from virtual disk snapshots, the
+        `spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it
+        could be ignored.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1533
+vm:
+  fixes:
+    - summary: >-
+        Fixed the `NetworkReady` condition output. It no longer shows the `Unknown` state and
+        appears only when needed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1567
+    - summary: Prohibit duplicate networks in the virtual machine `.spec.network` specification.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1545
+vmbda:
+  fixes:
+    - summary: >-
+        Fixed a bug where, when detaching a virtual image through
+        `VirtualMachineBlockDeviceAttachment`, the resource could get stuck in the Terminating
+        state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1542
+vmip:
+  fixes:
+    - summary: >-
+        Added validation for static IP addresses to avoid creating a `VirtualMachineIPAddress`
+        resource with an IP already in use in the cluster.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1530
+

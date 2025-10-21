@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	"fmt"
 	"maps"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // TODO(VM): Implement at this level some mechanics supporting "effectiveSpec" logic
@@ -45,12 +46,12 @@ const (
 	SysprepDiskName   = "sysprep"
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
-	GenericCPUModel = "kvm64"
+	GenericCPUModel = "qemu64"
 )
 
 type KVVMOptions struct {
 	EnableParavirtualization bool
-	OsType                   virtv2.OsType
+	OsType                   v1alpha2.OsType
 
 	// These options are for local development mode
 	DisableHypervSyNIC bool
@@ -65,6 +66,14 @@ func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		ResourceBuilder: resource_builder.NewResourceBuilder(currentKVVM, resource_builder.ResourceBuilderOptions{ResourceExists: true}),
 		opts:            opts,
+	}
+}
+
+func DefaultOptions(current *v1alpha2.VirtualMachine) KVVMOptions {
+	return KVVMOptions{
+		EnableParavirtualization: current.Spec.EnableParavirtualization,
+		OsType:                   current.Spec.OsType,
+		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	}
 }
 
@@ -111,31 +120,39 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
 
-func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
+func (b *KVVM) SetCPUModel(class *v1alpha2.VirtualMachineClass) error {
 	if b.Resource.Spec.Template.Spec.Domain.CPU == nil {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}
 	}
 	cpu := b.Resource.Spec.Template.Spec.Domain.CPU
 
 	switch class.Spec.CPU.Type {
-	case virtv2.CPUTypeHost:
+	case v1alpha2.CPUTypeHost:
 		cpu.Model = virtv1.CPUModeHostModel
-	case virtv2.CPUTypeHostPassthrough:
+	case v1alpha2.CPUTypeHostPassthrough:
 		cpu.Model = virtv1.CPUModeHostPassthrough
-	case virtv2.CPUTypeModel:
+	case v1alpha2.CPUTypeModel:
 		cpu.Model = class.Spec.CPU.Model
-	case virtv2.CPUTypeDiscovery, virtv2.CPUTypeFeatures:
+	case v1alpha2.CPUTypeDiscovery, v1alpha2.CPUTypeFeatures:
 		cpu.Model = GenericCPUModel
-		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		l := len(class.Status.CpuFeatures.Enabled)
+		features := make([]virtv1.CPUFeature, l, l+1)
+		hasSvm := false
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
 			if feature == "invtsc" {
 				policy = "optional"
 			}
+			if feature == "svm" {
+				hasSvm = true
+			}
 			features[i] = virtv1.CPUFeature{
 				Name:   feature,
 				Policy: policy,
 			}
+		}
+		if !hasSvm {
+			features = append(features, virtv1.CPUFeature{Name: "svm", Policy: "optional"})
 		}
 		cpu.Features = features
 	default:
@@ -144,13 +161,13 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 	return nil
 }
 
-func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
+func (b *KVVM) SetRunPolicy(runPolicy v1alpha2.RunPolicy) error {
 	switch runPolicy {
-	case virtv2.AlwaysOnPolicy,
-		virtv2.AlwaysOffPolicy,
-		virtv2.ManualPolicy:
+	case v1alpha2.AlwaysOnPolicy,
+		v1alpha2.AlwaysOffPolicy,
+		v1alpha2.ManualPolicy:
 		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyManual)
-	case virtv2.AlwaysOnUnlessStoppedManually:
+	case v1alpha2.AlwaysOnUnlessStoppedManually:
 		if !b.ResourceExists {
 			// initialize only
 			b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
@@ -285,7 +302,7 @@ func GetCPULimit(cores int) *resource.Quantity {
 }
 
 type SetDiskOptions struct {
-	Provisioning *virtv2.Provisioning
+	Provisioning *v1alpha2.Provisioning
 
 	ContainerDisk         *string
 	PersistentVolumeClaim *string
@@ -356,18 +373,19 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 
 	case opts.ContainerDisk != nil:
 		vs.ContainerDisk = &virtv1.ContainerDiskSource{
-			Image: *opts.ContainerDisk,
+			Image:        *opts.ContainerDisk,
+			Hotpluggable: opts.IsHotplugged,
 		}
 
 	case opts.Provisioning != nil:
 		switch opts.Provisioning.Type {
-		case virtv2.ProvisioningTypeSysprepRef:
+		case v1alpha2.ProvisioningTypeSysprepRef:
 			if opts.Provisioning.SysprepRef == nil {
 				return fmt.Errorf("nil sysprep ref: %s", opts.Provisioning.Type)
 			}
 
 			switch opts.Provisioning.SysprepRef.Kind {
-			case virtv2.SysprepRefKindSecret:
+			case v1alpha2.SysprepRefKindSecret:
 				vs.Sysprep = &virtv1.SysprepSource{
 					Secret: &corev1.LocalObjectReference{
 						Name: opts.Provisioning.SysprepRef.Name,
@@ -376,17 +394,17 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 			default:
 				return fmt.Errorf("unexpected sysprep ref kind: %s", opts.Provisioning.SysprepRef.Kind)
 			}
-		case virtv2.ProvisioningTypeUserData:
+		case v1alpha2.ProvisioningTypeUserData:
 			vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
 				UserData: opts.Provisioning.UserData,
 			}
-		case virtv2.ProvisioningTypeUserDataRef:
+		case v1alpha2.ProvisioningTypeUserDataRef:
 			if opts.Provisioning.UserDataRef == nil {
 				return fmt.Errorf("nil user data ref: %s", opts.Provisioning.Type)
 			}
 
 			switch opts.Provisioning.UserDataRef.Kind {
-			case virtv2.UserDataRefKindSecret:
+			case v1alpha2.UserDataRefKindSecret:
 				vs.CloudInitNoCloud = &virtv1.CloudInitNoCloudSource{
 					UserDataSecretRef: &corev1.LocalObjectReference{
 						Name: opts.Provisioning.UserDataRef.Name,
@@ -441,24 +459,24 @@ func (b *KVVM) HasTablet(name string) bool {
 	return false
 }
 
-func (b *KVVM) SetProvisioning(p *virtv2.Provisioning) error {
+func (b *KVVM) SetProvisioning(p *v1alpha2.Provisioning) error {
 	if p == nil {
 		return nil
 	}
 
 	switch p.Type {
-	case virtv2.ProvisioningTypeSysprepRef:
+	case v1alpha2.ProvisioningTypeSysprepRef:
 		return b.SetDisk(SysprepDiskName, SetDiskOptions{Provisioning: p, IsCdrom: true})
-	case virtv2.ProvisioningTypeUserData, virtv2.ProvisioningTypeUserDataRef:
+	case v1alpha2.ProvisioningTypeUserData, v1alpha2.ProvisioningTypeUserDataRef:
 		return b.SetDisk(CloudInitDiskName, SetDiskOptions{Provisioning: p})
 	default:
 		return fmt.Errorf("unexpected provisioning type %s. %w", p.Type, common.ErrUnknownType)
 	}
 }
 
-func (b *KVVM) SetOsType(osType virtv2.OsType) error {
+func (b *KVVM) SetOsType(osType v1alpha2.OsType) error {
 	switch osType {
-	case virtv2.Windows:
+	case v1alpha2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
 		// b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
 
@@ -496,7 +514,7 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 			}
 		}
 
-	case virtv2.GenericOs:
+	case v1alpha2.GenericOs:
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
 		}
@@ -574,21 +592,21 @@ func (b *KVVM) SetNetworkInterface(name, macAddress string) {
 	}
 }
 
-func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {
+func (b *KVVM) SetBootloader(bootloader v1alpha2.BootloaderType) error {
 	if b.Resource.Spec.Template.Spec.Domain.Firmware == nil {
 		b.Resource.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
 	}
 
 	switch bootloader {
-	case "", virtv2.BIOS:
+	case "", v1alpha2.BIOS:
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = nil
-	case virtv2.EFI:
+	case v1alpha2.EFI:
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
 			EFI: &virtv1.EFI{
 				SecureBoot: pointer.GetPointer(false),
 			},
 		}
-	case virtv2.EFIWithSecureBoot:
+	case v1alpha2.EFIWithSecureBoot:
 		if b.Resource.Spec.Template.Spec.Domain.Features == nil {
 			b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{}
 		}
@@ -627,4 +645,8 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	}
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+}
+
+func (b *KVVM) SetUpdateVolumesStrategy(strategy *virtv1.UpdateVolumesStrategy) {
+	b.Resource.Spec.UpdateVolumesStrategy = strategy
 }

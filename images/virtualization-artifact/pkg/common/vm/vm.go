@@ -17,8 +17,18 @@ limitations under the License.
 package vm
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"strings"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
+
+// VMContainerNameSuffix - a name suffix for container with virt-launcher, libvirt and qemu processes.
+// Container name is "d8v-compute", but previous versions may have "compute" container.
+const VMContainerNameSuffix = "compute"
 
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
 // the desired total number of CPU cores.
@@ -53,9 +63,22 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 	return sockets, coresPerSocket
 }
 
-func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
+func ApprovalMode(vm *v1alpha2.VirtualMachine) v1alpha2.RestartApprovalMode {
 	if vm.Spec.Disruptions == nil {
-		return virtv2.Manual
+		return v1alpha2.Manual
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
+}
+
+func RestartRequired(vm *v1alpha2.VirtualMachine) bool {
+	if vm == nil {
+		return false
+	}
+
+	cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+	return cond.Status == metav1.ConditionTrue
+}
+
+func IsComputeContainer(name string) bool {
+	return strings.HasSuffix(name, VMContainerNameSuffix)
 }

@@ -18,8 +18,15 @@ package common
 
 import (
 	"errors"
+	"fmt"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+const (
+	// MaxKubernetesResourceNameLength specifies the maximum allowable length for Kubernetes resource names.
+	MaxKubernetesResourceNameLength = 253
 )
 
 var (
@@ -33,10 +40,21 @@ var (
 	ErrVirtualDiskSnapshotNotFound = errors.New("not found")
 	ErrClusterVirtualImageNotFound = errors.New("the virtual image is not found")
 	ErrSecretHasDifferentData      = errors.New("the secret has different data")
+	ErrResourceNameTooLong         = errors.New("resource name exceeds maximum allowed length")
+
+	ErrVirtualMachineAlreadyExists      = errors.New("VirtualMachine already exists")
+	ErrVirtualDiskAlreadyExists         = errors.New("VirtualDisk already exists")
+	ErrVirtualDiskAttachedToDifferentVM = errors.New("VirtualDisk is attached to different VirtualMachine")
+	ErrVMBDAAlreadyExists               = errors.New("VirtualMachineBlockDeviceAttachment already exists")
+	ErrVMBDAAttachedToDifferentVM       = errors.New("VirtualMachineBlockDeviceAttachment is attached to different VirtualMachine")
+	ErrVMIPAttachedToDifferentVM        = errors.New("VirtualMachineIPAddress is attached to different VirtualMachine")
+	ErrVMMACAttachedToDifferentVM       = errors.New("VirtualMachineMACAddress is attached to different VirtualMachine")
+	ErrImageResourceNotFound            = errors.New("image resource is used by VirtualMachine but absent in cluster")
+	ErrSecretContentDifferent           = errors.New("secret content is different from that in the snapshot")
 )
 
 // OverrideName overrides the name of the resource with the given rules
-func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
+func OverrideName(kind, name string, rules []v1alpha2.NameReplacement) string {
 	if name == "" {
 		return ""
 	}
@@ -52,4 +70,32 @@ func OverrideName(kind, name string, rules []virtv2.NameReplacement) string {
 	}
 
 	return name
+}
+
+// ValidateResourceNameLength checks if the given resource name exceeds
+// the maximum allowed length for the specified Kubernetes resource kind.
+// By default, the maximum length is set to MaxKubernetesResourceNameLength,
+// but for VirtualMachine and VirtualDisk resources, it uses
+// MaxVirtualMachineNameLen and MaxDiskNameLen respectively.
+func ValidateResourceNameLength(resourceName, kind string) error {
+	maxLength := MaxKubernetesResourceNameLength
+	switch kind {
+	case v1alpha2.VirtualMachineKind:
+		maxLength = validate.MaxVirtualMachineNameLen
+	case v1alpha2.VirtualDiskKind:
+		maxLength = validate.MaxDiskNameLen
+	}
+	if len(resourceName) > maxLength {
+		return fmt.Errorf("name %q too long (%d > %d): %w",
+			resourceName, len(resourceName), maxLength, ErrResourceNameTooLong)
+	}
+	return nil
+}
+
+// ApplyNameCustomization applies prefix and suffix to a resource name for cloning operations
+func ApplyNameCustomization(name, prefix, suffix string) string {
+	if name == "" {
+		return ""
+	}
+	return prefix + name + suffix
 }

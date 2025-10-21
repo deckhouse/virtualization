@@ -18,33 +18,37 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const deletionHandlerName = "DeletionHandler"
 
 type DeletionHandler struct {
 	sources *source.Sources
+	client  client.Client
 }
 
-func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
+func NewDeletionHandler(sources *source.Sources, client client.Client) *DeletionHandler {
 	return &DeletionHandler{
 		sources: sources,
+		client:  client,
 	}
 }
 
-func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h DeletionHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if vd.DeletionTimestamp != nil {
-		if controllerutil.ContainsFinalizer(vd, virtv2.FinalizerVDProtection) {
+		if controllerutil.ContainsFinalizer(vd, v1alpha2.FinalizerVDProtection) {
 			return reconcile.Result{}, nil
 		}
 
@@ -57,11 +61,33 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
+		if err = h.cleanupPersistentVolumeClaims(ctx, vd); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDisk")
-		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDCleanup)
+		controllerutil.RemoveFinalizer(vd, v1alpha2.FinalizerVDCleanup)
 		return reconcile.Result{}, nil
 	}
 
-	controllerutil.AddFinalizer(vd, virtv2.FinalizerVDCleanup)
+	controllerutil.AddFinalizer(vd, v1alpha2.FinalizerVDCleanup)
 	return reconcile.Result{}, nil
+}
+
+func (h DeletionHandler) cleanupPersistentVolumeClaims(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+	pvcs, err := listPersistentVolumeClaims(ctx, vd, h.client)
+	if err != nil {
+		return err
+	}
+
+	var errs error
+
+	for _, pvc := range pvcs {
+		err = deletePersistentVolumeClaim(ctx, &pvc, h.client)
+		if err != nil {
+			errs = errors.Join(errs, err)
+		}
+	}
+
+	return errs
 }

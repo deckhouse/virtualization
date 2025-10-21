@@ -31,13 +31,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ReadyPersistentVolumeClaimStepBounder interface {
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 type ReadyPersistentVolumeClaimStep struct {
@@ -61,7 +61,7 @@ func NewReadyPersistentVolumeClaimStep(
 	}
 }
 
-func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	log, _ := logger.GetDataSourceContext(ctx, "objectref")
 
 	if s.pvc == nil {
@@ -69,7 +69,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 		if ready.Status == metav1.ConditionTrue {
 			log.Debug("PVC is lost", ".status.target.pvc", vi.Status.Target.PersistentVolumeClaim)
 
-			vi.Status.Phase = virtv2.ImageLost
+			vi.Status.Phase = v1alpha2.ImageLost
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vicondition.Lost).
@@ -86,7 +86,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 	case corev1.ClaimLost:
 		log.Warn("Image is Lost: underlying PVC is Lost")
 
-		vi.Status.Phase = virtv2.ImageLost
+		vi.Status.Phase = v1alpha2.ImageLost
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Lost).
@@ -101,11 +101,11 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 			return nil, fmt.Errorf("clean up supplements: %w", err)
 		}
 
-		if vi.Status.Phase != virtv2.ImageReady {
+		if vi.Status.Phase != v1alpha2.ImageReady {
 			s.recorder.Event(
 				vi,
 				corev1.EventTypeNormal,
-				virtv2.ReasonDataSourceSyncCompleted,
+				v1alpha2.ReasonDataSourceSyncCompleted,
 				"The ObjectRef DataSource import has completed",
 			)
 		}
@@ -115,7 +115,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 			Reason(vdcondition.Ready).
 			Message("")
 
-		vi.Status.Phase = virtv2.ImageReady
+		vi.Status.Phase = v1alpha2.ImageReady
 		vi.Status.Progress = "100%"
 
 		res := s.pvc.Status.Capacity[corev1.ResourceStorage]
@@ -125,7 +125,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 			return nil, errors.New("failed to convert quantity to int64")
 		}
 
-		vi.Status.Size = virtv2.ImageStatusSize{
+		vi.Status.Size = v1alpha2.ImageStatusSize{
 			Stored:        res.String(),
 			StoredBytes:   strconv.FormatInt(intQ, 10),
 			Unpacked:      res.String(),
@@ -138,7 +138,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 	}
 }
 
-func (s ReadyPersistentVolumeClaimStep) cleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) error {
+func (s ReadyPersistentVolumeClaimStep) cleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) error {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	_, err := s.bounder.CleanUpSupplements(ctx, supgen)

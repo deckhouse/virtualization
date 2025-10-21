@@ -36,7 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StorageClassWatcher struct {
@@ -47,7 +47,7 @@ type StorageClassWatcher struct {
 func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 	return &StorageClassWatcher{
 		client: client,
-		logger: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualImageKind)),
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualImageKind)),
 	}
 }
 
@@ -81,7 +81,7 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 }
 
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.StorageClass) []reconcile.Request {
-	var vis virtv2.VirtualImageList
+	var vis v1alpha2.VirtualImageList
 	err := w.client.List(ctx, &vis, &client.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVIByStorageClass, sc.Name),
 	})
@@ -90,12 +90,12 @@ func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.
 		return []reconcile.Request{}
 	}
 
-	viMap := make(map[string]virtv2.VirtualImage, len(vis.Items))
+	viMap := make(map[string]v1alpha2.VirtualImage, len(vis.Items))
 	for _, vi := range vis.Items {
 		viMap[vi.Name] = vi
 	}
 
-	vis.Items = []virtv2.VirtualImage{}
+	vis.Items = []v1alpha2.VirtualImage{}
 
 	isDefault, ok := sc.Annotations[annotations.AnnDefaultStorageClass]
 	if ok && isDefault == "true" {

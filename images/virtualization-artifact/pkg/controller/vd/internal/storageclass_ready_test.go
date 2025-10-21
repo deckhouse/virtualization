@@ -26,17 +26,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 var _ = Describe("StorageClassReadyHandler Run", func() {
 	var (
 		ctx context.Context
-		vd  *virtv2.VirtualDisk
+		vd  *v1alpha2.VirtualDisk
 		pvc *corev1.PersistentVolumeClaim
 		svc *StorageClassServiceMock
 		sc  *storagev1.StorageClass
@@ -46,7 +46,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 		ctx = context.TODO()
 
 		svc = &StorageClassServiceMock{
-			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return nil, nil
 			},
 		}
@@ -57,18 +57,21 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			},
 		}
 
-		vd = &virtv2.VirtualDisk{
+		vd = &v1alpha2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
 				UID:        "11111111-1111-1111-1111-111111111111",
 			},
-			Status: virtv2.VirtualDiskStatus{
+			Status: v1alpha2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
+				Target: v1alpha2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
 			},
 		}
 
-		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+		supgen := vdsupplements.NewGenerator(vd)
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +85,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 
 	Context("PVC is already exists", func() {
 		BeforeEach(func() {
-			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			}
 		})
@@ -289,6 +292,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 
 	Context("Cannot determine StorageClass", func() {
 		BeforeEach(func() {
+			vd.Status.StorageClassName = ""
+
 			svc.GetModuleStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
 				return nil, nil
 			}
@@ -308,7 +313,7 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 	})
 })
 
-func ExpectStorageClassReadyCondition(vd *virtv2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.StorageClassReadyReason, msgExists bool) {
+func ExpectStorageClassReadyCondition(vd *v1alpha2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.StorageClassReadyReason, msgExists bool) {
 	ready, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

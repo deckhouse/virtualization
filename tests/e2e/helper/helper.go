@@ -17,27 +17,15 @@ limitations under the License.
 package helper
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
-	. "github.com/onsi/ginkgo/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
-
-func GetFilesDir(yamlPath string) []string {
-	files, err := filepath.Glob(yamlPath + "*.yaml")
-	if err != nil {
-		fmt.Println(GinkgoWriter)
-	}
-
-	return files
-}
 
 func ParseYaml(filepath string) ([]*unstructured.Unstructured, error) {
 	data, err := os.ReadFile(filepath)

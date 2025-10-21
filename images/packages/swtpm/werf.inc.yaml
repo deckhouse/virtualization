@@ -33,14 +33,16 @@ altPackages:
 - cryptote
 - net-tools softhsm
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
-- glib2-devel libgnutls-openssl-devel
-- libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
+- libgnutls-openssl-devel
+- libfuse-devel
 - libseccomp-devel libseccomp
 - perl-podlators
-- glib2-devel libgio-devel
 packages:
 - libgmp libtpms openssl libjson-glib
 - libtasn1
+- glib2 util-linux
+- gnutls
+- libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

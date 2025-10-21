@@ -22,13 +22,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineVersions", framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 	var ns string
 
@@ -49,7 +49,7 @@ var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(),
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -87,7 +87,7 @@ var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(),
 
 	Context("When virtual machines are ready:", func() {
 		Eventually(func() error {
-			var vms virtv2.VirtualMachineList
+			var vms v1alpha2.VirtualMachineList
 			err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,

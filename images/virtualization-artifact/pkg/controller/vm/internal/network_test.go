@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -49,9 +49,9 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 	var (
 		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
-		vm         *virtv2.VirtualMachine
+		vm         *v1alpha2.VirtualMachine
 		vmPod      *corev1.Pod
 	)
 
@@ -67,14 +67,14 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			Spec: corev1.PodSpec{},
 		}
 
-		vm = &virtv2.VirtualMachine{
+		vm = &v1alpha2.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
 				UID:       "test-uid",
 			},
-			Spec:   virtv2.VirtualMachineSpec{},
-			Status: virtv2.VirtualMachineStatus{},
+			Spec:   v1alpha2.VirtualMachineSpec{},
+			Status: v1alpha2.VirtualMachineStatus{},
 		}
 	})
 
@@ -86,8 +86,8 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 		vmPod = nil
 	})
 
-	newMACAddress := func(name, address string, phase virtv2.VirtualMachineMACAddressPhase, attachedVM string) *virtv2.VirtualMachineMACAddress {
-		mac := &virtv2.VirtualMachineMACAddress{
+	newMACAddress := func(name, address string, phase v1alpha2.VirtualMachineMACAddressPhase, attachedVM string) *v1alpha2.VirtualMachineMACAddress {
+		mac := &v1alpha2.VirtualMachineMACAddress{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "VirtualMachineMACAddress",
 				APIVersion: "virtualization.deckhouse.io/v1alpha2",
@@ -99,7 +99,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 					annotations.LabelVirtualMachineUID: string(vm.UID),
 				},
 			},
-			Status: virtv2.VirtualMachineMACAddressStatus{
+			Status: v1alpha2.VirtualMachineMACAddressStatus{
 				Address: address,
 			},
 		}
@@ -130,50 +130,46 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
-				cond, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
-				Expect(exists).To(BeTrue())
-				Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
-				Expect(cond.Reason).To(Equal(conditions.ReasonUnknown.String()))
+				_, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
+				Expect(exists).To(BeFalse())
 				Expect(newVM.Status.Networks).NotTo(BeNil())
 			})
 		})
 
 		Describe("NetworkSpec have only 'Main' interface", func() {
-			It("Network status is not exist; Condition should have status 'False'", func() {
-				networkSpec := []virtv2.NetworksSpec{
+			It("Condition should have status 'Unknown'", func() {
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 				}
 				vm.Spec.Networks = networkSpec
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
-				cond, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
-				Expect(exists).To(BeTrue())
-				Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
-				Expect(cond.Reason).To(Equal(conditions.ReasonUnknown.String()))
+				_, exists := conditions.GetCondition(vmcondition.TypeNetworkReady, newVM.Status.Conditions)
+				Expect(exists).To(BeFalse())
 				Expect(newVM.Status.Networks).NotTo(BeNil())
 			})
 		})
 
 		Describe("NetworkSpec have many interfaces", func() {
 			It("Network status is not exist; Condition should have status 'False'", func() {
-				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
-				networkSpec := []virtv2.NetworksSpec{
+				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network",
 					},
 				}
@@ -181,7 +177,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -193,13 +189,13 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 
 			It("Network status is exist; Condition should have status 'True'", func() {
-				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
-				networkSpec := []virtv2.NetworksSpec{
+				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network",
 					},
 				}
@@ -232,7 +228,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -244,13 +240,13 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 			})
 
 			It("Network status is exist; Condition should have status 'False'", func() {
-				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", virtv2.VirtualMachineMACAddressPhaseAttached, name)
-				networkSpec := []virtv2.NetworksSpec{
+				mac1 := newMACAddress("test-mac-address1", "aa:bb:cc:dd:ee:ff", v1alpha2.VirtualMachineMACAddressPhaseAttached, name)
+				networkSpec := []v1alpha2.NetworksSpec{
 					{
-						Type: virtv2.NetworksTypeMain,
+						Type: v1alpha2.NetworksTypeMain,
 					},
 					{
-						Type: virtv2.NetworksTypeNetwork,
+						Type: v1alpha2.NetworksTypeNetwork,
 						Name: "test-network",
 					},
 				}
@@ -284,7 +280,7 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 				fakeClient, resource, vmState = setupEnvironment(vm, vmPod, mac1)
 				reconcile()
 
-				newVM := &virtv2.VirtualMachine{}
+				newVM := &v1alpha2.VirtualMachine{}
 				err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 				Expect(err).NotTo(HaveOccurred())
 

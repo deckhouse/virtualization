@@ -25,11 +25,12 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func DefaultClientConfig(flags *pflag.FlagSet) clientcmd.ClientConfig {
@@ -55,7 +56,7 @@ func DefaultClientConfig(flags *pflag.FlagSet) clientcmd.ClientConfig {
 
 func GetClientFromRESTConfig(config *rest.Config) (Client, error) {
 	shallowCopy := *config
-	shallowCopy.GroupVersion = &virtv2.SchemeGroupVersion
+	shallowCopy.GroupVersion = &v1alpha2.SchemeGroupVersion
 	shallowCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: Codecs}
 	shallowCopy.APIPath = "/apis"
 	shallowCopy.ContentType = runtime.ContentTypeJSON
@@ -67,11 +68,18 @@ func GetClientFromRESTConfig(config *rest.Config) (Client, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	clientset, err := kubernetes.NewForConfig(&shallowCopy)
+	if err != nil {
+		return nil, err
+	}
+
 	virtClient, err := versioned.NewForConfig(&shallowCopy)
 	if err != nil {
 		return nil, err
 	}
 	return &client{
+		Interface:   clientset,
 		config:      config,
 		shallowCopy: &shallowCopy,
 		restClient:  restClient,

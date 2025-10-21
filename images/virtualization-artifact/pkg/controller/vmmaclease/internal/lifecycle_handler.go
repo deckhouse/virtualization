@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
 
@@ -49,7 +49,7 @@ func NewLifecycleHandler(client client.Client, recorder eventrecord.EventRecorde
 	}
 }
 
-func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
+func (h *LifecycleHandler) Handle(ctx context.Context, lease *v1alpha2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
 	if lease == nil {
 		return reconcile.Result{}, nil
 	}
@@ -57,7 +57,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 	cb := conditions.NewConditionBuilder(vmmaclcondition.BoundType).Generation(lease.GetGeneration())
 
 	vmmacKey := types.NamespacedName{Name: lease.Spec.VirtualMachineMACAddressRef.Name, Namespace: lease.Spec.VirtualMachineMACAddressRef.Namespace}
-	vmmac, err := object.FetchObject(ctx, vmmacKey, h.client, &virtv2.VirtualMachineMACAddress{})
+	vmmac, err := object.FetchObject(ctx, vmmacKey, h.client, &v1alpha2.VirtualMachineMACAddress{})
 	if err != nil {
 		cb.
 			Status(metav1.ConditionUnknown).
@@ -79,10 +79,10 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 	// Valid MAC address was found: it matches both the lease name and the VirtualMachineMACAddressRef.
 	// Now create a "Bound" confirmation: set label with MAC address UID and set condition to True.
 	annotations.AddLabel(lease, annotations.LabelVirtualMachineMACAddressUID, string(vmmac.UID))
-	if lease.Status.Phase != virtv2.VirtualMachineMACAddressLeasePhaseBound {
-		h.recorder.Eventf(lease, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineMACAddressLease is bound to \"%s/%s\".", vmmac.Namespace, vmmac.Name)
+	if lease.Status.Phase != v1alpha2.VirtualMachineMACAddressLeasePhaseBound {
+		h.recorder.Eventf(lease, corev1.EventTypeNormal, v1alpha2.ReasonBound, "VirtualMachineMACAddressLease is bound to \"%s/%s\".", vmmac.Namespace, vmmac.Name)
 	}
-	lease.Status.Phase = virtv2.VirtualMachineMACAddressLeasePhaseBound
+	lease.Status.Phase = v1alpha2.VirtualMachineMACAddressLeasePhaseBound
 	cb.
 		Status(metav1.ConditionTrue).
 		Reason(vmmaclcondition.Bound).
@@ -96,7 +96,7 @@ func (h *LifecycleHandler) Name() string {
 	return LifecycleHandlerName
 }
 
-func isBound(lease *virtv2.VirtualMachineMACAddressLease, vmmac *virtv2.VirtualMachineMACAddress) error {
+func isBound(lease *v1alpha2.VirtualMachineMACAddressLease, vmmac *v1alpha2.VirtualMachineMACAddress) error {
 	if vmmac == nil {
 		return fmt.Errorf("cannot to bind with empty MAC address")
 	}

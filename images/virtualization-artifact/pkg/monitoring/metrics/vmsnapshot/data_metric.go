@@ -17,26 +17,28 @@ limitations under the License.
 package vmsnapshot
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
-	Name      string
-	Namespace string
-	UID       string
-	Phase     virtv2.VirtualMachineSnapshotPhase
+	Name           string
+	Namespace      string
+	UID            string
+	Phase          v1alpha2.VirtualMachineSnapshotPhase
+	VirtualMachine string
 }
 
 // DO NOT mutate VirtualMachineSnapshot!
-func newDataMetric(vms *virtv2.VirtualMachineSnapshot) *dataMetric {
+func newDataMetric(vms *v1alpha2.VirtualMachineSnapshot) *dataMetric {
 	if vms == nil {
 		return nil
 	}
 
 	return &dataMetric{
-		Name:      vms.Name,
-		Namespace: vms.Namespace,
-		UID:       string(vms.UID),
-		Phase:     vms.Status.Phase,
+		Name:           vms.Name,
+		Namespace:      vms.Namespace,
+		UID:            string(vms.UID),
+		Phase:          vms.Status.Phase,
+		VirtualMachine: vms.Spec.VirtualMachineName,
 	}
 }

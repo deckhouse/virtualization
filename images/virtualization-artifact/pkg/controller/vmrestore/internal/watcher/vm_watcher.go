@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineWatcher struct {
@@ -44,7 +44,7 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
 		),
 	); err != nil {
@@ -53,8 +53,8 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
-	var vmRestores virtv2.VirtualMachineRestoreList
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
+	var vmRestores v1alpha2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
 		Namespace: vm.GetNamespace(),
 	})
@@ -65,7 +65,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 
 	for _, vmRestore := range vmRestores.Items {
 		vmSnapshotName := vmRestore.Spec.VirtualMachineSnapshotName
-		var vmSnapshot virtv2.VirtualMachineSnapshot
+		var vmSnapshot v1alpha2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: vm.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
@@ -85,7 +85,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.V
 	return
 }
 
-func (w VirtualMachineWatcher) isVMNameMatch(vmName, restoredName string, nameReplacements []virtv2.NameReplacement) bool {
+func (w VirtualMachineWatcher) isVMNameMatch(vmName, restoredName string, nameReplacements []v1alpha2.NameReplacement) bool {
 	var (
 		isNameMatch            bool
 		isNameReplacementMatch bool
@@ -94,7 +94,7 @@ func (w VirtualMachineWatcher) isVMNameMatch(vmName, restoredName string, nameRe
 	isNameMatch = vmName == restoredName
 
 	for _, nr := range nameReplacements {
-		if nr.From.Kind != virtv2.VirtualMachineKind {
+		if nr.From.Kind != v1alpha2.VirtualMachineKind {
 			continue
 		}
 

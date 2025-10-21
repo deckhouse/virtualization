@@ -24,12 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -47,7 +46,7 @@ func NewStatsHandler(stat *service.StatService, importer *service.ImporterServic
 	}
 }
 
-func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h StatsHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
@@ -84,13 +83,13 @@ func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		return reconcile.Result{}, nil
 	}
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	var pod *corev1.Pod
 	var err error
 
 	switch vd.Spec.DataSource.Type {
-	case virtv2.DataSourceTypeUpload:
+	case v1alpha2.DataSourceTypeUpload:
 		pod, err = h.uploader.GetPod(ctx, supgen)
 		if err != nil {
 			return reconcile.Result{}, err

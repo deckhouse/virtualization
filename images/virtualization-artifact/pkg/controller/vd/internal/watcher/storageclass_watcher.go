@@ -36,7 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type StorageClassWatcher struct {
@@ -47,7 +47,7 @@ type StorageClassWatcher struct {
 func NewStorageClassWatcher(client client.Client) *StorageClassWatcher {
 	return &StorageClassWatcher{
 		client: client,
-		logger: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualDiskKind)),
+		logger: slog.Default().With("watcher", strings.ToLower(v1alpha2.VirtualDiskKind)),
 	}
 }
 
@@ -78,41 +78,24 @@ func (w StorageClassWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 }
 
 func (w StorageClassWatcher) enqueueRequests(ctx context.Context, sc *storagev1.StorageClass) []reconcile.Request {
-	var vds virtv2.VirtualDiskList
-	err := w.client.List(ctx, &vds, &client.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, sc.Name),
-	})
+	var selectorValue string
+	if isDefault, ok := sc.Annotations[annotations.AnnDefaultStorageClass]; ok && isDefault == "true" {
+		selectorValue = indexer.DefaultStorageClass
+	} else {
+		selectorValue = sc.Name
+	}
+
+	fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, selectorValue)
+
+	var vds v1alpha2.VirtualDiskList
+	err := w.client.List(ctx, &vds, &client.ListOptions{FieldSelector: fieldSelector})
 	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list virtual disks: %v", err))
 		return []reconcile.Request{}
 	}
 
-	vdMap := make(map[string]virtv2.VirtualDisk, len(vds.Items))
-	for _, vd := range vds.Items {
-		vdMap[vd.Name] = vd
-	}
-
-	vds.Items = []virtv2.VirtualDisk{}
-
-	isDefault, ok := sc.Annotations[annotations.AnnDefaultStorageClass]
-	if ok && isDefault == "true" {
-		err := w.client.List(ctx, &vds, &client.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVDByStorageClass, indexer.DefaultStorageClass),
-		})
-		if err != nil {
-			w.logger.Error(fmt.Sprintf("failed to list virtual disks: %s", err))
-			return []reconcile.Request{}
-		}
-	}
-
-	for _, vd := range vds.Items {
-		if _, ok := vdMap[vd.Name]; !ok {
-			vdMap[vd.Name] = vd
-		}
-	}
-
 	var requests []reconcile.Request
-	for _, vd := range vdMap {
+	for _, vd := range vds.Items {
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      vd.Name,

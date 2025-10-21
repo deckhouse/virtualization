@@ -223,7 +223,11 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 ## Images
 
-The `VirtualImage` resource is designed to load virtual machine images and then use them to create virtual machine disks. This resource is available only in the namespace or project in which it was created.
+The `VirtualImage` resource is designed for uploading virtual machine images and subsequently using them to create virtual machine disks.
+
+{{< alert level="warning">}}
+Please note that `VirtualImage` is a project resource, which means it is only available within the project or namespace where it was created. To use images at the cluster level, a separate resource is provided — [`ClusterVirtualImage`](./ADMIN_GUIDE.md#images).
+{{< /alert >}}
 
 When connected to a virtual machine, the image is accessed in read-only mode.
 
@@ -607,18 +611,18 @@ Depending on the storage properties, the behavior of disks during creation of vi
 
 VolumeBindingMode property:
 
-`Immediate` - The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
+`Immediate`: The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
 
 ![vd-immediate](images/vd-immediate.png)
 
-`WaitForFirstConsumer` - The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
+`WaitForFirstConsumer`: The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
 
 ![vd-wffc](images/vd-wffc.png)
 
 AccessMode:
 
-- `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk.
-- `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
+- `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
+- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -649,7 +653,7 @@ How to find out the available storage options in the DVP web interface:
 
 - Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
-## Create an empty disk
+### Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
 
@@ -861,6 +865,35 @@ Method #2:
 - In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
+
+### Changing the disk StorageClass
+
+In the DVP commercial editions, it is possible to change the StorageClass for existing disks. Currently, this is only supported for running VMs (`Phase` should be `Running`).
+
+{{< alert level="warning">}}
+Storage class migration is only available for disks connected statically via `.spec.blockDeviceRefs`.
+
+To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, they must be reattached statically by specifying disks names in `.spec.blockDeviceRefs`.
+{{< /alert >}}
+
+Example:
+
+```bash
+d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+After the disk configuration is updated, a live migration of the VM is triggered, during which the disk is migrated to the new storage.
+
+If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
+
+```bash
+d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+```
+
+If migration fails, repeated attempts are made with increasing delays (exponential backoff algorithm). The maximum delay is 300 seconds (5 minutes). Delays: 5 seconds (1st attempt), 10 seconds (2nd), then each delay doubles, reaching 300 seconds (7th and subsequent attempts). The first attempt is performed without delay.
+
+To cancel migration, the user must return the storage class in the specification to the original one.
 
 ## Virtual machines
 
@@ -1277,6 +1310,54 @@ Starting the agent service:
 sudo systemctl enable --now qemu-guest-agent
 ```
 
+You can automate the installation of the agent for Linux OS using a cloud-init initialization script. Below is an example snippet of such a script to install qemu-guest-agent:
+
+```yaml
+  #cloud-config
+  package_update: true
+  packages:
+    - qemu-guest-agent
+  run_cmd:
+    - systemctl enable --now qemu-guest-agent.service
+```
+
+### User Configuration for Cloud Images
+
+When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
+
+Examples:
+
+1. Setting a password for an existing user (for example, `ubuntu` is often present in official cloud images):
+
+   In many cloud images, the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
+
+   In a cloud image, you can add a public SSH key for the default user using the `ssh_authorized_keys` parameter at the root level of cloud-init:
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+2. Creating a new user with a password and SSH key:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+{{< alert level="info" >}}
+The value of the `passwd` field is a hashed password (for example, you can generate it using `mkpasswd --method=SHA-512 --rounds=4096`).
+{{< /alert >}}
+
 ### Connecting to a virtual machine
 
 The following methods are available for connecting to the virtual machine:
@@ -1329,7 +1410,7 @@ The virtual machine startup policy is intended for automated virtual machine sta
 
 - `AlwaysOnUnlessStoppedManually` - (default) after creation, the VM is always in a running state. In case of failures the VM operation is restored automatically. It is possible to stop the VM only by calling the `d8 v stop` command or creating a corresponding operation.
 - `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means. In case of failures the VM operation is restored automatically.
-- `Manual` - after creation, the state of the VM is controlled manually by the user using commands or operations.
+- `Manual` - after creation, the state of the VM is controlled manually by the user using commands or operations. The VM is powered off immediately after creation. To power it on, the `d8 v start` command must be executed.
 - `AlwaysOff` - after creation the VM is always in the off state. There is no possibility to turn on the VM through commands/operations.
 
 How to select a VM startup policy in the web interface:
@@ -1777,9 +1858,9 @@ Block devices and their features are shown in the table below:
 | `ClusterVirtualImage` | connected in read-only mode, or as a cdrom for iso images |
 | `VirtualDisk`         | connects in read/write mode                               |
 
-#### Static block devices
+#### Boot Block Devices
 
-Static block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
+Boot block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
 
 Changing the composition and order of devices in the `.spec.blockDeviceRefs` block is possible only with a reboot of the virtual machine.
 
@@ -1794,19 +1875,19 @@ spec:
       name: <virtual-image-name>
 ```
 
-How to work with static block devices in the web interface:
+How to work with bootable block devices in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, resize, and reorder static block devices in the "Boot Disks" section.
+- You can add, extract, delete, resize, and reorder bootable block devices in the "Boot Disks" section.
 
-#### Dynamic Block Devices
+#### Additional Block Devices
 
-Dynamic block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
+Additional block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices.
+The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect additional block devices.
 
 As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
 
@@ -1885,13 +1966,13 @@ spec:
 EOF
 ```
 
-How to work with dynamic block devices in the web interface:
+How to work with additional block devices in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Disks and Images" section.
-- You can add, extract, delete, and resize dynamic block devices in the "Additional Disks" section.
+- You can add, extract, delete, and resize additional block devices in the "Additional Disks" section.
 
 ### Organizing interaction with virtual machines
 
@@ -2141,8 +2222,19 @@ The live migration process involves several steps:
 
 ![](./images/migration.png)
 
+{{< alert level="warning" >}}
+For successful live migration, all disks attached to the VM must be accessible on the target nodes to which the migration is planned.
+
+If a disk uses storage with local disks, such storage must be available to create a new local volume on the target node.
+
+Otherwise, migration will not be possible.
+{{< /alert >}}
+
+
 {{< alert level="warning">}}
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
+
+To manage the migration process, configure the live migration policy using [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the VM settings.
 {{< /alert >}}
 
 #### AutoConverge mechanism
@@ -2187,12 +2279,13 @@ The trigger for live migration is the appearance of the `VirtualMachineOperation
 
 The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
 
-| Type of system event | Resource name prefix |
-|----------------------------------|------------------------|
-| Firmware-update-* | firmware-update-* |
-| Load shifting | evacuation-* |
-| Drain node | evacuation-* |
-| Modify placement parameters | nodeplacement-update-* |
+| Type of system event            | Resource name prefix   |
+|---------------------------------|------------------------|
+| Firmware update                 | firmware-update-*      |
+| Load shifting                   | evacuation-*           |
+| Drain node                      | evacuation-*           |
+| Modify placement parameters     | nodeplacement-update-* |
+| Disk storage migration          | volume-migration-*     |
 
 This resource can be in the following states:
 
@@ -2463,26 +2556,12 @@ spec:
       name: user-net # Network name
 ```
 
-It is allowed to connect a VM to the same network multiple times. Example:
-
-```yaml
-spec:
-  networks:
-    - type: Main # Must always be specified first
-    - type: Network
-      name: user-net # Network name
-    - type: Network
-      name: user-net # Network name
-```
-
 Example of connecting to the cluster network `corp-net`:
 
 ```yaml
 spec:
   networks:
     - type: Main # Must always be specified first
-    - type: Network
-      name: user-net
     - type: Network
       name: user-net
     - type: ClusterNetwork
@@ -2498,12 +2577,9 @@ status:
     - type: Network
       name: user-net
       macAddress: aa:bb:cc:dd:ee:01
-    - type: Network
-      name: user-net
-      macAddress: aa:bb:cc:dd:ee:02
     - type: ClusterNetwork
       name: corp-net
-      macAddress: aa:bb:cc:dd:ee:03
+      macAddress: aa:bb:cc:dd:ee:02
 ```
 
 For each additional network interface, a unique MAC address is automatically generated and reserved to avoid collisions. The following resources are used for this: `VirtualMachineMACAddress` (`vmmac`) and `VirtualMachineMACAddressLease` (`vmmacl`).
@@ -2696,8 +2772,11 @@ There is a risk of data loss or integrity violation when restoring from such a s
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
 
 - not all dependencies of the virtual machine are ready;
-- there are changes pending restart of the virtual machine;
 - there is a disk in the process of resizing among the dependent devices.
+
+{{< alert level="warning" >}}
+If there are pending VM changes awaiting a restart when the snapshot is created, the snapshot will include the updated VM configuration.
+{{< /alert >}}
 
 When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static IP address and saved for recovery.
 
@@ -2801,6 +2880,68 @@ d8 k get vmop <vmop-name> -o json | jq “.status.resources”
 {{< alert level="warning" >}}
 It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
 {{< /alert >}}
+
+
+## Creating a VM clone
+
+VM cloning is performed using the `VirtualMachineOperation` resource with the `clone` operation type.
+
+{{< alert level="warning">}}
+Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
+It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
+{{< /alert >}}
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: <vmop-name>
+spec:
+  type: Clone
+  virtualMachineName: <name of the VM to be cloned>
+  clone:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
+```
+
+{{< alert level="warning">}}
+The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the network settings of the guest OS after cloning.
+{{< /alert >}}
+
+Cloning creates a copy of an existing VM, so the resources of the new VM must have unique names. To do this, use the `.spec.clone.nameReplacements` and/or `.spec.clone.customisation` parameters.
+
+- `.spec.clone.nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
+- `.spec.clone.customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+
+Configuration example:
+
+```yaml
+spec:
+  clone:
+    nameReplacements:
+      - from:
+          kind: <resource type>
+          name: <old name>
+      - to:
+          name: <new name>
+    customization:
+      namePrefix: <prefix>
+      nameSuffix: <suffix>
+```
+
+As a result, a VM named <prefix><new name><suffix> will be created.
+
+One of three modes can be used for the cloning operation:
+- `DryRun`: A test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
+- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
+
+Information about conflicts that arose during cloning can be viewed in the resource status:
+
+```bash
+d8 k get vmop <vmop-name> -o json | jq '.status.resources'
+```
 
 ## Data export
 

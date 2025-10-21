@@ -41,7 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -71,7 +71,7 @@ func NewUploadDataSource(
 	}
 }
 
-func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, uploadDataSource)
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -137,7 +137,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		ds.recorder.Event(
 			vi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The Upload DataSource import to DVCR has started",
 		)
 
@@ -149,14 +149,14 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -175,20 +175,20 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			if ds.statService.IsUploaderReady(pod, svc, ing) {
 				log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 
-				vi.Status.Phase = virtv2.ImageWaitForUserUpload
+				vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.WaitForUserUpload).
 					Message("Waiting for the user upload.")
 
-				vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+				vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 					External:  ds.uploaderService.GetExternalURL(ctx, ing),
 					InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
 				}
 			} else {
 				log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 
-				vi.Status.Phase = virtv2.ImagePending
+				vi.Status.Phase = v1alpha2.ImagePending
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningNotStarted).
@@ -198,7 +198,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -215,17 +215,17 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		ds.recorder.Event(
 			vi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The Upload DataSource import to PVC has started",
 		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vi.Status.Phase = virtv2.ImageFailed
+			vi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -263,7 +263,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			return reconcile.Result{}, err
 		}
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -271,14 +271,14 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.QuotaExceeded).
 			Message(dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ImagePullFailed).
@@ -286,7 +286,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		ds.recorder.Event(vi, corev1.EventTypeWarning, vicondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -297,11 +297,11 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		ds.recorder.Event(
 			vi,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncCompleted,
+			v1alpha2.ReasonDataSourceSyncCompleted,
 			"The Upload DataSource import has completed",
 		)
 
-		vi.Status.Phase = virtv2.ImageReady
+		vi.Status.Phase = v1alpha2.ImageReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vicondition.Ready).
@@ -336,7 +336,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -366,7 +366,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 			Reason(vicondition.Ready).
 			Message("")
 
-		vi.Status.Phase = virtv2.ImageReady
+		vi.Status.Phase = v1alpha2.ImageReady
 
 		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
 		if err != nil {
@@ -375,7 +375,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 
 		return CleanUpSupplements(ctx, vi, ds)
 	case object.AnyTerminating(pod, svc, ing):
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || ing == nil:
@@ -385,14 +385,14 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(vi, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
@@ -404,7 +404,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vi.Status.Phase = virtv2.ImageFailed
+			vi.Status.Phase = v1alpha2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
@@ -423,7 +423,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 			Reason(vicondition.Ready).
 			Message("")
 
-		vi.Status.Phase = virtv2.ImageReady
+		vi.Status.Phase = v1alpha2.ImageReady
 		vi.Status.Size = ds.statService.GetSize(pod)
 		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.Format = ds.statService.GetFormat(pod)
@@ -443,7 +443,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 			Reason(vicondition.Provisioning).
 			Message("Import is in the process of provisioning to DVCR.")
 
-		vi.Status.Phase = virtv2.ImageProvisioning
+		vi.Status.Phase = v1alpha2.ImageProvisioning
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
@@ -460,9 +460,9 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 			Reason(vicondition.WaitForUserUpload).
 			Message("Waiting for the user upload.")
 
-		vi.Status.Phase = virtv2.ImageWaitForUserUpload
+		vi.Status.Phase = v1alpha2.ImageWaitForUserUpload
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
-		vi.Status.ImageUploadURLs = &virtv2.ImageUploadURLs{
+		vi.Status.ImageUploadURLs = &v1alpha2.ImageUploadURLs{
 			External:  ds.uploaderService.GetExternalURL(ctx, ing),
 			InCluster: ds.uploaderService.GetInClusterURL(ctx, svc),
 		}
@@ -474,7 +474,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 			Reason(vicondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 
 		log.Info("Waiting for the uploader to be ready to process the user's upload", "pod.phase", pod.Status.Phase)
 	}
@@ -482,7 +482,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, vi *v1alpha2.VirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
@@ -498,11 +498,11 @@ func (ds UploadDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage)
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
+func (ds UploadDataSource) Validate(_ context.Context, _ *v1alpha2.VirtualImage) error {
 	return nil
 }
 
-func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(vi *v1alpha2.VirtualImage, supgen supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(
@@ -515,7 +515,7 @@ func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *suppl
 	return &settings
 }
 
-func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error) {
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
@@ -549,7 +549,7 @@ func (ds UploadDataSource) getPVCSize(pod *corev1.Pod) (resource.Quantity, error
 	return service.GetValidatedPVCSize(&unpackedSize, unpackedSize)
 }
 
-func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds UploadDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

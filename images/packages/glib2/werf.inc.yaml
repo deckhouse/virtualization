@@ -4,8 +4,10 @@ altPackages:
 - gcc gcc-c++
 - git pkg-config meson ninja-build cmake
 - libunwind-devel libelf-devel sysprof-devel libgvdb-devel
+- tree
 packages:
-- libffi zlib pcre2
+- libffi zlib pcre2 util-linux
+- selinux
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -13,8 +15,6 @@ packages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "GNOME/glib.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
@@ -92,8 +92,11 @@ shell:
       -Dlibdir=/usr/lib64 \
       -Dgtk_doc=false \
       -Dbuildtype=release \
-      -Dstrip=true
+      -Dstrip=true \
+      --default-library=both \
+      -Dselinux=enabled \
+      -Dlibmount=enabled
     meson compile -C _build
     DESTDIR=${OUTDIR} meson install -C _build
 
-{{- end}}
+    tree -hp $OUTDIR

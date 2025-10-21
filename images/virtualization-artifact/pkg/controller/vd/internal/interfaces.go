@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 //go:generate go tool moq -rm -out mock.go . Handler Sources DiskService StorageClassService
@@ -33,14 +33,14 @@ import (
 type Handler = source.Handler
 
 type Sources interface {
-	Changed(_ context.Context, vi *virtv2.VirtualDisk) bool
-	Get(dsType virtv2.DataSourceType) (source.Handler, bool)
-	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	Changed(_ context.Context, vi *v1alpha2.VirtualDisk) bool
+	Get(dsType v1alpha2.DataSourceType) (source.Handler, bool)
+	CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error)
 }
 
 type DiskService interface {
 	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 
 type StorageClassService interface {
@@ -48,6 +48,6 @@ type StorageClassService interface {
 	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 }

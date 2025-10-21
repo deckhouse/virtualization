@@ -97,6 +97,8 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
+	AnnVMOPVolumeMigration = AnnAPIGroupV + "/volume-migration"
 
 	// AnnVMOPRestore is an annotation on a resource that indicates it was created by the vmop snapshot controller; the value is the UID of the `VirtualMachineOperation` resource.
 	AnnVMOPRestore = AnnAPIGroupV + "/vmoprestore"
@@ -158,6 +160,9 @@ const (
 	// AnnAccessMode is the annotation for indicating that access mode.  (USED IN STORAGE sds controllers)
 	AnnAccessModes           = AnnAPIGroupV + "/access-mode"
 	AnnAccessModesDeprecated = "accessModes"
+	// AnnStorageProvisioner is the annotation for indicating storage provisioner
+	AnnStorageProvisioner           = "volume.kubernetes.io/storage-provisioner"
+	AnnStorageProvisionerDeprecated = "volume.beta.kubernetes.io/storage-provisioner"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"
@@ -178,6 +183,10 @@ const (
 	AnnVirtualDiskOriginalAnnotations = AnnAPIGroupV + "/vd-original-annotations"
 	// AnnVirtualDiskOriginalLabels is the annotation for storing original VirtualDisk labels.
 	AnnVirtualDiskOriginalLabels = AnnAPIGroupV + "/vd-original-labels"
+	// AnnVMOPUID is an annotation on vmop that represents name of VMOP.
+	AnnVMOPUID = AnnAPIGroupV + "/vmop-uid"
+	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
+	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 )
 
 // AddAnnotation adds an annotation to an object

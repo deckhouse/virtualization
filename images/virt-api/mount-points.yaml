@@ -1,0 +1,10 @@
+# A list of pre-created mount points for containerd strict mode.
+#
+# Some volume mounts are ignored:
+# - /tmp - already in the 'distroless' base image.
+
+dirs:
+  - /etc/virt-api/certificates
+  - /etc/virt-handler/clientcertificates
+  - /profile-data
+  - /kubeconfig.local

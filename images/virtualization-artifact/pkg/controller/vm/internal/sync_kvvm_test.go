@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -31,9 +32,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -46,7 +48,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	var (
 		ctx        context.Context
 		fakeClient client.WithWatch
-		resource   *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		resource   *reconciler.Resource[*v1alpha2.VirtualMachine, v1alpha2.VirtualMachineStatus]
 		vmState    state.VirtualMachineState
 		recorder   *eventrecord.EventRecorderLoggerMock
 	)
@@ -70,22 +72,22 @@ var _ = Describe("SyncKvvmHandler", func() {
 		recorder = nil
 	})
 
-	newVM := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
+	newVM := func(phase v1alpha2.MachinePhase) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		vm.Status.Phase = phase
 		vm.Spec.VirtualMachineClassName = "vmclass"
 		vm.Spec.CPU.Cores = 2
-		vm.Spec.RunPolicy = virtv2.ManualPolicy
+		vm.Spec.RunPolicy = v1alpha2.ManualPolicy
 		vm.Spec.VirtualMachineIPAddress = "test-ip"
-		vm.Spec.OsType = virtv2.GenericOs
-		vm.Spec.Disruptions = &virtv2.Disruptions{
-			RestartApprovalMode: virtv2.Manual,
+		vm.Spec.OsType = v1alpha2.GenericOs
+		vm.Spec.Disruptions = &v1alpha2.Disruptions{
+			RestartApprovalMode: v1alpha2.Manual,
 		}
 
 		return vm
 	}
 
-	newKVVM := func(vm *virtv2.VirtualMachine) *virtv1.VirtualMachine {
+	newKVVM := func(vm *v1alpha2.VirtualMachine) *virtv1.VirtualMachine {
 		kvvm := &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
@@ -97,27 +99,27 @@ var _ = Describe("SyncKvvmHandler", func() {
 		}
 		kvvm.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
 
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
-				CPU: virtv2.CPUSpec{
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				CPU: v1alpha2.CPUSpec{
 					Cores: vm.Spec.CPU.Cores,
 				},
 				VirtualMachineIPAddress: vm.Spec.VirtualMachineIPAddress,
 				RunPolicy:               vm.Spec.RunPolicy,
 				OsType:                  vm.Spec.OsType,
 				VirtualMachineClassName: vm.Spec.VirtualMachineClassName,
-				Disruptions: &virtv2.Disruptions{
+				Disruptions: &v1alpha2.Disruptions{
 					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
 				},
 			},
 		})).To(Succeed())
 
-		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				CPU: virtv2.CPU{
-					Type: virtv2.CPUTypeHost,
+		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU: v1alpha2.CPU{
+					Type: v1alpha2.CPUTypeHost,
 				},
-				NodeSelector: virtv2.NodeSelector{
+				NodeSelector: v1alpha2.NodeSelector{
 					MatchLabels: map[string]string{
 						"node1": "node1",
 					},
@@ -134,35 +136,35 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewSyncKvvmHandler(nil, fakeClient, recorder)
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder, vmservice.NewMigrationVolumesService(fakeClient, MakeKVVMFromVMSpec, 10*time.Second))
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	mutateKVVM := func(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
-		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
-			Spec: virtv2.VirtualMachineSpec{
-				CPU: virtv2.CPUSpec{
+	mutateKVVM := func(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &v1alpha2.VirtualMachine{
+			Spec: v1alpha2.VirtualMachineSpec{
+				CPU: v1alpha2.CPUSpec{
 					Cores: 1,
 				},
 				VirtualMachineIPAddress: vm.Spec.VirtualMachineIPAddress,
 				RunPolicy:               vm.Spec.RunPolicy,
 				OsType:                  "BIOS",
 				VirtualMachineClassName: vm.Spec.VirtualMachineClassName,
-				Disruptions: &virtv2.Disruptions{
+				Disruptions: &v1alpha2.Disruptions{
 					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
 				},
 			},
 		})).To(Succeed())
 
-		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
-			Spec: virtv2.VirtualMachineClassSpec{
-				CPU: virtv2.CPU{
-					Type: virtv2.CPUTypeHost,
+		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &v1alpha2.VirtualMachineClass{
+			Spec: v1alpha2.VirtualMachineClassSpec{
+				CPU: v1alpha2.CPU{
+					Type: v1alpha2.CPUTypeHost,
 				},
-				NodeSelector: virtv2.NodeSelector{
+				NodeSelector: v1alpha2.NodeSelector{
 					MatchLabels: map[string]string{
 						"node2": "node2",
 					},
@@ -172,30 +174,30 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	DescribeTable("AwaitingRestart Condition Tests",
-		func(phase virtv2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
-			ip := &virtv2.VirtualMachineIPAddress{
+		func(phase v1alpha2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+			ip := &v1alpha2.VirtualMachineIPAddress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ip",
 					Namespace: namespace,
 				},
-				Spec: virtv2.VirtualMachineIPAddressSpec{
-					Type:     virtv2.VirtualMachineIPAddressTypeStatic,
+				Spec: v1alpha2.VirtualMachineIPAddressSpec{
+					Type:     v1alpha2.VirtualMachineIPAddressTypeStatic,
 					StaticIP: "192.168.1.10",
 				},
-				Status: virtv2.VirtualMachineIPAddressStatus{
+				Status: v1alpha2.VirtualMachineIPAddressStatus{
 					Address: "192.168.1.10",
-					Phase:   virtv2.VirtualMachineIPAddressPhaseAttached,
+					Phase:   v1alpha2.VirtualMachineIPAddressPhaseAttached,
 				},
 			}
 
-			vmClass := &virtv2.VirtualMachineClass{
+			vmClass := &v1alpha2.VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "vmclass",
-				}, Spec: virtv2.VirtualMachineClassSpec{
-					CPU: virtv2.CPU{
-						Type: virtv2.CPUTypeHost,
+				}, Spec: v1alpha2.VirtualMachineClassSpec{
+					CPU: v1alpha2.CPU{
+						Type: v1alpha2.CPUTypeHost,
 					},
-					NodeSelector: virtv2.NodeSelector{
+					NodeSelector: v1alpha2.NodeSelector{
 						MatchLabels: map[string]string{
 							"node1": "node1",
 						},
@@ -215,7 +217,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -225,50 +227,50 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Expect(awaitCond.Status).To(Equal(expectedStatus))
 			}
 		},
-		Entry("Running phase with changes", virtv2.MachineRunning, true, metav1.ConditionTrue, true),
-		Entry("Running phase without changes", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
+		Entry("Running phase with changes", v1alpha2.MachineRunning, true, metav1.ConditionTrue, true),
+		Entry("Running phase without changes", v1alpha2.MachineRunning, false, metav1.ConditionUnknown, false),
 
-		Entry("Migrating phase with changes, condition should exist", virtv2.MachineMigrating, true, metav1.ConditionTrue, true),
-		Entry("Migrating phase without changes, condition should not exist", virtv2.MachineMigrating, false, metav1.ConditionUnknown, false),
+		Entry("Migrating phase with changes, condition should exist", v1alpha2.MachineMigrating, true, metav1.ConditionTrue, true),
+		Entry("Migrating phase without changes, condition should not exist", v1alpha2.MachineMigrating, false, metav1.ConditionUnknown, false),
 
-		Entry("Stopping phase with changes, condition should exist", virtv2.MachineStopping, true, metav1.ConditionTrue, true),
-		Entry("Stopping phase without changes, condition should not exist", virtv2.MachineStopping, false, metav1.ConditionUnknown, false),
+		Entry("Stopping phase with changes, condition should exist", v1alpha2.MachineStopping, true, metav1.ConditionTrue, true),
+		Entry("Stopping phase without changes, condition should not exist", v1alpha2.MachineStopping, false, metav1.ConditionUnknown, false),
 
-		Entry("Stopped phase with changes, shouldn't have condition", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
-		Entry("Stopped phase without changes, shouldn't have condition", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
+		Entry("Stopped phase with changes, shouldn't have condition", v1alpha2.MachineStopped, true, metav1.ConditionUnknown, false),
+		Entry("Stopped phase without changes, shouldn't have condition", v1alpha2.MachineStopped, false, metav1.ConditionUnknown, false),
 
-		Entry("Starting phase with changes, shouldn't have condition", virtv2.MachineStarting, true, metav1.ConditionUnknown, false),
-		Entry("Starting phase without changes, shouldn't have condition", virtv2.MachineStarting, false, metav1.ConditionUnknown, false),
+		Entry("Starting phase with changes, shouldn't have condition", v1alpha2.MachineStarting, true, metav1.ConditionUnknown, false),
+		Entry("Starting phase without changes, shouldn't have condition", v1alpha2.MachineStarting, false, metav1.ConditionUnknown, false),
 
-		Entry("Pending phase with changes, shouldn't have condition", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
-		Entry("Pending phase without changes, shouldn't have condition", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
+		Entry("Pending phase with changes, shouldn't have condition", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
+		Entry("Pending phase without changes, shouldn't have condition", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
 	DescribeTable("ConfigurationApplied Condition Tests",
-		func(phase virtv2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
-			ip := &virtv2.VirtualMachineIPAddress{
+		func(phase v1alpha2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+			ip := &v1alpha2.VirtualMachineIPAddress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ip",
 					Namespace: namespace,
 				},
-				Spec: virtv2.VirtualMachineIPAddressSpec{
-					Type:     virtv2.VirtualMachineIPAddressTypeStatic,
+				Spec: v1alpha2.VirtualMachineIPAddressSpec{
+					Type:     v1alpha2.VirtualMachineIPAddressTypeStatic,
 					StaticIP: "192.168.1.10",
 				},
-				Status: virtv2.VirtualMachineIPAddressStatus{
+				Status: v1alpha2.VirtualMachineIPAddressStatus{
 					Address: "192.168.1.10",
-					Phase:   virtv2.VirtualMachineIPAddressPhaseAttached,
+					Phase:   v1alpha2.VirtualMachineIPAddressPhaseAttached,
 				},
 			}
 
-			vmClass := &virtv2.VirtualMachineClass{
+			vmClass := &v1alpha2.VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "vmclass",
-				}, Spec: virtv2.VirtualMachineClassSpec{
-					CPU: virtv2.CPU{
-						Type: virtv2.CPUTypeHost,
+				}, Spec: v1alpha2.VirtualMachineClassSpec{
+					CPU: v1alpha2.CPU{
+						Type: v1alpha2.CPUTypeHost,
 					},
-					NodeSelector: virtv2.NodeSelector{
+					NodeSelector: v1alpha2.NodeSelector{
 						MatchLabels: map[string]string{
 							"node1": "node1",
 						},
@@ -289,7 +291,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
 			reconcile()
 
-			newVM := &virtv2.VirtualMachine{}
+			newVM := &v1alpha2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -299,22 +301,22 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Expect(confAppliedCond.Status).To(Equal(expectedStatus))
 			}
 		},
-		Entry("Running phase with changes applied", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
-		Entry("Running phase with changes not applied", virtv2.MachineRunning, true, metav1.ConditionFalse, true),
+		Entry("Running phase with changes applied", v1alpha2.MachineRunning, false, metav1.ConditionUnknown, false),
+		Entry("Running phase with changes not applied", v1alpha2.MachineRunning, true, metav1.ConditionFalse, true),
 
-		Entry("Migrating phase with changes applied, condition should not exist", virtv2.MachineMigrating, false, metav1.ConditionUnknown, false),
-		Entry("Migrating phase with changes not applied, condition should exist", virtv2.MachineMigrating, true, metav1.ConditionFalse, true),
+		Entry("Migrating phase with changes applied, condition should not exist", v1alpha2.MachineMigrating, false, metav1.ConditionUnknown, false),
+		Entry("Migrating phase with changes not applied, condition should exist", v1alpha2.MachineMigrating, true, metav1.ConditionFalse, true),
 
-		Entry("Stopping phase with changes applied, condition should not exist", virtv2.MachineStopping, false, metav1.ConditionUnknown, false),
-		Entry("Stopping phase with changes not applied, condition should exist", virtv2.MachineStopping, true, metav1.ConditionFalse, true),
+		Entry("Stopping phase with changes applied, condition should not exist", v1alpha2.MachineStopping, false, metav1.ConditionUnknown, false),
+		Entry("Stopping phase with changes not applied, condition should exist", v1alpha2.MachineStopping, true, metav1.ConditionFalse, true),
 
-		Entry("Stopped phase with changes applied, condition should not exist", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
-		Entry("Stopped phase with changes not applied, condition should not exist", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
+		Entry("Stopped phase with changes applied, condition should not exist", v1alpha2.MachineStopped, false, metav1.ConditionUnknown, false),
+		Entry("Stopped phase with changes not applied, condition should not exist", v1alpha2.MachineStopped, true, metav1.ConditionUnknown, false),
 
-		Entry("Starting phase with changes applied, condition should not exist", virtv2.MachineStarting, false, metav1.ConditionUnknown, false),
-		Entry("Starting phase with changes not applied, condition should not exist", virtv2.MachineStarting, true, metav1.ConditionUnknown, false),
+		Entry("Starting phase with changes applied, condition should not exist", v1alpha2.MachineStarting, false, metav1.ConditionUnknown, false),
+		Entry("Starting phase with changes not applied, condition should not exist", v1alpha2.MachineStarting, true, metav1.ConditionUnknown, false),
 
-		Entry("Pending phase with changes applied, condition should not exist", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
-		Entry("Pending phase with changes not applied, condition should not exist", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
+		Entry("Pending phase with changes applied, condition should not exist", v1alpha2.MachinePending, false, metav1.ConditionUnknown, false),
+		Entry("Pending phase with changes not applied, condition should not exist", v1alpha2.MachinePending, true, metav1.ConditionUnknown, false),
 	)
 })

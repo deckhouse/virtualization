@@ -28,14 +28,15 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineEvacuation", SIGMigration(), framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
+	kubeClient := framework.GetClients().KubeClient()
 	var ns string
 
 	BeforeAll(func() {
@@ -57,7 +58,7 @@ var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 		resourcesToDelete := ResourcesToDelete{
 			AdditionalResources: []AdditionalResource{
@@ -100,7 +101,7 @@ var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2
 			Timeout:   MaxWaitTimeout,
 		})
 
-		vms := &virtv2.VirtualMachineList{}
+		vms := &v1alpha2.VirtualMachineList{}
 		err := GetObjects(kc.ResourceVM, vms, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 		Expect(err).NotTo(HaveOccurred())
 
@@ -114,7 +115,7 @@ var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2
 
 		By("Waiting for all VMOPs to be finished")
 		Eventually(func() error {
-			vmops := &virtv2.VirtualMachineOperationList{}
+			vmops := &v1alpha2.VirtualMachineOperationList{}
 			err := GetObjects(kc.ResourceVMOP, vmops, kc.GetOptions{Namespace: ns})
 			if err != nil {
 				return err
@@ -129,7 +130,7 @@ var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2
 				if _, exists := vmop.GetAnnotations()["virtualization.deckhouse.io/evacuation"]; !exists {
 					continue
 				}
-				if vmop.Status.Phase == virtv2.VMOPPhaseFailed || vmop.Status.Phase == virtv2.VMOPPhaseCompleted {
+				if vmop.Status.Phase == v1alpha2.VMOPPhaseFailed || vmop.Status.Phase == v1alpha2.VMOPPhaseCompleted {
 					finishedVMOPs++
 				}
 

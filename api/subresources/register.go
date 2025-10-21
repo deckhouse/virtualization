@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // GroupName is the group name use in this package
@@ -59,8 +59,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineFreeze{},
 		&VirtualMachineUnfreeze{},
 		&VirtualMachineCancelEvacuation{},
-		&virtv2.VirtualMachine{},
-		&virtv2.VirtualMachineList{},
+		&v1alpha2.VirtualMachine{},
+		&v1alpha2.VirtualMachineList{},
 	)
 	return nil
 }

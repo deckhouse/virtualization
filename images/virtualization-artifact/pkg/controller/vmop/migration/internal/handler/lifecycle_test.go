@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -31,7 +32,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/migration/internal/service"
 	genericservice "github.com/deckhouse/virtualization-controller/pkg/controller/vmop/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("LifecycleHandler", func() {
@@ -43,7 +45,7 @@ var _ = Describe("LifecycleHandler", func() {
 	var (
 		ctx          context.Context
 		fakeClient   client.WithWatch
-		srv          *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
+		srv          *reconciler.Resource[*v1alpha2.VirtualMachineOperation, v1alpha2.VirtualMachineOperationStatus]
 		recorderMock *eventrecord.EventRecorderLoggerMock
 	)
 
@@ -58,29 +60,35 @@ var _ = Describe("LifecycleHandler", func() {
 		}
 	})
 
-	newVMOPEvictPending := func(opts ...vmopbuilder.Option) *virtv2.VirtualMachineOperation {
+	newVMOPEvictPending := func(opts ...vmopbuilder.Option) *v1alpha2.VirtualMachineOperation {
 		options := []vmopbuilder.Option{
 			vmopbuilder.WithName(name),
 			vmopbuilder.WithNamespace(namespace),
-			vmopbuilder.WithType(virtv2.VMOPTypeEvict),
+			vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 			vmopbuilder.WithVirtualMachine(name),
 		}
 		options = append(options, opts...)
 		vmop := vmopbuilder.New(options...)
-		vmop.Status.Phase = virtv2.VMOPPhasePending
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
 		return vmop
 	}
 
-	newVM := func(vmPolicy virtv2.LiveMigrationPolicy) *virtv2.VirtualMachine {
+	newVM := func(vmPolicy v1alpha2.LiveMigrationPolicy) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		vm.Spec.LiveMigrationPolicy = vmPolicy
-		vm.Spec.RunPolicy = virtv2.AlwaysOnPolicy
-		vm.Status.Phase = virtv2.MachineRunning
+		vm.Spec.RunPolicy = v1alpha2.AlwaysOnPolicy
+		vm.Status.Phase = v1alpha2.MachineRunning
+		vm.Status.Conditions = []metav1.Condition{
+			{
+				Type:   vmcondition.TypeMigratable.String(),
+				Status: metav1.ConditionTrue,
+			},
+		}
 
 		return vm
 	}
 
-	DescribeTable("Evict operation for migration policy", func(vmop *virtv2.VirtualMachineOperation, vmPolicy virtv2.LiveMigrationPolicy, expectedPhase virtv2.VMOPPhase) {
+	DescribeTable("Evict operation for migration policy", func(vmop *v1alpha2.VirtualMachineOperation, vmPolicy v1alpha2.LiveMigrationPolicy, expectedPhase v1alpha2.VMOPPhase) {
 		vm := newVM(vmPolicy)
 
 		fakeClient, srv = setupEnvironment(vmop, vm)
@@ -96,69 +104,69 @@ var _ = Describe("LifecycleHandler", func() {
 		// AlwaysSafe cases.
 		Entry("is ok for AlwaysSafe and force=nil",
 			newVMOPEvictPending(),
-			virtv2.AlwaysSafeMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.AlwaysSafeMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("is ok for AlwaysSafe and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),
-			virtv2.AlwaysSafeMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.AlwaysSafeMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("should become Failed for AlwaysSafe and force=true",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(true))),
-			virtv2.AlwaysSafeMigrationPolicy,
-			virtv2.VMOPPhaseFailed,
+			v1alpha2.AlwaysSafeMigrationPolicy,
+			v1alpha2.VMOPPhaseFailed,
 		),
 
 		// PreferSafe cases.
 		Entry("is ok for PreferSafe and force=nil",
 			newVMOPEvictPending(),
-			virtv2.PreferSafeMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.PreferSafeMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("is ok for PreferSafe and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),
-			virtv2.PreferSafeMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.PreferSafeMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("is ok for PreferSafe and force=true",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(true))),
-			virtv2.PreferSafeMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.PreferSafeMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 
 		// AlwaysForced cases.
 		Entry("is ok for AlwaysForced and force=nil",
 			newVMOPEvictPending(),
-			virtv2.AlwaysForcedMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.AlwaysForcedMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("should become Failed for AlwaysForced and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),
-			virtv2.AlwaysForcedMigrationPolicy,
-			virtv2.VMOPPhaseFailed,
+			v1alpha2.AlwaysForcedMigrationPolicy,
+			v1alpha2.VMOPPhaseFailed,
 		),
 		Entry("is ok for AlwaysForced and force=true",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(true))),
-			virtv2.AlwaysForcedMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.AlwaysForcedMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 
 		// PreferForced cases.
 		Entry("is ok for PreferForced and force=nil",
 			newVMOPEvictPending(),
-			virtv2.PreferForcedMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.PreferForcedMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("is ok for PreferForced and force=false",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(false))),
-			virtv2.PreferForcedMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.PreferForcedMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 		Entry("is ok for PreferForced and force=true",
 			newVMOPEvictPending(vmopbuilder.WithForce(ptr.To(true))),
-			virtv2.PreferForcedMigrationPolicy,
-			virtv2.VMOPPhasePending,
+			v1alpha2.PreferForcedMigrationPolicy,
+			v1alpha2.VMOPPhasePending,
 		),
 	)
 })

@@ -32,10 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
+	generatedopenapi "github.com/deckhouse/virtualization-controller/pkg/apiserver/api/generated/openapi"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/server"
 	vconf "github.com/deckhouse/virtualization-controller/pkg/config"
-	generatedopenapi "github.com/deckhouse/virtualization/api/pkg/apiserver/api/generated/openapi"
 )
 
 type Options struct {

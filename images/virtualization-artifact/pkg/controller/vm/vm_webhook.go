@@ -29,12 +29,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineValidator interface {
-	ValidateCreate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error)
-	ValidateUpdate(ctx context.Context, oldVM, newVM *virtv2.VirtualMachine) (admission.Warnings, error)
+	ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error)
 }
 
 type Validator struct {
@@ -61,7 +61,7 @@ func NewValidator(client client.Client, service *service.BlockDeviceService, fea
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vm, ok := obj.(*virtv2.VirtualMachine)
+	vm, ok := obj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
@@ -82,12 +82,12 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVM, ok := oldObj.(*virtv2.VirtualMachine)
+	oldVM, ok := oldObj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachine but got a %T", oldObj)
 	}
 
-	newVM, ok := newObj.(*virtv2.VirtualMachine)
+	newVM, ok := newObj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", newObj)
 	}
@@ -117,7 +117,7 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 }
 
 type VirtualMachineDefaulter interface {
-	Default(ctx context.Context, vm *virtv2.VirtualMachine) error
+	Default(ctx context.Context, vm *v1alpha2.VirtualMachine) error
 }
 
 type Defaulter struct {
@@ -137,7 +137,7 @@ func NewDefaulter(client client.Client, vmClassService *service.VirtualMachineCl
 }
 
 func (d *Defaulter) Default(ctx context.Context, obj runtime.Object) error {
-	vm, ok := obj.(*virtv2.VirtualMachine)
+	vm, ok := obj.(*v1alpha2.VirtualMachine)
 	if !ok {
 		return fmt.Errorf("expected a VirtualMachine but got a %T", obj)
 	}

@@ -31,12 +31,13 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-var imagePhasesUsingDisk = []virtv2.ImagePhase{virtv2.ImageProvisioning, virtv2.ImagePending}
+var imagePhasesUsingDisk = []v1alpha2.ImagePhase{v1alpha2.ImageProvisioning, v1alpha2.ImagePending}
 
 type InUseHandler struct {
 	client client.Client
@@ -48,7 +49,7 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 	}
 }
 
-func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h InUseHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	err := h.updateAttachedVirtualMachines(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -102,9 +103,9 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	return reconcile.Result{}, nil
 }
 
-func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) bool {
+func (h InUseHandler) isVDAttachedToVM(vdName string, vm v1alpha2.VirtualMachine) bool {
 	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == virtv2.DiskDevice && bda.Name == vdName {
+		if bda.Kind == v1alpha2.DiskDevice && bda.Name == vdName {
 			return true
 		}
 	}
@@ -112,7 +113,7 @@ func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) 
 	return false
 }
 
-func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	pvcName := vd.Status.Target.PersistentVolumeClaim
 	if pvcName == "" {
 		return false, nil
@@ -129,9 +130,9 @@ func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *virtv2.Virtu
 	return pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true", nil
 }
 
-func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
 	// If disk is not ready, it cannot be used for create image
-	if vd.Status.Phase != virtv2.DiskReady {
+	if vd.Status.Phase != v1alpha2.DiskReady {
 		return false, nil
 	}
 
@@ -149,8 +150,8 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDis
 	return usedByImage, nil
 }
 
-func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *virtv2.VirtualDisk) error {
-	var vms virtv2.VirtualMachineList
+func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
+	var vms v1alpha2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -167,7 +168,7 @@ func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *vir
 	return nil
 }
 
-func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.VirtualDisk, vms virtv2.VirtualMachineList) (map[string]bool, error) {
+func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *v1alpha2.VirtualDisk, vms v1alpha2.VirtualMachineList) (map[string]bool, error) {
 	usageMap := make(map[string]bool)
 
 	for _, vm := range vms.Items {
@@ -178,9 +179,9 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.
 		switch vm.Status.Phase {
 		case "":
 			usageMap[vm.GetName()] = false
-		case virtv2.MachinePending:
+		case v1alpha2.MachinePending:
 			usageMap[vm.GetName()] = true
-		case virtv2.MachineStopped:
+		case v1alpha2.MachineStopped:
 			vmIsActive, err := h.isVMActive(ctx, vm)
 			if err != nil {
 				return nil, err
@@ -195,7 +196,7 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.
 	return usageMap, nil
 }
 
-func (h InUseHandler) isVMActive(ctx context.Context, vm virtv2.VirtualMachine) (bool, error) {
+func (h InUseHandler) isVMActive(ctx context.Context, vm v1alpha2.VirtualMachine) (bool, error) {
 	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachine{})
 	if err != nil {
 		return false, fmt.Errorf("error getting kvvms: %w", err)
@@ -222,27 +223,21 @@ func (h InUseHandler) isVMActive(ctx context.Context, vm virtv2.VirtualMachine) 
 	return false, nil
 }
 
-func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk, usageMap map[string]bool) {
-	var currentlyMountedVM string
-	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
-		if attachedVM.Mounted {
-			currentlyMountedVM = attachedVM.Name
-			break
-		}
-	}
+func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *v1alpha2.VirtualDisk, usageMap map[string]bool) {
+	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
 
-	attachedVMs := make([]virtv2.AttachedVirtualMachine, 0, len(usageMap))
+	attachedVMs := make([]v1alpha2.AttachedVirtualMachine, 0, len(usageMap))
 	setAnyToTrue := false
 
 	if used, exists := usageMap[currentlyMountedVM]; exists && used {
 		for key := range usageMap {
 			if key == currentlyMountedVM {
-				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
 					Name:    key,
 					Mounted: true,
 				})
 			} else {
-				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
 					Name:    key,
 					Mounted: false,
 				})
@@ -251,13 +246,13 @@ func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk
 	} else {
 		for key, value := range usageMap {
 			if !setAnyToTrue && value {
-				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
 					Name:    key,
 					Mounted: true,
 				})
 				setAnyToTrue = true
 			} else {
-				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+				attachedVMs = append(attachedVMs, v1alpha2.AttachedVirtualMachine{
 					Name:    key,
 					Mounted: false,
 				})
@@ -268,7 +263,7 @@ func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk
 	vd.Status.AttachedToVirtualMachines = attachedVMs
 }
 
-func (h InUseHandler) checkUsageByVM(vd *virtv2.VirtualDisk) bool {
+func (h InUseHandler) checkUsageByVM(vd *v1alpha2.VirtualDisk) bool {
 	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
 		if attachedVM.Mounted {
 			return true
@@ -278,8 +273,8 @@ func (h InUseHandler) checkUsageByVM(vd *virtv2.VirtualDisk) bool {
 	return false
 }
 
-func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	var vis virtv2.VirtualImageList
+func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	var vis v1alpha2.VirtualImageList
 	err := h.client.List(ctx, &vis, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
 	})
@@ -289,9 +284,9 @@ func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *virtv2.VirtualDisk
 
 	for _, vi := range vis.Items {
 		if slices.Contains(imagePhasesUsingDisk, vi.Status.Phase) &&
-			vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+			vi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef &&
 			vi.Spec.DataSource.ObjectRef != nil &&
-			vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
+			vi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind &&
 			vi.Spec.DataSource.ObjectRef.Name == vd.Name {
 			return true, nil
 		}
@@ -300,17 +295,17 @@ func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *virtv2.VirtualDisk
 	return false, nil
 }
 
-func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	var cvis virtv2.ClusterVirtualImageList
+func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	var cvis v1alpha2.ClusterVirtualImageList
 	err := h.client.List(ctx, &cvis, &client.ListOptions{})
 	if err != nil {
 		return false, fmt.Errorf("error getting cluster virtual images: %w", err)
 	}
 	for _, cvi := range cvis.Items {
 		if slices.Contains(imagePhasesUsingDisk, cvi.Status.Phase) &&
-			cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+			cvi.Spec.DataSource.Type == v1alpha2.DataSourceTypeObjectRef &&
 			cvi.Spec.DataSource.ObjectRef != nil &&
-			cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
+			cvi.Spec.DataSource.ObjectRef.Kind == v1alpha2.VirtualDiskKind &&
 			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
 			return true, nil
 		}

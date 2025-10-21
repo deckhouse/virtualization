@@ -26,11 +26,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -44,7 +43,7 @@ func NewStorageClassReadyHandler(svc StorageClassService) *StorageClassReadyHand
 	}
 }
 
-func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdcondition.StorageClassReadyType).Generation(vd.Generation)
 
 	if vd.DeletionTimestamp != nil {
@@ -52,14 +51,29 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	sup := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	sup := vdsupplements.NewGenerator(vd)
+	_, migratingExists := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+
+	// During migration, storage class should be handled from the target PVC, not the current one.
+	// The StorageClassReady condition indicates readiness for the target PVC's storage class.
+	// However, the status must preserve the old storage class as it's still used by the current PVC.
+	// The status storage class will be updated to the new one after migration completes.
+	if migratingExists && vd.Status.MigrationState.TargetPVC != "" {
+		sup.SetClaimName(vd.Status.MigrationState.TargetPVC)
+
+		// Temporarily restore the old storage class from status before proceeding,
+		// as the following code will modify it.
+		// It will be reverted by to defer.
+		oldStorageClassName := vd.Status.StorageClassName
+		defer func() {
+			vd.Status.StorageClassName = oldStorageClassName
+		}()
+	}
+
 	pvc, err := h.svc.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	// Reset storage class every time.
-	vd.Status.StorageClassName = ""
 
 	// 1. PVC already exists: used storage class is known.
 	if pvc != nil {
@@ -101,7 +115,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	return reconcile.Result{}, nil
 }
 
-func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *virtv2.VirtualDisk, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *v1alpha2.VirtualDisk, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
 	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
 		return fmt.Errorf("pvc does not have storage class")
 	}
@@ -139,7 +153,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *v1alpha2.VirtualDisk, cb *conditions.ConditionBuilder) error {
 	vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 
 	sc, err := h.svc.GetStorageClass(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
@@ -191,7 +205,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+func (h StorageClassReadyHandler) setFromModuleSettings(vd *v1alpha2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vd.Status.StorageClassName = moduleStorageClass.Name
 
 	if h.svc.IsStorageClassDeprecated(moduleStorageClass) {
@@ -220,7 +234,7 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, 
 	}
 }
 
-func (h StorageClassReadyHandler) setFromDefault(vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+func (h StorageClassReadyHandler) setFromDefault(vd *v1alpha2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vd.Status.StorageClassName = defaultStorageClass.Name
 
 	if h.svc.IsStorageClassDeprecated(defaultStorageClass) {

@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
@@ -44,8 +44,8 @@ var _ = Describe("BoundHandler", func() {
 	var (
 		scheme       *runtime.Scheme
 		ctx          context.Context
-		vmmac        *virtv2.VirtualMachineMACAddress
-		lease        *virtv2.VirtualMachineMACAddressLease
+		vmmac        *v1alpha2.VirtualMachineMACAddress
+		lease        *v1alpha2.VirtualMachineMACAddressLease
 		svc          *MACAddressServiceMock
 		recorderMock *eventrecord.EventRecorderLoggerMock
 	)
@@ -53,20 +53,20 @@ var _ = Describe("BoundHandler", func() {
 	BeforeEach(func() {
 		scheme = runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 
 		ctx = context.TODO()
 
-		vmmac = &virtv2.VirtualMachineMACAddress{
+		vmmac = &v1alpha2.VirtualMachineMACAddress{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "vmmac",
 				Namespace: "ns",
 			},
-			Spec: virtv2.VirtualMachineMACAddressSpec{},
+			Spec: v1alpha2.VirtualMachineMACAddressSpec{},
 		}
 
-		lease = &virtv2.VirtualMachineMACAddressLease{
+		lease = &v1alpha2.VirtualMachineMACAddressLease{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: map[string]string{
 					annotations.LabelVirtualMachineMACAddressUID: string(vmmac.UID),
@@ -77,7 +77,7 @@ var _ = Describe("BoundHandler", func() {
 		}
 
 		svc = &MACAddressServiceMock{
-			GetLeaseFunc: func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
+			GetLeaseFunc: func(ctx context.Context, vmmac *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 				return nil, nil
 			},
 			GetAllocatedAddressesFunc: func(ctx context.Context) (mac.AllocatedMACs, error) {
@@ -100,7 +100,7 @@ var _ = Describe("BoundHandler", func() {
 			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects().
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
-						_, ok := obj.(*virtv2.VirtualMachineMACAddressLease)
+						_, ok := obj.(*v1alpha2.VirtualMachineMACAddressLease)
 						Expect(ok).To(BeTrue())
 						leaseCreated = true
 						return nil
@@ -124,7 +124,7 @@ var _ = Describe("BoundHandler", func() {
 		})
 
 		It("is lost", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
 				return nil, nil
 			}
 			h := NewBoundHandler(svc, nil, recorderMock)
@@ -139,8 +139,8 @@ var _ = Describe("BoundHandler", func() {
 
 	Context("Binding", func() {
 		It("has non-bound lease with ref", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
-				lease.Spec.VirtualMachineMACAddressRef = &virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
+				lease.Spec.VirtualMachineMACAddressRef = &v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef{
 					Namespace: vmmac.Namespace,
 					Name:      vmmac.Name,
 				}
@@ -157,8 +157,8 @@ var _ = Describe("BoundHandler", func() {
 		})
 
 		It("has bound lease", func() {
-			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error) {
-				lease.Spec.VirtualMachineMACAddressRef = &virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
+			svc.GetLeaseFunc = func(_ context.Context, _ *v1alpha2.VirtualMachineMACAddress) (*v1alpha2.VirtualMachineMACAddressLease, error) {
+				lease.Spec.VirtualMachineMACAddressRef = &v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef{
 					Namespace: vmmac.Namespace,
 					Name:      vmmac.Name,
 				}
@@ -182,7 +182,7 @@ var _ = Describe("BoundHandler", func() {
 	})
 })
 
-func ExpectCondition(vmmac *virtv2.VirtualMachineMACAddress, status metav1.ConditionStatus, reason vmmaccondition.BoundReason, msgExists bool) {
+func ExpectCondition(vmmac *v1alpha2.VirtualMachineMACAddress, status metav1.ConditionStatus, reason vmmaccondition.BoundReason, msgExists bool) {
 	ready, _ := conditions.GetCondition(vmmaccondition.BoundType, vmmac.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

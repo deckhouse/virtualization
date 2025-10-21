@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -54,7 +54,7 @@ func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s st
 	}
 
 	for _, vd := range vds {
-		if vd.Status.Phase == virtv2.DiskWaitForFirstConsumer {
+		if vd.Status.Phase == v1alpha2.DiskWaitForFirstConsumer {
 			return true, nil
 		}
 	}
@@ -86,7 +86,7 @@ const (
 	UsageTypeAnotherVM     string = "by another VM"
 )
 
-func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds map[string]*virtv2.VirtualDisk) string {
+func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds map[string]*v1alpha2.VirtualDisk) string {
 	summaryCount := len(vds)
 
 	var messages []string
@@ -129,7 +129,7 @@ func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds m
 	return strings.Join(messages, "; ") + "."
 }
 
-func (h *BlockDeviceHandler) setConditionReady(vm *virtv2.VirtualMachine) {
+func (h *BlockDeviceHandler) setConditionReady(vm *v1alpha2.VirtualMachine) {
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 			Generation(vm.Generation).
@@ -140,7 +140,7 @@ func (h *BlockDeviceHandler) setConditionReady(vm *virtv2.VirtualMachine) {
 	)
 }
 
-func (h *BlockDeviceHandler) setConditionNotReady(vm *virtv2.VirtualMachine, message string) {
+func (h *BlockDeviceHandler) setConditionNotReady(vm *v1alpha2.VirtualMachine, message string) {
 	conditions.SetCondition(
 		conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 			Generation(vm.Generation).
@@ -151,7 +151,7 @@ func (h *BlockDeviceHandler) setConditionNotReady(vm *virtv2.VirtualMachine, mes
 	)
 }
 
-func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds map[string]*virtv2.VirtualDisk) virtualDisksState {
+func (h *BlockDeviceHandler) getVirtualDisksState(vm *v1alpha2.VirtualMachine, vds map[string]*v1alpha2.VirtualDisk) virtualDisksState {
 	vdsState := virtualDisksState{}
 
 	for _, vd := range vds {
@@ -169,7 +169,7 @@ func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds
 }
 
 func (h *BlockDeviceHandler) handleImageCreationDisk(
-	vd *virtv2.VirtualDisk,
+	vd *v1alpha2.VirtualDisk,
 	condition metav1.Condition,
 	state *virtualDisksState,
 ) {
@@ -180,8 +180,8 @@ func (h *BlockDeviceHandler) handleImageCreationDisk(
 }
 
 func (h *BlockDeviceHandler) handleAttachedDisk(
-	vd *virtv2.VirtualDisk,
-	vm *virtv2.VirtualMachine,
+	vd *v1alpha2.VirtualDisk,
+	vm *v1alpha2.VirtualMachine,
 	condition metav1.Condition,
 	state *virtualDisksState,
 ) {
@@ -196,19 +196,19 @@ func (h *BlockDeviceHandler) handleAttachedDisk(
 }
 
 func (h *BlockDeviceHandler) handleReadyForUseDisk(
-	vd *virtv2.VirtualDisk,
-	vm *virtv2.VirtualMachine,
+	vd *v1alpha2.VirtualDisk,
+	vm *v1alpha2.VirtualMachine,
 	condition metav1.Condition,
 	state *virtualDisksState,
 ) {
 	if condition.Status != metav1.ConditionTrue &&
-		vm.Status.Phase == virtv2.MachineStopped &&
+		vm.Status.Phase == v1alpha2.MachineStopped &&
 		h.checkVDToUseVM(vd, vm) {
 		state.counts.readyToUse++
 	}
 }
 
-func (h *BlockDeviceHandler) checkVDToUseVM(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
+func (h *BlockDeviceHandler) checkVDToUseVM(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) bool {
 	attachedVMs := vd.Status.AttachedToVirtualMachines
 
 	for _, attachedVM := range attachedVMs {
@@ -220,7 +220,7 @@ func (h *BlockDeviceHandler) checkVDToUseVM(vd *virtv2.VirtualDisk, vm *virtv2.V
 	return false
 }
 
-func (h *BlockDeviceHandler) checkVMToMountVD(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
+func (h *BlockDeviceHandler) checkVMToMountVD(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) bool {
 	attachedVMs := vd.Status.AttachedToVirtualMachines
 
 	for _, attachedVM := range attachedVMs {
@@ -278,7 +278,7 @@ func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s stat
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
-func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState, wffc bool) (int, bool, []string) {
+func (h *BlockDeviceHandler) countReadyBlockDevices(vm *v1alpha2.VirtualMachine, s BlockDevicesState, wffc bool) (int, bool, []string) {
 	if vm == nil {
 		return 0, false, nil
 	}
@@ -288,19 +288,19 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 	canStartKVVM := true
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
-		case virtv2.ImageDevice:
-			if vi, hasKey := s.VIByName[bd.Name]; hasKey && vi.Status.Phase == virtv2.ImageReady {
+		case v1alpha2.ImageDevice:
+			if vi, hasKey := s.VIByName[bd.Name]; hasKey && vi.Status.Phase == v1alpha2.ImageReady {
 				ready++
 				continue
 			}
 			canStartKVVM = false
-		case virtv2.ClusterImageDevice:
-			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == virtv2.ImageReady {
+		case v1alpha2.ClusterImageDevice:
+			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == v1alpha2.ImageReady {
 				ready++
 				continue
 			}
 			canStartKVVM = false
-		case virtv2.DiskDevice:
+		case v1alpha2.DiskDevice:
 			vd, hasKey := s.VDByName[bd.Name]
 			if !hasKey {
 				canStartKVVM = false
@@ -311,12 +311,19 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				canStartKVVM = false
 				continue
 			}
+
+			if vd.DeletionTimestamp != nil {
+				canStartKVVM = false
+				warnings = append(warnings, fmt.Sprintf("Virtual disk %s is terminating", vd.Name))
+				continue
+			}
+
 			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			if readyCondition.Status == metav1.ConditionTrue {
 				ready++
 			} else {
 				var msg string
-				if wffc && vm.Status.Phase == virtv2.MachineStopped {
+				if wffc && vm.Status.Phase == v1alpha2.MachineStopped {
 					msg = fmt.Sprintf("Virtual disk %s is waiting for the virtual machine to be starting", vd.Name)
 				} else {
 					msg = fmt.Sprintf("Virtual disk %s is waiting for the underlying PVC to be bound", vd.Name)

@@ -59,13 +59,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -186,8 +187,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
-	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+	viStorageClassSettings, err := appconfig.LoadVirtualImageStorageClassSettings()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vdStorageClassSettings, err := appconfig.LoadVirtualDiskStorageClassSettings()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
@@ -211,7 +221,7 @@ func main() {
 	for _, f := range []func(*apiruntime.Scheme) error{
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
-		virtv2alpha1.AddToScheme,
+		v1alpha2.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
@@ -394,12 +404,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage, controllerNamespace, virtControllerName); err != nil {
+	workloadUpdaterLogger := logger.NewControllerLogger(workloadupdater.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = workloadupdater.SetupController(ctx, mgr, workloadUpdaterLogger, firmwareImage, controllerNamespace, virtControllerName); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = evacuation.SetupController(ctx, mgr, virtClient, log); err != nil {
+	evacuationLogger := logger.NewControllerLogger(evacuation.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = evacuation.SetupController(ctx, mgr, virtClient, evacuationLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	volumeMigrationLogger := logger.NewControllerLogger(volumemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = volumemigration.SetupController(ctx, mgr, volumeMigrationLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

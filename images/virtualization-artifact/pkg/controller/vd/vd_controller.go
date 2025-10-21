@@ -35,9 +35,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vdcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -48,7 +49,7 @@ const (
 )
 
 type Condition interface {
-	Handle(ctx context.Context, vd *virtv2.VirtualDisk) error
+	Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) error
 }
 
 func NewController(
@@ -62,7 +63,7 @@ func NewController(
 	storageClassSettings config.VirtualDiskStorageClassSettings,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
-	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
+	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
@@ -72,21 +73,23 @@ func NewController(
 	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, disk, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, disk, mgr.GetClient()))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewInitHandler(),
 		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
 		internal.NewLifeCycleHandler(recorder, blank, sources, mgr.GetClient()),
 		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(recorder, disk),
-		internal.NewDeletionHandler(sources),
+		internal.NewDeletionHandler(sources, mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
+		internal.NewMigrationHandler(mgr.GetClient(), scService, disk, featuregates.Default()),
 		internal.NewProtectionHandler(),
 	)
 
@@ -106,7 +109,7 @@ func NewController(
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
-		For(&virtv2.VirtualDisk{}).
+		For(&v1alpha2.VirtualDisk{}).
 		WithValidator(NewValidator(mgr.GetClient(), scService)).
 		Complete(); err != nil {
 		return nil, err

@@ -2,6 +2,8 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
 fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate
@@ -37,7 +39,6 @@ altLibs:
   - libsoundio-devel
   - libjpeg-devel
   - libpng-devel
-  - libxkbcommon-devel
   - xkeyboard-config-devel
   - libgtk+3-devel
   - libvte
@@ -46,7 +47,6 @@ altLibs:
   - libvirglrenderer-devel
   - libdbus
   - libusb-devel
-  - liburing-devel
   - libbpf-devel
   - libspice-server-devel
   - ceph-devel
@@ -58,7 +58,6 @@ altLibs:
   - libpmem-devel
   - libdaxctl-devel
   - bzlib-devel
-  - liblzo2-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
@@ -78,9 +77,6 @@ altLibs:
   - libfuse-devel
   - libsystemd-devel
   - systemtap-sdt-devel
-  - glib2-devel
-  - libgio-devel
-  - libxml2-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
@@ -123,13 +119,17 @@ packages:
 - zlib zstd p11-kit
 - libssh libssh2
 - libpixman libqpl rdma-core
+- krb5 xz libxml2
 - readline
 - selinux
 - linux-pam
 - cyrus-sasl2
 - snappy
 - libtasn1 libtirpc
+- glib2
+- libxkbcommon
 - libaio
+- liburing libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -449,7 +449,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries

@@ -31,13 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -65,13 +64,13 @@ func NewCreateDataVolumeFromVirtualImageStep(
 	}
 }
 
-func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil || s.dv != nil {
 		return nil, nil
 	}
 
 	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
-	viRef, err := object.FetchObject(ctx, viRefKey, s.client, &virtv2.VirtualImage{})
+	viRef, err := object.FetchObject(ctx, viRefKey, s.client, &v1alpha2.VirtualImage{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch vi %q: %w", viRefKey, err)
 	}
@@ -83,7 +82,7 @@ func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *virt
 	vd.Status.SourceUID = ptr.To(viRef.UID)
 
 	if imageformat.IsISO(viRef.Status.Format) {
-		vd.Status.Phase = virtv2.DiskFailed
+		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
@@ -99,7 +98,7 @@ func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *virt
 	size, err := s.getPVCSize(vd, viRef)
 	if err != nil {
 		if errors.Is(err, service.ErrInsufficientPVCSize) {
-			vd.Status.Phase = virtv2.DiskFailed
+			vd.Status.Phase = v1alpha2.DiskFailed
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ProvisioningFailed).
@@ -113,7 +112,7 @@ func (s CreateDataVolumeFromVirtualImageStep) Take(ctx context.Context, vd *virt
 	return NewCreateDataVolumeStep(s.dv, s.disk, s.client, source, size, s.cb).Take(ctx, vd)
 }
 
-func (s CreateDataVolumeFromVirtualImageStep) getPVCSize(vd *virtv2.VirtualDisk, viRef *virtv2.VirtualImage) (resource.Quantity, error) {
+func (s CreateDataVolumeFromVirtualImageStep) getPVCSize(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (resource.Quantity, error) {
 	unpackedSize, err := resource.ParseQuantity(viRef.Status.Size.UnpackedBytes)
 	if err != nil {
 		return resource.Quantity{}, fmt.Errorf("failed to parse unpacked bytes %s: %w", viRef.Status.Size.UnpackedBytes, err)
@@ -126,17 +125,17 @@ func (s CreateDataVolumeFromVirtualImageStep) getPVCSize(vd *virtv2.VirtualDisk,
 	return service.GetValidatedPVCSize(vd.Spec.PersistentVolumeClaim.Size, unpackedSize)
 }
 
-func (s CreateDataVolumeFromVirtualImageStep) getSource(vd *virtv2.VirtualDisk, viRef *virtv2.VirtualImage) (*cdiv1.DataVolumeSource, error) {
+func (s CreateDataVolumeFromVirtualImageStep) getSource(vd *v1alpha2.VirtualDisk, viRef *v1alpha2.VirtualImage) (*cdiv1.DataVolumeSource, error) {
 	switch viRef.Spec.Storage {
-	case virtv2.StoragePersistentVolumeClaim, virtv2.StorageKubernetes:
+	case v1alpha2.StoragePersistentVolumeClaim, v1alpha2.StorageKubernetes:
 		return &cdiv1.DataVolumeSource{
 			PVC: &cdiv1.DataVolumeSourcePVC{
 				Name:      viRef.Status.Target.PersistentVolumeClaim,
 				Namespace: viRef.Namespace,
 			},
 		}, nil
-	case virtv2.StorageContainerRegistry, "":
-		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	case v1alpha2.StorageContainerRegistry, "":
+		supgen := vdsupplements.NewGenerator(vd)
 
 		url := common.DockerRegistrySchemePrefix + viRef.Status.Target.RegistryURL
 		secretName := supgen.DVCRAuthSecretForDV().Name

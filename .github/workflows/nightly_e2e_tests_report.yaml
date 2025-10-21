@@ -17,12 +17,12 @@ name: Nightly End-to-End tests report
 env:
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.24.5"
-  TIMEOUT: "2h"
+  TIMEOUT: "3h"
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "30 6 * * *"
 
 defaults:
   run:
@@ -45,13 +45,13 @@ jobs:
           markdown_table=""
 
           header="| CSI | Status | Passed | Failed	| Pending	| Skipped	| Date | Time | Branch|\n"
-          separator="|---|---|---|---|---|---|---|---|\n"
+          separator="|---|---|---|---|---|---|---|---|---|\n"
 
           markdown_table+="$header"
           markdown_table+="$separator"
 
           LABEL_KEY="storageClass"
-          LABEL_VALUES=("ceph-pool-r2-csi-rbd-immediate" "linstor-thin-r1-immediate")
+          LABEL_VALUES=("ceph-pool-r2-csi-rbd-immediate" "linstor-thin-r1")
 
           DATE=$(date +"%Y-%m-%d")
           COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n"

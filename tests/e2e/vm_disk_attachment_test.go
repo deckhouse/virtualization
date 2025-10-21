@@ -22,30 +22,31 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 const unacceptableCount = -1000
 
-var APIVersion = virtv2.SchemeGroupVersion.String()
+var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
-		nameSuffix         = "automatic-with-hotplug-standalone"
-		disksBefore        Disks
-		disksAfter         Disks
-		vdAttach           string
-		vmName             string
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
+		nameSuffix               = "automatic-with-hotplug-standalone"
+		disksBefore              Disks
+		disksAfter               Disks
+		vdAttach                 string
+		vmName                   string
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	BeforeAll(func() {
@@ -68,7 +69,7 @@ var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), 
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -130,7 +131,7 @@ var _ = Describe("VirtualDiskAttachment", ginkgoutil.CommonE2ETestDecorators(), 
 				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtualMachine: %s", vmName)
 			})
 			It("attaches virtual disk", func() {
-				AttachBlockDevice(ns, vmName, vdAttach, virtv2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VMDiskAttachment)
+				AttachBlockDevice(ns, vmName, vdAttach, v1alpha2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VMDiskAttachment)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
@@ -226,7 +227,7 @@ type BlockDevice struct {
 	Type string `json:"type"`
 }
 
-func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
+func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceType v1alpha2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
 	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", testDataPath, blockDeviceName)
 	err := CreateVMBDAManifest(vmbdaFilePath, vmName, blockDeviceName, blockDeviceType, labels)
 	Expect(err).NotTo(HaveOccurred(), "%v", err)
@@ -239,19 +240,19 @@ func AttachBlockDevice(vmNamespace, vmName, blockDeviceName string, blockDeviceT
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
 
-func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string) error {
-	vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{
-		TypeMeta: v1.TypeMeta{
+func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType v1alpha2.VMBDAObjectRefKind, labels map[string]string) error {
+	vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: APIVersion,
-			Kind:       virtv2.VirtualMachineBlockDeviceAttachmentKind,
+			Kind:       v1alpha2.VirtualMachineBlockDeviceAttachmentKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   blockDeviceName,
 			Labels: labels,
 		},
-		Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+		Spec: v1alpha2.VirtualMachineBlockDeviceAttachmentSpec{
 			VirtualMachineName: vmName,
-			BlockDeviceRef: virtv2.VMBDAObjectRef{
+			BlockDeviceRef: v1alpha2.VMBDAObjectRef{
 				Kind: blockDeviceType,
 				Name: blockDeviceName,
 			},
@@ -269,10 +270,10 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 func GetDisksMetadata(vmNamespace, vmName string, disks *Disks) error {
 	GinkgoHelper()
 	cmd := "lsblk --nodeps --json"
-	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-		Namespace:   vmNamespace,
-		Username:    conf.TestData.SSHUser,
-		IdenityFile: conf.TestData.Sshkey,
+	res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+		Namespace:    vmNamespace,
+		Username:     conf.TestData.SSHUser,
+		IdentityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
 		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())

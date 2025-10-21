@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -43,10 +42,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -79,14 +79,15 @@ func NewRegistryDataSource(
 	}
 }
 
-func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, registryDataSource)
 
 	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -105,7 +106,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	}
 
 	var sc *storagev1.StorageClass
@@ -144,7 +145,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The Registry DataSource import to DVCR has started",
 		)
 
@@ -164,14 +165,14 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
+			ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitForUserUpload).
@@ -186,7 +187,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			return reconcile.Result{}, setPhaseConditionFromPodError(ctx, err, pod, vd, cb, ds.client)
 		}
 
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -202,17 +203,17 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncStarted,
+			v1alpha2.ReasonDataSourceSyncStarted,
 			"The Registry DataSource import to PVC has started",
 		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vd.Status.Phase = virtv2.DiskFailed
+			vd.Status.Phase = v1alpha2.DiskFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
+				ds.recorder.Event(vd, corev1.EventTypeWarning, v1alpha2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningFailed).
@@ -261,7 +262,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -269,9 +270,9 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
-			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
 		cb.
 			Status(metav1.ConditionFalse).
@@ -279,9 +280,9 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			Message(dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Phase = v1alpha2.DiskPending
 		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
-			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 		}
 		cb.
 			Status(metav1.ConditionFalse).
@@ -290,7 +291,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
-		vd.Status.Phase = virtv2.DiskProvisioning
+		vd.Status.Phase = v1alpha2.DiskProvisioning
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
@@ -302,11 +303,11 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceSyncCompleted,
+			v1alpha2.ReasonDataSourceSyncCompleted,
 			"The Registry DataSource import has completed",
 		)
 
-		vd.Status.Phase = virtv2.DiskReady
+		vd.Status.Phase = v1alpha2.DiskReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Ready).
@@ -314,7 +315,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
@@ -325,7 +326,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
@@ -347,8 +348,8 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
-func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *v1alpha2.VirtualDisk) (bool, error) {
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -363,8 +364,8 @@ func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds RegistryDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+func (ds RegistryDataSource) CleanUpSupplements(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -383,7 +384,7 @@ func (ds RegistryDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.
 	}
 }
 
-func (ds RegistryDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+func (ds RegistryDataSource) Validate(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ContainerImage == nil {
 		return errors.New("container image missed for data source")
 	}
@@ -410,7 +411,7 @@ func (ds RegistryDataSource) Name() string {
 	return registryDataSource
 }
 
-func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vd *v1alpha2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{
@@ -431,7 +432,7 @@ func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supp
 	return &settings
 }
 
-func (ds RegistryDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
@@ -448,7 +449,7 @@ func (ds RegistryDataSource) getSource(sup *supplements.Generator, dvcrSourceIma
 	}
 }
 
-func (ds RegistryDataSource) getPVCSize(vd *virtv2.VirtualDisk, pod *corev1.Pod) (resource.Quantity, error) {
+func (ds RegistryDataSource) getPVCSize(vd *v1alpha2.VirtualDisk, pod *corev1.Pod) (resource.Quantity, error) {
 	// Get size from the importer Pod to detect if specified PVC size is enough.
 	unpackedSize, err := resource.ParseQuantity(ds.statService.GetSize(pod).UnpackedBytes)
 	if err != nil {

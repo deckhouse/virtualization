@@ -23,20 +23,24 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func WaitVMNetworkReady(opts kc.WaitOptions) {
+func WaitForVMNetworkReady(opts kc.WaitOptions) {
 	GinkgoHelper()
-	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
 	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeNetworkReady.String(), opts)
 }
 
-var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+func WaitForVMRunningPhase(opts kc.WaitOptions) {
+	GinkgoHelper()
+	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
+}
+
+var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-vpc"}
 	var ns string
 
@@ -55,7 +59,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 	AfterAll(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -84,8 +88,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
+			By("Virtual machine should be running")
+			WaitForVMRunningPhase(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -93,13 +97,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 		})
 		It("checks network availability", func() {
 			By("Network condition should be true")
-			WaitVMNetworkReady(kc.WaitOptions{
+			WaitForVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 
-			CheckVMConnectivityToTargetIPs(kubectl, ns, testCaseLabel)
+			CheckVMConnectivityToTargetIPs(ns, testCaseLabel)
 		})
 	})
 
@@ -119,8 +123,8 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 	Context("When VMs migrations are applied", func() {
 		It("checks VMs and VMOPs phases", func() {
-			By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-			WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+			By(fmt.Sprintf("VMOPs should be in %s phases", v1alpha2.VMOPPhaseCompleted))
+			WaitPhaseByLabel(kc.ResourceVMOP, string(v1alpha2.VMOPPhaseCompleted), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -151,13 +155,13 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 
 		It("checks network availability after migrations", func() {
 			By("Network condition should be true")
-			WaitVMNetworkReady(kc.WaitOptions{
+			WaitForVMNetworkReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 
-			CheckVMConnectivityToTargetIPs(kubectl, ns, testCaseLabel)
+			CheckVMConnectivityToTargetIPs(ns, testCaseLabel)
 		})
 	})
 
@@ -182,16 +186,17 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 })
 
 func isSdnModuleEnabled() (bool, error) {
-	sdnModule, err := config.GetModuleConfig("sdn")
+	sdnModule, err := framework.NewFramework("").GetModuleConfig("sdn")
 	if err != nil {
 		return false, err
 	}
+	enabled := sdnModule.Spec.Enabled
 
-	return sdnModule.Spec.Enabled, nil
+	return enabled != nil && *enabled, nil
 }
 
-func CheckVMConnectivityToTargetIPs(kubectl kc.Kubectl, ns string, testCaseLabel map[string]string) {
-	var vmList virtv2.VirtualMachineList
+func CheckVMConnectivityToTargetIPs(ns string, testCaseLabel map[string]string) {
+	var vmList v1alpha2.VirtualMachineList
 	err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 		Labels:    testCaseLabel,
 		Namespace: ns,

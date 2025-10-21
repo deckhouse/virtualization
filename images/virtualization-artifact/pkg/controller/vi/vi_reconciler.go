@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Watcher interface {
@@ -41,7 +41,7 @@ type Watcher interface {
 }
 
 type Handler interface {
-	Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
+	Handle(ctx context.Context, vi *v1alpha2.VirtualImage) (reconcile.Result, error)
 	Name() string
 }
 
@@ -84,10 +84,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{},
-			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualImage]{},
-			predicate.TypedFuncs[*virtv2.VirtualImage]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualImage{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualImage]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualImage]) bool {
 					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 				},
 			},
@@ -96,13 +96,13 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VirtualImage: %w", err)
 	}
 
-	viFromVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.VirtualImageObjectRefKindVirtualImage)
+	viFromVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualImageObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), viFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VIs: %w", err)
 	}
 
-	viFromCVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.ClusterVirtualImage{}, virtv2.VirtualImageObjectRefKindClusterVirtualImage)
+	viFromCVIEnqueuer := watchers.NewVirtualImageRequestEnqueuer(mgr.GetClient(), &v1alpha2.ClusterVirtualImage{}, v1alpha2.VirtualImageObjectRefKindClusterVirtualImage)
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), viFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
@@ -127,10 +127,10 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return nil
 }
 
-func (r *Reconciler) factory() *virtv2.VirtualImage {
-	return &virtv2.VirtualImage{}
+func (r *Reconciler) factory() *v1alpha2.VirtualImage {
+	return &v1alpha2.VirtualImage{}
 }
 
-func (r *Reconciler) statusGetter(obj *virtv2.VirtualImage) virtv2.VirtualImageStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualImage) v1alpha2.VirtualImageStatus {
 	return obj.Status
 }

@@ -26,11 +26,11 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DVCRDataSource struct {
-	size    virtv2.ImageStatusSize
+	size    v1alpha2.ImageStatusSize
 	meta    metav1.Object
 	uid     types.UID
 	format  string
@@ -38,7 +38,7 @@ type DVCRDataSource struct {
 	isReady bool
 }
 
-func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImageDataSource, client client.Client) (DVCRDataSource, error) {
+func NewDVCRDataSourcesForCVMI(ctx context.Context, ds v1alpha2.ClusterVirtualImageDataSource, client client.Client) (DVCRDataSource, error) {
 	if ds.ObjectRef == nil {
 		return DVCRDataSource{}, nil
 	}
@@ -46,11 +46,11 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 	var dsDVCR DVCRDataSource
 
 	switch ds.ObjectRef.Kind {
-	case virtv2.ClusterVirtualImageObjectRefKindVirtualImage:
+	case v1alpha2.ClusterVirtualImageObjectRefKindVirtualImage:
 		vmiName := ds.ObjectRef.Name
 		vmiNS := ds.ObjectRef.Namespace
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &v1alpha2.VirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -60,14 +60,14 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = vmi.Status.Phase == v1alpha2.ImageReady
 				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
-	case virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
+	case v1alpha2.ClusterVirtualImageObjectRefKindClusterVirtualImage:
 		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &v1alpha2.ClusterVirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -77,7 +77,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = cvmi.Status.Phase == v1alpha2.ImageReady
 				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
@@ -86,7 +86,7 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 	return dsDVCR, nil
 }
 
-func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSource, obj metav1.Object, client client.Client) (DVCRDataSource, error) {
+func NewDVCRDataSourcesForVMI(ctx context.Context, ds v1alpha2.VirtualImageDataSource, obj metav1.Object, client client.Client) (DVCRDataSource, error) {
 	if ds.ObjectRef == nil {
 		return DVCRDataSource{}, nil
 	}
@@ -94,17 +94,17 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 	var dsDVCR DVCRDataSource
 
 	switch ds.ObjectRef.Kind {
-	case virtv2.VirtualImageObjectRefKindVirtualImage:
+	case v1alpha2.VirtualImageObjectRefKindVirtualImage:
 		vmiName := ds.ObjectRef.Name
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &v1alpha2.VirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
 
 			if vmi != nil {
-				if vmi.Spec.Storage == virtv2.StorageKubernetes || vmi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
+				if vmi.Spec.Storage == v1alpha2.StorageKubernetes || vmi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim {
 					return DVCRDataSource{}, fmt.Errorf("the DVCR not used for virtual images with storage type '%s'", vmi.Spec.Storage)
 				}
 
@@ -112,14 +112,14 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = vmi.Status.Phase == v1alpha2.ImageReady
 				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
-	case virtv2.VirtualImageObjectRefKindClusterVirtualImage:
+	case v1alpha2.VirtualImageObjectRefKindClusterVirtualImage:
 		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &v1alpha2.ClusterVirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -129,7 +129,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = cvmi.Status.Phase == v1alpha2.ImageReady
 				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
@@ -138,7 +138,7 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 	return dsDVCR, nil
 }
 
-func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSource, obj metav1.Object, client client.Client) (DVCRDataSource, error) {
+func NewDVCRDataSourcesForVMD(ctx context.Context, ds *v1alpha2.VirtualDiskDataSource, obj metav1.Object, client client.Client) (DVCRDataSource, error) {
 	if ds == nil || ds.ObjectRef == nil {
 		return DVCRDataSource{}, nil
 	}
@@ -146,11 +146,11 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 	var dsDVCR DVCRDataSource
 
 	switch ds.ObjectRef.Kind {
-	case virtv2.VirtualDiskObjectRefKindVirtualImage:
+	case v1alpha2.VirtualDiskObjectRefKindVirtualImage:
 		vmiName := ds.ObjectRef.Name
 		vmiNS := obj.GetNamespace()
 		if vmiName != "" && vmiNS != "" {
-			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &virtv2.VirtualImage{})
+			vmi, err := object.FetchObject(ctx, types.NamespacedName{Name: vmiName, Namespace: vmiNS}, client, &v1alpha2.VirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -160,14 +160,14 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = vmi.Status.Phase == v1alpha2.ImageReady
 				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
-	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
+	case v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage:
 		cvmiName := ds.ObjectRef.Name
 		if cvmiName != "" {
-			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &virtv2.ClusterVirtualImage{})
+			cvmi, err := object.FetchObject(ctx, types.NamespacedName{Name: cvmiName}, client, &v1alpha2.ClusterVirtualImage{})
 			if err != nil {
 				return DVCRDataSource{}, err
 			}
@@ -177,7 +177,7 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = cvmi.Status.Phase == v1alpha2.ImageReady
 				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
@@ -198,7 +198,7 @@ func (ds *DVCRDataSource) GetUID() types.UID {
 	return ds.uid
 }
 
-func (ds *DVCRDataSource) GetSize() virtv2.ImageStatusSize {
+func (ds *DVCRDataSource) GetSize() v1alpha2.ImageStatusSize {
 	return ds.size
 }
 

@@ -23,6 +23,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -63,7 +64,7 @@ func NewCreatePersistentVolumeClaimStep(
 	}
 }
 
-func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reconcile.Result, error) {
+func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -71,17 +72,17 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 	s.recorder.Event(
 		vi,
 		corev1.EventTypeNormal,
-		virtv2.ReasonDataSourceSyncStarted,
+		v1alpha2.ReasonDataSourceSyncStarted,
 		"The ObjectRef DataSource import has started",
 	)
 
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch virtual disk snapshot: %w", err)
 	}
 
 	if vdSnapshot == nil {
-		vi.Status.Phase = virtv2.ImagePending
+		vi.Status.Phase = v1alpha2.ImagePending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
@@ -94,12 +95,27 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 		return nil, fmt.Errorf("fetch volume snapshot: %w", err)
 	}
 
-	if vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
-		vi.Status.Phase = virtv2.ImagePending
+	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
+		vi.Status.Phase = v1alpha2.ImagePending
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningNotStarted).
 			Message(fmt.Sprintf("VirtualDiskSnapshot %q is not ready to use.", vdSnapshot.Name))
+		return &reconcile.Result{}, nil
+	}
+
+	if err := s.validateStorageClassCompatibility(ctx, vi, vdSnapshot, vs); err != nil {
+		vi.Status.Phase = v1alpha2.ImageFailed
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ProvisioningFailed).
+			Message(err.Error())
+		s.recorder.Event(
+			vi,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonDataSourceSyncFailed,
+			err.Error(),
+		)
 		return &reconcile.Result{}, nil
 	}
 
@@ -113,7 +129,7 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 	log, _ := logger.GetDataSourceContext(ctx, "objectref")
 	log.With("pvc.name", pvc.Name).Debug("The underlying PVC has just been created.")
 
-	if vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim || vi.Spec.Storage == virtv2.StorageKubernetes {
+	if vi.Spec.Storage == v1alpha2.StoragePersistentVolumeClaim || vi.Spec.Storage == v1alpha2.StorageKubernetes {
 		vi.Status.Target.PersistentVolumeClaim = pvc.Name
 	}
 
@@ -123,10 +139,15 @@ func (s CreatePersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vi
 	return nil, nil
 }
 
-func (s CreatePersistentVolumeClaimStep) buildPVC(vi *virtv2.VirtualImage, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
-	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
-	if storageClassName == "" {
-		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+func (s CreatePersistentVolumeClaimStep) buildPVC(vi *v1alpha2.VirtualImage, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
+	var storageClassName string
+	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
+		storageClassName = *vi.Spec.PersistentVolumeClaim.StorageClass
+	} else {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassName]
+		if storageClassName == "" {
+			storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+		}
 	}
 	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
 	if volumeMode == "" {
@@ -179,9 +200,58 @@ func (s CreatePersistentVolumeClaimStep) buildPVC(vi *virtv2.VirtualImage, vs *v
 				service.MakeOwnerReference(vi),
 			},
 			Finalizers: []string{
-				virtv2.FinalizerVIProtection,
+				v1alpha2.FinalizerVIProtection,
 			},
 		},
 		Spec: spec,
 	}
+}
+
+func (s CreatePersistentVolumeClaimStep) validateStorageClassCompatibility(ctx context.Context, vi *v1alpha2.VirtualImage, vdSnapshot *v1alpha2.VirtualDiskSnapshot, vs *vsv1.VolumeSnapshot) error {
+	if vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "" {
+		return nil
+	}
+
+	targetSCName := *vi.Spec.PersistentVolumeClaim.StorageClass
+
+	var targetSC storagev1.StorageClass
+	err := s.client.Get(ctx, types.NamespacedName{Name: targetSCName}, &targetSC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch target storage class %q: %w", targetSCName, err)
+	}
+
+	log, _ := logger.GetDataSourceContext(ctx, "objectref")
+	if vs.Spec.Source.PersistentVolumeClaimName == nil || *vs.Spec.Source.PersistentVolumeClaimName == "" {
+		log.With("volumeSnapshot.name", vs.Name).Debug("Cannot determine original PVC from VolumeSnapshot, skipping storage class compatibility validation")
+		return nil
+	}
+
+	pvcName := *vs.Spec.Source.PersistentVolumeClaimName
+
+	var originalPVC corev1.PersistentVolumeClaim
+	err = s.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: vdSnapshot.Namespace}, &originalPVC)
+	if err != nil {
+		return fmt.Errorf("cannot fetch original PVC %q: %w", pvcName, err)
+	}
+
+	originalProvisioner := originalPVC.Annotations[annotations.AnnStorageProvisioner]
+	if originalProvisioner == "" {
+		originalProvisioner = originalPVC.Annotations[annotations.AnnStorageProvisionerDeprecated]
+	}
+
+	if originalProvisioner == "" {
+		log.With("pvc.name", pvcName).Debug("Cannot determine original provisioner from PVC annotations, skipping storage class compatibility validation")
+		return nil
+	}
+
+	if targetSC.Provisioner != originalProvisioner {
+		return fmt.Errorf(
+			"cannot restore snapshot to storage class %q: incompatible storage providers. "+
+				"Original snapshot was created by %q, target storage class uses %q. "+
+				"Cross-provider snapshot restore is not supported",
+			targetSCName, originalProvisioner, targetSC.Provisioner,
+		)
+	}
+
+	return nil
 }

@@ -20,12 +20,12 @@ import (
 	"regexp"
 	"strings"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const macPrefix = "mac-"
 
-type AllocatedMACs map[string]*virtv2.VirtualMachineMACAddressLease
+type AllocatedMACs map[string]*v1alpha2.VirtualMachineMACAddressLease
 
 // AddressToLeaseName generate the Virtual Machine MAC Address Lease's name from the MAC address
 func AddressToLeaseName(address string) string {

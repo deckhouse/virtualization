@@ -18,14 +18,25 @@ package object
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewHTTPCVIUbuntu(name string) *virtv2.ClusterVirtualImage {
+func NewHTTPCVIUbuntu(name string) *v1alpha2.ClusterVirtualImage {
 	return cvi.New(
 		cvi.WithName(name),
 		cvi.WithDataSourceHTTP(
-			ubuntuHTTP,
+			UbuntuHTTP,
+			nil,
+			nil,
+		),
+	)
+}
+
+func NewGenerateHTTPCVIUbuntu(prefix string) *v1alpha2.ClusterVirtualImage {
+	return cvi.New(
+		cvi.WithGenerateName(prefix),
+		cvi.WithDataSourceHTTP(
+			UbuntuHTTP,
 			nil,
 			nil,
 		),

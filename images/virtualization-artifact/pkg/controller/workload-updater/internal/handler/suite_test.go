@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestWorkloadUpdateHandlers(t *testing.T) {
@@ -37,7 +37,7 @@ func TestWorkloadUpdateHandlers(t *testing.T) {
 	RunSpecs(t, "WorkloadUpdate Handlers Suite")
 }
 
-func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) client.Client {
+func setupEnvironment(vm *v1alpha2.VirtualMachine, objs ...client.Object) client.Client {
 	GinkgoHelper()
 	Expect(vm).ToNot(BeNil())
 	allObjects := []client.Object{vm}
@@ -51,10 +51,10 @@ func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) client.C
 		Namespace: vm.GetNamespace(),
 	}
 	resource := reconciler.NewResource(key, fakeClient,
-		func() *virtv2.VirtualMachine {
-			return &virtv2.VirtualMachine{}
+		func() *v1alpha2.VirtualMachine {
+			return &v1alpha2.VirtualMachine{}
 		},
-		func(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
+		func(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus {
 			return obj.Status
 		})
 	err = resource.Fetch(context.Background())

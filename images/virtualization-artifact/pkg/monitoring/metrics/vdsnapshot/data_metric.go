@@ -17,26 +17,28 @@ limitations under the License.
 package vdsnapshot
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type dataMetric struct {
-	Name      string
-	Namespace string
-	UID       string
-	Phase     virtv2.VirtualDiskSnapshotPhase
+	Name        string
+	Namespace   string
+	UID         string
+	Phase       v1alpha2.VirtualDiskSnapshotPhase
+	VirtualDisk string
 }
 
 // DO NOT mutate VirtualDiskSnapshot!
-func newDataMetric(vds *virtv2.VirtualDiskSnapshot) *dataMetric {
+func newDataMetric(vds *v1alpha2.VirtualDiskSnapshot) *dataMetric {
 	if vds == nil {
 		return nil
 	}
 
 	return &dataMetric{
-		Name:      vds.Name,
-		Namespace: vds.Namespace,
-		UID:       string(vds.UID),
-		Phase:     vds.Status.Phase,
+		Name:        vds.Name,
+		Namespace:   vds.Namespace,
+		UID:         string(vds.UID),
+		Phase:       vds.Status.Phase,
+		VirtualDisk: vds.Spec.VirtualDiskName,
 	}
 }

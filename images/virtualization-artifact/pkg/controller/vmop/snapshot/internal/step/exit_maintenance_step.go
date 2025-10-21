@@ -91,7 +91,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			Generation(vm.GetGeneration()).
 			Reason(vmcondition.ReasonMaintenanceRestore).
 			Status(metav1.ConditionFalse).
-			Message("VM exited maintenance mode after restore completion"),
+			Message("VM exited maintenance mode after restore completion."),
 		&vm.Status.Conditions,
 	)
 
@@ -116,7 +116,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			Generation(vmop.GetGeneration()).
 			Reason(vmopcondition.ReasonMaintenanceModeDisabled).
 			Status(metav1.ConditionFalse).
-			Message("VMOP has disabled maintenance mode on VM"),
+			Message("VMOP has disabled maintenance mode on VM."),
 		&vmop.Status.Conditions,
 	)
 

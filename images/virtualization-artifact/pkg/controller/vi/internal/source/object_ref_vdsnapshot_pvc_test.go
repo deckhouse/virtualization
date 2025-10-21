@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -47,10 +47,10 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 	var (
 		ctx        context.Context
 		scheme     *runtime.Scheme
-		vi         *virtv2.VirtualImage
+		vi         *v1alpha2.VirtualImage
 		vs         *vsv1.VolumeSnapshot
 		sc         *storagev1.StorageClass
-		vdSnapshot *virtv2.VirtualDiskSnapshot
+		vdSnapshot *v1alpha2.VirtualDiskSnapshot
 		pvc        *corev1.PersistentVolumeClaim
 		settings   *dvcr.Settings
 		recorder   eventrecord.EventRecorderLogger
@@ -63,7 +63,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		ctx = logger.ToContext(context.TODO(), slog.Default())
 
 		scheme = runtime.NewScheme()
-		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
 		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
@@ -73,12 +73,12 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		}
 
 		importer = &ImporterMock{
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 		}
 		bounder = &BounderMock{
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 		}
@@ -89,8 +89,8 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			CheckPodFunc: func(_ *corev1.Pod) error {
 				return nil
 			},
-			GetSizeFunc: func(_ *corev1.Pod) virtv2.ImageStatusSize {
-				return virtv2.ImageStatusSize{}
+			GetSizeFunc: func(_ *corev1.Pod) v1alpha2.ImageStatusSize {
+				return v1alpha2.ImageStatusSize{}
 			},
 			GetCDROMFunc: func(_ *corev1.Pod) bool {
 				return false
@@ -119,30 +119,30 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			},
 		}
 
-		vdSnapshot = &virtv2.VirtualDiskSnapshot{
+		vdSnapshot = &v1alpha2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "vd-snapshot",
 				UID:  "11111111-1111-1111-1111-111111111111",
 			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{},
-			Status: virtv2.VirtualDiskSnapshotStatus{
-				Phase:              virtv2.VirtualDiskSnapshotPhaseReady,
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{},
+			Status: v1alpha2.VirtualDiskSnapshotStatus{
+				Phase:              v1alpha2.VirtualDiskSnapshotPhaseReady,
 				VolumeSnapshotName: vs.Name,
 			},
 		}
 
-		vi = &virtv2.VirtualImage{
+		vi = &v1alpha2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vi",
 				Generation: 1,
 				UID:        "22222222-2222-2222-2222-222222222222",
 			},
-			Spec: virtv2.VirtualImageSpec{
-				Storage: virtv2.StoragePersistentVolumeClaim,
-				DataSource: virtv2.VirtualImageDataSource{
-					Type: virtv2.DataSourceTypeObjectRef,
-					ObjectRef: &virtv2.VirtualImageObjectRef{
-						Kind: virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot,
+			Spec: v1alpha2.VirtualImageSpec{
+				Storage: v1alpha2.StoragePersistentVolumeClaim,
+				DataSource: v1alpha2.VirtualImageDataSource{
+					Type: v1alpha2.DataSourceTypeObjectRef,
+					ObjectRef: &v1alpha2.VirtualImageObjectRef{
+						Kind: v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot,
 						Name: vdSnapshot.Name,
 					},
 				},
@@ -168,7 +168,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		It("must create PVC", func() {
 			var pvcCreated bool
 
-			vi.Status = virtv2.VirtualImageStatus{}
+			vi.Status = v1alpha2.VirtualImageStatus{}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
@@ -192,7 +192,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			ExpectCondition(vi, metav1.ConditionFalse, vicondition.Provisioning, true)
 			Expect(vi.Status.SourceUID).ToNot(BeNil())
 			Expect(*vi.Status.SourceUID).ToNot(BeEmpty())
-			Expect(vi.Status.Phase).To(Equal(virtv2.ImageProvisioning))
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageProvisioning))
 			Expect(vi.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})
@@ -209,7 +209,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vi, metav1.ConditionTrue, vicondition.Ready, false)
-			Expect(vi.Status.Phase).To(Equal(virtv2.ImageReady))
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 		})
 	})
 
@@ -232,7 +232,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vi, metav1.ConditionFalse, vicondition.Lost, true)
-			Expect(vi.Status.Phase).To(Equal(virtv2.ImageLost))
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 			Expect(vi.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 
@@ -248,7 +248,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vi, metav1.ConditionFalse, vicondition.Lost, true)
-			Expect(vi.Status.Phase).To(Equal(virtv2.ImageLost))
+			Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 			Expect(vi.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 	})

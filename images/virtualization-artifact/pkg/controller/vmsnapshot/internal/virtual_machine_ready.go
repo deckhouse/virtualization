@@ -24,13 +24,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
 )
 
 type VirtualMachineReadySnapshotter interface {
-	GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error)
+	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
 }
 
 type VirtualMachineReadyHandler struct {
@@ -43,7 +43,7 @@ func NewVirtualMachineReadyHandler(snapshotter VirtualMachineReadySnapshotter) *
 	}
 }
 
-func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) (reconcile.Result, error) {
+func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmscondition.VirtualMachineReadyType)
 	defer func() { conditions.SetCondition(cb.Generation(vmSnapshot.Generation), &vmSnapshot.Status.Conditions) }()
 
@@ -56,7 +56,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virt
 		return reconcile.Result{}, nil
 	}
 
-	if vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseReady {
+	if vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseReady {
 		cb.Status(metav1.ConditionTrue).Reason(vmscondition.VirtualMachineReady)
 		return reconcile.Result{}, nil
 	}
@@ -83,7 +83,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virt
 	}
 
 	switch vm.Status.Phase {
-	case virtv2.MachineRunning, virtv2.MachineStopped:
+	case v1alpha2.MachineRunning, v1alpha2.MachineStopped:
 		snapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
 		if snapshotting.Status != metav1.ConditionTrue {
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualMachineNotReadyForSnapshotting)

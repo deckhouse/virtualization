@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const nameSyncMetadataHandler = "SyncMetadataHandler"
@@ -148,7 +148,7 @@ func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj
 // PropagateVMMetadata merges labels and annotations from the input VM into destination object.
 // Attach related labels and some dangerous annotations are not copied.
 // Return true if destination object was changed.
-func PropagateVMMetadata(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, destObj client.Object) (bool, error) {
+func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, destObj client.Object) (bool, error) {
 	// No changes if dest is nil.
 	if destObj == nil {
 		return false, nil
@@ -202,7 +202,7 @@ func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, er
 	return lastPropagatedLabels, nil
 }
 
-func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) (bool, error) {
+func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(vm.GetLabels())
 	if err != nil {
 		return false, err
@@ -231,7 +231,7 @@ func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]strin
 	return lastPropagatedAnno, nil
 }
 
-func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine) (bool, error) {
+func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine) (bool, error) {
 	data, err := json.Marshal(RemoveNonPropagatableAnnotations(vm.GetAnnotations()))
 	if err != nil {
 		return false, err

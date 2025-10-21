@@ -35,6 +35,12 @@ var (
 	WithAnnotations  = meta.WithAnnotations[*v1alpha2.VirtualMachine]
 )
 
+func WithBootloader(bootloader v1alpha2.BootloaderType) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Bootloader = bootloader
+	}
+}
+
 func WithCPU(cores int, coreFraction *string) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.CPU.Cores = cores
@@ -85,4 +91,17 @@ func WithVirtualMachineClass(class string) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.VirtualMachineClassName = class
 	}
+}
+
+func WithProvisioning(provisioning *v1alpha2.Provisioning) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Provisioning = provisioning
+	}
+}
+
+func WithProvisioningUserData(cloudInit string) Option {
+	return WithProvisioning(&v1alpha2.Provisioning{
+		Type:     v1alpha2.ProvisioningTypeUserData,
+		UserData: cloudInit,
+	})
 }

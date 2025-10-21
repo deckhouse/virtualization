@@ -20,11 +20,14 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"sync"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -39,7 +42,11 @@ type Framework struct {
 	skipNsCreation  bool
 
 	namespace          *corev1.Namespace
-	namespacesToDelete []string
+	namespacesToDelete map[string]struct{}
+
+	objectsToDelete map[string]client.Object
+
+	mu sync.Mutex
 }
 
 func NewFramework(namespacePrefix string) *Framework {
@@ -47,6 +54,9 @@ func NewFramework(namespacePrefix string) *Framework {
 		Clients:         GetClients(),
 		namespacePrefix: namespacePrefix,
 		skipNsCreation:  namespacePrefix == "",
+
+		namespacesToDelete: make(map[string]struct{}),
+		objectsToDelete:    make(map[string]client.Object),
 	}
 }
 
@@ -71,18 +81,37 @@ func (f *Framework) Before() {
 	if !f.skipNsCreation {
 		ns, err := f.CreateNamespace(f.namespacePrefix, nil)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		ginkgo.By(fmt.Sprintf("Created namespace %s", ns.Name))
+		ginkgo.By(fmt.Sprintf("Create namespace %s", ns.Name))
 		f.namespace = ns
-		f.AddNamespaceToDelete(ns.Name)
+		f.DeferNamespaceDelete(ns.Name)
 	}
 }
 
 func (f *Framework) After() {
 	ginkgo.GinkgoHelper()
-	for _, ns := range f.namespacesToDelete {
+
+	for _, obj := range f.objectsToDelete {
+		ginkgo.By(fmt.Sprintf("Delete object %s", obj.GetName()))
+		err := f.GenericClient().Delete(context.Background(), obj)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			ginkgo.Fail(fmt.Sprintf("Failed to delete object %s: %s", obj.GetName(), err.Error()))
+		}
+
+		f.mu.Lock()
+		delete(f.objectsToDelete, string(obj.GetUID()))
+		f.mu.Unlock()
+	}
+
+	for ns := range f.namespacesToDelete {
 		ginkgo.By(fmt.Sprintf("Delete namespace %s", ns))
 		err := f.KubeClient().CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		if err != nil && !k8serrors.IsNotFound(err) {
+			ginkgo.Fail(fmt.Sprintf("Failed to delete namespace %s: %s", ns, err.Error()))
+		}
+
+		f.mu.Lock()
+		delete(f.namespacesToDelete, ns)
+		f.mu.Unlock()
 	}
 }
 
@@ -106,7 +135,7 @@ func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*c
 	ns, err := f.KubeClient().CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	f.AddNamespaceToDelete(ns.Name)
+	f.DeferNamespaceDelete(ns.Name)
 
 	return ns, nil
 }
@@ -115,6 +144,28 @@ func (f *Framework) Namespace() *corev1.Namespace {
 	return f.namespace
 }
 
-func (f *Framework) AddNamespaceToDelete(name string) {
-	f.namespacesToDelete = append(f.namespacesToDelete, name)
+func (f *Framework) DeferNamespaceDelete(name string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.namespacesToDelete[name] = struct{}{}
+}
+
+func (f *Framework) DeferDelete(objs ...client.Object) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for _, obj := range objs {
+		f.objectsToDelete[string(obj.GetUID())] = obj
+	}
+}
+
+func (f *Framework) BatchCreate(ctx context.Context, objs ...client.Object) error {
+	for _, obj := range objs {
+		err := f.client.Create(ctx, obj)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

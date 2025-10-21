@@ -24,10 +24,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -38,7 +38,7 @@ const (
 	StageAfter    = "after"
 )
 
-var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelProcess()), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelProcess()), framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}
@@ -57,7 +57,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)
 		}
 	})
 
@@ -131,7 +131,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 				vmNames := strings.Split(res.StdOut(), " ")
 				Expect(vmNames).NotTo(BeEmpty())
 
-				vmResource := virtv2.VirtualMachine{}
+				vmResource := v1alpha2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vmNames[0], &vmResource, kc.GetOptions{Namespace: ns})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -210,7 +210,7 @@ var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelPro
 				vmNames := strings.Split(res.StdOut(), " ")
 				Expect(vmNames).NotTo(BeEmpty())
 
-				vmResource := virtv2.VirtualMachine{}
+				vmResource := v1alpha2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vmNames[0], &vmResource, kc.GetOptions{Namespace: ns})
 				Expect(err).NotTo(HaveOccurred(), "%v", err)
 
@@ -278,10 +278,10 @@ func ExecSSHCommand(vmNamespace, vmName, cmd string) {
 	GinkgoHelper()
 
 	Eventually(func() error {
-		res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-			Namespace:   vmNamespace,
-			Username:    conf.TestData.SSHUser,
-			IdenityFile: conf.TestData.Sshkey,
+		res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+			Namespace:    vmNamespace,
+			Username:     conf.TestData.SSHUser,
+			IdentityFile: conf.TestData.Sshkey,
 		})
 		if res.Error() != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
@@ -301,7 +301,7 @@ func ChangeCPUCoresNumber(cpuNumber int, vmNamespace string, vmNames ...string) 
 func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, vmNamespace string, vmNames ...string) {
 	for _, vmName := range vmNames {
 		By(fmt.Sprintf("Checking the number of processor cores %s changing", stage))
-		vmResource := virtv2.VirtualMachine{}
+		vmResource := v1alpha2.VirtualMachine{}
 		err := GetObject(kc.ResourceVM, vmName, &vmResource, kc.GetOptions{Namespace: vmNamespace})
 		Expect(err).NotTo(HaveOccurred(), "%v", err)
 		Expect(vmResource.Spec.CPU.Cores).To(Equal(requiredValue))

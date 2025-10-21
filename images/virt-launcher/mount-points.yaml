@@ -1,0 +1,48 @@
+# A list of pre-created mount points for containerd strict mode.
+#
+# See https://github.com/deckhouse/3p-kubevirt/blob/8aed630/pkg/virt-controller/services/rendervolumes.go
+#
+# Some volume mounts are ignored:
+# - /tmp - already in the 'distroless' base image.
+# - /var/run - already in the 'distroless' base image.
+# No need to pre-create a plethora of /var/run descendants,
+# as deckhouse/3p-kubevirt is patched to mount /var/run as emptyDir:
+# - /var/run/libvirt
+# - /var/run/kubevirt-ephemeral-disks
+# - /var/run/kubevirt-hooks
+# - /var/run/kubevirt-private
+# - /var/run/kubevirt-private/sysprep/<volname>
+# - /var/run/kubevirt-private/secret/cloudinit/userdata
+# - /var/run/kubevirt-private/secret/cloudinit/userData
+# - /var/run/kubevirt-private/secret/cloudinit/networkdata
+# - /var/run/kubevirt-private/secret/cloudinit/networkData
+# - /var/run/kubevirt-private/config-map
+# - /var/run/kubevirt-private/downwardapi
+# - /var/run/kubevirt-private/downwardapi-disks
+# - /var/run/kubevirt-private/vmi-disks
+# - /var/run/kubevirt-private/libvirt
+# - /var/run/kubevirt-private/libvirt/qemu
+# - /var/run/kubevirt-private/libvirt/qemu/nvram
+# - /var/run/kubevirt-private/libvirt/qemu/swtpm
+# - /var/run/kubevirt-private/var/lib/swtpm-localca
+# - There are more dirs in /var/run/kubevirt-private/
+# - /var/run/kubevirt
+# - /var/run/kubevirt/container-disks
+# - /var/run/kubevirt/sockets
+# - /var/run/kubevirt/hotplug-disks
+# - /var/run/kubevirt/virtiofs-containers
+# /var/log is mounted as emptyDir too:
+# - /var/log/libvirt
+
+dirs:
+  - /etc/libvirt
+  - /etc/podinfo
+  - /var/cache/libvirt
+  - /var/lib/libvirt
+  - /var/lib/libvirt/swtpm
+  - /var/lib/libvirt/qemu/nvram
+  - /var/lib/kubevirt-node-labeller
+  - /var/lib/swtpm-localca
+  - /var/log/libvirt
+  - /path # For hot-plugged disks, used in "hp Pods".
+  - /init/usr/bin # For attaching images as "container disks".

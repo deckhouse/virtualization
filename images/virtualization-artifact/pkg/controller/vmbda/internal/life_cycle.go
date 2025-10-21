@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
@@ -43,7 +43,7 @@ func NewLifeCycleHandler(attacher *service.AttachmentService) *LifeCycleHandler 
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	// TODO protect vd.
@@ -57,7 +57,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	var ad *service.AttachmentDisk
 	switch vmbda.Spec.BlockDeviceRef.Kind {
-	case virtv2.VMBDAObjectRefKindVirtualDisk:
+	case v1alpha2.VMBDAObjectRefKindVirtualDisk:
 		vd, err := h.attacher.GetVirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -65,7 +65,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		if vd != nil {
 			ad = service.NewAttachmentDiskFromVirtualDisk(vd)
 		}
-	case virtv2.VMBDAObjectRefKindVirtualImage:
+	case v1alpha2.VMBDAObjectRefKindVirtualImage:
 		vi, err := h.attacher.GetVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -73,7 +73,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		if vi != nil {
 			ad = service.NewAttachmentDiskFromVirtualImage(vi)
 		}
-	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
+	case v1alpha2.VMBDAObjectRefKindClusterVirtualImage:
 		cvi, err := h.attacher.GetClusterVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -97,7 +97,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if vmbda.DeletionTimestamp != nil {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseTerminating
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseTerminating
 		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 
 		return reconcile.Result{}, nil
@@ -113,7 +113,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 			log.Error("Hot plug has been started for Conflicted VMBDA, please report a bug")
 		}
 
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.Conflict).
@@ -127,12 +127,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if vmbda.Status.Phase == "" {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 	}
 
 	blockDeviceReady, _ := conditions.GetCondition(vmbdacondition.BlockDeviceReadyType, vmbda.Status.Conditions)
 	if blockDeviceReady.Status != metav1.ConditionTrue {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
@@ -142,7 +142,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 
 	virtualMachineReady, _ := conditions.GetCondition(vmbdacondition.VirtualMachineReadyType, vmbda.Status.Conditions)
 	if virtualMachineReady.Status != metav1.ConditionTrue {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
@@ -151,7 +151,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if ad == nil {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
@@ -160,7 +160,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if vm == nil {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
@@ -169,7 +169,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if kvvm == nil {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
@@ -183,7 +183,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if kvvmi == nil {
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
@@ -197,7 +197,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	isHotPlugged, err := h.attacher.IsHotPlugged(ad, vm, kvvmi)
 	if err != nil {
 		if errors.Is(err, service.ErrVolumeStatusNotReady) {
-			vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.AttachmentRequestSent).
@@ -211,7 +211,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	if isHotPlugged {
 		log.Info("Hot plug is completed and disk is attached")
 
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseAttached
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseAttached
 		cb.Status(metav1.ConditionTrue).Reason(vmbdacondition.Attached)
 
 		vmbda.Status.VirtualMachineName = vm.Name
@@ -227,12 +227,35 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		if blockDeviceLimitCondition.Status != metav1.ConditionTrue {
 			log.Info("Virtual machine block device capacity reached")
 
-			vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+			vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.NotAttached).
 				Message("Virtual machine block device capacity reached.")
 			return reconcile.Result{}, nil
+		}
+
+		if ad.PVCName != "" {
+			pvc, err := h.attacher.GetPersistentVolumeClaim(ctx, ad)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			if pvc != nil {
+				available, err := h.attacher.IsPVAvailableOnVMNode(ctx, pvc, kvvmi)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+
+				if !available {
+					vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vmbdacondition.DeviceNotAvailableOnNode).
+						Message(fmt.Sprintf("PersistentVolume %q is not available on node %q where the virtual machine is running", pvc.Spec.VolumeName, kvvmi.Status.NodeName))
+					return reconcile.Result{}, nil
+				}
+			}
 		}
 
 		log.Info("Send attachment request")
@@ -248,7 +271,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 			return reconcile.Result{}, err
 		}
 
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).
@@ -257,7 +280,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	case errors.Is(err, service.ErrBlockDeviceIsSpecAttached):
 		log.Info("VirtualDisk is already attached to the virtual machine spec")
 
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseFailed
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseFailed
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.Conflict).
@@ -266,7 +289,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	case errors.Is(err, service.ErrHotPlugRequestAlreadySent):
 		log.Info("Attachment request sent: attachment is in progress.")
 
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseInProgress
+		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhaseInProgress
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).

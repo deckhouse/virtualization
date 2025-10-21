@@ -18,7 +18,6 @@ package vd
 
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,15 +42,11 @@ func WithDatasource(datasource *v1alpha2.VirtualDiskDataSource) func(vd *v1alpha
 	}
 }
 
-func WithDataSourceHTTP(url string, checksum *v1alpha2.Checksum, caBundle []byte) Option {
+func WithDataSourceHTTP(dataSourceHTTP *v1alpha2.DataSourceHTTP) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
 		vd.Spec.DataSource = &v1alpha2.VirtualDiskDataSource{
 			Type: v1alpha2.DataSourceTypeHTTP,
-			HTTP: &v1alpha2.DataSourceHTTP{
-				URL:      url,
-				Checksum: checksum,
-				CABundle: caBundle,
-			},
+			HTTP: dataSourceHTTP,
 		}
 	}
 }
@@ -100,9 +95,9 @@ func WithPersistentVolumeClaim(storageClass *string, size *resource.Quantity) Op
 	}
 }
 
-func WithStorageClass(storageClass string) Option {
+func WithStorageClass(storageClass *string) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
-		vd.Spec.PersistentVolumeClaim.StorageClass = ptr.To(storageClass)
+		vd.Spec.PersistentVolumeClaim.StorageClass = storageClass
 	}
 }
 
