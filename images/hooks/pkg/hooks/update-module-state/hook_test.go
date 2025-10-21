@@ -78,9 +78,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(secret.Namespace).To(Equal(settings.ModuleNamespace))
 				Expect(secret.Data).To(HaveKey("generic-vmclass-created"))
 
-				decoded, err := base64.StdEncoding.DecodeString(string(secret.Data["generic-vmclass-created"]))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(decoded)).To(Equal("true"))
+				Expect(string(secret.Data["generic-vmclass-created"])).To(Equal("true"))
 			})
 
 			patchCollector.PatchWithMergeMock.Optional()
@@ -113,9 +111,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(ok).To(BeTrue())
 				Expect(data).To(HaveKey("generic-vmclass-created"))
 
-				decoded, err := base64.StdEncoding.DecodeString(data["generic-vmclass-created"])
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(decoded)).To(Equal("true"))
+				Expect(data["generic-vmclass-created"]).To(Equal("true"))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -163,9 +159,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(secret.Namespace).To(Equal(settings.ModuleNamespace))
 				Expect(secret.Data).To(HaveKey("generic-vmclass-created"))
 
-				decoded, err := base64.StdEncoding.DecodeString(string(secret.Data["generic-vmclass-created"]))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(string(decoded)).To(Equal("false"))
+				Expect(string(secret.Data["generic-vmclass-created"])).To(Equal("false"))
 			})
 
 			patchCollector.PatchWithMergeMock.Optional()

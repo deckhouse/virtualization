@@ -95,7 +95,7 @@ type ModuleState struct {
 func (ms ModuleState) ToSecretData() map[string][]byte {
 	value := fmt.Sprintf("%t", ms.GenericVMClassCreated)
 	return map[string][]byte{
-		genericVMClassStateKey: []byte(base64.StdEncoding.EncodeToString([]byte(value))),
+		genericVMClassStateKey: []byte(value),
 	}
 }
 
@@ -103,7 +103,7 @@ func (ms ModuleState) ToPatchData() map[string]interface{} {
 	value := fmt.Sprintf("%t", ms.GenericVMClassCreated)
 	return map[string]interface{}{
 		"data": map[string]string{
-			genericVMClassStateKey: base64.StdEncoding.EncodeToString([]byte(value)),
+			genericVMClassStateKey: value,
 		},
 	}
 }
