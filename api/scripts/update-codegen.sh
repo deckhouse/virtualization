@@ -75,7 +75,7 @@ function generate::crds {
     OUTPUT_BASE=$(mktemp -d)
     trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
 
-    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/..." output:crd:dir="${OUTPUT_BASE}"
+    go tool controller-gen crd:crdVersions=v1 paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/..." output:crd:dir="${OUTPUT_BASE}"
 
     # shellcheck disable=SC2044
     for file in $(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml"); do
@@ -88,7 +88,6 @@ function generate::crds {
         DEST_FILE="${ROOT}/crds/$(echo $file | awk -Fio_ '{print $2}')"
         cp "$file" "${DEST_FILE}"
 
-        # Add conversion webhook configuration for VirtualMachineClass
         if [[ "${DEST_FILE}" == *"virtualmachineclasses.yaml" ]]; then
             yq eval -i '.spec.conversion = {
                 "strategy": "Webhook",

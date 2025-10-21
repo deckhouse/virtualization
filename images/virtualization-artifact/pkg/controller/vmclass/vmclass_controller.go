@@ -74,9 +74,6 @@ func NewController(
 		return nil, err
 	}
 
-	conversionHandler := NewConversionHandler()
-	mgr.GetWebhookServer().Register("/convert/virtualmachineclasses", conversionHandler)
-
 	log.Info("Initialized VirtualMachineClass controller")
 	return c, nil
 }
