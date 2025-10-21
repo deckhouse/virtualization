@@ -81,7 +81,7 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 	It("Should drop both Helm labels from generic VMClass with all required labels", func() {
 		setSnapshots(newSnapshot(true, true))
 		patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
-			Expect(apiVersion).To(Equal("deckhouse.io/v1alpha2"))
+			Expect(apiVersion).To(Equal("virtualization.deckhouse.io/v1alpha2"))
 			Expect(kind).To(Equal("VirtualMachineClass"))
 			Expect(namespace).To(Equal(""))
 			Expect(name).To(Equal(genericVMClassName))

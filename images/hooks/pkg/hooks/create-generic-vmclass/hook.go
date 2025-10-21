@@ -123,8 +123,10 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 			},
 			Spec: v1alpha2.VirtualMachineClassSpec{
 				CPU: v1alpha2.CPU{
-					Type:  v1alpha2.CPUTypeModel,
-					Model: "Nehalem",
+					Type:      v1alpha2.CPUTypeModel,
+					Model:     "Nehalem",
+					Features:  nil,
+					Discovery: v1alpha2.CpuDiscovery{},
 				},
 				SizingPolicies: []v1alpha2.SizingPolicy{
 					{

@@ -23,6 +23,7 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -42,12 +43,12 @@ const (
 var _ = registry.RegisterFunc(configDropHelmLabels, handlerDropHelmLabels)
 
 var configDropHelmLabels = &pkg.HookConfig{
-	OnAfterHelm: &pkg.OrderedConfig{Order: 10},
+	OnAfterHelm: &pkg.OrderedConfig{Order: 20},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       vmClassSnapshot,
-			APIVersion: "deckhouse.io/v1alpha2",
-			Kind:       "VirtualMachineClass",
+			APIVersion: "virtualization.deckhouse.io/v1alpha2",
+			Kind:       v1alpha2.VirtualMachineClassKind,
 			JqFilter:   ".metadata",
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{genericVMClassName},
@@ -127,7 +128,7 @@ func handlerDropHelmLabels(_ context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Removing Helm labels from generic VMClass")
 	input.PatchCollector.PatchWithJSON(
 		patches,
-		"deckhouse.io/v1alpha2",
+		"virtualization.deckhouse.io/v1alpha2",
 		"VirtualMachineClass",
 		"",
 		genericVMClassName,
