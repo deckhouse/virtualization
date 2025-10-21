@@ -30,7 +30,6 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -57,10 +56,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 	)
 
 	BeforeAll(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)

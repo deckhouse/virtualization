@@ -761,38 +761,59 @@ func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
 
 func SaveTestCaseResources(labels map[string]string, additional, namespace, dumpPath string) {
 	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", dumpPath, labels["testcase"], additional)
-	errorFileName := fmt.Sprintf("%s/e2e_failed__%s__%s_error.txt", dumpPath, labels["testcase"], additional)
 
-	cmdr := kubectl.Get(
-		"virtualization,cvi,vmc,intvirt,pod,volumesnapshot",
-		kc.GetOptions{
-			Labels:            labels,
-			Namespace:         namespace,
-			Output:            "yaml",
-			ShowManagedFields: true,
-		},
-	)
-	if cmdr.Error() != nil {
-		errReport := fmt.Sprintf("cmd: %s\nerror: %s\nstderr: %s\n", cmdr.GetCmd(), cmdr.Error(), cmdr.StdErr())
-		GinkgoWriter.Printf("Get resources error:\n%s\n", errReport)
-		err := os.WriteFile(errorFileName, []byte(errReport), 0o644)
-		if err != nil {
-			GinkgoWriter.Printf("Save error to file '%s' failed: %s\n", errorFileName, err)
-		}
+	clusterResource, crErr := GetResource("cvi,vmc", kc.GetOptions{
+		Labels:            labels,
+		Namespace:         namespace,
+		Output:            "yaml",
+		ShowManagedFields: true,
+	})
+	if crErr != nil {
+		GinkgoWriter.Printf("Get resources error:\n%s\n", crErr)
+	}
+
+	namespacedResource, nrErr := GetResource("virtualization,intvirt,pod,volumesnapshot,pvc", kc.GetOptions{
+		Namespace:         namespace,
+		Output:            "yaml",
+		ShowManagedFields: true,
+	})
+	if nrErr != nil {
+		GinkgoWriter.Printf("Get resources error:\n%s\n", nrErr)
 	}
 
 	// Stdout may present even if error is occurred.
-	if len(cmdr.StdOutBytes()) > 0 {
-		err := os.WriteFile(resFileName, cmdr.StdOutBytes(), 0o644)
+	if len(clusterResource) > 0 || len(namespacedResource) > 0 {
+		delimeter := []byte("---\n")
+		result := append(clusterResource, delimeter...)
+		result = append(result, namespacedResource...)
+		err := os.WriteFile(resFileName, result, 0o644)
 		if err != nil {
-			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", errorFileName, err)
+			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", resFileName, err)
 		}
 	}
 }
 
+func GetResource(resources string, opts kc.GetOptions) ([]byte, error) {
+	cmd := kubectl.Get(
+		resources,
+		kc.GetOptions{
+			Labels:            opts.Labels,
+			Namespace:         opts.Namespace,
+			Output:            opts.Output,
+			ShowManagedFields: opts.ShowManagedFields,
+		},
+	)
+
+	if cmd.Error() != nil {
+		return []byte{}, fmt.Errorf("cmd: %s\nerror: %s\nstderr: %s\n", cmd.GetCmd(), cmd.Error(), cmd.StdErr())
+	}
+
+	return cmd.StdOutBytes(), nil
+}
+
 func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
 	pods := &corev1.PodList{}
-	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Namespace: namespace, Labels: labels})
+	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Namespace: namespace})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
 	}
@@ -802,6 +823,7 @@ func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace,
 	}
 
 	for _, pod := range pods.Items {
+		// Get pod logs
 		logCmd := kubectl.RawCommand(fmt.Sprintf("logs %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
 		if logCmd.Error() != nil {
 			GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %s\n", pod.Name, logCmd.StdErr())
@@ -813,6 +835,7 @@ func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace,
 			GinkgoWriter.Printf("Failed to save logs:\nPodName: %s\nError: %s\n", pod.Name, err)
 		}
 
+		// Get pod descriptions
 		describeCmd := kubectl.RawCommand(fmt.Sprintf("describe pod %s --namespace %s", pod.Name, pod.Namespace), framework.ShortTimeout)
 		if describeCmd.Error() != nil {
 			GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", pod.Name, describeCmd.StdErr())
@@ -822,6 +845,22 @@ func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace,
 		err = os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Failed to save pod description:\nPodName: %s\nError: %s\n", pod.Name, err)
+		}
+
+		// Get pod guest info
+		if pod.Labels != nil && pod.Status.Phase == corev1.PodRunning {
+			if value, ok := pod.Labels["kubevirt.internal.virtualization.deckhouse.io"]; ok && value == "virt-launcher" {
+				vlctlGuestInfoCmd := kubectl.RawCommand(fmt.Sprintf("exec --stdin=true --tty=true %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), framework.ShortTimeout)
+				if vlctlGuestInfoCmd.Error() != nil {
+					GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
+				}
+
+				fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__vlctl_guest_info", dumpPath, labels["testcase"], additional, pod.Name)
+				err := os.WriteFile(fileName, vlctlGuestInfoCmd.StdOutBytes(), 0o644)
+				if err != nil {
+					GinkgoWriter.Printf("Failed to save pod guest info:\nPodName: %s\nError: %s\n", pod.Name, err)
+				}
+			}
 		}
 	}
 }
