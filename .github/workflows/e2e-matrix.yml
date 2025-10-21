@@ -161,25 +161,14 @@ jobs:
 
       - name: Configure registry auth (REGISTRY_DOCKER_CFG)
         working-directory: ci/dvp-e2e
-        shell: bash
+        env:
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
         run: |
-          set -euo pipefail
-          echo "DEBUG: Checking REGISTRY_DOCKER_CFG..."
-          if [ -z "${{ secrets.REGISTRY_DOCKER_CFG }}" ]; then
-            echo "❌ REGISTRY_DOCKER_CFG is empty/unavailable" >&2
-            echo "Available secrets: $(env | grep SECRET || echo 'No SECRET env vars')" >&2
-            exit 1
-          fi
-          echo "✅ REGISTRY_DOCKER_CFG is present (length: ${#REGISTRY_DOCKER_CFG})"
-          # Create proper values.yaml with dynamic namespace first
           task run:values:prepare \
             RUN_ID="${{ env.RUN_ID }}" \
             RUN_NAMESPACE="${{ env.RUN_ID }}" \
             RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
-          # Then add registryDockerCfg
           REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
-          echo "DEBUG: Added registryDockerCfg to values.yaml"
-          # Set VALUES_TEMPLATE_FILE to the ready file
           echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
 
       - name: Configure registry auth via modules-actions
