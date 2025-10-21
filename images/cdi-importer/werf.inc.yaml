@@ -37,6 +37,7 @@ packages:
 - p11-kit zlib
 - glibc
 - glib2 pcre2 libbsd libfuse3
+- gcc ubdsrv liburing
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
