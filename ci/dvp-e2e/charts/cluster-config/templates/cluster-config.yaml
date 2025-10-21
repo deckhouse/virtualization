@@ -13,7 +13,7 @@ apiVersion: deckhouse.io/v1
 kind: InitConfiguration
 deckhouse:
   imagesRepo: dev-registry.deckhouse.io/sys/deckhouse-oss
-  registryDockerCfg: {{ .Values.deckhouse.registryDockerCfg | quote }}
+  registryDockerCfg: {{ .Values.deckhouse.registryDockerCfg }}
   devBranch: {{ .Values.deckhouse.tag }}
 ---
 apiVersion: deckhouse.io/v1
