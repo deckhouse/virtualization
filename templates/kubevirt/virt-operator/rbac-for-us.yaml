@@ -585,17 +585,12 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - subresources.virtualization.deckhouse.io/v1alpha2
+  - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
-  verbs:
-  - update
-- apiGroups:
-    - subresources.virtualization.deckhouse.io/v1alpha3
-  resources:
-    - apivirtualmachines/addvolume
-    - apivirtualmachines/removevolume
+  - apivirtualmachines/addvolume
+  - apivirtualmachines/removevolume
   verbs:
     - update
 - apiGroups:

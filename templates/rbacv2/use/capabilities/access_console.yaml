@@ -9,18 +9,11 @@ metadata:
   name: d8:use:capability:virtualization:access_console
 rules:
 - apiGroups:
-  - subresources.virtualization.deckhouse.io/v1alpha2
+  - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/console
+  - apivirtualmachines/console
   verbs:
   - get
   - create
   - update
-- apiGroups:
-    - subresources.virtualization.deckhouse.io/v1alpha3
-  resources:
-    - apivirtualmachines/console
-  verbs:
-    - get
-    - create
-    - update

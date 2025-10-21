@@ -26,19 +26,14 @@ rules:
   - list
   - watch
 - apiGroups:
-  - subresources.virtualization.deckhouse.io/v1alpha2
+  - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines
+  - apivirtualmachines
   verbs:
   - get
   - list
   - watch
-- apiGroups:
-    - subresources.virtualization.deckhouse.io/v1alpha3
-  resources:
-    - apivirtualmachines
-  verbs:
-    - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -55,29 +50,22 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - subresources.virtualization.deckhouse.io/v1alpha2
+  - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/console
   - virtualmachines/vnc
   - virtualmachines/portforward
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - apivirtualmachines/console
+  - apivirtualmachines/vnc
+  - apivirtualmachines/portforward
+  - apivirtualmachines/addvolume
+  - apivirtualmachines/removevolume
   verbs:
   - get
   - create
   - update
-- apiGroups:
-    - subresources.virtualization.deckhouse.io/v1alpha3
-  resources:
-    - apivirtualmachines/console
-    - apivirtualmachines/vnc
-    - apivirtualmachines/portforward
-    - apivirtualmachines/addvolume
-    - apivirtualmachines/removevolume
-  verbs:
-    - get
-    - create
-    - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
