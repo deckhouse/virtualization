@@ -79,8 +79,8 @@ func (m *VMControl) Fill() error {
 		}
 	}
 
-	isControllerAction := strings.Contains(m.event.User.Username, "system:serviceaccount:d8-virtualization")
-	isNodeAction := strings.Contains(m.event.User.Username, "system:node")
+	isControllerAction := strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-virtualization")
+	isNodeAction := strings.HasPrefix(m.event.User.Username, "system:node")
 
 	switch {
 	case isControllerAction:
