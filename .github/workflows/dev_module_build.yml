@@ -75,7 +75,9 @@ jobs:
       - name: Pull Docker image
         run: |
           echo "Pull iimage"
-          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
+          docker pull registry.deckhouse.ru/deckhouse/ce/install:alpha
+          # docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
+          
   set_vars:
     runs-on: ubuntu-latest
     name: Get PR info and set vars
