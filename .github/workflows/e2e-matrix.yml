@@ -241,7 +241,6 @@ jobs:
           echo "🚀 dhctl bootstrap (profile: ${{ matrix.profile }})"
           task dhctl-bootstrap \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud" \
             TARGET_STORAGE_CLASS="${STORAGE_CLASS}"
