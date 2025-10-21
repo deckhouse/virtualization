@@ -35,7 +35,6 @@ storageProfiles:
     virtualDisks:
       os: sds-local-storage
       data: sds-local-storage
-namespace: nightly-e2e
 domain: e2e.virtlab.flant.com
 clusterConfigurationPrefix: x
 deckhouse:
