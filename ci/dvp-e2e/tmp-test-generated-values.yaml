@@ -1,8 +1,0 @@
-storageClasses:
-  workers:
-    root: test-sc
-  controlPlane:
-    root: test-sc
-    etcd: test-sc
-sshPublicKey: "test-key"
-kubeconfigDataBase64: "dGVzdA=="

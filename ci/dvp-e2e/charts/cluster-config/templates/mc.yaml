@@ -2,13 +2,6 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
-  name: upmeter
-spec:
-  enabled: false
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
   name: deckhouse
 spec:
   version: 1

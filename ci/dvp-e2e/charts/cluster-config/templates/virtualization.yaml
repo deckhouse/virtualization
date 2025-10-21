@@ -20,5 +20,5 @@ kind: ModulePullOverride
 metadata:
   name: virtualization
 spec:
-  imageTag: main
+  imageTag: {{ .Values.virtualization.tag }}
   scanInterval: 15s
