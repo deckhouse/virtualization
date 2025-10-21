@@ -168,6 +168,13 @@ jobs:
             RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
           echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
 
+      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+        working-directory: ci/dvp-e2e
+        env:
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
+        run: |
+          REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+
       - name: Configure registry auth via modules-actions
         uses: deckhouse/modules-actions/setup@v2
         with:

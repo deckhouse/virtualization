@@ -12,7 +12,8 @@ clusterDomain: "internal.cluster.local"
 apiVersion: deckhouse.io/v1
 kind: InitConfiguration
 deckhouse:
-  imagesRepo: registry.deckhouse.ru/deckhouse/ce
+  imagesRepo: dev-registry.deckhouse.io/sys/deckhouse-oss
+  registryDockerCfg: {{ .Values.deckhouse.registryDockerCfg | quote }}
   devBranch: {{ .Values.deckhouse.tag }}
 ---
 apiVersion: deckhouse.io/v1

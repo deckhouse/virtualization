@@ -1,11 +1,5 @@
 # Cluster configuration values for E2E testing
 
-# Cluster settings
-cluster:
-  name: ""
-  namespace: ""
-  domain: ""
-
 # Instance configuration (from original values.yaml)
 instances:
   masterNodes:
