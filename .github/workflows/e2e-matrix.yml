@@ -172,7 +172,7 @@ jobs:
       - name: Verify dev-registry access
         run: |
           set -euo pipefail
-          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
+          docker pull registry.deckhouse.ru/deckhouse/ce/install:alpha
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
