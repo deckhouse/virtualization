@@ -117,7 +117,7 @@ jobs:
         run: |
           echo "Installing d8 CLI..."
           curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-          bash d8-install.sh
+          bash d8-install.sh --skip-checksum
           rm -f d8-install.sh
 
       - name: Install yq
