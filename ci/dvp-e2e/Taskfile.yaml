@@ -237,7 +237,9 @@ tasks:
         yq eval --inplace '.kubeconfigDataBase64 = env(NEW_KUBECONFIG_B64)' {{ .GENERATED_VALUES_FILE }}
       - |
         if [ -n "${REGISTRY_DOCKER_CFG:-}" ]; then
-          yq eval --inplace '.deckhouse.registryDockerCfg = env(REGISTRY_DOCKER_CFG)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' {{ .GENERATED_VALUES_FILE }}
+        else
+          yq eval --inplace '.deckhouse.registryDockerCfg = ""' {{ .GENERATED_VALUES_FILE }}
         fi
       - |
         if [ -n "{{ .TARGET_STORAGE_CLASS | default "" }}" ]; then
