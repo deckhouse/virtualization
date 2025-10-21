@@ -783,8 +783,8 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 
 	// Stdout may present even if error is occurred.
 	if len(clusterResource) > 0 || len(namespacedResource) > 0 {
-		delimeter := []byte("---\n")
-		result := append(clusterResource, delimeter...)
+		delimiter := []byte("---\n")
+		result := append(clusterResource, delimiter...)
 		result = append(result, namespacedResource...)
 		err := os.WriteFile(resFileName, result, 0o644)
 		if err != nil {
@@ -794,15 +794,7 @@ func SaveTestCaseResources(labels map[string]string, additional, namespace, dump
 }
 
 func GetResource(resources string, opts kc.GetOptions) ([]byte, error) {
-	cmd := kubectl.Get(
-		resources,
-		kc.GetOptions{
-			Labels:            opts.Labels,
-			Namespace:         opts.Namespace,
-			Output:            opts.Output,
-			ShowManagedFields: opts.ShowManagedFields,
-		},
-	)
+	cmd := kubectl.Get(resources, opts)
 
 	if cmd.Error() != nil {
 		return []byte{}, fmt.Errorf("cmd: %s\nerror: %s\nstderr: %s\n", cmd.GetCmd(), cmd.Error(), cmd.StdErr())
