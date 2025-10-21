@@ -198,9 +198,30 @@ jobs:
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
 
+      - name: Create base values.yaml
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "📄 Creating base values.yaml for: ${{ env.RUN_ID }}"
+          mkdir -p "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
+          cp values.yaml "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+
+      - name: Generate SSH keypair
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🔑 Generating SSH keypair for: ${{ env.RUN_ID }}"
+          task ssh:generate \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud"
+
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e
         run: |
+          task render-infra \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="cloud"
           task infra-deploy \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
