@@ -198,15 +198,6 @@ jobs:
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
 
-      - name: Prepare run values.yaml
-        working-directory: ci/dvp-e2e
-        run: |
-          echo "🧩 Preparing values for: ${{ env.RUN_ID }}"
-          task run:values:prepare \
-            RUN_ID="${{ env.RUN_ID }}" \
-            RUN_NAMESPACE="${{ env.RUN_ID }}" \
-            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
-
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e
         run: |
@@ -215,6 +206,15 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud"
+
+      - name: Prepare run values.yaml
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧩 Preparing values for: ${{ env.RUN_ID }}"
+          task run:values:prepare \
+            RUN_ID="${{ env.RUN_ID }}" \
+            RUN_NAMESPACE="${{ env.RUN_ID }}" \
+            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
 
       - name: Bootstrap nested cluster
         working-directory: ci/dvp-e2e
