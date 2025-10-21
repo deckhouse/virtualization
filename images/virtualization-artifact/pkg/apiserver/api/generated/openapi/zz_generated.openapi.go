@@ -4912,14 +4912,14 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneCustomi
 				Properties: map[string]spec.Schema{
 					"namePrefix": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NamePrefix adds a prefix to resource names during cloning. Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.",
+							Description: "NamePrefix adds a prefix to resource names during cloning. Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"nameSuffix": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NameSuffix adds a suffix to resource names during cloning. Applied to VirtualDisk, VirtualMachineIPAddress, VirtualMachineMACAddress, and Secret resources.",
+							Description: "NameSuffix adds a suffix to resource names during cloning. Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

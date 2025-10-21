@@ -62,6 +62,8 @@ echo
 
 docker run --rm \
     --platform linux/amd64 \
+    -v $(pwd)/fuzzartifact/.cache/go-build:/root/.cache/go-build \
+    -v $(pwd)/fuzzartifact/logs:/tmp/fuzz \
     $(docker build --platform linux/amd64 -q -f "$DOCKERFILE" .)
 
 echo

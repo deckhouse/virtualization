@@ -117,88 +117,20 @@ spec:
                       - from
                       - to
                       type: object
-                    type: array
-                required:
-                - mode
-                type: object
-              force:
-                description: |-
-                  Force execution of an operation.
-
-                  * Effect on `Restart` and `Stop`: operation performs immediately.
-                  * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
-                type: boolean
-              restore:
-                description: Restore defines the restore operation.
-                properties:
-                  mode:
-                    description: |-
-                      VMOPRestoreMode defines the kind of the restore operation.
-                      * `DryRun`: DryRun run without any changes. Compatibility shows in status.
-                      * `Strict`: Strict restore as is in the snapshot.
-                      * `BestEffort`: BestEffort restore without deleted external missing dependencies.
-                    enum:
-                    - DryRun
-                    - Strict
-                    - BestEffort
-                    type: string
-                  virtualMachineSnapshotName:
-                    description: VirtualMachineSnapshotName defines the source of
-                      the restore operation.
-                    type: string
-                required:
-                - mode
-                - virtualMachineSnapshotName
-                type: object
-              type:
-                description: |-
-                  Type of the operation to execute on a virtual machine:
-                  * `Start`: Start the virtual machine.
-                  * `Stop`: Stop the virtual machine.
-                  * `Restart`: Restart the virtual machine.
-                  * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
-                  * `Evict`: Migrate the virtual machine to another node where it can be started.
-                  * `Restore`: Restore the virtual machine from a snapshot.
-                  * `Clone`: Clone the virtual machine to a new virtual machine.
-                enum:
-                - Restart
-                - Start
-                - Stop
-                - Migrate
-                - Evict
-                - Restore
-                - Clone
-                type: string
-              virtualMachineName:
-                description: Name of the virtual machine the operation is performed
-                  for.
-                type: string
-            required:
-            - type
-            - virtualMachineName
-            type: object
-            x-kubernetes-validations:
-            - message: .spec is immutable
-              rule: self == oldSelf
-            - message: The `Start` operation cannot be performed forcibly.
-              rule: 'self.type == ''Start'' ? !has(self.force) || !self.force : true'
-            - message: The `Migrate` operation cannot be performed forcibly.
-              rule: 'self.type == ''Migrate'' ? !has(self.force) || !self.force :
-                true'
-            - message: Restore requires restore field.
-              rule: 'self.type == ''Restore'' ? has(self.restore) : true'
-            - message: Clone requires clone field.
-              rule: 'self.type == ''Clone'' ? has(self.clone) : true'
-          status:
-            properties:
-              conditions:
-                description: The latest detailed observations of the VirtualMachineOperation
-                  resource.
-                items:
-                  description: Condition contains details for one aspect of the current
-                    state of this API Resource.
-                  properties:
-                    lastTransitionTime:
+                      x-kubernetes-validations:
+                        - message:
+                            namePrefix length must be between 1 and 59 characters
+                            if set
+                          rule:
+                            "!has(self.namePrefix) || (size(self.namePrefix) >= 1
+                            && size(self.namePrefix) <= 59)"
+                        - message:
+                            nameSuffix length must be between 1 and 59 characters
+                            if set
+                          rule:
+                            "!has(self.nameSuffix) || (size(self.nameSuffix) >= 1
+                            && size(self.nameSuffix) <= 59)"
+                    mode:
                       description: |-
                         lastTransitionTime is the last time the condition transitioned from one status to another.
                         This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -241,6 +173,40 @@ spec:
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
+                    nameReplacement:
+                      description:
+                        NameReplacement defines rules for renaming resources
+                        during cloning.
+                      items:
+                        description:
+                          NameReplacement represents a rule for redefining
+                          the virtual machine resource names.
+                        properties:
+                          from:
+                            description: Selector to choose resources for name replacement.
+                            properties:
+                              kind:
+                                description: Kind of a resource to rename.
+                                type: string
+                              name:
+                                description: Current name of a resource to rename.
+                                type: string
+                            required:
+                              - name
+                            type: object
+                          to:
+                            description: New resource name.
+                            type: string
+                        required:
+                          - from
+                          - to
+                        type: object
+                      type: array
+                      x-kubernetes-validations:
+                        - message: Each nameReplacement.to must be between 1 and 59 characters
+                          rule:
+                            self.all(nr, has(nr.to) && size(nr.to) >= 1 && size(nr.to)
+                            <= 59)
                   required:
                   - lastTransitionTime
                   - message
@@ -248,32 +214,24 @@ spec:
                   - status
                   - type
                   type: object
-                type: array
-              observedGeneration:
-                description: ' Resource generation last processed by the controller.'
-                format: int64
-                type: integer
-              phase:
-                description: |-
-                  Current phase of the resource:
-                  * `Pending`: The operation is queued for execution.
-                  * `InProgress`: The operation is in progress.
-                  * `Completed`: The operation has been completed successfully.
-                  * `Failed`: The operation failed. For details, refer to the `conditions` field and events.
-                  * `Terminating`: The operation is being deleted.
-                enum:
-                - Pending
-                - InProgress
-                - Completed
-                - Failed
-                - Terminating
-                type: string
-              resources:
-                description: Resources contains the list of resources that are affected
-                  by the snapshot operation.
-                items:
-                  description: VirtualMachineOperationResource defines the resource
-                    affected by the operation.
+                  x-kubernetes-validations:
+                    - message:
+                        At least one of customization.namePrefix, customization.nameSuffix,
+                        or nameReplacement must be set
+                      rule:
+                        (has(self.customization) && ((has(self.customization.namePrefix)
+                        && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix)
+                        && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement)
+                        && size(self.nameReplacement) > 0)
+                force:
+                  description: |-
+                    Force execution of an operation.
+
+                    * Effect on `Restart` and `Stop`: operation performs immediately.
+                    * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
+                  type: boolean
+                restore:
+                  description: Restore defines the restore operation.
                   properties:
                     apiVersion:
                       description: API version of the resource.

@@ -8,7 +8,7 @@ final: false
 fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /
+  to: /src
   includePaths:
   - install-libvirt.sh
   - patches
@@ -23,9 +23,9 @@ secrets:
 shell:
   install:
   - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /{{ $gitRepoName }}-{{ $version }}
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
 
-    cd /{{ $gitRepoName }}-{{ $version }}
+    cd /src/{{ $gitRepoName }}-{{ $version }}
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
@@ -72,11 +72,9 @@ altLibraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libgnutls-devel
 - libsystemd-devel
 - systemtap-sdt-devel
-- libacl-devel glib2-devel glibc-utils
-- libgio-devel
+- glibc-utils
 - wireshark-devel
 - libclocale
 - libslirp-devel
@@ -92,7 +90,8 @@ packages:
 - selinux
 - cyrus-sasl2
 - libtasn1 libtirpc
-- libunistring libxml2
+- glib2 acl libunistring libxml2
+- gnutls
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -101,15 +100,15 @@ final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /{{ $gitRepoName }}-{{ $version }}
+  add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /patches
+  add: /src/patches
   to: /patches
   before: install
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /install-libvirt.sh
+  add: /src/install-libvirt.sh
   to: /install-libvirt.sh
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}

@@ -92,10 +92,8 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 		if err != nil {
 			return nil, err
 		}
-		ref.Hotplugged, err = h.isHotplugged(ctx, volume, kvvmiVolumeStatusByName, s)
-		if err != nil {
-			return nil, err
-		}
+
+		ref.Hotplugged = h.isHotplugged(volume, kvvmiVolumeStatusByName)
 		if ref.Hotplugged {
 			ref.VirtualMachineBlockDeviceAttachmentName, err = h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
 			if err != nil {
@@ -189,33 +187,23 @@ func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiVol
 	return vs.Target, ok
 }
 
-func (h *BlockDeviceHandler) isHotplugged(ctx context.Context, volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus, s state.VirtualMachineState) (bool, error) {
+func (h *BlockDeviceHandler) isHotplugged(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) bool {
 	switch {
 	// 1. If kvvmi has volume status with hotplugVolume reference then it's 100% hot-plugged volume.
 	case kvvmiVolumeStatusByName[volume.Name].HotplugVolume != nil:
-		return true, nil
+		return true
 
 	// 2. If kvvm has volume with hot-pluggable pvc reference then it's 100% hot-plugged volume.
 	case volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable:
-		return true, nil
+		return true
 
-	// 3. We cannot check volume.ContainerDisk.Hotpluggable, as this field was added in our patches and is not reflected in the api version of virtv1 used by us.
-	// Until we have a 3rd-party repository to import the modified virtv1, we have to make decisions based on indirect signs.
-	// If there was a previously hot-plugged block device and the VMBDA is still alive, then it's a hot-plugged block device.
-	// TODO: Use volume.ContainerDisk.Hotpluggable for decision-making when the 3rd-party repository is available.
-	case volume.ContainerDisk != nil:
-		bdName, kind := kvbuilder.GetOriginalDiskName(volume.Name)
-		if h.canBeHotPlugged(s.VirtualMachine().Current(), kind, bdName) {
-			vmbdaName, err := h.getBlockDeviceAttachmentName(ctx, kind, bdName, s)
-			if err != nil {
-				return false, err
-			}
-			return vmbdaName != "", nil
-		}
+	// 3. If kvvm has volume with hot-pluggable disk reference then it's 100% hot-plugged volume.
+	case volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable:
+		return true
 	}
 
 	// 4. Is not hot-plugged.
-	return false, nil
+	return false
 }
 
 func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, kind v1alpha2.BlockDeviceKind, bdName string, s state.VirtualMachineState) (string, error) {
@@ -242,20 +230,4 @@ func (h *BlockDeviceHandler) getBlockDeviceAttachmentName(ctx context.Context, k
 	}
 
 	return vmbdas[0].Name, nil
-}
-
-func (h *BlockDeviceHandler) canBeHotPlugged(vm *v1alpha2.VirtualMachine, kind v1alpha2.BlockDeviceKind, bdName string) bool {
-	for _, bdRef := range vm.Status.BlockDeviceRefs {
-		if bdRef.Kind == kind && bdRef.Name == bdName {
-			return bdRef.Hotplugged
-		}
-	}
-
-	for _, bdRef := range vm.Spec.BlockDeviceRefs {
-		if bdRef.Kind == kind && bdRef.Name == bdName {
-			return false
-		}
-	}
-
-	return true
 }

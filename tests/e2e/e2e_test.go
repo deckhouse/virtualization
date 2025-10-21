@@ -293,7 +293,7 @@ func (c *controllerRestartChecker) Check() error {
 	for _, pod := range pods.Items {
 		foundContainer := false
 		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name == VirtualizationController {
+			if containerStatus.Name == VirtualizationController && containerStatus.State.Running != nil {
 				foundContainer = true
 				if containerStatus.State.Running.StartedAt.After(c.startedAt.Time) {
 					errs = errors.Join(errs, fmt.Errorf("the container %q was restarted: %s", VirtualizationController, pod.Name))
