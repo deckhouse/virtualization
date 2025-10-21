@@ -108,7 +108,10 @@ tasks:
   render-infra:
     desc: Generate infra manifests
     deps:
-      - ssh-gen
+      - task: ssh-gen
+        vars:
+          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
@@ -117,6 +120,11 @@ tasks:
       SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
       DOMAIN:
         sh: yq eval '.domain // ""' {{ .VALUES_FILE }}
+    sources:
+      - "./charts/infra/**/*"
+      - "{{ .VALUES_FILE }}"
+    generates:
+      - "{{ .TMP_DIR }}/infra.yaml"
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
@@ -136,7 +144,12 @@ tasks:
   infra-deploy:
     desc: Deploy infra (Namespace/RBAC/Jump-host)
     deps:
-      - render-infra
+      - task: render-infra
+        vars:
+          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+          VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
+          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
