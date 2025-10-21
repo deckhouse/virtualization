@@ -554,7 +554,6 @@ tasks:
           kubectl delete ns "$ns" --wait=false || true
           echo "[WAIT] Waiting for delete $ns (polling)"
           sleep 3
-          ./scripts/undeploy-finalizers.sh "$ns" || true
         done
 
   cleanup:cleanup:namespaces:
