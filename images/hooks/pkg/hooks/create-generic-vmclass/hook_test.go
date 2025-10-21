@@ -75,7 +75,7 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			})
 		})
 
-		It("should create generic vmclass when it doesn't exist", func() {
+		It("should recreate generic vmclass when it doesn't exist but state says it was created", func() {
 			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{})
 
 			patchCollector.CreateMock.Set(func(obj interface{}) {
@@ -109,8 +109,27 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{})
 		})
 
-		It("should not create generic vmclass", func() {
+		It("should create generic vmclass when it doesn't exist", func() {
 			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{})
+
+			patchCollector.CreateMock.Set(func(obj interface{}) {
+				vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
+				Expect(ok).To(BeTrue())
+				Expect(vmClass.Name).To(Equal("generic"))
+				Expect(vmClass.Labels).To(Equal(map[string]string{
+					"app":    "virtualization-controller",
+					"module": "virtualization",
+				}))
+			})
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
+		})
+
+		It("should not create generic vmclass when it already exists", func() {
+			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
+				mock.NewSnapshotMock(GinkgoT()),
+			})
 
 			patchCollector.CreateMock.Optional()
 
@@ -135,8 +154,72 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			})
 		})
 
-		It("should not create generic vmclass", func() {
+		It("should create generic vmclass when it doesn't exist", func() {
 			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{})
+
+			patchCollector.CreateMock.Set(func(obj interface{}) {
+				vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
+				Expect(ok).To(BeTrue())
+				Expect(vmClass.Name).To(Equal("generic"))
+				Expect(vmClass.Labels).To(Equal(map[string]string{
+					"app":    "virtualization-controller",
+					"module": "virtualization",
+				}))
+			})
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
+		})
+
+		It("should not create generic vmclass when it already exists", func() {
+			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
+				mock.NewSnapshotMock(GinkgoT()),
+			})
+
+			patchCollector.CreateMock.Optional()
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
+		})
+	})
+
+	Context("when module-state secret exists with generic-vmclass-created=false", func() {
+		BeforeEach(func() {
+			moduleStateData := map[string]interface{}{
+				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("false")),
+			}
+
+			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
+				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
+					data, ok := v.(*map[string]interface{})
+					Expect(ok).To(BeTrue())
+					*data = moduleStateData
+					return nil
+				}),
+			})
+		})
+
+		It("should create generic vmclass when it doesn't exist", func() {
+			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{})
+
+			patchCollector.CreateMock.Set(func(obj interface{}) {
+				vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
+				Expect(ok).To(BeTrue())
+				Expect(vmClass.Name).To(Equal("generic"))
+				Expect(vmClass.Labels).To(Equal(map[string]string{
+					"app":    "virtualization-controller",
+					"module": "virtualization",
+				}))
+			})
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
+		})
+
+		It("should not create generic vmclass when it already exists", func() {
+			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
+				mock.NewSnapshotMock(GinkgoT()),
+			})
 
 			patchCollector.CreateMock.Optional()
 

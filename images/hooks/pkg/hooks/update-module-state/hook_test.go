@@ -149,29 +149,42 @@ var _ = Describe("Update Module State hook", func() {
 			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{})
 		})
 
-		It("should create module-state secret with false value when it doesn't exist", func() {
+		It("should not create module-state secret when vmclass doesn't exist and secret doesn't exist", func() {
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{})
 
-			patchCollector.CreateMock.Set(func(obj interface{}) {
-				secret, ok := obj.(*corev1.Secret)
-				Expect(ok).To(BeTrue())
-				Expect(secret.Name).To(Equal("module-state"))
-				Expect(secret.Namespace).To(Equal(settings.ModuleNamespace))
-				Expect(secret.Data).To(HaveKey("generic-vmclass-created"))
-
-				Expect(string(secret.Data["generic-vmclass-created"])).To(Equal("false"))
-			})
-
+			patchCollector.CreateMock.Optional()
 			patchCollector.PatchWithMergeMock.Optional()
 
 			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
 			Expect(patchCollector.PatchWithMergeMock.Calls()).To(HaveLen(0))
 		})
 
 		It("should keep historical record when vmclass doesn't exist but module-state indicates it was created", func() {
 			moduleStateData := map[string]interface{}{
 				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("true")),
+			}
+
+			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
+				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
+					data, ok := v.(*map[string]interface{})
+					Expect(ok).To(BeTrue())
+					*data = moduleStateData
+					return nil
+				}),
+			})
+
+			patchCollector.PatchWithMergeMock.Optional()
+			patchCollector.CreateMock.Optional()
+
+			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
+			Expect(patchCollector.PatchWithMergeMock.Calls()).To(HaveLen(0))
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
+		})
+
+		It("should not update module-state secret when vmclass doesn't exist and secret contains false", func() {
+			moduleStateData := map[string]interface{}{
+				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("false")),
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{

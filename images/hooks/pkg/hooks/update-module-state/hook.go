@@ -115,7 +115,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	vmClassExists := len(vmClasses) > 0
 
 	needsUpdate := false
-	currentState := false
+	hasBeenCreated := false
 
 	if len(moduleStateSecrets) > 0 {
 		moduleStateData := make(map[string]interface{})
@@ -123,33 +123,31 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 			if genericCreatedEncoded, exists := moduleStateData[genericVMClassStateKey]; exists {
 				if encodedStr, ok := genericCreatedEncoded.(string); ok {
 					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
-						currentState = string(decodedBytes) == "true"
+						hasBeenCreated = string(decodedBytes) == "true"
 					}
 				}
 			}
 		}
 	}
 
-	if vmClassExists && !currentState {
+	// Записываем в секрет только когда VMClass создан и еще не записано
+	if vmClassExists && !hasBeenCreated {
 		needsUpdate = true
-		input.Logger.Info("Generic VirtualMachineClass exists but module-state doesn't reflect this, updating secret")
-	} else if !vmClassExists && currentState {
-		input.Logger.Info("Generic VirtualMachineClass doesn't exist but module-state indicates it was created previously - keeping historical record")
-	} else if len(moduleStateSecrets) == 0 {
-		needsUpdate = true
-		input.Logger.Info("Module-state secret doesn't exist, creating it")
-	} else if vmClassExists && currentState {
-		input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass exists")
-	} else {
-		input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass doesn't exist")
+		input.Logger.Info("Generic VirtualMachineClass exists but module-state doesn't reflect it was created, updating secret")
+	} else if vmClassExists && hasBeenCreated {
+		input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass was created")
+	} else if !vmClassExists && hasBeenCreated {
+		input.Logger.Info("Generic VirtualMachineClass was created previously but doesn't exist now - keeping historical record")
+	} else if !vmClassExists && !hasBeenCreated {
+		input.Logger.Info("Generic VirtualMachineClass doesn't exist and was never created - no action needed")
 	}
 
 	if needsUpdate {
-		state := ModuleState{GenericVMClassCreated: vmClassExists}
+		state := ModuleState{GenericVMClassCreated: true} // Всегда записываем true, когда VMClass существует
 
 		if len(moduleStateSecrets) > 0 {
 			input.PatchCollector.PatchWithMerge(state.ToPatchData(), "v1", "Secret", settings.ModuleNamespace, moduleStateSecretName)
-			input.Logger.Info("Updated module-state secret")
+			input.Logger.Info("Updated module-state secret to record that generic VirtualMachineClass was created")
 		} else {
 			secret := &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
@@ -167,7 +165,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 				Type: "Opaque",
 			}
 			input.PatchCollector.Create(secret)
-			input.Logger.Info("Created module-state secret")
+			input.Logger.Info("Created module-state secret to record that generic VirtualMachineClass was created")
 		}
 	}
 
