@@ -50,6 +50,8 @@ jobs:
       profiles: ${{ steps.load.outputs.profiles }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Load storage profiles
         id: load
@@ -87,6 +89,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -353,6 +357,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download all JUnit reports
         uses: actions/download-artifact@v4
@@ -428,6 +434,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Task
         uses: arduino/setup-task@v2
