@@ -10,7 +10,6 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 10Gi
-          # storageClassName: linstor-thin-r1
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
@@ -21,5 +20,5 @@ kind: ModulePullOverride
 metadata:
   name: virtualization
 spec:
-  imageTag: {{ .Values.virtualization.tag }}
+  imageTag: main
   scanInterval: 15s
