@@ -159,6 +159,20 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
+      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+        working-directory: ci/dvp-e2e
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${{ secrets.REGISTRY_DOCKER_CFG }}" ]; then
+            echo "REGISTRY_DOCKER_CFG is empty/unavailable" >&2; exit 1
+          fi
+          # merge overlay into base values to preserve all fields
+          cp values.yaml tmp/values-merged.yaml
+          REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' tmp/values-merged.yaml
+          chmod 600 tmp/values-merged.yaml
+          echo "VALUES_TEMPLATE_FILE=$PWD/tmp/values-merged.yaml" >> $GITHUB_ENV
+
       - name: Configure registry auth via modules-actions
         uses: deckhouse/modules-actions/setup@v2
         with:
@@ -461,8 +475,9 @@ jobs:
         working-directory: ci/dvp-e2e
         run: |
           echo "🧹 Cleaning up test namespaces..."
-          task cleanup:cleanup:namespaces \
-            FILTER_PREFIX="nightly-nested-e2e-"
+          task cleanup:namespaces:safe \
+            FILTER_PREFIX="nightly-nested-e2e-" \
+            CONFIRM=true
 
       - name: Report cleanup results
         if: always()

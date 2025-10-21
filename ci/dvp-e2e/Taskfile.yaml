@@ -518,6 +518,45 @@ tasks:
   # ------------------------------------------------------------
   # Cleanup used by workflow cleanup job
   # ------------------------------------------------------------
+  cleanup:namespaces:safe:
+    desc: Safely delete old dvp-e2e-* namespaces that belong to this project
+    vars:
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
+      CONFIRM: '{{ .CONFIRM | default "false" }}'
+    env:
+      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[SCAN] Searching namespaces with prefix '{{ .FILTER_PREFIX }}' and deployment 'jump-host'"
+        declare -a candidates=()
+        mapfile -t candidates < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
+        ours=()
+        for ns in "${candidates[@]:-}"; do
+          [ -z "${ns:-}" ] && continue
+          if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
+            ours+=("$ns")
+          fi
+        done
+        if [ ${#ours[@]} -eq 0 ]; then
+          echo "[INFO] No namespaces to delete."
+          exit 0
+        fi
+        echo "[MATCH] Will delete the following namespaces (detected as ours):"
+        printf ' - %s\n' "${ours[@]}"
+        if [ "{{ .CONFIRM }}" != "true" ]; then
+          echo "[SAFE] Dry-run only. Re-run with CONFIRM=true to delete."
+          echo "Example: task cleanup:namespaces:safe CONFIRM=true"
+          exit 0
+        fi
+        for ns in "${ours[@]}"; do
+          echo "[DEL] Deleting namespace $ns"
+          kubectl delete ns "$ns" --wait=false || true
+          echo "[WAIT] Waiting for delete $ns (polling)"
+          sleep 3
+          ./scripts/undeploy-finalizers.sh "$ns" || true
+        done
+
   cleanup:cleanup:namespaces:
     desc: Cleanup test namespaces by prefix
     vars:
