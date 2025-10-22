@@ -77,7 +77,7 @@ func parseCapacityBytes(capacity string) int64 {
 	if err != nil {
 		return 0
 	}
-    return q.Value()
+	return q.Value()
 }
 
 func getInUseStatus(vd *v1alpha2.VirtualDisk) (bool, []string) {
