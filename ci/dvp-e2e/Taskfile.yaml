@@ -443,6 +443,16 @@ tasks:
                   size: {{ .SDS_DVCR_SIZE }}
         EOF
         KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-sds.yaml
+        
+        echo "[SDS] Setting {{ .SDS_SC_NAME }} as default StorageClass..."
+        DEFAULT_STORAGE_CLASS="{{ .SDS_SC_NAME }}"
+        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl patch mc global --type='json' -p='[
+          {
+            "op": "replace",
+            "path": "/spec/settings/defaultClusterStorageClass",
+            "value": "'$DEFAULT_STORAGE_CLASS'"
+          }
+        ]'
 
   nested:storage:configure:
     desc: Configure storage profile inside nested cluster (Ceph or SDS)

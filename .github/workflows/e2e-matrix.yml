@@ -336,7 +336,14 @@ jobs:
             done
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null
             echo "[SDS] Setting linstor-thin-r2 as default StorageClass..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch storageclass linstor-thin-r2 -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}'
+            DEFAULT_STORAGE_CLASS="linstor-thin-r2"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
+              {
+                "op": "replace",
+                "path": "/spec/settings/defaultClusterStorageClass",
+                "value": "'$DEFAULT_STORAGE_CLASS'"
+              }
+            ]'
           elif [ "$PROFILE" = "cephrbd" ]; then
             echo "[Ceph] Enabling operator-ceph module..."
             for i in {1..10}; do
@@ -351,7 +358,11 @@ jobs:
               echo "[Ceph] Waiting for namespace... $i/30"; sleep 10
             done
             echo "[Ceph] Waiting for rook-ceph-operator pod..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=300s
+            # Try different selectors for rook-ceph-operator
+            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=60s 2>/dev/null; then
+              echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=240s
+            fi
             echo "[Ceph] Waiting for CephCluster CRD..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
             echo "[Ceph] Applying CephCluster..."
@@ -359,6 +370,16 @@ jobs:
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
                 break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
             done
+            
+            echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
+            DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
+              {
+                "op": "replace",
+                "path": "/spec/settings/defaultClusterStorageClass",
+                "value": "'$DEFAULT_STORAGE_CLASS'"
+              }
+            ]'
           else
             echo "[INFO] Unknown storage profile '$PROFILE', skipping"
           fi
