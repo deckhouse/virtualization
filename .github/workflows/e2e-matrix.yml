@@ -322,6 +322,14 @@ jobs:
             echo "[SDS] Waiting for SDS CRDs..."
             for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
               echo "[SDS] Waiting for CRD '$crd'..."
+              # Wait for the CRD to appear first
+              for i in $(seq 1 60); do
+                if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get crd "$crd" >/dev/null 2>&1; then
+                  break
+                fi
+                echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
+              done
+              # Then wait until Established (ignore errors if already established)
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
             done
 
@@ -354,17 +362,21 @@ jobs:
                 break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
             done
             echo "[Ceph] Waiting for operator-ceph namespace..."
-            for i in $(seq 1 30); do
+            for i in $(seq 1 60); do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
                 echo "[Ceph] Namespace d8-operator-ceph is ready"; break
               fi
-              echo "[Ceph] Waiting for namespace... $i/30"; sleep 10
+              echo "[Ceph] Waiting for namespace... $i/60"; sleep 10
             done
+            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
+              echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time; aborting Ceph setup" >&2
+              exit 1
+            fi
             echo "[Ceph] Waiting for rook-ceph-operator pod..."
             # Try different selectors for rook-ceph-operator
-            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=60s 2>/dev/null; then
+            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=120s 2>/dev/null; then
               echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
-              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=240s
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=480s
             fi
             echo "[Ceph] Waiting for CephCluster CRD..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
