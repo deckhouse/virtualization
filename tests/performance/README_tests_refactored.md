@@ -11,6 +11,7 @@
 - **From-Step Execution** - Continue execution from any step
 - **Modular Architecture** - Clean, maintainable code structure
 - **Enhanced Logging** - Step numbers and improved visibility
+- **Batch Deployment Support** - Supports large-scale deployments (up to 15,000 VMs) with intelligent batching
 - **Development Friendly** - Perfect for debugging and development
 
 ## Usage
@@ -29,6 +30,12 @@
 
 # Clean reports and run
 ./tests_refactored.sh --clean-reports
+
+# Large scale deployment with batch processing
+./tests_refactored.sh -c 15000 --batch-size 1200
+
+# Force batch deployment for smaller numbers
+./tests_refactored.sh -c 500 --enable-batch
 ```
 
 ### Individual Step Execution (New Feature)
@@ -62,6 +69,8 @@
 |--------|-------------|--------------|---------|
 | `-s, --scenario NUMBER` | Scenario number to run (1 or 2) | Full scenarios | 1 |
 | `-c, --count NUMBER` | Number of resources to create | Full scenarios | 2 |
+| `--batch-size NUMBER` | Maximum resources per batch | Optional | 1200 |
+| `--enable-batch` | Force batch deployment mode | Optional | false |
 | `--step STEP_NAME` | Run a specific step only | Individual steps | - |
 | `--from-step STEP_NAME` | Run all steps starting from STEP_NAME | From-step execution | - |
 | `--list-steps` | List all available steps | - | - |
@@ -71,6 +80,37 @@
 | `--no-pre-cleanup` | Do not cleanup resources before running | Optional | false |
 | `--no-post-cleanup` | Do not cleanup resources after running | Optional | false |
 | `-h, --help` | Show help message | - | - |
+
+## Batch Deployment
+
+For large-scale deployments (>1200 resources), the script automatically uses intelligent batch deployment:
+
+### Features
+- **Automatic Batching** - Automatically detects when batch deployment is needed
+- **Configurable Batch Size** - Default 1200 resources per batch (customizable)
+- **Progress Tracking** - Real-time progress updates with ETA
+- **Cluster Resource Checks** - Pre-deployment resource validation
+- **Stability Delays** - 30-second delays between batches to prevent cluster overload
+
+### Configuration
+```bash
+# Default batch settings
+MAX_BATCH_SIZE=1200
+TOTAL_TARGET_RESOURCES=15000
+BATCH_DEPLOYMENT_ENABLED=false
+```
+
+### Examples
+```bash
+# Deploy 15,000 VMs in batches of 1200
+./tests_refactored.sh -c 15000 --batch-size 1200
+
+# Force batch mode for smaller deployments
+./tests_refactored.sh -c 500 --enable-batch
+
+# Custom batch size
+./tests_refactored.sh -c 5000 --batch-size 800
+```
 
 ## Available Steps
 
@@ -174,6 +214,9 @@ The script supports 13 individual steps that can be executed independently:
 
 # Run with custom parameters
 ./tests_refactored.sh -s 1 -c 20 --clean-reports
+
+# Large scale production test
+./tests_refactored.sh -c 15000 --batch-size 1200 --clean-reports
 ```
 
 ## Report Structure

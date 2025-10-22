@@ -28,6 +28,14 @@ parse_arguments() {
         MAIN_COUNT_RESOURCES="$2"
         shift 2
         ;;
+      --batch-size)
+        MAX_BATCH_SIZE="$2"
+        shift 2
+        ;;
+      --enable-batch)
+        BATCH_DEPLOYMENT_ENABLED=true
+        shift
+        ;;
       --clean-reports)
         CLEAN_REPORTS=true
         shift
@@ -82,6 +90,8 @@ Performance testing script for Kubernetes Virtual Machines
 OPTIONS:
   -s, --scenario NUMBER    Scenario number to run (1 or 2, default: 1)
   -c, --count NUMBER       Number of resources to create (default: 2)
+  --batch-size NUMBER      Maximum resources per batch (default: 1200)
+  --enable-batch          Force batch deployment mode
   --step STEP_NAME         Run a specific step only
   --from-step STEP_NAME    Run all steps starting from STEP_NAME
   --list-steps             List all available steps
@@ -97,6 +107,7 @@ EXAMPLES:
   $0                       # Run scenario 1 with 2 resources (default)
   $0 -s 1 -c 4            # Run scenario 1 with 4 resources
   $0 -s 2 -c 10           # Run scenario 2 with 10 resources
+  $0 -c 15000 --batch-size 1200 # Deploy 15000 resources in batches of 1200
 
   # Individual step execution (new feature)
   $0 --list-steps         # List available steps
@@ -124,6 +135,11 @@ SCENARIOS:
   1 - persistentVolumeClaim (default)
   2 - containerRegistry (currently disabled)
 
+BATCH DEPLOYMENT:
+  For large deployments (>1200 resources), the script automatically uses batch deployment.
+  Each batch deploys up to 1200 resources with 30-second delays between batches.
+  Use --batch-size to customize batch size and --enable-batch to force batch mode.
+
 AVAILABLE STEPS:
   1. cleanup - Clean up existing resources
   2. vm-deployment - Deploy VMs with disks
@@ -135,9 +151,9 @@ AVAILABLE STEPS:
   8. migration-parallel-2x - Migrate with parallelMigrationsPerCluster at 2x nodes
   9. migration-parallel-4x - Migrate with parallelMigrationsPerCluster at 4x nodes
  10. migration-parallel-8x - Migrate with parallelMigrationsPerCluster at 8x nodes
-  8. controller-restart - Test controller restart with VM creation
- 11. drain-node - Run drain node workload
- 12. final-operations - Final statistics and optional cleanup
+ 11. controller-restart - Test controller restart with VM creation
+ 12. drain-node - Run drain node workload
+ 13. final-operations - Final statistics and optional cleanup
 
 EOF
 }
@@ -207,9 +223,14 @@ run_step_vm_deployment() {
   log_info "=== Running Step $step_number: vm-deployment ==="
   init_logging "step_vm-deployment" "$vi_type" "$MAIN_COUNT_RESOURCES"
   
+  # Check cluster resources before deployment
+  log_step_start "Check cluster resources"
+  check_cluster_resources $MAIN_COUNT_RESOURCES
+  log_step_end "Check cluster resources" "0"
+  
   log_step_start "Deploy VMs [$MAIN_COUNT_RESOURCES]"
   local deploy_start=$(get_timestamp)
-  deploy_vms_with_disks $MAIN_COUNT_RESOURCES $vi_type
+  deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
   local deploy_end=$(get_timestamp)
   local deploy_duration=$((deploy_end - deploy_start))
   log_step_end "Deploy VMs [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
@@ -285,7 +306,7 @@ run_step_vm_undeploy_deploy() {
   log_info "Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
   log_step_start "Deploying 10% VMs [$PERCENT_RESOURCES]"
   local deploy_remaining_start=$(get_timestamp)
-  deploy_vms_only $MAIN_COUNT_RESOURCES
+  deploy_vms_only_smart $MAIN_COUNT_RESOURCES
   local deploy_remaining_end=$(get_timestamp)
   local deploy_remaining_duration=$((deploy_remaining_end - deploy_remaining_start))
   log_step_end "Deploying 10% VMs [$PERCENT_RESOURCES]" "$deploy_remaining_duration"
@@ -650,6 +671,11 @@ MIGRATION_PERCENTAGE_10=10  # 10% for migration
 MIGRATION_PERCENTAGE_5=5    # 5% for migration
 WAIT_MIGRATION=$( echo "$MIGRATION_DURATION" | sed 's/m//' )
 
+# Large scale deployment configuration
+MAX_BATCH_SIZE=${MAX_BATCH_SIZE:-1200}  # Maximum resources per batch
+TOTAL_TARGET_RESOURCES=${TOTAL_TARGET_RESOURCES:-15000}  # Total target resources
+BATCH_DEPLOYMENT_ENABLED=${BATCH_DEPLOYMENT_ENABLED:-false}  # Enable batch deployment for large numbers
+
 # Parse command line arguments
 parse_arguments "$@"
 
@@ -676,6 +702,8 @@ log_info "Resource Count: $MAIN_COUNT_RESOURCES"
 log_info "Percent Resources (10%): $PERCENT_RESOURCES"
 log_info "Migration 5% Count: $MIGRATION_5_COUNT"
 log_info "Migration 10% Count: $MIGRATION_10_COUNT"
+log_info "Batch Size: $MAX_BATCH_SIZE"
+log_info "Batch Deployment Enabled: $BATCH_DEPLOYMENT_ENABLED"
 log_info "========================================"
 
 # Main execution

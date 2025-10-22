@@ -3,11 +3,16 @@ version: "3"
 silent: true
 
 vars:
-  NC_HOST: '{{ .NC_HOST | default "nc.e2e.virtlab.flant.com" }}'
+  NC_HOST: '{{ .NC_HOST }}'
 
 tasks:
   apply:
     desc: "Apply netchecker"
     cmds:
+      - |
+        if [ -z "$NC_HOST" ]; then
+          echo "NC_HOST is required"
+          exit 1
+        fi
       - sed -i "s/__NC_HOST__/{{ .NC_HOST }}/g" overlays/test/kustomization.yaml
       - kubectl apply -k overlays/test

@@ -15,6 +15,14 @@ parse_arguments() {
         MAIN_COUNT_RESOURCES="$2"
         shift 2
         ;;
+      --batch-size)
+        MAX_BATCH_SIZE="$2"
+        shift 2
+        ;;
+      --enable-batch)
+        BATCH_DEPLOYMENT_ENABLED=true
+        shift
+        ;;
       --clean-reports)
         CLEAN_REPORTS=true
         shift
@@ -41,6 +49,8 @@ Performance testing script for Kubernetes Virtual Machines
 OPTIONS:
   -s, --scenario NUMBER    Scenario number to run (1 or 2, default: 1)
   -c, --count NUMBER       Number of resources to create (default: 2)
+  --batch-size NUMBER      Maximum resources per batch (default: 1200)
+  --enable-batch          Force batch deployment mode
   --clean-reports          Clean all report directories before running
   -h, --help              Show this help message
 
@@ -49,11 +59,17 @@ EXAMPLES:
   $0 -s 1 -c 4            # Run scenario 1 with 4 resources
   $0 -s 2 -c 10           # Run scenario 2 with 10 resources
   $0 --scenario 1 --count 6 # Run scenario 1 with 6 resources
+  $0 -c 15000 --batch-size 1200 # Deploy 15000 resources in batches of 1200
   $0 --clean-reports      # Clean all reports and run default scenario
 
 SCENARIOS:
   1 - persistentVolumeClaim (default)
   2 - containerRegistry (currently disabled)
+
+BATCH DEPLOYMENT:
+  For large deployments (>1200 resources), the script automatically uses batch deployment.
+  Each batch deploys up to 1200 resources with 30-second delays between batches.
+  Use --batch-size to customize batch size and --enable-batch to force batch mode.
 
 EOF
 }
@@ -90,6 +106,11 @@ ORIGINAL_DECHOUSE_CONTROLLER_REPLICAS=""
 LOG_FILE=""
 CURRENT_SCENARIO=""
 VM_OPERATIONS_LOG=""
+
+# Large scale deployment configuration
+MAX_BATCH_SIZE=1200  # Maximum resources per batch
+TOTAL_TARGET_RESOURCES=15000  # Total target resources
+BATCH_DEPLOYMENT_ENABLED=false  # Enable batch deployment for large numbers
 
 # Colors for output
 RED='\033[0;31m'
@@ -1260,6 +1281,204 @@ deploy_vms_with_disks() {
   log_success "Deployed $count VMs with disks in $formatted_duration"
 }
 
+# New function for batch deployment of large numbers of resources
+deploy_vms_with_disks_batch() {
+  local total_count=$1
+  local vi_type=$2
+  local batch_size=${3:-$MAX_BATCH_SIZE}
+  local start_time=$(get_timestamp)
+  
+  log_info "Starting batch deployment of $total_count VMs with disks from $vi_type"
+  log_info "Batch size: $batch_size resources per batch"
+  log_info "Start time: $(formatted_date $start_time)"
+  
+  local deployed_count=0
+  local batch_number=1
+  local total_batches=$(( (total_count + batch_size - 1) / batch_size ))
+  
+  log_info "Total batches to deploy: $total_batches"
+  
+  while [ $deployed_count -lt $total_count ]; do
+    local remaining_count=$((total_count - deployed_count))
+    local current_batch_size=$batch_size
+    
+    # Adjust batch size for the last batch if needed
+    if [ $remaining_count -lt $batch_size ]; then
+      current_batch_size=$remaining_count
+    fi
+    
+    log_info "=== Batch $batch_number/$total_batches ==="
+    show_deployment_progress "$deployed_count" "$total_count" "$batch_number" "$total_batches" "$start_time"
+    
+    local batch_start=$(get_timestamp)
+    
+    # Deploy current batch
+    task apply:all \
+        COUNT=$current_batch_size \
+        NAMESPACE=$NAMESPACE \
+        STORAGE_CLASS=$(get_default_storage_class) \
+        VIRTUALDISK_TYPE=virtualDisk \
+        VIRTUALIMAGE_TYPE=$vi_type
+    
+    # Wait for current batch to be ready
+    wait_vm_vd $SLEEP_TIME
+    
+    local batch_end=$(get_timestamp)
+    local batch_duration=$((batch_end - batch_start))
+    deployed_count=$((deployed_count + current_batch_size))
+    
+    log_success "Batch $batch_number completed in $(format_duration $batch_duration)"
+    log_info "Total deployed so far: $deployed_count/$total_count"
+    
+    # Add delay between batches to avoid overwhelming the system
+    if [ $batch_number -lt $total_batches ]; then
+      log_info "Waiting 30 seconds before next batch..."
+      sleep 30
+    fi
+    
+    ((batch_number++))
+  done
+  
+  local end_time=$(get_timestamp)
+  local total_duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$total_duration")
+  
+  log_success "Batch deployment completed: $deployed_count VMs with disks in $formatted_duration"
+  log_info "Average time per resource: $(( total_duration / deployed_count )) seconds"
+  
+  echo "$total_duration"
+}
+
+# Function to check if batch deployment should be used
+should_use_batch_deployment() {
+  local count=$1
+  if [ "$BATCH_DEPLOYMENT_ENABLED" = "true" ] || [ $count -gt $MAX_BATCH_SIZE ]; then
+    return 0  # true
+  else
+    return 1  # false
+  fi
+}
+
+# Function to show deployment progress
+show_deployment_progress() {
+  local current_count=$1
+  local total_count=$2
+  local batch_number=$3
+  local total_batches=$4
+  local start_time=$5
+  
+  local current_time=$(get_timestamp)
+  local elapsed_time=$((current_time - start_time))
+  local progress_percent=$(( (current_count * 100) / total_count ))
+  
+  # Calculate estimated time remaining
+  local estimated_total_time=0
+  local estimated_remaining_time=0
+  if [ $current_count -gt 0 ]; then
+    estimated_total_time=$(( (elapsed_time * total_count) / current_count ))
+    estimated_remaining_time=$((estimated_total_time - elapsed_time))
+  fi
+  
+  log_info "Progress: $current_count/$total_count ($progress_percent%)"
+  log_info "Batch: $batch_number/$total_batches"
+  log_info "Elapsed: $(format_duration $elapsed_time)"
+  if [ $estimated_remaining_time -gt 0 ]; then
+    log_info "Estimated remaining: $(format_duration $estimated_remaining_time)"
+  fi
+}
+
+# Function to check cluster resources before large deployment
+check_cluster_resources() {
+  local target_count=$1
+  local batch_size=${2:-$MAX_BATCH_SIZE}
+  
+  log_info "Checking cluster resources for deployment of $target_count resources"
+  
+  # Check available nodes
+  local node_count=$(kubectl get nodes --no-headers | wc -l)
+  log_info "Available nodes: $node_count"
+  
+  # Check available storage
+  local storage_class=$(get_default_storage_class)
+  log_info "Default storage class: $storage_class"
+  
+  # Check namespace resources
+  local existing_vms=$(kubectl -n $NAMESPACE get vm --no-headers 2>/dev/null | wc -l || echo "0")
+  local existing_vds=$(kubectl -n $NAMESPACE get vd --no-headers 2>/dev/null | wc -l || echo "0")
+  
+  log_info "Existing VMs in namespace: $existing_vms"
+  log_info "Existing VDs in namespace: $existing_vds"
+  
+  # Calculate total resources needed
+  local total_resources_needed=$((target_count * 2))  # VMs + VDs
+  local total_existing=$((existing_vms + existing_vds))
+  local total_after_deployment=$((total_existing + total_resources_needed))
+  
+  log_info "Total resources after deployment: $total_after_deployment"
+  
+  # Estimate time for deployment
+  local estimated_batches=$(( (target_count + batch_size - 1) / batch_size ))
+  local estimated_time_per_batch=300  # 5 minutes per batch (conservative estimate)
+  local estimated_total_time=$((estimated_batches * estimated_time_per_batch))
+  
+  log_info "Estimated batches: $estimated_batches"
+  log_info "Estimated total time: $(format_duration $estimated_total_time)"
+  
+  # Warning for very large deployments
+  if [ $target_count -gt 10000 ]; then
+    log_warning "Large deployment detected: $target_count resources"
+    log_warning "This may take several hours to complete"
+    log_warning "Consider running in background or with screen/tmux"
+  fi
+  
+  return 0
+}
+
+# Universal deployment function that automatically chooses between regular and batch deployment
+deploy_vms_with_disks_smart() {
+  local count=$1
+  local vi_type=$2
+  local batch_size=${3:-$MAX_BATCH_SIZE}
+  
+  if should_use_batch_deployment "$count"; then
+    log_info "Using batch deployment for $count resources (batch size: $batch_size)"
+    deploy_vms_with_disks_batch "$count" "$vi_type" "$batch_size"
+  else
+    log_info "Using regular deployment for $count resources"
+    deploy_vms_with_disks "$count" "$vi_type"
+  fi
+}
+
+# Universal deployment function for disks only
+deploy_disks_only_smart() {
+  local count=$1
+  local vi_type=$2
+  local batch_size=${3:-$MAX_BATCH_SIZE}
+  
+  if should_use_batch_deployment "$count"; then
+    log_info "Using batch deployment for $count disks (batch size: $batch_size)"
+    deploy_disks_only_batch "$count" "$vi_type" "$batch_size"
+  else
+    log_info "Using regular deployment for $count disks"
+    deploy_disks_only "$count" "$vi_type"
+  fi
+}
+
+# Universal deployment function for VMs only
+deploy_vms_only_smart() {
+  local count=$1
+  local namespace=${2:-$NAMESPACE}
+  local batch_size=${3:-$MAX_BATCH_SIZE}
+  
+  if should_use_batch_deployment "$count"; then
+    log_info "Using batch deployment for $count VMs (batch size: $batch_size)"
+    deploy_vms_only_batch "$count" "$namespace" "$batch_size"
+  else
+    log_info "Using regular deployment for $count VMs"
+    deploy_vms_only "$count" "$namespace"
+  fi
+}
+
 deploy_disks_only() {
   local count=$1
   local vi_type=$2
@@ -1284,6 +1503,74 @@ deploy_disks_only() {
   log_info "Disk deployment completed - End time: $(formatted_date $end_time)"
   log_success "Deployed $count disks in $formatted_duration"
   echo "$duration"
+}
+
+# New function for batch deployment of disks only
+deploy_disks_only_batch() {
+  local total_count=$1
+  local vi_type=$2
+  local batch_size=${3:-$MAX_BATCH_SIZE}
+  local start_time=$(get_timestamp)
+  
+  log_info "Starting batch deployment of $total_count disks from $vi_type"
+  log_info "Batch size: $batch_size resources per batch"
+  log_info "Start time: $(formatted_date $start_time)"
+  
+  local deployed_count=0
+  local batch_number=1
+  local total_batches=$(( (total_count + batch_size - 1) / batch_size ))
+  
+  log_info "Total batches to deploy: $total_batches"
+  
+  while [ $deployed_count -lt $total_count ]; do
+    local remaining_count=$((total_count - deployed_count))
+    local current_batch_size=$batch_size
+    
+    # Adjust batch size for the last batch if needed
+    if [ $remaining_count -lt $batch_size ]; then
+      current_batch_size=$remaining_count
+    fi
+    
+    log_info "=== Batch $batch_number/$total_batches ==="
+    show_deployment_progress "$deployed_count" "$total_count" "$batch_number" "$total_batches" "$start_time"
+    
+    local batch_start=$(get_timestamp)
+    
+    # Deploy current batch of disks
+    task apply:disks \
+        COUNT=$current_batch_size \
+        NAMESPACE=$NAMESPACE \
+        STORAGE_CLASS=$(get_default_storage_class) \
+        VIRTUALDISK_TYPE=virtualDisk \
+        VIRTUALIMAGE_TYPE=$vi_type
+    
+    # Wait for current batch to be ready
+    wait_vd $SLEEP_TIME
+    
+    local batch_end=$(get_timestamp)
+    local batch_duration=$((batch_end - batch_start))
+    deployed_count=$((deployed_count + current_batch_size))
+    
+    log_success "Batch $batch_number completed in $(format_duration $batch_duration)"
+    log_info "Total deployed so far: $deployed_count/$total_count"
+    
+    # Add delay between batches to avoid overwhelming the system
+    if [ $batch_number -lt $total_batches ]; then
+      log_info "Waiting 30 seconds before next batch..."
+      sleep 30
+    fi
+    
+    ((batch_number++))
+  done
+  
+  local end_time=$(get_timestamp)
+  local total_duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$total_duration")
+  
+  log_success "Batch disk deployment completed: $deployed_count disks in $formatted_duration"
+  log_info "Average time per disk: $(( total_duration / deployed_count )) seconds"
+  
+  echo "$total_duration"
 }
 
 deploy_vms_only() {
@@ -1318,6 +1605,71 @@ deploy_vms_only() {
   log_info "Task execution: $(format_duration $task_duration), Wait time: $(format_duration $wait_duration)"
   log_success "Deployed $count VMs in $formatted_duration"
   echo "$duration"
+}
+
+# New function for batch deployment of VMs only
+deploy_vms_only_batch() {
+  local total_count=$1
+  local namespace=${2:-$NAMESPACE}
+  local batch_size=${3:-$MAX_BATCH_SIZE}
+  local start_time=$(get_timestamp)
+  
+  log_info "Starting batch deployment of $total_count VMs (disks already exist)"
+  log_info "Batch size: $batch_size resources per batch"
+  log_info "Start time: $(formatted_date $start_time)"
+  
+  local deployed_count=0
+  local batch_number=1
+  local total_batches=$(( (total_count + batch_size - 1) / batch_size ))
+  
+  log_info "Total batches to deploy: $total_batches"
+  
+  while [ $deployed_count -lt $total_count ]; do
+    local remaining_count=$((total_count - deployed_count))
+    local current_batch_size=$batch_size
+    
+    # Adjust batch size for the last batch if needed
+    if [ $remaining_count -lt $batch_size ]; then
+      current_batch_size=$remaining_count
+    fi
+    
+    log_info "=== Batch $batch_number/$total_batches ==="
+    show_deployment_progress "$deployed_count" "$total_count" "$batch_number" "$total_batches" "$start_time"
+    
+    local batch_start=$(get_timestamp)
+    
+    # Deploy current batch of VMs
+    task apply:vms \
+        COUNT=$current_batch_size \
+        NAMESPACE=$NAMESPACE
+    
+    # Wait for current batch to be ready
+    wait_vm $SLEEP_TIME
+    
+    local batch_end=$(get_timestamp)
+    local batch_duration=$((batch_end - batch_start))
+    deployed_count=$((deployed_count + current_batch_size))
+    
+    log_success "Batch $batch_number completed in $(format_duration $batch_duration)"
+    log_info "Total deployed so far: $deployed_count/$total_count"
+    
+    # Add delay between batches to avoid overwhelming the system
+    if [ $batch_number -lt $total_batches ]; then
+      log_info "Waiting 30 seconds before next batch..."
+      sleep 30
+    fi
+    
+    ((batch_number++))
+  done
+  
+  local end_time=$(get_timestamp)
+  local total_duration=$((end_time - start_time))
+  local formatted_duration=$(format_duration "$total_duration")
+  
+  log_success "Batch VM deployment completed: $deployed_count VMs in $formatted_duration"
+  log_info "Average time per VM: $(( total_duration / deployed_count )) seconds"
+  
+  echo "$total_duration"
 }
 
 # FIXED: Properly undeploy VMs from the end
@@ -1666,138 +2018,143 @@ run_scenario() {
   local start_time=$(get_timestamp)
   log_info "== Scenario started at $(formatted_date $start_time) =="
   
-  # Step 2: Main test sequence
-  log_step_start "Step 2: Deploy VMs [$MAIN_COUNT_RESOURCES]"
+  # Step 2: Check cluster resources before deployment
+  log_step_start "Step 2: Check cluster resources"
+  check_cluster_resources $MAIN_COUNT_RESOURCES
+  log_step_end "Step 2: Check cluster resources" "0"
+  
+  # Step 3: Main test sequence
+  log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
   local deploy_start=$(get_timestamp)
-  deploy_vms_with_disks $MAIN_COUNT_RESOURCES $vi_type
+  deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
   local deploy_end=$(get_timestamp)
   local deploy_duration=$((deploy_end - deploy_start))
   log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
-  log_step_end "Step 2: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
+  log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
   
-  # Step 3: Statistics Collection
-  log_step_start "Step 3: Start Statistics Collection"
+  # Step 4: Statistics Collection
+  log_step_start "Step 4: Start Statistics Collection"
   local stats_start=$(get_timestamp)
   gather_all_statistics "$scenario_dir/statistics"
   collect_vpa "$scenario_dir"
   local stats_end=$(get_timestamp)
   local stats_duration=$((stats_end - stats_start))
   log_info "Statistics collection completed in $(format_duration $stats_duration)"
-  log_step_end "Step 3: End Statistics Collection" "$stats_duration"
+  log_step_end "Step 4: End Statistics Collection" "$stats_duration"
   
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before stopping VMs"
   sleep $GLOBAL_WAIT_TIME_STEP
   
-  # Step 4: VM Stop
-  log_info "Step 4: Stopping all VMs [$MAIN_COUNT_RESOURCES]"
-  log_step_start "Step 4: VM Stop"
+  # Step 5: VM Stop
+  log_info "Step 5: Stopping all VMs [$MAIN_COUNT_RESOURCES]"
+  log_step_start "Step 5: VM Stop"
   local stop_start=$(get_timestamp)
   stop_vm
   local stop_end=$(get_timestamp)
   local stop_duration=$((stop_end - stop_start))
   log_info "VM stop completed in $(format_duration $stop_duration)"
-  log_step_end "Step 4: End Stopping all VMs [$MAIN_COUNT_RESOURCES]" "$stop_duration"
+  log_step_end "Step 5: End Stopping all VMs [$MAIN_COUNT_RESOURCES]" "$stop_duration"
   
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before starting VMs"
   sleep $GLOBAL_WAIT_TIME_STEP
   
-  # Step 5: VM Start
-  log_info "Step 5: Starting all VMs [$MAIN_COUNT_RESOURCES]"
-  log_step_start "Step 5: VM Start [$MAIN_COUNT_RESOURCES]"
+  # Step 6: VM Start
+  log_info "Step 6: Starting all VMs [$MAIN_COUNT_RESOURCES]"
+  log_step_start "Step 6: VM Start [$MAIN_COUNT_RESOURCES]"
   local start_vm_start=$(get_timestamp)
   start_vm
   local start_vm_end=$(get_timestamp)
   local start_vm_duration=$((start_vm_end - start_vm_start))
   log_info "VM start completed in $(format_duration $start_vm_duration)"
-  log_step_end "Step 5: End Starting all VMs [$MAIN_COUNT_RESOURCES]" "$start_vm_duration"
+  log_step_end "Step 6: End Starting all VMs [$MAIN_COUNT_RESOURCES]" "$start_vm_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Starting migration test ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
   sleep $GLOBAL_WAIT_TIME_STEP
 
-  # Step 6: Start 5% migration in background
+  # Step 7: Start 5% migration in background
   local migration_duration_time="0m"
-  log_info "Step 6: Starting migration test ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
-  log_step_start "Step 6: Migration Setup"
+  log_info "Step 7: Starting migration test ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
+  log_step_start "Step 7: Migration Setup"
   local migration_start=$(get_timestamp)
   start_migration $migration_duration_time $MIGRATION_PERCENTAGE_5
   local migration_end=$(get_timestamp)
   local migration_duration=$((migration_end - migration_start))
   log_info "Migration test ${MIGRATION_PERCENTAGE_5}% VMs setup completed in $(format_duration $migration_duration)"
-  log_step_end "Step 6: Migration Setup ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs) Started" "$migration_duration"
+  log_step_end "Step 7: Migration Setup ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs) Started" "$migration_duration"
 
   log_info "Waiting 10 seconds before Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   sleep 10
 
-  # Step 7: Start deploy undeploy vms
-  log_step_start "Step 7: Undeploy VMs 10% [$PERCENT_RESOURCES]"
+  # Step 8: Start deploy undeploy vms
+  log_step_start "Step 8: Undeploy VMs 10% [$PERCENT_RESOURCES]"
   local undeploy_pct_start=$(get_timestamp)
-  deploy_vms_with_disks $((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES)) $vi_type
+  deploy_vms_with_disks_smart $((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES)) $vi_type
   local undeploy_pct_end=$(get_timestamp)
   local undeploy_pct_duration=$((undeploy_pct_end - undeploy_pct_start))
   log_info "Undeploy VMs 10% [$((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES))] completed in $(format_duration $undeploy_pct_duration)"
-  log_step_end "Step 7: Undeploy VMs 10% [$PERCENT_RESOURCES]" "$undeploy_pct_duration"
+  log_step_end "Step 8: Undeploy VMs 10% [$PERCENT_RESOURCES]" "$undeploy_pct_duration"
 
   log_info "Waiting 10 seconds before Deploying 10% VMs [$PERCENT_RESOURCES]"
   sleep 10
 
-  # Step 8: Deploy VMs 10%
-  log_step_start "Step 8: Deploy VMs 10% [$PERCENT_RESOURCES]"
+  # Step 9: Deploy VMs 10%
+  log_step_start "Step 9: Deploy VMs 10% [$PERCENT_RESOURCES]"
   local deploy_pct_start=$(get_timestamp)
-  deploy_vms_with_disks $MAIN_COUNT_RESOURCES $vi_type
+  deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
   local deploy_pct_end=$(get_timestamp)
   local deploy_pct_duration=$((deploy_pct_end - deploy_pct_start))
   log_info "Deploy VMs 10% [$PERCENT_RESOURCES] completed in $(format_duration $deploy_pct_duration)"
-  log_step_end "Step 8: Deploy VMs 10% [$PERCENT_RESOURCES]" "$deploy_pct_duration"
+  log_step_end "Step 9: Deploy VMs 10% [$PERCENT_RESOURCES]" "$deploy_pct_duration"
   
-  # Step 9: Statistics Collection Deploy 10%
-  log_step_start "Step 9: Start Statistics Collection Deploy 10% [$PERCENT_RESOURCES]"
+  # Step 10: Statistics Collection Deploy 10%
+  log_step_start "Step 10: Start Statistics Collection Deploy 10% [$PERCENT_RESOURCES]"
   local stats_start=$(get_timestamp)
   gather_all_statistics "$scenario_dir/statistics"
   collect_vpa "$scenario_dir"
   local stats_end=$(get_timestamp)
   local stats_duration=$((stats_end - stats_start))
   log_info "Statistics collection completed in $(format_duration $stats_duration)"
-  log_step_end "Step 9: End Statistics Collection Deploy 10% [$PERCENT_RESOURCES]" "$stats_duration"
+  log_step_end "Step 10: End Statistics Collection Deploy 10% [$PERCENT_RESOURCES]" "$stats_duration"
   # ====
   
-  # Step 10: VM Undeploy 10% VMs
-  log_info "Step 10: Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
-  log_step_start "Step 10: VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
+  # Step 11: VM Undeploy 10% VMs
+  log_info "Step 11: Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
+  log_step_start "Step 11: VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   local undeploy_start=$(get_timestamp)
   undeploy_vms_only $PERCENT_RESOURCES
   local undeploy_end=$(get_timestamp)
   local undeploy_duration=$((undeploy_end - undeploy_start))
   log_info "VM Undeploy 10% VMs [$PERCENT_RESOURCES] completed in $(format_duration $undeploy_duration)"
-  log_step_end "Step 10: VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$undeploy_duration"
+  log_step_end "Step 11: VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$undeploy_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   sleep $GLOBAL_WAIT_TIME_STEP
 
-  # Step 11: Deploy 10% VMs and gather statistics
-  log_info "Step 11: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs) (keeping disks)"
-  log_step_start "Step 11: Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
+  # Step 12: Deploy 10% VMs and gather statistics
+  log_info "Step 12: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs) (keeping disks)"
+  log_step_start "Step 12: Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   local deploy_remaining_start=$(get_timestamp)
-  deploy_vms_only $MAIN_COUNT_RESOURCES
+  deploy_vms_only_smart $MAIN_COUNT_RESOURCES
   local deploy_remaining_end=$(get_timestamp)
   local deploy_remaining_duration=$((deploy_remaining_end - deploy_remaining_start))
   log_info "10% VMs deployment completed in $(format_duration $deploy_remaining_duration)"
-  log_step_end "Step 11: End Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$deploy_remaining_duration"
+  log_step_end "Step 12: End Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)" "$deploy_remaining_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before gather VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
   sleep $GLOBAL_WAIT_TIME_STEP
   
-  # Step 12: Gather statistics for 10% VMs
-  log_step_start "Step 12: VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
+  # Step 13: Gather statistics for 10% VMs
+  log_step_start "Step 13: VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
   local vm_stats_start=$(get_timestamp)
   gather_specific_vm_statistics "$scenario_dir/statistics" "$NAMESPACE" "$PERCENT_RESOURCES"
   local vm_stats_end=$(get_timestamp)
   local vm_stats_duration=$((vm_stats_end - vm_stats_start))
   log_info "VM statistics collection completed in $(format_duration $vm_stats_duration)"
-  log_step_end "Step 12: End VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)" "$vm_stats_duration"
+  log_step_end "Step 13: End VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)" "$vm_stats_duration"
 
-  # Step 13: VM operations test - stop/start 10% VMs
-  log_info "Step 13: Testing VM stop/start operations for 10% VMs"
-  log_step_start "Step 13: VM Operations"
+  # Step 14: VM operations test - stop/start 10% VMs
+  log_info "Step 14: Testing VM stop/start operations for 10% VMs"
+  log_step_start "Step 14: VM Operations"
   local vm_ops_start=$(get_timestamp)
   
   log_step_start "VM Operations: Stopping VMs [$PERCENT_RESOURCES]"
@@ -1819,10 +2176,10 @@ run_scenario() {
   local vm_ops_end=$(get_timestamp)
   local vm_ops_duration=$((vm_ops_end - vm_ops_start))
   log_info "VM operations test completed in $(format_duration $vm_ops_duration)"
-  log_step_end "Step 13: VM Operations: Stop/Start VMs [$PERCENT_RESOURCES]" "$vm_ops_duration"
+  log_step_end "Step 14: VM Operations: Stop/Start VMs [$PERCENT_RESOURCES]" "$vm_ops_duration"
   
-  # Step 14: Stop migration and wait for completion
-  log_step_start "Step 14: Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
+  # Step 15: Stop migration and wait for completion
+  log_step_start "Step 15: Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
   local cleanup_ops_start=$(get_timestamp)
   stop_migration
   wait_migration_completion
@@ -1830,20 +2187,20 @@ run_scenario() {
   local cleanup_ops_end=$(get_timestamp)
   local cleanup_ops_duration=$((cleanup_ops_end - cleanup_ops_start))
   log_info "Migration stop and cleanup completed in $(format_duration $cleanup_ops_duration)"
-  log_step_end "Step 14: Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)" "$cleanup_ops_duration"
+  log_step_end "Step 15: Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)" "$cleanup_ops_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
   sleep $GLOBAL_WAIT_TIME_STEP
   
-  # Step 15: Migration percentage test - Migrate 10% VMs
-  log_info "Step 15: Testing migration of ${MIGRATION_10_COUNT} VMs (10%)"
-  log_step_start "Step 15: Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
+  # Step 16: Migration percentage test - Migrate 10% VMs
+  log_info "Step 16: Testing migration of ${MIGRATION_10_COUNT} VMs (10%)"
+  log_step_start "Step 16: Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
   local migration_percent_start=$(get_timestamp)
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_percent_end=$(get_timestamp)
   local migration_percent_duration=$((migration_percent_end - migration_percent_start))
   log_info "Migration percentage test completed in $(format_duration $migration_percent_duration)"
-  log_step_end "Step 15: End Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$migration_percent_duration"
+  log_step_end "Step 16: End Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)" "$migration_percent_duration"
 
   remove_vmops
 
@@ -1851,27 +2208,27 @@ run_scenario() {
   sleep $GLOBAL_WAIT_TIME_STEP
 
   #========
-  # Step 16: Migration config
+  # Step 17: Migration config
   #    bandwidthPerMigration=${1:-"640Mi"}
   #    completionTimeoutPerGiB=${2:-"800"}
   #    parallelMigrationsPerCluster=${3:-$amountNodes}
   #    parallelOutboundMigrationsPerNode=${4:-"1"}
   #    progressTimeout=${5:-"150"}
   
-  log_info "Step 16: Set deckhouse controller replicas to [0]"
+  log_info "Step 17: Set deckhouse controller replicas to [0]"
   scale_deckhouse 0
   local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
   sleep 5
 
   local migration_parallel_2x=$(( $amountNodes*2 ))
   local migration_parallel_2x_start=$(get_timestamp)
-  log_info "Step 16: Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
-  log_step_start "Step 16: Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
+  log_info "Step 17: Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
+  log_step_start "Step 17: Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]"
   migration_config "640Mi" "800" "$migration_parallel_2x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_parallel_2x_end=$(get_timestamp)
   local migration_parallel_2x_duration=$((migration_parallel_2x_end - migration_parallel_2x_start))
-  log_step_end "Step 16: Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]" "$migration_parallel_2x_duration"
+  log_step_end "Step 17: Testing migration with parallelMigrationsPerCluster [$migration_parallel_2x (2x)]" "$migration_parallel_2x_duration"
 
   log_info "Waiting 2 seconds before Cleanup vmops"
   sleep 2
@@ -1880,16 +2237,16 @@ run_scenario() {
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
-  # Step 17: Migration parallel 4x
+  # Step 18: Migration parallel 4x
   local migration_parallel_4x=$(( $amountNodes*4 ))
   local migration_parallel_4x_start=$(get_timestamp)
-  log_info "Step 17: Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)"
-  log_step_start "Step 17: Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)"
+  log_info "Step 18: Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)"
+  log_step_start "Step 18: Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)"
   migration_config "640Mi" "800" "$migration_parallel_4x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_parallel_4x_end=$(get_timestamp)
   local migration_parallel_4x_duration=$((migration_parallel_4x_end - migration_parallel_4x_start))
-  log_step_end "Step 17: Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)" "$migration_parallel_4x_duration"
+  log_step_end "Step 18: Testing migration with parallelMigrationsPerCluster [$migration_parallel_4x] (4x)" "$migration_parallel_4x_duration"
 
   log_info "Waiting 2 seconds before Cleanup vmops"
   sleep 2
@@ -1898,16 +2255,16 @@ run_scenario() {
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
 
-  # Step 18: Migration parallel 8x
+  # Step 19: Migration parallel 8x
   local migration_parallel_8x=$(( $amountNodes*8 ))
   local migration_parallel_8x_start=$(get_timestamp)
-  log_info "Step 18: Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)"
-  log_step_start "Step 18: Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)"
+  log_info "Step 19: Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)"
+  log_step_start "Step 19: Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)"
   migration_config "640Mi" "800" "$migration_parallel_8x" "1" "150"
   migration_percent_vms $MIGRATION_10_COUNT
   local migration_parallel_8x_end=$(get_timestamp)
   local migration_parallel_8x_duration=$((migration_parallel_8x_end - migration_parallel_8x_start))
-  log_step_end "Step 18: Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)" "$migration_parallel_8x_duration"
+  log_step_end "Step 19: Testing migration with parallelMigrationsPerCluster [$migration_parallel_8x] (8x)" "$migration_parallel_8x_duration"
 
   log_info "Waiting 2 seconds before Cleanup vmops"
   sleep 2
@@ -1922,9 +2279,9 @@ run_scenario() {
   sleep $GLOBAL_WAIT_TIME_STEP
   #========
 
-  # Step 19: Controller restart test
-  log_info "Step 19: Testing controller restart with 1 VM creation"
-  log_step_start "Step 19: Controller Restart"
+  # Step 20: Controller restart test
+  log_info "Step 20: Testing controller restart with 1 VM creation"
+  log_step_start "Step 20: Controller Restart"
   local controller_start=$(get_timestamp)
   
   # Stop controller first
@@ -1950,44 +2307,44 @@ run_scenario() {
   
   log_info "Controller restart test completed in $(format_duration $controller_duration)"
   log_info "VM became ready after controller start in $(format_duration $vm_ready_duration)"
-  log_step_end "Step 19: Controller Restart" "$controller_duration"
+  log_step_end "Step 20: Controller Restart" "$controller_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
   
-  # Step 20: Final Statistics
-  log_step_start "Step 20: Final Statistics"
+  # Step 21: Final Statistics
+  log_step_start "Step 21: Final Statistics"
   local final_stats_start=$(get_timestamp)
   gather_all_statistics "$scenario_dir/statistics"
   collect_vpa "$scenario_dir"
   local final_stats_end=$(get_timestamp)
   local final_stats_duration=$((final_stats_end - final_stats_start))
   log_info "Final statistics collection completed in $(format_duration $final_stats_duration)"
-  log_step_end "Step 20: Final Statistics" "$final_stats_duration"
+  log_step_end "Step 21: Final Statistics" "$final_stats_duration"
   
   log_info "Waiting 30 second before drain node"
   sleep 30
 
-  # Step 21: Drain node
-  log_step_start "Step 21: Drain node"
+  # Step 22: Drain node
+  log_step_start "Step 22: Drain node"
   local drain_node_start=$(get_timestamp)
   drain_node
   local drain_stats_end=$(get_timestamp)
   local drain_stats_duration=$((drain_stats_end - drain_node_start))
   log_info "Drain node completed in $(format_duration $drain_stats_duration)"
-  log_step_end "Step 21: Drain node" "$drain_stats_duration"
+  log_step_end "Step 22: Drain node" "$drain_stats_duration"
 
   log_info "Waiting 30 second before cleanup"
   sleep 30
   
-  # Step 22: Final Cleanup
-  log_step_start "Step 22: Final Cleanup"
+  # Step 23: Final Cleanup
+  log_step_start "Step 23: Final Cleanup"
   local final_cleanup_start=$(get_timestamp)
   undeploy_resources
   local final_cleanup_end=$(get_timestamp)
   local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
   log_info "Final cleanup completed in $(format_duration $final_cleanup_duration)"
-  log_step_end "Step 22: Final Cleanup" "$final_cleanup_duration"
+  log_step_end "Step 23: Final Cleanup" "$final_cleanup_duration"
   
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
@@ -2010,29 +2367,30 @@ run_scenario() {
   # Summary of all step durations
   log_info "=== Scenario $scenario_name Duration Summary ==="
   log_duration "Step 1: Cleanup" "$cleanup_duration"
-  log_duration "Step 2: VM Deployment" "$deploy_duration"
-  log_duration "Step 3: Statistics Collection" "$stats_duration"
-  log_duration "Step 4: VM Stop" "$stop_duration"
-  log_duration "Step 5: VM Start" "$start_vm_duration"
-  log_duration "Step 6: Migration Setup" "$migration_duration"
-  log_duration "Step 7: Undeploy VMs 10%" "$undeploy_duration"
-  log_duration "Step 8: Deploy VMs 10%" "$deploy_remaining_duration"
-  log_duration "Step 9: Statistics Collection Deploy 10%" "$vm_stats_duration"
-  log_duration "Step 10: VM Undeploy 10% VMs" "$undeploy_duration"
-  log_duration "Step 11: Deploying 10% VMs" "$deploy_remaining_duration"
-  log_duration "Step 12: VM Statistics" "$vm_stats_duration"
-  log_duration "Step 13: VM Operations" "$vm_ops_duration"
-  log_duration "Step 13: VM Operations: Stopping VMs" "$vm_ops_stop_duration"
-  log_duration "Step 13: VM Operations: Start VMs" "$vm_ops_start_vm_duration"
-  log_duration "Step 14: Migration Cleanup" "$cleanup_ops_duration"
-  log_duration "Step 15: Migration Percentage" "$migration_percent_duration"
-  log_duration "Step 16: Migration parallelMigrationsPerCluster 2x nodes" "$migration_parallel_2x_duration"
-  log_duration "Step 17: Migration parallelMigrationsPerCluster 4x nodes" "$migration_parallel_4x_duration"
-  log_duration "Step 18: Migration parallelMigrationsPerCluster 8x nodes" "$migration_parallel_8x_duration"
-  log_duration "Step 19: Controller Restart" "$controller_duration"
-  log_duration "Step 20: Final Statistics" "$final_stats_duration"
-  log_duration "Step 21: Drain node" "$drain_stats_duration"
-  log_duration "Step 22: Final Cleanup" "$final_cleanup_duration"
+  log_duration "Step 2: Check cluster resources" "0"
+  log_duration "Step 3: VM Deployment" "$deploy_duration"
+  log_duration "Step 4: Statistics Collection" "$stats_duration"
+  log_duration "Step 5: VM Stop" "$stop_duration"
+  log_duration "Step 6: VM Start" "$start_vm_duration"
+  log_duration "Step 7: Migration Setup" "$migration_duration"
+  log_duration "Step 8: Undeploy VMs 10%" "$undeploy_duration"
+  log_duration "Step 9: Deploy VMs 10%" "$deploy_remaining_duration"
+  log_duration "Step 10: Statistics Collection Deploy 10%" "$vm_stats_duration"
+  log_duration "Step 11: VM Undeploy 10% VMs" "$undeploy_duration"
+  log_duration "Step 12: Deploying 10% VMs" "$deploy_remaining_duration"
+  log_duration "Step 13: VM Statistics" "$vm_stats_duration"
+  log_duration "Step 14: VM Operations" "$vm_ops_duration"
+  log_duration "Step 14: VM Operations: Stopping VMs" "$vm_ops_stop_duration"
+  log_duration "Step 14: VM Operations: Start VMs" "$vm_ops_start_vm_duration"
+  log_duration "Step 15: Migration Cleanup" "$cleanup_ops_duration"
+  log_duration "Step 16: Migration Percentage" "$migration_percent_duration"
+  log_duration "Step 17: Migration parallelMigrationsPerCluster 2x nodes" "$migration_parallel_2x_duration"
+  log_duration "Step 18: Migration parallelMigrationsPerCluster 4x nodes" "$migration_parallel_4x_duration"
+  log_duration "Step 19: Migration parallelMigrationsPerCluster 8x nodes" "$migration_parallel_8x_duration"
+  log_duration "Step 20: Controller Restart" "$controller_duration"
+  log_duration "Step 21: Final Statistics" "$final_stats_duration"
+  log_duration "Step 22: Drain node" "$drain_stats_duration"
+  log_duration "Step 23: Final Cleanup" "$final_cleanup_duration"
   log_duration "Total Scenario Duration" "$duration"
   log_info "=== End Duration Summary ==="
 }

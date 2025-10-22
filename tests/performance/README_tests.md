@@ -10,6 +10,7 @@
 - **Comprehensive Testing** - Tests VM lifecycle, migrations, controller restarts, and node draining
 - **Detailed Reporting** - Generates comprehensive reports with timing and statistics
 - **Multiple Scenarios** - Supports different virtual image types
+- **Batch Deployment** - Supports large-scale deployments (up to 15,000 VMs) with intelligent batching
 - **Production Ready** - Battle-tested in production environments
 
 ## Usage
@@ -36,6 +37,8 @@
 |--------|-------------|---------|
 | `-s, --scenario NUMBER` | Scenario number to run (1 or 2) | 1 |
 | `-c, --count NUMBER` | Number of resources to create | 2 |
+| `--batch-size NUMBER` | Maximum resources per batch | 1200 |
+| `--enable-batch` | Force batch deployment mode | false |
 | `--clean-reports` | Clean all report directories before running | false |
 | `-h, --help` | Show help message | - |
 
@@ -53,6 +56,43 @@
 
 # Clean start
 ./tests.sh --clean-reports -c 20
+
+# Large scale deployment with batch processing
+./tests.sh -c 15000 --batch-size 1200
+
+# Force batch deployment for smaller numbers
+./tests.sh -c 500 --enable-batch
+```
+
+## Batch Deployment
+
+For large-scale deployments (>1200 resources), the script automatically uses intelligent batch deployment:
+
+### Features
+- **Automatic Batching** - Automatically detects when batch deployment is needed
+- **Configurable Batch Size** - Default 1200 resources per batch (customizable)
+- **Progress Tracking** - Real-time progress updates with ETA
+- **Cluster Resource Checks** - Pre-deployment resource validation
+- **Stability Delays** - 30-second delays between batches to prevent cluster overload
+
+### Configuration
+```bash
+# Default batch settings
+MAX_BATCH_SIZE=1200
+TOTAL_TARGET_RESOURCES=15000
+BATCH_DEPLOYMENT_ENABLED=false
+```
+
+### Examples
+```bash
+# Deploy 15,000 VMs in batches of 1200
+./tests.sh -c 15000 --batch-size 1200
+
+# Force batch mode for smaller deployments
+./tests.sh -c 500 --enable-batch
+
+# Custom batch size
+./tests.sh -c 5000 --batch-size 800
 ```
 
 ## Scenarios
@@ -131,6 +171,11 @@ PERCENT_VMS=10
 MIGRATION_DURATION="1m"
 MIGRATION_PERCENTAGE_10=10
 MIGRATION_PERCENTAGE_5=5
+
+# Batch deployment configuration
+MAX_BATCH_SIZE=1200
+TOTAL_TARGET_RESOURCES=15000
+BATCH_DEPLOYMENT_ENABLED=false
 ```
 
 ### Resource Calculations
@@ -259,6 +304,9 @@ Enable debug output by uncommenting the debug line:
 
 # Long-running test
 ./tests.sh -c 100
+
+# Large scale production test
+./tests.sh -c 15000 --batch-size 1200 --clean-reports
 ```
 
 ### Custom Scenarios
