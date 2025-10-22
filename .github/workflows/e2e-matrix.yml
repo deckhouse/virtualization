@@ -212,6 +212,8 @@ jobs:
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
+          # Pass storage profile into run values for Helm templates
+          PROFILE='${{ matrix.profile }}' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
 
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e

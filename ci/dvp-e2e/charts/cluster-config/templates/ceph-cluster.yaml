@@ -1,3 +1,4 @@
+{{- if eq (lower (default "sds" .Values.storageProfile)) "cephrbd" }}
 ---
 apiVersion: ceph.rook.io/v1
 kind: CephCluster
@@ -104,3 +105,4 @@ spec:
         disabled: false
       osd:
         disabled: false
+{{- end }}
