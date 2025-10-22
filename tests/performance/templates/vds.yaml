@@ -72,9 +72,9 @@ spec:
     objectRef:
       kind: "VirtualImage"
       {{- if gt . ($.Values.start_count | int) }}
-      name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}-{{ mod . $.Values.resources.virtualImage.spec.count }}
+      name:  {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}-{{ mod . $.Values.resources.virtualImage.spec.count }}
       {{- else }}
-      name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
+      name:  {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
       {{- end }}
 {{- end }}
 {{- end }}
