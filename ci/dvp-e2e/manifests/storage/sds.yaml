@@ -1,5 +1,3 @@
-{{- if ne (lower (default "sds" .Values.storageProfile)) "cephrbd" }}
----
 apiVersion: deckhouse.io/v1alpha1
 kind: LVMVolumeGroup
 metadata:
@@ -28,4 +26,32 @@ spec:
   storagePool: data
   reclaimPolicy: Delete
   topology: Ignored
-{{- end }}
+
+apiVersion: deckhouse.io/v1alpha1
+kind: LVMVolumeGroup
+metadata:
+  name: data
+spec:
+  type: LVMThin
+  thinPoolName: thin-pool
+  volumeGroupName: data
+  blockDevices:
+    - /dev/sdb
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ReplicatedStoragePool
+metadata:
+  name: data
+spec:
+  lvmVolumeGroups:
+    - data
+  replicationFactor: 2
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ReplicatedStorageClass
+metadata:
+  name: linstor-thin-r2
+spec:
+  storagePool: data
+  reclaimPolicy: Delete
+  topology: Ignored

@@ -1,0 +1,33 @@
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: operator-ceph
+spec:
+  enabled: true
+---
+apiVersion: ceph.rook.io/v1
+kind: CephCluster
+metadata:
+  name: rook-ceph-cluster
+  namespace: d8-operator-ceph
+spec:
+  cephVersion:
+    image: quay.io/ceph/ceph:v18.2.2
+    allowUnsupported: false
+  dataDirHostPath: /var/lib/rook
+  mon:
+    count: 3
+    allowMultiplePerNode: false
+  mgr:
+    count: 2
+    allowMultiplePerNode: false
+  dashboard:
+    enabled: true
+    ssl: true
+  storage:
+    useAllNodes: true
+    useAllDevices: true
+    deviceFilter: "^nvme0n[1-9]"
+    onlyApplyOSDPlacement: false
+
+

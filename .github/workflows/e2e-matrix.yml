@@ -253,6 +253,31 @@ jobs:
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
+      - name: Configure storage backend (post-bootstrap)
+        run: |
+          set -euo pipefail
+          NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+          PROFILE="${{ matrix.profile }}"
+          if [ "$PROFILE" = "sds" ]; then
+            echo "[SDS] Applying SDS resources..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/sds.yaml
+            echo "[SDS] Waiting for StorageClass 'linstor-thin-r2'..."
+            for i in $(seq 1 30); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null 2>&1; then
+                echo "[SDS] StorageClass 'linstor-thin-r2' is available"; break
+              fi
+              sleep 10
+            done
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null
+          elif [ "$PROFILE" = "cephrbd" ]; then
+            echo "[Ceph] Enabling operator and applying CephCluster..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/ceph.yaml
+            echo "[Ceph] Waiting for rook-ceph-operator..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=Available deploy/rook-ceph-operator --timeout=600s || true
+          else
+            echo "[INFO] Unknown storage profile '$PROFILE', skipping"
+          fi
+
       - name: Debug disk information in nested cluster
         run: |
           set -euo pipefail
