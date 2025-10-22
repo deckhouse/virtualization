@@ -212,7 +212,7 @@ webhooks:
   - name: "vmclass.virtualization-controller.validate.d8-virtualization"
     rules:
     - apiGroups: ["virtualization.deckhouse.io"]
-      apiVersions: ["v1alpha2"]
+      apiVersions: ["v1alpha2", "v1alpha3"]
       operations: ["CREATE", "UPDATE"]
       resources: ["virtualmachineclasses"]
       scope: "Cluster"
