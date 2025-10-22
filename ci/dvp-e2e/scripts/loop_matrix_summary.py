@@ -206,7 +206,7 @@ def parse_test_log(log_file: Path) -> dict:
         }
 
 
-def format_matrix_summary(results: list, run_id_prefix: str, profiles: str) -> str:
+def format_matrix_summary(results: list, run_id_prefix: str, profiles: str, github_run_url: str = None) -> str:
     """Format matrix test results into a readable message."""
     total_runs = len(results)
     successful_runs = sum(1 for r in results if r['success'])
@@ -276,15 +276,16 @@ def format_matrix_summary(results: list, run_id_prefix: str, profiles: str) -> s
             status_emoji = "✅" if stats['failure'] == 0 else "❌" if stats['success'] == 0 else "⚠️"
             status_text = "PASSED" if stats['failure'] == 0 else "FAILED" if stats['success'] == 0 else "PARTIAL"
             
-            # Get duration from the first result for this profile
+            # Get duration and build linked profile name
             profile_duration = "unknown"
             for result in results:
                 if result['storage_profile'] == profile:
                     profile_duration = result['duration']
                     break
+            name_md = f"[{profile.upper()}]({github_run_url})" if github_run_url else profile.upper()
             
             message_lines.append(
-                f"| {profile.upper()} | {status_emoji} **{status_text}** | {test_stats['passed']} | {test_stats['failed']} | {test_stats['skipped']} | {test_success_rate:.1f}% | {profile_duration} |"
+                f"| {name_md} | {status_emoji} **{status_text}** | {test_stats['passed']} | {test_stats['failed']} | {test_stats['skipped']} | {test_success_rate:.1f}% | {profile_duration} |"
             )
     
     return "\n".join(message_lines)
@@ -326,6 +327,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--log-dir", required=True, help="Directory containing log files")
     parser.add_argument("--webhook-url", required=False, help="Loop webhook URL", default=os.getenv('LOOP_WEBHOOK'))
     parser.add_argument("--channel", required=False, help="Loop channel name", default=os.getenv('LOOP_CHANNEL', 'test-virtualization-loop-alerts'))
+    parser.add_argument("--github-run-url", required=False, help="GitHub Actions run URL to link from profile name")
     
     args = parser.parse_args(argv)
     
@@ -389,7 +391,7 @@ def main(argv: list[str]) -> int:
         return 0
     
     # Format message
-    message = format_matrix_summary(results, args.run_id_prefix, args.profiles)
+    message = format_matrix_summary(results, args.run_id_prefix, args.profiles, github_run_url=args.github_run_url)
     
     # Send to Loop
     if send_to_loop(args.webhook_url, args.channel, message):
