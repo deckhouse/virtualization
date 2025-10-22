@@ -313,6 +313,31 @@ jobs:
             echo "[INFO] Waiting for API Server... $i/30"; sleep 10
           done
           if [ "$PROFILE" = "sds" ]; then
+            echo "[SDS] Enabling SDS modules..."
+            cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-node-configurator
+spec:
+  enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-replicated-volume
+spec:
+  enabled: true
+  version: 1
+EOF
+
+            echo "[SDS] Waiting for SDS CRDs..."
+            for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
+              echo "[SDS] Waiting for CRD '$crd'..."
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
+            done
+
             echo "[SDS] Applying SDS resources..."
             for i in {1..10}; do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds.yaml; then

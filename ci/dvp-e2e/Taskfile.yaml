@@ -394,6 +394,33 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        echo "[SDS] Enabling SDS modules (node-configurator, replicated-volume)..."
+        cat <<'EOF' | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
+        apiVersion: deckhouse.io/v1alpha1
+        kind: ModuleConfig
+        metadata:
+          name: sds-node-configurator
+        spec:
+          enabled: true
+          version: 1
+        ---
+        apiVersion: deckhouse.io/v1alpha1
+        kind: ModuleConfig
+        metadata:
+          name: sds-replicated-volume
+        spec:
+          enabled: true
+          version: 1
+        EOF
+      - |
+        set -euo pipefail
+        echo "[SDS] Waiting for SDS CRDs to be established..."
+        for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
+          echo "[SDS] Waiting for CRD '$crd'..."
+          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
+        done
+      - |
+        set -euo pipefail
         if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .SDS_SC_NAME }} >/dev/null 2>&1; then
           echo "[ERR] StorageClass '{{ .SDS_SC_NAME }}' not found in nested cluster" >&2
           exit 1
