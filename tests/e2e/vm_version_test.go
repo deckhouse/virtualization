@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -39,12 +38,6 @@ var _ = Describe("VirtualMachineVersions", framework.CommonE2ETestDecorators(), 
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
 		CreateNamespace(ns)
-	})
-
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
 	})
 
 	AfterEach(func() {

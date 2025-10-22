@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"reflect"
 	"sync"
 	"testing"
@@ -29,7 +28,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,10 +75,6 @@ func TestE2E(t *testing.T) {
 }
 
 func initE2E() (err error) {
-	if err = config.CheckReusableOption(); err != nil {
-		return err
-	}
-
 	if err = config.CheckStorageClassOption(); err != nil {
 		return err
 	}
@@ -164,38 +158,62 @@ var _ = SynchronizedBeforeSuite(func() {
 		}
 	}
 
-	if !config.IsReusable() {
-		Expect(Cleanup()).To(Succeed())
-	} else {
-		log.Println("Run test in REUSABLE mode")
-	}
+	Expect(Cleanup()).To(Succeed())
 
 	Expect(defaultLogStreamer.Start()).To(Succeed())
+}, func() {})
+
+var _ = SynchronizedAfterSuite(func() {}, func() {
+	Expect(defaultControllerRestartChecker.Check()).To(Succeed())
+	Expect(defaultLogStreamer.Stop()).To(Succeed())
 
 	DeferCleanup(func() {
 		if config.IsCleanUpNeeded() {
 			Expect(Cleanup()).To(Succeed())
 		}
 	})
-}, func() {})
-
-var _ = SynchronizedAfterSuite(func() {}, func() {
-	Expect(defaultControllerRestartChecker.Check()).To(Succeed())
-	Expect(defaultLogStreamer.Stop()).To(Succeed())
 })
 
 func Cleanup() error {
-	var eg errgroup.Group
-
 	err := deleteProjects()
 	if err != nil {
 		return err
 	}
 
-	eg.Go(deleteNamespaces)
-	eg.Go(deleteResources)
+	var wg sync.WaitGroup
+	errChan := make(chan error, 2)
 
-	return eg.Wait()
+	wg.Add(1)
+	go func() {
+		defer GinkgoRecover()
+		defer wg.Done()
+		if err := deleteNamespaces(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer GinkgoRecover()
+		defer wg.Done()
+		if err := deleteResources(); err != nil {
+			errChan <- err
+		}
+	}()
+
+	go func() {
+		defer GinkgoRecover()
+		wg.Wait()
+		close(errChan)
+	}()
+
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type logStreamer struct {
@@ -358,7 +376,6 @@ func deleteNamespaces() error {
 
 func deleteResources() error {
 	var cleanupErr error
-
 	for _, r := range conf.CleanupResources {
 		res := kubectl.Delete(kc.DeleteOptions{
 			IgnoreNotFound: true,

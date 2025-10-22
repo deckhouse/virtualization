@@ -35,12 +35,10 @@ import (
 
 var _ = Describe("ImageHotplug", framework.CommonE2ETestDecorators(), func() {
 	const (
-		viCount    = 2
-		cviCount   = 2
-		vmCount    = 1
-		vdCount    = 1
-		vmbdaCount = 0
-		imgCount   = viCount + cviCount
+		viCount  = 2
+		cviCount = 2
+		vmCount  = 1
+		imgCount = viCount + cviCount
 	)
 
 	var (
@@ -75,33 +73,6 @@ var _ = Describe("ImageHotplug", framework.CommonE2ETestDecorators(), func() {
 
 	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
-			if config.IsReusable() {
-				err := CheckReusableResources(ReusableResources{
-					v1alpha2.VirtualMachineResource: &Counter{
-						Expected: vmCount,
-					},
-					v1alpha2.VirtualDiskResource: &Counter{
-						Expected: vdCount,
-					},
-					v1alpha2.VirtualImageResource: &Counter{
-						Expected: viCount,
-					},
-					v1alpha2.ClusterVirtualImageResource: &Counter{
-						Expected: cviCount,
-					},
-					v1alpha2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
-						Expected: vmbdaCount,
-					},
-				}, kc.GetOptions{
-					Labels:         testCaseLabel,
-					Namespace:      ns,
-					IgnoreNotFound: true,
-				})
-				if err == nil {
-					return
-				}
-			}
-
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ImageHotplug},
 				FilenameOption: kc.Kustomize,
@@ -384,33 +355,4 @@ func IsBlockDeviceReadOnly(vmNamespace, vmName, blockDeviceID string) (bool, err
 	}
 	roOpt := options[0]
 	return roOpt == "ro", nil
-}
-
-type Counter struct {
-	Current  int
-	Expected int
-}
-
-type ReusableResources map[kc.Resource]*Counter
-
-// Useful when require to check the created resources in `REUSABLE` mode.
-//
-//	Static output option: `jsonpath='{.items[*].metadata.name}'`.
-func CheckReusableResources(resources ReusableResources, opts kc.GetOptions) error {
-	opts.Output = "jsonpath='{.items[*].metadata.name}'"
-	for r, c := range resources {
-		res := kubectl.List(r, opts)
-		if res.Error() != nil {
-			return fmt.Errorf("failed to check the reusable resources %q: %s", r, res.StdErr())
-		}
-		c.Current = len(strings.Split(res.StdOut(), " "))
-	}
-
-	for r, c := range resources {
-		if c.Current != c.Expected {
-			return fmt.Errorf("not enough resources for reusable mode: resource %q; current count %d; expected count %d", r, c.Current, c.Expected)
-		}
-	}
-
-	return nil
 }

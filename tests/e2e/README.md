@@ -46,6 +46,11 @@ settings:
   defaultClusterStorageClass: linstor-thin-r1
 ```
 
+Additionally, the storage class in the tests can be defined by the environment variable `STORAGE_CLASS_NAME`:
+```bash
+STORAGE_CLASS_NAME=linstor-thin-r1 task run
+```
+
 ### Immediate Storage Class
 Some test cases depend on an immediate storage class. You can skip the immediate storage class check if a test case does not require it.
 
@@ -96,36 +101,13 @@ For example, to run only the "ComplexTest" ignoring failed suites and leave all 
 FOCUS="ComplexTest" CONTINUE_ON_FAILURE=yes POST_CLEANUP=no task run
 ```
 
-### Reusable mode option
-
-The environment variable REUSABLE used to reuse resources created previously.
-By default, it retains all resources created during the e2e test after its completion (no cleanup by default in this mode).
-Use the `POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
-When a test starts, it will reuse existing virtualization resources created earlier, if they exist.
-If no virtualization resources were found, they will be created.
-
-For example, run test in reusable mode:
-```bash
-REUSABLE=yes task run
-```
-
-! Only the following e2e tests are supported in REUSABLE mode. All other tests will be skipped.
-- "VirtualMachineConfiguration"
-- "VirtualMachineMigration"
-- "VirtualMachineConnectivity"
-- "ComplexTest"
-- "ImageHotplug"
-- "VirtualMachineRestoreForce"
-
 ### PostCleanUp option
 
 POST_CLEANUP defines an environment variable used to explicitly request the deletion of created/used resources.
-For example, this option is useful when combined with the `REUSABLE=yes` option,
-as the reusable mode does not delete created/used resources by default.
 
-For example, run test in reusable mode with the removal of all used resources after test completion:
+For example, run a test in no-cleanup mode:
 ```bash
-REUSABLE=yes POST_CLEANUP=yes task run
+POST_CLEANUP=no task run
 ```
 
 ### Working with `Virtualization-controller` errors

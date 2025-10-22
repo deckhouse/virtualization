@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
@@ -59,12 +58,6 @@ var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), f
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 
 		CreateNamespace(ns)
-	})
-
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
 	})
 
 	AfterEach(func() {
