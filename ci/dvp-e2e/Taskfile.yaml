@@ -320,26 +320,34 @@ tasks:
           echo "[ERR] master VM not found in namespace {{ .NAMESPACE }}" >&2
           exit 1
         fi
+        KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} d8 v ssh --username={{ .DEFAULT_USER }} --identity-file={{ .SSH_PRIV_KEY_FILE }} --local-ssh=true --local-ssh-opts="-o StrictHostKeyChecking=no" --local-ssh-opts="-o UserKnownHostsFile=/dev/null" "${MASTER_NAME}.{{ .NAMESPACE }}" -c '
+          set -euo pipefail
+          SUDO="sudo /opt/deckhouse/bin/kubectl"
+          $SUDO -n kube-system get sa e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create sa e2e-admin >/dev/null 2>&1
+          $SUDO -n kube-system get clusterrolebinding e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create clusterrolebinding e2e-admin --clusterrole=cluster-admin --serviceaccount=kube-system:e2e-admin >/dev/null 2>&1
+          $SUDO -n kube-system create token e2e-admin --duration=240h
+        ' > {{ .NESTED_DIR }}/token.txt
+        NESTED_TOKEN=$(cat {{ .NESTED_DIR }}/token.txt)
         SERVER_URL="https://api.{{ .NAMESPACE }}.{{ .DOMAIN }}"
-        cat > {{ .NESTED_KUBECONFIG }} <<EOF
-        apiVersion: v1
-        kind: Config
-        clusters:
-        - cluster:
-            server: ${SERVER_URL}
-            insecure-skip-tls-verify: true
-          name: nested
-        contexts:
-        - context:
-            cluster: nested
-            user: sa
-          name: nested
-        current-context: nested
-        users:
-        - name: sa
-          user:
-            token: ""
-        EOF
+        {
+          printf 'apiVersion: v1\n'
+          printf 'kind: Config\n'
+          printf 'clusters:\n'
+          printf '- cluster:\n'
+          printf '    insecure-skip-tls-verify: true\n'
+          printf '    server: %s\n' "${SERVER_URL}"
+          printf '  name: nested\n'
+          printf 'contexts:\n'
+          printf '- context:\n'
+          printf '    cluster: nested\n'
+          printf '    user: e2e-admin\n'
+          printf '  name: nested\n'
+          printf 'current-context: nested\n'
+          printf 'users:\n'
+          printf '- name: e2e-admin\n'
+          printf '  user:\n'
+          printf '    token: %s\n' "${NESTED_TOKEN}"
+        } > {{ .NESTED_KUBECONFIG }}
         chmod 600 {{ .NESTED_KUBECONFIG }}
         echo "Generated nested kubeconfig at {{ .NESTED_KUBECONFIG }}"
 
