@@ -260,7 +260,10 @@ jobs:
           PROFILE="${{ matrix.profile }}"
           if [ "$PROFILE" = "sds" ]; then
             echo "[SDS] Applying SDS resources..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/sds.yaml
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds.yaml; then
+                break; else echo "[SDS] apply failed, retry $i/10"; sleep 10; fi
+            done
             echo "[SDS] Waiting for StorageClass 'linstor-thin-r2'..."
             for i in $(seq 1 30); do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null 2>&1; then
@@ -271,7 +274,10 @@ jobs:
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null
           elif [ "$PROFILE" = "cephrbd" ]; then
             echo "[Ceph] Enabling operator and applying CephCluster..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/ceph.yaml
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
+                break; else echo "[Ceph] apply failed, retry $i/10"; sleep 10; fi
+            done
             echo "[Ceph] Waiting for rook-ceph-operator..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=Available deploy/rook-ceph-operator --timeout=600s || true
           else
