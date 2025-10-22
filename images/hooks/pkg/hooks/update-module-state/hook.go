@@ -114,50 +114,46 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 
 	vmClassExists := len(vmClasses) > 0
 
-	needsUpdate := false
-	hasBeenCreated := false
-
+	// Load existing state
+	currentState := ModuleState{GenericVMClassCreated: false}
 	if len(moduleStateSecrets) > 0 {
 		moduleStateData := make(map[string]interface{})
 		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err == nil {
 			if genericCreatedEncoded, exists := moduleStateData[genericVMClassStateKey]; exists {
 				if encodedStr, ok := genericCreatedEncoded.(string); ok {
 					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
-						hasBeenCreated = string(decodedBytes) == "true"
+						currentState.GenericVMClassCreated = string(decodedBytes) == "true"
 					}
 				}
 			}
 		}
 	}
 
-	// Write to secret only when VMClass is created and not yet recorded
-	if vmClassExists && !hasBeenCreated {
-		needsUpdate = true
+	// Update state: generic-vmclass-created can only transition from false to true
+	newState := ModuleState{
+		GenericVMClassCreated: currentState.GenericVMClassCreated || vmClassExists,
 	}
 
-	if needsUpdate {
-		state := ModuleState{GenericVMClassCreated: true} // Always write true when VMClass exists
-
-		if len(moduleStateSecrets) > 0 {
-			input.PatchCollector.PatchWithMerge(state.ToPatchData(), "v1", "Secret", settings.ModuleNamespace, moduleStateSecretName)
-		} else {
-			secret := &corev1.Secret{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "Secret",
+	// Always ensure secret exists with current state
+	if len(moduleStateSecrets) > 0 {
+		input.PatchCollector.PatchWithMerge(newState.ToPatchData(), "v1", "Secret", settings.ModuleNamespace, moduleStateSecretName)
+	} else {
+		secret := &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Secret",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      moduleStateSecretName,
+				Namespace: settings.ModuleNamespace,
+				Labels: map[string]string{
+					"module": settings.ModuleName,
 				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      moduleStateSecretName,
-					Namespace: settings.ModuleNamespace,
-					Labels: map[string]string{
-						"module": settings.ModuleName,
-					},
-				},
-				Data: state.ToSecretData(),
-				Type: "Opaque",
-			}
-			input.PatchCollector.Create(secret)
+			},
+			Data: newState.ToSecretData(),
+			Type: "Opaque",
 		}
+		input.PatchCollector.Create(secret)
 	}
 
 	return nil
