@@ -256,15 +256,48 @@ jobs:
       - name: Debug disk information in nested cluster
         run: |
           set -euo pipefail
-          MASTER_NAME=$(kubectl -n ${{ env.RUN_ID }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
-          echo "=== Debugging disks in master: $MASTER_NAME ==="
-          kubectl -n ${{ env.RUN_ID }} exec deploy/jump-host -- sh -lc "
-            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${MASTER_NAME}.${{ env.RUN_ID }} '
-              echo \"=== lsblk ===\"; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
-              echo \"=== /dev list ===\"; sudo ls -l /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || true;
-              echo \"=== fdisk ===\"; sudo fdisk -l 2>/dev/null || true
-            '
-          "
+          RUN_NS="${{ env.RUN_ID }}"
+          MASTER_NAME=$(kubectl -n "$RUN_NS" get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
+          echo "=== Waiting for master VM: $MASTER_NAME ==="
+          for i in $(seq 1 60); do
+            phase=$(kubectl -n "$RUN_NS" get vm "$MASTER_NAME" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Running" ]; then
+              echo "VM is Running"; break
+            fi
+            echo "phase=$phase; retry $i/60"; sleep 10
+          done
+          
+          # Ensure Running or fail fast
+          [ "$(kubectl -n "$RUN_NS" get vm "$MASTER_NAME" -o jsonpath='{.status.phase}')" = "Running" ]
+          
+          SSH_KEY="${{ env.TMP_ROOT }}/runs/${RUN_NS}/ssh/cloud"
+          
+          # Try SSH a few times (VM userland may start slightly later)
+          for i in $(seq 1 6); do
+            if KUBECONFIG="$KUBECONFIG" d8 v ssh \
+              --username=ubuntu \
+              --identity-file="$SSH_KEY" \
+              --local-ssh=true \
+              --local-ssh-opts="-o StrictHostKeyChecking=no" \
+              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+              "${MASTER_NAME}.${RUN_NS}" \
+              -c 'true'; then
+              break
+            fi
+            echo "SSH not ready yet, retry $i/6"; sleep 10
+          done
+          
+          KUBECONFIG="$KUBECONFIG" d8 v ssh \
+            --username=ubuntu \
+            --identity-file="$SSH_KEY" \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            "${MASTER_NAME}.${RUN_NS}" \
+            -c 'set -e;
+              echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
+              echo "=== /dev list ==="; ls -l /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || true;
+              echo "=== fdisk ==="; sudo fdisk -l 2>/dev/null || true'
 
       - name: Configure storage backend (post-bootstrap)
         run: |
