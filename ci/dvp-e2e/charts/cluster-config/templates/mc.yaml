@@ -79,3 +79,11 @@ metadata:
 spec:
   imageTag: main
   scanInterval: 15s
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-replicated-volume
+spec:
+  enabled: true
+  version: 1
