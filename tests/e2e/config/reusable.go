@@ -24,7 +24,7 @@ import (
 
 // ReusableEnv defines an environment variable used to reuse resources created previously.
 // By default, it retains all resources created during the e2e test after its completion (no cleanup by default in this mode).
-// Use the `WITH_POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
+// Use the `POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
 //
 // When a test starts, it will reuse existing virtual machines created earlier, if they exist.
 // If no virtual machines were found, they will be created.
