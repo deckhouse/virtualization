@@ -304,6 +304,14 @@ jobs:
           set -euo pipefail
           NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
           PROFILE="${{ matrix.profile }}"
+          
+          echo "[INFO] Waiting for nested API Server readiness..."
+          for i in $(seq 1 30); do
+            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get nodes >/dev/null 2>&1; then
+              echo "[INFO] API Server is ready"; break
+            fi
+            echo "[INFO] Waiting for API Server... $i/30"; sleep 10
+          done
           if [ "$PROFILE" = "sds" ]; then
             echo "[SDS] Applying SDS resources..."
             for i in {1..10}; do
@@ -322,7 +330,10 @@ jobs:
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch storageclass linstor-thin-r2 -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}'
           elif [ "$PROFILE" = "cephrbd" ]; then
             echo "[Ceph] Enabling operator-ceph module..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
+                break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
+            done
             echo "[Ceph] Waiting for operator-ceph namespace..."
             for i in $(seq 1 30); do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
@@ -335,7 +346,10 @@ jobs:
             echo "[Ceph] Waiting for CephCluster CRD..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
             echo "[Ceph] Applying CephCluster..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/ceph.yaml
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
+                break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
+            done
           else
             echo "[INFO] Unknown storage profile '$PROFILE', skipping"
           fi
