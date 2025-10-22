@@ -762,49 +762,39 @@ func SaveTestCaseDump(labels map[string]string, additional, namespace string) {
 func SaveTestCaseResources(labels map[string]string, additional, namespace, dumpPath string) {
 	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s.yaml", dumpPath, labels["testcase"], additional)
 
-	clusterResource, crErr := GetResource("cvi,vmc", kc.GetOptions{
+	clusterResourceResult := kubectl.Get("cvi,vmc", kc.GetOptions{
 		Labels:            labels,
 		Namespace:         namespace,
 		Output:            "yaml",
 		ShowManagedFields: true,
 	})
-	if crErr != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n", crErr)
+	if clusterResourceResult.Error() != nil {
+		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", clusterResourceResult.GetCmd(), clusterResourceResult.Error(), clusterResourceResult.StdErr())
 	}
 
-	namespacedResource, nrErr := GetResource("virtualization,intvirt,pod,volumesnapshot,pvc", kc.GetOptions{
+	namespacedResourceResult := kubectl.Get("virtualization,intvirt,pod,volumesnapshot,pvc", kc.GetOptions{
 		Namespace:         namespace,
 		Output:            "yaml",
 		ShowManagedFields: true,
 	})
-	if nrErr != nil {
-		GinkgoWriter.Printf("Get resources error:\n%s\n", nrErr)
+	if namespacedResourceResult.Error() != nil {
+		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", namespacedResourceResult.GetCmd(), namespacedResourceResult.Error(), namespacedResourceResult.StdErr())
 	}
 
 	// Stdout may present even if error is occurred.
-	if len(clusterResource) > 0 || len(namespacedResource) > 0 {
+	if len(clusterResourceResult.StdOutBytes()) > 0 || len(namespacedResourceResult.StdOutBytes()) > 0 {
 		delimiter := []byte("---\n")
 
-		result := make([]byte, len(clusterResource)+len(delimiter)+len(namespacedResource))
-		result = append(result, clusterResource...)
+		result := make([]byte, 0, len(clusterResourceResult.StdOutBytes())+len(delimiter)+len(namespacedResourceResult.StdOutBytes()))
+		result = append(result, clusterResourceResult.StdOutBytes()...)
 		result = append(result, delimiter...)
-		result = append(result, namespacedResource...)
+		result = append(result, namespacedResourceResult.StdOutBytes()...)
 
 		err := os.WriteFile(resFileName, result, 0o644)
 		if err != nil {
 			GinkgoWriter.Printf("Save resources to file '%s' failed: %s\n", resFileName, err)
 		}
 	}
-}
-
-func GetResource(resources string, opts kc.GetOptions) ([]byte, error) {
-	cmd := kubectl.Get(resources, opts)
-
-	if cmd.Error() != nil {
-		return []byte{}, fmt.Errorf("cmd: %s\nerror: %w\nstderr: %s\n", cmd.GetCmd(), cmd.Error(), cmd.StdErr())
-	}
-
-	return cmd.StdOutBytes(), nil
 }
 
 func SavePodLogsAndDescriptions(labels map[string]string, additional, namespace, dumpPath string) {
