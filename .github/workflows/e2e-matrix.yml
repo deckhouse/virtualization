@@ -314,7 +314,10 @@ jobs:
           done
           if [ "$PROFILE" = "sds" ]; then
             echo "[SDS] Enabling SDS modules..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/sds-modules.yaml
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds-modules.yaml; then
+                break; else echo "[SDS] modules apply failed, retry $i/10"; sleep 10; fi
+            done
 
             echo "[SDS] Waiting for SDS CRDs..."
             for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
