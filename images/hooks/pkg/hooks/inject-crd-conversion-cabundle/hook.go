@@ -1,0 +1,109 @@
+/*
+Copyright 2025 Flant JSC
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package inject_crd_conversion_cabundle
+
+import (
+	"context"
+	"encoding/base64"
+	"fmt"
+
+	"hooks/pkg/settings"
+
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/utils/ptr"
+)
+
+const (
+	crdSnapshotName   = "virtualmachineclasses-crd"
+	crdName           = "virtualmachineclasses.virtualization.deckhouse.io"
+	crdJQFilter       = `{
+		"name": .metadata.name,
+		"hasCABundle": (.spec.conversion.webhook.clientConfig.caBundle != null)
+	}`
+)
+
+type CRDSnapshot struct {
+	Name        string `json:"name"`
+	HasCABundle bool   `json:"hasCABundle"`
+}
+
+var _ = registry.RegisterFunc(config, reconcile)
+
+var config = &pkg.HookConfig{
+	OnAfterHelm: &pkg.OrderedConfig{Order: 10},
+	Kubernetes: []pkg.KubernetesConfig{
+		{
+			Name:       crdSnapshotName,
+			APIVersion: "apiextensions.k8s.io/v1",
+			Kind:       "CustomResourceDefinition",
+			NameSelector: &pkg.NameSelector{
+				MatchNames: []string{crdName},
+			},
+			JqFilter:                     crdJQFilter,
+			ExecuteHookOnSynchronization: ptr.Bool(false),
+			ExecuteHookOnEvents:          ptr.Bool(false),
+		},
+	},
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
+}
+
+func reconcile(ctx context.Context, input *pkg.HookInput) error {
+	input.Logger.Info("Start inject CRD conversion webhook caBundle hook")
+
+	caCert, exists := input.Values.GetOk("virtualization.internal.controller.cert.ca")
+	if !exists {
+		input.Logger.Info("CA certificate not found in values, skipping caBundle injection")
+		return nil
+	}
+
+	caString, ok := caCert.(string)
+	if !ok {
+		return fmt.Errorf("CA certificate is not a string")
+	}
+
+	caBundle := base64.StdEncoding.EncodeToString([]byte(caString))
+
+	snapshots := input.Snapshots.Get(crdSnapshotName)
+	if len(snapshots) == 0 {
+		input.Logger.Info("CRD %s not found, skipping caBundle injection", crdName)
+		return nil
+	}
+
+	var crdSnap CRDSnapshot
+	if err := snapshots[0].UnmarshalTo(&crdSnap); err != nil {
+		return fmt.Errorf("failed to unmarshal CRD snapshot: %w", err)
+	}
+
+	if crdSnap.HasCABundle {
+		input.Logger.Info("CRD %s already has caBundle, skipping injection", crdName)
+		return nil
+	}
+
+	patch := []interface{}{
+		map[string]interface{}{
+			"op":    "add",
+			"path":  "/spec/conversion/webhook/clientConfig/caBundle",
+			"value": caBundle,
+		},
+	}
+
+	input.PatchCollector.JSONPatch(patch, "apiextensions.k8s.io/v1", "CustomResourceDefinition", "", crdName)
+	input.Logger.Info("Successfully injected caBundle into CRD %s", crdName)
+
+	return nil
+}
