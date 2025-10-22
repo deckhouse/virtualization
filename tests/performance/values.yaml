@@ -1,4 +1,5 @@
-count: 1
+start_count: 1500
+count: 2000
 nginx: false
 curlUrl: "http://nc.nc.svc.cluster.local:8080/ping"
 resources:
@@ -30,9 +31,10 @@ resources:
         size: 300Mi
   virtualImage:
     spec:
+      count: 5
       template:
         # Virtual image type containerRegistry or persistentVolumeClaim
-        type: containerRegistry
+        type: persistentVolumeClaim
         # type: persistentVolumeClaim
         image:
           name: alpine

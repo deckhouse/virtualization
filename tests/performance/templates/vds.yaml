@@ -1,13 +1,20 @@
 {{- if or (eq .Values.resources.default "vds") (eq .Values.resources.default "all") }}
+{{- $count := (.Values.resources.virtualImage.spec.count | int) }}
+{{- range until $count  }}
+---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
+  {{- if gt . ($.Values.start_count | int) }}
+  name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}-{{ . }}
+  {{- else }}
   name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
+  {{- end }}
   namespace: {{ $.Release.Namespace }}
   labels:
     vms: {{ $.Values.resources.prefix }}
 spec:
-{{- if eq .Values.resources.virtualImage.spec.template.type "persistentVolumeClaim" }}
+{{- if eq $.Values.resources.virtualImage.spec.template.type "persistentVolumeClaim" }}
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     storageClassName: {{ $.Values.resources.storageClassName }}
@@ -21,6 +28,7 @@ spec:
     type: "HTTP"
     http:
       url: {{ $.Values.resources.virtualImage.spec.template.image.url }}
+{{- end }}
 {{- end }}
 {{- if ne .Values.resources.virtualDisk.spec.template.type "virtualImage" }}
 {{- $count := (.Values.count | int) }}
@@ -43,7 +51,11 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name:  {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
+      {{- if gt . ($.Values.start_count | int) }}
+      name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}-{{ mod . $.Values.resources.virtualImage.spec.count }}
+      {{- else }}
+      name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
+      {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

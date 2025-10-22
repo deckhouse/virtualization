@@ -38,7 +38,7 @@ spec:
   blockDeviceRefs:
     {{- if eq $.Values.resources.virtualDisk.spec.template.type "virtualImage" }}
     - kind: VirtualImage
-      name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
+      name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}-{{ mod . $.Values.resources.virtualImage.spec.count }}
     {{- else }}
     - kind: VirtualDisk
       name: {{ printf "%s-%05d" $.Values.resources.prefix . }}
