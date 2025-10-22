@@ -253,6 +253,19 @@ jobs:
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
+      - name: Debug disk information in nested cluster
+        run: |
+          set -euo pipefail
+          MASTER_NAME=$(kubectl -n ${{ env.RUN_ID }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
+          echo "=== Debugging disks in master: $MASTER_NAME ==="
+          kubectl -n ${{ env.RUN_ID }} exec deploy/jump-host -- sh -lc "
+            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${MASTER_NAME}.${{ env.RUN_ID }} '
+              echo \"=== lsblk ===\"; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
+              echo \"=== /dev list ===\"; sudo ls -l /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || true;
+              echo \"=== fdisk ===\"; sudo fdisk -l 2>/dev/null || true
+            '
+          "
+
       - name: Configure storage backend (post-bootstrap)
         run: |
           set -euo pipefail
@@ -283,22 +296,6 @@ jobs:
           else
             echo "[INFO] Unknown storage profile '$PROFILE', skipping"
           fi
-
-      - name: Debug disk information in nested cluster
-        run: |
-          set -euo pipefail
-          MASTER_NAME=$(kubectl -n ${{ env.RUN_ID }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
-          echo "=== Debugging disks in master: $MASTER_NAME ==="
-          kubectl -n ${{ env.RUN_ID }} exec deployment/jump-host -- bash -c "
-            ssh -o StrictHostKeyChecking=no ubuntu@${MASTER_NAME}.${{ env.RUN_ID }} '
-              echo \"=== lsblk output ===\"
-              lsblk
-              echo \"=== Block devices ===\"
-              ls -la /dev/sd* /dev/nvme* /dev/vd* 2>/dev/null || true
-              echo \"=== fdisk output ===\"
-              sudo fdisk -l 2>/dev/null || true
-            '
-          "
 
       - name: Configure storage classes
         working-directory: ci/dvp-e2e
