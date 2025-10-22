@@ -41,7 +41,11 @@ func (dst *VirtualMachineClass) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1alpha3.VirtualMachineClass)
 
 	dst.ObjectMeta = src.ObjectMeta
-	dst.Spec = convertSpecV3ToV2(src.Spec)
+	convertedSpec, err := convertSpecV3ToV2(src.Spec)
+	if err != nil {
+		return err
+	}
+	dst.Spec = convertedSpec
 	dst.Status = convertStatusV3ToV2(src.Status)
 
 	return nil
@@ -109,7 +113,7 @@ func convertSpecV2ToV3(v2Spec VirtualMachineClassSpec) v1alpha3.VirtualMachineCl
 	return v3Spec
 }
 
-func convertSpecV3ToV2(v3Spec v1alpha3.VirtualMachineClassSpec) VirtualMachineClassSpec {
+func convertSpecV3ToV2(v3Spec v1alpha3.VirtualMachineClassSpec) (VirtualMachineClassSpec, error) {
 	v2Spec := VirtualMachineClassSpec{
 		NodeSelector: NodeSelector{
 			MatchLabels:      v3Spec.NodeSelector.MatchLabels,
@@ -166,7 +170,7 @@ func convertSpecV3ToV2(v3Spec v1alpha3.VirtualMachineClassSpec) VirtualMachineCl
 					}
 					fractionInt, err := strconv.Atoi(fractionStr)
 					if err != nil {
-						fractionInt = 100
+						return VirtualMachineClassSpec{}, fmt.Errorf("failed to parse core fraction: %w", err)
 					}
 					v2Policy.CoreFractions[j] = CoreFractionValue(fractionInt)
 				}
@@ -176,7 +180,7 @@ func convertSpecV3ToV2(v3Spec v1alpha3.VirtualMachineClassSpec) VirtualMachineCl
 		}
 	}
 
-	return v2Spec
+	return v2Spec, nil
 }
 
 func convertStatusV2ToV3(v2Status VirtualMachineClassStatus) v1alpha3.VirtualMachineClassStatus {
