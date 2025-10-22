@@ -75,6 +75,9 @@ binaries:
 packages:
 - libisoburn nftables acl libmnl libjansson4 libnftnl
 - glibc libattr pcre2 selinux
+- libaio libaudit libcap-ng numactl
+- linux-pam libunistring libgmp gnutls nettle libidn2 p11-kit libtasn1
+- libffi zlib zstd liburing
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

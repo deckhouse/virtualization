@@ -88,6 +88,8 @@ packages:
 - libffi libgmp gnutls nettle libidn2
 - p11-kit libtasn1 libfuse3
 - gcc ubdsrv liburing
+- libaio libaudit libcap-ng numactl
+- linux-pam pcre2 libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

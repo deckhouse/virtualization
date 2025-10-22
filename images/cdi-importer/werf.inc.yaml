@@ -27,6 +27,8 @@ binaries:
   - /usr/lib64/libsqlite3.so.0
   # CDI binaries
   - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
+  # QEMU bins
+  - /usr/bin/qemu-img
 packages:
 - nbdkit libnbd
 - libtasn1 libxml2
@@ -38,6 +40,8 @@ packages:
 - glibc
 - glib2 pcre2 libbsd libfuse3
 - gcc ubdsrv liburing
+- libaio libaudit libcap-ng numactl
+- linux-pam
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
@@ -64,7 +68,7 @@ import:
   - cdi-source-update-poller
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
-  to: /relocate
+  to: /qemu-img
   before: setup
 {{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
 shell:
@@ -77,6 +81,7 @@ shell:
   - |
     echo "Install packages"
     PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
+    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
