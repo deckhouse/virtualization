@@ -385,39 +385,6 @@ tasks:
           sleep 10
         done
 
-  nested:storage:ceph:
-    desc: Configure Ceph storage profile in nested cluster
-    vars:
-      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-      CEPH_SC_NAME: '{{ .CEPH_SC_NAME | default "ceph-pool-r2-csi-rbd-immediate" }}'
-      CEPH_DVCR_SIZE: '{{ .CEPH_DVCR_SIZE | default "5Gi" }}'
-    cmds:
-      - ./scripts/ceph-bootstrap.sh {{ .NESTED_KUBECONFIG }}
-      - |
-        set -euo pipefail
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .CEPH_SC_NAME }} >/dev/null 2>&1; then
-          echo "[ERR] StorageClass '{{ .CEPH_SC_NAME }}' not found in nested cluster" >&2
-          exit 1
-        fi
-      - |
-        cat > /tmp/mc-virtualization-ceph.yaml <<EOF
-        apiVersion: deckhouse.io/v1alpha1
-        kind: ModuleConfig
-        metadata:
-          name: virtualization
-        spec:
-          enabled: true
-          version: 1
-          settings:
-            dvcr:
-              storage:
-                type: PersistentVolumeClaim
-                persistentVolumeClaim:
-                  storageClassName: {{ .CEPH_SC_NAME }}
-                  size: {{ .CEPH_DVCR_SIZE }}
-        EOF
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-ceph.yaml
-
   nested:storage:sds:
     desc: Configure SDS storage profile in nested cluster
     vars:
@@ -454,6 +421,8 @@ tasks:
     desc: Configure storage profile inside nested cluster (Ceph or SDS)
     vars:
       STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "sds" }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS }}'
       STORAGE_PROFILE_NORMALIZED:
         sh: |
           case '{{ .STORAGE_PROFILE }}' in
@@ -469,11 +438,34 @@ tasks:
           ceph|sds) ;;
           *) echo "Unknown storage profile: {{ .STORAGE_PROFILE }}" >&2; exit 1 ;;
         esac
-      - task: "nested:storage:{{ .STORAGE_PROFILE_NORMALIZED }}"
+      - |
+        set -euo pipefail
+        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
+          ceph)
+            echo "[CEPH] Waiting for Ceph StorageClass to be available..."
+            CEPH_SC_NAME='{{ .TARGET_STORAGE_CLASS }}'
+            for i in $(seq 1 30); do
+              if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "$CEPH_SC_NAME" >/dev/null 2>&1; then
+                echo "[CEPH] StorageClass '$CEPH_SC_NAME' is available"
+                break
+              fi
+              echo "[CEPH] Waiting for StorageClass '$CEPH_SC_NAME' (attempt $i/30)..."
+              sleep 10
+            done
+            if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "$CEPH_SC_NAME" >/dev/null 2>&1; then
+              echo "[ERR] StorageClass '$CEPH_SC_NAME' not found in nested cluster" >&2
+              exit 1
+            fi
+            ;;
+          sds)
+            echo "[SDS] Configuring SDS storage..."
+            ;;
+        esac
+      - task: "nested:storage:sds"
         vars:
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          CEPH_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
           SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
+        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "sds" }}'
 
   # ------------------------------------------------------------
   # Run E2E
