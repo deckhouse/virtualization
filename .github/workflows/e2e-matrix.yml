@@ -322,14 +322,7 @@ jobs:
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch storageclass linstor-thin-r2 -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}'
           elif [ "$PROFILE" = "cephrbd" ]; then
             echo "[Ceph] Enabling operator-ceph module..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: operator-ceph
-spec:
-  enabled: true
-EOF
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml
             echo "[Ceph] Waiting for operator-ceph namespace..."
             for i in $(seq 1 30); do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
