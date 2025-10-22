@@ -18,6 +18,7 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -58,7 +59,16 @@ func (m *VMAccess) IsMatched() bool {
 		return false
 	}
 
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
+		return false
+	}
+
 	if m.event.ObjectRef.Resource != "virtualmachines" || m.event.ObjectRef.APIGroup != "subresources.virtualization.deckhouse.io" {
+		return false
+	}
+
+	if m.event.Stage == audit.StageResponseStarted {
 		return false
 	}
 
@@ -73,23 +83,23 @@ func (m *VMAccess) Fill() error {
 	m.eventLog = NewVMEventLog(m.event)
 	m.eventLog.Type = "Access to VM"
 
-	switch m.event.ObjectRef.Subresource {
-	case "console":
-		m.eventLog.Name = "Access to VM via serial console"
-	case "vnc":
-		m.eventLog.Name = "Access to VM via VNC"
-	case "portforward":
-		m.eventLog.Name = "Access to VM via portforward"
+	stage := ""
+	switch m.event.Stage {
+	case audit.StageResponseComplete:
+		stage = "finished"
+	case audit.StageRequestReceived:
+		stage = "initiated"
 	}
 
-	m.eventLog.Name = fmt.Sprintf("%s: %s", m.eventLog.Name, m.event.Stage)
-
+	m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' connection has been %s via %s by '%s'", m.event.ObjectRef.Name, stage, m.event.ObjectRef.Subresource, m.event.User.Username)
 	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 
 		return nil
 	}
+
+	m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' connection has been %s via %s by '%s'", vm.Name, stage, m.event.ObjectRef.Subresource, m.event.User.Username)
 
 	m.eventLog.QemuVersion = vm.Status.Versions.Qemu
 	m.eventLog.LibvirtVersion = vm.Status.Versions.Libvirt

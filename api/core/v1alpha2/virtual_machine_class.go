@@ -102,7 +102,7 @@ type CPU struct {
 	// +kubebuilder:example={mmx, vmx, sse2}
 	Features []string `json:"features,omitempty"`
 	// Create a CPU model based on intersecting CPU features for selected nodes.
-	Discovery CpuDiscovery `json:"discovery,omitempty"`
+	Discovery *CpuDiscovery `json:"discovery,omitempty"`
 }
 
 type CpuDiscovery struct {

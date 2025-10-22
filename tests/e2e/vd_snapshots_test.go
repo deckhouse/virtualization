@@ -168,16 +168,17 @@ var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), fu
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
-			// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
-			// By("Snapshots should be consistent", func() {
-			// 	vdSnapshots := virtv2.VirtualDiskSnapshotList{}
-			// 	err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: ns, Labels: hasNoConsumerLabel})
-			// 	Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
-			//
-			// 	for _, snapshot := range vdSnapshots.Items {
-			// 		Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
-			// 	}
-			// })
+
+			// TODO: It is a known issue that disk snapshots are not always created consistently.
+			By("Snapshots should be consistent", func() {
+				vdSnapshots := v1alpha2.VirtualDiskSnapshotList{}
+				err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: ns, Labels: hasNoConsumerLabel})
+				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
+
+				for _, snapshot := range vdSnapshots.Items {
+					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+				}
+			})
 		})
 	})
 
@@ -314,29 +315,29 @@ var _ = Describe("VirtualDiskSnapshots", framework.CommonE2ETestDecorators(), fu
 			}
 		})
 
-		// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
-		// It("checks snapshots of attached VDs", func() {
-		// 	By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
-		// 	WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
-		// 		Labels:    attachedVirtualDiskLabel,
-		// 		Namespace: ns,
-		// 		Timeout:   MaxWaitTimeout,
-		// 	})
-		// 	By("Snapshots should be consistent", func() {
-		// 		vdSnapshots := virtv2.VirtualDiskSnapshotList{}
-		// 		err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{
-		// 			ExcludedLabels: []string{"hasNoConsumer"},
-		// 			Namespace:      ns,
-		// 			Labels:         attachedVirtualDiskLabel,
-		// 		})
-		// 		Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
-		//
-		// 		for _, snapshot := range vdSnapshots.Items {
-		// 			Expect(snapshot.Status.Consistent).ToNot(BeNil())
-		// 			Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
-		// 		}
-		// 	})
-		// })
+		// TODO: It is a known issue that disk snapshots are not always created consistently.
+		It("checks snapshots of attached VDs", func() {
+			By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
+				Labels:    attachedVirtualDiskLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+			By("Snapshots should be consistent", func() {
+				vdSnapshots := v1alpha2.VirtualDiskSnapshotList{}
+				err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{
+					ExcludedLabels: []string{"hasNoConsumer"},
+					Namespace:      ns,
+					Labels:         attachedVirtualDiskLabel,
+				})
+				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
+
+				for _, snapshot := range vdSnapshots.Items {
+					Expect(snapshot.Status.Consistent).ToNot(BeNil())
+					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+				}
+			})
+		})
 
 		It("checks `FileSystemFrozen` status of VMs", func() {
 			By("Status should not be `Frozen`")

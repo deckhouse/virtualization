@@ -158,7 +158,7 @@ var _ = Describe("Integrity Check VM Events", func() {
 
 			Expect(eventLog.eventLog.Type).To(Equal("Integrity check"))
 			Expect(eventLog.eventLog.Level).To(Equal("critical"))
-			Expect(eventLog.eventLog.Name).To(Equal("VM config integrity check failed"))
+			Expect(eventLog.eventLog.Name).To(Equal("Virtual machine 'test-vm' config integrity check failed"))
 			Expect(eventLog.eventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
 			Expect(eventLog.eventLog.UID).To(Equal("0000-0000-0000"))
 			Expect(eventLog.eventLog.OperationResult).To(Equal("allow"))
