@@ -114,9 +114,12 @@ jobs:
       - name: Install Deckhouse CLI
         run: |
           echo "Installing d8 CLI..."
-          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-          bash d8-install.sh --skip-checksum
-          rm -f d8-install.sh
+          D8_VERSION="v0.9.3"
+          D8_URL="https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
+          curl -fsSL -o d8.tar.gz "$D8_URL"
+          tar -xzf d8.tar.gz
+          sudo mv d8 /usr/local/bin/
+          rm -f d8.tar.gz
 
       - name: Install yq
         run: |
