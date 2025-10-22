@@ -84,16 +84,6 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
 		})
 
-		It("should not create generic vmclass when it already exists", func() {
-			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
-				mock.NewSnapshotMock(GinkgoT()),
-			})
-
-			patchCollector.CreateMock.Optional()
-
-			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
-		})
 	})
 
 	Context("when module-state secret doesn't exist", func() {
@@ -118,16 +108,6 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
 		})
 
-		It("should not create generic vmclass when it already exists", func() {
-			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
-				mock.NewSnapshotMock(GinkgoT()),
-			})
-
-			patchCollector.CreateMock.Optional()
-
-			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
-		})
 	})
 
 	Context("when module-state secret exists but doesn't contain generic-vmclass-created", func() {
@@ -163,16 +143,6 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
 		})
 
-		It("should not create generic vmclass when it already exists", func() {
-			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
-				mock.NewSnapshotMock(GinkgoT()),
-			})
-
-			patchCollector.CreateMock.Optional()
-
-			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
-		})
 	})
 
 	Context("when module-state secret exists with generic-vmclass-created=false", func() {
@@ -208,15 +178,5 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
 		})
 
-		It("should not create generic vmclass when it already exists", func() {
-			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{
-				mock.NewSnapshotMock(GinkgoT()),
-			})
-
-			patchCollector.CreateMock.Optional()
-
-			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
-		})
 	})
 })

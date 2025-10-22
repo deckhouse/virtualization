@@ -87,92 +87,88 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	moduleStateSecrets := input.Snapshots.Get(moduleStateSecretSnapshot)
 	vmClasses := input.Snapshots.Get(vmClassSnapshot)
 
-	vmClassExists := len(vmClasses) > 0
-	shouldCreateVMClass := false
+	// nothing to do if generic vmclass already exists
+	if len(vmClasses) > 0 {
+		return nil
+	}
 
-	if len(moduleStateSecrets) == 0 {
-		// Секрет отсутствует - создаем VMClass если его нет
-		shouldCreateVMClass = !vmClassExists
-	} else {
-		// Секрет существует - проверяем его содержимое
+	// if module-state secret exists and contains generic-vmclass-created=true, nothing to do
+	if len(moduleStateSecrets) > 0 {
 		moduleStateData := make(map[string]interface{})
-		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err == nil {
-			if genericCreatedEncoded, exists := moduleStateData["generic-vmclass-created"]; exists {
-				if encodedStr, ok := genericCreatedEncoded.(string); ok {
-					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
-						genericCreated := string(decodedBytes) == "true"
-						if !genericCreated && !vmClassExists {
-							shouldCreateVMClass = true
-						}
+		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err != nil {
+			return err
+		}
+
+		if genericCreatedEncoded, exists := moduleStateData["generic-vmclass-created"]; exists {
+			if encodedStr, ok := genericCreatedEncoded.(string); ok {
+				if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
+					genericCreated := string(decodedBytes) == "true"
+					if genericCreated {
+						return nil
 					}
 				}
-			} else {
-				// Ключ отсутствует в секрете - создаем VMClass если его нет
-				shouldCreateVMClass = !vmClassExists
 			}
 		}
 	}
 
-	if shouldCreateVMClass {
-		input.Logger.Info("Creating generic VirtualMachineClass")
+	input.Logger.Info("Creating generic VirtualMachineClass")
 
-		vmClass := &v1alpha2.VirtualMachineClass{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: apiVersion,
-				Kind:       v1alpha2.VirtualMachineClassKind,
+	vmClass := &v1alpha2.VirtualMachineClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: apiVersion,
+			Kind:       v1alpha2.VirtualMachineClassKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: genericVMClassName,
+			Labels: map[string]string{
+				"app":    "virtualization-controller",
+				"module": settings.ModuleName,
 			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: genericVMClassName,
-				Labels: map[string]string{
-					"app":    "virtualization-controller",
-					"module": settings.ModuleName,
+		},
+		Spec: v1alpha2.VirtualMachineClassSpec{
+			CPU: v1alpha2.CPU{
+				Type:  v1alpha2.CPUTypeModel,
+				Model: "Nehalem",
+			},
+			SizingPolicies: []v1alpha2.SizingPolicy{
+				{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					DedicatedCores: []bool{false},
+					CoreFractions:  []v1alpha2.CoreFractionValue{5, 10, 20, 50, 100},
+				},
+				{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 5,
+						Max: 8,
+					},
+					DedicatedCores: []bool{false},
+					CoreFractions:  []v1alpha2.CoreFractionValue{20, 50, 100},
+				},
+				{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 9,
+						Max: 16,
+					},
+					DedicatedCores: []bool{true, false},
+					CoreFractions:  []v1alpha2.CoreFractionValue{50, 100},
+				},
+				{
+					Cores: &v1alpha2.SizingPolicyCores{
+						Min: 17,
+						Max: 1024,
+					},
+					DedicatedCores: []bool{true, false},
+					CoreFractions:  []v1alpha2.CoreFractionValue{100},
 				},
 			},
-			Spec: v1alpha2.VirtualMachineClassSpec{
-				CPU: v1alpha2.CPU{
-					Type:  v1alpha2.CPUTypeModel,
-					Model: "Nehalem",
-				},
-				SizingPolicies: []v1alpha2.SizingPolicy{
-					{
-						Cores: &v1alpha2.SizingPolicyCores{
-							Min: 1,
-							Max: 4,
-						},
-						DedicatedCores: []bool{false},
-						CoreFractions:  []v1alpha2.CoreFractionValue{5, 10, 20, 50, 100},
-					},
-					{
-						Cores: &v1alpha2.SizingPolicyCores{
-							Min: 5,
-							Max: 8,
-						},
-						DedicatedCores: []bool{false},
-						CoreFractions:  []v1alpha2.CoreFractionValue{20, 50, 100},
-					},
-					{
-						Cores: &v1alpha2.SizingPolicyCores{
-							Min: 9,
-							Max: 16,
-						},
-						DedicatedCores: []bool{true, false},
-						CoreFractions:  []v1alpha2.CoreFractionValue{50, 100},
-					},
-					{
-						Cores: &v1alpha2.SizingPolicyCores{
-							Min: 17,
-							Max: 1024,
-						},
-						DedicatedCores: []bool{true, false},
-						CoreFractions:  []v1alpha2.CoreFractionValue{100},
-					},
-				},
-			},
-		}
-
-		input.PatchCollector.Create(vmClass)
-		input.Logger.Info("VirtualMachineClass generic created")
+		},
 	}
+
+	input.PatchCollector.Create(vmClass)
+	input.Logger.Info("VirtualMachineClass generic created")
 
 	return nil
 }
