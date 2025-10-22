@@ -252,33 +252,33 @@ var _ = Describe("VMOP Events", func() {
 			shouldFailMatch: true,
 		}),
 		Entry("VM Access with ResponseComplete should contain decision and fill without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via serial console: ResponseComplete",
+			expectedName:      "Virtual machine 'test-vm' connection has been finished via console by 'test-user'",
 			customSubresource: "console",
 		}),
 		Entry("VM Access with RequestReceived shouldn't contain decision and fill without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via serial console: RequestReceived",
+			expectedName:      "Virtual machine 'test-vm' connection has been initiated via console by 'test-user'",
 			customSubresource: "console",
 			isRequestReceived: true,
 		}),
 		Entry("VM Access by Console event should filled without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via serial console: ResponseComplete",
+			expectedName:      "Virtual machine 'test-vm' connection has been finished via console by 'test-user'",
 			customSubresource: "console",
 		}),
 		Entry("VM Access by VNC event should filled without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via VNC: ResponseComplete",
+			expectedName:      "Virtual machine 'test-vm' connection has been finished via vnc by 'test-user'",
 			customSubresource: "vnc",
 		}),
 		Entry("VM Access by Portforward event should filled without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via portforward: ResponseComplete",
+			expectedName:      "Virtual machine 'test-vm' connection has been finished via portforward by 'test-user'",
 			customSubresource: "portforward",
 		}),
 		Entry("VM Access with losted VM event should filled without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via serial console: ResponseComplete",
+			expectedName:      "Virtual machine 'virt-launcher-test-vm' connection has been finished via console by 'test-user'",
 			customSubresource: "console",
 			shouldLostVM:      true,
 		}),
 		Entry("VM Access with losted VD and Node event should filled without errors", vmAccessTestArgs{
-			expectedName:      "Access to VM via serial console: ResponseComplete",
+			expectedName:      "Virtual machine 'test-vm' connection has been finished via console by 'test-user'",
 			customSubresource: "console",
 			shouldLostVD:      true,
 			shouldLostNode:    true,
