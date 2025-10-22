@@ -24,8 +24,6 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/utils/ptr"
 )
 
 const (
@@ -54,9 +52,7 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{crdName},
 			},
-			JqFilter:                     crdJQFilter,
-			ExecuteHookOnSynchronization: ptr.Bool(false),
-			ExecuteHookOnEvents:          ptr.Bool(false),
+			JqFilter: crdJQFilter,
 		},
 	},
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
@@ -65,15 +61,15 @@ var config = &pkg.HookConfig{
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start inject CRD conversion webhook caBundle hook")
 
-	caCert, exists := input.Values.GetOk("virtualization.internal.controller.cert.ca")
-	if !exists {
+	caCert := input.Values.Get("virtualization.internal.controller.cert.ca")
+	if !caCert.Exists() {
 		input.Logger.Info("CA certificate not found in values, skipping caBundle injection")
 		return nil
 	}
 
-	caString, ok := caCert.(string)
-	if !ok {
-		return fmt.Errorf("CA certificate is not a string")
+	caString := caCert.String()
+	if caString == "" {
+		return fmt.Errorf("CA certificate is empty")
 	}
 
 	caBundle := base64.StdEncoding.EncodeToString([]byte(caString))
