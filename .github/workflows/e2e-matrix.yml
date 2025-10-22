@@ -318,14 +318,31 @@ jobs:
               sleep 10
             done
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null
+            echo "[SDS] Setting linstor-thin-r2 as default StorageClass..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch storageclass linstor-thin-r2 -p '{"metadata": {"annotations": {"storageclass.kubernetes.io/is-default-class": "true"}}}'
           elif [ "$PROFILE" = "cephrbd" ]; then
-            echo "[Ceph] Enabling operator and applying CephCluster..."
-            for i in {1..10}; do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
-                break; else echo "[Ceph] apply failed, retry $i/10"; sleep 10; fi
+            echo "[Ceph] Enabling operator-ceph module..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: operator-ceph
+spec:
+  enabled: true
+EOF
+            echo "[Ceph] Waiting for operator-ceph namespace..."
+            for i in $(seq 1 30); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
+                echo "[Ceph] Namespace d8-operator-ceph is ready"; break
+              fi
+              echo "[Ceph] Waiting for namespace... $i/30"; sleep 10
             done
-            echo "[Ceph] Waiting for rook-ceph-operator..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=Available deploy/rook-ceph-operator --timeout=600s || true
+            echo "[Ceph] Waiting for rook-ceph-operator pod..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=300s
+            echo "[Ceph] Waiting for CephCluster CRD..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
+            echo "[Ceph] Applying CephCluster..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f ci/dvp-e2e/manifests/storage/ceph.yaml
           else
             echo "[INFO] Unknown storage profile '$PROFILE', skipping"
           fi
