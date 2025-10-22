@@ -79,6 +79,7 @@ func (m *VMControl) Fill() error {
 		}
 	}
 
+	vmName := pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"]
 	isControllerAction := strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-virtualization")
 	isNodeAction := strings.HasPrefix(m.event.User.Username, "system:node")
 
@@ -88,22 +89,22 @@ func (m *VMControl) Fill() error {
 
 		switch {
 		case strings.Contains(terminatedStatuses, "guest-shutdown"):
-			m.eventLog.Name = "VM stoped from OS"
+			m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been stopped from OS", vmName)
 		case strings.Contains(terminatedStatuses, "guest-reset"):
-			m.eventLog.Name = "VM restarted from OS"
+			m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been restarted from OS", vmName)
 		default:
-			m.eventLog.Name = "VM stopped by system"
+			m.eventLog.shouldLog = false
 			return nil
 		}
 	case isNodeAction:
-		m.eventLog.Name = "VM stopped by system"
+		m.eventLog.shouldLog = false
 		return nil
 	default:
 		m.eventLog.Level = "critical"
-		m.eventLog.Name = "VM killed abnormal way"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been killed abnormal way by '%s'", vmName, m.event.User.Username)
 	}
 
-	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), pod.Namespace+"/"+vmName)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 		return nil
