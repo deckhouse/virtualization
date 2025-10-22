@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	removePassthroughHookName     = "Prevent default VirtualMachineClasses deletion"
+	removePassthroughHookName     = "Preserve VirtualMachineClasses on Helm uninstall"
 	removePassthroughHookJQFilter = `.metadata`
 	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
 	helmResourcePolicyKey  = "helm.sh/resource-policy"
@@ -73,6 +73,12 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		metadata := &metav1.ObjectMeta{}
 		if err := vmc.UnmarshalTo(metadata); err != nil {
 			input.Logger.Error(fmt.Sprintf("Failed to unmarshal metadata VirtualMachineClasses %v", err))
+			continue
+		}
+
+		// Skip if object is being deleted
+		if metadata.DeletionTimestamp != nil {
+			continue
 		}
 
 		policy := metadata.GetAnnotations()[helmResourcePolicyKey]
@@ -93,7 +99,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 				"value": helmResourcePolicyKeep,
 			},
 		}
-		input.PatchCollector.JSONPatch(patch, apiVersion, v1alpha2.VirtualMachineClassKind, "", metadata.Name)
+		input.PatchCollector.PatchWithJSON(patch, apiVersion, v1alpha2.VirtualMachineClassKind, "", metadata.Name)
 		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", metadata.Name))
 	}
 
