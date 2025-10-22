@@ -57,7 +57,8 @@ func (m *ModuleControl) IsMatched() bool {
 		return false
 	}
 
-	if strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8") {
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
 		return false
 	}
 
