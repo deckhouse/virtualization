@@ -179,20 +179,17 @@ jobs:
         run: |
           REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
 
-      - name: Configure registry auth via modules-actions
-        uses: deckhouse/modules-actions/setup@v2
+      - name: Docker login to Deckhouse dev registry
+        uses: docker/login-action@v3
         with:
           registry: ${{ vars.DEV_REGISTRY }}
-          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-
-      - name: Docker login to Deckhouse dev registry
-        run: echo "${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}" | docker login ${{ vars.DEV_REGISTRY }} -u "${{ vars.DEV_MODULES_REGISTRY_LOGIN }}" --password-stdin
+          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
+          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
 
       - name: Verify dev-registry access
         run: |
           set -euo pipefail
-          docker pull registry.deckhouse.ru/deckhouse/ce/install:alpha
+          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e

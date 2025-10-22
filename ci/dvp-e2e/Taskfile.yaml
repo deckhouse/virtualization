@@ -271,7 +271,7 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        IMAGE="registry.deckhouse.ru/deckhouse/ce/install:stable"
+        IMAGE="dev-registry.deckhouse.io/sys/deckhouse-oss/install:main"
         docker pull --platform=linux/amd64 "$IMAGE"
         docker run --rm --platform=linux/amd64 \
           -v "{{ .TMP_DIR }}:/work" \
