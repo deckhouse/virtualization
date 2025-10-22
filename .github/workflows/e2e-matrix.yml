@@ -253,6 +253,22 @@ jobs:
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
+      - name: Debug disk information in nested cluster
+        run: |
+          set -euo pipefail
+          MASTER_NAME=$(kubectl -n ${{ env.RUN_ID }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
+          echo "=== Debugging disks in master: $MASTER_NAME ==="
+          kubectl -n ${{ env.RUN_ID }} exec deployment/jump-host -- bash -c "
+            ssh -o StrictHostKeyChecking=no ubuntu@${MASTER_NAME}.${{ env.RUN_ID }} '
+              echo \"=== lsblk output ===\"
+              lsblk
+              echo \"=== Block devices ===\"
+              ls -la /dev/sd* /dev/nvme* /dev/vd* 2>/dev/null || true
+              echo \"=== fdisk output ===\"
+              sudo fdisk -l 2>/dev/null || true
+            '
+          "
+
       - name: Configure storage classes
         working-directory: ci/dvp-e2e
         run: |
