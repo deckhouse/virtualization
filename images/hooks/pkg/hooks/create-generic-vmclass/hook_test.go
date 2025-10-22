@@ -75,21 +75,13 @@ var _ = Describe("Create Generic VMClass hook", func() {
 			})
 		})
 
-		It("should recreate generic vmclass when it doesn't exist but state says it was created", func() {
+		It("should not recreate generic vmclass when it doesn't exist but state says it was created (user may have deleted it intentionally)", func() {
 			snapshots.GetMock.When(vmClassSnapshot).Then([]pkg.Snapshot{})
 
-			patchCollector.CreateMock.Set(func(obj interface{}) {
-				vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
-				Expect(ok).To(BeTrue())
-				Expect(vmClass.Name).To(Equal("generic"))
-				Expect(vmClass.Labels).To(Equal(map[string]string{
-					"app":    "virtualization-controller",
-					"module": "virtualization",
-				}))
-			})
+			patchCollector.CreateMock.Optional()
 
 			Expect(Reconcile(context.Background(), newInput())).To(Succeed())
-			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
+			Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
 		})
 
 		It("should not create generic vmclass when it already exists", func() {

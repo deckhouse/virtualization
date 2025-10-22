@@ -93,7 +93,6 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	if len(moduleStateSecrets) == 0 {
 		// Секрет отсутствует - создаем VMClass если его нет
 		shouldCreateVMClass = !vmClassExists
-		input.Logger.Info("Module-state secret doesn't exist, will create generic VirtualMachineClass if it doesn't exist")
 	} else {
 		// Секрет существует - проверяем его содержимое
 		moduleStateData := make(map[string]interface{})
@@ -104,21 +103,12 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 						genericCreated := string(decodedBytes) == "true"
 						if !genericCreated && !vmClassExists {
 							shouldCreateVMClass = true
-							input.Logger.Info("Module-state indicates generic VirtualMachineClass was not created, creating it")
-						} else if genericCreated && vmClassExists {
-							input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass exists")
-						} else if genericCreated && !vmClassExists {
-							input.Logger.Info("Module-state indicates generic VirtualMachineClass was created but it doesn't exist, will recreate it")
-							shouldCreateVMClass = true
-						} else {
-							input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass doesn't exist")
 						}
 					}
 				}
 			} else {
 				// Ключ отсутствует в секрете - создаем VMClass если его нет
 				shouldCreateVMClass = !vmClassExists
-				input.Logger.Info("Module-state secret doesn't contain generic-vmclass-created key, will create generic VirtualMachineClass if it doesn't exist")
 			}
 		}
 	}

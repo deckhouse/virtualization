@@ -137,7 +137,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	} else if vmClassExists && hasBeenCreated {
 		input.Logger.Info("Module-state correctly reflects that generic VirtualMachineClass was created")
 	} else if !vmClassExists && hasBeenCreated {
-		input.Logger.Info("Generic VirtualMachineClass was created previously but doesn't exist now - keeping historical record")
+		input.Logger.Info("Generic VirtualMachineClass was created previously but doesn't exist now - user may have deleted it intentionally, keeping historical record")
 	} else if !vmClassExists && !hasBeenCreated {
 		input.Logger.Info("Generic VirtualMachineClass doesn't exist and was never created - no action needed")
 	}
