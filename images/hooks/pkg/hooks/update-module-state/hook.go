@@ -103,7 +103,7 @@ func (ms ModuleState) ToPatchData() map[string]interface{} {
 	value := fmt.Sprintf("%t", ms.GenericVMClassCreated)
 	return map[string]interface{}{
 		"data": map[string]string{
-			genericVMClassStateKey: value,
+			genericVMClassStateKey: base64.StdEncoding.EncodeToString([]byte(value)),
 		},
 	}
 }

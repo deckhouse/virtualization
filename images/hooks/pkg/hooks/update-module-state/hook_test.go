@@ -111,7 +111,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(ok).To(BeTrue())
 				Expect(data).To(HaveKey("generic-vmclass-created"))
 
-				Expect(data["generic-vmclass-created"]).To(Equal("true"))
+				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -144,7 +144,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(ok).To(BeTrue())
 				Expect(data).To(HaveKey("generic-vmclass-created"))
 
-				Expect(data["generic-vmclass-created"]).To(Equal("true"))
+				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -204,7 +204,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(data).To(HaveKey("generic-vmclass-created"))
 
 				// Should keep historical record (true) even though VMClass doesn't exist now
-				Expect(data["generic-vmclass-created"]).To(Equal("true"))
+				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -238,7 +238,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(data).To(HaveKey("generic-vmclass-created"))
 
 				// Should remain false since VMClass doesn't exist
-				Expect(data["generic-vmclass-created"]).To(Equal("false"))
+				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("false"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -278,7 +278,7 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(data).To(HaveKey("generic-vmclass-created"))
 
 				// Should preserve historical true value even though VMClass doesn't exist
-				Expect(data["generic-vmclass-created"]).To(Equal("true"))
+				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
 			})
 
 			patchCollector.CreateMock.Optional()
