@@ -77,8 +77,8 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 		return
 	}
 
-	vmFractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
-	vmFraction, err := strconv.Atoi(vmFractionStr)
+	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
+	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
 		errorsArray = append(errorsArray, fmt.Errorf("unable to parse CPU core fraction: %w", err))
 		return
@@ -86,19 +86,13 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 
 	hasFractionValueInPolicy := false
 	for _, spFraction := range sp.CoreFractions {
-		policyFractionStr := strings.ReplaceAll(string(spFraction), "%", "")
-		policyFraction, err := strconv.Atoi(policyFractionStr)
-		if err != nil {
-			continue
-		}
-		if vmFraction == policyFraction {
+		if fraction == int(spFraction) {
 			hasFractionValueInPolicy = true
-			break
 		}
 	}
 
 	if !hasFractionValueInPolicy {
-		errorsArray = append(errorsArray, fmt.Errorf("VM core fraction value %d%% is not within the allowed values", vmFraction))
+		errorsArray = append(errorsArray, fmt.Errorf("VM core fraction value %d is not within the allowed values", fraction))
 	}
 
 	return
