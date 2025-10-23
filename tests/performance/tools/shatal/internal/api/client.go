@@ -122,6 +122,10 @@ func (c *Client) DrainNode(ctx context.Context, node string) error {
 		PodSelector:         "vms=" + c.resourcePrefix,
 		Out:                 logWriter,
 		ErrOut:              logWriter,
+		// Optimize drain performance
+		Force:              true,
+		GracePeriodSeconds: 30,
+		Timeout:            5 * time.Minute,
 		OnPodDeletionOrEvictionStarted: func(pod *corev1.Pod, usingEviction bool) {
 			mx.Lock()
 			defer mx.Unlock()
