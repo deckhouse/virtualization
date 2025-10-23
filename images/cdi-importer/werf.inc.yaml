@@ -41,7 +41,7 @@ packages:
 - glib2 libbsd libfuse3
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
-- linux-pam
+- linux-pam selinux zstd
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
