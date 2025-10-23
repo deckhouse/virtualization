@@ -453,6 +453,10 @@
               {
                 "id": "unit",
                 "value": "none"
+              },
+              {
+                "id": "decimals",
+                "value": 2
               }
             ]
           }
@@ -1413,23 +1417,6 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (namespace, name) (\n    label_replace(\n        d8_virtualization_virtualdisk_status_in_use{namespace=~\"$namespace\"}, \n        \"name\", \n        \"$1\", \n        \"virtualmachine\", \n        \"(.+)\"\n    )\n) * on(namespace, name) group_left() (\n    d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1\n)",
-          "format": "table",
-          "hide": false,
-          "instant": true,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "Disks attached",
-          "range": false,
-          "refId": "DisksAttached"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
           "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
           "format": "table",
           "hide": false,
@@ -1478,7 +1465,7 @@
           "editorMode": "code",
           "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
           "format": "table",
-          "hide": false,
+          "hide": true,
           "instant": true,
           "interval": "",
           "intervalFactor": 1,
@@ -1539,7 +1526,7 @@
           "exemplar": false,
           "expr": "avg by (namespace, name)  (d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"})\n",
           "format": "table",
-          "hide": false,
+          "hide": true,
           "instant": true,
           "legendFormat": "Memory hypervisor overhead",
           "range": false,
@@ -1604,6 +1591,23 @@
           "legendFormat": "__auto",
           "range": false,
           "refId": "NetworkBandwidthTX"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "count by (namespace, name) (\n    label_replace(\n        d8_virtualization_virtualdisk_status_in_use{namespace=~\"$namespace\"}, \n        \"name\", \n        \"$1\", \n        \"virtualmachine\", \n        \"(.+)\"\n    )\n) * on(namespace, name) group_left() (\n    d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1\n)",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "Disks attached",
+          "range": false,
+          "refId": "DisksAttached"
         },
         {
           "datasource": {
@@ -1757,8 +1761,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1873,8 +1876,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2165,8 +2167,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4528,8 +4529,8 @@
       {
         "current": {
           "selected": false,
-          "text": "d8-virt-master-2",
-          "value": "d8-virt-master-2"
+          "text": "d8-virt-node-0",
+          "value": "d8-virt-node-0"
         },
         "datasource": {
           "type": "prometheus",

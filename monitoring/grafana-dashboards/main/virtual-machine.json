@@ -498,7 +498,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -570,7 +570,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -589,16 +589,11 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
           "mappings": [],
           "thresholds": {
-            "mode": "percentage",
+            "mode": "absolute",
             "steps": [
               {
                 "color": "green",
@@ -606,7 +601,7 @@
               }
             ]
           },
-          "unit": "none"
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -616,12 +611,12 @@
         "x": 21,
         "y": 1
       },
-      "id": 87,
+      "id": 66,
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
+        "graphMode": "none",
         "justifyMode": "auto",
-        "orientation": "horizontal",
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -642,15 +637,28 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (\nd8_virtualization_virtualmachinesnapshot_info{namespace=~\"$namespace\",virtualmachine=~\"$name\"}\n) or vector(0)\n",
+          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "instant": true,
+          "legendFormat": "Capacity",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
           "hide": false,
           "instant": true,
-          "legendFormat": "VM snapshots",
+          "legendFormat": "Used",
           "range": false,
-          "refId": "D"
+          "refId": "B"
         }
       ],
-      "title": "Snapshots",
+      "title": "Filesystem",
       "type": "stat"
     },
     {
@@ -891,11 +899,16 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
+      "description": "",
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
           "mappings": [],
           "thresholds": {
-            "mode": "absolute",
+            "mode": "percentage",
             "steps": [
               {
                 "color": "green",
@@ -903,7 +916,7 @@
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -913,12 +926,12 @@
         "x": 15,
         "y": 3
       },
-      "id": 66,
+      "id": 87,
       "options": {
         "colorMode": "value",
-        "graphMode": "none",
+        "graphMode": "area",
         "justifyMode": "auto",
-        "orientation": "auto",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -935,18 +948,19 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "expr": "sum (\nd8_virtualization_virtualmachinesnapshot_info{namespace=~\"$namespace\",virtualmachine=~\"$name\"}\n) or vector(0)\n",
+          "hide": false,
           "instant": true,
-          "legendFormat": "{{mount_point}}",
+          "legendFormat": "VM snapshots",
           "range": false,
-          "refId": "A"
+          "refId": "D"
         }
       ],
-      "title": "Filesystem capacity",
+      "title": "Snapshots",
       "type": "stat"
     },
     {
@@ -1617,7 +1631,7 @@
             "h": 4,
             "w": 24,
             "x": 0,
-            "y": 30
+            "y": 22
           },
           "id": 1,
           "options": {
@@ -1753,7 +1767,7 @@
             "h": 4,
             "w": 24,
             "x": 0,
-            "y": 34
+            "y": 26
           },
           "id": 57,
           "options": {
@@ -1854,7 +1868,7 @@
             "h": 6,
             "w": 24,
             "x": 0,
-            "y": 38
+            "y": 30
           },
           "id": 81,
           "options": {
@@ -1873,7 +1887,7 @@
             {
               "datasource": {
                 "type": "prometheus",
-                "uid": "P0D6E4079E36703EB"
+                "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
               "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
@@ -2038,7 +2052,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 39
+            "y": 23
           },
           "id": 69,
           "options": {
@@ -2215,7 +2229,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 39
+            "y": 23
           },
           "id": 51,
           "options": {
@@ -2418,7 +2432,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 47
+            "y": 31
           },
           "id": 72,
           "options": {
@@ -2645,7 +2659,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 48
+            "y": 38
           },
           "id": 75,
           "options": {
@@ -2823,7 +2837,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 48
+            "y": 38
           },
           "id": 42,
           "options": {
@@ -2936,7 +2950,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 56
+            "y": 46
           },
           "id": 31,
           "options": {
@@ -3052,7 +3066,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 56
+            "y": 46
           },
           "id": 32,
           "options": {
@@ -3166,7 +3180,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3218,9 +3233,7 @@
           "options": {
             "legend": {
               "calcs": [
-                "last",
-                "max",
-                "mean"
+                "last"
               ],
               "displayMode": "table",
               "placement": "right",
@@ -3240,10 +3253,10 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"} * on (name) d8_virtualization_virtualdisk_status_in_use{virtualmachine=~\"$name\"}",
+              "expr": "d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"} * on (name,uid,namespace) d8_virtualization_virtualdisk_status_in_use{virtualmachine=~\"$name\"}",
               "hide": false,
               "instant": false,
-              "legendFormat": "__auto",
+              "legendFormat": "{{name}}",
               "range": true,
               "refId": "ConfiguredStorage"
             }
@@ -3300,7 +3313,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
