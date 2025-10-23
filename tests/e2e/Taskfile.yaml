@@ -81,7 +81,10 @@ tasks:
           --timeout=3h \
           {{end -}}
           {{if .FOCUS -}}
-          --focus "{{ .FOCUS }}"
+          --focus "{{ .FOCUS }}" \
+          {{end -}}
+          {{if .JUNIT_PATH -}}
+          --junit-report="{{ .JUNIT_PATH }}"
           {{end -}}
   cleanup:
     desc: "Cleanup namespaces & resources left from e2e tests"

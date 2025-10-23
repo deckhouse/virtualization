@@ -575,6 +575,7 @@ tasks:
       SKIP: '{{ or .SKIP "" }}'
       LABELS: '{{ or .LABELS "" }}'
       TIMEOUT: '{{ or .TIMEOUT "4h" }}'
+      JUNIT_PATH: '{{ or .JUNIT_PATH "" }}'
       TARGET_STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else }}linstor-thin-r2{{ end }}'
     cmds:
       - task: nested:kubeconfig
@@ -599,7 +600,7 @@ tasks:
         set -euo pipefail
         export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
         cd {{ .E2E_DIR }}
-        task run TIMEOUT='{{ .TIMEOUT }}' {{ if .FOCUS }}FOCUS='{{ .FOCUS }}'{{ end }} {{ if .LABELS }}LABELS='{{ .LABELS }}'{{ end }}
+        task run TIMEOUT='{{ .TIMEOUT }}' {{ if .FOCUS }}FOCUS='{{ .FOCUS }}'{{ end }} {{ if .LABELS }}LABELS='{{ .LABELS }}'{{ end }} {{ if .JUNIT_PATH }}JUNIT_PATH='{{ .JUNIT_PATH }}'{{ end }}
 
   # ------------------------------------------------------------
   # Cleanup used by workflow cleanup job
