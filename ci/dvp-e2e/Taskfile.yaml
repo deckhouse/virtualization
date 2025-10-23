@@ -176,10 +176,15 @@ tasks:
       - |
         set -euo pipefail
         echo "[INFRA] Attaching data disks to worker VMs in namespace {{ .NAMESPACE }}"
-        mapfile -t workers < <(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+        # Build workers array safely (avoid unbound variable when empty)
+        workers=()
+        while IFS= read -r line; do
+          [ -n "$line" ] && workers+=("$line")
+        done < <(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
         if [ ${#workers[@]} -eq 0 ]; then
           echo "[INFRA] No worker VMs found; nothing to do"; exit 0
         fi
+        echo "[INFRA] Found ${#workers[@]} worker VMs: ${workers[*]}"
         for vm in "${workers[@]}"; do
           [ -z "$vm" ] && continue
           vd="node-disk-$vm"
