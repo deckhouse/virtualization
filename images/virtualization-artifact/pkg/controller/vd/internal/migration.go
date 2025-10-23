@@ -398,6 +398,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		}
 		return nil
 	}
+	size.Add(targetVolumeOverhead)
 
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
 	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim)
@@ -428,6 +429,8 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 
 	return h.handleMigrateSync(ctx, vd)
 }
+
+var targetVolumeOverhead = resource.MustParse("4Mi")
 
 func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	pvc, err := h.getTargetPersistentVolumeClaim(ctx, vd)
