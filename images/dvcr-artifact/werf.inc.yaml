@@ -89,7 +89,7 @@ packages:
 - p11-kit libtasn1 libfuse3
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
-- linux-pam pcre2 libunistring
+- linux-pam libunistring
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -113,6 +113,11 @@ import:
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
+  before: install
+# add pcre2 straight to relocate to avoid segfault while invoking cp
+- image: {{ .ModuleNamePrefix }}packages/pcre2
+  add: /pcre2
+  to: /relocate
   before: install
 shell:
   install:
