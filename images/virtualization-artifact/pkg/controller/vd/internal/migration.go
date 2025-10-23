@@ -404,7 +404,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return fmt.Errorf("get volume and access modes: %w", err)
 	}
 
-	size = calculateTargetSize(size, volumeMode)
+	size = calculateTargetSize(size, actualPvc.Spec.VolumeMode, volumeMode)
 
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
 	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim, volumeMode, accessMode)
@@ -436,11 +436,19 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	return h.handleMigrateSync(ctx, vd)
 }
 
-func calculateTargetSize(size resource.Quantity, volumeMode corev1.PersistentVolumeMode) resource.Quantity {
-	if volumeMode == corev1.PersistentVolumeFilesystem {
+func calculateTargetSize(size resource.Quantity, oldVolumeMode *corev1.PersistentVolumeMode, newVolumeMode corev1.PersistentVolumeMode) resource.Quantity {
+	blockToFs := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeBlock && newVolumeMode == corev1.PersistentVolumeFilesystem
+	fsToBlock := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeFilesystem && newVolumeMode == corev1.PersistentVolumeBlock
+
+	if blockToFs {
 		// 1% overhead for filesystem
 		fsOverhead := size.Value() / 100
 		size.Add(*resource.NewQuantity(fsOverhead, resource.BinarySI))
+		return size
+	}
+
+	if fsToBlock {
+		// overhead no need to add
 		return size
 	}
 
