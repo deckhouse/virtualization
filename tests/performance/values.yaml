@@ -25,6 +25,7 @@ resources:
         memory:
           size: 256Mi
   virtualDisk:
+    annotation: true
     spec:
       template:
         type: virtualDisk # virtualImage or virtualDisk

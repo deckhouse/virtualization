@@ -57,6 +57,10 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
+{{- if $.Values.resources.virtualDisk.annotation }}
+  annotations:
+    virtualization.deckhouse.io/use-volume-snapshot: ""
+{{- end }}
   name: {{ printf "%s-%05d" $.Values.resources.prefix . }}
   namespace: {{ $.Release.Namespace }}
   labels:
