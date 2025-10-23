@@ -180,7 +180,7 @@ tasks:
         workers=()
         while IFS= read -r line; do
           [ -n "$line" ] && workers+=("$line")
-        done < <(kubectl -n {{ .NAMESPACE }} get vm -o json 2>/dev/null | jq -r '.items[] | select(.metadata.labels["dvp.deckhouse.io/hostname"] | contains("worker")) | .metadata.name' || true)
+        done < <(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
         if [ ${#workers[@]} -eq 0 ]; then
           echo "[INFRA] No worker VMs found; nothing to do"; exit 0
         fi
@@ -189,32 +189,31 @@ tasks:
           [ -z "$vm" ] && continue
           vd="node-disk-$vm"
           echo "[INFRA] Ensuring VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
-          cat > /tmp/vd-$vd.yaml <<EOF
-        apiVersion: virtualization.deckhouse.io/v1alpha2
-        kind: VirtualDisk
-        metadata:
-          name: $vd
-        spec:
-          persistentVolumeClaim:
-            accessModes: [ReadWriteOnce]
-            resources:
-              requests:
-                storage: {{ .DISK_SIZE }}
-            storageClassName: {{ .STORAGE_CLASS }}
-        EOF
+          SC="{{ .STORAGE_CLASS }}"
+          SIZE="{{ .DISK_SIZE }}"
+          cat > /tmp/vd-$vd.yaml <<VDEOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: $vd
+spec:
+  persistentVolumeClaim:
+    storageClassName: $SC
+    size: $SIZE
+VDEOF
           kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
           echo "[INFRA] Attaching $vd to $vm"
-          cat > /tmp/attach-$vd.yaml <<EOF
-        apiVersion: virtualization.deckhouse.io/v1alpha2
-        kind: VirtualMachineBlockDeviceAttachment
-        metadata:
-          name: $vd
-        spec:
-          virtualMachineName: $vm
-          blockDeviceRef:
-            kind: VirtualDisk
-            name: $vd
-        EOF
+          cat > /tmp/attach-$vd.yaml <<ATTACHEOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: $vd
+spec:
+  virtualMachineName: $vm
+  blockDeviceRef:
+    kind: VirtualDisk
+    name: $vd
+ATTACHEOF
           kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
           echo "[INFRA] Waiting for attachment $vd to reach phase=Attached"
           for i in $(seq 1 120); do

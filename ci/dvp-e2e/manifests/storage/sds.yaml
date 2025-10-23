@@ -7,7 +7,7 @@ spec:
   thinPoolName: thin-pool
   volumeGroupName: data
   blockDevices:
-    - /dev/sdd
+    - /dev/vdb
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ReplicatedStoragePool
