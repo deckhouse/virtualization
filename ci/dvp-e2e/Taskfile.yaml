@@ -252,7 +252,6 @@ tasks:
         kind: VirtualDisk
         metadata:
           name: $vd
-          namespace: {{ .NAMESPACE }}
         spec:
           persistentVolumeClaim:
             storageClassName: {{ .STORAGE_CLASS }}
@@ -262,27 +261,45 @@ tasks:
             block_device_refs=$(echo "$block_device_refs" | jq --arg kind "VirtualDisk" --arg name "$vd" '. += [{"kind": $kind, "name": $name}]')
           done
           
-          for i in $(seq 1 60); do
-            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$phase" = "Running" ]; then
-              echo "[INFRA] VM $vm is Running"; break
-            fi
-            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
-          done
+          current_phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+          echo "[INFRA] VM $vm current phase: $current_phase"
+          
+          if [ "$current_phase" != "Running" ]; then
+            echo "[INFRA] VM $vm is not Running, waiting for it to start..."
+            for i in $(seq 1 60); do
+              phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$phase" = "Running" ]; then
+                echo "[INFRA] VM $vm is Running"; break
+              fi
+              echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
+            done
+          fi
           
           echo "[INFRA] Stopping VM $vm to modify blockDeviceRefs..."
           kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOff"}}'
           
           for i in $(seq 1 30); do
             phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$phase" = "Stopped" ] || [ "$phase" = "Stopping" ]; then
+            if [ "$phase" = "Stopped" ]; then
               echo "[INFRA] VM $vm is stopped"; break
             fi
             echo "[INFRA] VM $vm phase=$phase; retry $i/30"; sleep 5
           done
           
+          if [ "$phase" != "Stopped" ]; then
+            echo "[INFRA] VM $vm failed to stop, skipping blockDeviceRefs modification"
+            continue
+          fi
+          
           echo "[INFRA] Adding blockDeviceRefs to VM $vm..."
-          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p="{\"spec\":{\"blockDeviceRefs\":$block_device_refs}}"
+          cat > /tmp/patch-$vm.json <<EOF
+        {
+          "spec": {
+            "blockDeviceRefs": $block_device_refs
+          }
+        }
+        EOF
+          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -f /tmp/patch-$vm.json
           
           echo "[INFRA] Starting VM $vm..."
           kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOn"}}'
