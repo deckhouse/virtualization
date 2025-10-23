@@ -17,7 +17,6 @@ package inject_crd_conversion_cabundle
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	"hooks/pkg/settings"
@@ -67,12 +66,10 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 		return nil
 	}
 
-	caString := caCert.String()
-	if caString == "" {
+	caBundle := caCert.String()
+	if caBundle == "" {
 		return fmt.Errorf("CA certificate is empty")
 	}
-
-	caBundle := base64.StdEncoding.EncodeToString([]byte(caString))
 
 	snapshots := input.Snapshots.Get(crdSnapshotName)
 	if len(snapshots) == 0 {
