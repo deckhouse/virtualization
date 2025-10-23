@@ -37,7 +37,6 @@ import (
 var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.CommonE2ETestDecorators(), func() {
 	var (
 		ctx                 context.Context
-		cancel              context.CancelFunc
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
@@ -58,15 +57,13 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), framework.Commo
 		if criticalError != "" {
 			Skip(criticalError)
 		}
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx = context.Background()
 	})
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, namespace)
 		}
-
-		cancel()
 	})
 
 	Context("When the virtualization resources are applied", func() {

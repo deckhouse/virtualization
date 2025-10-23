@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/gomega"
+	storagev1 "k8s.io/api/storage/v1"
 
 	dv1alpha2 "github.com/deckhouse/virtualization/tests/e2e/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -28,7 +29,7 @@ import (
 )
 
 // Deprecated: Should be deleted
-func PrepareProject(testData string) {
+func PrepareProject(testData string, storageClass *storagev1.StorageClass) {
 	kustomize := &config.Kustomize{}
 
 	kustomization := fmt.Sprintf("%s/%s", testData, "kustomization.yaml")
@@ -40,7 +41,7 @@ func PrepareProject(testData string) {
 	err = helper.UnmarshalResource(projectFilePath, &project)
 	Expect(err).NotTo(HaveOccurred(), "cannot get project from file: %s\nstderr: %s", projectFilePath, err)
 
-	namePrefix, err := framework.NewFramework("").GetNamePrefix()
+	namePrefix, err := framework.NewFramework("").GetNamePrefix(storageClass)
 	Expect(err).NotTo(HaveOccurred(), "cannot get name prefix\nstderr: %s", err)
 
 	project.Name = ns

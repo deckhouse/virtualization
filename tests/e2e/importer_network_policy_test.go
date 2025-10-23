@@ -53,7 +53,7 @@ var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), f
 	Context("Project", func() {
 		It("creates project", func() {
 			//nolint:staticcheck // deprecated function is temporarily used
-			util.PrepareProject(conf.TestData.ImporterNetworkPolicy)
+			util.PrepareProject(conf.TestData.ImporterNetworkPolicy, conf.StorageClass.TemplateStorageClass)
 
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ImporterNetworkPolicy + "/project"},
