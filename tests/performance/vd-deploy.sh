@@ -260,10 +260,11 @@ deploy_disks_only_batch() {
 
 # =======
 TOTAL_VD=15000
-
+# containerRegistry or persistentVolumeClaim
+DISK_TYPE="containerRegistry"
 echo "VDs" > $LOG_FILE
 log_info "Start Deploying disks [$TOTAL_VD]"
-deploy_disks_only_batch $TOTAL_VD "persistentVolumeClaim" 1000
+deploy_disks_only_batch $TOTAL_VD $DISK_TYPE 1000
 
 log_success "Disk deployment completed"
 
