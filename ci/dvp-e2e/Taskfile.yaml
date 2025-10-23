@@ -299,16 +299,8 @@ tasks:
             continue
           fi
           
-          cat > /tmp/patch-$vm.json <<EOF
-        {
-          "spec": {
-            "blockDeviceRefs": $block_device_refs
-          }
-        }
-        EOF
-          echo "[DEBUG] Patch file content:"
-          cat /tmp/patch-$vm.json
-          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -f /tmp/patch-$vm.json
+          echo "[DEBUG] Applying inline patch with blockDeviceRefs"
+          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p="{\"spec\":{\"blockDeviceRefs\":$block_device_refs}}"
           
           echo "[INFRA] Starting VM $vm..."
           kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOn"}}'
