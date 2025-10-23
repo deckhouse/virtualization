@@ -309,9 +309,47 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             "${MASTER_NAME}.${RUN_NS}" \
             -c 'set -e;
+              echo "=== Rescanning SCSI bus ===";
+              for host in /sys/class/scsi_host/host*; do
+                echo "- - -" > "$host/scan" 2>/dev/null || true;
+              done;
+              sleep 2;
               echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
               echo "=== /dev list ==="; ls -l /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || true;
               echo "=== fdisk ==="; sudo fdisk -l 2>/dev/null || true'
+
+      - name: Activate storage disks on worker VMs
+        run: |
+          set -euo pipefail
+          RUN_NS="${{ env.RUN_ID }}"
+          SSH_KEY="${{ env.TMP_ROOT }}/runs/${RUN_NS}/ssh/cloud"
+          
+          # Get worker VMs
+          workers=()
+          while IFS= read -r line; do
+            [ -n "$line" ] && workers+=("$line")
+          done < <(kubectl -n "$RUN_NS" get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
+          
+          echo "=== Activating storage disks on ${#workers[@]} worker VMs ==="
+          for vm in "${workers[@]}"; do
+            [ -z "$vm" ] && continue
+            echo "=== Activating disks on $vm ==="
+            KUBECONFIG="$KUBECONFIG" d8 v ssh \
+              --username=ubuntu \
+              --identity-file="$SSH_KEY" \
+              --local-ssh=true \
+              --local-ssh-opts="-o StrictHostKeyChecking=no" \
+              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+              "${vm}.${RUN_NS}" \
+              -c 'set -e;
+                echo "=== Rescanning SCSI bus ===";
+                for host in /sys/class/scsi_host/host*; do
+                  echo "- - -" > "$host/scan" 2>/dev/null || true;
+                done;
+                sleep 2;
+                echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
+                echo "=== /dev list ==="; ls -l /dev/sd* 2>/dev/null || true'
+          done
 
       - name: Configure storage backend (post-bootstrap)
         run: |
