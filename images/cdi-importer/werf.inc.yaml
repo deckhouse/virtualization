@@ -29,6 +29,7 @@ binaries:
   - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
   # QEMU bins
   - /usr/bin/qemu-img
+# do not include glibc, it will be replaced by one from qemu-img
 packages:
 - nbdkit libnbd
 - libtasn1 libxml2
@@ -37,7 +38,6 @@ packages:
 - libffi libgmp gnutls
 - nettle libidn2
 - p11-kit zlib
-- glibc
 - glib2 pcre2 libbsd libfuse3
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
