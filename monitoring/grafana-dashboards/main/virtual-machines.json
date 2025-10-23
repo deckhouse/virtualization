@@ -1757,7 +1757,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1872,7 +1873,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1956,6 +1958,25 @@
                     }
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
               }
             ]
           },
@@ -1981,7 +2002,7 @@
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -2062,6 +2083,19 @@
               "legendFormat": "Quota",
               "range": true,
               "refId": "ResourceQuota"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Total",
+              "range": true,
+              "refId": "OSUsageTotal"
             }
           ],
           "title": "CPU Cores total",
@@ -2131,7 +2165,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2227,6 +2262,25 @@
                     }
                   }
                 ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -2252,7 +2306,7 @@
             },
             "tooltip": {
               "mode": "multi",
-              "sort": "none"
+              "sort": "desc"
             }
           },
           "targets": [
@@ -2289,9 +2343,9 @@
               },
               "editorMode": "code",
               "expr": "sum (d8_virtualization_virtualmachine_os_memory_total_bytes{namespace=~\"$namespace\"})\n",
-              "hide": true,
+              "hide": false,
               "instant": false,
-              "legendFormat": "OS total",
+              "legendFormat": "Total",
               "range": true,
               "refId": "OSTotal"
             },
