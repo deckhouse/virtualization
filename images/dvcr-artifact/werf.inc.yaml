@@ -89,7 +89,7 @@ packages:
 - p11-kit libtasn1 libfuse3
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
-- linux-pam libunistring
+- linux-pam libunistring glib2 selinux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
