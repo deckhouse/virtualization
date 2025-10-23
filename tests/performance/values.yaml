@@ -31,6 +31,7 @@ resources:
         type: virtualDisk # virtualImage or virtualDisk
         size: 300Mi
   virtualImage:
+    annotation: true
     spec:
       count: 0
       template:

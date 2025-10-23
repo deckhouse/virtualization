@@ -3,6 +3,10 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
+{{- if $.Values.resources.virtualImage.annotation }}
+  annotations:
+    virtualization.deckhouse.io/use-volume-snapshot: ""
+{{- end }}
   name: {{ $.Values.resources.prefix }}-{{ $.Values.resources.virtualImage.spec.template.type | lower }}
   namespace: {{ $.Release.Namespace }}
   labels:

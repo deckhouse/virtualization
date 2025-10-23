@@ -10,7 +10,10 @@ NC='\033[0m' # No Color
 
 MAX_BATCH_SIZE=1000
 
-NAMESPACE="perf"
+if [ -z "$NAMESPACE" ]; then
+  NAMESPACE="perf"
+fi
+
 SLEEP_TIME=5
 
 # ===
@@ -261,13 +264,16 @@ deploy_disks_only_batch() {
 }
 
 # =======
-TOTAL_VD=15000
-# containerRegistry or persistentVolumeClaim
-DISK_TYPE="containerRegistry"
-echo "VDs" > $LOG_FILE
-log_info "Start Deploying disks [$TOTAL_VD]"
-deploy_disks_only_batch $TOTAL_VD $DISK_TYPE 1000
+main() {
+  local total_vd=${1:-15000}
+  # containerRegistry or persistentVolumeClaim
+  local disk_type=${2:-persistentVolumeClaim}
+  local batch_size=${3:-1000}
+  echo "VDs" > $LOG_FILE
+  log_info "Start Deploying disks [$total_vd]"
+  deploy_disks_only_batch $total_vd $disk_type $batch_size
 
-log_success "Disk deployment completed"
+  log_success "Disk deployment completed"
+}
 
-# task destroy:disks \
+main $@
