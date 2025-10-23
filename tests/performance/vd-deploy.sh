@@ -254,8 +254,10 @@ deploy_disks_only_batch() {
   
   log_success "Batch disk deployment completed: $deployed_count disks in $formatted_duration"
   log_info "Average time per disk: $(( total_duration / deployed_count )) seconds"
+  log_info "End time: $(formatted_date $end_time)"
   
   echo "$total_duration"
+  log_info "$total_duration"
 }
 
 # =======
