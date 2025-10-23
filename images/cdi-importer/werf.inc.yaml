@@ -67,7 +67,7 @@ import:
   - cdi-importer
   - cdi-source-update-poller
 # add pcre2 straight to relocate to avoid segfault while invoking cp
-- image: {{ .ModuleNamePrefix }}/packages/pcre2
+- image: {{ .ModuleNamePrefix }}packages/pcre2
   add: /pcre2
   to: /relocate
   before: install
