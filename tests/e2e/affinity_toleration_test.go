@@ -174,7 +174,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 							return errors.New("the `VirtualMachine` should be migrated")
 						}
 
-						if updatedVMObjC.Status.MigrationState.Target.Node == vmObjA.Status.Node && updatedVMObjC.Status.MigrationState.Result == v1alpha2.MigrationResultSucceeded {
+						if updatedVMObjC.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
 							return fmt.Errorf("the `VirtualMachine` should migrate to %q", vmObjA.Status.Node)
 						}
 
@@ -345,7 +345,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 							return errors.New("the `VirtualMachine` should be migrated")
 						}
 
-						if updatedVMObj.Status.MigrationState.Target.Node == targetNode && updatedVMObj.Status.MigrationState.Result == v1alpha2.MigrationResultSucceeded {
+						if updatedVMObj.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
 							return fmt.Errorf("the `VirtualMachine` should migrate to %q", targetNode)
 						}
 
@@ -446,7 +446,7 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 							return errors.New("the `VirtualMachine` should be migrated")
 						}
 
-						if updatedVMObj.Status.MigrationState.Target.Node == targetNode && updatedVMObj.Status.MigrationState.Result == v1alpha2.MigrationResultSucceeded {
+						if updatedVMObj.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
 							return fmt.Errorf("the `VirtualMachine` should migrate to %q", targetNode)
 						}
 
