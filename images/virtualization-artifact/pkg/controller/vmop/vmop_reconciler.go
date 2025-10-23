@@ -19,6 +19,8 @@ package vmop
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -71,6 +73,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		vmop.Changed().Status.ObservedGeneration = vmop.Changed().Generation
+
+		refExists := false
+		for _, ref := range vmop.Changed().GetOwnerReferences() {
+			if ref.Kind == v1alpha2.VirtualMachineKind {
+				refExists = true
+				break
+			}
+		}
+
+		if !refExists && vmop.Changed().GetDeletionTimestamp() == nil {
+			vm := &v1alpha2.VirtualMachine{}
+			err = r.client.Get(ctx, types.NamespacedName{Namespace: vmop.Changed().Namespace, Name: vmop.Changed().Spec.VirtualMachine}, vm)
+			if err != nil {
+				return err
+			}
+			ref := metav1.OwnerReference{
+				APIVersion: vm.APIVersion,
+				Kind:       vm.Kind,
+				Name:       vm.Name,
+				UID:        vm.UID,
+			}
+			refs := vmop.Changed().GetOwnerReferences()
+			refs = append(refs, ref)
+			vmop.Changed().SetOwnerReferences(refs)
+		}
 
 		return vmop.Update(ctx)
 	})
