@@ -36,7 +36,7 @@ storageProfiles:
       os: sds-local-storage
       data: sds-local-storage
 domain: e2e.virtlab.flant.com
-clusterConfigurationPrefix: x
+clusterConfigurationPrefix: e2e
 deckhouse:
   tag: main
   kubernetesVersion: Automatic

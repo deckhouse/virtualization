@@ -161,6 +161,137 @@ tasks:
       - kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
 
+  infra:create-storage-disks:
+    desc: Create storage disks for worker VMs before cluster bootstrap (for SDS/Ceph OSD)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
+      WORKER_COUNT: '{{ .WORKER_COUNT | default "3" }}'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[INFRA] Creating {{ .DISK_COUNT }} storage disks per worker VM ({{ .WORKER_COUNT }} workers) in namespace {{ .NAMESPACE }}"
+        
+        # Create VirtualDisks for all expected worker VMs
+        # We'll use predictable naming based on Deckhouse's naming pattern
+        for worker_idx in $(seq 0 $(({{ .WORKER_COUNT }} - 1))); do
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            # Deckhouse generates VM names like: {prefix}-{hash}-worker-{suffix}
+            # We'll create disks with predictable names that can be referenced later
+            vd="storage-disk-${disk_num}-worker-${worker_idx}"
+            echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+            cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            echo "[INFRA] VirtualDisk $vd created"
+          done
+        done
+        
+  infra:attach-storage-disks-via-blockdevicerefs:
+    desc: Attach storage disks to worker VMs using blockDeviceRefs (instead of hotplug)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using blockDeviceRefs in namespace {{ .NAMESPACE }}"
+        
+        for i in $(seq 1 60); do
+          worker_count=$(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker --no-headers 2>/dev/null | wc -l)
+          if [ "$worker_count" -gt 0 ]; then
+            echo "[INFRA] Found $worker_count worker VMs"; break
+          fi
+          echo "[INFRA] Waiting for worker VMs... ($i/60)"; sleep 10
+        done
+        
+        workers=()
+        while IFS= read -r line; do
+          [ -n "$line" ] && workers+=("$line")
+        done < <(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+        
+        if [ ${#workers[@]} -eq 0 ]; then
+          echo "[INFRA] No worker VMs found; nothing to do"; exit 0
+        fi
+        
+        echo "[INFRA] Found ${#workers[@]} worker VMs: ${workers[*]}"
+        
+        for vm in "${workers[@]}"; do
+          [ -z "$vm" ] && continue
+          echo "[INFRA] Processing VM: $vm"
+          
+          block_device_refs="[]"
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            vd="storage-disk-${disk_num}-$vm"
+            echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+            cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            block_device_refs=$(echo "$block_device_refs" | jq --arg kind "VirtualDisk" --arg name "$vd" '. += [{"kind": $kind, "name": $name}]')
+          done
+          
+          for i in $(seq 1 60); do
+            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Running" ]; then
+              echo "[INFRA] VM $vm is Running"; break
+            fi
+            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
+          done
+          
+          echo "[INFRA] Stopping VM $vm to modify blockDeviceRefs..."
+          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOff"}}'
+          
+          for i in $(seq 1 30); do
+            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Stopped" ] || [ "$phase" = "Stopping" ]; then
+              echo "[INFRA] VM $vm is stopped"; break
+            fi
+            echo "[INFRA] VM $vm phase=$phase; retry $i/30"; sleep 5
+          done
+          
+          echo "[INFRA] Adding blockDeviceRefs to VM $vm..."
+          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p="{\"spec\":{\"blockDeviceRefs\":$block_device_refs}}"
+          
+          echo "[INFRA] Starting VM $vm..."
+          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOn"}}'
+          
+          echo "[INFRA] VM $vm configured with blockDeviceRefs"
+        done
+        
+        echo "[INFRA] All worker VMs configured with storage disks via blockDeviceRefs"
+
   infra:attach-worker-disks:
     desc: Attach additional data disks to worker VMs (for SDS/Ceph OSD)
     vars:
@@ -182,14 +313,12 @@ tasks:
           [ -n "$line" ] && workers+=("$line")
         done < <(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
         if [ ${#workers[@]} -eq 0 ]; then
-          echo "[INFRA] No worker VMs found; nothing to do"; exit 0
+          echo "[INFRA] No worker VMs found"; exit 0
         fi
-        echo "[INFRA] Found ${#workers[@]} worker VMs: ${workers[*]}"
         for vm in "${workers[@]}"; do
           [ -z "$vm" ] && continue
           for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
             vd="storage-disk-${disk_num}-$vm"
-            echo "[INFRA] Ensuring VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
             cat > /tmp/vd-$vd.yaml <<EOF
         apiVersion: virtualization.deckhouse.io/v1alpha2
         kind: VirtualDisk
@@ -201,7 +330,6 @@ tasks:
             size: {{ .DISK_SIZE }}
         EOF
             kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
-            echo "[INFRA] Attaching $vd to $vm"
             cat > /tmp/attach-$vd.yaml <<EOF
         apiVersion: virtualization.deckhouse.io/v1alpha2
         kind: VirtualMachineBlockDeviceAttachment
@@ -214,11 +342,10 @@ tasks:
             name: $vd
         EOF
             kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
-            echo "[INFRA] Waiting for attachment $vd to reach phase=Attached"
             for i in $(seq 1 120); do
               phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$phase" = "Attached" ]; then
-                echo "[INFRA] $vd attached to $vm"; break
+                break
               fi
               sleep 5
             done

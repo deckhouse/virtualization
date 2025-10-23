@@ -127,7 +127,7 @@ jobs:
       - name: Prepare environment
         id: prep
         run: |
-          RUN_ID="nightly-nested-e2e-${{ matrix.profile }}-$(date +%m%d-%H%M)"
+          RUN_ID="e2e-${{ matrix.profile }}-$(date +%H%M)"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
           echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
@@ -243,10 +243,10 @@ jobs:
             SSH_FILE_NAME="cloud" \
             TARGET_STORAGE_CLASS="${{ matrix.profile == 'cephrbd' && 'linstor-thin-r2' || env.STORAGE_CLASS }}"
 
-      - name: Attach data disks to worker VMs
+      - name: Attach data disks to worker VMs using blockDeviceRefs
         working-directory: ci/dvp-e2e
         run: |
-          task infra:attach-worker-disks \
+          task infra:attach-storage-disks-via-blockdevicerefs \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
@@ -281,12 +281,10 @@ jobs:
             echo "phase=$phase; retry $i/60"; sleep 10
           done
           
-          # Ensure Running or fail fast
           [ "$(kubectl -n "$RUN_NS" get vm "$MASTER_NAME" -o jsonpath='{.status.phase}')" = "Running" ]
           
           SSH_KEY="${{ env.TMP_ROOT }}/runs/${RUN_NS}/ssh/cloud"
           
-          # Try SSH a few times (VM userland may start slightly later)
           for i in $(seq 1 6); do
             if KUBECONFIG="$KUBECONFIG" d8 v ssh \
               --username=ubuntu \
@@ -309,47 +307,10 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             "${MASTER_NAME}.${RUN_NS}" \
             -c 'set -e;
-              echo "=== Rescanning SCSI bus ===";
-              for host in /sys/class/scsi_host/host*; do
-                sudo echo "- - -" > "$host/scan" 2>/dev/null || true;
-              done;
-              sleep 2;
+              echo "=== Checking block devices ===";
               echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
               echo "=== /dev list ==="; ls -l /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || true;
               echo "=== fdisk ==="; sudo fdisk -l 2>/dev/null || true'
-
-      - name: Activate storage disks on worker VMs
-        run: |
-          set -euo pipefail
-          RUN_NS="${{ env.RUN_ID }}"
-          SSH_KEY="${{ env.TMP_ROOT }}/runs/${RUN_NS}/ssh/cloud"
-          
-          # Get worker VMs
-          workers=()
-          while IFS= read -r line; do
-            [ -n "$line" ] && workers+=("$line")
-          done < <(kubectl -n "$RUN_NS" get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
-          
-          echo "=== Activating storage disks on ${#workers[@]} worker VMs ==="
-          for vm in "${workers[@]}"; do
-            [ -z "$vm" ] && continue
-            echo "=== Activating disks on $vm ==="
-            KUBECONFIG="$KUBECONFIG" d8 v ssh \
-              --username=ubuntu \
-              --identity-file="$SSH_KEY" \
-              --local-ssh=true \
-              --local-ssh-opts="-o StrictHostKeyChecking=no" \
-              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              "${vm}.${RUN_NS}" \
-              -c 'set -e;
-                echo "=== Rescanning SCSI bus ===";
-                for host in /sys/class/scsi_host/host*; do
-                  sudo echo "- - -" > "$host/scan" 2>/dev/null || true;
-                done;
-                sleep 2;
-                echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
-                echo "=== /dev list ==="; ls -l /dev/sd* 2>/dev/null || true'
-          done
 
       - name: Configure storage backend (post-bootstrap)
         run: |
