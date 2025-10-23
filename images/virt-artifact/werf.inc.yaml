@@ -86,7 +86,7 @@ shell:
     cd /kubevirt
 
     go mod download
-    go mod vendor
+    go work vendor
 
   setup:
     - mkdir /kubevirt-binaries
