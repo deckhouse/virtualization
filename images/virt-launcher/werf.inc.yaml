@@ -140,7 +140,7 @@ packages:
 - libvirt
 - libffi
 - libbrotli libntlm gcc libcap libgpg-error lz4
-- libuserspace-rcu
+- libuserspace-rcu lzo
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
