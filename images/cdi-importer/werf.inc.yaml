@@ -41,7 +41,7 @@ packages:
 - glib2 libbsd libfuse3
 - gcc ubdsrv liburing
 - libaio libaudit libcap-ng numactl
-- linux-pam selinux zstd
+- linux-pam zstd
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
@@ -66,11 +66,6 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
-# add pcre2 straight to relocate to avoid segfault while invoking cp
-- image: {{ .ModuleNamePrefix }}packages/pcre2
-  add: /pcre2
-  to: /relocate
-  before: install
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
