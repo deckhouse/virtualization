@@ -1,5 +1,5 @@
 start_count: 16000
-count: 2000
+count: 2
 nginx: false
 curlUrl: "http://nc.nc.svc.cluster.local:8080/ping"
 resources:

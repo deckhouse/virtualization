@@ -44,11 +44,23 @@ tasks:
     cmds:
       - echo "{{ .STORAGE_CLASS }}"
 
-  render:
+  helm:render:
     desc: "Render templates with default values"
     cmds:
       - |
         helm template test . --values values.yaml
+  
+  helm:render:cr:
+    desc: "Render templates with default values"
+    cmds:
+      - |
+        helm template test . --values values.yaml --set resources.virtualDisk.spec.template.type=containerRegistry
+  
+  helm:render:pvc:
+    desc: "Render templates with default values"
+    cmds:
+      - |
+        helm template test . --values values.yaml --set resources.virtualDisk.spec.template.type=persistentVolumeClaim
 
   help:
     desc: "Help about bootstrap.sh."
