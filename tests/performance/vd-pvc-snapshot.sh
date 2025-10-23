@@ -269,7 +269,7 @@ main(){
   log_info "Create snapshot"
   create_vs ${VS_NAME} ${VI_NAME} ${NAMESPACE} ${SC}
 
-  log_info "Create persistent volume claim 1000"
+  log_info "Create persistent volume claim $pvc_count"
   for i in $(seq 0 $(($pvc_count-1)) ); do
     pvc_name=$(printf "%s-%05d" ${PVC_NAME} ${i})
     create_pvc ${pvc_name} ${VS_NAME} ${NAMESPACE} ${SC}
@@ -280,14 +280,7 @@ main(){
   while true; do
     log_info "Waiting for bound"
     sleep ${SLEEP_TIME}
-    pvc_bound=0
-    for i in $(seq 0 $((pvc_count - 1))); do
-      pvc_name=$(printf "%s-%05d" ${PVC_NAME} ${i})
-      bound=$(kubectl -n ${NAMESPACE} get pvc ${pvc_name} -o jsonpath='{.status.phase}' 2>/dev/null)
-      if [ "$bound" == "Bound" ]; then
-        ((pvc_bound++))
-      fi
-    done
+    pvc_bound=$(kubectl -n ${NAMESPACE} get pvc -l test=blockdevices -o jsonpath='{.items[?(@.status.phase=="Bound")].metadata.name}' 2>/dev/null | wc -w)
 
     if [ $pvc_bound -eq $pvc_count ]; then
       local end_time=$(get_timestamp)
