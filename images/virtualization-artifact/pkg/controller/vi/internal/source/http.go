@@ -380,7 +380,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 			"The HTTP DataSource import has completed",
 		)
 
-		_, exists := vi.Annotations["virtualization.deckhouse.io/use-volume-snapshot"]
+		_, exists := vi.Annotations[annotations.AnnUseVolumeSnapshot]
 		if exists {
 			var vs *vsv1.VolumeSnapshot
 			vs, err = ds.diskService.GetVolumeSnapshot(ctx, pvc.Name, pvc.Namespace)

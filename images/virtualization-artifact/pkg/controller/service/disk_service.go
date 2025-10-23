@@ -239,14 +239,31 @@ func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.Persiste
 }
 
 func (s DiskService) CreateVolumeSnapshot(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
-	if pvc == nil || pvc.Status.Phase == corev1.ClaimBound {
+	if pvc == nil || pvc.Status.Phase != corev1.ClaimBound {
 		return errors.New("pvc not Bound")
 	}
 
+	anno := make(map[string]string)
+	if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
+		anno[annotations.AnnStorageClassName] = *pvc.Spec.StorageClassName
+	}
+
+	if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode != "" {
+		anno[annotations.AnnVolumeMode] = string(*pvc.Spec.VolumeMode)
+	}
+
+	accessModes := make([]string, 0, len(pvc.Status.AccessModes))
+	for _, accessMode := range pvc.Status.AccessModes {
+		accessModes = append(accessModes, string(accessMode))
+	}
+
+	anno[annotations.AnnAccessModes] = strings.Join(accessModes, ",")
+
 	vs := &vsv1.VolumeSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvc.Name,
-			Namespace: pvc.Namespace,
+			Name:        pvc.Name,
+			Namespace:   pvc.Namespace,
+			Annotations: anno,
 			OwnerReferences: []metav1.OwnerReference{
 				MakeOwnerReference(pvc),
 			},
