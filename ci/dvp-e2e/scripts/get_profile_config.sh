@@ -21,7 +21,7 @@ fi
 PROFILE_CONFIG=$(jq -r --arg profile "$PROFILE" '
   .[] |
   select(.name == $profile or (.aliases[]? | . == $profile)) |
-  "\(.storage_class)|\(.image_storage_class)|\(.snapshot_storage_class)|\(.worker_data_disk_size // \"10Gi\")"
+  "\(.storage_class)|\(.image_storage_class)|\(.snapshot_storage_class)|\(.worker_data_disk_size // "10Gi")"
 ' "$PROFILES_FILE")
 
 if [[ -z "$PROFILE_CONFIG" || "$PROFILE_CONFIG" == "null" ]]; then
