@@ -31,7 +31,7 @@ resources:
         size: 300Mi
   virtualImage:
     spec:
-      count: 5
+      count: 0
       template:
         # Virtual image type containerRegistry or persistentVolumeClaim
         type: persistentVolumeClaim

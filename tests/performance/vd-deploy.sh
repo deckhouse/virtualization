@@ -129,6 +129,39 @@ log_error() {
     fi
 }
 
+wait_vd() {
+  local sleep_time=${1:-10}
+  local expected_count=$2
+  local VDReady
+  local VDTotal
+
+  while true; do
+    VDReady=$(kubectl -n $NAMESPACE get vd | grep "Ready" | wc -l)
+
+    if [ -n "$expected_count" ]; then
+      VDTotal=$expected_count
+    else
+      VDTotal=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
+    fi
+
+    if [ $VDReady -eq $VDTotal ]; then
+      echo "All vds are ready"
+      echo "$(formatted_date $(get_timestamp))"
+      echo ""
+      break
+    fi
+
+    echo ""
+    echo "Waiting for vds to be ready..."
+    echo "VD ready: $VDReady/$VDTotal"
+    echo ""
+    echo "Waiting for $sleep_time seconds..."
+    sleep $sleep_time
+    echo ""
+
+  done
+}
+
 show_deployment_progress() {
   local current_count=$1
   local total_count=$2
