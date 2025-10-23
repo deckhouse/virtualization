@@ -494,7 +494,7 @@ tasks:
         done
       - |
         set -euo pipefail
-        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass {{ .SDS_SC_NAME }} >/dev/null 2>&1; then
+        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "{{ .SDS_SC_NAME }}" >/dev/null 2>&1; then
           echo "[ERR] StorageClass '{{ .SDS_SC_NAME }}' not found in nested cluster" >&2
           exit 1
         fi
