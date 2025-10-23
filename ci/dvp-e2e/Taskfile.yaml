@@ -189,31 +189,29 @@ tasks:
           [ -z "$vm" ] && continue
           vd="node-disk-$vm"
           echo "[INFRA] Ensuring VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
-          SC="{{ .STORAGE_CLASS }}"
-          SIZE="{{ .DISK_SIZE }}"
-          cat > /tmp/vd-$vd.yaml <<VDEOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: $vd
-spec:
-  persistentVolumeClaim:
-    storageClassName: $SC
-    size: $SIZE
-VDEOF
+          cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
           kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
           echo "[INFRA] Attaching $vd to $vm"
-          cat > /tmp/attach-$vd.yaml <<ATTACHEOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineBlockDeviceAttachment
-metadata:
-  name: $vd
-spec:
-  virtualMachineName: $vm
-  blockDeviceRef:
-    kind: VirtualDisk
-    name: $vd
-ATTACHEOF
+          cat > /tmp/attach-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualMachineBlockDeviceAttachment
+        metadata:
+          name: $vd
+        spec:
+          virtualMachineName: $vm
+          blockDeviceRef:
+            kind: VirtualDisk
+            name: $vd
+        EOF
           kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
           echo "[INFRA] Waiting for attachment $vd to reach phase=Attached"
           for i in $(seq 1 120); do
