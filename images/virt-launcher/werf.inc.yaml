@@ -139,7 +139,8 @@ packages:
 - e2fsprogs libxcrypt lvm2 libjson-glib
 - libvirt
 - libffi
-- libbrotli libntlm gcc
+- libbrotli libntlm gcc libcap libgpg-error lz4
+- libuserspace-rcu
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
