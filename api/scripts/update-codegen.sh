@@ -96,7 +96,7 @@ function generate::crds {
                         "service": {
                             "name": "virtualization-controller",
                             "namespace": "d8-virtualization",
-                            "path": "/convert/virtualmachineclasses",
+                            "path": "/convert",
                             "port": 443
                         }
                     },
