@@ -202,16 +202,19 @@ jobs:
           STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
           IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
           SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
           
           echo "Profile: ${PROFILE}"
           echo "Storage Class: ${STORAGE_CLASS}"
           echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
           echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
+          echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
           
           # Export variables safely
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
           # Pass storage profile into run values for Helm templates
           PROFILE='${{ matrix.profile }}' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
 
@@ -239,6 +242,16 @@ jobs:
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud" \
             TARGET_STORAGE_CLASS="${STORAGE_CLASS}"
+
+      - name: Attach data disks to worker VMs
+        working-directory: ci/dvp-e2e
+        run: |
+          task infra:attach-worker-disks \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
+            STORAGE_CLASS="${STORAGE_CLASS}"
 
       - name: Build nested kubeconfig
         working-directory: ci/dvp-e2e
@@ -385,6 +398,8 @@ jobs:
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
                 break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
             done
+            # At this point Ceph operator must be up; further resources
+            # are applied from manifests under ci/dvp-e2e/manifests/storage.
             
             echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
             DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"

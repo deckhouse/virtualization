@@ -19,9 +19,9 @@ fi
 
 # Use jq to find profile by name or alias
 PROFILE_CONFIG=$(jq -r --arg profile "$PROFILE" '
-  .[] | 
+  .[] |
   select(.name == $profile or (.aliases[]? | . == $profile)) |
-  "\(.storage_class)|\(.image_storage_class)|\(.snapshot_storage_class)"
+  "\(.storage_class)|\(.image_storage_class)|\(.snapshot_storage_class)|\(.worker_data_disk_size // \"10Gi\")"
 ' "$PROFILES_FILE")
 
 if [[ -z "$PROFILE_CONFIG" || "$PROFILE_CONFIG" == "null" ]]; then
@@ -32,8 +32,9 @@ if [[ -z "$PROFILE_CONFIG" || "$PROFILE_CONFIG" == "null" ]]; then
 fi
 
 # Split the result and export variables
-IFS='|' read -r SC IMG_SC SNAP_SC <<< "$PROFILE_CONFIG"
+IFS='|' read -r SC IMG_SC SNAP_SC ATTACH_SIZE <<< "$PROFILE_CONFIG"
 
 echo "STORAGE_CLASS=$SC"
 echo "IMAGE_STORAGE_CLASS=$IMG_SC"
 echo "SNAPSHOT_STORAGE_CLASS=$SNAP_SC"
+echo "ATTACH_DISK_SIZE=$ATTACH_SIZE"

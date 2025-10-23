@@ -7,36 +7,7 @@ spec:
   thinPoolName: thin-pool
   volumeGroupName: data
   blockDevices:
-    - /dev/sdb
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ReplicatedStoragePool
-metadata:
-  name: data
-spec:
-  lvmVolumeGroups:
-    - data
-  replicationFactor: 2
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ReplicatedStorageClass
-metadata:
-  name: linstor-thin-r2
-spec:
-  storagePool: data
-  reclaimPolicy: Delete
-  topology: Ignored
-
-apiVersion: deckhouse.io/v1alpha1
-kind: LVMVolumeGroup
-metadata:
-  name: data
-spec:
-  type: LVMThin
-  thinPoolName: thin-pool
-  volumeGroupName: data
-  blockDevices:
-    - /dev/sdb
+    - /dev/sdd
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ReplicatedStoragePool

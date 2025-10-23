@@ -20,8 +20,5 @@ spec:
   storage:
     useAllNodes: true
     useAllDevices: true
-    deviceFilter: "^sd[bc]$"
+    deviceFilter: "^sdd$"
     onlyApplyOSDPlacement: false
-
-
-

@@ -161,6 +161,64 @@ tasks:
       - kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
 
+  infra:attach-worker-disks:
+    desc: Attach additional data disks to worker VMs (for SDS/Ceph OSD)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[INFRA] Attaching data disks to worker VMs in namespace {{ .NAMESPACE }}"
+        mapfile -t workers < <(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}')
+        if [ ${#workers[@]} -eq 0 ]; then
+          echo "[INFRA] No worker VMs found; nothing to do"; exit 0
+        fi
+        for vm in "${workers[@]}"; do
+          [ -z "$vm" ] && continue
+          vd="node-disk-$vm"
+          echo "[INFRA] Ensuring VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+          kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f - <<EOF
+          apiVersion: virtualization.deckhouse.io/v1alpha2
+          kind: VirtualDisk
+          metadata:
+            name: $vd
+          spec:
+            persistentVolumeClaim:
+              accessModes: [ReadWriteOnce]
+              resources:
+                requests:
+                  storage: {{ .DISK_SIZE }}
+              storageClassName: {{ .STORAGE_CLASS }}
+          EOF
+          echo "[INFRA] Attaching $vd to $vm"
+          kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f - <<EOF
+          apiVersion: virtualization.deckhouse.io/v1alpha2
+          kind: VirtualMachineBlockDeviceAttachment
+          metadata:
+            name: $vd
+          spec:
+            virtualMachineName: $vm
+            blockDeviceRef:
+              kind: VirtualDisk
+              name: $vd
+          EOF
+          echo "[INFRA] Waiting for attachment $vd to reach phase=Attached"
+          for i in $(seq 1 120); do
+            phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Attached" ]; then
+              echo "[INFRA] $vd attached to $vm"; break
+            fi
+            sleep 5
+          done
+        done
+
   # ------------------------------------------------------------
   # Kubeconfig for bootstrap and cluster config
   # ------------------------------------------------------------
@@ -417,6 +475,14 @@ tasks:
         echo "[SDS] Waiting for SDS CRDs to be established..."
         for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
           echo "[SDS] Waiting for CRD '$crd'..."
+          # First, wait for the CRD to appear
+          for i in $(seq 1 60); do
+            if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$crd" >/dev/null 2>&1; then
+              break
+            fi
+            echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
+          done
+          # Then, wait until it is Established (ignore errors to proceed if already established)
           KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
         done
       - |
@@ -426,24 +492,6 @@ tasks:
           exit 1
         fi
       - |
-        cat > /tmp/mc-virtualization-sds.yaml <<EOF
-        apiVersion: deckhouse.io/v1alpha1
-        kind: ModuleConfig
-        metadata:
-          name: virtualization
-        spec:
-          enabled: true
-          version: 1
-          settings:
-            dvcr:
-              storage:
-                type: PersistentVolumeClaim
-                persistentVolumeClaim:
-                  storageClassName: {{ .SDS_SC_NAME }}
-                  size: {{ .SDS_DVCR_SIZE }}
-        EOF
-        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f /tmp/mc-virtualization-sds.yaml
-        
         echo "[SDS] Setting {{ .SDS_SC_NAME }} as default StorageClass..."
         DEFAULT_STORAGE_CLASS="{{ .SDS_SC_NAME }}"
         KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl patch mc global --type='json' -p='[

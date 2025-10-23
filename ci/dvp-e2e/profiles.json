@@ -5,6 +5,7 @@
     "storage_class": "linstor-thin-r2",
     "image_storage_class": "linstor-thin-r1-immediate",
     "snapshot_storage_class": "linstor-thin-r2",
+    "worker_data_disk_size": "10Gi",
     "description": "SDS storage with LINSTOR thin provisioning"
   },
   {
@@ -13,6 +14,7 @@
     "storage_class": "ceph-pool-r2-csi-rbd-immediate",
     "image_storage_class": "ceph-pool-r2-csi-rbd-immediate",
     "snapshot_storage_class": "ceph-pool-r2-csi-rbd-immediate",
+    "worker_data_disk_size": "10Gi",
     "description": "Ceph RBD storage with immediate provisioning"
   }
 ]
