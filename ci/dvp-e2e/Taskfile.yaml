@@ -292,6 +292,13 @@ tasks:
           fi
           
           echo "[INFRA] Adding blockDeviceRefs to VM $vm..."
+          echo "[DEBUG] block_device_refs: $block_device_refs"
+          
+          if [ "$block_device_refs" = "[]" ]; then
+            echo "[ERROR] block_device_refs is empty, skipping VM $vm"
+            continue
+          fi
+          
           cat > /tmp/patch-$vm.json <<EOF
         {
           "spec": {
@@ -299,6 +306,8 @@ tasks:
           }
         }
         EOF
+          echo "[DEBUG] Patch file content:"
+          cat /tmp/patch-$vm.json
           kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -f /tmp/patch-$vm.json
           
           echo "[INFRA] Starting VM $vm..."
