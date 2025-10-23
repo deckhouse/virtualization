@@ -10,6 +10,7 @@ set -eEo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/vm_operations.sh"
+source "$SCRIPT_DIR/lib/vm_operations_batch.sh"
 source "$SCRIPT_DIR/lib/migration.sh"
 source "$SCRIPT_DIR/lib/statistics.sh"
 source "$SCRIPT_DIR/lib/controller.sh"
@@ -34,6 +35,18 @@ parse_arguments() {
         ;;
       --enable-batch)
         BATCH_DEPLOYMENT_ENABLED=true
+        shift
+        ;;
+      --bootstrap-only)
+        BOOTSTRAP_ONLY=true
+        shift
+        ;;
+      --continue)
+        CONTINUE_AFTER_BOOTSTRAP=true
+        shift
+        ;;
+      --keep-resources)
+        KEEP_RESOURCES=true
         shift
         ;;
       --clean-reports)
@@ -92,6 +105,9 @@ OPTIONS:
   -c, --count NUMBER       Number of resources to create (default: 2)
   --batch-size NUMBER      Maximum resources per batch (default: 1200)
   --enable-batch          Force batch deployment mode
+  --bootstrap-only        Only deploy resources, skip tests
+  --continue              Continue tests after bootstrap (use with --bootstrap-only)
+  --keep-resources        Keep resources after tests (don't cleanup)
   --step STEP_NAME         Run a specific step only
   --from-step STEP_NAME    Run all steps starting from STEP_NAME
   --list-steps             List all available steps
@@ -130,6 +146,11 @@ EXAMPLES:
 
   # Skip cleanup before/after
   $0 --no-pre-cleanup --no-post-cleanup
+
+  # Deployment control options
+  $0 --bootstrap-only -c 1000        # Only deploy 1000 resources, skip tests
+  $0 --continue -c 1000              # Continue tests after bootstrap
+  $0 --keep-resources -c 50          # Keep resources after tests (don't cleanup)
 
 SCENARIOS:
   1 - persistentVolumeClaim (default)
@@ -676,6 +697,11 @@ MAX_BATCH_SIZE=${MAX_BATCH_SIZE:-1200}  # Maximum resources per batch
 TOTAL_TARGET_RESOURCES=${TOTAL_TARGET_RESOURCES:-15000}  # Total target resources
 BATCH_DEPLOYMENT_ENABLED=${BATCH_DEPLOYMENT_ENABLED:-false}  # Enable batch deployment for large numbers
 
+# New deployment control options
+BOOTSTRAP_ONLY=${BOOTSTRAP_ONLY:-false}  # Only deploy resources, skip tests
+CONTINUE_AFTER_BOOTSTRAP=${CONTINUE_AFTER_BOOTSTRAP:-false}  # Continue tests after bootstrap
+KEEP_RESOURCES=${KEEP_RESOURCES:-false}  # Keep resources after tests (don't cleanup)
+
 # Parse command line arguments
 parse_arguments "$@"
 
@@ -708,6 +734,35 @@ log_info "========================================"
 
 # Main execution
 prepare_for_tests
+
+# Check for bootstrap-only mode
+if [ "$BOOTSTRAP_ONLY" = "true" ]; then
+  log_info "=== BOOTSTRAP ONLY MODE ==="
+  log_info "Deploying $MAIN_COUNT_RESOURCES resources without running tests"
+  
+  # Deploy resources only
+  case $SCENARIO_NUMBER in
+    1)
+      VI_TYPE="persistentVolumeClaim"
+      deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $VI_TYPE
+      ;;
+    2)
+      VI_TYPE="containerRegistry"
+      deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $VI_TYPE
+      ;;
+  esac
+  
+  log_success "Bootstrap completed: $MAIN_COUNT_RESOURCES resources deployed"
+  log_info "Use --continue to run tests on deployed resources"
+  exit 0
+fi
+
+# Check for continue mode
+if [ "$CONTINUE_AFTER_BOOTSTRAP" = "true" ]; then
+  log_info "=== CONTINUE MODE ==="
+  log_info "Continuing tests on existing resources"
+  # Skip initial deployment, continue with tests
+fi
 
 # Check if running individual step or full scenario
 if [ -n "$INDIVIDUAL_STEP" ] || [ -n "${FROM_STEP:-}" ]; then
@@ -752,6 +807,14 @@ else
       ;;
   esac
   
-  undeploy_resources
-  log_success "All scenarios completed successfully"
+  # Handle resource cleanup based on --keep-resources option
+  if [ "$KEEP_RESOURCES" = "true" ]; then
+    log_info "=== KEEPING RESOURCES ==="
+    log_info "Resources will be kept after tests (--keep-resources enabled)"
+    log_success "All scenarios completed successfully - resources preserved"
+  else
+    log_info "=== CLEANING UP RESOURCES ==="
+    undeploy_resources
+    log_success "All scenarios completed successfully - resources cleaned up"
+  fi
 fi

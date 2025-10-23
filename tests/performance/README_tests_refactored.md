@@ -12,6 +12,7 @@
 - **Modular Architecture** - Clean, maintainable code structure
 - **Enhanced Logging** - Step numbers and improved visibility
 - **Batch Deployment Support** - Supports large-scale deployments (up to 15,000 VMs) with intelligent batching
+- **Flexible Deployment Control** - Bootstrap-only mode, continue mode, and resource preservation options
 - **Development Friendly** - Perfect for debugging and development
 
 ## Usage
@@ -36,6 +37,15 @@
 
 # Force batch deployment for smaller numbers
 ./tests_refactored.sh -c 500 --enable-batch
+
+# Bootstrap-only mode (deploy resources only)
+./tests_refactored.sh --bootstrap-only -c 1000
+
+# Continue tests after bootstrap
+./tests_refactored.sh --continue -c 1000
+
+# Keep resources after tests
+./tests_refactored.sh --keep-resources -c 50
 ```
 
 ### Individual Step Execution (New Feature)
@@ -71,6 +81,9 @@
 | `-c, --count NUMBER` | Number of resources to create | Full scenarios | 2 |
 | `--batch-size NUMBER` | Maximum resources per batch | Optional | 1200 |
 | `--enable-batch` | Force batch deployment mode | Optional | false |
+| `--bootstrap-only` | Only deploy resources, skip tests | Optional | false |
+| `--continue` | Continue tests after bootstrap (use with --bootstrap-only) | Optional | false |
+| `--keep-resources` | Keep resources after tests (don't cleanup) | Optional | false |
 | `--step STEP_NAME` | Run a specific step only | Individual steps | - |
 | `--from-step STEP_NAME` | Run all steps starting from STEP_NAME | From-step execution | - |
 | `--list-steps` | List all available steps | - | - |
@@ -110,6 +123,102 @@ BATCH_DEPLOYMENT_ENABLED=false
 
 # Custom batch size
 ./tests_refactored.sh -c 5000 --batch-size 800
+```
+
+## Deployment Control
+
+The refactored script provides flexible deployment control options for different use cases:
+
+### Bootstrap-Only Mode
+
+Use `--bootstrap-only` to deploy resources without running tests:
+
+```bash
+# Deploy 1000 resources without running tests
+./tests_refactored.sh --bootstrap-only -c 1000
+
+# Deploy with batch processing
+./tests_refactored.sh --bootstrap-only -c 5000 --batch-size 1000
+```
+
+**Use Cases:**
+- Pre-deploying resources for later testing
+- Resource provisioning without test execution
+- Large-scale infrastructure setup
+
+### Continue Mode
+
+Use `--continue` to run tests on existing resources:
+
+```bash
+# Continue tests on existing resources
+./tests_refactored.sh --continue -c 1000
+
+# Continue with specific scenario
+./tests_refactored.sh --continue -s 2 -c 1000
+```
+
+**Use Cases:**
+- Running tests on pre-deployed resources
+- Resuming tests after bootstrap
+- Testing on existing infrastructure
+
+### Keep Resources Mode
+
+Use `--keep-resources` to preserve resources after test completion:
+
+```bash
+# Keep resources after tests
+./tests_refactored.sh --keep-resources -c 50
+
+# Combine with continue mode
+./tests_refactored.sh --continue --keep-resources -c 100
+```
+
+**Use Cases:**
+- Preserving test environment for analysis
+- Keeping resources for additional testing
+- Debugging and troubleshooting
+
+### Workflow Examples
+
+#### Large-Scale Deployment Workflow
+
+```bash
+# Step 1: Bootstrap large deployment
+./tests_refactored.sh --bootstrap-only -c 15000 --batch-size 1200
+
+# Step 2: Continue with tests
+./tests_refactored.sh --continue -c 15000
+
+# Step 3: Keep resources for analysis
+./tests_refactored.sh --continue --keep-resources -c 15000
+```
+
+#### Development Testing Workflow
+
+```bash
+# Quick bootstrap for development
+./tests_refactored.sh --bootstrap-only -c 10
+
+# Run tests on development environment
+./tests_refactored.sh --continue -c 10
+
+# Keep resources for debugging
+./tests_refactored.sh --continue --keep-resources -c 10
+```
+
+#### Production Testing Workflow
+
+```bash
+# Deploy production-scale resources
+./tests_refactored.sh --bootstrap-only -c 5000 --batch-size 1000
+
+# Run comprehensive tests
+./tests_refactored.sh --continue -c 5000
+
+# Clean up after testing
+./tests_refactored.sh -c 5000  # Normal execution with cleanup
 ```
 
 ## Available Steps
@@ -217,6 +326,15 @@ The script supports 13 individual steps that can be executed independently:
 
 # Large scale production test
 ./tests_refactored.sh -c 15000 --batch-size 1200 --clean-reports
+
+# Bootstrap production resources
+./tests_refactored.sh --bootstrap-only -c 5000 --batch-size 1000
+
+# Continue production tests
+./tests_refactored.sh --continue -c 5000
+
+# Keep resources for analysis
+./tests_refactored.sh --keep-resources -c 50
 ```
 
 ## Report Structure
@@ -396,4 +514,11 @@ The refactored script is fully backward compatible:
 ./tests_refactored.sh --step cleanup --scenario-dir ./ci-test --vi-type persistentVolumeClaim
 ./tests_refactored.sh --step vm-deployment --scenario-dir ./ci-test --vi-type persistentVolumeClaim
 ./tests_refactored.sh --step statistics-collection --scenario-dir ./ci-test
+
+# Bootstrap and continue workflow
+./tests_refactored.sh --bootstrap-only -c 100 --scenario-dir ./ci-test
+./tests_refactored.sh --continue -c 100 --scenario-dir ./ci-test
+
+# Keep resources for analysis
+./tests_refactored.sh --keep-resources -c 100 --scenario-dir ./ci-test
 ```

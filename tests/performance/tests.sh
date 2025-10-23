@@ -23,6 +23,18 @@ parse_arguments() {
         BATCH_DEPLOYMENT_ENABLED=true
         shift
         ;;
+      --bootstrap-only)
+        BOOTSTRAP_ONLY=true
+        shift
+        ;;
+      --continue)
+        CONTINUE_AFTER_BOOTSTRAP=true
+        shift
+        ;;
+      --keep-resources)
+        KEEP_RESOURCES=true
+        shift
+        ;;
       --clean-reports)
         CLEAN_REPORTS=true
         shift
@@ -51,6 +63,9 @@ OPTIONS:
   -c, --count NUMBER       Number of resources to create (default: 2)
   --batch-size NUMBER      Maximum resources per batch (default: 1200)
   --enable-batch          Force batch deployment mode
+  --bootstrap-only        Only deploy resources, skip tests
+  --continue              Continue tests after bootstrap (use with --bootstrap-only)
+  --keep-resources        Keep resources after tests (don't cleanup)
   --clean-reports          Clean all report directories before running
   -h, --help              Show this help message
 
@@ -60,6 +75,9 @@ EXAMPLES:
   $0 -s 2 -c 10           # Run scenario 2 with 10 resources
   $0 --scenario 1 --count 6 # Run scenario 1 with 6 resources
   $0 -c 15000 --batch-size 1200 # Deploy 15000 resources in batches of 1200
+  $0 --bootstrap-only -c 1000 # Only deploy 1000 resources, skip tests
+  $0 --continue -c 1000   # Continue tests after bootstrap
+  $0 --keep-resources     # Keep resources after tests (don't cleanup)
   $0 --clean-reports      # Clean all reports and run default scenario
 
 SCENARIOS:
@@ -70,6 +88,16 @@ BATCH DEPLOYMENT:
   For large deployments (>1200 resources), the script automatically uses batch deployment.
   Each batch deploys up to 1200 resources with 30-second delays between batches.
   Use --batch-size to customize batch size and --enable-batch to force batch mode.
+
+DEPLOYMENT CONTROL:
+  --bootstrap-only: Only deploy resources, skip all tests (useful for large deployments)
+  --continue: Continue tests after bootstrap (use with --bootstrap-only)
+  --keep-resources: Keep resources after tests (don't cleanup at the end)
+  
+  Workflow examples:
+  1. Deploy only: ./tests.sh --bootstrap-only -c 5000
+  2. Continue tests: ./tests.sh --continue -c 5000
+  3. Keep resources: ./tests.sh --keep-resources -c 1000
 
 EOF
 }
@@ -111,6 +139,11 @@ VM_OPERATIONS_LOG=""
 MAX_BATCH_SIZE=1200  # Maximum resources per batch
 TOTAL_TARGET_RESOURCES=15000  # Total target resources
 BATCH_DEPLOYMENT_ENABLED=false  # Enable batch deployment for large numbers
+
+# New deployment control options
+BOOTSTRAP_ONLY=false  # Only deploy resources, skip tests
+CONTINUE_AFTER_BOOTSTRAP=false  # Continue tests after bootstrap
+KEEP_RESOURCES=false  # Keep resources after tests (don't cleanup)
 
 # Colors for output
 RED='\033[0;31m'
@@ -1312,9 +1345,11 @@ deploy_vms_with_disks_batch() {
     
     local batch_start=$(get_timestamp)
     
-    # Deploy current batch
+    # Deploy current batch (COUNT should be cumulative, not absolute)
+    local cumulative_count=$((deployed_count + current_batch_size))
+    log_info "Deploying batch $batch_number: $current_batch_size new resources (total will be: $cumulative_count)"
     task apply:all \
-        COUNT=$current_batch_size \
+        COUNT=$cumulative_count \
         NAMESPACE=$NAMESPACE \
         STORAGE_CLASS=$(get_default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
@@ -1352,6 +1387,20 @@ deploy_vms_with_disks_batch() {
 # Function to check if batch deployment should be used
 should_use_batch_deployment() {
   local count=$1
+  # Don't use batch deployment if batch size is too small (less than 10% of total)
+  local min_batch_size=$((count / 10))
+  if [ $min_batch_size -lt 1 ]; then
+    min_batch_size=1
+  fi
+  
+  # Warn if batch size is too small
+  if [ $MAX_BATCH_SIZE -lt $min_batch_size ]; then
+    log_warning "Batch size ($MAX_BATCH_SIZE) is too small for $count resources"
+    log_warning "Minimum recommended batch size: $min_batch_size"
+    log_warning "Using regular deployment instead of batch deployment"
+    return 1  # false
+  fi
+  
   if [ "$BATCH_DEPLOYMENT_ENABLED" = "true" ] || [ $count -gt $MAX_BATCH_SIZE ]; then
     return 0  # true
   else
@@ -1440,6 +1489,10 @@ deploy_vms_with_disks_smart() {
   local vi_type=$2
   local batch_size=${3:-$MAX_BATCH_SIZE}
   
+  log_info "Deployment decision for $count resources:"
+  log_info "  - Batch size: $batch_size"
+  log_info "  - Batch deployment enabled: $BATCH_DEPLOYMENT_ENABLED"
+  
   if should_use_batch_deployment "$count"; then
     log_info "Using batch deployment for $count resources (batch size: $batch_size)"
     deploy_vms_with_disks_batch "$count" "$vi_type" "$batch_size"
@@ -1455,6 +1508,10 @@ deploy_disks_only_smart() {
   local vi_type=$2
   local batch_size=${3:-$MAX_BATCH_SIZE}
   
+  log_info "Disk deployment decision for $count resources:"
+  log_info "  - Batch size: $batch_size"
+  log_info "  - Batch deployment enabled: $BATCH_DEPLOYMENT_ENABLED"
+  
   if should_use_batch_deployment "$count"; then
     log_info "Using batch deployment for $count disks (batch size: $batch_size)"
     deploy_disks_only_batch "$count" "$vi_type" "$batch_size"
@@ -1469,6 +1526,10 @@ deploy_vms_only_smart() {
   local count=$1
   local namespace=${2:-$NAMESPACE}
   local batch_size=${3:-$MAX_BATCH_SIZE}
+  
+  log_info "VM deployment decision for $count resources:"
+  log_info "  - Batch size: $batch_size"
+  log_info "  - Batch deployment enabled: $BATCH_DEPLOYMENT_ENABLED"
   
   if should_use_batch_deployment "$count"; then
     log_info "Using batch deployment for $count VMs (batch size: $batch_size)"
@@ -1536,9 +1597,11 @@ deploy_disks_only_batch() {
     
     local batch_start=$(get_timestamp)
     
-    # Deploy current batch of disks
+    # Deploy current batch of disks (COUNT should be cumulative, not absolute)
+    local cumulative_count=$((deployed_count + current_batch_size))
+    log_info "Deploying disk batch $batch_number: $current_batch_size new disks (total will be: $cumulative_count)"
     task apply:disks \
-        COUNT=$current_batch_size \
+        COUNT=$cumulative_count \
         NAMESPACE=$NAMESPACE \
         STORAGE_CLASS=$(get_default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
@@ -1638,9 +1701,11 @@ deploy_vms_only_batch() {
     
     local batch_start=$(get_timestamp)
     
-    # Deploy current batch of VMs
+    # Deploy current batch of VMs (COUNT should be cumulative, not absolute)
+    local cumulative_count=$((deployed_count + current_batch_size))
+    log_info "Deploying VM batch $batch_number: $current_batch_size new VMs (total will be: $cumulative_count)"
     task apply:vms \
-        COUNT=$current_batch_size \
+        COUNT=$cumulative_count \
         NAMESPACE=$NAMESPACE
     
     # Wait for current batch to be ready
@@ -2003,17 +2068,85 @@ run_scenario() {
   init_logging "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES"
   local scenario_dir=$(create_report_dir "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES")
   
-  # Step 1: Clean up any existing resources
-  log_info "Step 1: Cleaning up existing resources"
-  log_step_start "Step 1: Cleanup up existing resources"
-  local cleanup_start=$(get_timestamp)
-  stop_migration
-  remove_vmops
-  undeploy_resources
-  local cleanup_end=$(get_timestamp)
-  local cleanup_duration=$((cleanup_end - cleanup_start))
-  log_info "Cleanup completed in $(format_duration $cleanup_duration)"
-  log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+  # Handle bootstrap-only mode
+  if [ "$BOOTSTRAP_ONLY" = "true" ]; then
+    log_info "=== BOOTSTRAP ONLY MODE ==="
+    log_info "Deploying $MAIN_COUNT_RESOURCES resources without running tests"
+    log_info "DEBUG: Starting bootstrap-only mode"
+    
+    # Skip cleanup if continuing after bootstrap or in bootstrap-only mode
+    if [ "$CONTINUE_AFTER_BOOTSTRAP" = "false" ] && [ "$BOOTSTRAP_ONLY" = "false" ]; then
+      # Step 1: Clean up any existing resources
+      log_info "Step 1: Cleaning up existing resources"
+      log_step_start "Step 1: Cleanup up existing resources"
+      local cleanup_start=$(get_timestamp)
+      stop_migration
+      remove_vmops
+      undeploy_resources
+      local cleanup_end=$(get_timestamp)
+      local cleanup_duration=$((cleanup_end - cleanup_start))
+      log_info "Cleanup completed in $(format_duration $cleanup_duration)"
+      log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+    else
+      log_info "Step 1: Skipping cleanup (--continue or --bootstrap-only mode, preserving existing resources)"
+    fi
+    
+    # Step 2: Check cluster resources before deployment
+    log_step_start "Step 2: Check cluster resources"
+    check_cluster_resources $MAIN_COUNT_RESOURCES
+    log_step_end "Step 2: Check cluster resources" "0"
+    
+    # Step 3: Deploy resources only
+    log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
+    local deploy_start=$(get_timestamp)
+    deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
+    local deploy_end=$(get_timestamp)
+    local deploy_duration=$((deploy_end - deploy_start))
+    log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
+    log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
+    
+    log_success "Bootstrap completed: $MAIN_COUNT_RESOURCES resources deployed"
+    log_info "Use --continue to run tests on deployed resources"
+    log_info "Resources are preserved and ready for testing"
+    log_info "DEBUG: Exiting run_scenario with return 0 (bootstrap-only mode)"
+    return 0
+  fi
+  
+  # Handle continue mode (skip deployment, assume resources already exist)
+  if [ "$CONTINUE_AFTER_BOOTSTRAP" = "true" ]; then
+    log_info "=== CONTINUE MODE ==="
+    log_info "Continuing tests on existing resources (--continue enabled)"
+    log_info "Skipping deployment, assuming $MAIN_COUNT_RESOURCES resources already exist"
+    
+    # Check if resources exist
+    local existing_vms=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
+    local existing_vds=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
+    
+    if [ $existing_vms -eq 0 ] && [ $existing_vds -eq 0 ]; then
+      log_warning "No existing resources found. Please run bootstrap first:"
+      log_warning "./tests.sh --bootstrap-only -c $MAIN_COUNT_RESOURCES"
+      exit 1
+    fi
+    
+    log_info "Found existing resources: $existing_vms VMs, $existing_vds VDs"
+    log_info "Continuing with tests..."
+  else
+    # Step 1: Clean up any existing resources (skip in bootstrap-only mode)
+    if [ "$BOOTSTRAP_ONLY" = "false" ]; then
+      log_info "Step 1: Cleaning up existing resources"
+      log_step_start "Step 1: Cleanup up existing resources"
+      local cleanup_start=$(get_timestamp)
+      stop_migration
+      remove_vmops
+      undeploy_resources
+      local cleanup_end=$(get_timestamp)
+      local cleanup_duration=$((cleanup_end - cleanup_start))
+      log_info "Cleanup completed in $(format_duration $cleanup_duration)"
+      log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+    else
+      log_info "Step 1: Skipping cleanup (--bootstrap-only mode, preserving existing resources)"
+    fi
+  fi
   
   local start_time=$(get_timestamp)
   log_info "== Scenario started at $(formatted_date $start_time) =="
@@ -2023,14 +2156,21 @@ run_scenario() {
   check_cluster_resources $MAIN_COUNT_RESOURCES
   log_step_end "Step 2: Check cluster resources" "0"
   
-  # Step 3: Main test sequence
-  log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
-  local deploy_start=$(get_timestamp)
-  deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
-  local deploy_end=$(get_timestamp)
-  local deploy_duration=$((deploy_end - deploy_start))
-  log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
-  log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
+  # Step 3: Main test sequence (skip deployment in continue mode)
+  if [ "$CONTINUE_AFTER_BOOTSTRAP" = "true" ]; then
+    log_info "Step 3: Skipping deployment (--continue mode, resources already exist)"
+    log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
+    log_info "VM [$MAIN_COUNT_RESOURCES] deployment skipped (continue mode)"
+    log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "0"
+  else
+    log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
+    local deploy_start=$(get_timestamp)
+    deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
+    local deploy_end=$(get_timestamp)
+    local deploy_duration=$((deploy_end - deploy_start))
+    log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
+    log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
+  fi
   
   # Step 4: Statistics Collection
   log_step_start "Step 4: Start Statistics Collection"
@@ -2334,17 +2474,26 @@ run_scenario() {
   log_info "Drain node completed in $(format_duration $drain_stats_duration)"
   log_step_end "Step 22: Drain node" "$drain_stats_duration"
 
-  log_info "Waiting 30 second before cleanup"
-  sleep 30
-  
-  # Step 23: Final Cleanup
-  log_step_start "Step 23: Final Cleanup"
-  local final_cleanup_start=$(get_timestamp)
-  undeploy_resources
-  local final_cleanup_end=$(get_timestamp)
-  local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
-  log_info "Final cleanup completed in $(format_duration $final_cleanup_duration)"
-  log_step_end "Step 23: Final Cleanup" "$final_cleanup_duration"
+  # Skip final cleanup in bootstrap-only mode or when keep-resources is enabled
+  if [ "$BOOTSTRAP_ONLY" = "false" ] && [ "$KEEP_RESOURCES" = "false" ]; then
+    log_info "Waiting 30 second before cleanup"
+    sleep 30
+    
+    # Step 23: Final Cleanup
+    log_step_start "Step 23: Final Cleanup"
+    local final_cleanup_start=$(get_timestamp)
+    undeploy_resources
+    local final_cleanup_end=$(get_timestamp)
+    local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
+    log_info "Final cleanup completed in $(format_duration $final_cleanup_duration)"
+    log_step_end "Step 23: Final Cleanup" "$final_cleanup_duration"
+  else
+    if [ "$BOOTSTRAP_ONLY" = "true" ]; then
+      log_info "Skipping final cleanup (--bootstrap-only mode, resources preserved)"
+    elif [ "$KEEP_RESOURCES" = "true" ]; then
+      log_info "Skipping final cleanup (--keep-resources mode, resources preserved)"
+    fi
+  fi
   
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
@@ -2446,12 +2595,34 @@ case $SCENARIO_NUMBER in
   1)
     VI_TYPE="persistentVolumeClaim"
     run_scenario "scenario_1" "$VI_TYPE"
-    log_success "Scenario 1 (persistentVolumeClaim) completed successfully"
+    scenario_exit_code=$?
+    if [ $scenario_exit_code -eq 0 ]; then
+      if [ "$BOOTSTRAP_ONLY" = "true" ]; then
+        log_success "Bootstrap completed successfully"
+        exit 0
+      else
+        log_success "Scenario 1 (persistentVolumeClaim) completed successfully"
+      fi
+    else
+      log_error "Scenario 1 failed with exit code: $scenario_exit_code"
+      exit $scenario_exit_code
+    fi
     ;;
   2)
     VI_TYPE="containerRegistry"
     run_scenario "scenario_2" "$VI_TYPE"
-    log_success "Scenario 2 (containerRegistry) completed successfully"
+    scenario_exit_code=$?
+    if [ $scenario_exit_code -eq 0 ]; then
+      if [ "$BOOTSTRAP_ONLY" = "true" ]; then
+        log_success "Bootstrap completed successfully"
+        exit 0
+      else
+        log_success "Scenario 2 (containerRegistry) completed successfully"
+      fi
+    else
+      log_error "Scenario 2 failed with exit code: $scenario_exit_code"
+      exit $scenario_exit_code
+    fi
     ;;
   *)
     log_error "Invalid scenario number: $SCENARIO_NUMBER. Use 1 or 2."
@@ -2459,5 +2630,13 @@ case $SCENARIO_NUMBER in
     ;;
 esac
 
-undeploy_resources
-log_success "All scenarios completed successfully"
+# Handle resource cleanup based on --keep-resources option
+if [ "$KEEP_RESOURCES" = "true" ]; then
+  log_info "=== KEEPING RESOURCES ==="
+  log_info "Resources will be kept after tests (--keep-resources enabled)"
+  log_success "All scenarios completed successfully - resources preserved"
+else
+  log_info "=== CLEANING UP RESOURCES ==="
+  undeploy_resources
+  log_success "All scenarios completed successfully - resources cleaned up"
+fi

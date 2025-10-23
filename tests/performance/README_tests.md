@@ -11,6 +11,7 @@
 - **Detailed Reporting** - Generates comprehensive reports with timing and statistics
 - **Multiple Scenarios** - Supports different virtual image types
 - **Batch Deployment** - Supports large-scale deployments (up to 15,000 VMs) with intelligent batching
+- **Flexible Deployment Control** - Bootstrap-only mode, continue mode, and resource preservation options
 - **Production Ready** - Battle-tested in production environments
 
 ## Usage
@@ -39,6 +40,9 @@
 | `-c, --count NUMBER` | Number of resources to create | 2 |
 | `--batch-size NUMBER` | Maximum resources per batch | 1200 |
 | `--enable-batch` | Force batch deployment mode | false |
+| `--bootstrap-only` | Only deploy resources, skip tests | false |
+| `--continue` | Continue tests after bootstrap (use with --bootstrap-only) | false |
+| `--keep-resources` | Keep resources after tests (don't cleanup) | false |
 | `--clean-reports` | Clean all report directories before running | false |
 | `-h, --help` | Show help message | - |
 
@@ -62,6 +66,15 @@
 
 # Force batch deployment for smaller numbers
 ./tests.sh -c 500 --enable-batch
+
+# Bootstrap-only mode (deploy resources only)
+./tests.sh --bootstrap-only -c 1000
+
+# Continue tests after bootstrap
+./tests.sh --continue -c 1000
+
+# Keep resources after tests
+./tests.sh --keep-resources -c 50
 ```
 
 ## Batch Deployment
@@ -93,6 +106,102 @@ BATCH_DEPLOYMENT_ENABLED=false
 
 # Custom batch size
 ./tests.sh -c 5000 --batch-size 800
+```
+
+## Deployment Control
+
+The script provides flexible deployment control options for different use cases:
+
+### Bootstrap-Only Mode
+
+Use `--bootstrap-only` to deploy resources without running tests:
+
+```bash
+# Deploy 1000 resources without running tests
+./tests.sh --bootstrap-only -c 1000
+
+# Deploy with batch processing
+./tests.sh --bootstrap-only -c 5000 --batch-size 1000
+```
+
+**Use Cases:**
+- Pre-deploying resources for later testing
+- Resource provisioning without test execution
+- Large-scale infrastructure setup
+
+### Continue Mode
+
+Use `--continue` to run tests on existing resources:
+
+```bash
+# Continue tests on existing resources
+./tests.sh --continue -c 1000
+
+# Continue with specific scenario
+./tests.sh --continue -s 2 -c 1000
+```
+
+**Use Cases:**
+- Running tests on pre-deployed resources
+- Resuming tests after bootstrap
+- Testing on existing infrastructure
+
+### Keep Resources Mode
+
+Use `--keep-resources` to preserve resources after test completion:
+
+```bash
+# Keep resources after tests
+./tests.sh --keep-resources -c 50
+
+# Combine with continue mode
+./tests.sh --continue --keep-resources -c 100
+```
+
+**Use Cases:**
+- Preserving test environment for analysis
+- Keeping resources for additional testing
+- Debugging and troubleshooting
+
+### Workflow Examples
+
+#### Large-Scale Deployment Workflow
+
+```bash
+# Step 1: Bootstrap large deployment
+./tests.sh --bootstrap-only -c 15000 --batch-size 1200
+
+# Step 2: Continue with tests
+./tests.sh --continue -c 15000
+
+# Step 3: Keep resources for analysis
+./tests.sh --continue --keep-resources -c 15000
+```
+
+#### Development Testing Workflow
+
+```bash
+# Quick bootstrap for development
+./tests.sh --bootstrap-only -c 10
+
+# Run tests on development environment
+./tests.sh --continue -c 10
+
+# Keep resources for debugging
+./tests.sh --continue --keep-resources -c 10
+```
+
+#### Production Testing Workflow
+
+```bash
+# Deploy production-scale resources
+./tests.sh --bootstrap-only -c 5000 --batch-size 1000
+
+# Run comprehensive tests
+./tests.sh --continue -c 5000
+
+# Clean up after testing
+./tests.sh -c 5000  # Normal execution with cleanup
 ```
 
 ## Scenarios
@@ -307,6 +416,12 @@ Enable debug output by uncommenting the debug line:
 
 # Large scale production test
 ./tests.sh -c 15000 --batch-size 1200 --clean-reports
+
+# Bootstrap production resources
+./tests.sh --bootstrap-only -c 5000 --batch-size 1000
+
+# Continue production tests
+./tests.sh --continue -c 5000
 ```
 
 ### Custom Scenarios
@@ -316,6 +431,13 @@ Enable debug output by uncommenting the debug line:
 
 # Clean environment test
 ./tests.sh --clean-reports -c 30
+
+# Bootstrap and continue workflow
+./tests.sh --bootstrap-only -c 100
+./tests.sh --continue -c 100
+
+# Keep resources for analysis
+./tests.sh --keep-resources -c 50
 ```
 
 ## Support

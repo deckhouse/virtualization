@@ -297,16 +297,21 @@ run_scenario() {
   log_info "Drain node completed in $(format_duration $drain_stats_duration)"
   log_step_end "Step 18: Drain node" "$drain_stats_duration"
 
-  log_info "Waiting 30 second before cleanup"
-  sleep 30
-  
-  log_step_start "Step 19: Final Cleanup"
-  local final_cleanup_start=$(get_timestamp)
-  undeploy_resources
-  local final_cleanup_end=$(get_timestamp)
-  local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
-  log_info "Final cleanup completed in $(format_duration $final_cleanup_duration)"
-  log_step_end "Step 19: Final Cleanup" "$final_cleanup_duration"
+  # Skip final cleanup if keep-resources is enabled
+  if [ "$KEEP_RESOURCES" = "true" ]; then
+    log_info "Skipping final cleanup (--keep-resources enabled, resources preserved)"
+  else
+    log_info "Waiting 30 second before cleanup"
+    sleep 30
+    
+    log_step_start "Step 19: Final Cleanup"
+    local final_cleanup_start=$(get_timestamp)
+    undeploy_resources
+    local final_cleanup_end=$(get_timestamp)
+    local final_cleanup_duration=$((final_cleanup_end - final_cleanup_start))
+    log_info "Final cleanup completed in $(format_duration $final_cleanup_duration)"
+    log_step_end "Step 19: Final Cleanup" "$final_cleanup_duration"
+  fi
   
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
