@@ -117,7 +117,7 @@ func initE2E() (err error) {
 		return err
 	}
 
-	if namePrefix, err = framework.NewFramework("").GetNamePrefix(); err != nil {
+	if namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.TemplateStorageClass); err != nil {
 		return err
 	}
 
@@ -164,14 +164,14 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
-	Expect(defaultControllerRestartChecker.Check()).To(Succeed())
-	Expect(defaultLogStreamer.Stop()).To(Succeed())
-
 	DeferCleanup(func() {
 		if config.IsCleanUpNeeded() {
 			Expect(Cleanup()).To(Succeed())
 		}
 	})
+
+	Expect(defaultControllerRestartChecker.Check()).To(Succeed())
+	Expect(defaultLogStreamer.Stop()).To(Succeed())
 })
 
 func Cleanup() error {
@@ -337,6 +337,7 @@ func deleteProjects() error {
 
 	var errs error
 	for _, project := range projects.Items {
+		fmt.Println(project.Name)
 		err = genericClient.Delete(context.Background(), &project)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			errs = errors.Join(errs, err)
