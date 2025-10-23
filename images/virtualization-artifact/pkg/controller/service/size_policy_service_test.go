@@ -272,7 +272,7 @@ var _ = Describe("SizePolicyService", func() {
 				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
 						Cores:         &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
-						CoreFractions: []v1alpha2.CoreFractionValue{"10%", "25%", "50%", "100%"},
+						CoreFractions: []v1alpha2.CoreFractionValue{10, 25, 50, 100},
 					},
 				},
 			},
@@ -302,7 +302,7 @@ var _ = Describe("SizePolicyService", func() {
 				SizingPolicies: []v1alpha2.SizingPolicy{
 					{
 						Cores:         &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
-						CoreFractions: []v1alpha2.CoreFractionValue{"10%", "25%", "50%", "100%"},
+						CoreFractions: []v1alpha2.CoreFractionValue{10, 25, 50, 100},
 					},
 				},
 			},
