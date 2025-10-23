@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -67,6 +68,11 @@ func NewWaitForDVStep(
 }
 
 func (s WaitForDVStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
+	_, exists := vd.Annotations[annotations.AnnUseVolumeSnapshot]
+	if exists {
+		return nil, nil
+	}
+
 	if s.dv == nil {
 		vd.Status.Phase = v1alpha2.DiskProvisioning
 		s.cb.
