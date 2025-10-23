@@ -81,7 +81,8 @@ binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
-# do not include glibc, it will be replaced by one from qemu-img
+# do not include following packages, it will be replaced by one from q
+# - glibc selinux
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
 - libseccomp zlib zstd
@@ -113,15 +114,6 @@ import:
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
-  before: install
-# add packages straight to relocate to avoid segfault while invoking cp
-- image: {{ .ModuleNamePrefix }}packages/pcre2
-  add: /pcre2
-  to: /relocate
-  before: install
-- image: {{ .ModuleNamePrefix }}packages/selinux
-  add: /selinux
-  to: /relocate
   before: install
 shell:
   install:
