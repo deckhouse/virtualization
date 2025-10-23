@@ -119,7 +119,7 @@ import:
   add: /pcre2
   to: /relocate
   before: install
-- image: {{ .ModuleNamePrefix }}packages/pcre2
+- image: {{ .ModuleNamePrefix }}packages/selinux
   add: /selinux
   to: /relocate
   before: install
