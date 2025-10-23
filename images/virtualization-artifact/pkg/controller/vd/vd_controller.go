@@ -89,6 +89,7 @@ func NewController(
 		internal.NewDeletionHandler(sources, mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
+		internal.NewProvisionedCapacityHandler(mgr.GetClient()),
 		internal.NewMigrationHandler(mgr.GetClient(), scService, disk, featuregates.Default()),
 		internal.NewProtectionHandler(),
 	)
@@ -110,7 +111,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualDisk{}).
-		WithValidator(NewValidator(mgr.GetClient(), scService)).
+		WithValidator(NewValidator(mgr.GetClient(), scService, disk)).
 		Complete(); err != nil {
 		return nil, err
 	}

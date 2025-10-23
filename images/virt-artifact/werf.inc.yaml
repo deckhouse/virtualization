@@ -5,11 +5,11 @@
 {{- $tag := get $.Core $gitRepoName }}
 {{- $version := (split "-" $tag)._0 }}
 
-
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: 024 # TODO: Delete me
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}

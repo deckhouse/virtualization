@@ -426,6 +426,22 @@ spec:
                     Progress of copying an image from a source to PVC. Appears
                     only during the `Provisioning' phase.
                   type: string
+                provisionedCapacity:
+                  anyOf:
+                    - type: integer
+                    - type: string
+                  description: |-
+                    ProvisionedCapacity represents the actual physical size of the volume as provisioned by the CSI driver.
+                    CSI drivers typically don't provision volumes with exact byte precision - the actual size
+                    is often slightly larger than requested.
+                    This discrepancy depends on the underlying storage
+                    provider, which may perform alignment optimizations for better performance, use allocation
+                    units, or apply storage-specific rounding.
+                    This field shows the real capacity of our volume.
+                    Note that we can only detect the real size when the virtual machine is powered.
+                    If the disk is unattached or the VM is powered off, this field may be empty.
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
                 sourceUID:
                   description: |-
                     UID is a type that holds unique ID values, including UUIDs.  Because we

@@ -73,6 +73,10 @@ func NewMigrationHandler(client client.Client, storageClassValidator storageClas
 	}
 }
 
+func (h MigrationHandler) Name() string {
+	return migrationHandlerName
+}
+
 func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if vd == nil || !vd.GetDeletionTimestamp().IsZero() {
 		return reconcile.Result{}, nil
@@ -399,8 +403,15 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return nil
 	}
 
+	volumeMode, accessMode, err := h.modeGetter.GetVolumeAndAccessModes(ctx, vd, targetStorageClass)
+	if err != nil {
+		return fmt.Errorf("get volume and access modes: %w", err)
+	}
+
+	size = calculateTargetSize(size, vd.Status.ProvisionedCapacity, actualPvc.Spec.VolumeMode, volumeMode)
+
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
-	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim)
+	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim, volumeMode, accessMode)
 	if err != nil {
 		return err
 	}
@@ -427,6 +438,31 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	conditions.SetCondition(cb, &vd.Status.Conditions)
 
 	return h.handleMigrateSync(ctx, vd)
+}
+
+func calculateTargetSize(size resource.Quantity, realSize *resource.Quantity, oldVolumeMode *corev1.PersistentVolumeMode, newVolumeMode corev1.PersistentVolumeMode) resource.Quantity {
+	if realSize != nil && realSize.Cmp(size) == 1 {
+		return *realSize
+	}
+
+	blockToFs := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeBlock && newVolumeMode == corev1.PersistentVolumeFilesystem
+	fsToBlock := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeFilesystem && newVolumeMode == corev1.PersistentVolumeBlock
+
+	if blockToFs {
+		// 1% overhead for filesystem
+		fsOverhead := size.Value() / 100
+		size.Add(*resource.NewQuantity(fsOverhead, resource.BinarySI))
+		return size
+	}
+
+	if fsToBlock {
+		// overhead no need to add
+		return size
+	}
+
+	const blockOverhead = int64(8 * 1024 * 1024)
+	size.Add(*resource.NewQuantity(blockOverhead, resource.BinarySI))
+	return size
 }
 
 func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
@@ -587,7 +623,7 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 	return nil, nil
 }
 
-func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string) (*corev1.PersistentVolumeClaim, error) {
+func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string, volumeMode corev1.PersistentVolumeMode, accessMode corev1.PersistentVolumeAccessMode) (*corev1.PersistentVolumeClaim, error) {
 	pvcs, err := listPersistentVolumeClaims(ctx, vd, h.client)
 	if err != nil {
 		return nil, err
@@ -604,11 +640,6 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 		}
 	default:
 		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(pvcs))
-	}
-
-	volumeMode, accessMode, err := h.modeGetter.GetVolumeAndAccessModes(ctx, vd, sc)
-	if err != nil {
-		return nil, fmt.Errorf("get volume and access modes: %w", err)
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{
