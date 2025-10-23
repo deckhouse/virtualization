@@ -77,7 +77,7 @@ packages:
 - glibc libattr pcre2 selinux
 - libaio libaudit libcap-ng numactl
 - linux-pam libunistring libgmp gnutls nettle libidn2 p11-kit libtasn1
-- libffi zlib zstd liburing glib2 libfuse3
+- libffi zlib zstd liburing glib2 libfuse3 libburn readline libisofs ncurses
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
