@@ -232,6 +232,16 @@ jobs:
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud"
 
+      - name: Attach data disks to worker VMs
+        working-directory: ci/dvp-e2e
+        run: |
+          task infra:attach-worker-disks \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
+            STORAGE_CLASS="linstor-thin-r2"
+
       - name: Bootstrap nested cluster
         working-directory: ci/dvp-e2e
         run: |
@@ -241,17 +251,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud" \
-            TARGET_STORAGE_CLASS="${STORAGE_CLASS}"
-
-      - name: Attach data disks to worker VMs
-        working-directory: ci/dvp-e2e
-        run: |
-          task infra:attach-worker-disks \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}" \
-            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="${STORAGE_CLASS}"
+            TARGET_STORAGE_CLASS="${{ matrix.profile == 'cephrbd' && 'linstor-thin-r2' || env.STORAGE_CLASS }}"
 
       - name: Build nested kubeconfig
         working-directory: ci/dvp-e2e
@@ -602,7 +602,7 @@ jobs:
             --webhook-url "${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}" \
             --channel "${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }}" > matrix_summary.md || true
           DATE=$(date +"%Y-%m-%d")
-          HASH=$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 8)
+          HASH=$(head -c 16 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 8)
           kubectl apply -f - <<EOF || true
           apiVersion: v1
           kind: Secret
