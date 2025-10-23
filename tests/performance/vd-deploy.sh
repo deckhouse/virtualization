@@ -17,6 +17,7 @@ SLEEP_TIME=5
 LOG_FILE="vd-deploy_$(date +"%Y%m%d_%H%M%S").log"
 # ===
 
+# == datete functions ==
 get_current_date() {
     date +"%Y-%m-%d %H:%M:%S"
 }
@@ -28,6 +29,51 @@ get_current_date() {
 get_timestamp() {
     date +%s
 }
+
+format_duration() {
+  local total_seconds=$1
+  local hours=$((total_seconds / 3600))
+  local minutes=$(( (total_seconds % 3600) / 60 ))
+  local seconds=$((total_seconds % 60))
+  printf "%02d:%02d:%02d\n" "$hours" "$minutes" "$seconds"
+}
+
+formatted_date() {
+  local timestamp="$1"
+  
+  # Check if timestamp is valid (not empty and is a number)
+  if [ -z "$timestamp" ] || ! [[ "$timestamp" =~ ^[0-9]+$ ]]; then
+    # Use current time if timestamp is invalid
+    date +"%H:%M:%S %d-%m-%Y"
+    return
+  fi
+  
+  # Use OS-specific date command
+  case "$OS_TYPE" in
+    "macOS")
+      date -r "$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null || date +"%H:%M:%S %d-%m-%Y"
+      ;;
+    "Linux")
+      date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null || date +"%H:%M:%S %d-%m-%Y"
+      ;;
+    *)
+      # Fallback - try both methods
+      if date -r "$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null; then
+        # macOS style worked
+        date -r "$timestamp" +"%H:%M:%S %d-%m-%Y"
+      elif date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y" 2>/dev/null; then
+        # Linux style worked
+        date -d "@$timestamp" +"%H:%M:%S %d-%m-%Y"
+      else
+        # Last resort - use current time
+        date +"%H:%M:%S %d-%m-%Y"
+      fi
+      ;;
+  esac
+}
+
+# ===
+
 
 exit_trap() {
   echo ""
@@ -182,9 +228,10 @@ deploy_disks_only_batch() {
 # =======
 TOTAL_VD=15000
 
+echo "VDs" > $LOG_FILE
 log_info "Start Deploying disks [$TOTAL_VD]"
 deploy_disks_only_batch $TOTAL_VD "persistentVolumeClaim" 1000
 
 log_success "Disk deployment completed"
 
-task destroy:disks \
+# task destroy:disks \
