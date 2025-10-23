@@ -311,7 +311,7 @@ jobs:
             -c 'set -e;
               echo "=== Rescanning SCSI bus ===";
               for host in /sys/class/scsi_host/host*; do
-                echo "- - -" > "$host/scan" 2>/dev/null || true;
+                sudo echo "- - -" > "$host/scan" 2>/dev/null || true;
               done;
               sleep 2;
               echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
@@ -344,7 +344,7 @@ jobs:
               -c 'set -e;
                 echo "=== Rescanning SCSI bus ===";
                 for host in /sys/class/scsi_host/host*; do
-                  echo "- - -" > "$host/scan" 2>/dev/null || true;
+                  sudo echo "- - -" > "$host/scan" 2>/dev/null || true;
                 done;
                 sleep 2;
                 echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
