@@ -251,7 +251,8 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="linstor-thin-r2"
+            STORAGE_CLASS="linstor-thin-r2" \
+            DISK_COUNT="2"
 
       - name: Build nested kubeconfig
         working-directory: ci/dvp-e2e

@@ -4,6 +4,15 @@ metadata:
   name: sds-node-configurator
 spec:
   enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-local-volume
+spec:
+  enabled: true
+  version: 1
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -11,3 +20,4 @@ metadata:
   name: sds-replicated-volume
 spec:
   enabled: true
+  version: 1

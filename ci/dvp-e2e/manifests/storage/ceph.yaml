@@ -20,5 +20,16 @@ spec:
   storage:
     useAllNodes: true
     useAllDevices: true
-    deviceFilter: "^sdd$"
+    deviceFilter: "^sde$"
     onlyApplyOSDPlacement: false
+  healthCheck:
+    daemonHealth:
+      mon:
+        disabled: false
+        interval: 45s
+      osd:
+        disabled: false
+        interval: 60s
+      status:
+        disabled: false
+        interval: 60s

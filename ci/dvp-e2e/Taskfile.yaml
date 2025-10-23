@@ -170,13 +170,13 @@ tasks:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
       DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
       STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
       - |
         set -euo pipefail
-        echo "[INFRA] Attaching data disks to worker VMs in namespace {{ .NAMESPACE }}"
-        # Build workers array safely (avoid unbound variable when empty)
+        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs in namespace {{ .NAMESPACE }}"
         workers=()
         while IFS= read -r line; do
           [ -n "$line" ] && workers+=("$line")
@@ -187,9 +187,10 @@ tasks:
         echo "[INFRA] Found ${#workers[@]} worker VMs: ${workers[*]}"
         for vm in "${workers[@]}"; do
           [ -z "$vm" ] && continue
-          vd="node-disk-$vm"
-          echo "[INFRA] Ensuring VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
-          cat > /tmp/vd-$vd.yaml <<EOF
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            vd="storage-disk-${disk_num}-$vm"
+            echo "[INFRA] Ensuring VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+            cat > /tmp/vd-$vd.yaml <<EOF
         apiVersion: virtualization.deckhouse.io/v1alpha2
         kind: VirtualDisk
         metadata:
@@ -199,9 +200,9 @@ tasks:
             storageClassName: {{ .STORAGE_CLASS }}
             size: {{ .DISK_SIZE }}
         EOF
-          kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
-          echo "[INFRA] Attaching $vd to $vm"
-          cat > /tmp/attach-$vd.yaml <<EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            echo "[INFRA] Attaching $vd to $vm"
+            cat > /tmp/attach-$vd.yaml <<EOF
         apiVersion: virtualization.deckhouse.io/v1alpha2
         kind: VirtualMachineBlockDeviceAttachment
         metadata:
@@ -212,14 +213,15 @@ tasks:
             kind: VirtualDisk
             name: $vd
         EOF
-          kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
-          echo "[INFRA] Waiting for attachment $vd to reach phase=Attached"
-          for i in $(seq 1 120); do
-            phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$phase" = "Attached" ]; then
-              echo "[INFRA] $vd attached to $vm"; break
-            fi
-            sleep 5
+            kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
+            echo "[INFRA] Waiting for attachment $vd to reach phase=Attached"
+            for i in $(seq 1 120); do
+              phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$phase" = "Attached" ]; then
+                echo "[INFRA] $vd attached to $vm"; break
+              fi
+              sleep 5
+            done
           done
         done
 
