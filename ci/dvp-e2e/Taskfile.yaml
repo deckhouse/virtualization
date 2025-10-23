@@ -180,7 +180,7 @@ tasks:
         workers=()
         while IFS= read -r line; do
           [ -n "$line" ] && workers+=("$line")
-        done < <(kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null || true)
+        done < <(kubectl -n {{ .NAMESPACE }} get vm -o json 2>/dev/null | jq -r '.items[] | select(.metadata.labels["dvp.deckhouse.io/hostname"] | contains("worker")) | .metadata.name' || true)
         if [ ${#workers[@]} -eq 0 ]; then
           echo "[INFRA] No worker VMs found; nothing to do"; exit 0
         fi
