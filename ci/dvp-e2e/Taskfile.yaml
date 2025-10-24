@@ -203,8 +203,8 @@ tasks:
           done
         done
         
-  infra:attach-storage-disks-via-blockdevicerefs:
-    desc: Attach storage disks to worker VMs using blockDeviceRefs (instead of hotplug)
+  infra:attach-storage-disks-hotplug:
+    desc: Attach storage disks to worker VMs using hotplug (VirtualMachineBlockDeviceAttachment)
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
@@ -218,7 +218,7 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using blockDeviceRefs in namespace {{ .NAMESPACE }}"
+        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
         
         for i in $(seq 1 60); do
           worker_count=$(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker | wc -l)
@@ -243,24 +243,7 @@ tasks:
           [ -z "$vm" ] && continue
           echo "[INFRA] Processing VM: $vm"
           
-          block_device_refs="[]"
-          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
-            vd="storage-disk-${disk_num}-$vm"
-            echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
-            cat > /tmp/vd-$vd.yaml <<EOF
-        apiVersion: virtualization.deckhouse.io/v1alpha2
-        kind: VirtualDisk
-        metadata:
-          name: $vd
-        spec:
-          persistentVolumeClaim:
-            storageClassName: {{ .STORAGE_CLASS }}
-            size: {{ .DISK_SIZE }}
-        EOF
-            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
-            block_device_refs=$(echo "$block_device_refs" | jq --arg kind "VirtualDisk" --arg name "$vd" '. += [{"kind": $kind, "name": $name}]')
-          done
-          
+          # Wait for VM to be Running before hotplug
           current_phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
           echo "[INFRA] VM $vm current phase: $current_phase"
           
@@ -275,54 +258,54 @@ tasks:
             done
           fi
           
-          echo "[INFRA] Stopping VM $vm to modify blockDeviceRefs..."
-          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOff"}}'
-          
-          for i in $(seq 1 30); do
-            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$phase" = "Stopped" ]; then
-              echo "[INFRA] VM $vm is stopped"; break
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            vd="storage-disk-${disk_num}-$vm"
+            echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+            cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            
+            echo "[INFRA] Creating VirtualMachineBlockDeviceAttachment for $vd"
+            cat > /tmp/attach-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualMachineBlockDeviceAttachment
+        metadata:
+          name: $vd
+        spec:
+          virtualMachineName: $vm
+          blockDeviceRef:
+            kind: VirtualDisk
+            name: $vd
+        EOF
+            kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
+            
+            echo "[INFRA] Waiting for hotplug attachment of $vd..."
+            for i in $(seq 1 120); do
+              phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$phase" = "Attached" ]; then
+                echo "[INFRA] Disk $vd successfully attached to VM $vm"; break
+              fi
+              echo "[INFRA] Disk $vd phase=$phase; retry $i/120"; sleep 5
+            done
+            
+            if [ "$phase" != "Attached" ]; then
+              echo "[ERROR] Disk $vd failed to attach to VM $vm" >&2
+              exit 1
             fi
-            echo "[INFRA] VM $vm phase=$phase; retry $i/30"; sleep 5
           done
           
-          if [ "$phase" != "Stopped" ]; then
-            echo "[INFRA] VM $vm failed to stop, skipping blockDeviceRefs modification"
-            continue
-          fi
-          
-          echo "[INFRA] Adding blockDeviceRefs to VM $vm..."
-          echo "[DEBUG] block_device_refs: $block_device_refs"
-          
-          if [ "$block_device_refs" = "[]" ]; then
-            echo "[ERROR] block_device_refs is empty, skipping VM $vm"
-            continue
-          fi
-          
-          echo "[DEBUG] Applying inline patch with blockDeviceRefs"
-          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p="{\"spec\":{\"blockDeviceRefs\":$block_device_refs}}"
-          
-          echo "[INFRA] Starting VM $vm..."
-          kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOn"}}'
-          
-          echo "[INFRA] Waiting for VM $vm to start after blockDeviceRefs modification..."
-          for i in $(seq 1 60); do
-            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$phase" = "Running" ]; then
-              echo "[INFRA] VM $vm successfully started with blockDeviceRefs"; break
-            fi
-            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
-          done
-          
-          if [ "$phase" != "Running" ]; then
-            echo "[ERROR] VM $vm failed to start after blockDeviceRefs modification" >&2
-            exit 1
-          fi
-          
-          echo "[INFRA] VM $vm configured with blockDeviceRefs"
+          echo "[INFRA] VM $vm configured with hotplug disks"
         done
         
-        echo "[INFRA] All worker VMs configured with storage disks via blockDeviceRefs"
+        echo "[INFRA] All worker VMs configured with storage disks via hotplug"
 
   infra:attach-worker-disks:
     desc: Attach additional data disks to worker VMs (for SDS/Ceph OSD)
