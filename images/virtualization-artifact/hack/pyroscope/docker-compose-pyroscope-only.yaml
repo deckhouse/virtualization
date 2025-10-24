@@ -1,0 +1,11 @@
+services:
+  pyroscope:
+    image: grafana/pyroscope:1.5.0
+    ports:
+      - "4040:4040"
+    command: ["server"]
+    volumes:
+      - "pyroscope-data:/data"
+
+volumes:
+  pyroscope-data:

@@ -111,21 +111,37 @@ tasks:
       - _ensure:mirrord
     cmd: ./hack/mirrord.sh wipe --deployment=virtualization-api --namespace={{ .BaseNamespace }}
 
-  pyroscope:local:run:controller:
-    desc: "Run pyroscope locally for virtualization-controller"
-    cmd: ./hack/pyroscope.sh run --namespace={{ .BaseNamespace }} --service=virtualization-controller --port=8081
+  pyroscope:local:start:pyroscope-only:
+    desc: "Start pyroscope only"
+    cmd: ./hack/pyroscope.sh start-pyroscope
 
-  pyroscope:local:wipe:controller:
-    desc: "Wipe local pyroscope for virtualization-controller"
-    cmd: ./hack/pyroscope.sh wipe --namespace={{ .BaseNamespace }}
+  pyroscope:local:stop:pyroscope-only:
+    desc: "Stop pyroscope only"
+    cmd: ./hack/pyroscope.sh stop-pyroscope
 
-  pyroscope:local:run:vm-route-forge:
-    desc: "Run pyroscope locally for vm-route-forge"
-    cmd: ./hack/pyroscope.sh run --namespace={{ .BaseNamespace }} --service=vm-route-forge --port=8119
+  pyroscope:local:wipe-data:
+    desc: "Wipe local pyroscope data"
+    cmd: ./hack/pyroscope.sh wipe-data
 
-  pyroscope:local:wipe:vm-route-forge:
-    desc: "Wipe local pyroscope for vm-route-forge"
-    cmd: ./hack/pyroscope.sh wipe --namespace={{ .BaseNamespace }}
+  pyroscope:local:info-data:
+    desc: "Show local pyroscope data info"
+    cmd: ./hack/pyroscope.sh info-data
+
+  pyroscope:local:start:controller:
+    desc: "Start pyroscope locally for virtualization-controller"
+    cmd: ./hack/pyroscope.sh start --namespace={{ .BaseNamespace }} --service=virtualization-controller --port=8081
+
+  pyroscope:local:stop:controller:
+    desc: "Stop local pyroscope for virtualization-controller"
+    cmd: ./hack/pyroscope.sh stop --namespace={{ .BaseNamespace }}
+
+  pyroscope:local:start:vm-route-forge:
+    desc: "Start pyroscope locally for vm-route-forge"
+    cmd: ./hack/pyroscope.sh start --namespace={{ .BaseNamespace }} --service=vm-route-forge --port=8119
+
+  pyroscope:local:stop:vm-route-forge:
+    desc: "Stop local pyroscope for vm-route-forge"
+    cmd: ./hack/pyroscope.sh stop --namespace={{ .BaseNamespace }}
 
   dlv:build:controller:
     desc: "Build image virtualization-controller with dlv"

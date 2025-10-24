@@ -18,3 +18,8 @@ services:
     ports:
       - "4040:4040"
     command: ["server"]
+    volumes:
+      - "pyroscope-data:/data"
+
+volumes:
+  pyroscope-data:

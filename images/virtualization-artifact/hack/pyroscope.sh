@@ -21,24 +21,31 @@ function usage {
 Usage: $0 COMMAND OPTIONS
 
 Commands:
-  run    Run pyroscope.
-         Flags:
-         --namespace,-n  (required)  Namespace of application.
-         --service,-s    (required)  Connecting service.
-         --port,-p       (required)  Connecting port service.
+  start           Start pyroscope and alloy.
+                  Flags:
+                  --namespace,-n  (required)  Namespace of application.
+                  --service,-s    (required)  Connecting service.
+                  --port,-p       (required)  Connecting port service.
 
-  wipe   Stop and cleanup.
+  stop            Stop pyroscope and alloy.
+  wipe-data       Wipe pyroscope data.
+  info-data       Show pyroscope data info.
+
+  start-pyroscope Start pyroscope only.
+  stop-pyroscope  Stop pyroscope only.
 
 Examples:
-  # Run"
-    $(basename "$0") run --service="your service" --port="your service port" --namespace="your namespace"
-  # Wipe"
-    $(basename "$0") wipe
+  # Start"
+    $(basename "$0") start --service="your service" --port="your service port" --namespace="your namespace"
+  # Stop"
+    $(basename "$0") stop
 EOF
 }
 
 DIR="$(dirname "$0")"
 DOCKER_COMPOSE_FILE="${DIR}/pyroscope/docker-compose.yaml"
+DOCKER_COMPOSE_FILE_PYROSCOPE_ONLY="${DIR}/pyroscope/docker-compose-pyroscope-only.yaml"
+PYROSCOPE_VOLUME_NAME="pyroscope_pyroscope-data"
 PYROSCOPE_PORT="8081"
 PROCESS_NAME="PyroscopePortForward"
 
@@ -49,7 +56,7 @@ function usage_exit {
     exit "$rc"
 }
 
-function run() {
+function start() {
     if [[ -z $NAMESPACE ]] || [[ -z $SERVICE ]] || [[ -z $PORT ]]; then
         usage_exit 1
     fi
@@ -60,9 +67,25 @@ function run() {
     docker compose -f "${DOCKER_COMPOSE_FILE}" up -d
 }
 
-function wipe() {
+function stop() {
     docker compose -f "${DOCKER_COMPOSE_FILE}" down
     pkill -f "${PROCESS_NAME}"
+}
+
+function wipe-data() {
+    docker volume rm "${PYROSCOPE_VOLUME_NAME}"
+}
+
+function info-data() {
+    docker volume inspect "${PYROSCOPE_VOLUME_NAME}"
+}
+
+function start-pyroscope() {
+    docker compose -f "${DOCKER_COMPOSE_FILE_PYROSCOPE_ONLY}" up -d
+}
+
+function stop-pyroscope() {
+    docker compose -f "${DOCKER_COMPOSE_FILE_PYROSCOPE_ONLY}" down
 }
 
 source "${DIR}/args.sh"
@@ -80,13 +103,27 @@ docker compose version &>/dev/null || (echo "No docker compose found" ; exit 1 )
 
 CMD="${ARGS[0]}"
 case "$CMD" in
-    "run")
-        run
+    "start")
+        start
         echo "Pyroscope launched successfully."
         echo "Open http://localhost:4040 in your browser."
         ;;
-    "wipe")
-        wipe
+    "stop")
+        stop
+        ;;
+    "wipe-data")
+        wipe-data
+        ;;
+    "info-data")
+        info-data
+        ;;
+    "start-pyroscope")
+        start-pyroscope
+        echo "Pyroscope launched successfully."
+        echo "Open http://localhost:4040 in your browser."
+        ;;
+    "stop-pyroscope")
+        stop-pyroscope
         ;;
     *)
         usage_exit 1
