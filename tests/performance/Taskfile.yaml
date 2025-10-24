@@ -147,6 +147,33 @@ tasks:
     cmds:
       - ./bootstrap.sh destroy --namespace="{{ .NAMESPACE }}" --resources-prefix="{{ .RESOURCES_PREFIX }}" --resources="vms" --name="{{ .NAME_PREFIX }}-vms" --virtualDisk-type="{{ .VIRTUALDISK_TYPE }}" --virtualImage-type="{{ .VIRTUALIMAGE_TYPE }}"
 
+  gather:logs:
+    desc: "Gather logs from d8 namespaces."
+    cmds:
+      - |
+        ./gather-logs.sh d8-admission-policy-engine \
+          d8-admission-policy-engine \
+          d8-cert-manager d8-chrony \
+          d8-cloud-instance-manager \
+          d8-cni-cilium \
+          d8-console \
+          d8-csi-ceph \
+          d8-dashboard \
+          d8-descheduler \
+          d8-ingress-nginx \
+          d8-monitoring \
+          d8-multitenancy-manager \
+          d8-observability \
+          d8-operator-ceph \
+          d8-operator-prometheus \
+          d8-runtime-audit-engine \
+          d8-service-accounts \
+          d8-snapshot-controller \
+          d8-system \
+          d8-user-authn \
+          d8-user-authz \
+          d8-virtualization
+
   check_or_install_software:
     desc: "Check and install Helm3, Ansible, and K9s"
     cmds:
