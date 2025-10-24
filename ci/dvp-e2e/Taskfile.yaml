@@ -1,0 +1,801 @@
+version: "3"
+dotenv:
+  - .env
+
+vars:
+  # Paths and defaults
+  TMP_ROOT:
+    sh: git rev-parse --show-toplevel 2>/dev/null | xargs -I{} printf "%s/ci/dvp-e2e/tmp" {}
+  VALUES_TEMPLATE_FILE: values.yaml
+  SSH_FILE_NAME: cloud
+
+  # Charts
+  INFRA_CHART_PATH: ./charts/infra
+  CLUSTER_CONFIG_CHART_PATH: ./charts/cluster-config
+
+tasks:
+  # ------------------------------------------------------------
+  # Preflight
+  # ------------------------------------------------------------
+  default:
+    silent: true
+    desc: Check required utilities
+    cmds:
+      - |
+        deps=("kubectl" "jq" "yq" "docker" "helm" "htpasswd" "ssh-keygen" "curl" "d8" "openssl")
+        for dep in "${deps[@]}"; do
+          if ! command -v "$dep" >/dev/null 2>&1; then
+            echo "Required utility '$dep' not found!" >&2
+            exit 1
+          fi
+        done
+        echo "All dependencies are installed!"
+
+  password-gen:
+    desc: Generate password (openssl + bcrypt)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      PASSWORD_FILE: '{{ printf "%s/%s" .TMP_DIR "password.txt" }}'
+      PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - openssl rand -base64 20 > {{ .PASSWORD_FILE }}
+      - |
+        pw="$(cat {{ .PASSWORD_FILE }})"
+        htpasswd -BinC 10 "" <<< "$pw" | cut -d: -f2 | (base64 --wrap=0 2>/dev/null || base64 -w0 2>/dev/null || base64) > {{ .PASSWORD_HASH_FILE }}
+    status:
+      - test -f "{{ .PASSWORD_FILE }}"
+      - test -f "{{ .PASSWORD_HASH_FILE }}"
+
+  ssh-gen:
+    desc: Generate ssh keypair for jump-host
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
+      SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
+    cmds:
+      - mkdir -p "{{ .SSH_DIR }}"
+      - ssh-keygen -t ed25519 -o -a 64 -N "" -C "cloud" -f {{ .SSH_PRIV_KEY_FILE }} -q
+      - chmod 0600 "{{ .SSH_PRIV_KEY_FILE }}"
+      - chmod 0644 "{{ .SSH_PUB_KEY_FILE }}"
+    status:
+      - test -f "{{ .SSH_PRIV_KEY_FILE }}"
+
+  # ------------------------------------------------------------
+  # Values per run (namespaces, domain, prefix)
+  # ------------------------------------------------------------
+  run:values:prepare:
+    desc: Prepare values.yaml for the run
+    vars:
+      RUN_ID: "{{ .RUN_ID }}"
+      RUN_NAMESPACE: "{{ .RUN_NAMESPACE }}"
+      RUN_DIR: '{{ .RUN_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
+      TARGET_VALUES_FILE: '{{ printf "%s/%s" .RUN_DIR "values.yaml" }}'
+      BASE_DOMAIN:
+        sh: yq eval '.domain // ""' {{ .VALUES_TEMPLATE_FILE }}
+      BASE_CLUSTER_PREFIX:
+        sh: yq eval '.clusterConfigurationPrefix // "cluster"' {{ .VALUES_TEMPLATE_FILE }}
+    cmds:
+      - mkdir -p {{ .RUN_DIR }}
+      - cp {{ .VALUES_TEMPLATE_FILE }} {{ .TARGET_VALUES_FILE }}
+      - yq eval --inplace '.namespace = "{{ .RUN_NAMESPACE }}"' {{ .TARGET_VALUES_FILE }}
+      - |
+        set -euo pipefail
+        DOMAIN_INPUT="{{ .BASE_DOMAIN }}"
+        if [ -n "$DOMAIN_INPUT" ]; then
+          DOMAIN_VAL="{{ .RUN_ID }}.$DOMAIN_INPUT"
+        else
+          DOMAIN_VAL="{{ .RUN_ID }}"
+        fi
+        export DOMAIN_VAL
+        yq eval --inplace '.domain = strenv(DOMAIN_VAL)' {{ .TARGET_VALUES_FILE }}
+      - |
+        set -euo pipefail
+        if command -v shasum >/dev/null 2>&1; then
+          RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | shasum | awk '{print $1}' | cut -c1-6)
+        else
+          RUN_ID_HASH=$(printf "%s" "{{ .RUN_ID }}" | sha1sum 2>/dev/null | awk '{print $1}' | cut -c1-6)
+        fi
+        PREFIX_INPUT="{{ .BASE_CLUSTER_PREFIX }}-${RUN_ID_HASH}"
+        [ ${#PREFIX_INPUT} -gt 16 ] && PREFIX_INPUT="${PREFIX_INPUT:0:16}"
+        export PREFIX_INPUT
+        yq eval --inplace '.clusterConfigurationPrefix = strenv(PREFIX_INPUT)' {{ .TARGET_VALUES_FILE }}
+
+  # ------------------------------------------------------------
+  # Infra manifests and deployment
+  # ------------------------------------------------------------
+  render-infra:
+    desc: Generate infra manifests
+    deps:
+      - task: ssh-gen
+        vars:
+          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
+      DOMAIN:
+        sh: yq eval '.domain // ""' {{ .VALUES_FILE }}
+    sources:
+      - "./charts/infra/**/*"
+      - "{{ .VALUES_FILE }}"
+    generates:
+      - "{{ .TMP_DIR }}/infra.yaml"
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - printf "" > {{ .GENERATED_VALUES_FILE }}
+      - |
+        export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
+        yq eval --inplace '.sshPublicKey = env(SSH_PUB_KEY)' {{ .GENERATED_VALUES_FILE }}
+      - |
+        DOMAIN_VALUE="{{ .DOMAIN }}"
+        if [ -n "$DOMAIN_VALUE" ] && [ "$DOMAIN_VALUE" != "null" ]; then
+          export DOMAIN_VALUE
+          yq eval --inplace '.domain = env(DOMAIN_VALUE)' {{ .GENERATED_VALUES_FILE }}
+        fi
+      - helm template dvp-over-dvp-infra {{ .INFRA_CHART_PATH }} -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/infra.yaml
+
+  infra-deploy:
+    desc: Deploy infra (Namespace/RBAC/Jump-host)
+    deps:
+      - task: render-infra
+        vars:
+          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+          VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
+          SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
+      - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
+
+  infra:create-storage-disks:
+    desc: Create storage disks for worker VMs before cluster bootstrap (for SDS/Ceph OSD)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
+      WORKER_COUNT: '{{ .WORKER_COUNT | default "3" }}'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[INFRA] Creating {{ .DISK_COUNT }} storage disks per worker VM ({{ .WORKER_COUNT }} workers) in namespace {{ .NAMESPACE }}"
+        
+        # Create VirtualDisks for all expected worker VMs
+        # We'll use predictable naming based on Deckhouse's naming pattern
+        for worker_idx in $(seq 0 $(({{ .WORKER_COUNT }} - 1))); do
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            # Deckhouse generates VM names like: {prefix}-{hash}-worker-{suffix}
+            vd="storage-disk-${disk_num}-worker-${worker_idx}"
+            echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+            cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            echo "[INFRA] VirtualDisk $vd created"
+          done
+        done
+        
+  infra:attach-storage-disks-hotplug:
+    desc: Attach storage disks to worker VMs using hotplug (VirtualMachineBlockDeviceAttachment)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
+        
+        # Wait for worker VMs
+        for i in $(seq 1 60); do
+          worker_count=$(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker | wc -l)
+          if [ "$worker_count" -gt 0 ]; then
+            echo "[INFRA] Found $worker_count worker VMs"; break
+          fi
+          echo "[INFRA] Waiting for worker VMs... ($i/60)"; sleep 10
+        done
+        
+        workers=()
+        while IFS= read -r line; do
+          [ -n "$line" ] && workers+=("$line")
+        done < <(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
+        
+        if [ ${#workers[@]} -eq 0 ]; then
+          echo "[INFRA] No worker VMs found; nothing to do"; exit 0
+        fi
+        
+        echo "[INFRA] Found ${#workers[@]} worker VMs: ${workers[*]}"
+        
+        for vm in "${workers[@]}"; do
+          [ -z "$vm" ] && continue
+          echo "[INFRA] Processing VM: $vm"
+          
+          # Wait for VM to be Running
+          for i in $(seq 1 60); do
+            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Running" ]; then
+              echo "[INFRA] VM $vm is Running"; break
+            fi
+            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
+          done
+          
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            vd="storage-disk-${disk_num}-$vm"
+            echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
+            cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            
+            echo "[INFRA] Creating VirtualMachineBlockDeviceAttachment for $vd"
+            cat > /tmp/attach-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualMachineBlockDeviceAttachment
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          virtualMachineName: $vm
+          blockDeviceRef:
+            kind: VirtualDisk
+            name: $vd
+        EOF
+            kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
+            
+            echo "[INFRA] Waiting for hotplug attachment of $vd..."
+            for i in $(seq 1 120); do
+              phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$phase" = "Attached" ]; then
+                echo "[INFRA] Disk $vd successfully attached to VM $vm"; break
+              fi
+              echo "[INFRA] Disk $vd phase=$phase; retry $i/120"; sleep 5
+            done
+            
+            if [ "$phase" != "Attached" ]; then
+              echo "[ERROR] Disk $vd failed to attach to VM $vm" >&2
+              exit 1
+            fi
+          done
+          
+          echo "[INFRA] VM $vm configured with hotplug disks"
+        done
+        
+        echo "[INFRA] All worker VMs configured with storage disks via hotplug"
+
+  infra:attach-worker-disks:
+    desc: Attach additional data disks to worker VMs (for SDS/Ceph OSD)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
+      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs in namespace {{ .NAMESPACE }}"
+        workers=()
+        while IFS= read -r line; do
+          [ -n "$line" ] && workers+=("$line")
+        done < <(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
+        if [ ${#workers[@]} -eq 0 ]; then
+          echo "[INFRA] No worker VMs found"; exit 0
+        fi
+        for vm in "${workers[@]}"; do
+          [ -z "$vm" ] && continue
+          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
+            vd="storage-disk-${disk_num}-$vm"
+            cat > /tmp/vd-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualDisk
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          persistentVolumeClaim:
+            storageClassName: {{ .STORAGE_CLASS }}
+            size: {{ .DISK_SIZE }}
+        EOF
+            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+            cat > /tmp/attach-$vd.yaml <<EOF
+        apiVersion: virtualization.deckhouse.io/v1alpha2
+        kind: VirtualMachineBlockDeviceAttachment
+        metadata:
+          name: $vd
+          namespace: {{ .NAMESPACE }}
+        spec:
+          virtualMachineName: $vm
+          blockDeviceRef:
+            kind: VirtualDisk
+            name: $vd
+        EOF
+            kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
+            for i in $(seq 1 120); do
+              phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$phase" = "Attached" ]; then
+                break
+              fi
+              sleep 5
+            done
+          done
+        done
+
+  # ------------------------------------------------------------
+  # Kubeconfig for bootstrap and cluster config
+  # ------------------------------------------------------------
+  render-kubeconfig:
+    desc: Generate kubeconfig for bootstrap
+    deps:
+      - password-gen
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      SERVER:
+        sh: |
+          HOST=$(kubectl -n d8-user-authn get ingress kubernetes-api -o json | jq -r '.spec.rules[0].host')
+          [ -z "$HOST" -o "$HOST" = "null" ] && { echo "[ERR] kubernetes-api ingress host not found" >&2; exit 1; }
+          echo "https://$HOST"
+      TOKEN:
+        sh: |
+          for i in $(seq 1 5); do
+            TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null) && break
+            echo "[WARN] Failed to issue SA token (attempt $i); retrying in 3s" >&2
+            sleep 3
+          done
+          [ -z "${TOKEN:-}" ] && { echo "[ERR] Unable to obtain token for dkp-sa" >&2; exit 1; }
+          echo "$TOKEN"
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    silent: true
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - |
+        cat <<EOF > {{ .TMP_DIR }}/kubeconfig.yaml
+        apiVersion: v1
+        clusters:
+        - cluster:
+            server: {{ .SERVER }}
+            insecure-skip-tls-verify: true
+          name: dvp
+        contexts:
+        - context:
+            cluster: dvp
+            namespace: {{ .NAMESPACE }}
+            user: {{ .NAMESPACE }}@dvp
+          name: {{ .NAMESPACE }}@dvp
+        current-context: {{ .NAMESPACE }}@dvp
+        kind: Config
+        preferences: {}
+        users:
+        - name: {{ .NAMESPACE }}@dvp
+          user:
+            token: {{ .TOKEN }}
+        EOF
+
+  render-cluster-config:
+    desc: Generate cluster config (helm template)
+    deps:
+      - render-kubeconfig
+      - password-gen
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
+      PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
+    cmds:
+      - printf "" > {{ .GENERATED_VALUES_FILE }}
+      - |
+        export PASSWORD_HASH="$(cat {{ .PASSWORD_HASH_FILE }})"
+        yq eval --inplace '.passwordHash = env(PASSWORD_HASH)' {{ .GENERATED_VALUES_FILE }}
+      - |
+        export NEW_KUBECONFIG_B64="$(cat {{ .TMP_DIR }}/kubeconfig.yaml | base64 | tr -d '\n')"
+        yq eval --inplace '.kubeconfigDataBase64 = env(NEW_KUBECONFIG_B64)' {{ .GENERATED_VALUES_FILE }}
+      - |
+        if [ -n "{{ .TARGET_STORAGE_CLASS | default "" }}" ]; then
+          export _SC='{{ .TARGET_STORAGE_CLASS }}'
+          yq eval --inplace '.storageClass = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.controlPlane.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.controlPlane.etcd = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.workers.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+          yq eval --inplace '.storageClasses.workers.data = env(_SC)' {{ .GENERATED_VALUES_FILE }}
+        fi
+      - |
+        export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
+        yq eval --inplace '.sshPublicKey = env(SSH_PUB_KEY)' {{ .GENERATED_VALUES_FILE }}
+      - helm template dvp-over-dvp-cluster-config {{ .CLUSTER_CONFIG_CHART_PATH }} -f {{ .VALUES_FILE }} -f {{ .GENERATED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
+
+  dhctl-bootstrap:
+    desc: Bootstrap Deckhouse over DVP
+    deps:
+      - render-cluster-config
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
+      NAMESPACE:
+        sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      DEFAULT_USER:
+        sh: yq eval '.image.defaultUser' {{ .VALUES_FILE }}
+      JUMPHOST_EXT_IP:
+        sh: kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short | tr -d '\r'
+      JUMPHOST_NODEPORT:
+        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
+    env:
+      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        IMAGE="dev-registry.deckhouse.io/sys/deckhouse-oss/install:main"
+        docker pull --platform=linux/amd64 "$IMAGE"
+        docker run --rm --platform=linux/amd64 \
+          -v "{{ .TMP_DIR }}:/work" \
+          "$IMAGE" \
+            dhctl bootstrap \
+            --config=/work/config.yaml \
+            --ssh-agent-private-keys=/work/ssh/{{ .SSH_FILE_NAME }} \
+            --ssh-user={{ .DEFAULT_USER }} \
+            --ssh-bastion-port={{ .JUMPHOST_NODEPORT }} \
+            --ssh-bastion-host={{ .JUMPHOST_EXT_IP }} \
+            --ssh-bastion-user=user \
+            --preflight-skip-availability-ports-check \
+            --preflight-skip-deckhouse-user-check \
+            --preflight-skip-registry-credential \
+            --preflight-skip-deckhouse-edition-check \
+            {{.CLI_ARGS}}
+
+  # ------------------------------------------------------------
+  # Nested cluster helpers (SC + kubeconfig)
+  # ------------------------------------------------------------
+  nested:kubeconfig:
+    desc: Build kubeconfig for nested cluster via jump-host
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE: "{{ .NAMESPACE }}"
+      DOMAIN:
+        sh: yq eval '.domain // ""' {{ .VALUES_FILE }}
+      DEFAULT_USER:
+        sh: yq eval '.image.defaultUser' {{ .VALUES_FILE }}
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
+      NESTED_DIR: '{{ .NESTED_DIR | default (printf "%s/nested-%s" .TMP_DIR .NAMESPACE) }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG | default (printf "%s/kubeconfig" .NESTED_DIR) }}'
+      PARENT_KUBECONFIG_PATH: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ ! -s "{{ .PARENT_KUBECONFIG_PATH }}" ]; then
+          echo "[ERR] parent kubeconfig not found at {{ .PARENT_KUBECONFIG_PATH }}"
+          exit 1
+        fi
+        mkdir -p {{ .NESTED_DIR }}
+        MASTER_NAME=$(KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} kubectl -n {{ .NAMESPACE }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
+        if [ -z "$MASTER_NAME" ]; then
+          echo "[ERR] master VM not found in namespace {{ .NAMESPACE }}" >&2
+          exit 1
+        fi
+        KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} d8 v ssh --username={{ .DEFAULT_USER }} --identity-file={{ .SSH_PRIV_KEY_FILE }} --local-ssh=true --local-ssh-opts="-o StrictHostKeyChecking=no" --local-ssh-opts="-o UserKnownHostsFile=/dev/null" "${MASTER_NAME}.{{ .NAMESPACE }}" -c '
+          set -euo pipefail
+          SUDO="sudo /opt/deckhouse/bin/kubectl"
+          $SUDO -n kube-system get sa e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create sa e2e-admin >/dev/null 2>&1
+          $SUDO -n kube-system get clusterrolebinding e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create clusterrolebinding e2e-admin --clusterrole=cluster-admin --serviceaccount=kube-system:e2e-admin >/dev/null 2>&1
+          $SUDO -n kube-system create token e2e-admin --duration=240h
+        ' > {{ .NESTED_DIR }}/token.txt
+        NESTED_TOKEN=$(cat {{ .NESTED_DIR }}/token.txt)
+        SERVER_URL="https://api.{{ .NAMESPACE }}.{{ .DOMAIN }}"
+        {
+          printf 'apiVersion: v1\n'
+          printf 'kind: Config\n'
+          printf 'clusters:\n'
+          printf '- cluster:\n'
+          printf '    insecure-skip-tls-verify: true\n'
+          printf '    server: %s\n' "${SERVER_URL}"
+          printf '  name: nested\n'
+          printf 'contexts:\n'
+          printf '- context:\n'
+          printf '    cluster: nested\n'
+          printf '    user: e2e-admin\n'
+          printf '  name: nested\n'
+          printf 'current-context: nested\n'
+          printf 'users:\n'
+          printf '- name: e2e-admin\n'
+          printf '  user:\n'
+          printf '    token: %s\n' "${NESTED_TOKEN}"
+        } > {{ .NESTED_KUBECONFIG }}
+        chmod 600 {{ .NESTED_KUBECONFIG }}
+        echo "Generated nested kubeconfig at {{ .NESTED_KUBECONFIG }}"
+
+  nested:ensure-sc:
+    desc: Ensure StorageClass exists in nested cluster
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      NAMESPACE: "{{ .NAMESPACE }}"
+      NESTED_DIR: '{{ .NESTED_DIR | default (printf "%s/nested-%s" .TMP_DIR .NAMESPACE) }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG | default (printf "%s/kubeconfig" .NESTED_DIR) }}'
+      SC_NAME: '{{ .SC_NAME | default "linstor-thin-r2" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get sc "{{ .SC_NAME }}" >/dev/null 2>&1; then
+          echo "[ERR] StorageClass '{{ .SC_NAME }}' is missing in nested cluster"
+          exit 1
+        fi
+
+  nested:ensure-vmclass-default:
+    desc: Ensure default VMClass generic-for-e2e exists in nested cluster
+    vars:
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+    cmds:
+      - |
+        set -euo pipefail
+        for i in $(seq 1 18); do
+          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic >/dev/null 2>&1; then
+            KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get vmclass generic -o json \
+              | jq 'del(.status) | .metadata={"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}}' \
+              | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f - >/dev/null
+            break
+          fi
+          echo "[INFO] Waiting for vmclass/generic to appear (attempt $i)..."
+          sleep 10
+        done
+
+  nested:storage:sds:
+    desc: Configure SDS storage profile in nested cluster
+    vars:
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      SDS_SC_NAME: '{{ .SDS_SC_NAME | default "linstor-thin-r2" }}'
+      SDS_DVCR_SIZE: '{{ .SDS_DVCR_SIZE | default "5Gi" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[SDS] Enabling SDS modules (node-configurator, replicated-volume)..."
+        cat <<'EOF' | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
+        apiVersion: deckhouse.io/v1alpha1
+        kind: ModuleConfig
+        metadata:
+          name: sds-node-configurator
+        spec:
+          enabled: true
+          version: 1
+        ---
+        apiVersion: deckhouse.io/v1alpha1
+        kind: ModuleConfig
+        metadata:
+          name: sds-replicated-volume
+        spec:
+          enabled: true
+          version: 1
+        EOF
+      - |
+        set -euo pipefail
+        echo "[SDS] Waiting for SDS CRDs to be established..."
+        for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
+          echo "[SDS] Waiting for CRD '$crd'..."
+          # First, wait for the CRD to appear
+          for i in $(seq 1 60); do
+            if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$crd" >/dev/null 2>&1; then
+              break
+            fi
+            echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
+          done
+          # Then, wait until it is Established (ignore errors to proceed if already established)
+          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
+        done
+      - |
+        set -euo pipefail
+        if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "{{ .SDS_SC_NAME }}" >/dev/null 2>&1; then
+          echo "[ERR] StorageClass '{{ .SDS_SC_NAME }}' not found in nested cluster" >&2
+          exit 1
+        fi
+      - |
+        echo "[SDS] Setting {{ .SDS_SC_NAME }} as default StorageClass..."
+        DEFAULT_STORAGE_CLASS="{{ .SDS_SC_NAME }}"
+        KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl patch mc global --type='json' -p='[
+          {
+            "op": "replace",
+            "path": "/spec/settings/defaultClusterStorageClass",
+            "value": "'$DEFAULT_STORAGE_CLASS'"
+          }
+        ]'
+
+  nested:storage:configure:
+    desc: Configure storage profile inside nested cluster (Ceph or SDS)
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "sds" }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS }}'
+      STORAGE_PROFILE_NORMALIZED:
+        sh: |
+          case '{{ .STORAGE_PROFILE }}' in
+            sds|sds-local|sds_local|sds-replicated|sds_replicated) echo sds ;;
+            ceph|ceph-rbd|cephrbd) echo ceph ;;
+            *) echo '{{ .STORAGE_PROFILE }}' ;;
+          esac
+    cmds:
+      - cmd: 'echo "[STORAGE] normalized profile = {{ .STORAGE_PROFILE_NORMALIZED }}"'
+      - |
+        set -euo pipefail
+        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
+          ceph|sds) ;;
+          *) echo "Unknown storage profile: {{ .STORAGE_PROFILE }}" >&2; exit 1 ;;
+        esac
+      - |
+        set -euo pipefail
+        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
+          ceph)
+            echo "[CEPH] Waiting for Ceph StorageClass to be available..."
+            CEPH_SC_NAME='{{ .TARGET_STORAGE_CLASS }}'
+            for i in $(seq 1 30); do
+              if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "$CEPH_SC_NAME" >/dev/null 2>&1; then
+                echo "[CEPH] StorageClass '$CEPH_SC_NAME' is available"
+                break
+              fi
+              echo "[CEPH] Waiting for StorageClass '$CEPH_SC_NAME' (attempt $i/30)..."
+              sleep 10
+            done
+            if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "$CEPH_SC_NAME" >/dev/null 2>&1; then
+              echo "[ERR] StorageClass '$CEPH_SC_NAME' not found in nested cluster" >&2
+              exit 1
+            fi
+            ;;
+          sds)
+            echo "[SDS] Configuring SDS storage..."
+            ;;
+        esac
+      - task: "nested:storage:sds"
+        vars:
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+          SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
+        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "sds" }}'
+
+  # ------------------------------------------------------------
+  # Run E2E
+  # ------------------------------------------------------------
+  nested:e2e:
+    desc: Run virtualization E2E tests against nested cluster
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      NAMESPACE: "{{ .NAMESPACE }}"
+      NESTED_DIR: '{{ .NESTED_DIR | default (printf "%s/nested-%s" .TMP_DIR .NAMESPACE) }}'
+      NESTED_KUBECONFIG: '{{ .NESTED_KUBECONFIG | default (printf "%s/kubeconfig" .NESTED_DIR) }}'
+      E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../tests/e2e" }}'
+      FOCUS: '{{ or .FOCUS "" }}'
+      SKIP: '{{ or .SKIP "" }}'
+      LABELS: '{{ or .LABELS "" }}'
+      TIMEOUT: '{{ or .TIMEOUT "4h" }}'
+      JUNIT_PATH: '{{ or .JUNIT_PATH "" }}'
+      TARGET_STORAGE_CLASS: '{{ if .STORAGE_CLASS }}{{ .STORAGE_CLASS }}{{ else if or (eq .STORAGE_PROFILE "ceph") (eq .STORAGE_PROFILE "ceph-rbd") (eq .STORAGE_PROFILE "cephrbd") }}ceph-pool-r2-csi-rbd{{ else }}linstor-thin-r2{{ end }}'
+    cmds:
+      - task: nested:kubeconfig
+        vars:
+          TMP_DIR: "{{ .TMP_DIR }}"
+          VALUES_FILE: "{{ .VALUES_FILE }}"
+          NAMESPACE: "{{ .NAMESPACE }}"
+          NESTED_DIR: "{{ .NESTED_DIR }}"
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+      - task: nested:ensure-sc
+        vars:
+          TMP_DIR: "{{ .TMP_DIR }}"
+          NAMESPACE: "{{ .NAMESPACE }}"
+          NESTED_DIR: "{{ .NESTED_DIR }}"
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+          SC_NAME: "{{ .TARGET_STORAGE_CLASS }}"
+      - task: nested:ensure-vmclass-default
+        vars:
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      - |
+        set -euo pipefail
+        export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
+        cd {{ .E2E_DIR }}
+        task run TIMEOUT='{{ .TIMEOUT }}' {{ if .FOCUS }}FOCUS='{{ .FOCUS }}'{{ end }} {{ if .LABELS }}LABELS='{{ .LABELS }}'{{ end }} {{ if .JUNIT_PATH }}JUNIT_PATH='{{ .JUNIT_PATH }}'{{ end }}
+
+  # ------------------------------------------------------------
+  # Cleanup used by workflow cleanup job
+  # ------------------------------------------------------------
+  cleanup:namespaces:safe:
+    desc: Safely delete old dvp-e2e-* namespaces that belong to this project
+    vars:
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
+      CONFIRM: '{{ .CONFIRM | default "false" }}'
+    env:
+      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
+    cmds:
+      - |
+        set -euo pipefail
+        echo "[SCAN] Searching namespaces with prefix '{{ .FILTER_PREFIX }}' and deployment 'jump-host'"
+        declare -a candidates=()
+        mapfile -t candidates < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
+        ours=()
+        for ns in "${candidates[@]:-}"; do
+          [ -z "${ns:-}" ] && continue
+          if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
+            ours+=("$ns")
+          fi
+        done
+        if [ ${#ours[@]} -eq 0 ]; then
+          echo "[INFO] No namespaces to delete."
+          exit 0
+        fi
+        echo "[MATCH] Will delete the following namespaces (detected as ours):"
+        printf ' - %s\n' "${ours[@]}"
+        if [ "{{ .CONFIRM }}" != "true" ]; then
+          echo "[SAFE] Dry-run only. Re-run with CONFIRM=true to delete."
+          echo "Example: task cleanup:namespaces:safe CONFIRM=true"
+          exit 0
+        fi
+        for ns in "${ours[@]}"; do
+          echo "[DEL] Deleting namespace $ns"
+          kubectl delete ns "$ns" --wait=false || true
+          echo "[WAIT] Waiting for delete $ns (polling)"
+          sleep 3
+        done
+
+  cleanup:cleanup:namespaces:
+    desc: Cleanup test namespaces by prefix
+    vars:
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        echo "Scanning namespaces with prefix: {{ .FILTER_PREFIX }}"
+        namespaces=()
+        mapfile -t namespaces < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
+        if [ ${#namespaces[@]} -eq 0 ]; then
+          echo "No namespaces found to delete"; exit 0; fi
+        printf 'Will delete:\n'; printf ' - %s\n' "${namespaces[@]}"
+        for ns in "${namespaces[@]}"; do
+          kubectl delete ns "$ns" --wait=false || true
+        done
+        echo "Requested deletions triggered"

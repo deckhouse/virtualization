@@ -60,3 +60,12 @@ retry/
 # nodejs
 node_modules/
 package-lock.json
+
+# CI/E2E artifacts and local binaries (cleanup)
+artifacts/
+tests/e2e/artifacts/
+kubectl
+ci/dvp-e2e/tmp/
+
+# Task internal state
+ci/dvp-e2e/.task/

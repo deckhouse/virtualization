@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (bootstrap)
+name: E2E Matrix Tests (DVP-over-DVP)
 
 on:
   pull_request:
@@ -20,15 +20,633 @@ on:
     branches:
       - main
       - feat/ci-e2e-matrix
+  schedule:
+    - cron: "30 2 * * *"
   workflow_dispatch:
+    inputs:
+      profiles:
+        description: "Storage profiles (comma-separated): sds, cephrbd"
+        required: false
+        default: "sds,cephrbd"
+      timeout:
+        description: "Ginkgo timeout (e.g. 2h, 4h)"
+        required: false
+        default: "4h"
 
 permissions:
   contents: read
 
+env:
+  E2E_K8S_URL: https://api.e2e.virtlab.flant.com
+
 jobs:
-  noop:
-    name: Bootstrap
+  # ============================================
+  # 1. SETUP - Environment preparation
+  # ============================================
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    outputs:
+      profiles: ${{ steps.load.outputs.profiles }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load storage profiles
+        id: load
+        run: |
+          # Load profiles dynamically from profiles.json
+          cd ci/dvp-e2e
+          PROFILES=$(jq -r '[.[].name] | @json' profiles.json)
+          echo "profiles=$PROFILES" >> "$GITHUB_OUTPUT"
+
+      - name: Print matrix
+        run: |
+          echo "Will test profiles: ${{ steps.load.outputs.profiles }}"
+
+  # ============================================
+  # 2. E2E - Parallel test execution
+  # ============================================
+  e2e:
+    name: E2E (${{ matrix.profile }})
+    needs: [setup]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    concurrency:
+      group: e2e-${{ github.ref }}-${{ matrix.profile }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
+
+    env:
+      GO_VERSION: "1.24.6"
+      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
+      LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
+      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Install Deckhouse CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+          D8_SKIP_CHECKSUM=1 bash d8-install.sh
+          rm -f d8-install.sh
+
+      - name: Install yq
+        run: |
+          echo "Installing yq..."
+          curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Prepare environment
+        id: prep
+        run: |
+          RUN_ID="nightly-nested-e2e-${{ matrix.profile }}-$(date +%H%M)"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
+          echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
+          mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
+
+      - name: Build parent kubeconfig from secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Prepare run values.yaml
+        working-directory: ci/dvp-e2e
+        run: |
+          task run:values:prepare \
+            RUN_ID="${{ env.RUN_ID }}" \
+            RUN_NAMESPACE="${{ env.RUN_ID }}" \
+            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
+          echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
+
+      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+        working-directory: ci/dvp-e2e
+        env:
+          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
+        run: |
+          REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+
+      - name: Docker login to Deckhouse dev registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
+          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
+
+      - name: Verify dev-registry access
+        run: |
+          set -euo pipefail
+          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
+
+      - name: Configure storage profile
+        working-directory: ci/dvp-e2e
+        id: profile-config
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          # Get storage class configuration from profiles.json
+          PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
+          
+          # Parse the output more carefully
+          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
+          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
+          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
+          
+          echo "Profile: ${PROFILE}"
+          echo "Storage Class: ${STORAGE_CLASS}"
+          echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
+          echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
+          echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
+          
+          # Export variables safely
+          echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
+          # Pass storage profile into run values for Helm templates
+          PROFILE='${{ matrix.profile }}' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+
+      - name: Install infra (namespace/RBAC/jump-host)
+        working-directory: ci/dvp-e2e
+        run: |
+          task render-infra \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="cloud"
+          task infra-deploy \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="cloud"
+
+      - name: Bootstrap nested cluster
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🚀 dhctl bootstrap (profile: ${{ matrix.profile }})"
+          task dhctl-bootstrap \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="cloud" \
+            TARGET_STORAGE_CLASS="${{ env.STORAGE_CLASS }}"
+
+      - name: Attach data disks to worker VMs using hotplug
+        working-directory: ci/dvp-e2e
+        run: |
+          task infra:attach-storage-disks-hotplug \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
+            STORAGE_CLASS="linstor-thin-r2" \
+            DISK_COUNT="2"
+
+      - name: Build nested kubeconfig
+        working-directory: ci/dvp-e2e
+        run: |
+          task nested:kubeconfig \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            PARENT_KUBECONFIG="${KUBECONFIG}"
+
+
+      - name: Configure storage backend (post-bootstrap)
+        run: |
+          set -euo pipefail
+          NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+          PROFILE="${{ matrix.profile }}"
+          
+          echo "[INFO] Waiting for nested API Server readiness..."
+          for i in $(seq 1 30); do
+            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get nodes >/dev/null 2>&1; then
+              echo "[INFO] API Server is ready"; break
+            fi
+            echo "[INFO] Waiting for API Server... $i/30"; sleep 10
+          done
+          if [ "$PROFILE" = "sds" ]; then
+            echo "[SDS] Enabling SDS modules..."
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds-modules.yaml; then
+                break; else echo "[SDS] modules apply failed, retry $i/10"; sleep 10; fi
+            done
+
+            echo "[SDS] Waiting for SDS CRDs..."
+            for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
+              echo "[SDS] Waiting for CRD '$crd'..."
+              # Wait for the CRD to appear first
+              for i in $(seq 1 60); do
+                if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get crd "$crd" >/dev/null 2>&1; then
+                  break
+                fi
+                echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
+              done
+              # Then wait until Established (ignore errors if already established)
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
+            done
+
+            echo "[SDS] Applying SDS resources..."
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds.yaml; then
+                break; else echo "[SDS] apply failed, retry $i/10"; sleep 10; fi
+            done
+            echo "[SDS] Waiting for StorageClass 'linstor-thin-r2'..."
+            for i in $(seq 1 30); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null 2>&1; then
+                echo "[SDS] StorageClass 'linstor-thin-r2' is available"; break
+              fi
+              sleep 10
+            done
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null
+            echo "[SDS] Setting linstor-thin-r2 as default StorageClass..."
+            DEFAULT_STORAGE_CLASS="linstor-thin-r2"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
+              {
+                "op": "replace",
+                "path": "/spec/settings/defaultClusterStorageClass",
+                "value": "'$DEFAULT_STORAGE_CLASS'"
+              }
+            ]'
+          elif [ "$PROFILE" = "cephrbd" ]; then
+            echo "[Ceph] Enabling operator-ceph module..."
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
+                break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
+            done
+            echo "[Ceph] Waiting for operator-ceph namespace..."
+            for i in $(seq 1 60); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
+                echo "[Ceph] Namespace d8-operator-ceph is ready"; break
+              fi
+              echo "[Ceph] Waiting for namespace... $i/60"; sleep 10
+            done
+            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
+              echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time; aborting Ceph setup" >&2
+              exit 1
+            fi
+            echo "[Ceph] Waiting for rook-ceph-operator pod..."
+            # Try different selectors for rook-ceph-operator
+            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=120s 2>/dev/null; then
+              echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=480s
+            fi
+            echo "[Ceph] Waiting for CephCluster CRD..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
+            echo "[Ceph] Applying CephCluster..."
+            for i in {1..10}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
+                break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
+            done
+            # At this point Ceph operator must be up; further resources
+            # are applied from manifests under ci/dvp-e2e/manifests/storage.
+            
+            echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
+            DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
+              {
+                "op": "replace",
+                "path": "/spec/settings/defaultClusterStorageClass",
+                "value": "'$DEFAULT_STORAGE_CLASS'"
+              }
+            ]'
+          else
+            echo "[INFO] Unknown storage profile '$PROFILE', skipping"
+          fi
+
+      - name: Configure storage classes
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "💾 Configuring storage classes for profile: ${{ matrix.profile }}"
+          task nested:storage:configure \
+            STORAGE_PROFILE="${{ matrix.profile }}" \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+
+      - name: Prepare JUnit directory
+        run: |
+          mkdir -p "${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}"
+
+      - name: Run E2E tests
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧪 Running E2E tests for profile: ${{ matrix.profile }}"
+          task nested:e2e \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="cloud" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            STORAGE_PROFILE="${{ matrix.profile }}" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            JUNIT_PATH="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml" \
+            FOCUS="" \
+            SKIP="" \
+            LABELS="" \
+            STORAGE_CLASS="${STORAGE_CLASS}" \
+            IMAGE_STORAGE_CLASS="${IMAGE_STORAGE_CLASS}" \
+            SNAPSHOT_STORAGE_CLASS="${SNAPSHOT_STORAGE_CLASS}" \
+            TIMEOUT="${{ inputs.timeout || '4h' }}"
+
+      - name: Verify JUnit file creation
+        if: always()
+        run: |
+          JUNIT_FILE="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
+          if [ -f "$JUNIT_FILE" ]; then
+            echo "✅ JUnit file created: $JUNIT_FILE"
+            ls -la "$JUNIT_FILE"
+            echo "JUnit file size: $(wc -c < "$JUNIT_FILE") bytes"
+          else
+            echo "❌ JUnit file not found: $JUNIT_FILE"
+            echo "Available files in artifacts directory:"
+            find "${{ github.workspace }}/ci/dvp-e2e/artifacts" -type f 2>/dev/null || echo "No artifacts directory found"
+          fi
+
+      - name: Collect JUnit for this run
+        if: always()
+        run: |
+          JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
+          mkdir -p "$(dirname "$JUNIT_OUT")"
+          # JUnit file should already be created by nested:test-run task
+          if [ -f "$JUNIT_OUT" ]; then
+            echo "JUnit file found at $JUNIT_OUT"
+          else
+            echo "junit.xml not found at expected location $JUNIT_OUT"
+          fi
+
+      - name: Collect matrix log
+        if: always()
+        run: |
+          mkdir -p ci/dvp-e2e/tmp/matrix-logs
+          LOG="ci/dvp-e2e/tmp/matrix-logs/${RUN_ID}.log"
+          {
+            echo "[START] run_id=${RUN_ID} time=$(date -Iseconds)"
+            echo "[FINISH] run_id=${RUN_ID} status=ok time=$(date -Iseconds)"
+          } >> "$LOG"
+          echo "✅ Created matrix log: $LOG"
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/tmp/matrix-logs
+          if-no-files-found: ignore
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/artifacts
+          if-no-files-found: ignore
+
+      - name: Purge local artifacts and tmp
+        if: always()
+        run: |
+          rm -rf ci/dvp-e2e/artifacts ci/dvp-e2e/tmp || true
+
+  # ============================================
+  # 3. REPORT - Result aggregation
+  # ============================================
+  report:
+    name: Report Results
+    needs: e2e
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+      - uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Build parent kubeconfig from secret (report)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Download all JUnit reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-*
+          path: ./results
+          merge-multiple: true
+
+      - name: Download matrix logs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          path: ci/dvp-e2e/tmp/matrix-logs
+          merge-multiple: true
+
+      - name: Debug artifacts layout
+        run: |
+          echo "=== JUnit artifacts ==="
+          find results -maxdepth 3 -type f -print || true
+          echo "=== Matrix logs ==="
+          find ci/dvp-e2e/tmp/matrix-logs -maxdepth 2 -type f -print || true
+          echo "=== Checking for JUnit files ==="
+          find . -name "junit.xml" -type f 2>/dev/null || echo "No junit.xml files found"
+          echo "=== Results directory structure ==="
+          ls -la ./results/ 2>/dev/null || echo "Results directory not found"
+
+      - name: Generate matrix summary
+        if: always()
+        working-directory: ci/dvp-e2e
+        run: |
+          python3 scripts/loop_matrix_summary.py \
+            --profiles "${{ join(needs.setup.outputs.profiles, ',') }}" \
+            --run-id-prefix "nightly" \
+            --log-dir "tmp/matrix-logs" \
+            --webhook-url "${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}" \
+            --channel "${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }}" > matrix_summary.md || true
+          DATE=$(date +"%Y-%m-%d")
+          HASH=$(head -c 16 /dev/urandom | base64 | tr -dc 'a-z0-9' | head -c 8)
+          kubectl apply -f - <<EOF || true
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: "e2e-matrix-report-${DATE}-${HASH:0:8}"
+            namespace: default
+            labels:
+              storageClass: "matrix"
+          type: Opaque
+          stringData:
+            summary: |
+              $(cat matrix_summary.md | sed 's/^/      /')
+          EOF
+
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "### E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Profile | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Check each profile result
+          for profile in sds cephrbd; do
+            if [ -f "./results/junit-${profile}-*/junit.xml" ]; then
+              echo "| $profile | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $profile | ❌ Failed/Missing |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+  # ============================================
+  # 4. CLEANUP - Resource cleanup
+  # ============================================
+  cleanup:
+    name: Cleanup Resources
+    needs: report
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Build parent kubeconfig from secret (cleanup)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Cleanup test namespaces
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧹 Cleaning up test namespaces..."
+          task cleanup:namespaces:safe \
+            FILTER_PREFIX="nightly-nested-e2e-" \
+            CONFIRM=true
+
+      - name: Report cleanup results
+        if: always()
+        run: |
+          echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
+          echo "🧹 Attempted to clean up namespaces matching 'nightly-nested-e2e-*'" >> $GITHUB_STEP_SUMMARY
