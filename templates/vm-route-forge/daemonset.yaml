@@ -83,8 +83,6 @@ spec:
             {{- end }}
             - name: HEALTH_PROBE_BIND_ADDRESS
               value: ":8118"
-            - name: KIND_ROUTE_WATCHER
-              value: "ebpf"
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
