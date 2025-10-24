@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -61,6 +62,12 @@ var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), fu
 
 		err = helper.WriteYamlObject(vdSnapshotFilePath, &virtualDiskSnapshot)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdSnapshotFilePath, err)
+	})
+
+	AfterAll(func() {
+		if config.IsCleanUpNeeded() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImagesCreation})
+		}
 	})
 
 	AfterEach(func() {
@@ -126,14 +133,6 @@ var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), fu
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.ImagesCreation,
 			})
 		})
 	})

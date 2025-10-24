@@ -39,7 +39,6 @@ var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), f
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}
-		nameSuffix               = "automatic-with-hotplug-standalone"
 		disksBefore              Disks
 		disksAfter               Disks
 		vdAttach                 string
@@ -49,8 +48,8 @@ var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), f
 	)
 
 	BeforeAll(func() {
-		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
-		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
+		vdAttach = fmt.Sprintf("%s-vd-attach", namePrefix)
+		vmName = fmt.Sprintf("%s-vm", namePrefix)
 
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMDiskAttachment, "kustomization.yaml")
 		var err error
