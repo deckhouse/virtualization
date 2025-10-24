@@ -1,3 +1,4 @@
+# Cluster configuration for DVP-over-DVP E2E testing
 apiVersion: deckhouse.io/v1
 kind: ClusterConfiguration
 clusterType: Cloud
