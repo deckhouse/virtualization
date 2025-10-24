@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@ limitations under the License.
 
 // +kubebuilder:object:generate=true
 // +groupName=virtualization.deckhouse.io
-package v1alpha2
+package v1alpha3
 
 import (
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +36,6 @@ const (
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={vmc,vmclass},singular=virtualmachineclass
-// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="IsDefault",type="string",JSONPath=".metadata.annotations.virtualmachineclass\\.virtualization\\.deckhouse\\.io\\/is-default-class",description="Default class for virtual machines without specified class."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
@@ -102,7 +101,7 @@ type CPU struct {
 	// +kubebuilder:example={mmx, vmx, sse2}
 	Features []string `json:"features,omitempty"`
 	// Create a CPU model based on intersecting CPU features for selected nodes.
-	Discovery *CpuDiscovery `json:"discovery,omitempty"`
+	Discovery CpuDiscovery `json:"discovery,omitempty"`
 }
 
 type CpuDiscovery struct {
@@ -116,7 +115,7 @@ type CpuDiscovery struct {
 type SizingPolicy struct {
 	// Memory sizing policy.
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
-	// Allowed values of the `coreFraction` parameter.
+	// Allowed values of the `coreFraction` parameter in percentages (e.g., "5%", "10%", "25%", "50%", "100%").
 	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
@@ -124,9 +123,9 @@ type SizingPolicy struct {
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
 
-// +kubebuilder:validation:Minimum=1
-// +kubebuilder:validation:Maximum=100
-type CoreFractionValue int
+// CoreFractionValue represents CPU core fraction as a percentage string (e.g., "5%", "10%", "25%", "50%", "100%").
+// +kubebuilder:validation:Pattern=`^([1-9]|[1-9][0-9]|100)%?$`
+type CoreFractionValue string
 
 type SizingPolicyMemory struct {
 	MemoryMinMax `json:",inline"`

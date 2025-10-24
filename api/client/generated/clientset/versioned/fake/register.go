@@ -20,6 +20,7 @@ package fake
 
 import (
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtualizationv1alpha3 "github.com/deckhouse/virtualization/api/core/v1alpha3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -32,6 +33,7 @@ var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
 	virtualizationv1alpha2.AddToScheme,
+	virtualizationv1alpha3.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition
