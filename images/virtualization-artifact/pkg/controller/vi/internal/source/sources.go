@@ -117,10 +117,10 @@ func setPhaseConditionForFinishedImage(
 ) {
 	switch {
 	case pvc == nil:
-		*phase = v1alpha2.ImageLost
+		*phase = v1alpha2.ImagePVCLost
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vicondition.Lost).
+			Reason(vicondition.PVCLost).
 			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	default:
 		*phase = v1alpha2.ImageReady
