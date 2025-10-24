@@ -77,6 +77,10 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 			return
 		}
 
+		if vmSnapshot.Status.VirtualMachineSnapshotSecretName == "" {
+			continue
+		}
+
 		restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 		restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, w.client, &corev1.Secret{})
 		if err != nil {
