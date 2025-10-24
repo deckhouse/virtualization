@@ -63,6 +63,29 @@ tasks:
           --focus "{{ .FOCUS }}"
           {{end -}}
 
+  runp:
+    desc: "Run e2e tests in parallel mode"
+    deps:
+      - copy
+      - kubectl
+      - d8
+    cmds:
+      - |
+        go tool ginkgo -v \
+          -p --procs=12 \
+          --race \
+          {{if .LABELS -}}
+          --label-filter="{{ .LABELS }}" \
+          {{end -}}
+          {{if .TIMEOUT -}}
+          --timeout={{ .TIMEOUT }} \
+          {{else -}}
+          --timeout=3h \
+          {{end -}}
+          {{if .FOCUS -}}
+          --focus "{{ .FOCUS }}"
+          {{end -}}
+
   cleanup:
     desc: "Cleanup namespaces & resources left from e2e tests"
     deps:
