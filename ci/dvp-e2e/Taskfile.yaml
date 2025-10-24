@@ -305,6 +305,20 @@ tasks:
           echo "[INFRA] Starting VM $vm..."
           kubectl -n {{ .NAMESPACE }} patch vm "$vm" --type='merge' -p='{"spec":{"runPolicy":"AlwaysOn"}}'
           
+          echo "[INFRA] Waiting for VM $vm to start after blockDeviceRefs modification..."
+          for i in $(seq 1 60); do
+            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Running" ]; then
+              echo "[INFRA] VM $vm successfully started with blockDeviceRefs"; break
+            fi
+            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
+          done
+          
+          if [ "$phase" != "Running" ]; then
+            echo "[ERROR] VM $vm failed to start after blockDeviceRefs modification" >&2
+            exit 1
+          fi
+          
           echo "[INFRA] VM $vm configured with blockDeviceRefs"
         done
         
