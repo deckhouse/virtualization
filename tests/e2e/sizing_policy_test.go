@@ -40,9 +40,9 @@ var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 		vmClassDiscovery               string
 		vmClassDiscoveryCopy           string
 		newVMClassFilePath             string
-		notExistingVMClassChanging     = map[string]string{"vm": "not-existing-vmclass-with-changing"}
-		notExistingVMClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
-		existingVMClass                = map[string]string{"vm": "existing-vmclass"}
+		notExistingVMClassChanging     = map[string]string{"vm": "vmc-change"}
+		notExistingVMClassCreating     = map[string]string{"vm": "vmc-create"}
+		existingVMClass                = map[string]string{"vm": "vmc-exists"}
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 		ns                             string
 		phaseByVolumeBindingMode       = GetPhaseByVolumeBindingModeForTemplateSc()

@@ -6,9 +6,9 @@ resources:
   - ns.yaml
   - vmc.yaml
   - vi-alpine-http.yaml
-  - overlays/not-existing-vmclass-with-changing
-  - overlays/not-existing-vmclass-with-creating
-  - overlays/existing-vmclass
+  - overlays/vmc-change
+  - overlays/vmc-create
+  - overlays/vmc-exists
 configurations:
   - transformer.yaml
 labels:
