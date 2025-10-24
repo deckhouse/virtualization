@@ -45,8 +45,6 @@ storageClasses:
     etcd: ceph-pool-r2-csi-rbd-immediate
   workers:
     root: ceph-pool-r2-csi-rbd-immediate
-    data: ceph-pool-r2-csi-rbd-immediate
-    dataDiskSize: 100Gi
 
 # Infrastructure components
 infra:

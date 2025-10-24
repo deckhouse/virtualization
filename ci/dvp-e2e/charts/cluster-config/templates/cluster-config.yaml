@@ -63,9 +63,6 @@ nodeGroups:
         image:
           kind: VirtualImage
           name: image
-      dataDisk:
-        size: {{ $.Values.storageClasses.workers.dataDiskSize | default "100Gi" }}
-        storageClass: {{ $.Values.storageClasses.workers.data }}
 {{- end }}
 provider:
   kubeconfigDataBase64: {{ .Values.kubeconfigDataBase64 }}
