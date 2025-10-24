@@ -127,7 +127,7 @@ jobs:
       - name: Prepare environment
         id: prep
         run: |
-          RUN_ID="e2e-${{ matrix.profile }}-$(date +%H%M)"
+          RUN_ID="nightly-nested-e2e-${{ matrix.profile }}-$(date +%H%M)"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
           echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
