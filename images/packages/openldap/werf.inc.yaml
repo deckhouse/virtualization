@@ -29,13 +29,14 @@ altPackages:
 - gcc git make libtool gettext-tools
 - chrooted groff-base libltdl-devel shtool
 - libsystemd-devel
-- libevent-devel libuuid-devel
+- libevent-devel
 - liblmdb-devel
 - libargon2-devel
 - tree
 packages:
 - openssl
 - cyrus-sasl2
+- util-linux
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

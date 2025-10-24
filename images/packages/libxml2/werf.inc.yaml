@@ -29,12 +29,13 @@ altPackages:
 - gcc gcc-c++
 - make autoconf automake libtool pkgconfig
 - meson ninja-build
-- gettext-devel liblzma-devel
-- xz git
+- gettext-devel
+- git
 - tree
 packages:
 - zlib
 - openssl
+- xz
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

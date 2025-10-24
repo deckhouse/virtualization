@@ -26,10 +26,7 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool gettext-tools
-- glibc-devel-static
 - groff-base
-- libkrb5-devel libgsasl-devel
-- libbrotli-devel
 - python3-base
 - openssh-server
 - openssh-clients
@@ -48,6 +45,8 @@ packages:
 - cyrus-sasl2
 - ngtcp2 libtasn1
 - libunistring
+- krb5
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
