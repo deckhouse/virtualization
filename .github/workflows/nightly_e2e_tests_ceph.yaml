@@ -32,7 +32,7 @@ defaults:
 
 jobs:
   show_dev_manifest:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular]
     name: Run e2e
     steps:
       - uses: actions/checkout@v4
@@ -52,13 +52,24 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           echo "Install ginkgo"
-          go install tool
-
-      - name: Install Deckhouse-cli
-        run: |
-          echo "Install d8"
-          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-          bash d8-install.sh
+          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
+          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+      
+      - name: Setup d8
+        uses: werf/trdl/actions/setup-app@v0.11.1
+        with:
+          repo: d8
+          url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
+          root-version: 1
+          root-sha512: 343bd5f0d8811254e5f0b6fe292372a7b7eda08d276ff255229200f84e58a8151ab2729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
+          group: 0
+          channel: stable
+      
+      # - name: Install Deckhouse-cli
+      #   run: |
+      #     echo "Install d8"
+      #     curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+      #     bash d8-install.sh
 
       - uses: azure/k8s-set-context@v4
         with:
@@ -78,49 +89,49 @@ jobs:
         run: |
           task run:ci -v
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: resources_from_failed_tests
-          path: ${{ runner.temp }}/e2e_failed__*
-          if-no-files-found: ignore
+      # - uses: actions/upload-artifact@v4
+      #   if: always()
+      #   with:
+      #     name: resources_from_failed_tests
+      #     path: /tmp/e2e_failed__*
+      #     if-no-files-found: ignore
 
-      - name: Save results
-        working-directory: ./tests/e2e/
-        if: always()
-        run: |
-          if [ -z "$SUMMARY" ]; then
-            SUMMARY=$(jq -n \
-              --arg csi "$CSI" \
-              --arg date "$DATE" \
-              --arg startTime "$START_TIME" \
-              --arg branch "$GITHUB_REF_NAME" \
-              --arg status ":question: UNKNOWN" \
-              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-              '{
-                CSI: $csi,
-                Date: $date,
-                StartTime: $startTime,
-                Branch: $branch,
-                Status: $status,
-                Link: $link
-              }'
-            )
-          fi
-          echo $SUMMARY
+      # - name: Save results
+      #   working-directory: ./tests/e2e/
+      #   if: always()
+      #   run: |
+      #     if [ -z "$SUMMARY" ]; then
+      #       SUMMARY=$(jq -n \
+      #         --arg csi "$CSI" \
+      #         --arg date "$DATE" \
+      #         --arg startTime "$START_TIME" \
+      #         --arg branch "$GITHUB_REF_NAME" \
+      #         --arg status ":question: UNKNOWN" \
+      #         --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+      #         '{
+      #           CSI: $csi,
+      #           Date: $date,
+      #           StartTime: $startTime,
+      #           Branch: $branch,
+      #           Status: $status,
+      #           Link: $link
+      #         }'
+      #       )
+      #     fi
+      #     echo $SUMMARY
 
-          hash=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 | md5sum | awk '{print $1}')
+      #     hash=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 32 | md5sum | awk '{print $1}')
 
-          kubectl apply --filename - <<EOF
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: "end-to-end-tests-report-$STORAGE_CLASS_NAME-$DATE-${hash:0:8}"
-            namespace: default
-            labels:
-              storageClass: "$STORAGE_CLASS_NAME"
-          type: Opaque
-          stringData:
-            summary: |
-          $(echo "$SUMMARY" | sed 's/^/    /')
-          EOF
+      #     kubectl apply --filename - <<EOF
+      #     apiVersion: v1
+      #     kind: Secret
+      #     metadata:
+      #       name: "end-to-end-tests-report-$STORAGE_CLASS_NAME-$DATE-${hash:0:8}"
+      #       namespace: default
+      #       labels:
+      #         storageClass: "$STORAGE_CLASS_NAME"
+      #     type: Opaque
+      #     stringData:
+      #       summary: |
+      #     $(echo "$SUMMARY" | sed 's/^/    /')
+      #     EOF
