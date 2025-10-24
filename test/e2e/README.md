@@ -88,13 +88,19 @@ Setup cluster connection in "$HOME/.kube/config" or by [switch](https://github.c
 task run
 ```
 
+To run e2e tests in parallel mode;
+
+```bash
+task runp
+```
+
 ### Debugging options
 
 - Use the FOCUS environment variable to run a specific test.
 - Set CONTINUE_ON_FAILURE=yes to continue running tests despite any failures.
 - Set POST_CLEANUP=no to disable cleanup after tests.
 - Set LABELS to run tests with specific label(https://onsi.github.io/ginkgo/#spec-labels).
-     
+- Manage timeouts for new e2e tests (not for legacy tests) using env variables `E2E_SHORT_TIMEOUT`, `E2E_MIDDLE_TIMEOUT`, `E2E_LONG_TIMEOUT` and `E2E_MAX_TIMEOUT`.
 
 For example, to run only the "ComplexTest" ignoring failed suites and leave all created resources in the cluster, use the following command: 
 ```bash

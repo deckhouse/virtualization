@@ -16,11 +16,33 @@ limitations under the License.
 
 package framework
 
-import "time"
-
-const (
-	ShortTimeout  = 30 * time.Second
-	MiddleTimeout = 60 * time.Second
-	LongTimeout   = 300 * time.Second
-	MaxTimeout    = 600 * time.Second
+import (
+	"os"
+	"time"
 )
+
+// TODO: move from here to a single config file with all env variables for e2e tests.
+const (
+	E2EShortTimeoutEnv  = "E2E_SHORT_TIMEOUT"
+	E2EMiddleTimeoutEnv = "E2E_MIDDLE_TIMEOUT"
+	E2ELongTimeoutEnv   = "E2E_LONG_TIMEOUT"
+	E2EMaxTimeoutEnv    = "E2E_MAX_TIMEOUT"
+)
+
+var (
+	ShortTimeout  = getTimeout(E2EShortTimeoutEnv, 30*time.Second)
+	MiddleTimeout = getTimeout(E2EMiddleTimeoutEnv, 60*time.Second)
+	LongTimeout   = getTimeout(E2ELongTimeoutEnv, 300*time.Second)
+	MaxTimeout    = getTimeout(E2EMaxTimeoutEnv, 600*time.Second)
+)
+
+func getTimeout(env string, defaultTimeout time.Duration) time.Duration {
+	if e, ok := os.LookupEnv(env); ok {
+		t, err := time.ParseDuration(e)
+		if err != nil {
+			return defaultTimeout
+		}
+		return t
+	}
+	return defaultTimeout
+}
