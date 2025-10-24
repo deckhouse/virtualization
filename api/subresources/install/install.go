@@ -21,12 +21,14 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
 	"github.com/deckhouse/virtualization/api/subresources"
-	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 // Install registers the API group and adds types to a scheme
 func Install(scheme *runtime.Scheme) {
 	utilruntime.Must(subresources.AddToScheme(scheme))
-	utilruntime.Must(subv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(scheme.SetVersionPriority(subv1alpha2.SchemeGroupVersion))
+	utilruntime.Must(v1alpha2.AddToScheme(scheme))
+	utilruntime.Must(v1alpha3.AddToScheme(scheme))
+	utilruntime.Must(scheme.SetVersionPriority(v1alpha3.SchemeGroupVersion, v1alpha2.SchemeGroupVersion))
 }

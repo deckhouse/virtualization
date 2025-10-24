@@ -23,17 +23,17 @@ import (
 	"net"
 	"time"
 
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	"github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 type VirtualMachineExpansion interface {
 	SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
-	PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error)
-	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
+	PortForward(name string, opts v1alpha3.VirtualMachinePortForward) (StreamInterface, error)
+	Freeze(ctx context.Context, name string, opts v1alpha3.VirtualMachineFreeze) error
 	Unfreeze(ctx context.Context, name string) error
-	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
-	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
+	AddVolume(ctx context.Context, name string, opts v1alpha3.VirtualMachineAddVolume) error
+	RemoveVolume(ctx context.Context, name string, opts v1alpha3.VirtualMachineRemoveVolume) error
 	CancelEvacuation(ctx context.Context, name string, dryRun []string) error
 }
 
@@ -58,11 +58,11 @@ func (c *virtualMachines) VNC(name string) (StreamInterface, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (c *virtualMachines) PortForward(name string, opts v1alpha2.VirtualMachinePortForward) (StreamInterface, error) {
+func (c *virtualMachines) PortForward(name string, opts v1alpha3.VirtualMachinePortForward) (StreamInterface, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (c *virtualMachines) Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error {
+func (c *virtualMachines) Freeze(ctx context.Context, name string, opts v1alpha3.VirtualMachineFreeze) error {
 	return fmt.Errorf("not implemented")
 }
 
@@ -70,11 +70,11 @@ func (c *virtualMachines) Unfreeze(ctx context.Context, name string) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (c *virtualMachines) AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error {
+func (c *virtualMachines) AddVolume(ctx context.Context, name string, opts v1alpha3.VirtualMachineAddVolume) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (c *virtualMachines) RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error {
+func (c *virtualMachines) RemoveVolume(ctx context.Context, name string, opts v1alpha3.VirtualMachineRemoveVolume) error {
 	return fmt.Errorf("not implemented")
 }
 

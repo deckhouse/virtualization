@@ -12,6 +12,7 @@ rules:
   - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/portforward
+  - apivirtualmachines/portforward
   verbs:
   - get
   - create
