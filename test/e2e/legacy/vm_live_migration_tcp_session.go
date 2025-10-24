@@ -74,8 +74,9 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 		Skip("This test case is not working everytime. Should be fixed.")
 	})
 
-	f.BeforeAll()
-	f.AfterAll()
+	// TODO: refactor: do not use these fns.
+	// f.BeforeAll()
+	// f.AfterAll()
 
 	AfterEach(func() {
 		if !testSkipped {

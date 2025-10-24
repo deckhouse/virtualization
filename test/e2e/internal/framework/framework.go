@@ -54,22 +54,6 @@ func NewFramework(namespacePrefix string) *Framework {
 	}
 }
 
-func (f *Framework) BeforeEach() {
-	BeforeEach(f.Before)
-}
-
-func (f *Framework) BeforeAll() {
-	BeforeAll(f.Before)
-}
-
-func (f *Framework) AfterEach() {
-	AfterEach(f.After)
-}
-
-func (f *Framework) AfterAll() {
-	AfterAll(f.After)
-}
-
 func (f *Framework) Before() {
 	GinkgoHelper()
 	if !f.skipNsCreation {
