@@ -31,6 +31,9 @@ var (
 	namespace      string
 	virtualmachine bool
 	virtualdisk    bool
+	outputDir      string
+	vmCount        int
+	vdCount        int
 )
 
 var rootCmd = &cobra.Command{
@@ -55,6 +58,9 @@ func init() {
 	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "perf", "namespace to look for the VMs,VDs, default 'perf'")
 	rootCmd.Flags().BoolVarP(&virtualmachine, "virtualmachine", "v", false, "get virtualmachine statistics")
 	rootCmd.Flags().BoolVarP(&virtualdisk, "virtualdisk", "d", false, "get virtualdisk statistics")
+	rootCmd.Flags().StringVarP(&outputDir, "output-dir", "O", ".", "output directory for CSV files")
+	rootCmd.Flags().IntVarP(&vmCount, "vm-count", "c", 0, "limit number of VMs to process (0 = all)")
+	rootCmd.Flags().IntVarP(&vdCount, "vd-count", "C", 0, "limit number of VDs to process (0 = all)")
 }
 
 func getStatistic(cmd *cobra.Command, args []string) {
@@ -64,11 +70,11 @@ func getStatistic(cmd *cobra.Command, args []string) {
 	getAll := !virtualmachine && !virtualdisk
 
 	if getAll || virtualmachine {
-		vm.GetStatistic(client, namespace)
+		vm.GetStatistic(client, namespace, outputDir, vmCount)
 	}
 
 	if getAll || virtualdisk {
-		vd.GetStatistic(client, namespace)
+		vd.GetStatistic(client, namespace, outputDir, vdCount)
 	}
 }
 

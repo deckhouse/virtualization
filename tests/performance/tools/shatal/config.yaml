@@ -1,23 +1,24 @@
 kubeconfigBase64: "XXX="
-resourcesPrefix: "performance"
-namespace: "default"
+resourcesPrefix: "perf"
+namespace: "perf"
 interval: "5s"
 count: 100
 debug: true
 forceInterruption: false
 drainer:
+  once: true
   enabled: true
   interval: "10s"
   labelSelector: "!node-role.kubernetes.io/master"
 creator:
-  enabled: true
+  enabled: false
   interval: "5s"
 deleter:
-  enabled: true
+  enabled: false
   weight: 1
 modifier:
-  enabled: true
+  enabled: false
   weight: 1
 nothing:
-  enabled: true
+  enabled: false
   weight: 8
