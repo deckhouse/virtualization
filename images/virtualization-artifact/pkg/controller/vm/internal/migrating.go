@@ -185,7 +185,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
 
 		case vmopcondition.ReasonOperationFailed.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("")
+			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(completed.Message)
 
 		case vmopcondition.ReasonNotApplicableForVMPhase.String():
 			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Migration is not applicable for the current virtual machine phase")
