@@ -42,28 +42,6 @@ masterNodeGroup:
     etcdDisk:
       size: 15Gi
       storageClass: {{ .Values.storageClasses.controlPlane.etcd }}
-{{- range .Values.instances.additionalNodes }}
-nodeGroups:
-  - name: {{ .name }}
-    replicas: {{ .count }}
-    instanceClass:
-      virtualMachine:
-        bootloader: {{ $.Values.image.bootloader }}
-        cpu:
-          cores: {{ .cores }}
-          coreFraction: {{ .coreFraction }}
-        memory:
-          size: {{ .memory }}
-        ipAddresses:
-          - Auto
-        virtualMachineClassName: "{{ $.Values.namespace }}-cpu"
-      rootDisk:
-        size: 50Gi
-        storageClass: {{ $.Values.storageClasses.workers.root }}
-        image:
-          kind: VirtualImage
-          name: image
-{{- end }}
 provider:
   kubeconfigDataBase64: {{ .Values.kubeconfigDataBase64 }}
   namespace: {{ .Values.namespace }}
