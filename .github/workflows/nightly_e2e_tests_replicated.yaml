@@ -49,7 +49,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install ginkgo
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           echo "Install ginkgo"
           go install tool
@@ -67,14 +67,14 @@ jobs:
           k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
 
       - name: Download dependencies
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           echo "Download dependencies"
           go mod download
 
       - name: Run E2E
         id: e2e-tests
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task run:ci -v
 
@@ -86,7 +86,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Save results
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         if: always()
         run: |
           if [ -z "$SUMMARY" ]; then

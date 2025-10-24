@@ -54,7 +54,7 @@ linters-settings:
           - images/hooks/cmd/virtualization-module-hooks/register-ee.go
           - images/hooks/pkg/hooks/tls-certificates-audit/hook.go
         directories:
-          - tests/
+          - test/
           - api/client/generated
           - hack/
           - images/

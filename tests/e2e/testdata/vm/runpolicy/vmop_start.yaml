@@ -1,8 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  name: test-vm-runpolicy-start
-  namespace: test-d8-virtualization
-spec:
-  virtualMachineName: test-vm-runpolicy
-  type: Start
