@@ -17,7 +17,6 @@ name: E2E Matrix Tests (DVP-over-DVP)
 on:
   push:
     branches:
-      - main
       - feat/ci-e2e-matrix
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
