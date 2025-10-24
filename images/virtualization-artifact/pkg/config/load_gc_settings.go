@@ -29,11 +29,13 @@ const (
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
 	GcVMIMigrationTTLVar      = "GC_VMI_MIGRATION_TTL"
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
+	GcCompletedPodScheduleVar = "GC_COMPLETED_POD_SCHEDULE"
 )
 
 type GCSettings struct {
 	VMOP         BaseGcSettings
 	VMIMigration BaseGcSettings
+	CompletedPod BaseGcSettings
 }
 
 type BaseGcSettings struct {
@@ -54,6 +56,12 @@ func LoadGcSettings() (GCSettings, error) {
 		return gcSettings, err
 	}
 	gcSettings.VMIMigration = base
+
+	base, err = GetBaseGCSettingsFromEnv(GcCompletedPodScheduleVar, "")
+	if err != nil {
+		return gcSettings, err
+	}
+	gcSettings.CompletedPod = base
 
 	return gcSettings, nil
 }
