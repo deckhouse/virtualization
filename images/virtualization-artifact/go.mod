@@ -11,9 +11,10 @@ require (
 	github.com/deckhouse/deckhouse/pkg/log v0.0.0-20250226105106-176cd3afcdd5
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/distribution/reference v0.5.0
-	github.com/docker/cli v23.0.5+incompatible
+	github.com/docker/cli v24.0.0+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/logr v1.4.2
+	github.com/google/go-containerregistry v0.20.0
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
@@ -42,11 +43,17 @@ require (
 	cel.dev/expr v0.19.1 // indirect
 	github.com/DataDog/gostackparse v0.7.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
+	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
+	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/btree v1.1.3 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/matryer/moq v0.5.3 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
+	github.com/vbatts/tar-split v0.11.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
