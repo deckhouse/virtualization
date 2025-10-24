@@ -50,19 +50,6 @@ var _ = Describe("VirtualMachineMigration", SIGMigration(), framework.CommonE2ET
 
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
-			if config.IsReusable() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: ns,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				if res.StdOut() != "" {
-					return
-				}
-			}
-
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.VMMigration},
 				FilenameOption: kc.Kustomize,

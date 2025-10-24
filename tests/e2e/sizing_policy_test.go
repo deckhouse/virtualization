@@ -64,12 +64,6 @@ var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
 		CreateNamespace(ns)
 	})
 
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, ns)

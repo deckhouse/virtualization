@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	"github.com/deckhouse/virtualization/tests/e2e/util"
@@ -40,12 +39,6 @@ var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), f
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 	})
 
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
 	AfterAll(func() {
 		By("Delete manifests")
 		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
@@ -60,7 +53,7 @@ var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), f
 	Context("Project", func() {
 		It("creates project", func() {
 			//nolint:staticcheck // deprecated function is temporarily used
-			util.PrepareProject(conf.TestData.ImporterNetworkPolicy)
+			util.PrepareProject(conf.TestData.ImporterNetworkPolicy, conf.StorageClass.TemplateStorageClass)
 
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ImporterNetworkPolicy + "/project"},

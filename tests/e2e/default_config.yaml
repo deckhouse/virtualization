@@ -1,4 +1,4 @@
-namespaceSuffix: "end-to-end"
+namespaceSuffix: "e2e"
 
 clusterTransport:
   kubeConfig: ""

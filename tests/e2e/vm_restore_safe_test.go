@@ -33,16 +33,8 @@ import (
 )
 
 var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), framework.CommonE2ETestDecorators(), func() {
-	const (
-		viCount    = 2
-		vmCount    = 1
-		vdCount    = 2
-		vmbdaCount = 2
-	)
-
 	var (
 		ctx                 context.Context
-		cancel              context.CancelFunc
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-safe"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-safe"}
@@ -59,42 +51,17 @@ var _ = Describe("VirtualMachineRestoreSafe", SIGRestoration(), framework.Common
 	})
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx = context.Background()
 	})
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestCaseDump(testCaseLabel, CurrentSpecReport().LeafNodeText, namespace)
 		}
-
-		cancel()
 	})
 
 	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
-			if config.IsReusable() {
-				err := CheckReusableResources(ReusableResources{
-					v1alpha2.VirtualMachineResource: &Counter{
-						Expected: vmCount,
-					},
-					v1alpha2.VirtualDiskResource: &Counter{
-						Expected: vdCount,
-					},
-					v1alpha2.VirtualImageResource: &Counter{
-						Expected: viCount,
-					},
-					v1alpha2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
-						Expected: vmbdaCount,
-					},
-				}, kc.GetOptions{
-					Namespace:      namespace,
-					IgnoreNotFound: true,
-				})
-				if err == nil {
-					return
-				}
-			}
-
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.VMRestoreSafe},
 				FilenameOption: kc.Kustomize,

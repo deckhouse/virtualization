@@ -30,7 +30,6 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -57,10 +56,6 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 	)
 
 	BeforeAll(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
@@ -174,9 +169,15 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 						if err != nil {
 							return err
 						}
-						if updatedVMObjC.Status.Phase != v1alpha2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", v1alpha2.MachineMigrating)
+
+						if updatedVMObjC.Status.MigrationState == nil {
+							return errors.New("the `VirtualMachine` should be migrated")
 						}
+
+						if updatedVMObjC.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
+							return fmt.Errorf("the `VirtualMachine` should migrate to %q", vmObjA.Status.Node)
+						}
+
 						return nil
 					}).WithTimeout(LongWaitDuration).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
@@ -339,9 +340,15 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 						if err != nil {
 							return err
 						}
-						if updatedVMObj.Status.Phase != v1alpha2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", v1alpha2.MachineMigrating)
+
+						if updatedVMObj.Status.MigrationState == nil {
+							return errors.New("the `VirtualMachine` should be migrated")
 						}
+
+						if updatedVMObj.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
+							return fmt.Errorf("the `VirtualMachine` should migrate to %q", targetNode)
+						}
+
 						return nil
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
@@ -434,9 +441,15 @@ var _ = Describe("VirtualMachineAffinityAndToleration", framework.CommonE2ETestD
 						if err != nil {
 							return err
 						}
-						if updatedVMObj.Status.Phase != v1alpha2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", v1alpha2.MachineMigrating)
+
+						if updatedVMObj.Status.MigrationState == nil {
+							return errors.New("the `VirtualMachine` should be migrated")
 						}
+
+						if updatedVMObj.Status.MigrationState.Result != v1alpha2.MigrationResultSucceeded {
+							return fmt.Errorf("the `VirtualMachine` should migrate to %q", targetNode)
+						}
+
 						return nil
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()

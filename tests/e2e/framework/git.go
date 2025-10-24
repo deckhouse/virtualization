@@ -20,9 +20,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
+
+	storagev1 "k8s.io/api/storage/v1"
 )
 
-func (f *Framework) GetNamePrefix() (string, error) {
+const (
+	ceph                = "rbd.csi.ceph.com"
+	sdsReplicatedVolume = "replicated.csi.storage.deckhouse.io"
+)
+
+func (f *Framework) GetNamePrefix(storageClass *storagev1.StorageClass) (string, error) {
 	if prNumber, ok := os.LookupEnv("MODULES_MODULE_TAG"); ok && prNumber != "" {
 		return prNumber, nil
 	}
@@ -34,6 +41,22 @@ func (f *Framework) GetNamePrefix() (string, error) {
 
 	commitHash := res.StdOut()
 	commitHash = commitHash[:len(commitHash)-1]
-	commitHash = fmt.Sprintf("head-%s", commitHash)
-	return commitHash, nil
+
+	namePrefix := fmt.Sprintf("v12n-%s", commitHash)
+
+	var scPrefix string
+	if storageClass != nil {
+		switch storageClass.Provisioner {
+		case ceph:
+			scPrefix = "ceph"
+		case sdsReplicatedVolume:
+			scPrefix = "sds-rep-vol"
+		default:
+			scPrefix = "ukn-strg"
+		}
+
+		namePrefix = fmt.Sprintf("%s-%s", namePrefix, scPrefix)
+	}
+
+	return namePrefix, nil
 }
