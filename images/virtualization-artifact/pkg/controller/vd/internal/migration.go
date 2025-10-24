@@ -452,7 +452,7 @@ func calculateTargetSize(size resource.Quantity, oldVolumeMode *corev1.Persisten
 		return size
 	}
 
-	const blockOverhead = int64(4 * 1024 * 1024)
+	const blockOverhead = int64(8 * 1024 * 1024)
 	size.Add(*resource.NewQuantity(blockOverhead, resource.BinarySI))
 	return size
 }
