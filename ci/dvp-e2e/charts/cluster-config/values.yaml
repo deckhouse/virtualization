@@ -1,6 +1,6 @@
 # Cluster configuration values for E2E testing
 
-# Instance configuration (from original values.yaml)
+# Instance configuration
 instances:
   masterNodes:
     count: 1
@@ -38,17 +38,27 @@ ingressHosts:
   - console
   - virtualization
 
+# Storage classes configuration (for parent cluster)
+storageClasses:
+  controlPlane:
+    root: ceph-pool-r2-csi-rbd-immediate
+    etcd: ceph-pool-r2-csi-rbd-immediate
+  workers:
+    root: ceph-pool-r2-csi-rbd-immediate
+    data: ceph-pool-r2-csi-rbd-immediate
+    dataDiskSize: 100Gi
+
 # Infrastructure components
 infra:
   nfs:
     storageClass: nfs-4-1-wffc
   dvcr:
-    storageClass: linstor-thin-r2
+    storageClass: ceph-pool-r2-csi-rbd-immediate
 
 # Virtual disks configuration
 virtualDisks:
   os:
-    storageClass: linstor-thin-r2
+    storageClass: ceph-pool-r2-csi-rbd-immediate
   data:
     storageClass: nfs-4-1-wffc
 

@@ -184,7 +184,6 @@ tasks:
         for worker_idx in $(seq 0 $(({{ .WORKER_COUNT }} - 1))); do
           for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
             # Deckhouse generates VM names like: {prefix}-{hash}-worker-{suffix}
-            # We'll create disks with predictable names that can be referenced later
             vd="storage-disk-${disk_num}-worker-${worker_idx}"
             echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
             cat > /tmp/vd-$vd.yaml <<EOF
@@ -220,6 +219,7 @@ tasks:
         set -euo pipefail
         echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
         
+        # Wait for worker VMs
         for i in $(seq 1 60); do
           worker_count=$(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker | wc -l)
           if [ "$worker_count" -gt 0 ]; then
@@ -243,20 +243,14 @@ tasks:
           [ -z "$vm" ] && continue
           echo "[INFRA] Processing VM: $vm"
           
-          # Wait for VM to be Running before hotplug
-          current_phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-          echo "[INFRA] VM $vm current phase: $current_phase"
-          
-          if [ "$current_phase" != "Running" ]; then
-            echo "[INFRA] VM $vm is not Running, waiting for it to start..."
-            for i in $(seq 1 60); do
-              phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-              if [ "$phase" = "Running" ]; then
-                echo "[INFRA] VM $vm is Running"; break
-              fi
-              echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
-            done
-          fi
+          # Wait for VM to be Running
+          for i in $(seq 1 60); do
+            phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$phase" = "Running" ]; then
+              echo "[INFRA] VM $vm is Running"; break
+            fi
+            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
+          done
           
           for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
             vd="storage-disk-${disk_num}-$vm"
@@ -266,6 +260,7 @@ tasks:
         kind: VirtualDisk
         metadata:
           name: $vd
+          namespace: {{ .NAMESPACE }}
         spec:
           persistentVolumeClaim:
             storageClassName: {{ .STORAGE_CLASS }}
@@ -279,6 +274,7 @@ tasks:
         kind: VirtualMachineBlockDeviceAttachment
         metadata:
           name: $vd
+          namespace: {{ .NAMESPACE }}
         spec:
           virtualMachineName: $vm
           blockDeviceRef:
@@ -339,6 +335,7 @@ tasks:
         kind: VirtualDisk
         metadata:
           name: $vd
+          namespace: {{ .NAMESPACE }}
         spec:
           persistentVolumeClaim:
             storageClassName: {{ .STORAGE_CLASS }}
@@ -350,6 +347,7 @@ tasks:
         kind: VirtualMachineBlockDeviceAttachment
         metadata:
           name: $vd
+          namespace: {{ .NAMESPACE }}
         spec:
           virtualMachineName: $vm
           blockDeviceRef:

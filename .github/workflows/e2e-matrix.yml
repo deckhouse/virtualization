@@ -241,7 +241,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud" \
-            TARGET_STORAGE_CLASS="${{ matrix.profile == 'cephrbd' && 'linstor-thin-r2' || env.STORAGE_CLASS }}"
+            TARGET_STORAGE_CLASS="${{ env.STORAGE_CLASS }}"
 
       - name: Attach data disks to worker VMs using hotplug
         working-directory: ci/dvp-e2e
@@ -267,50 +267,6 @@ jobs:
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
-      - name: Debug disk information in nested cluster
-        run: |
-          set -euo pipefail
-          RUN_NS="${{ env.RUN_ID }}"
-          MASTER_NAME=$(kubectl -n "$RUN_NS" get vm -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}')
-          echo "=== Waiting for master VM: $MASTER_NAME ==="
-          for i in $(seq 1 60); do
-            phase=$(kubectl -n "$RUN_NS" get vm "$MASTER_NAME" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$phase" = "Running" ]; then
-              echo "VM is Running"; break
-            fi
-            echo "phase=$phase; retry $i/60"; sleep 10
-          done
-          
-          [ "$(kubectl -n "$RUN_NS" get vm "$MASTER_NAME" -o jsonpath='{.status.phase}')" = "Running" ]
-          
-          SSH_KEY="${{ env.TMP_ROOT }}/runs/${RUN_NS}/ssh/cloud"
-          
-          for i in $(seq 1 6); do
-            if KUBECONFIG="$KUBECONFIG" d8 v ssh \
-              --username=ubuntu \
-              --identity-file="$SSH_KEY" \
-              --local-ssh=true \
-              --local-ssh-opts="-o StrictHostKeyChecking=no" \
-              --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              "${MASTER_NAME}.${RUN_NS}" \
-              -c 'true'; then
-              break
-            fi
-            echo "SSH not ready yet, retry $i/6"; sleep 10
-          done
-          
-          KUBECONFIG="$KUBECONFIG" d8 v ssh \
-            --username=ubuntu \
-            --identity-file="$SSH_KEY" \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            "${MASTER_NAME}.${RUN_NS}" \
-            -c 'set -e;
-              echo "=== Checking block devices ===";
-              echo "=== lsblk ==="; sudo lsblk -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINT;
-              echo "=== /dev list ==="; ls -l /dev/nvme* /dev/sd* /dev/vd* 2>/dev/null || true;
-              echo "=== fdisk ==="; sudo fdisk -l 2>/dev/null || true'
 
       - name: Configure storage backend (post-bootstrap)
         run: |
