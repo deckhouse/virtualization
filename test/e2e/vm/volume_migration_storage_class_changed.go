@@ -139,6 +139,7 @@ var _ = Describe("StorageClassMigration", framework.CommonE2ETestDecorators(), f
 		err = PatchStorageClassName(context.Background(), f, nextStorageClass, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
 
+		By("Wait until VM migration succeeded")
 		util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
 		untilVirtualDisksMigrationsSucceeded(f)
@@ -270,6 +271,7 @@ var _ = Describe("StorageClassMigration", framework.CommonE2ETestDecorators(), f
 				return fmt.Errorf("migration is not completed")
 			}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
 
+			By("Wait until VM migration succeeded")
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vm), framework.MaxTimeout)
 
 			untilVirtualDisksMigrationsSucceeded(f)

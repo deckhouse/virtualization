@@ -70,8 +70,6 @@ type KustomizeLabel struct {
 
 type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
-	Disks            DisksConf        `yaml:"disks"`
-	VM               VMConf           `yaml:"vm"`
 	Ipam             IpamConf         `yaml:"ipam"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	NamespaceSuffix  string           `yaml:"namespaceSuffix"`
@@ -179,23 +177,6 @@ func (c *Config) setEnvs() error {
 			return err
 		}
 		c.ClusterTransport.InsecureTLS = v
-	}
-	// DisksConf
-	if e, ok := os.LookupEnv("E2E_DISKS_UPLOADHELPERIMAGE"); ok {
-		c.Disks.UploadHelperImage = e
-	}
-	if e, ok := os.LookupEnv("E2E_DISKS_CVITESTDATADIR"); ok {
-		c.Disks.CviTestDataDir = e
-	}
-	if e, ok := os.LookupEnv("E2E_DISKS_VITESTDATADIR"); ok {
-		c.Disks.ViTestDataDir = e
-	}
-	if e, ok := os.LookupEnv("E2E_DISKS_VDTESTDATADIR"); ok {
-		c.Disks.VdTestDataDir = e
-	}
-	// VM
-	if e, ok := os.LookupEnv("E2E_VM_TESTDATADIR"); ok {
-		c.VM.TestDataDir = e
 	}
 	// IPAM
 	if e, ok := os.LookupEnv("E2E_IPAM_TESTDATADIR"); ok {

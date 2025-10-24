@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -52,7 +51,6 @@ type Kubectl interface {
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
-	LogStream(podName string, opts LogOptions) (*exec.Cmd, context.CancelFunc)
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
 	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
 	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
@@ -230,14 +228,6 @@ func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) LogStream(podName string, opts LogOptions) (*exec.Cmd, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-	command := fmt.Sprintf("%s logs %s", k.cmd, podName)
-	command = k.logOptions(command, opts)
-	cmd := k.MakeCmd(ctx, command)
-	return cmd, cancel
-}
-
 func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult {
 	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
 	timeout := MediumTimeout
@@ -355,20 +345,6 @@ func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 	return cmd
 }
 
-func (k KubectlCMD) addContainer(cmd, containerName string) string {
-	if containerName != "" {
-		return fmt.Sprintf("%s --container %s", cmd, containerName)
-	}
-	return cmd
-}
-
-func (k KubectlCMD) addFollow(cmd string, follow bool) string {
-	if follow {
-		return fmt.Sprintf("%s --follow", cmd)
-	}
-	return cmd
-}
-
 func (k KubectlCMD) addShowManagedFields(cmd string, showManagedFields bool) string {
 	if showManagedFields {
 		return fmt.Sprintf("%s --show-managed-fields=true", cmd)
@@ -442,13 +418,5 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 	if opts.MergePatch != "" {
 		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
 	}
-	return cmd
-}
-
-func (k KubectlCMD) logOptions(cmd string, opts LogOptions) string {
-	cmd = k.addContainer(cmd, opts.Container)
-	cmd = k.addNamespace(cmd, opts.Namespace)
-	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
-	cmd = k.addFollow(cmd, opts.Follow)
 	return cmd
 }

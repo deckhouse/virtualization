@@ -1,9 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: test-vi-upload
-  namespace: test-d8-virtualization
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: "Upload"

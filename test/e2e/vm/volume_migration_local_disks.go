@@ -108,9 +108,12 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			f.DeferDelete(vd)
 		}
 
+		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		const vmopName = "local-disks-migration"
+
+		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func(g Gomega) {
@@ -147,11 +150,14 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			f.DeferDelete(vd)
 		}
 
+		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		util.ExecStressNGInVirtualMachine(f, vm)
+		ExecStressNGInVirtualMachine(f, vm)
 
 		const vmopName = "local-disks-migration"
+
+		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
 
 		untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f)
@@ -178,11 +184,13 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			f.DeferDelete(vd)
 		}
 
+		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		for i := range 2 {
 			vmopName := "local-disks-migration-" + strconv.Itoa(i)
 
+			By("Starting migrations for virtual machines")
 			util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func(g Gomega) {
@@ -217,12 +225,15 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			f.DeferDelete(vd)
 		}
 
+		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		util.ExecStressNGInVirtualMachine(f, vm)
+		ExecStressNGInVirtualMachine(f, vm)
 
 		By("The first failed migration")
 		const vmopName1 = "local-disks-migration-1"
+
+		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName1))
 
 		untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f)
@@ -231,6 +242,8 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 
 		By("The second failed migration")
 		const vmopName2 = "local-disks-migration-2"
+
+		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName2))
 
 		Eventually(func(g Gomega) {
@@ -264,11 +277,14 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			f.DeferDelete(vd)
 		}
 
+		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
-		util.ExecStressNGInVirtualMachine(f, vm)
+		ExecStressNGInVirtualMachine(f, vm)
 
 		const vmopName = "local-disks-migration"
+
+		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
@@ -293,6 +309,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			return f.VirtClient().VirtualMachines(vm.GetNamespace()).Delete(context.Background(), vm.GetName(), metav1.DeleteOptions{})
 		}),
 		Entry("when virtual machine stopped from OS", func(vm *v1alpha2.VirtualMachine) error {
+			By(fmt.Sprintf("Exec shutdown command for virtualmachine %s/%s", vm.Namespace, vm.Name))
 			return util.StopVirtualMachineFromOS(f, vm)
 		}),
 	)
@@ -357,6 +374,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 				f.DeferDelete(vd)
 			}
 
+			By("Wait until VM agent is ready")
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
@@ -375,6 +393,8 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			}
 
 			const vmopName = "local-disks-migration"
+
+			By("Starting migrations for virtual machines")
 			util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
@@ -449,9 +469,12 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(vmbda)
 
+		By("Wait until VM agent is ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
+
+		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
 
 		By("Waiting for migration failed")
@@ -466,3 +489,15 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed())
 	})
 })
+
+func ExecStressNGInVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...framework.SSHCommandOption) {
+	GinkgoHelper()
+
+	cmd := "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &"
+
+	By(fmt.Sprintf("Exec StressNG command for virtualmachine %s/%s", vm.Namespace, vm.Name))
+	Expect(f.SSHCommand(vm.Name, vm.Namespace, cmd, options...)).To(Succeed())
+
+	By("Wait until stress-ng loads the memory more heavily")
+	time.Sleep(20 * time.Second)
+}

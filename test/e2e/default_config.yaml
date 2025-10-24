@@ -7,13 +7,6 @@ clusterTransport:
   insecureTls: true
   certificateAuthority: ""
 
-disks:
-  uploadHelperImage: "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/curl-alpine-image"
-  cviTestDataDir: "./testdata/cvi"
-  viTestDataDir: "./testdata/vi"
-  vdTestDataDir: "./testdata/vd"
-vm:
-  testDataDir: "./testdata/vm"
 helperImages:
   curlImage: "curlimages/curl"
 testData:

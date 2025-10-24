@@ -37,7 +37,6 @@ import (
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
-	By("Wait until VM agent is ready")
 	Eventually(func() error {
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 		if err != nil {
@@ -56,7 +55,6 @@ func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
-	By("Wait until VM migration succeeded")
 	Eventually(func() error {
 		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
 		if err != nil {
@@ -82,7 +80,6 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 
 func MigrateVirtualMachine(vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {
 	GinkgoHelper()
-	By("Starting migrations for virtual machines")
 
 	opts := []vmopbuilder.Option{
 		vmopbuilder.WithGenerateName("vmop-e2e-"),
@@ -98,23 +95,9 @@ func MigrateVirtualMachine(vm *v1alpha2.VirtualMachine, options ...vmopbuilder.O
 }
 
 func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
-	By(fmt.Sprintf("Exec shutdown command for virtualmachine %s/%s", vm.Namespace, vm.Name))
-
 	err := f.SSHCommand(vm.Name, vm.Namespace, "sudo init 0")
 	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
 		return nil
 	}
 	return err
-}
-
-func ExecStressNGInVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...framework.SSHCommandOption) {
-	GinkgoHelper()
-
-	cmd := "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &"
-
-	By(fmt.Sprintf("Exec StressNG command for virtualmachine %s/%s", vm.Namespace, vm.Name))
-	Expect(f.SSHCommand(vm.Name, vm.Namespace, cmd, options...)).To(Succeed())
-
-	By("Wait until stress-ng loads the memory more heavily")
-	time.Sleep(20 * time.Second)
 }

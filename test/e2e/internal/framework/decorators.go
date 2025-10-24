@@ -84,7 +84,3 @@ func CommonE2ETestDecorators() []interface{} {
 		FailureBehaviourEnvSwitcher{},
 	)
 }
-
-func FailureBehaviourEnvSwitcherDecorator() []interface{} {
-	return DecoratorsFromEnv(FailureBehaviourEnvSwitcher{})
-}
