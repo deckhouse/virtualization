@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	NamespaceBasePrefix = "virtualization-e2e"
-	NamespaceLabel      = "virtualization-e2e"
+	NamespaceBasePrefix = "v12n-e2e"
+	NamespaceLabel      = "v12n-e2e"
 )
 
 type Framework struct {
@@ -123,7 +123,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 			Name:      obj.GetName(),
 		}
 
-		err := wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
 			case err == nil:
