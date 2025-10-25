@@ -21,7 +21,9 @@ spec:
   storage:
     useAllNodes: true
     useAllDevices: true
-    deviceFilter: "^sde$"
+    # Match typical additional block devices presented to worker VMs.
+    # Include SCSI/virtio/xen virtio variations, avoid root/etcd disks like sda/sdb/sdc.
+    deviceFilter: "^(sd[d-z]|vd[b-z]|xvd[b-z])$"
     onlyApplyOSDPlacement: false
   healthCheck:
     daemonHealth:

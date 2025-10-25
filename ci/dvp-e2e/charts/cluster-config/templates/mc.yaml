@@ -17,7 +17,7 @@ metadata:
 spec:
   version: 1
   settings:
-    defaultClusterStorageClass: nfs
+    defaultClusterStorageClass: ceph-pool-r2-csi-rbd-immediate
     modules:
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.domain }}"
 ---
