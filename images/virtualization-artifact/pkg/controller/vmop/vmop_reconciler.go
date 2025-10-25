@@ -19,6 +19,8 @@ package vmop
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -65,6 +67,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
+	if err := r.addVMOwnerReference(ctx, vmop.Changed()); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	rec := reconciler.NewBaseReconciler[reconciler.Handler[*v1alpha2.VirtualMachineOperation]](r.controller.Handlers())
 	rec.SetHandlerExecutor(func(ctx context.Context, h reconciler.Handler[*v1alpha2.VirtualMachineOperation]) (reconcile.Result, error) {
 		return h.Handle(ctx, vmop.Changed())
@@ -84,4 +90,30 @@ func (r *Reconciler) factory() *v1alpha2.VirtualMachineOperation {
 
 func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachineOperation) v1alpha2.VirtualMachineOperationStatus {
 	return obj.Status
+}
+
+func (r *Reconciler) addVMOwnerReference(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
+	refExists := false
+	for _, ref := range vmop.GetOwnerReferences() {
+		if ref.Kind == v1alpha2.VirtualMachineKind {
+			refExists = true
+			break
+		}
+	}
+
+	if !refExists && vmop.GetDeletionTimestamp() == nil {
+		vm := &v1alpha2.VirtualMachine{}
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}, vm)
+		if err != nil {
+			return err
+		}
+		vmop.OwnerReferences = append(vmop.OwnerReferences, metav1.OwnerReference{
+			APIVersion: vm.APIVersion,
+			Kind:       vm.Kind,
+			Name:       vm.Name,
+			UID:        vm.UID,
+		})
+	}
+
+	return nil
 }
