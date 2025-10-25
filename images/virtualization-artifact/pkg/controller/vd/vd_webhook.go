@@ -46,6 +46,7 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 			validator.NewSpecChangesValidator(client, scService),
 			validator.NewISOSourceValidator(client),
 			validator.NewNameValidator(),
+			validator.NewStorageClassMatchValidator(client, scService),
 		},
 	}
 }
