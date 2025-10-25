@@ -217,6 +217,8 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # Enable shell tracing when DEBUG_HOTPLUG is set
+        [ -n "${DEBUG_HOTPLUG:-}" ] && set -x || true
         echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
         
         # Wait for worker VMs
@@ -267,6 +269,41 @@ tasks:
             size: {{ .DISK_SIZE }}
         EOF
             kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
+
+            # Wait for VirtualDisk to be Ready and PVC to be Bound
+            echo "[INFRA] Waiting for VirtualDisk $vd to be Ready..."
+            vd_phase=""
+            for j in $(seq 1 60); do
+              vd_phase=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$vd_phase" = "Ready" ]; then
+                echo "[INFRA] VirtualDisk $vd is Ready"; break
+              fi
+              echo "[INFRA] VD $vd phase=$vd_phase; retry $j/60"; sleep 5
+            done
+            if [ "$vd_phase" != "Ready" ]; then
+              echo "[ERROR] VirtualDisk $vd not Ready"
+              kubectl -n {{ .NAMESPACE }} get vd "$vd" -o yaml || true
+              kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 100 || true
+              exit 1
+            fi
+
+            pvc_name=""
+            for j in $(seq 1 30); do
+              pvc_name=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.status.target.persistentVolumeClaimName}' 2>/dev/null || true)
+              [ -n "$pvc_name" ] && break
+              echo "[INFRA] Waiting for PVC name for VD $vd; retry $j/30"; sleep 3
+            done
+            if [ -n "$pvc_name" ]; then
+              echo "[INFRA] Waiting PVC $pvc_name to be Bound..."
+              kubectl -n {{ .NAMESPACE }} wait pvc "$pvc_name" --for=condition=Bound --timeout=300s || {
+                echo "[ERROR] PVC $pvc_name not Bound"; kubectl -n {{ .NAMESPACE }} describe pvc "$pvc_name" || true
+                kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 100 || true
+                exit 1
+              }
+              echo "[INFRA] PVC $pvc_name is Bound (sc=$(kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o jsonpath='{.spec.storageClassName}' 2>/dev/null || echo -n '?'))"
+            else
+              echo "[WARN] PVC name for VD $vd is empty; proceeding with attachment"
+            fi
             
             echo "[INFRA] Creating VirtualMachineBlockDeviceAttachment for $vd"
             cat > /tmp/attach-$vd.yaml <<EOF
@@ -284,16 +321,68 @@ tasks:
             kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
             
             echo "[INFRA] Waiting for hotplug attachment of $vd..."
-            for i in $(seq 1 120); do
+            for i in $(seq 1 30); do
               phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$phase" = "Attached" ]; then
                 echo "[INFRA] Disk $vd successfully attached to VM $vm"; break
               fi
-              echo "[INFRA] Disk $vd phase=$phase; retry $i/120"; sleep 5
+              echo "[INFRA] Disk $vd phase=$phase; retry $i/30"; sleep 5
+
+              # Periodic deep debug snapshot
+              if [ $((i % 10)) -eq 0 ]; then
+                echo "[DEBUG] VMBDA $vd status and conditions:"
+                kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json | jq -r '.status, (.status.conditions // [])' || true
+                echo "[DEBUG] Describe VMBDA:"
+                kubectl -n {{ .NAMESPACE }} describe virtualmachineblockdeviceattachment "$vd" || true
+                echo "[DEBUG] Describe VM $vm:"
+                kubectl -n {{ .NAMESPACE }} describe vm "$vm" || true
+                echo "[DEBUG] VD $vd (yaml):"
+                kubectl -n {{ .NAMESPACE }} get vd "$vd" -o yaml || true
+                
+                # Check PVC status
+                pvc_name=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.spec.persistentVolumeClaim.name}' 2>/dev/null || true)
+                if [ -n "$pvc_name" ]; then
+                  echo "[DEBUG] PVC $pvc_name status:"
+                  kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o wide || true
+                  echo "[DEBUG] PVC $pvc_name (describe):"
+                  kubectl -n {{ .NAMESPACE }} describe pvc "$pvc_name" || true
+                fi
+                
+                # Check StorageClass availability
+                sc_name=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.spec.persistentVolumeClaim.storageClassName}' 2>/dev/null || true)
+                if [ -n "$sc_name" ]; then
+                  echo "[DEBUG] StorageClass $sc_name status:"
+                  kubectl -n {{ .NAMESPACE }} get sc "$sc_name" || true
+                fi
+                
+                echo "[DEBUG] Recent namespace events:"
+                kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 50 || true
+              fi
             done
             
             if [ "$phase" != "Attached" ]; then
               echo "[ERROR] Disk $vd failed to attach to VM $vm" >&2
+              echo "[DEBUG] Final VMBDA YAML:"
+              kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o yaml || true
+              echo "[DEBUG] Try to get virt-launcher pods for VM $vm:"
+              kubectl -n {{ .NAMESPACE }} get pods -o wide | (grep "$vm" || true)
+              for p in $(kubectl -n {{ .NAMESPACE }} get pods -o name | (grep "$vm" || true)); do
+                echo "[DEBUG] Logs $p (last 200 lines):"
+                kubectl -n {{ .NAMESPACE }} logs --tail=200 "$p" || true
+              done
+              echo "[DEBUG] virtualization-controller / virt-handler logs (best-effort):"
+              kubectl -n d8-virtualization get pods 2>/dev/null || true
+              kubectl -n d8-virtualization logs deploy/virtualization-controller --tail=200 2>/dev/null || true
+              for h in $(kubectl -n d8-virtualization get pods -l app=virt-handler -o name 2>/dev/null || true); do
+                kubectl -n d8-virtualization logs --tail=200 "$h" || true
+              done
+              
+              echo "[DEBUG] Ceph CSI pods status:"
+              kubectl -n d8-operator-ceph get pods -l app=csi-rbdplugin 2>/dev/null || true
+              kubectl -n d8-operator-ceph get pods -l app=csi-rbdplugin-provisioner 2>/dev/null || true
+              
+              echo "[DEBUG] Ceph cluster status:"
+              kubectl -n d8-operator-ceph get cephcluster -o wide 2>/dev/null || true
               exit 1
             fi
           done
@@ -355,13 +444,28 @@ tasks:
             name: $vd
         EOF
             kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
-            for i in $(seq 1 120); do
+            
+            echo "[INFRA] Waiting for hotplug attachment of $vd..."
+            for i in $(seq 1 30); do
               phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$phase" = "Attached" ]; then
-                break
+                echo "[INFRA] Disk $vd successfully attached to VM $vm"; break
               fi
-              sleep 5
+              echo "[INFRA] Disk $vd phase=$phase; retry $i/30"; sleep 5
+              
+              # Periodic debug snapshot
+              if [ $((i % 10)) -eq 0 ]; then
+                echo "[DEBUG] VMBDA $vd status:"
+                kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json | jq -r '.status' || true
+              fi
             done
+            
+            if [ "$phase" != "Attached" ]; then
+              echo "[ERROR] Disk $vd failed to attach to VM $vm" >&2
+              echo "[DEBUG] Final VMBDA status:"
+              kubectl -n {{ .NAMESPACE }} describe virtualmachineblockdeviceattachment "$vd" || true
+              exit 1
+            fi
           done
         done
 
