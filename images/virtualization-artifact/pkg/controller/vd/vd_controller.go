@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
@@ -89,6 +90,7 @@ func NewController(
 		internal.NewDeletionHandler(sources, mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
+		internal.NewRealCapacityHandler(mgr.GetClient()),
 		internal.NewMigrationHandler(mgr.GetClient(), scService, disk, featuregates.Default()),
 		internal.NewProtectionHandler(),
 	)

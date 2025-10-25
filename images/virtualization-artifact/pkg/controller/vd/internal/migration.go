@@ -73,6 +73,10 @@ func NewMigrationHandler(client client.Client, storageClassValidator storageClas
 	}
 }
 
+func (h MigrationHandler) Name() string {
+	return migrationHandlerName
+}
+
 func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
 	if vd == nil || !vd.GetDeletionTimestamp().IsZero() {
 		return reconcile.Result{}, nil
@@ -404,7 +408,7 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return fmt.Errorf("get volume and access modes: %w", err)
 	}
 
-	size = calculateTargetSize(size, actualPvc.Spec.VolumeMode, volumeMode)
+	size = calculateTargetSize(size, vd.Status.RealCapacity, actualPvc.Spec.VolumeMode, volumeMode)
 
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
 	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim, volumeMode, accessMode)
@@ -436,7 +440,11 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	return h.handleMigrateSync(ctx, vd)
 }
 
-func calculateTargetSize(size resource.Quantity, oldVolumeMode *corev1.PersistentVolumeMode, newVolumeMode corev1.PersistentVolumeMode) resource.Quantity {
+func calculateTargetSize(size resource.Quantity, realSize *resource.Quantity, oldVolumeMode *corev1.PersistentVolumeMode, newVolumeMode corev1.PersistentVolumeMode) resource.Quantity {
+	if realSize != nil && realSize.Cmp(size) == 1 {
+		return *realSize
+	}
+
 	blockToFs := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeBlock && newVolumeMode == corev1.PersistentVolumeFilesystem
 	fsToBlock := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeFilesystem && newVolumeMode == corev1.PersistentVolumeBlock
 
