@@ -244,7 +244,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud" \
-            TARGET_STORAGE_CLASS="${{ env.STORAGE_CLASS }}"
+            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
 
       - name: Attach data disks to worker VMs using hotplug
         working-directory: ci/dvp-e2e
@@ -254,7 +254,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="linstor-thin-r2" \
+            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
             DISK_COUNT="2"
 
       - name: Build nested kubeconfig
@@ -276,7 +276,7 @@ jobs:
           set -euo pipefail
           NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
           PROFILE="${{ matrix.profile }}"
-          
+
           echo "[INFO] Waiting for nested API Server readiness..."
           for i in $(seq 1 30); do
             if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get nodes >/dev/null 2>&1; then
@@ -284,6 +284,38 @@ jobs:
             fi
             echo "[INFO] Waiting for API Server... $i/30"; sleep 10
           done
+
+          # Always enable and configure Ceph in nested cluster (default SC = Ceph)
+          echo "[Ceph] Enabling operator-ceph module..."
+          for i in {1..10}; do
+            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
+              break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
+          done
+          echo "[Ceph] Waiting for operator-ceph namespace..."
+          for i in $(seq 1 60); do
+            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
+              echo "[Ceph] Namespace d8-operator-ceph is ready"; break
+            fi
+            echo "[Ceph] Waiting for namespace... $i/60"; sleep 10
+          done
+          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
+            echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time; aborting Ceph setup" >&2
+            exit 1
+          fi
+          echo "[Ceph] Waiting for rook-ceph-operator pod..."
+          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=120s 2>/dev/null; then
+            echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=480s
+          fi
+          echo "[Ceph] Waiting for CephCluster CRD..."
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
+          echo "[Ceph] Applying CephCluster..."
+          for i in {1..10}; do
+            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
+              break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
+          done
+
+          # If SDS profile requested, enable SDS modules and resources too (but keep Ceph as default SC)
           if [ "$PROFILE" = "sds" ]; then
             echo "[SDS] Enabling SDS modules..."
             for i in {1..10}; do
@@ -294,14 +326,12 @@ jobs:
             echo "[SDS] Waiting for SDS CRDs..."
             for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
               echo "[SDS] Waiting for CRD '$crd'..."
-              # Wait for the CRD to appear first
               for i in $(seq 1 60); do
                 if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get crd "$crd" >/dev/null 2>&1; then
                   break
                 fi
                 echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
               done
-              # Then wait until Established (ignore errors if already established)
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
             done
 
@@ -310,68 +340,17 @@ jobs:
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds.yaml; then
                 break; else echo "[SDS] apply failed, retry $i/10"; sleep 10; fi
             done
-            echo "[SDS] Waiting for StorageClass 'linstor-thin-r2'..."
-            for i in $(seq 1 30); do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null 2>&1; then
-                echo "[SDS] StorageClass 'linstor-thin-r2' is available"; break
-              fi
-              sleep 10
-            done
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc linstor-thin-r2 >/dev/null
-            echo "[SDS] Setting linstor-thin-r2 as default StorageClass..."
-            DEFAULT_STORAGE_CLASS="linstor-thin-r2"
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
-              {
-                "op": "replace",
-                "path": "/spec/settings/defaultClusterStorageClass",
-                "value": "'$DEFAULT_STORAGE_CLASS'"
-              }
-            ]'
-          elif [ "$PROFILE" = "cephrbd" ]; then
-            echo "[Ceph] Enabling operator-ceph module..."
-            for i in {1..10}; do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
-                break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
-            done
-            echo "[Ceph] Waiting for operator-ceph namespace..."
-            for i in $(seq 1 60); do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
-                echo "[Ceph] Namespace d8-operator-ceph is ready"; break
-              fi
-              echo "[Ceph] Waiting for namespace... $i/60"; sleep 10
-            done
-            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
-              echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time; aborting Ceph setup" >&2
-              exit 1
-            fi
-            echo "[Ceph] Waiting for rook-ceph-operator pod..."
-            # Try different selectors for rook-ceph-operator
-            if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=120s 2>/dev/null; then
-              echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
-              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=480s
-            fi
-            echo "[Ceph] Waiting for CephCluster CRD..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
-            echo "[Ceph] Applying CephCluster..."
-            for i in {1..10}; do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
-                break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
-            done
-            # At this point Ceph operator must be up; further resources
-            # are applied from manifests under ci/dvp-e2e/manifests/storage.
-            
-            echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
-            DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
-              {
-                "op": "replace",
-                "path": "/spec/settings/defaultClusterStorageClass",
-                "value": "'$DEFAULT_STORAGE_CLASS'"
-              }
-            ]'
-          else
-            echo "[INFO] Unknown storage profile '$PROFILE', skipping"
           fi
+
+          echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
+          DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
+            {
+              "op": "replace",
+              "path": "/spec/settings/defaultClusterStorageClass",
+              "value": "'$DEFAULT_STORAGE_CLASS'"
+            }
+          ]'
 
       - name: Configure storage classes
         working-directory: ci/dvp-e2e
@@ -379,6 +358,7 @@ jobs:
           echo "💾 Configuring storage classes for profile: ${{ matrix.profile }}"
           task nested:storage:configure \
             STORAGE_PROFILE="${{ matrix.profile }}" \
+            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
