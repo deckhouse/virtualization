@@ -80,7 +80,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 
 		cvi.Status.Phase = v1alpha2.ImageReady
 
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -185,7 +185,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 			}
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -206,7 +206,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *v1alpha2.Clu
 }
 
 func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *v1alpha2.ClusterVirtualImage) (bool, error) {
-	return ds.importerService.DeletePod(ctx, cvi, controllerName)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Namespace, cvi.UID)
+	return ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
 }
 
 func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
