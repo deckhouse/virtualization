@@ -70,7 +70,6 @@ type KustomizeLabel struct {
 
 type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
-	Ipam             IpamConf         `yaml:"ipam"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	NamespaceSuffix  string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
@@ -138,21 +137,6 @@ func (c ClusterTransport) RestConfig() (*rest.Config, error) {
 	return configFlags.ToRESTConfig()
 }
 
-type DisksConf struct {
-	UploadHelperImage string `yaml:"uploadHelperImage"`
-	CviTestDataDir    string `yaml:"cviTestDataDir"`
-	ViTestDataDir     string `yaml:"viTestDataDir"`
-	VdTestDataDir     string `yaml:"vdTestDataDir"`
-}
-
-type VMConf struct {
-	TestDataDir string `yaml:"testDataDir"`
-}
-
-type IpamConf struct {
-	TestDataDir string `yaml:"testDataDir"`
-}
-
 type HelperImages struct {
 	CurlImage string `yaml:"curlImage"`
 }
@@ -177,10 +161,6 @@ func (c *Config) setEnvs() error {
 			return err
 		}
 		c.ClusterTransport.InsecureTLS = v
-	}
-	// IPAM
-	if e, ok := os.LookupEnv("E2E_IPAM_TESTDATADIR"); ok {
-		c.Ipam.TestDataDir = e
 	}
 	return nil
 }
