@@ -39,7 +39,7 @@ tasks:
       - kubectl
       - d8
     cmds:
-      - ./task_run_ci.sh
+      - ./scripts/task_run_ci.sh
 
   run:
     desc: "Run e2e tests"
