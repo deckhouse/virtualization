@@ -248,6 +248,8 @@ jobs:
 
       - name: Attach data disks to worker VMs using hotplug
         working-directory: ci/dvp-e2e
+        env:
+          DEBUG_HOTPLUG: "true"
         run: |
           task infra:attach-storage-disks-hotplug \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \

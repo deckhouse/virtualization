@@ -294,13 +294,25 @@ tasks:
               echo "[INFRA] Waiting for PVC name for VD $vd; retry $j/30"; sleep 3
             done
             if [ -n "$pvc_name" ]; then
-              echo "[INFRA] Waiting PVC $pvc_name to be Bound..."
-              kubectl -n {{ .NAMESPACE }} wait pvc "$pvc_name" --for=condition=Bound --timeout=300s || {
-                echo "[ERROR] PVC $pvc_name not Bound"; kubectl -n {{ .NAMESPACE }} describe pvc "$pvc_name" || true
+              echo "[INFRA] Waiting PVC $pvc_name to reach phase=Bound..."
+              pvc_phase=""
+              for j in $(seq 1 120); do
+                pvc_phase=$(kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+                if [ "$pvc_phase" = "Bound" ]; then
+                  break
+                fi
+                echo "[INFRA] PVC $pvc_name phase=$pvc_phase; retry $j/120"; sleep 2
+              done
+              if [ "$pvc_phase" != "Bound" ]; then
+                echo "[ERROR] PVC $pvc_name did not reach Bound"
+                kubectl -n {{ .NAMESPACE }} describe pvc "$pvc_name" || true
                 kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 100 || true
                 exit 1
-              }
-              echo "[INFRA] PVC $pvc_name is Bound (sc=$(kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o jsonpath='{.spec.storageClassName}' 2>/dev/null || echo -n '?'))"
+              fi
+              sc=$(kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o jsonpath='{.spec.storageClassName}' 2>/dev/null || true)
+              pv=$(kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o jsonpath='{.spec.volumeName}' 2>/dev/null || true)
+              vmode=$(kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o jsonpath='{.spec.volumeMode}' 2>/dev/null || true)
+              echo "[INFRA] PVC $pvc_name is Bound (sc=${sc:-?}, pv=${pv:-?}, mode=${vmode:-?})"
             else
               echo "[WARN] PVC name for VD $vd is empty; proceeding with attachment"
             fi
