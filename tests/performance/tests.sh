@@ -2237,7 +2237,7 @@ run_scenario() {
   # Step 8: Start deploy undeploy vms
   log_step_start "Step 8: Undeploy VMs 10% [$PERCENT_RESOURCES]"
   local undeploy_pct_start=$(get_timestamp)
-  deploy_vms_with_disks_smart $((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES)) $vi_type
+  deploy_vms_only $((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES)) $vi_type
   local undeploy_pct_end=$(get_timestamp)
   local undeploy_pct_duration=$((undeploy_pct_end - undeploy_pct_start))
   log_info "Undeploy VMs 10% [$((MAIN_COUNT_RESOURCES-PERCENT_RESOURCES))] completed in $(format_duration $undeploy_pct_duration)"
@@ -2249,7 +2249,7 @@ run_scenario() {
   # Step 9: Deploy VMs 10%
   log_step_start "Step 9: Deploy VMs 10% [$PERCENT_RESOURCES]"
   local deploy_pct_start=$(get_timestamp)
-  deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
+  deploy_vms_only $MAIN_COUNT_RESOURCES $vi_type
   local deploy_pct_end=$(get_timestamp)
   local deploy_pct_duration=$((deploy_pct_end - deploy_pct_start))
   log_info "Deploy VMs 10% [$PERCENT_RESOURCES] completed in $(format_duration $deploy_pct_duration)"
@@ -2283,7 +2283,7 @@ run_scenario() {
   log_info "Step 12: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs) (keeping disks)"
   log_step_start "Step 12: Deploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   local deploy_remaining_start=$(get_timestamp)
-  deploy_vms_only_smart $MAIN_COUNT_RESOURCES
+  deploy_vms_only $MAIN_COUNT_RESOURCES
   local deploy_remaining_end=$(get_timestamp)
   local deploy_remaining_duration=$((deploy_remaining_end - deploy_remaining_start))
   log_info "10% VMs deployment completed in $(format_duration $deploy_remaining_duration)"
