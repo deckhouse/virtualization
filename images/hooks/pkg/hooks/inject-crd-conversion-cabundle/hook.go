@@ -26,11 +26,11 @@ import (
 )
 
 const (
-	crdSnapshotName   = "virtualmachineclasses-crd"
-	crdName           = "virtualmachineclasses.virtualization.deckhouse.io"
-	crdJQFilter       = `{
+	crdSnapshotName = "virtualmachineclasses-crd"
+	crdName         = "virtualmachineclasses.virtualization.deckhouse.io"
+	crdJQFilter     = `{
 		"name": .metadata.name,
-		"hasCABundle": (.spec.conversion.webhook.clientConfig.caBundle != null)
+		"hasCABundle": (.spec.conversion.webhook.clientConfig.caBundle // null | . != null)
 	}`
 )
 
