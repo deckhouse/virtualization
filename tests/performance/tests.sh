@@ -31,6 +31,10 @@ parse_arguments() {
         CONTINUE_AFTER_BOOTSTRAP=true
         shift
         ;;
+      --skip-cleanup)
+        SKIP_CLEANUP=true
+        shift
+        ;;
       --keep-resources)
         KEEP_RESOURCES=true
         shift
@@ -143,6 +147,7 @@ BATCH_DEPLOYMENT_ENABLED=false  # Enable batch deployment for large numbers
 # New deployment control options
 BOOTSTRAP_ONLY=false  # Only deploy resources, skip tests
 CONTINUE_AFTER_BOOTSTRAP=false  # Continue tests after bootstrap
+SKIP_CLEANUP=false
 KEEP_RESOURCES=false  # Keep resources after tests (don't cleanup)
 
 # Colors for output
@@ -2075,18 +2080,20 @@ run_scenario() {
     log_info "DEBUG: Starting bootstrap-only mode"
 
     # Skip cleanup if continuing after bootstrap or in bootstrap-only mode
-    if [ "$CONTINUE_AFTER_BOOTSTRAP" = "false" ] && [ "$BOOTSTRAP_ONLY" = "false" ]; then
+    if  [ "$CONTINUE_AFTER_BOOTSTRAP" = "false" ] && [ "$BOOTSTRAP_ONLY" = "false" ]; then
       # Step 1: Clean up any existing resources
-      log_info "Step 1: Cleaning up existing resources"
-      log_step_start "Step 1: Cleanup up existing resources"
-      local cleanup_start=$(get_timestamp)
-      stop_migration
-      remove_vmops
-      undeploy_resources
-      local cleanup_end=$(get_timestamp)
-      local cleanup_duration=$((cleanup_end - cleanup_start))
-      log_info "Cleanup completed in $(format_duration $cleanup_duration)"
-      log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+      if [ "$SKIP_CLEANUP" = "false" ]; then
+        log_info "Step 1: Cleaning up existing resources"
+        log_step_start "Step 1: Cleanup up existing resources"
+        local cleanup_start=$(get_timestamp)
+        stop_migration
+        remove_vmops
+        undeploy_resources
+        local cleanup_end=$(get_timestamp)
+        local cleanup_duration=$((cleanup_end - cleanup_start))
+        log_info "Cleanup completed in $(format_duration $cleanup_duration)"
+        log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+      fi
     else
       log_info "Step 1: Skipping cleanup (--continue or --bootstrap-only mode, preserving existing resources)"
     fi
@@ -2099,7 +2106,7 @@ run_scenario() {
     # Step 3: Deploy resources only
     log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
     local deploy_start=$(get_timestamp)
-    deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
+    deploy_vms_only_smart $MAIN_COUNT_RESOURCES $vi_type
     local deploy_end=$(get_timestamp)
     local deploy_duration=$((deploy_end - deploy_start))
     log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
@@ -2133,16 +2140,18 @@ run_scenario() {
   else
     # Step 1: Clean up any existing resources (skip in bootstrap-only mode)
     if [ "$BOOTSTRAP_ONLY" = "false" ]; then
-      log_info "Step 1: Cleaning up existing resources"
-      log_step_start "Step 1: Cleanup up existing resources"
-      local cleanup_start=$(get_timestamp)
-      stop_migration
-      remove_vmops
-      undeploy_resources
-      local cleanup_end=$(get_timestamp)
-      local cleanup_duration=$((cleanup_end - cleanup_start))
-      log_info "Cleanup completed in $(format_duration $cleanup_duration)"
-      log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+      if [ "$SKIP_CLEANUP" = "false" ]; then
+        log_info "Step 1: Cleaning up existing resources"
+        log_step_start "Step 1: Cleanup up existing resources"
+        local cleanup_start=$(get_timestamp)
+        stop_migration
+        remove_vmops
+        undeploy_resources
+        local cleanup_end=$(get_timestamp)
+        local cleanup_duration=$((cleanup_end - cleanup_start))
+        log_info "Cleanup completed in $(format_duration $cleanup_duration)"
+        log_step_end "Step 1: Cleanup up existing resources" "$cleanup_duration"
+      fi
     else
       log_info "Step 1: Skipping cleanup (--bootstrap-only mode, preserving existing resources)"
     fi
@@ -2165,7 +2174,7 @@ run_scenario() {
   else
     log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
     local deploy_start=$(get_timestamp)
-    deploy_vms_with_disks_smart $MAIN_COUNT_RESOURCES $vi_type
+    deploy_vms_only_smart $MAIN_COUNT_RESOURCES $vi_type
     local deploy_end=$(get_timestamp)
     local deploy_duration=$((deploy_end - deploy_start))
     log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
@@ -2466,13 +2475,14 @@ run_scenario() {
   sleep 30
 
   # Step 22: Drain node
-  log_step_start "Step 22: Drain node"
+  log_step_start "Step 22: Drain node with parallelMigrationsPerCluster 50"
+  migration_config "640Mi" "800" "50" "1" "150"
   local drain_node_start=$(get_timestamp)
   drain_node
   local drain_stats_end=$(get_timestamp)
   local drain_stats_duration=$((drain_stats_end - drain_node_start))
   log_info "Drain node completed in $(format_duration $drain_stats_duration)"
-  log_step_end "Step 22: Drain node" "$drain_stats_duration"
+  log_step_end "Step 22: Drain node with parallelMigrationsPerCluster 50" "$drain_stats_duration"
 
   # Skip final cleanup in bootstrap-only mode or when keep-resources is enabled
   if [ "$BOOTSTRAP_ONLY" = "false" ] && [ "$KEEP_RESOURCES" = "false" ]; then
@@ -2538,7 +2548,7 @@ run_scenario() {
   log_duration "Step 19: Migration parallelMigrationsPerCluster 8x nodes" "$migration_parallel_8x_duration"
   log_duration "Step 20: Controller Restart" "$controller_duration"
   log_duration "Step 21: Final Statistics" "$final_stats_duration"
-  log_duration "Step 22: Drain node" "$drain_stats_duration"
+  log_duration "Step 22: Drain node with parallelMigrationsPerCluster 50" "$drain_stats_duration"
   log_duration "Step 23: Final Cleanup" "$final_cleanup_duration"
   log_duration "Total Scenario Duration" "$duration"
   log_info "=== End Duration Summary ==="
