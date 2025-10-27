@@ -285,32 +285,53 @@ jobs:
             echo "[INFO] Waiting for API Server... $i/30"; sleep 10
           done
 
+          echo "[Deckhouse] Waiting for Deckhouse to become Available..."
+          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system rollout status deploy/deckhouse --timeout=10m; then
+            echo "[Deckhouse] Not Available in time. Quick status:" >&2
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -o wide || true
+            echo "[Deckhouse] Recent logs (tail 100):"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=100 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
+            # Continue anyway; subsequent applies have retries.
+          fi
+          # Ensure webhook service object exists before applying ModuleConfigs
+          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1; then
+            echo "[Deckhouse] Service deckhouse not found yet; waiting a bit..."
+            for i in $(seq 1 12); do
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1 && break || true
+              sleep 5
+            done
+          fi
+
           # Always enable and configure Ceph in nested cluster (default SC = Ceph)
           echo "[Ceph] Enabling operator-ceph module..."
-          for i in {1..10}; do
+          for i in {1..12}; do
             if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
               break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
           done
           echo "[Ceph] Waiting for operator-ceph namespace..."
-          for i in $(seq 1 60); do
+          for i in $(seq 1 90); do
             if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
               echo "[Ceph] Namespace d8-operator-ceph is ready"; break
             fi
-            echo "[Ceph] Waiting for namespace... $i/60"; sleep 10
+            echo "[Ceph] Waiting for namespace... $i/90"; sleep 10
           done
           if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
-            echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time; aborting Ceph setup" >&2
+            echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time" >&2
+            echo "[Ceph] Deckhouse pods (d8-system):"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -o wide || true
+            echo "[Ceph] Deckhouse recent logs (tail 120, filtered):"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=120 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
             exit 1
           fi
           echo "[Ceph] Waiting for rook-ceph-operator pod..."
-          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=120s 2>/dev/null; then
+          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=300s 2>/dev/null; then
             echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=480s
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=600s
           fi
           echo "[Ceph] Waiting for CephCluster CRD..."
           KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
           echo "[Ceph] Applying CephCluster..."
-          for i in {1..10}; do
+          for i in {1..12}; do
             if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
               break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
           done
