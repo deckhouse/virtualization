@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -30,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 )
 
 const (
@@ -70,15 +71,19 @@ func (f *Framework) After() {
 	GinkgoHelper()
 
 	if CurrentSpecReport().Failed() {
-		By("Failed: save resource dump")
-		f.saveTestCaseDump()
+		if f.namespace != nil {
+			By("Failed: save resource dump")
+			f.saveTestCaseDump()
+		}
 	}
 
 	if config.IsCleanUpNeeded() {
 		defer func() {
-			By("Cleanup: delete namespace")
-			err := f.Delete(context.Background(), f.namespace)
-			Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
+			if f.namespace != nil {
+				By("Cleanup: delete namespace")
+				err := f.Delete(context.Background(), f.namespace)
+				Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
+			}
 		}()
 
 		By("Cleanup: process deferred deletions")
@@ -121,7 +126,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 	// 1. Send deletion request for objects.
 	for _, obj := range objs {
 		err := f.client.Delete(ctx, obj)
-		if err != nil {
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -152,13 +157,19 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 	return nil
 }
 
-func (f *Framework) Create(ctx context.Context, objs ...client.Object) error {
+// CreateWithDeferredDeletion creates one or more Kubernetes resources and
+// adds them to a list for deferred deletion.
+//
+// Returns an error if the creation of any resource
+func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...client.Object) error {
 	for _, obj := range objs {
 		err := f.client.Create(ctx, obj)
 		if err != nil {
 			return err
 		}
 	}
+
+	f.DeferDelete(objs...)
 
 	return nil
 }

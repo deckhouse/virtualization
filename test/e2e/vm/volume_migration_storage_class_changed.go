@@ -226,7 +226,7 @@ var _ = Describe("StorageClassMigration", Ordered, framework.CommonE2ETestDecora
 		}
 
 		f.DeferDelete(objs...)
-		err := f.Create(context.Background(), objs...)
+		err := f.CreateWithDeferredDeletion(context.Background(), objs...)
 		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)

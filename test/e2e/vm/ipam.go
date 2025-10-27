@@ -56,7 +56,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 			By("Create the auto vmip and check its binding with a lease")
 			vmipAuto := object.NewVirtualMachineIPAddress("vmip-auto", f.Namespace().Name, vmipoption.WithTypeAuto())
 
-			err := f.Create(ctx, vmipAuto)
+			err := f.CreateWithDeferredDeletion(ctx, vmipAuto)
 			Expect(err).NotTo(HaveOccurred())
 
 			var lease *v1alpha2.VirtualMachineIPAddressLease
@@ -80,7 +80,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 		It("Creates vmip with type Static", func() {
 			By("Create an intermediate vmip to allocate a new ip address")
 			intermediate := object.NewVirtualMachineIPAddress("vmip-intermediate", f.Namespace().Name, vmipoption.WithTypeAuto())
-			err := f.Create(ctx, intermediate)
+			err := f.CreateWithDeferredDeletion(ctx, intermediate)
 			Expect(err).NotTo(HaveOccurred())
 
 			var lease *v1alpha2.VirtualMachineIPAddressLease
@@ -98,7 +98,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 				vmipoption.WithTypeStatic(intermediate.Status.Address),
 			)
 
-			err = f.Create(ctx, vmipStatic)
+			err = f.CreateWithDeferredDeletion(ctx, vmipStatic)
 			Expect(err).NotTo(HaveOccurred())
 			WaitToBeBound(ctx, f, vmipStatic.Name)
 
@@ -111,7 +111,7 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 				f.Namespace().Name,
 				vmipoption.WithTypeStatic(intermediate.Status.Address),
 			)
-			err = f.Create(ctx, vmipStatic)
+			err = f.CreateWithDeferredDeletion(ctx, vmipStatic)
 			Expect(err).NotTo(HaveOccurred())
 			WaitToBeBound(ctx, f, vmipStatic.Name)
 		})

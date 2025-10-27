@@ -43,10 +43,9 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 	var (
 		iperfServer *v1alpha2.VirtualMachine
 		iperfClient *v1alpha2.VirtualMachine
+		report      *IPerfReport
 
-		rawReport  = new(string)
-		reportName = "iperf-client-report.json"
-
+		reportName      = "iperf-client-report.json"
 		iperfServerName = "iperf-server"
 		iperfClientName = "iperf-client"
 
@@ -55,15 +54,15 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 	)
 
 	BeforeEach(func() {
+		DeferCleanup(f.After)
+
 		f.Before()
 	})
 
 	AfterEach(func() {
-		DeferCleanup(f.After)
-
-		if CurrentSpecReport().Failed() {
+		if CurrentSpecReport().Failed() && report != nil {
 			By("Failed: save iPerf client report", func() {
-				saveIPerfClientReport(rawReport)
+				saveIPerfClientReport(report)
 			})
 		}
 	})
@@ -88,23 +87,14 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 				}),
 			)
 
-			err := f.Create(context.Background(), iperfServerDisk)
-			Expect(err).NotTo(HaveOccurred())
-			err = f.Create(context.Background(), iperfClientDisk)
-			Expect(err).NotTo(HaveOccurred())
-
 			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk)
 			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk)
 
-			err = f.Create(context.Background(), iperfServer)
-			Expect(err).NotTo(HaveOccurred())
-			err = f.Create(context.Background(), iperfClient)
+			err := f.CreateWithDeferredDeletion(context.Background(), iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfClient), framework.LongTimeout)
-
-			f.DeferDelete(iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 		})
 
 		By("Wait for the iPerf server to start", func() {
@@ -130,13 +120,10 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 
 		By("Check the iPerf client report", func() {
 			stopIPerfClient(iperfClient.Name, f.Namespace().Name, iperfServer.Status.IPAddress, f)
-			getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, rawReport, f)
+			report = getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, f)
+			Expect(report).NotTo(BeNil(), "iPerf report cannot be nil")
 
-			report := &IPerfReport{}
-			err := json.Unmarshal([]byte(*rawReport), report)
-			Expect(err).NotTo(HaveOccurred())
-
-			iperfServer, err = f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServerName, metav1.GetOptions{})
+			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServerName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			iPerfClientStartTime, err := time.Parse(time.RFC1123, report.Start.Timestamp.Time)
@@ -206,9 +193,10 @@ func stopIPerfClient(vmName, vmNamespace, ip string, f *framework.Framework) {
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
 }
 
-func getIPerfClientReport(vmName, vmNamespace, reportName string, report *string, f *framework.Framework) {
+func getIPerfClientReport(vmName, vmNamespace, reportName string, f *framework.Framework) *IPerfReport {
 	GinkgoHelper()
 
+	rawReport := new(string)
 	cmd := fmt.Sprintf("jq . ~/%s", reportName)
 	Eventually(func() error {
 		stdout, err := f.SSHCommand(vmName, vmNamespace, cmd)
@@ -216,23 +204,25 @@ func getIPerfClientReport(vmName, vmNamespace, reportName string, report *string
 			return fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
 		}
 
-		*report = stdout
+		*rawReport = stdout
 
 		return nil
-	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).Should(Succeed())
+
+	report := &IPerfReport{}
+	err := json.Unmarshal([]byte(*rawReport), report)
+	Expect(err).NotTo(HaveOccurred())
+
+	return report
 }
 
-func saveIPerfClientReport(rawReport *string) {
+func saveIPerfClientReport(report *IPerfReport) {
 	GinkgoHelper()
 
 	ft := framework.GetFormattedTestCaseFullText()
 	tmpDir := framework.GetTMPDir()
 
-	var jsonObject map[string]any
-	err := json.Unmarshal([]byte(*rawReport), &jsonObject)
-	Expect(err).NotTo(HaveOccurred())
-
-	r, err := json.MarshalIndent(&jsonObject, "", "  ")
+	r, err := json.MarshalIndent(report, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
 
 	name := fmt.Sprintf("%s/e2e_failed__%s__iperf_client_report.json", tmpDir, ft)
@@ -240,26 +230,36 @@ func saveIPerfClientReport(rawReport *string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-type IPerfReport struct {
-	Start struct {
-		Timestamp struct {
-			Time     string `json:"time"`
-			Timesecs int    `json:"timesecs"`
-		} `json:"timestamp"`
-	} `json:"start"`
-	Intervals []IPerfInterval `json:"intervals"`
-	End       struct {
-		SumSent struct {
-			End float64 `json:"end"`
-		} `json:"sum_sent"`
-	} `json:"end"`
-	Error string `json:"error,omitempty"`
+type Timestamp struct {
+	Time     string `json:"time"`
+	Timesecs int    `json:"timesecs"`
+}
+
+type Start struct {
+	Timestamp Timestamp `json:"timestamp"`
+}
+
+type SumSent struct {
+	End float64 `json:"end"`
+}
+
+type End struct {
+	SumSent SumSent `json:"sum_sent"`
+}
+
+type Sum struct {
+	Bytes int64 `json:"bytes"`
 }
 
 type IPerfInterval struct {
-	Sum struct {
-		Bytes int64 `json:"bytes"`
-	} `json:"sum"`
+	Sum Sum `json:"sum"`
+}
+
+type IPerfReport struct {
+	Start     Start           `json:"start"`
+	Intervals []IPerfInterval `json:"intervals"`
+	End       End             `json:"end"`
+	Error     string          `json:"error,omitempty"`
 }
 
 func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk) *v1alpha2.VirtualMachine {
