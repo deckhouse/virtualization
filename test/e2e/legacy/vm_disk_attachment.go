@@ -35,7 +35,7 @@ const unacceptableCount = -1000
 
 var APIVersion = v1alpha2.SchemeGroupVersion.String()
 
-var _ = Describe("VirtualDiskAttachment", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskAttachment", Ordered, framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vm-disk-attachment"}

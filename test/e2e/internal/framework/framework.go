@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -68,17 +69,22 @@ func (f *Framework) Before() {
 func (f *Framework) After() {
 	GinkgoHelper()
 
-	defer func() {
-		By("Cleanup: delete namespace")
-		err := f.Delete(context.Background(), f.namespace)
-		Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
-	}()
+	if CurrentSpecReport().Failed() {
+		By("Failed: save resource dump")
+		f.saveTestCaseDump()
+	}
 
-	defer func() {
+	if config.IsCleanUpNeeded() {
+		defer func() {
+			By("Cleanup: delete namespace")
+			err := f.Delete(context.Background(), f.namespace)
+			Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
+		}()
+
 		By("Cleanup: process deferred deletions")
 		err := f.Delete(context.Background(), f.objectsToDelete...)
 		Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
-	}()
+	}
 }
 
 func (f *Framework) createNamespace(prefix string) (*corev1.Namespace, error) {

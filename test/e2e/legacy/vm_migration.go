@@ -29,7 +29,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineMigration", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineMigration", Ordered, framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 	var ns string
 

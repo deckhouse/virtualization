@@ -29,7 +29,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, framework.CommonE2ETestDecorators(), func() {
 	const (
 		specialKey   = "specialKey"
 		specialValue = "specialValue"

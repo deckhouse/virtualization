@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImporterNetworkPolicy", Ordered, framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
 	var ns string
 

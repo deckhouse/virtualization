@@ -77,10 +77,9 @@ func (f FailureBehaviourEnvSwitcher) IsContinueOnFailure() bool {
 	return os.Getenv(ContinueOnFailureEnv) == "yes"
 }
 
-// CommonE2ETestDecorators returns common decorators for e2e tests: Ordered and ContinueOnFailure switchable with env.
+// CommonE2ETestDecorators returns common decorators for e2e tests: ContinueOnFailure switchable with env.
 func CommonE2ETestDecorators() []interface{} {
 	return DecoratorsFromEnv(
-		ginkgo.Ordered,
 		FailureBehaviourEnvSwitcher{},
 	)
 }

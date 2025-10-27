@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualImageCreation", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualImageCreation", Ordered, framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "images-creation"}
 		ns            string

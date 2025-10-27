@@ -42,9 +42,13 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 		ctx context.Context
 	)
 
-	BeforeAll(func() {
+	BeforeEach(func() {
 		f.Before()
 		ctx = context.Background()
+	})
+
+	AfterEach(func() {
+		f.After()
 	})
 
 	Context("vmip with type Auto", func() {
@@ -111,10 +115,6 @@ var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
 			Expect(err).NotTo(HaveOccurred())
 			WaitToBeBound(ctx, f, vmipStatic.Name)
 		})
-	})
-
-	AfterAll(func() {
-		f.After()
 	})
 })
 

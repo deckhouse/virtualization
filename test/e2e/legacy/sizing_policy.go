@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("SizingPolicy", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("SizingPolicy", Ordered, framework.CommonE2ETestDecorators(), func() {
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string

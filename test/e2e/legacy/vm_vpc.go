@@ -40,7 +40,7 @@ func WaitForVMRunningPhase(opts kc.WaitOptions) {
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
 }
 
-var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Ordered, framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-vpc"}
 	var ns string
 

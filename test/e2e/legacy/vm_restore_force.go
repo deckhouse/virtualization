@@ -34,7 +34,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineRestoreForce", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineRestoreForce", Ordered, framework.CommonE2ETestDecorators(), func() {
 	var (
 		ctx                 context.Context
 		namespace           string

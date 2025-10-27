@@ -27,7 +27,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineVersions", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineVersions", Ordered, framework.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 	var ns string
 

@@ -34,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
@@ -42,52 +41,41 @@ import (
 
 var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETestDecorators(), func() {
 	var (
-		ctx context.Context
-
 		iperfServer *v1alpha2.VirtualMachine
 		iperfClient *v1alpha2.VirtualMachine
 
 		rawReport  = new(string)
 		reportName = "iperf-client-report.json"
 
-		testCaseLabel      = "testcase"
-		testCaseLabelValue = "vm-live-migration-tcp-session"
-
 		iperfServerName = "iperf-server"
 		iperfClientName = "iperf-client"
 
-		alpineVirtualImageURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-perf.qcow2"
-
-		f            = framework.NewFramework(testCaseLabelValue)
+		f            = framework.NewFramework("vm-live-migration-tcp-session")
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 	)
 
-	BeforeAll(func() {
+	BeforeEach(func() {
 		f.Before()
-		ctx = context.Background()
-	})
-
-	AfterAll(func() {
-		if config.IsCleanUpNeeded() {
-			f.After()
-		}
 	})
 
 	AfterEach(func() {
+		DeferCleanup(f.After)
+
 		if CurrentSpecReport().Failed() {
-			f.SaveTestCaseDump(ctx, map[string]string{testCaseLabel: testCaseLabelValue}, CurrentSpecReport().LeafNodeText, f.Namespace().Name)
-			saveIPerfClientReport(testCaseLabelValue, rawReport)
+			By("Failed: save iPerf client report", func() {
+				saveIPerfClientReport(rawReport)
+			})
 		}
 	})
 
-	It("checks TCP connection", func() {
+	It("checks the TCP session when the virtual machine is migrated", func() {
 		By("Environment preparation", func() {
 			iperfServerDisk := vd.New(
 				vd.WithName(iperfServerName),
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: alpineVirtualImageURL,
+					URL: object.AlpineUEFIPerfHTTP,
 				}),
 			)
 
@@ -96,21 +84,21 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: alpineVirtualImageURL,
+					URL: object.AlpineUEFIPerfHTTP,
 				}),
 			)
 
-			err := f.Create(ctx, iperfServerDisk)
+			err := f.Create(context.Background(), iperfServerDisk)
 			Expect(err).NotTo(HaveOccurred())
-			err = f.Create(ctx, iperfClientDisk)
+			err = f.Create(context.Background(), iperfClientDisk)
 			Expect(err).NotTo(HaveOccurred())
 
 			iperfServer = newVirtualMachine(iperfServerName, f.Namespace().Name, iperfServerDisk)
 			iperfClient = newVirtualMachine(iperfClientName, f.Namespace().Name, iperfClientDisk)
 
-			err = f.Create(ctx, iperfServer)
+			err = f.Create(context.Background(), iperfServer)
 			Expect(err).NotTo(HaveOccurred())
-			err = f.Create(ctx, iperfClient)
+			err = f.Create(context.Background(), iperfClient)
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
@@ -120,11 +108,11 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 		})
 
 		By("Wait for the iPerf server to start", func() {
-			WaitForIPerfServerToStart(iperfServer.Name, f.Namespace().Name, f)
+			waitForIPerfServerToStart(iperfServer.Name, f.Namespace().Name, f)
 		})
 
 		By("Run the iPerf client", func() {
-			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServer.Name, metav1.GetOptions{})
+			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServer.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			cmd := fmt.Sprintf("nohup iperf3 --client %s --time 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
 			_, err = f.SSHCommand(iperfClient.Name, iperfClient.Namespace, cmd)
@@ -141,14 +129,14 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 		})
 
 		By("Check the iPerf client report", func() {
-			StopIPerfClient(iperfClient.Name, f.Namespace().Name, iperfServer.Status.IPAddress, f)
-			GetIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, rawReport, f)
+			stopIPerfClient(iperfClient.Name, f.Namespace().Name, iperfServer.Status.IPAddress, f)
+			getIPerfClientReport(iperfClient.Name, f.Namespace().Name, reportName, rawReport, f)
 
 			report := &IPerfReport{}
 			err := json.Unmarshal([]byte(*rawReport), report)
 			Expect(err).NotTo(HaveOccurred())
 
-			iperfServer, err = f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(ctx, iperfServerName, metav1.GetOptions{})
+			iperfServer, err = f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServerName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			iPerfClientStartTime, err := time.Parse(time.RFC1123, report.Start.Timestamp.Time)
@@ -171,7 +159,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 	})
 })
 
-func WaitForIPerfServerToStart(vmName, vmNamespace string, f *framework.Framework) {
+func waitForIPerfServerToStart(vmName, vmNamespace string, f *framework.Framework) {
 	GinkgoHelper()
 
 	var pid string
@@ -193,7 +181,7 @@ func WaitForIPerfServerToStart(vmName, vmNamespace string, f *framework.Framewor
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
 }
 
-func StopIPerfClient(vmName, vmNamespace, ip string, f *framework.Framework) {
+func stopIPerfClient(vmName, vmNamespace, ip string, f *framework.Framework) {
 	GinkgoHelper()
 
 	var pid string
@@ -218,7 +206,7 @@ func StopIPerfClient(vmName, vmNamespace, ip string, f *framework.Framework) {
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
 }
 
-func GetIPerfClientReport(vmName, vmNamespace, reportName string, report *string, f *framework.Framework) {
+func getIPerfClientReport(vmName, vmNamespace, reportName string, report *string, f *framework.Framework) {
 	GinkgoHelper()
 
 	cmd := fmt.Sprintf("jq . ~/%s", reportName)
@@ -234,13 +222,11 @@ func GetIPerfClientReport(vmName, vmNamespace, reportName string, report *string
 	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
 }
 
-func saveIPerfClientReport(testCaseName string, rawReport *string) {
+func saveIPerfClientReport(rawReport *string) {
 	GinkgoHelper()
 
-	tmpDir := os.Getenv("RUNNER_TEMP")
-	if tmpDir == "" {
-		tmpDir = "/tmp"
-	}
+	ft := framework.GetFormattedTestCaseFullText()
+	tmpDir := framework.GetTMPDir()
 
 	var jsonObject map[string]any
 	err := json.Unmarshal([]byte(*rawReport), &jsonObject)
@@ -249,7 +235,7 @@ func saveIPerfClientReport(testCaseName string, rawReport *string) {
 	r, err := json.MarshalIndent(&jsonObject, "", "  ")
 	Expect(err).NotTo(HaveOccurred())
 
-	name := fmt.Sprintf("%s/e2e_failed__%s__iperf_client_report.json", tmpDir, testCaseName)
+	name := fmt.Sprintf("%s/e2e_failed__%s__iperf_client_report.json", tmpDir, ft)
 	err = os.WriteFile(name, r, 0o644)
 	Expect(err).NotTo(HaveOccurred())
 }
