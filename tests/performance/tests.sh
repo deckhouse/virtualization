@@ -675,7 +675,7 @@ wait_vm() {
   local VMRunning
 
   while true; do
-    VMRunning=$(kubectl -n $NAMESPACE get vm | grep "Running" | wc -l)
+    VMRunning=$(kubectl -n $NAMESPACE get vm | grep -c "Running" || echo 0 )
 
     if [ -n "$expected_count" ]; then
       VMTotal=$expected_count
