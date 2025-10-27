@@ -299,7 +299,12 @@ jobs:
           MASTER_VM=$(kubectl get vm -n "${{ env.RUN_ID }}" -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
           if [ -n "$MASTER_VM" ]; then
             echo "[DEBUG] Master VM: $MASTER_VM"
-            d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>/dev/null | head -200 || echo "[DEBUG] Queue list failed"
+            echo "[DEBUG] Attempting to get queue via d8 v ssh..."
+            if command -v d8 >/dev/null 2>&1; then
+              d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>&1 | head -200 || echo "[DEBUG] d8 v ssh queue command failed"
+            else
+              echo "[DEBUG] d8 command not found"
+            fi
           else
             echo "[DEBUG] Master VM not found, skipping queue diagnostics"
           fi
@@ -336,7 +341,13 @@ jobs:
             echo "[DEBUG] Platform queue diagnostics (on error)..."
             MASTER_VM=$(kubectl get vm -n "${{ env.RUN_ID }}" -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
             if [ -n "$MASTER_VM" ]; then
-              d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>/dev/null | head -200 || echo "[DEBUG] Queue list failed"
+              echo "[DEBUG] Master VM: $MASTER_VM"
+              if command -v d8 >/dev/null 2>&1; then
+                echo "[DEBUG] Getting queue via d8 v ssh..."
+                d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>&1 | head -200 || echo "[DEBUG] d8 v ssh queue command failed"
+              else
+                echo "[DEBUG] d8 command not found"
+              fi
             fi
             exit 1
           fi
