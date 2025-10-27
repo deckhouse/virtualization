@@ -48,19 +48,19 @@ tasks:
     desc: "Render templates with default values"
     cmds:
       - |
-        helm template test . --values values.yaml
-  
+        nelm template test . --values values.yaml
+
   helm:render:cr:
     desc: "Render templates with default values"
     cmds:
       - |
-        helm template test . --values values.yaml --set resources.virtualDisk.spec.template.type=containerRegistry
-  
+        nelm template test . --values values.yaml --set resources.virtualDisk.spec.template.type=containerRegistry
+
   helm:render:pvc:
     desc: "Render templates with default values"
     cmds:
       - |
-        helm template test . --values values.yaml --set resources.virtualDisk.spec.template.type=persistentVolumeClaim
+        nelm template test . --values values.yaml --set resources.virtualDisk.spec.template.type=persistentVolumeClaim
 
   help:
     desc: "Help about bootstrap.sh."
@@ -188,6 +188,18 @@ tasks:
         if ! command -v helm &> /dev/null; then
           echo "Installing Helm3..."
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        else
+          echo "Helm3 is already installed"
+        fi
+  install:nelm:
+    desc: "Install Helm if it's not installed"
+    cmds:
+      - |
+        if ! command -v helm &> /dev/null; then
+          echo "Installing Nelm..."
+          wget https://tuf.nelm.sh/targets/releases/1.16.0/linux-amd64/bin/nelm
+          mv nelm /usr/bin/nelm
+
         else
           echo "Helm3 is already installed"
         fi
