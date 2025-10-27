@@ -84,26 +84,7 @@ function generate::crds {
         if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
             continue
         fi
-
-        DEST_FILE="${ROOT}/crds/$(echo $file | awk -Fio_ '{print $2}')"
-        cp "$file" "${DEST_FILE}"
-
-        if [[ "${DEST_FILE}" == *"virtualmachineclasses.yaml" ]]; then
-            yq eval -i '.spec.conversion = {
-                "strategy": "Webhook",
-                "webhook": {
-                    "clientConfig": {
-                        "service": {
-                            "name": "virtualization-controller",
-                            "namespace": "d8-virtualization",
-                            "path": "/convert",
-                            "port": 443
-                        }
-                    },
-                    "conversionReviewVersions": ["v1"]
-                }
-            }' "${DEST_FILE}"
-        fi
+        cp "$file" "${ROOT}/crds/$(echo $file | awk -Fio_ '{print $2}')"
     done
 }
 

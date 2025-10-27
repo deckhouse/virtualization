@@ -31,13 +31,13 @@ const (
 	crdName         = "virtualmachineclasses.virtualization.deckhouse.io"
 	crdJQFilter     = `{
 		"name": .metadata.name,
-		"hasCABundle": (.spec.conversion.webhook.clientConfig.caBundle | . != null)
+		"hasConversion": (.spec.conversion // null | . != null)
 	}`
 )
 
 type CRDSnapshot struct {
-	Name        string `json:"name"`
-	HasCABundle bool   `json:"hasCABundle"`
+	Name          string `json:"name"`
+	HasConversion bool   `json:"hasConversion"`
 }
 
 var _ = registry.RegisterFunc(config, reconcile)
@@ -61,11 +61,11 @@ var config = &pkg.HookConfig{
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
-	input.Logger.Info("Start inject CRD conversion webhook caBundle hook")
+	input.Logger.Info("Start inject CRD conversion webhook configuration hook")
 
 	caCert := input.Values.Get("virtualization.internal.rootCA.crt")
 	if !caCert.Exists() {
-		input.Logger.Info("CA certificate not found in values, skipping caBundle injection")
+		input.Logger.Info("CA certificate not found in values, skipping conversion webhook injection")
 		return nil
 	}
 
@@ -76,7 +76,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	snapshots := input.Snapshots.Get(crdSnapshotName)
 	if len(snapshots) == 0 {
-		input.Logger.Info("CRD %s not found, skipping caBundle injection", crdName)
+		input.Logger.Info("CRD %s not found, skipping conversion webhook injection", crdName)
 		return nil
 	}
 
@@ -85,21 +85,37 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 		return fmt.Errorf("failed to unmarshal CRD snapshot: %w", err)
 	}
 
-	if crdSnap.HasCABundle {
-		input.Logger.Info("CRD %s already has caBundle, skipping injection", crdName)
+	if crdSnap.HasConversion {
+		input.Logger.Info("CRD %s already has conversion configuration, skipping injection", crdName)
 		return nil
+	}
+
+	conversionConfig := map[string]interface{}{
+		"strategy": "Webhook",
+		"webhook": map[string]interface{}{
+			"clientConfig": map[string]interface{}{
+				"service": map[string]interface{}{
+					"name":      "virtualization-controller",
+					"namespace": "d8-virtualization",
+					"path":      "/convert",
+					"port":      443,
+				},
+				"caBundle": caBundle,
+			},
+			"conversionReviewVersions": []string{"v1"},
+		},
 	}
 
 	patch := []interface{}{
 		map[string]interface{}{
 			"op":    "add",
-			"path":  "/spec/conversion/webhook/clientConfig/caBundle",
-			"value": caBundle,
+			"path":  "/spec/conversion",
+			"value": conversionConfig,
 		},
 	}
 
 	input.PatchCollector.JSONPatch(patch, "apiextensions.k8s.io/v1", "CustomResourceDefinition", "", crdName)
-	input.Logger.Info("Successfully injected caBundle into CRD %s", crdName)
+	input.Logger.Info("Successfully injected conversion webhook configuration into CRD %s", crdName)
 
 	return nil
 }

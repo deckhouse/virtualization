@@ -66,20 +66,28 @@ spec:
                   description: CPU defines the requirements for the virtual CPU model.
                   properties:
                     discovery:
-                      description: Create a CPU model based on intersecting CPU features for selected nodes.
+                      description:
+                        Create a CPU model based on intersecting CPU features
+                        for selected nodes.
                       properties:
                         nodeSelector:
-                          description: A selection of nodes to be used as the basis for creating a universal CPU model.
+                          description:
+                            A selection of nodes to be used as the basis
+                            for creating a universal CPU model.
                           properties:
                             matchExpressions:
-                              description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                              description:
+                                matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
                               items:
                                 description: |-
                                   A label selector requirement is a selector that contains values, a key, and an operator that
                                   relates the key and values.
                                 properties:
                                   key:
-                                    description: key is the label key that the selector applies to.
+                                    description:
+                                      key is the label key that the selector
+                                      applies to.
                                     type: string
                                   operator:
                                     description: |-
@@ -126,7 +134,9 @@ spec:
                       minItems: 1
                       type: array
                     model:
-                      description: CPU model name. For more information about CPU models and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
+                      description:
+                        CPU model name. For more information about CPU models
+                        and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
                       example: IvyBridge
                       minLength: 1
                       type: string
@@ -155,14 +165,25 @@ spec:
                   x-kubernetes-validations:
                     - message: .spec.cpu is immutable
                       rule: self == oldSelf
-                    - message: HostPassthrough and Host cannot have model, features or discovery
-                      rule: "self.type == 'HostPassthrough' || self.type == 'Host' ? !has(self.model) && !has(self.features) && !has(self.discovery) : true"
+                    - message:
+                        HostPassthrough and Host cannot have model, features or
+                        discovery
+                      rule:
+                        "self.type == 'HostPassthrough' || self.type == 'Host'
+                        ? !has(self.model) && !has(self.features) && !has(self.discovery)
+                        : true"
                     - message: Discovery cannot have model or features
-                      rule: "self.type == 'Discovery' ? !has(self.model) && !has(self.features) : true"
+                      rule:
+                        "self.type == 'Discovery' ? !has(self.model) && !has(self.features)
+                        : true"
                     - message: Model requires model and cannot have features or discovery
-                      rule: "self.type == 'Model' ? has(self.model) && !has(self.features) && !has(self.discovery) : true"
+                      rule:
+                        "self.type == 'Model' ? has(self.model) && !has(self.features)
+                        && !has(self.discovery) : true"
                     - message: Features requires features and cannot have model or discovery
-                      rule: "self.type == 'Features' ? has(self.features) && !has(self.model) && !has(self.discovery): true"
+                      rule:
+                        "self.type == 'Features' ? has(self.features) && !has(self.model)
+                        && !has(self.discovery): true"
                 nodeSelector:
                   description: NodeSelector defines the nodes targeted for VM scheduling.
                   properties:
@@ -221,7 +242,9 @@ spec:
                           type: integer
                         type: array
                       cores:
-                        description: The policy applies for a specified range of the number of CPU cores.
+                        description:
+                          The policy applies for a specified range of the
+                          number of CPU cores.
                         properties:
                           max:
                             description: Maximum number of CPU cores.
@@ -234,7 +257,11 @@ spec:
                             minimum: 1
                             type: integer
                           step:
-                            description: Discretization step for the CPU core number. For example, the combination of `min=2`, `max=10`, and `step=4` allows to set the number of virtual machine CPU cores to 2, 6, or 10.
+                            description:
+                              Discretization step for the CPU core number.
+                              For example, the combination of `min=2`, `max=10`, and
+                              `step=4` allows to set the number of virtual machine CPU
+                              cores to 2, 6, or 10.
                             example: 1
                             minimum: 1
                             type: integer
@@ -295,7 +322,11 @@ spec:
                             anyOf:
                               - type: integer
                               - type: string
-                            description: Memory size discretization step. For example, the combination of `min=2Gi, `max=4Gi` and `step=1Gi` allows to set the virtual machine memory size to 2Gi, 3Gi, or 4Gi.
+                            description:
+                              Memory size discretization step. For example,
+                              the combination of `min=2Gi, `max=4Gi` and `step=1Gi`
+                              allows to set the virtual machine memory size to 2Gi,
+                              3Gi, or 4Gi.
                             example: 512Mi
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
@@ -359,9 +390,13 @@ spec:
                     type: string
                   type: array
                 conditions:
-                  description: The latest detailed observations of the VirtualMachineClass resource.
+                  description:
+                    The latest detailed observations of the VirtualMachineClass
+                    resource.
                   items:
-                    description: Condition contains details for one aspect of the current state of this API Resource.
+                    description:
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -430,7 +465,9 @@ spec:
                         type: string
                       type: array
                     notEnabledCommon:
-                      description: List of unused processor features additionally available for a given group of nodes.
+                      description:
+                        List of unused processor features additionally available
+                        for a given group of nodes.
                       example:
                         - ssse3
                         - vme
@@ -445,7 +482,9 @@ spec:
                       - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
-                  description: Maximum amount of free CPU and memory resources observed among all available nodes.
+                  description:
+                    Maximum amount of free CPU and memory resources observed
+                    among all available nodes.
                   example:
                     - 'maxAllocatableResources: {"cpu": 1, "memory": "10Gi"}'
                   type: object
@@ -517,20 +556,28 @@ spec:
                   description: CPU defines the requirements for the virtual CPU model.
                   properties:
                     discovery:
-                      description: Create a CPU model based on intersecting CPU features for selected nodes.
+                      description:
+                        Create a CPU model based on intersecting CPU features
+                        for selected nodes.
                       properties:
                         nodeSelector:
-                          description: A selection of nodes to be used as the basis for creating a universal CPU model.
+                          description:
+                            A selection of nodes to be used as the basis
+                            for creating a universal CPU model.
                           properties:
                             matchExpressions:
-                              description: matchExpressions is a list of label selector requirements. The requirements are ANDed.
+                              description:
+                                matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
                               items:
                                 description: |-
                                   A label selector requirement is a selector that contains values, a key, and an operator that
                                   relates the key and values.
                                 properties:
                                   key:
-                                    description: key is the label key that the selector applies to.
+                                    description:
+                                      key is the label key that the selector
+                                      applies to.
                                     type: string
                                   operator:
                                     description: |-
@@ -577,7 +624,9 @@ spec:
                       minItems: 1
                       type: array
                     model:
-                      description: CPU model name. For more information about CPU models and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
+                      description:
+                        CPU model name. For more information about CPU models
+                        and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
                       example: IvyBridge
                       minLength: 1
                       type: string
@@ -606,14 +655,25 @@ spec:
                   x-kubernetes-validations:
                     - message: .spec.cpu is immutable
                       rule: self == oldSelf
-                    - message: HostPassthrough and Host cannot have model, features or discovery
-                      rule: "self.type == 'HostPassthrough' || self.type == 'Host' ? !has(self.model) && !has(self.features) && !has(self.discovery) : true"
+                    - message:
+                        HostPassthrough and Host cannot have model, features or
+                        discovery
+                      rule:
+                        "self.type == 'HostPassthrough' || self.type == 'Host'
+                        ? !has(self.model) && !has(self.features) && !has(self.discovery)
+                        : true"
                     - message: Discovery cannot have model or features
-                      rule: "self.type == 'Discovery' ? !has(self.model) && !has(self.features) : true"
+                      rule:
+                        "self.type == 'Discovery' ? !has(self.model) && !has(self.features)
+                        : true"
                     - message: Model requires model and cannot have features or discovery
-                      rule: "self.type == 'Model' ? has(self.model) && !has(self.features) && !has(self.discovery) : true"
+                      rule:
+                        "self.type == 'Model' ? has(self.model) && !has(self.features)
+                        && !has(self.discovery) : true"
                     - message: Features requires features and cannot have model or discovery
-                      rule: "self.type == 'Features' ? has(self.features) && !has(self.model) && !has(self.discovery): true"
+                      rule:
+                        "self.type == 'Features' ? has(self.features) && !has(self.model)
+                        && !has(self.discovery): true"
                 nodeSelector:
                   description: NodeSelector defines the nodes targeted for VM scheduling.
                   properties:
@@ -665,14 +725,21 @@ spec:
                       The cores.min - cores.max ranges for different elements of the list must not overlap.
                     properties:
                       coreFractions:
-                        description: Allowed values of the `coreFraction` parameter in percentages (e.g., "5%", "10%", "25%", "50%", "100%").
+                        description:
+                          Allowed values of the `coreFraction` parameter
+                          in percentages (e.g., "5%", "10%", "25%", "50%", "100%").
                         items:
-                          description: CoreFractionValue represents CPU core fraction as a percentage string (e.g., "5%", "10%", "25%", "50%", "100%").
+                          description:
+                            CoreFractionValue represents CPU core fraction
+                            as a percentage string (e.g., "5%", "10%", "25%", "50%",
+                            "100%").
                           pattern: ^([1-9]|[1-9][0-9]|100)%?$
                           type: string
                         type: array
                       cores:
-                        description: The policy applies for a specified range of the number of CPU cores.
+                        description:
+                          The policy applies for a specified range of the
+                          number of CPU cores.
                         properties:
                           max:
                             description: Maximum number of CPU cores.
@@ -685,7 +752,11 @@ spec:
                             minimum: 1
                             type: integer
                           step:
-                            description: Discretization step for the CPU core number. For example, the combination of `min=2`, `max=10`, and `step=4` allows to set the number of virtual machine CPU cores to 2, 6, or 10.
+                            description:
+                              Discretization step for the CPU core number.
+                              For example, the combination of `min=2`, `max=10`, and
+                              `step=4` allows to set the number of virtual machine CPU
+                              cores to 2, 6, or 10.
                             example: 1
                             minimum: 1
                             type: integer
@@ -746,7 +817,11 @@ spec:
                             anyOf:
                               - type: integer
                               - type: string
-                            description: Memory size discretization step. For example, the combination of `min=2Gi, `max=4Gi` and `step=1Gi` allows to set the virtual machine memory size to 2Gi, 3Gi, or 4Gi.
+                            description:
+                              Memory size discretization step. For example,
+                              the combination of `min=2Gi, `max=4Gi` and `step=1Gi`
+                              allows to set the virtual machine memory size to 2Gi,
+                              3Gi, or 4Gi.
                             example: 512Mi
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
@@ -810,9 +885,13 @@ spec:
                     type: string
                   type: array
                 conditions:
-                  description: The latest detailed observations of the VirtualMachineClass resource.
+                  description:
+                    The latest detailed observations of the VirtualMachineClass
+                    resource.
                   items:
-                    description: Condition contains details for one aspect of the current state of this API Resource.
+                    description:
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -881,7 +960,9 @@ spec:
                         type: string
                       type: array
                     notEnabledCommon:
-                      description: List of unused processor features additionally available for a given group of nodes.
+                      description:
+                        List of unused processor features additionally available
+                        for a given group of nodes.
                       example:
                         - ssse3
                         - vme
@@ -896,7 +977,9 @@ spec:
                       - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
-                  description: Maximum amount of free CPU and memory resources observed among all available nodes.
+                  description:
+                    Maximum amount of free CPU and memory resources observed
+                    among all available nodes.
                   example:
                     - 'maxAllocatableResources: {"cpu": 1, "memory": "10Gi"}'
                   type: object
@@ -925,14 +1008,3 @@ spec:
       storage: false
       subresources:
         status: {}
-  conversion:
-    strategy: Webhook
-    webhook:
-      clientConfig:
-        service:
-          name: virtualization-controller
-          namespace: d8-virtualization
-          path: /convert
-          port: 443
-      conversionReviewVersions:
-        - v1

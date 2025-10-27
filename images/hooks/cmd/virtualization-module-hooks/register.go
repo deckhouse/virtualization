@@ -22,7 +22,7 @@ import (
 	_ "hooks/pkg/hooks/discovery-workload-nodes"
 	_ "hooks/pkg/hooks/drop-openshift-labels"
 	_ "hooks/pkg/hooks/generate-secret-for-dvcr"
-	_ "hooks/pkg/hooks/inject-crd-conversion-cabundle"
+	_ "hooks/pkg/hooks/inject-crd-conversion"
 	_ "hooks/pkg/hooks/migrate-delete-renamed-validation-admission-policy"
 	_ "hooks/pkg/hooks/migrate-virthandler-kvm-node-labels"
 	_ "hooks/pkg/hooks/prevent-default-vmclasses-deletion"
