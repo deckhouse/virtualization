@@ -242,7 +242,7 @@ jobs:
             find . \
               -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
-              -path ./tests/performance/shatal -prune -o \
+              -path ./test/performance/shatal -prune -o \
               -type f -name '.golangci.yaml' -printf '%h\0' | \
             xargs -0 -n1 | sort -u
           )
@@ -553,7 +553,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install ginkgo
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           echo "Install ginkgo"
           go install tool
@@ -567,19 +567,19 @@ jobs:
       - name: Checkout cluster to revision
         env:
           v12n_tag: pr${{ github.event.pull_request.number }}
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task checkout-to-mpo
 
       - name: Download dependencies
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           echo "Download dependencies"
           go mod download
 
       - name: Run E2E
         id: e2e-tests
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task run -v
 
@@ -595,7 +595,7 @@ jobs:
         if: always() && steps.e2e-tests.outcome == 'cancelled'
         timeout-minutes: 60
         id: e2e-tests-cleanup
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task cleanup
 

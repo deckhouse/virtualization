@@ -1,8 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  name: test-vm-runpolicy-stop
-  namespace: test-d8-virtualization
-spec:
-  virtualMachineName: test-vm-runpolicy
-  type: Stop
