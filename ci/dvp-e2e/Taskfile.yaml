@@ -333,94 +333,49 @@ tasks:
             kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
             
             echo "[INFRA] Waiting for hotplug attachment of $vd..."
+            success_by_vm=0
             for i in $(seq 1 30); do
               phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$phase" = "Attached" ]; then
                 echo "[INFRA] Disk $vd successfully attached to VM $vm"; break
               fi
+              # Quick success path: rely on VM status even if VMBDA still InProgress
+              if kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
+                   | jq -e --arg vd "$vd" '([.status.blockDeviceRefs[]? \
+                         | select((.virtualMachineBlockDeviceAttachmentName==$vd) or (.name==$vd)) \
+                         | select((.attached==true) and (.hotplugged==true))] \
+                       | length) > 0' >/dev/null; then
+                echo "[INFRA] VM reports disk $vd attached/hotplugged; proceeding"
+                success_by_vm=1
+                break
+              fi
+
               # Print status approximately every 30 seconds (poll interval is 5s)
               if [ $((i % 6)) -eq 0 ]; then
                 echo "[INFRA] Disk $vd phase=$phase; retry $i/30"
               fi
               sleep 5
 
-              # Periodic deep debug snapshot approximately every 60 seconds
+              # Minimal periodic debug snapshot approximately every 60 seconds
               if [ $((i % 12)) -eq 0 ]; then
-                echo "[DEBUG] VMBDA $vd status and conditions:"
-                kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json | jq -r '.status, (.status.conditions // [])' || true
-                echo "[DEBUG] Describe VMBDA:"
-                kubectl -n {{ .NAMESPACE }} describe virtualmachineblockdeviceattachment "$vd" || true
-                echo "[DEBUG] Describe VM $vm:"
-                kubectl -n {{ .NAMESPACE }} describe vm "$vm" || true
-                echo "[DEBUG] VD $vd (yaml):"
-                kubectl -n {{ .NAMESPACE }} get vd "$vd" -o yaml || true
-                
-                # Check PVC status
-                pvc_name=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.spec.persistentVolumeClaim.name}' 2>/dev/null || true)
-                if [ -n "$pvc_name" ]; then
-                  echo "[DEBUG] PVC $pvc_name status:"
-                  kubectl -n {{ .NAMESPACE }} get pvc "$pvc_name" -o wide || true
-                  echo "[DEBUG] PVC $pvc_name (describe):"
-                  kubectl -n {{ .NAMESPACE }} describe pvc "$pvc_name" || true
-                fi
-                
-                # Check StorageClass availability
-                sc_name=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.spec.persistentVolumeClaim.storageClassName}' 2>/dev/null || true)
-                if [ -n "$sc_name" ]; then
-                  echo "[DEBUG] StorageClass $sc_name status:"
-                  kubectl -n {{ .NAMESPACE }} get sc "$sc_name" || true
-                fi
-                
-                echo "[DEBUG] Recent namespace events:"
-                kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 50 || true
+                echo "[DEBUG] VMBDA $vd summary:"
+                kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json \
+                  | jq -r '{phase: .status.phase, conditions: (.status.conditions // []) | map({type, status, reason, message})}' || true
+                echo "[DEBUG] VM $vm block devices (summary):"
+                kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
+                  | jq -r '{phase: .status.phase, blockDeviceRefs: (.status.blockDeviceRefs // []) | map({name, virtualMachineBlockDeviceAttachmentName, attached, hotplugged})}' || true
               fi
             done
             
-            if [ "$phase" != "Attached" ]; then
-              # Fallback A: VM status shows attached/hotplugged disk despite VMBDA stuck InProgress
-              echo "[DEBUG] Checking VM status for attached/hotplugged disk fallback..."
-              if kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
-                  | jq -e --arg vd "$vd" '([.status.blockDeviceRefs[]? \
-                        | select((.virtualMachineBlockDeviceAttachmentName==$vd) or (.name==$vd)) \
-                        | select((.attached==true) and (.hotplugged==true))] \
-                      | length) > 0' >/dev/null; then
-                echo "[WARN] VMBDA phase not Attached, but VM reports disk attached/hotplugged; treating as success"
-              else
-                # Fallback B: accept success by VM events confirming hotplug completion
-                echo "[DEBUG] Checking VM events for hotplug success fallback..."
-                if kubectl -n {{ .NAMESPACE }} get events \
-                      --field-selector involvedObject.kind=VirtualMachine,involvedObject.name="$vm" \
-                      --sort-by=.lastTimestamp -ojson \
-                    | jq -r '.items[].message' 2>/dev/null \
-                    | grep -q -E "Successfully attach hotplugged volume.*\b$vd\b"; then
-                  echo "[WARN] VMBDA phase not Attached, but VM events confirm success; treating as success"
-                else
-                  echo "[ERROR] Disk $vd failed to attach to VM $vm" >&2
-                  echo "[DEBUG] Final VMBDA YAML:"
-                  kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o yaml || true
-                  echo "[DEBUG] Try to get virt-launcher pods for VM $vm:"
-                  kubectl -n {{ .NAMESPACE }} get pods -o wide | (grep "$vm" || true)
-                  for p in $(kubectl -n {{ .NAMESPACE }} get pods -o name | (grep "$vm" || true)); do
-                    echo "[DEBUG] Logs $p (last 200 lines):"
-                    kubectl -n {{ .NAMESPACE }} logs --tail=200 "$p" || true
-                  done
-                  echo "[DEBUG] virtualization-controller / virt-handler logs (best-effort):"
-                  kubectl -n d8-virtualization get pods 2>/dev/null || true
-                  # Filter controller/handler logs by current namespace/VM/VD to reduce noise
-                  kubectl -n d8-virtualization logs deploy/virtualization-controller --tail=200 2>/dev/null | grep -E "{{ .NAMESPACE }}|$vm|$vd" || true
-                  for h in $(kubectl -n d8-virtualization get pods -l app=virt-handler -o name 2>/dev/null || true); do
-                    kubectl -n d8-virtualization logs --tail=200 "$h" | grep -E "{{ .NAMESPACE }}|$vm|$vd" || true
-                  done
-                  
-                  echo "[DEBUG] Ceph CSI pods status:"
-                  kubectl -n d8-operator-ceph get pods -l app=csi-rbdplugin 2>/dev/null || true
-                  kubectl -n d8-operator-ceph get pods -l app=csi-rbdplugin-provisioner 2>/dev/null || true
-                  
-                  echo "[DEBUG] Ceph cluster status:"
-                  kubectl -n d8-operator-ceph get cephcluster -o wide 2>/dev/null || true
-                  exit 1
-                fi
-              fi
+            if [ "$phase" != "Attached" ] && [ "${success_by_vm:-0}" -ne 1 ]; then
+              echo "[ERROR] Disk $vd failed to attach to VM $vm within timeout" >&2
+              echo "[DEBUG] Final VMBDA summary:"
+              kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json \
+                | jq -r '{phase: .status.phase, conditions: (.status.conditions // []) | map({type, status, reason, message})}' || true
+              echo "[DEBUG] VM $vm block devices (summary):"
+              kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
+                | jq -r '{phase: .status.phase, blockDeviceRefs: (.status.blockDeviceRefs // []) | map({name, virtualMachineBlockDeviceAttachmentName, attached, hotplugged})}' || true
+              exit 1
             fi
           done
           
