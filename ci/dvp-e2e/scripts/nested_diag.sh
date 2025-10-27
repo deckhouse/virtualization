@@ -139,8 +139,22 @@ deep_nested() {
     warn "master VM not found in $ns; skip deep"
     return
   fi
+  
+  # Check and install d8 CLI on master VM if needed
+  echo "[DEEP] Ensuring d8 CLI is available on master VM..."
+  d8 v ssh --local-ssh=true "${master}.${ns}" -c '
+    if ! command -v d8 >/dev/null 2>&1; then
+      echo "Installing d8 CLI..."
+      curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+      bash /tmp/d8-install.sh
+      rm -f /tmp/d8-install.sh
+    else
+      echo "d8 CLI already installed"
+    fi
+  ' 2>&1 || warn "Failed to install d8 CLI on master VM"
+  
   echo "[DEEP] Platform queue list"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'd8 platform queue list --output json' 2>/dev/null | indent || true
+  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'd8 platform queue list --output json' 2>&1 | grep -v "The authenticity of host" | indent || true
   echo "[DEEP] Nested nodes"
   d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get nodes -o wide' 2>/dev/null | indent || true
   echo "[DEEP] NodeGroups"
