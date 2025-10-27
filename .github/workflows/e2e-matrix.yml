@@ -293,6 +293,17 @@ jobs:
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=100 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
             # Continue anyway; subsequent applies have retries.
           fi
+
+          # Queue diagnostics after Deckhouse is available
+          echo "[DEBUG] Platform queue diagnostics..."
+          MASTER_VM=$(kubectl get vm -n "${{ env.RUN_ID }}" -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$MASTER_VM" ]; then
+            echo "[DEBUG] Master VM: $MASTER_VM"
+            d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>/dev/null | head -200 || echo "[DEBUG] Queue list failed"
+          else
+            echo "[DEBUG] Master VM not found, skipping queue diagnostics"
+          fi
+
           # Ensure webhook service object exists before applying ModuleConfigs
           if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1; then
             echo "[Deckhouse] Service deckhouse not found yet; waiting a bit..."
@@ -321,6 +332,12 @@ jobs:
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -o wide || true
             echo "[Ceph] Deckhouse recent logs (tail 120, filtered):"
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=120 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
+            # Queue diagnostics on failure
+            echo "[DEBUG] Platform queue diagnostics (on error)..."
+            MASTER_VM=$(kubectl get vm -n "${{ env.RUN_ID }}" -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+            if [ -n "$MASTER_VM" ]; then
+              d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>/dev/null | head -200 || echo "[DEBUG] Queue list failed"
+            fi
             exit 1
           fi
           echo "[Ceph] Waiting for rook-ceph-operator pod..."
