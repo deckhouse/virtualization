@@ -26,15 +26,24 @@ import (
 )
 
 const (
-	crdSnapshotName = "virtualmachineclasses-crd"
-	crdName         = "virtualmachineclasses.virtualization.deckhouse.io"
-	crdJQFilter     = `{
+	crdSnapshotName        = "virtualmachineclasses-crd"
+	secretSnapshotName     = "controller-tls-secret"
+	crdName                = "virtualmachineclasses.virtualization.deckhouse.io"
+	controllerTLSSecretName = "virtualization-controller-tls"
+	crdJQFilter            = `{
 		"name": .metadata.name,
+	}`
+	secretJQFilter = `{
+		"ca": .data."ca.crt",
 	}`
 )
 
 type CRDSnapshot struct {
 	Name string `json:"name"`
+}
+
+type SecretSnapshot struct {
+	CA string `json:"ca"`
 }
 
 var _ = registry.RegisterFunc(config, reconcile)
@@ -51,6 +60,20 @@ var config = &pkg.HookConfig{
 			},
 			JqFilter: crdJQFilter,
 		},
+		{
+			Name:       secretSnapshotName,
+			APIVersion: "v1",
+			Kind:       "Secret",
+			NameSelector: &pkg.NameSelector{
+				MatchNames: []string{controllerTLSSecretName},
+			},
+			NamespaceSelector: &pkg.NamespaceSelector{
+				NameSelector: &pkg.NameSelector{
+					MatchNames: []string{settings.ModuleNamespace},
+				},
+			},
+			JqFilter: secretJQFilter,
+		},
 	},
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
@@ -58,25 +81,29 @@ var config = &pkg.HookConfig{
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start inject CRD conversion webhook configuration hook")
 
-	caCert := input.Values.Get("virtualization.internal.controller.cert.ca")
-	if !caCert.Exists() {
-		input.Logger.Info("CA certificate not found in values, skipping conversion webhook injection")
+	secretSnapshots := input.Snapshots.Get(secretSnapshotName)
+	if len(secretSnapshots) == 0 {
+		input.Logger.Info("Controller TLS secret not found, skipping conversion webhook injection")
 		return nil
 	}
 
-	caBundle := caCert.String()
-	if caBundle == "" {
-		return fmt.Errorf("CA certificate is empty")
+	var secretSnap SecretSnapshot
+	if err := secretSnapshots[0].UnmarshalTo(&secretSnap); err != nil {
+		return fmt.Errorf("failed to unmarshal secret snapshot: %w", err)
 	}
 
-	snapshots := input.Snapshots.Get(crdSnapshotName)
-	if len(snapshots) == 0 {
+	if secretSnap.CA == "" {
+		return fmt.Errorf("CA certificate is empty in controller TLS secret")
+	}
+
+	crdSnapshots := input.Snapshots.Get(crdSnapshotName)
+	if len(crdSnapshots) == 0 {
 		input.Logger.Info("CRD not found, skipping conversion webhook injection")
 		return nil
 	}
 
 	var crdSnap CRDSnapshot
-	if err := snapshots[0].UnmarshalTo(&crdSnap); err != nil {
+	if err := crdSnapshots[0].UnmarshalTo(&crdSnap); err != nil {
 		return fmt.Errorf("failed to unmarshal CRD snapshot: %w", err)
 	}
 
@@ -90,7 +117,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 					"path":      "/convert",
 					"port":      443,
 				},
-				"caBundle": caBundle,
+				"caBundle": secretSnap.CA,
 			},
 			"conversionReviewVersions": []string{"v1"},
 		},
