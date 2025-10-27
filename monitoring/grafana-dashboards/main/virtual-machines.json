@@ -3211,7 +3211,7 @@
               "expr": "sum by (namespace, name) (d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=~\"$namespace\", type!=\"cloudinit\"})",
               "hide": false,
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "B"
             }
@@ -3327,7 +3327,7 @@
               "editorMode": "code",
               "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -3429,7 +3429,7 @@
               "editorMode": "code",
               "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -3531,7 +3531,7 @@
               "editorMode": "code",
               "expr": "sum by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_block_device_read_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    /\n    clamp_min(rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]), 0.0001)\n) * 1000",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -3633,7 +3633,7 @@
               "editorMode": "code",
               "expr": "sum by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_block_device_write_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    /\n    clamp_min(rate(d8_virtualization_virtualmachine_block_device_iops_write_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]), 0.0001)\n    )",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -3735,7 +3735,7 @@
               "editorMode": "code",
               "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_read_traffic_bytes_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -3837,7 +3837,7 @@
               "editorMode": "code",
               "expr": "sum by (namespace, name) (rate(d8_virtualization_virtualmachine_block_device_write_traffic_bytes_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]))",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -3989,7 +3989,7 @@
               "editorMode": "code",
               "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_bytes_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
               "instant": false,
-              "legendFormat": "RX bps {{ namespace }} / {{ name }}",
+              "legendFormat": "RX bps {{ name }}",
               "range": true,
               "refId": "A"
             },
@@ -4002,7 +4002,7 @@
               "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_bytes_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
               "hide": false,
               "instant": false,
-              "legendFormat": "TX bps {{ namespace }} / {{ name }}",
+              "legendFormat": "TX bps {{ name }}",
               "range": true,
               "refId": "B"
             }
@@ -4265,7 +4265,7 @@
               "editorMode": "code",
               "expr": "avg by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_packets_dropped_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
               "instant": false,
-              "legendFormat": "RX {{ namespace }} / {{ name }}",
+              "legendFormat": "RX {{ name }}",
               "nullValueMode": "null",
               "range": true,
               "refId": "A"
@@ -4279,7 +4279,7 @@
               "expr": "avg by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_packets_dropped_total{namespace=~\"$namespace\",  network=\"$network\"}[$__rate_interval])*8)",
               "hide": false,
               "instant": false,
-              "legendFormat": "TX {{ namespace }} / {{ name }}",
+              "legendFormat": "TX {{ name }}",
               "nullValueMode": "null",
               "range": true,
               "refId": "B"
@@ -4404,7 +4404,7 @@
               "editorMode": "code",
               "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_receive_errors_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
               "instant": false,
-              "legendFormat": "RX {{ namespace }} / {{ name }}",
+              "legendFormat": "RX {{ name }}",
               "nullValueMode": "null",
               "range": true,
               "refId": "A"
@@ -4418,7 +4418,7 @@
               "expr": "sum by (network, namespace, name) (rate(d8_virtualization_virtualmachine_network_transmit_errors_total{namespace=~\"$namespace\", network=\"$network\"}[$__rate_interval])*8)",
               "hide": false,
               "instant": false,
-              "legendFormat": "TX {{ namespace }} / {{ name }}",
+              "legendFormat": "TX {{ name }}",
               "nullValueMode": "null",
               "range": true,
               "refId": "B"
