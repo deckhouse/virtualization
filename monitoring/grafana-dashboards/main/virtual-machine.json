@@ -502,9 +502,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"} * on (name,uid) d8_virtualization_virtualdisk_status_in_use{virtualmachine=~\"$name\"}\n)\n",
+          "expr": "sum(\n  sum by (name, namespace) (\n   d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"} * on (name,namespace,uid)    d8_virtualization_virtualdisk_status_in_use{virtualmachine=~\"$name\"}\n  )\n)\n",
           "instant": true,
-          "legendFormat": "{{mount_point}}",
+          "legendFormat": "__auto",
           "range": false,
           "refId": "A"
         }
@@ -3180,8 +3180,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3313,8 +3312,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4693,8 +4691,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default",
-          "value": "default"
+          "text": "bunch-00",
+          "value": "bunch-00"
         },
         "datasource": {
           "type": "prometheus",
@@ -4721,8 +4719,8 @@
       {
         "current": {
           "selected": false,
-          "text": "alpine-vm",
-          "value": "alpine-vm"
+          "text": "vm-001",
+          "value": "vm-001"
         },
         "datasource": {
           "type": "prometheus",
@@ -4811,6 +4809,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 4,
+  "version": 2,
   "weekStart": ""
 }
