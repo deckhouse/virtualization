@@ -58,7 +58,7 @@ var config = &pkg.HookConfig{
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start inject CRD conversion webhook configuration hook")
 
-	caCert := input.Values.Get("virtualization.internal.rootCA.crt")
+	caCert := input.Values.Get("virtualization.internal.controller.cert.ca")
 	if !caCert.Exists() {
 		input.Logger.Info("CA certificate not found in values, skipping conversion webhook injection")
 		return nil
