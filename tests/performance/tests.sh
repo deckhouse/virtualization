@@ -2475,14 +2475,14 @@ run_scenario() {
   sleep 30
 
   # Step 22: Drain node
-  log_step_start "Step 22: Drain node with parallelMigrationsPerCluster 50"
-  migration_config "640Mi" "800" "50" "1" "150"
+  log_step_start "Step 22: Drain node with parallelOutboundMigrationsPerNode 50"
+  migration_config "640Mi" "800" "50" "50" "150"
   local drain_node_start=$(get_timestamp)
   drain_node
   local drain_stats_end=$(get_timestamp)
   local drain_stats_duration=$((drain_stats_end - drain_node_start))
   log_info "Drain node completed in $(format_duration $drain_stats_duration)"
-  log_step_end "Step 22: Drain node with parallelMigrationsPerCluster 50" "$drain_stats_duration"
+  log_step_end "Step 22: Drain node with parallelOutboundMigrationsPerNode 50" "$drain_stats_duration"
 
   # Skip final cleanup in bootstrap-only mode or when keep-resources is enabled
   if [ "$BOOTSTRAP_ONLY" = "false" ] && [ "$KEEP_RESOURCES" = "false" ]; then
