@@ -42,7 +42,7 @@ type CRDSnapshot struct {
 var _ = registry.RegisterFunc(config, reconcile)
 
 var config = &pkg.HookConfig{
-	OnAfterHelm: &pkg.OrderedConfig{Order: 10},
+	OnBeforeHelm: &pkg.OrderedConfig{Order: 10},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       crdSnapshotName,
