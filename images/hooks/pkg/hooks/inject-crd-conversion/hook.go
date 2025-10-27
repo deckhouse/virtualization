@@ -30,13 +30,11 @@ const (
 	crdName         = "virtualmachineclasses.virtualization.deckhouse.io"
 	crdJQFilter     = `{
 		"name": .metadata.name,
-		"hasConversion": (.spec.conversion // null | . != null)
 	}`
 )
 
 type CRDSnapshot struct {
-	Name          string `json:"name"`
-	HasConversion bool   `json:"hasConversion"`
+	Name string `json:"name"`
 }
 
 var _ = registry.RegisterFunc(config, reconcile)
@@ -73,18 +71,13 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	snapshots := input.Snapshots.Get(crdSnapshotName)
 	if len(snapshots) == 0 {
-		input.Logger.Info("CRD %s not found, skipping conversion webhook injection", crdName)
+		input.Logger.Info("CRD not found, skipping conversion webhook injection")
 		return nil
 	}
 
 	var crdSnap CRDSnapshot
 	if err := snapshots[0].UnmarshalTo(&crdSnap); err != nil {
 		return fmt.Errorf("failed to unmarshal CRD snapshot: %w", err)
-	}
-
-	if crdSnap.HasConversion {
-		input.Logger.Info("CRD %s already has conversion configuration, skipping injection", crdName)
-		return nil
 	}
 
 	conversionConfig := map[string]interface{}{
@@ -105,7 +98,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	patch := []interface{}{
 		map[string]interface{}{
-			"op":    "add",
+			"op":    "replace",
 			"path":  "/spec/conversion",
 			"value": conversionConfig,
 		},
