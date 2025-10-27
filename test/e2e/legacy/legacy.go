@@ -108,7 +108,9 @@ func configure() (err error) {
 		return err
 	}
 
-	if namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.TemplateStorageClass); err != nil {
+	//nolint:staticcheck // It can be used in legacy tests.
+	namePrefix, err = framework.NewFramework("").GetNamePrefix(conf.StorageClass.TemplateStorageClass)
+	if err != nil {
 		return err
 	}
 
