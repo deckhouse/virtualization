@@ -256,7 +256,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
+            STORAGE_CLASS="${STORAGE_CLASS}" \
             DISK_COUNT="2"
 
       - name: Build nested kubeconfig
