@@ -298,7 +298,15 @@ jobs:
           echo "[DEBUG] Platform queue diagnostics..."
           DECKHOUSE_POD=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -l app=deckhouse -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
           if [ -n "$DECKHOUSE_POD" ]; then
-            echo "[DEBUG] Executing queue list in pod: $DECKHOUSE_POD"
+            echo "[DEBUG] Ensuring d8 CLI is installed in deckhouse pod: $DECKHOUSE_POD"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- sh -c '
+              if ! command -v d8 >/dev/null 2>&1; then
+                curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+                bash /tmp/d8-install.sh
+                rm -f /tmp/d8-install.sh
+              fi
+            ' 2>&1 || echo "[DEBUG] d8 CLI installation failed"
+            echo "[DEBUG] Getting platform queue..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- d8 platform queue list --output json 2>&1 || echo "[DEBUG] Failed to get queue"
           else
             echo "[DEBUG] Deckhouse pod not found"
@@ -339,6 +347,13 @@ jobs:
             echo "[DEBUG] Platform queue on error..."
             DECKHOUSE_POD=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -l app=deckhouse -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
             if [ -n "$DECKHOUSE_POD" ]; then
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- sh -c '
+                if ! command -v d8 >/dev/null 2>&1; then
+                  curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+                  bash /tmp/d8-install.sh
+                  rm -f /tmp/d8-install.sh
+                fi
+              ' 2>&1 || true
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- d8 platform queue list --output json 2>&1 || echo "[DEBUG] Failed to get queue"
             fi
             echo ""
