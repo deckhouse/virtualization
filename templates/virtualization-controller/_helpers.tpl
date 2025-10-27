@@ -94,10 +94,8 @@ true
 {{- end }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
-{{- if eq (include "moduleLogLevel" .) "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":8081"
-{{- end }}
 - name: FIRMWARE_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
 - name: CLUSTER_UUID
