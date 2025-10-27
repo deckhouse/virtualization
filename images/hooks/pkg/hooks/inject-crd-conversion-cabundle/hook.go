@@ -23,6 +23,7 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 )
 
 const (
@@ -30,7 +31,7 @@ const (
 	crdName         = "virtualmachineclasses.virtualization.deckhouse.io"
 	crdJQFilter     = `{
 		"name": .metadata.name,
-		"hasCABundle": (.spec.conversion.webhook.clientConfig.caBundle // null | . != null)
+		"hasCABundle": (.spec.conversion.webhook.clientConfig.caBundle | . != null)
 	}`
 )
 
@@ -52,6 +53,8 @@ var config = &pkg.HookConfig{
 				MatchNames: []string{crdName},
 			},
 			JqFilter: crdJQFilter,
+
+			ExecuteHookOnSynchronization: ptr.To(false),
 		},
 	},
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
