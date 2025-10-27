@@ -341,10 +341,7 @@ tasks:
               fi
               # Quick success path: rely on VM status even if VMBDA still InProgress
               if kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
-                   | jq -e --arg vd "$vd" '([.status.blockDeviceRefs[]? \
-                         | select((.virtualMachineBlockDeviceAttachmentName==$vd) or (.name==$vd)) \
-                         | select((.attached==true) and (.hotplugged==true))] \
-                       | length) > 0' >/dev/null; then
+                   | jq -e --arg vd "$vd" '([.status.blockDeviceRefs[]? | select((.virtualMachineBlockDeviceAttachmentName==$vd) or (.name==$vd)) | select((.attached==true) and (.hotplugged==true))] | length) > 0' >/dev/null; then
                 echo "[INFRA] VM reports disk $vd attached/hotplugged; proceeding"
                 success_by_vm=1
                 break
