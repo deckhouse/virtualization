@@ -7,6 +7,14 @@ spec:
   enabled: true
   version: 1
 ---
+apiVersion: deckhouse.io/v1alpha2
+kind: ModulePullOverride
+metadata:
+  name: sds-node-configurator
+spec:
+  imageTag: main
+  scanInterval: 15s
+---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -15,6 +23,14 @@ spec:
   enabled: true
   version: 1
 ---
+apiVersion: deckhouse.io/v1alpha2
+kind: ModulePullOverride
+metadata:
+  name: sds-local-volume
+spec:
+  imageTag: main
+  scanInterval: 15s
+---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -22,3 +38,11 @@ metadata:
 spec:
   enabled: true
   version: 1
+---
+apiVersion: deckhouse.io/v1alpha2
+kind: ModulePullOverride
+metadata:
+  name: sds-replicated-volume
+spec:
+  imageTag: main
+  scanInterval: 15s
