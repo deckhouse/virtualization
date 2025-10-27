@@ -23,7 +23,6 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 )
 
 const (
