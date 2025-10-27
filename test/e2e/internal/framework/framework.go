@@ -68,13 +68,17 @@ func (f *Framework) Before() {
 func (f *Framework) After() {
 	GinkgoHelper()
 
-	By("Cleanup: process deferred deletions")
-	err := f.Delete(context.Background(), f.objectsToDelete...)
-	Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+	defer func() {
+		By("Cleanup: delete namespace")
+		err := f.Delete(context.Background(), f.namespace)
+		Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
+	}()
 
-	By("Cleanup: delete namespace")
-	err = f.Delete(context.Background(), f.namespace)
-	Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
+	defer func() {
+		By("Cleanup: process deferred deletions")
+		err := f.Delete(context.Background(), f.objectsToDelete...)
+		Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+	}()
 }
 
 func (f *Framework) createNamespace(prefix string) (*corev1.Namespace, error) {
@@ -123,7 +127,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 			Name:      obj.GetName(),
 		}
 
-		err := wait.PollUntilContextTimeout(ctx, time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Second, 45*time.Second, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
 			case err == nil:

@@ -115,6 +115,8 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETes
 
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfClient), framework.LongTimeout)
+
+			f.DeferDelete(iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 		})
 
 		By("Wait for the iPerf server to start", func() {
