@@ -1353,6 +1353,18 @@
                 "value": "Disks attached"
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "VirtualMachine"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 428
+              }
+            ]
           }
         ]
       },
@@ -1761,7 +1773,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1800,7 +1813,7 @@
               "editorMode": "code",
               "expr": "sum by (name,namespace) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n    (\n      label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n      label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n      label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n      label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n      label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n      label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n      label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n      label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n      label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n    ))",
               "instant": false,
-              "legendFormat": "{{ namespace }} / {{ name }}",
+              "legendFormat": "{{ name }}",
               "range": true,
               "refId": "A"
             }
@@ -2434,7 +2447,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2618,7 +2632,7 @@
             "h": 12,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 34
           },
           "id": 104,
           "maxPerRow": 6,
@@ -2792,7 +2806,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2838,7 +2853,7 @@
             "h": 12,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 34
           },
           "id": 100,
           "options": {
@@ -2940,7 +2955,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2995,7 +3011,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 35
+            "y": 46
           },
           "id": 44,
           "maxPerRow": 2,
@@ -3105,7 +3121,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3160,7 +3177,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 35
+            "y": 46
           },
           "id": 90,
           "maxPerRow": 2,
@@ -4529,8 +4546,8 @@
       {
         "current": {
           "selected": false,
-          "text": "d8-virt-node-0",
-          "value": "d8-virt-node-0"
+          "text": "virtlab-pt-0",
+          "value": "virtlab-pt-0"
         },
         "datasource": {
           "type": "prometheus",
