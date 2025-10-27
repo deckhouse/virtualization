@@ -53,8 +53,6 @@ var config = &pkg.HookConfig{
 				MatchNames: []string{crdName},
 			},
 			JqFilter: crdJQFilter,
-
-			ExecuteHookOnSynchronization: ptr.To(false),
 		},
 	},
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
