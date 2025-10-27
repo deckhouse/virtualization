@@ -294,20 +294,12 @@ jobs:
             # Continue anyway; subsequent applies have retries.
           fi
 
-          # Queue diagnostics after Deckhouse is available
-          echo "[DEBUG] Platform queue diagnostics..."
-          MASTER_VM=$(kubectl get vm -n "${{ env.RUN_ID }}" -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-          if [ -n "$MASTER_VM" ]; then
-            echo "[DEBUG] Master VM: $MASTER_VM"
-            echo "[DEBUG] Attempting to get queue via d8 v ssh..."
-            if command -v d8 >/dev/null 2>&1; then
-              d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>&1 | head -200 || echo "[DEBUG] d8 v ssh queue command failed"
-            else
-              echo "[DEBUG] d8 command not found"
-            fi
-          else
-            echo "[DEBUG] Master VM not found, skipping queue diagnostics"
-          fi
+          # Debug: Check Deckhouse deployment and related resources
+          echo "[DEBUG] Deckhouse deployment status..."
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get deploy deckhouse -o jsonpath='{.status.conditions[*]}' 2>/dev/null || true
+          echo ""
+          echo "[DEBUG] Recent Deckhouse events..."
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get events --sort-by='.lastTimestamp' --tail=20 2>/dev/null || true
 
           # Ensure webhook service object exists before applying ModuleConfigs
           if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1; then
@@ -337,18 +329,13 @@ jobs:
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -o wide || true
             echo "[Ceph] Deckhouse recent logs (tail 120, filtered):"
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=120 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
-            # Queue diagnostics on failure
-            echo "[DEBUG] Platform queue diagnostics (on error)..."
-            MASTER_VM=$(kubectl get vm -n "${{ env.RUN_ID }}" -l dvp.deckhouse.io/node-group=master -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
-            if [ -n "$MASTER_VM" ]; then
-              echo "[DEBUG] Master VM: $MASTER_VM"
-              if command -v d8 >/dev/null 2>&1; then
-                echo "[DEBUG] Getting queue via d8 v ssh..."
-                d8 v ssh --local-ssh=true "${MASTER_VM}.${{ env.RUN_ID }}" -c 'd8 platform queue list --output json' 2>&1 | head -200 || echo "[DEBUG] d8 v ssh queue command failed"
-              else
-                echo "[DEBUG] d8 command not found"
-              fi
-            fi
+            # Additional diagnostics on failure
+            echo "[DEBUG] ModuleConfig status..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get moduleconfig operator-ceph -o yaml 2>/dev/null || true
+            echo "[DEBUG] ModuleConfig status for CSI-Ceph..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get moduleconfig csi-ceph -o yaml 2>/dev/null || true
+            echo "[DEBUG] Recent ModuleConfig events..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get events -n d8-system --field-selector involvedObject.kind=ModuleConfig --sort-by='.lastTimestamp' --tail=20 2>/dev/null || true
             exit 1
           fi
           echo "[Ceph] Waiting for rook-ceph-operator pod..."
