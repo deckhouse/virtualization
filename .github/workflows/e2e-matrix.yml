@@ -294,9 +294,15 @@ jobs:
             # Continue anyway; subsequent applies have retries.
           fi
 
-          # Debug: Check Deckhouse deployment and related resources
-          echo "[DEBUG] Deckhouse deployment status..."
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get deploy deckhouse -o jsonpath='{.status.conditions[*]}' 2>/dev/null || true
+          # Debug: Platform queue via kubectl exec in deckhouse pod
+          echo "[DEBUG] Platform queue diagnostics..."
+          DECKHOUSE_POD=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -l app=deckhouse -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$DECKHOUSE_POD" ]; then
+            echo "[DEBUG] Executing queue list in pod: $DECKHOUSE_POD"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- d8 platform queue list --output json 2>&1 || echo "[DEBUG] Failed to get queue"
+          else
+            echo "[DEBUG] Deckhouse pod not found"
+          fi
           echo ""
           echo "[DEBUG] Recent Deckhouse events..."
           KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get events --sort-by='.lastTimestamp' --tail=20 2>/dev/null || true
@@ -330,6 +336,12 @@ jobs:
             echo "[Ceph] Deckhouse recent logs (tail 120, filtered):"
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=120 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
             # Additional diagnostics on failure
+            echo "[DEBUG] Platform queue on error..."
+            DECKHOUSE_POD=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -l app=deckhouse -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+            if [ -n "$DECKHOUSE_POD" ]; then
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- d8 platform queue list --output json 2>&1 || echo "[DEBUG] Failed to get queue"
+            fi
+            echo ""
             echo "[DEBUG] ModuleConfig status..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl get moduleconfig operator-ceph -o yaml 2>/dev/null || true
             echo "[DEBUG] ModuleConfig status for CSI-Ceph..."
