@@ -93,7 +93,7 @@ DEPLOYMENT CONTROL:
   --bootstrap-only: Only deploy resources, skip all tests (useful for large deployments)
   --continue: Continue tests after bootstrap (use with --bootstrap-only)
   --keep-resources: Keep resources after tests (don't cleanup at the end)
-  
+
   Workflow examples:
   1. Deploy only: ./tests.sh --bootstrap-only -c 5000
   2. Continue tests: ./tests.sh --continue -c 5000
@@ -256,14 +256,14 @@ format_duration() {
 
 formatted_date() {
   local timestamp="$1"
-  
+
   # Check if timestamp is valid (not empty and is a number)
   if [ -z "$timestamp" ] || ! [[ "$timestamp" =~ ^[0-9]+$ ]]; then
     # Use current time if timestamp is invalid
     date +"%H:%M:%S %d-%m-%Y"
     return
   fi
-  
+
   # Use OS-specific date command
   case "$OS_TYPE" in
     "macOS")
@@ -328,13 +328,13 @@ init_logging() {
 calculate_percentage() {
     local duration="$1"
     local total="$2"
-    
+
     # Check if values are valid numbers and not zero
     if [[ -z "$duration" || -z "$total" || "$duration" -eq 0 || "$total" -eq 0 ]]; then
         echo "0.0"
         return
     fi
-    
+
     # Use bc with error handling
     local result=$(echo "scale=1; $duration * 100 / $total" | bc 2>/dev/null || echo "0.0")
     echo "$result"
@@ -369,9 +369,9 @@ create_summary_report() {
     local migration_parallel_2x_duration="${25:-0}"
     local migration_parallel_4x_duration="${26:-0}"
     local migration_parallel_8x_duration="${27:-0}"
-    
+
     local summary_file="$scenario_dir/summary.txt"
-    
+
     # Calculate percentages safely
     local cleanup_percent=$(calculate_percentage "$cleanup_duration" "$total_duration")
     local deploy_percent=$(calculate_percentage "$deploy_duration" "$total_duration")
@@ -394,7 +394,7 @@ create_summary_report() {
     local migration_parallel_2x_percent=$(calculate_percentage "$migration_parallel_2x_duration" "$total_duration")
     local migration_parallel_4x_percent=$(calculate_percentage "$migration_parallel_4x_duration" "$total_duration")
     local migration_parallel_8x_percent=$(calculate_percentage "$migration_parallel_8x_duration" "$total_duration")
-    
+
     cat > "$summary_file" << EOF
 ================================================================================
                     PERFORMANCE TEST SUMMARY REPORT
@@ -499,10 +499,10 @@ gather_all_statistics() {
   local report_dir=${1:-"$REPORT_DIR/statistics"}
   local namespace=${2:-$NAMESPACE}
   local start_time=$(get_timestamp)
-  
+
   log_info "Gathering all statistics to $report_dir"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local task_start=$(get_timestamp)
   task statistic:get-stat:all NAMESPACE=$namespace OUTPUT_DIR=$(realpath $report_dir)
   local task_end=$(get_timestamp)
@@ -511,7 +511,7 @@ gather_all_statistics() {
   log_duration "Task statistic:get-stat:all" "$task_duration"
 
   mv tools/statistic/*.csv ${report_dir} 2>/dev/null || true
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   log_info "All statistics gathering completed in $(format_duration $duration)"
@@ -522,10 +522,10 @@ gather_vm_statistics() {
   local report_dir=${1:-"$REPORT_DIR/statistics"}
   local namespace=${2:-$NAMESPACE}
   local start_time=$(get_timestamp)
-  
+
   log_info "Gathering VM statistics to $report_dir"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local task_start=$(get_timestamp)
   task statistic:get-stat:vm NAMESPACE=$namespace OUTPUT_DIR=$(realpath $report_dir)
   local task_end=$(get_timestamp)
@@ -534,7 +534,7 @@ gather_vm_statistics() {
   log_duration "Task statistic:get-stat:vm" "$task_duration"
 
   mv tools/statistic/*.csv ${report_dir} 2>/dev/null || true
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   log_info "VM statistics gathering completed in $(format_duration $duration)"
@@ -545,10 +545,10 @@ gather_vd_statistics() {
   local report_dir=${1:-"$REPORT_DIR/statistics"}
   local namespace=${2:-$NAMESPACE}
   local start_time=$(get_timestamp)
-  
+
   log_info "Gathering VD statistics to $report_dir"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local task_start=$(get_timestamp)
   task statistic:get-stat:vd NAMESPACE=$namespace OUTPUT_DIR=$(realpath $report_dir)
   local task_end=$(get_timestamp)
@@ -557,7 +557,7 @@ gather_vd_statistics() {
   log_duration "Task statistic:get-stat:vd" "$task_duration"
 
   mv tools/statistic/*.csv ${report_dir} 2>/dev/null || true
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   log_info "VD statistics gathering completed in $(format_duration $duration)"
@@ -570,10 +570,10 @@ gather_specific_vm_statistics() {
   local namespace=${2:-$NAMESPACE}
   local vm_count=${3:-0}
   local start_time=$(get_timestamp)
-  
+
   log_info "Gathering statistics for specific VMs (count: $vm_count) to $report_dir"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local task_start=$(get_timestamp)
   task statistic:get-stat:vm NAMESPACE=$namespace OUTPUT_DIR=$(realpath $report_dir) VM_COUNT=$vm_count
   local task_end=$(get_timestamp)
@@ -582,7 +582,7 @@ gather_specific_vm_statistics() {
   log_duration "Task statistic:get-stat:vm specific" "$task_duration"
 
   mv tools/statistic/*.csv ${report_dir} 2>/dev/null || true
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   log_info "Specific VM statistics gathering completed in $(format_duration $duration)"
@@ -593,23 +593,23 @@ collect_vpa() {
   local scenario_dir=$1
   local vpa_dir="$scenario_dir/vpa"
   local start_time=$(get_timestamp)
-  
+
   mkdir -p ${vpa_dir}
   log_info "Collecting VPA data to $vpa_dir"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local list_start=$(get_timestamp)
   local VPAS=( $(kubectl -n d8-virtualization get vpa -o name 2>/dev/null || true) )
   local list_end=$(get_timestamp)
   local list_duration=$((list_end - list_start))
   log_info "VPA list retrieval completed in $(format_duration $list_duration)"
   log_duration "VPA list retrieval" "$list_duration"
-  
+
   if [ ${#VPAS[@]} -eq 0 ]; then
     log_warning "No VPA resources found"
     return
   fi
-  
+
   local collect_start=$(get_timestamp)
   for vpa in "${VPAS[@]}"; do
     vpa_name=$(echo $vpa | cut -d "/" -f2)
@@ -624,7 +624,7 @@ collect_vpa() {
   local collect_duration=$((collect_end - collect_start))
   log_info "VPA data collection completed in $(format_duration $collect_duration)"
   log_duration "VPA data collection" "$collect_duration"
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   log_info "VPA collection completed in $(format_duration $duration)"
@@ -677,7 +677,7 @@ wait_vm() {
     else
       VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
     fi
-      
+
     if [ $VMRunning -eq $VMTotal ]; then
       echo "All vms are ready"
       echo "$(formatted_date $(get_timestamp))"
@@ -769,7 +769,7 @@ start_migration_old() {
   local duration=${1:-"0m"}
   local target=${2:-"5"}
   local session="test-perf"
-  
+
   echo "Create tmux session: $session"
   tmux -2 new-session -d -s "${session}"
 
@@ -780,7 +780,7 @@ start_migration_old() {
   tmux select-pane -t 0
   tmux send-keys "k9s -n $NAMESPACE" C-m
   tmux resize-pane -t 1 -x 50%
-  
+
   echo "Start migration in $session, pane 1"
   tmux select-pane -t 1
   tmux send-keys "NS=$NAMESPACE TARGET=${target} DURATION=${duration} task evicter:run:migration" C-m
@@ -844,7 +844,7 @@ wait_migration() {
   local timeout=${1:-"5m"}
   local wait_migration=$( echo "$timeout" | sed 's/m//' )
   local start_time=$(get_timestamp)
-  
+
   log_info "Waiting for migration to complete"
   log_info "Duration: $timeout minutes"
 
@@ -870,13 +870,13 @@ wait_migration() {
 # NEW: Wait for migration completion before proceeding
 wait_migration_completion() {
   local start_time=$(get_timestamp)
-  
+
   log_info "Waiting for migration to complete"
   log_vmop_operation "Waiting for migration to complete"
-  
+
   # Wait for all vmops to complete
   wait_vmops_complete
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   log_info "Migration completion wait finished in $(format_duration $duration)"
@@ -885,7 +885,7 @@ wait_migration_completion() {
 
 remove_vmops() {
   local namespace=${1:-$NAMESPACE}
-  
+
   while true; do
     log_info "Check if all vmops are removed"
     log_vmop_operation "Checking vmops for removal"
@@ -904,7 +904,7 @@ remove_vmops() {
       log_vmop_operation "All vmops are removed"
       break
     fi
-    
+
     for vmop in $vmop_list; do
       kubectl -n $namespace delete vmop $vmop --wait=false || true
       log_vmop_operation "Deleted vmop: $vmop"
@@ -913,7 +913,7 @@ remove_vmops() {
   # Additional wait using kubectl wait
   log_info "Additional wait for deployment to be fully available..."
   kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
-    
+
     log_info "Wait 2 sec"
     sleep 2
   done
@@ -935,7 +935,7 @@ wait_vmops() {
       echo ""
       break
     fi
-    
+
     echo ""
     echo "Waiting for vmops to be ready..."
     echo "VMOP InProgress: $VMOPInProgress"
@@ -1006,17 +1006,17 @@ wait_vmops_complete() {
 
     # Consider vmops complete if they are either Completed or Failed (not InProgress)
     local VMOPFinished=$((VMOPCompleted + VMOPFailed))
-    
+
     if [[ "$VMOPFinished" -eq "$vmop_total" ]] && [[ "$VMOPInProgress" -eq 0 ]]; then
       # Additional check: ensure all VMs are Running
       local VMRunning=$(kubectl -n $NAMESPACE get vm | grep "Running" | wc -l)
       local VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
-      
+
       if [ $VMRunning -eq $VMTotal ]; then
         local end_time=$(get_timestamp)
         local duration=$((end_time - start_time))
         formatted_duration=$(format_duration "$duration")
-        
+
         log_info "VMOPs completed - Duration: $duration seconds"
         log_info "Execution time: $formatted_duration"
         log_info "Completed: $VMOPCompleted, Failed: $VMOPFailed, Total: $vmop_total"
@@ -1030,7 +1030,7 @@ wait_vmops_complete() {
         log_vmop_operation "VMOPs finished but VMs not all Running yet: $VMRunning/$VMTotal"
       fi
     fi
-    
+
     log_info "Waiting for vmops to be ready... Completed: $VMOPCompleted, Failed: $VMOPFailed, InProgress: $VMOPInProgress, Total: $vmop_total"
     log_vmop_operation "Waiting for vmops to be ready... Completed: $VMOPCompleted, Failed: $VMOPFailed, InProgress: $VMOPInProgress, Total: $vmop_total"
     sleep $sleep_time
@@ -1071,9 +1071,9 @@ stop_vm() {
   # Additional wait using kubectl wait
   log_info "Additional wait for deployment to be fully available..."
   kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
-  
+
   local total=${#vms[@]}
-  
+
   # Wait for vms to stop
   while true; do
     stopped_vm=0
@@ -1088,12 +1088,12 @@ stop_vm() {
   # Additional wait using kubectl wait
   # log_info "Additional wait for deployment to be fully available..."
   # kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
-    
+
     if [ $stopped_vm -eq $total ]; then
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       formatted_duration=$(format_duration "$duration")
-      
+
       log_success "All VMs stopped - Duration: $duration seconds"
       log_info "Execution time: $formatted_duration"
       log_vm_operation "All VMs stopped - Duration: $duration seconds"
@@ -1144,10 +1144,10 @@ start_vm() {
   # Store the VMs we started for monitoring
   local started_vms=("${vms[@]}")
   local total=${#started_vms[@]}
-  
+
   while true; do
     local running_vm=0
-    
+
     for vm in "${started_vms[@]}"; do
       local status=$(kubectl -n $NAMESPACE get vm $vm -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
       if [ "$status" == "Running" ]; then
@@ -1163,7 +1163,7 @@ start_vm() {
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       formatted_duration=$(format_duration "$duration")
-      
+
       log_success "All VMs started - Duration: $duration seconds"
       log_info "Execution time: $formatted_duration"
       log_vm_operation "All VMs started - Duration: $duration seconds"
@@ -1202,7 +1202,7 @@ migration_percent_vms() {
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_info "Migration completed - End time: $(formatted_date $end_time)"
   log_success "Migrated $target_count VMs in $formatted_duration"
   log_vm_operation "Migration completed - Migrated $target_count VMs in $formatted_duration"
@@ -1230,7 +1230,7 @@ migration_percent_vms_waitptc_vmops() {
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_info "Migration completed - End time: $(formatted_date $end_time)"
   log_success "Migrated $target_count VMs in $formatted_duration"
   log_vm_operation "Migration completed - Migrated $target_count VMs in $formatted_duration"
@@ -1247,22 +1247,22 @@ undeploy_resources() {
   log_info "Start time: $(formatted_date $start_time)"
 
   task destroy:all \
-    NAMESPACE=$NAMESPACE 
+    NAMESPACE=$NAMESPACE
   # Wait a bit for Helm to process the deletion
   sleep 5
-  
+
   while true; do
     local current_time=$(get_timestamp)
-    
+
     VDTotal=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
     VMTotal=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
     VMITotal=$(kubectl -n $NAMESPACE get vi -o name | wc -l)
-    
+
     if [ $VDTotal -eq 0 ] && [ $VMTotal -eq 0 ] && [ $VMITotal -eq 0 ]; then
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       local formatted_duration=$(format_duration "$duration")
-      
+
       log_info "All VMs and VDs destroyed - End time: $(formatted_date $end_time)"
       log_success "Undeploy completed in $formatted_duration"
       break
@@ -1281,10 +1281,10 @@ deploy_vms_with_disks() {
   local count=$1
   local vi_type=$2
   local start_time=$(get_timestamp)
-  
+
   log_info "Deploying $count VMs with disks from $vi_type"
   log_info "Start time: $(formatted_date $start_time)"
-    
+
   local task_start=$(get_timestamp)
   task apply:all \
       COUNT=$count \
@@ -1308,7 +1308,7 @@ deploy_vms_with_disks() {
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_info "Deployment completed - End time: $(formatted_date $end_time)"
   log_info "Task execution: $(format_duration $task_duration), Wait time: $(format_duration $wait_duration)"
   log_success "Deployed $count VMs with disks in $formatted_duration"
@@ -1320,31 +1320,31 @@ deploy_vms_with_disks_batch() {
   local vi_type=$2
   local batch_size=${3:-$MAX_BATCH_SIZE}
   local start_time=$(get_timestamp)
-  
+
   log_info "Starting batch deployment of $total_count VMs with disks from $vi_type"
   log_info "Batch size: $batch_size resources per batch"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local deployed_count=0
   local batch_number=1
   local total_batches=$(( (total_count + batch_size - 1) / batch_size ))
-  
+
   log_info "Total batches to deploy: $total_batches"
-  
+
   while [ $deployed_count -lt $total_count ]; do
     local remaining_count=$((total_count - deployed_count))
     local current_batch_size=$batch_size
-    
+
     # Adjust batch size for the last batch if needed
     if [ $remaining_count -lt $batch_size ]; then
       current_batch_size=$remaining_count
     fi
-    
+
     log_info "=== Batch $batch_number/$total_batches ==="
     show_deployment_progress "$deployed_count" "$total_count" "$batch_number" "$total_batches" "$start_time"
-    
+
     local batch_start=$(get_timestamp)
-    
+
     # Deploy current batch (COUNT should be cumulative, not absolute)
     local cumulative_count=$((deployed_count + current_batch_size))
     log_info "Deploying batch $batch_number: $current_batch_size new resources (total will be: $cumulative_count)"
@@ -1354,33 +1354,33 @@ deploy_vms_with_disks_batch() {
         STORAGE_CLASS=$(get_default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
         VIRTUALIMAGE_TYPE=$vi_type
-    
+
     # Wait for current batch to be ready
     wait_vm_vd $SLEEP_TIME
-    
+
     local batch_end=$(get_timestamp)
     local batch_duration=$((batch_end - batch_start))
     deployed_count=$((deployed_count + current_batch_size))
-    
+
     log_success "Batch $batch_number completed in $(format_duration $batch_duration)"
     log_info "Total deployed so far: $deployed_count/$total_count"
-    
+
     # Add delay between batches to avoid overwhelming the system
     if [ $batch_number -lt $total_batches ]; then
       log_info "Waiting 30 seconds before next batch..."
       sleep 30
     fi
-    
+
     ((batch_number++))
   done
-  
+
   local end_time=$(get_timestamp)
   local total_duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$total_duration")
-  
+
   log_success "Batch deployment completed: $deployed_count VMs with disks in $formatted_duration"
   log_info "Average time per resource: $(( total_duration / deployed_count )) seconds"
-  
+
   echo "$total_duration"
 }
 
@@ -1392,7 +1392,7 @@ should_use_batch_deployment() {
   if [ $min_batch_size -lt 1 ]; then
     min_batch_size=1
   fi
-  
+
   # Warn if batch size is too small
   if [ $MAX_BATCH_SIZE -lt $min_batch_size ]; then
     log_warning "Batch size ($MAX_BATCH_SIZE) is too small for $count resources"
@@ -1400,7 +1400,7 @@ should_use_batch_deployment() {
     log_warning "Using regular deployment instead of batch deployment"
     return 1  # false
   fi
-  
+
   if [ "$BATCH_DEPLOYMENT_ENABLED" = "true" ] || [ $count -gt $MAX_BATCH_SIZE ]; then
     return 0  # true
   else
@@ -1415,11 +1415,11 @@ show_deployment_progress() {
   local batch_number=$3
   local total_batches=$4
   local start_time=$5
-  
+
   local current_time=$(get_timestamp)
   local elapsed_time=$((current_time - start_time))
   local progress_percent=$(( (current_count * 100) / total_count ))
-  
+
   # Calculate estimated time remaining
   local estimated_total_time=0
   local estimated_remaining_time=0
@@ -1427,7 +1427,7 @@ show_deployment_progress() {
     estimated_total_time=$(( (elapsed_time * total_count) / current_count ))
     estimated_remaining_time=$((estimated_total_time - elapsed_time))
   fi
-  
+
   log_info "Progress: $current_count/$total_count ($progress_percent%)"
   log_info "Batch: $batch_number/$total_batches"
   log_info "Elapsed: $(format_duration $elapsed_time)"
@@ -1440,46 +1440,46 @@ show_deployment_progress() {
 check_cluster_resources() {
   local target_count=$1
   local batch_size=${2:-$MAX_BATCH_SIZE}
-  
+
   log_info "Checking cluster resources for deployment of $target_count resources"
-  
+
   # Check available nodes
   local node_count=$(kubectl get nodes --no-headers | wc -l)
   log_info "Available nodes: $node_count"
-  
+
   # Check available storage
   local storage_class=$(get_default_storage_class)
   log_info "Default storage class: $storage_class"
-  
+
   # Check namespace resources
   local existing_vms=$(kubectl -n $NAMESPACE get vm --no-headers 2>/dev/null | wc -l || echo "0")
   local existing_vds=$(kubectl -n $NAMESPACE get vd --no-headers 2>/dev/null | wc -l || echo "0")
-  
+
   log_info "Existing VMs in namespace: $existing_vms"
   log_info "Existing VDs in namespace: $existing_vds"
-  
+
   # Calculate total resources needed
   local total_resources_needed=$((target_count * 2))  # VMs + VDs
   local total_existing=$((existing_vms + existing_vds))
   local total_after_deployment=$((total_existing + total_resources_needed))
-  
+
   log_info "Total resources after deployment: $total_after_deployment"
-  
+
   # Estimate time for deployment
   local estimated_batches=$(( (target_count + batch_size - 1) / batch_size ))
   local estimated_time_per_batch=300  # 5 minutes per batch (conservative estimate)
   local estimated_total_time=$((estimated_batches * estimated_time_per_batch))
-  
+
   log_info "Estimated batches: $estimated_batches"
   log_info "Estimated total time: $(format_duration $estimated_total_time)"
-  
+
   # Warning for very large deployments
   if [ $target_count -gt 10000 ]; then
     log_warning "Large deployment detected: $target_count resources"
     log_warning "This may take several hours to complete"
     log_warning "Consider running in background or with screen/tmux"
   fi
-  
+
   return 0
 }
 
@@ -1488,11 +1488,11 @@ deploy_vms_with_disks_smart() {
   local count=$1
   local vi_type=$2
   local batch_size=${3:-$MAX_BATCH_SIZE}
-  
+
   log_info "Deployment decision for $count resources:"
   log_info "  - Batch size: $batch_size"
   log_info "  - Batch deployment enabled: $BATCH_DEPLOYMENT_ENABLED"
-  
+
   if should_use_batch_deployment "$count"; then
     log_info "Using batch deployment for $count resources (batch size: $batch_size)"
     deploy_vms_with_disks_batch "$count" "$vi_type" "$batch_size"
@@ -1507,11 +1507,11 @@ deploy_disks_only_smart() {
   local count=$1
   local vi_type=$2
   local batch_size=${3:-$MAX_BATCH_SIZE}
-  
+
   log_info "Disk deployment decision for $count resources:"
   log_info "  - Batch size: $batch_size"
   log_info "  - Batch deployment enabled: $BATCH_DEPLOYMENT_ENABLED"
-  
+
   if should_use_batch_deployment "$count"; then
     log_info "Using batch deployment for $count disks (batch size: $batch_size)"
     deploy_disks_only_batch "$count" "$vi_type" "$batch_size"
@@ -1526,11 +1526,11 @@ deploy_vms_only_smart() {
   local count=$1
   local namespace=${2:-$NAMESPACE}
   local batch_size=${3:-$MAX_BATCH_SIZE}
-  
+
   log_info "VM deployment decision for $count resources:"
   log_info "  - Batch size: $batch_size"
   log_info "  - Batch deployment enabled: $BATCH_DEPLOYMENT_ENABLED"
-  
+
   if should_use_batch_deployment "$count"; then
     log_info "Using batch deployment for $count VMs (batch size: $batch_size)"
     deploy_vms_only_batch "$count" "$namespace" "$batch_size"
@@ -1544,23 +1544,23 @@ deploy_disks_only() {
   local count=$1
   local vi_type=$2
   local start_time=$(get_timestamp)
-  
+
   log_info "Deploying $count disks from $vi_type"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   task apply:disks \
       COUNT=$count \
       NAMESPACE=$NAMESPACE \
       STORAGE_CLASS=$(get_default_storage_class) \
       VIRTUALDISK_TYPE=virtualDisk \
       VIRTUALIMAGE_TYPE=$vi_type
-  
+
   wait_vd $SLEEP_TIME
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_info "Disk deployment completed - End time: $(formatted_date $end_time)"
   log_success "Deployed $count disks in $formatted_duration"
   echo "$duration"
@@ -1572,31 +1572,31 @@ deploy_disks_only_batch() {
   local vi_type=$2
   local batch_size=${3:-$MAX_BATCH_SIZE}
   local start_time=$(get_timestamp)
-  
+
   log_info "Starting batch deployment of $total_count disks from $vi_type"
   log_info "Batch size: $batch_size resources per batch"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local deployed_count=0
   local batch_number=1
   local total_batches=$(( (total_count + batch_size - 1) / batch_size ))
-  
+
   log_info "Total batches to deploy: $total_batches"
-  
+
   while [ $deployed_count -lt $total_count ]; do
     local remaining_count=$((total_count - deployed_count))
     local current_batch_size=$batch_size
-    
+
     # Adjust batch size for the last batch if needed
     if [ $remaining_count -lt $batch_size ]; then
       current_batch_size=$remaining_count
     fi
-    
+
     log_info "=== Batch $batch_number/$total_batches ==="
     show_deployment_progress "$deployed_count" "$total_count" "$batch_number" "$total_batches" "$start_time"
-    
+
     local batch_start=$(get_timestamp)
-    
+
     # Deploy current batch of disks (COUNT should be cumulative, not absolute)
     local cumulative_count=$((deployed_count + current_batch_size))
     log_info "Deploying disk batch $batch_number: $current_batch_size new disks (total will be: $cumulative_count)"
@@ -1606,33 +1606,33 @@ deploy_disks_only_batch() {
         STORAGE_CLASS=$(get_default_storage_class) \
         VIRTUALDISK_TYPE=virtualDisk \
         VIRTUALIMAGE_TYPE=$vi_type
-    
+
     # Wait for current batch to be ready
     wait_vd $SLEEP_TIME
-    
+
     local batch_end=$(get_timestamp)
     local batch_duration=$((batch_end - batch_start))
     deployed_count=$((deployed_count + current_batch_size))
-    
+
     log_success "Batch $batch_number completed in $(format_duration $batch_duration)"
     log_info "Total deployed so far: $deployed_count/$total_count"
-    
+
     # Add delay between batches to avoid overwhelming the system
     if [ $batch_number -lt $total_batches ]; then
       log_info "Waiting 30 seconds before next batch..."
       sleep 30
     fi
-    
+
     ((batch_number++))
   done
-  
+
   local end_time=$(get_timestamp)
   local total_duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$total_duration")
-  
+
   log_success "Batch disk deployment completed: $deployed_count disks in $formatted_duration"
   log_info "Average time per disk: $(( total_duration / deployed_count )) seconds"
-  
+
   echo "$total_duration"
 }
 
@@ -1643,7 +1643,7 @@ deploy_vms_only() {
 
   log_info "Deploying $count VMs (disks already exist)"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local task_start=$(get_timestamp)
   task apply:vms \
       COUNT=$count \
@@ -1652,7 +1652,7 @@ deploy_vms_only() {
   local task_duration=$((task_end - task_start))
   log_info "Task apply:vms completed in $(format_duration $task_duration)"
   log_duration "Task apply:vms" "$task_duration"
-  
+
   local wait_start=$(get_timestamp)
   wait_vm $SLEEP_TIME
   local wait_end=$(get_timestamp)
@@ -1663,7 +1663,7 @@ deploy_vms_only() {
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_info "VM deployment completed - End time: $(formatted_date $end_time)"
   log_info "Task execution: $(format_duration $task_duration), Wait time: $(format_duration $wait_duration)"
   log_success "Deployed $count VMs in $formatted_duration"
@@ -1676,64 +1676,64 @@ deploy_vms_only_batch() {
   local namespace=${2:-$NAMESPACE}
   local batch_size=${3:-$MAX_BATCH_SIZE}
   local start_time=$(get_timestamp)
-  
+
   log_info "Starting batch deployment of $total_count VMs (disks already exist)"
   log_info "Batch size: $batch_size resources per batch"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local deployed_count=0
   local batch_number=1
   local total_batches=$(( (total_count + batch_size - 1) / batch_size ))
-  
+
   log_info "Total batches to deploy: $total_batches"
-  
+
   while [ $deployed_count -lt $total_count ]; do
     local remaining_count=$((total_count - deployed_count))
     local current_batch_size=$batch_size
-    
+
     # Adjust batch size for the last batch if needed
     if [ $remaining_count -lt $batch_size ]; then
       current_batch_size=$remaining_count
     fi
-    
+
     log_info "=== Batch $batch_number/$total_batches ==="
     show_deployment_progress "$deployed_count" "$total_count" "$batch_number" "$total_batches" "$start_time"
-    
+
     local batch_start=$(get_timestamp)
-    
+
     # Deploy current batch of VMs (COUNT should be cumulative, not absolute)
     local cumulative_count=$((deployed_count + current_batch_size))
     log_info "Deploying VM batch $batch_number: $current_batch_size new VMs (total will be: $cumulative_count)"
     task apply:vms \
         COUNT=$cumulative_count \
         NAMESPACE=$NAMESPACE
-    
+
     # Wait for current batch to be ready
     wait_vm $SLEEP_TIME
-    
+
     local batch_end=$(get_timestamp)
     local batch_duration=$((batch_end - batch_start))
     deployed_count=$((deployed_count + current_batch_size))
-    
+
     log_success "Batch $batch_number completed in $(format_duration $batch_duration)"
     log_info "Total deployed so far: $deployed_count/$total_count"
-    
+
     # Add delay between batches to avoid overwhelming the system
     if [ $batch_number -lt $total_batches ]; then
       log_info "Waiting 30 seconds before next batch..."
       sleep 30
     fi
-    
+
     ((batch_number++))
   done
-  
+
   local end_time=$(get_timestamp)
   local total_duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$total_duration")
-  
+
   log_success "Batch VM deployment completed: $deployed_count VMs in $formatted_duration"
   log_info "Average time per VM: $(( total_duration / deployed_count )) seconds"
-  
+
   echo "$total_duration"
 }
 
@@ -1745,19 +1745,19 @@ undeploy_vms_only() {
 
   log_info "Undeploying $count VMs from the end (disks will remain)"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   # Get list of VMs and select the last 'count' ones
   local vms=($(kubectl -n $NAMESPACE get vm -o name | tail -n $count))
-  
+
   if [ ${#vms[@]} -eq 0 ]; then
     log_warning "No VMs found to undeploy"
     echo "0"
     return 0
   fi
-  
+
   log_info "Undeploying ${#vms[@]} VMs: ${vms[*]}"
   log_vm_operation "Undeploying ${#vms[@]} VMs from the end: ${vms[*]}"
-  
+
   local delete_start=$(get_timestamp)
   for vm in "${vms[@]}"; do
     log_info "Deleting VM $vm"
@@ -1774,7 +1774,7 @@ undeploy_vms_only() {
   while true; do
     local remaining_vms=0
     local current_time=$(get_timestamp)
-    
+
     # Check if any VMs still exist
     for vm in "${vms[@]}"; do
       if kubectl -n $NAMESPACE get $vm >/dev/null 2>&1; then
@@ -1782,7 +1782,7 @@ undeploy_vms_only() {
         kubectl -n $NAMESPACE delete $vm --wait=false || true
       fi
     done
-    
+
     for vm in "${vms[@]}"; do
       # Check if VM exists and is not in Terminating state
       local vm_status=$(kubectl -n $NAMESPACE get $vm -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound")
@@ -1791,14 +1791,14 @@ undeploy_vms_only() {
         log_info "VM $vm still exists with status: $vm_status"
       fi
     done
-    
+
     if [ $remaining_vms -eq 0 ]; then
       local wait_end=$(get_timestamp)
       local wait_duration=$((wait_end - wait_start))
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       local formatted_duration=$(format_duration "$duration")
-      
+
       log_info "Wait for VMs undeploy completed in $(format_duration $wait_duration)"
       log_info "All $count VMs undeployed - End time: $(formatted_date $end_time)"
       log_info "Delete commands: $(format_duration $delete_duration), Wait time: $(format_duration $wait_duration)"
@@ -1806,7 +1806,7 @@ undeploy_vms_only() {
       log_vm_operation "Undeployed $count VMs in $formatted_duration"
       break
     fi
-    
+
     log_info "Waiting for VMs to be undeployed... Remaining: $remaining_vms/$count"
     log_vm_operation "Waiting for VMs to be undeployed... Remaining: $remaining_vms/$count"
     sleep $SLEEP_TIME
@@ -1815,7 +1815,7 @@ undeploy_vms_only() {
   # Additional wait using kubectl wait
   log_info "Additional wait for deployment to be fully available..."
   kubectl wait --for=condition=Available=True deployment/virtualization-controller -n d8-virtualization --timeout=300s
-  
+
   # echo "$duration"
 }
 
@@ -1837,21 +1837,21 @@ stop_virtualization_controller() {
   local wait_start=$(get_timestamp)
   while true; do
     local count_pods=$(kubectl -n d8-virtualization get pods | grep virtualization-controller | wc -l)
-    
+
     if [ $count_pods -eq 0 ]; then
       local wait_end=$(get_timestamp)
       local wait_duration=$((wait_end - wait_start))
       local end_time=$(get_timestamp)
       local duration=$((end_time - start_time))
       local formatted_duration=$(format_duration "$duration")
-      
+
       log_info "Wait for controller stop completed in $(format_duration $wait_duration)"
       log_info "Controller stopped - End time: $(formatted_date $end_time)"
       log_info "Scale command: $(format_duration $scale_duration), Wait time: $(format_duration $wait_duration)"
       log_success "Controller stopped in $formatted_duration"
       break
     fi
-    
+
     log_info "Waiting for virtualization-controller to be stopped... Pods: $count_pods"
     sleep 2
   done
@@ -1879,7 +1879,7 @@ start_virtualization_controller() {
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_info "Virtualization-controller started - End time: $(formatted_date $end_time)"
   log_success "Virtualization-controller started in $formatted_duration"
 
@@ -1888,14 +1888,14 @@ start_virtualization_controller() {
 create_vm_while_controller_stopped() {
   local vi_type=$1
   local start_time=$(get_timestamp)
-  
+
   log_info "Creating 1 VM and disk while controller is stopped using task apply:all"
   log_info "Start time: $(formatted_date $start_time)"
   log_vm_operation "Creating 1 VM and disk while controller is stopped using task apply:all"
-  
+
   # Deploy MAIN_COUNT_RESOURCES + 1 VMs using task apply:all
   log_info "Deploying 1 new VM"
-  
+
   local task_start=$(get_timestamp)
   task apply:all \
       COUNT=$((MAIN_COUNT_RESOURCES + 1)) \
@@ -1917,21 +1917,21 @@ wait_for_new_vm_after_controller_start() {
   # Get the name of the last VM and VD
   local last_vm=$(kubectl -n $NAMESPACE get vm --no-headers | tail -n 1 | awk '{print $1}')
   local last_vd=$(kubectl -n $NAMESPACE get vd --no-headers | tail -n 1 | awk '{print $1}')
-  
+
   log_info "Waiting for last VM: $last_vm and last VD: $last_vd"
-  
+
   # Wait for the last VM to be Running
   while true; do
     local vm_status=$(kubectl -n $NAMESPACE get vm $last_vm -o jsonpath="{.status.phase}" 2>/dev/null || echo "NotFound")
     local vd_status=$(kubectl -n $NAMESPACE get vd $last_vd -o jsonpath="{.status.phase}" 2>/dev/null || echo "NotFound")
-    
+
     if [ "$vm_status" == "Running" ] && [ "$vd_status" == "Ready" ]; then
       local wait_end=$(get_timestamp)
       local wait_duration=$((wait_end - wait_start))
       log_info "Last VM and VD are ready in $(format_duration $wait_duration)"
       break
     fi
-    
+
     log_info "Waiting for last VM ($last_vm): $vm_status, last VD ($last_vd): $vd_status"
     sleep 5
   done
@@ -1942,17 +1942,17 @@ drain_node() {
 
   log_info "Start draining node"
   log_info "Start time: $(formatted_date $start_time)"
-  
+
   local task_start=$(get_timestamp)
-  
+
   local KUBECONFIG_MERGE=$(kubectl config view --merge --flatten | base64 -w 0)
   KUBECONFIG_BASE64=$KUBECONFIG_MERGE task shatal:run
-  
+
   local task_end=$(get_timestamp)
   local task_duration=$((task_end - task_start))
   local end_time=$(get_timestamp)
   local formatted_duration=$(format_duration "$task_duration")
-  
+
   log_info "Duration node completed - End time: $(formatted_date $end_time)"
   log_info "Task Duration node execution: $(format_duration $task_duration)"
   log_success "Duration node completed in $formatted_duration"
@@ -1991,7 +1991,7 @@ migration_config() {
   echo "parallelMigrationsPerCluster: $parallelMigrationsPerCluster"
   echo "parallelOutboundMigrationsPerNode: $parallelOutboundMigrationsPerNode"
   echo "progressTimeout: $progressTimeout"
-  
+
   patch_json=$(
   jq -n \
     --arg bpm "$bandwidthPerMigration" \
@@ -2014,7 +2014,7 @@ migration_config() {
     }'
   )
   log_info "Checking restricted access policy"
-  
+
   if kubectl get validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy >/dev/null 2>&1; then
     log_info "Deleting restricted access policy"
     kubectl delete validatingadmissionpolicies.admissionregistration.k8s.io virtualization-restricted-access-policy
@@ -2042,7 +2042,7 @@ MAIN_COUNT_RESOURCES=${MAIN_COUNT_RESOURCES:-2} # vms and vds (reduced for testi
 PERCENT_VMS=10  # 10% of total resources
 MIGRATION_DURATION="1m"
 MIGRATION_PERCENTAGE_10=10  # 10% for migration
-MIGRATION_PERCENTAGE_5=5    # 5% for migration
+MIGRATION_PERCENTAGE_5=10    # 5% for migration
 WAIT_MIGRATION=$( echo "$MIGRATION_DURATION" | sed 's/m//' )
 
 
@@ -2061,19 +2061,19 @@ GLOBAL_WAIT_TIME_STEP=5
 run_scenario() {
   local scenario_name=$1
   local vi_type=$2
-  
+
   log_info "=== Starting scenario: $scenario_name with $vi_type ==="
-  
+
   # Initialize logging and create report directory
   init_logging "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES"
   local scenario_dir=$(create_report_dir "$scenario_name" "$vi_type" "$MAIN_COUNT_RESOURCES")
-  
+
   # Handle bootstrap-only mode
   if [ "$BOOTSTRAP_ONLY" = "true" ]; then
     log_info "=== BOOTSTRAP ONLY MODE ==="
     log_info "Deploying $MAIN_COUNT_RESOURCES resources without running tests"
     log_info "DEBUG: Starting bootstrap-only mode"
-    
+
     # Skip cleanup if continuing after bootstrap or in bootstrap-only mode
     if [ "$CONTINUE_AFTER_BOOTSTRAP" = "false" ] && [ "$BOOTSTRAP_ONLY" = "false" ]; then
       # Step 1: Clean up any existing resources
@@ -2090,12 +2090,12 @@ run_scenario() {
     else
       log_info "Step 1: Skipping cleanup (--continue or --bootstrap-only mode, preserving existing resources)"
     fi
-    
+
     # Step 2: Check cluster resources before deployment
     log_step_start "Step 2: Check cluster resources"
     check_cluster_resources $MAIN_COUNT_RESOURCES
     log_step_end "Step 2: Check cluster resources" "0"
-    
+
     # Step 3: Deploy resources only
     log_step_start "Step 3: Deploy VMs [$MAIN_COUNT_RESOURCES]"
     local deploy_start=$(get_timestamp)
@@ -2104,30 +2104,30 @@ run_scenario() {
     local deploy_duration=$((deploy_end - deploy_start))
     log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
     log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
-    
+
     log_success "Bootstrap completed: $MAIN_COUNT_RESOURCES resources deployed"
     log_info "Use --continue to run tests on deployed resources"
     log_info "Resources are preserved and ready for testing"
     log_info "DEBUG: Exiting run_scenario with return 0 (bootstrap-only mode)"
     return 0
   fi
-  
+
   # Handle continue mode (skip deployment, assume resources already exist)
   if [ "$CONTINUE_AFTER_BOOTSTRAP" = "true" ]; then
     log_info "=== CONTINUE MODE ==="
     log_info "Continuing tests on existing resources (--continue enabled)"
     log_info "Skipping deployment, assuming $MAIN_COUNT_RESOURCES resources already exist"
-    
+
     # Check if resources exist
     local existing_vms=$(kubectl -n $NAMESPACE get vm -o name | wc -l)
     local existing_vds=$(kubectl -n $NAMESPACE get vd -o name | wc -l)
-    
+
     if [ $existing_vms -eq 0 ] && [ $existing_vds -eq 0 ]; then
       log_warning "No existing resources found. Please run bootstrap first:"
       log_warning "./tests.sh --bootstrap-only -c $MAIN_COUNT_RESOURCES"
       exit 1
     fi
-    
+
     log_info "Found existing resources: $existing_vms VMs, $existing_vds VDs"
     log_info "Continuing with tests..."
   else
@@ -2147,15 +2147,15 @@ run_scenario() {
       log_info "Step 1: Skipping cleanup (--bootstrap-only mode, preserving existing resources)"
     fi
   fi
-  
+
   local start_time=$(get_timestamp)
   log_info "== Scenario started at $(formatted_date $start_time) =="
-  
+
   # Step 2: Check cluster resources before deployment
   log_step_start "Step 2: Check cluster resources"
   check_cluster_resources $MAIN_COUNT_RESOURCES
   log_step_end "Step 2: Check cluster resources" "0"
-  
+
   # Step 3: Main test sequence (skip deployment in continue mode)
   if [ "$CONTINUE_AFTER_BOOTSTRAP" = "true" ]; then
     log_info "Step 3: Skipping deployment (--continue mode, resources already exist)"
@@ -2171,7 +2171,7 @@ run_scenario() {
     log_info "VM [$MAIN_COUNT_RESOURCES] deploy completed in $(format_duration $deploy_duration)"
     log_step_end "Step 3: End VM Deployment [$MAIN_COUNT_RESOURCES]" "$deploy_duration"
   fi
-  
+
   # Step 4: Statistics Collection
   log_step_start "Step 4: Start Statistics Collection"
   local stats_start=$(get_timestamp)
@@ -2181,10 +2181,10 @@ run_scenario() {
   local stats_duration=$((stats_end - stats_start))
   log_info "Statistics collection completed in $(format_duration $stats_duration)"
   log_step_end "Step 4: End Statistics Collection" "$stats_duration"
-  
+
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before stopping VMs"
   sleep $GLOBAL_WAIT_TIME_STEP
-  
+
   # Step 5: VM Stop
   log_info "Step 5: Stopping all VMs [$MAIN_COUNT_RESOURCES]"
   log_step_start "Step 5: VM Stop"
@@ -2194,10 +2194,10 @@ run_scenario() {
   local stop_duration=$((stop_end - stop_start))
   log_info "VM stop completed in $(format_duration $stop_duration)"
   log_step_end "Step 5: End Stopping all VMs [$MAIN_COUNT_RESOURCES]" "$stop_duration"
-  
+
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before starting VMs"
   sleep $GLOBAL_WAIT_TIME_STEP
-  
+
   # Step 6: VM Start
   log_info "Step 6: Starting all VMs [$MAIN_COUNT_RESOURCES]"
   log_step_start "Step 6: VM Start [$MAIN_COUNT_RESOURCES]"
@@ -2245,7 +2245,7 @@ run_scenario() {
   local deploy_pct_duration=$((deploy_pct_end - deploy_pct_start))
   log_info "Deploy VMs 10% [$PERCENT_RESOURCES] completed in $(format_duration $deploy_pct_duration)"
   log_step_end "Step 9: Deploy VMs 10% [$PERCENT_RESOURCES]" "$deploy_pct_duration"
-  
+
   # Step 10: Statistics Collection Deploy 10%
   log_step_start "Step 10: Start Statistics Collection Deploy 10% [$PERCENT_RESOURCES]"
   local stats_start=$(get_timestamp)
@@ -2256,7 +2256,7 @@ run_scenario() {
   log_info "Statistics collection completed in $(format_duration $stats_duration)"
   log_step_end "Step 10: End Statistics Collection Deploy 10% [$PERCENT_RESOURCES]" "$stats_duration"
   # ====
-  
+
   # Step 11: VM Undeploy 10% VMs
   log_info "Step 11: Undeploying 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
   log_step_start "Step 11: VM Undeploy 10% VMs [$PERCENT_RESOURCES] (keeping disks)"
@@ -2282,7 +2282,7 @@ run_scenario() {
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before gather VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
   sleep $GLOBAL_WAIT_TIME_STEP
-  
+
   # Step 13: Gather statistics for 10% VMs
   log_step_start "Step 13: VM Statistics: Deploying 10% VMs ([$PERCENT_RESOURCES] VMs)"
   local vm_stats_start=$(get_timestamp)
@@ -2296,28 +2296,28 @@ run_scenario() {
   log_info "Step 14: Testing VM stop/start operations for 10% VMs"
   log_step_start "Step 14: VM Operations"
   local vm_ops_start=$(get_timestamp)
-  
+
   log_step_start "VM Operations: Stopping VMs [$PERCENT_RESOURCES]"
   local vm_ops_stop_start=$(get_timestamp)
   stop_vm $PERCENT_RESOURCES
   local vm_ops_stop_end=$(get_timestamp)
   local vm_ops_stop_duration=$((vm_ops_stop_end - vm_ops_stop_start))
   log_step_end "VM Operations: Stopping VMs [$PERCENT_RESOURCES]" "$vm_ops_stop_duration"
-  
+
   sleep $GLOBAL_WAIT_TIME_STEP
-  
+
   log_step_start "VM Operations: Start VMs [$PERCENT_RESOURCES]"
   local vm_ops_start_vm_start=$(get_timestamp)
   start_vm $PERCENT_RESOURCES
   local vm_ops_start_vm_end=$(get_timestamp)
   local vm_ops_start_vm_duration=$((vm_ops_start_vm_end - vm_ops_start_vm_start))
   log_step_end "VM Operations: Start VMs [$PERCENT_RESOURCES]" "$vm_ops_start_vm_duration"
-  
+
   local vm_ops_end=$(get_timestamp)
   local vm_ops_duration=$((vm_ops_end - vm_ops_start))
   log_info "VM operations test completed in $(format_duration $vm_ops_duration)"
   log_step_end "Step 14: VM Operations: Stop/Start VMs [$PERCENT_RESOURCES]" "$vm_ops_duration"
-  
+
   # Step 15: Stop migration and wait for completion
   log_step_start "Step 15: Stop Migration ${MIGRATION_PERCENTAGE_5}% (${MIGRATION_5_COUNT} VMs)"
   local cleanup_ops_start=$(get_timestamp)
@@ -2331,7 +2331,7 @@ run_scenario() {
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds before Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
   sleep $GLOBAL_WAIT_TIME_STEP
-  
+
   # Step 16: Migration percentage test - Migrate 10% VMs
   log_info "Step 16: Testing migration of ${MIGRATION_10_COUNT} VMs (10%)"
   log_step_start "Step 16: Migration Percentage ${MIGRATION_10_COUNT} VMs (10%)"
@@ -2354,7 +2354,7 @@ run_scenario() {
   #    parallelMigrationsPerCluster=${3:-$amountNodes}
   #    parallelOutboundMigrationsPerNode=${4:-"1"}
   #    progressTimeout=${5:-"150"}
-  
+
   log_info "Step 17: Set deckhouse controller replicas to [0]"
   scale_deckhouse 0
   local amountNodes=$(kubectl get nodes --no-headers -o name | wc -l)
@@ -2423,10 +2423,10 @@ run_scenario() {
   log_info "Step 20: Testing controller restart with 1 VM creation"
   log_step_start "Step 20: Controller Restart"
   local controller_start=$(get_timestamp)
-  
+
   # Stop controller first
   stop_virtualization_controller
-  
+
   # Create 1 VM and disk while controller is stopped
   log_info "Creating 1 VM and disk while controller is stopped [$((MAIN_COUNT_RESOURCES + 1)) VMs total]"
   local vm_creation_start=$(get_timestamp)
@@ -2434,7 +2434,7 @@ run_scenario() {
   local vm_creation_end=$(get_timestamp)
   local vm_creation_duration=$((vm_creation_end - vm_creation_start))
   log_info "VM creation while controller stopped completed in $(format_duration $vm_creation_duration)"
-  
+
   # Start controller and measure time for VM to become ready
   log_info "Starting controller and waiting for VM to become ready"
   local controller_start_time=$(get_timestamp)
@@ -2444,14 +2444,14 @@ run_scenario() {
   local controller_end_time=$(get_timestamp)
   local controller_duration=$((controller_end_time - controller_start))
   local vm_ready_duration=$((controller_end_time - controller_start_time))
-  
+
   log_info "Controller restart test completed in $(format_duration $controller_duration)"
   log_info "VM became ready after controller start in $(format_duration $vm_ready_duration)"
   log_step_end "Step 20: Controller Restart" "$controller_duration"
 
   log_info "Waiting $GLOBAL_WAIT_TIME_STEP seconds"
   sleep $GLOBAL_WAIT_TIME_STEP
-  
+
   # Step 21: Final Statistics
   log_step_start "Step 21: Final Statistics"
   local final_stats_start=$(get_timestamp)
@@ -2461,7 +2461,7 @@ run_scenario() {
   local final_stats_duration=$((final_stats_end - final_stats_start))
   log_info "Final statistics collection completed in $(format_duration $final_stats_duration)"
   log_step_end "Step 21: Final Statistics" "$final_stats_duration"
-  
+
   log_info "Waiting 30 second before drain node"
   sleep 30
 
@@ -2478,7 +2478,7 @@ run_scenario() {
   if [ "$BOOTSTRAP_ONLY" = "false" ] && [ "$KEEP_RESOURCES" = "false" ]; then
     log_info "Waiting 30 second before cleanup"
     sleep 30
-    
+
     # Step 23: Final Cleanup
     log_step_start "Step 23: Final Cleanup"
     local final_cleanup_start=$(get_timestamp)
@@ -2494,14 +2494,14 @@ run_scenario() {
       log_info "Skipping final cleanup (--keep-resources mode, resources preserved)"
     fi
   fi
-  
+
   local end_time=$(get_timestamp)
   local duration=$((end_time - start_time))
   local formatted_duration=$(format_duration "$duration")
-  
+
   log_success "Scenario $scenario_name completed in $formatted_duration"
   log_info "Scenario ended at $(formatted_date $end_time)"
-  
+
   # Create summary report
   create_summary_report "$scenario_name" "$vi_type" "$scenario_dir" \
     "$start_time" "$end_time" "$duration" \
@@ -2512,7 +2512,7 @@ run_scenario() {
     "$cleanup_ops_duration" "$migration_percent_duration" "$controller_duration" \
     "$final_stats_duration" "$drain_stats_duration" "$final_cleanup_duration" \
     "$migration_parallel_2x_duration" "$migration_parallel_4x_duration" "$migration_parallel_8x_duration"
-  
+
   # Summary of all step durations
   log_info "=== Scenario $scenario_name Duration Summary ==="
   log_duration "Step 1: Cleanup" "$cleanup_duration"
@@ -2548,12 +2548,12 @@ run_scenario() {
 prepare_for_tests() {
   log_info "Preparing for tests"
   log_info "Operating System: $OS_TYPE"
-  
+
   # Clean reports if requested
   if [ "${CLEAN_REPORTS:-false}" = "true" ]; then
     clean_all_reports
   fi
-  
+
   # remove_report_dir
   # stop_migration
   # remove_vmops
