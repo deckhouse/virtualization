@@ -155,11 +155,22 @@ tasks:
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       NAMESPACE:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
+      SSH_PUB_KEY_FILE: '{{ printf "%s/%s.pub" .SSH_DIR .SSH_FILE_NAME }}'
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
       - kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
+      - |
+        # Persist SSH keypair in parent cluster namespace for diagnostics tools (nested_diag.sh)
+        # Secret contains private and public parts; will be removed with namespace cleanup
+        kubectl -n {{ .NAMESPACE }} create secret generic e2e-ssh-key \
+          --dry-run=client -o yaml \
+          --from-file=cloud={{ .SSH_PRIV_KEY_FILE }} \
+          --from-file=cloud.pub={{ .SSH_PUB_KEY_FILE }} \
+          | kubectl apply -f -
 
   infra:create-storage-disks:
     desc: Create storage disks for worker VMs before cluster bootstrap (for SDS/Ceph OSD)
