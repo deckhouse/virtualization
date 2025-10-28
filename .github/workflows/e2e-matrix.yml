@@ -115,11 +115,17 @@ jobs:
           version: 'latest'
 
       - name: Install Deckhouse CLI
+        env:
+          D8_VERSION: v0.13.2
         run: |
           set -euo pipefail
-          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-          D8_SKIP_CHECKSUM=1 bash d8-install.sh
-          rm -f d8-install.sh
+          echo "Installing d8 ${D8_VERSION}..."
+          curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
+          tar -xzf d8.tgz linux-amd64/bin/d8
+          mv linux-amd64/bin/d8 /usr/local/bin/d8
+          chmod +x /usr/local/bin/d8
+          rm -rf d8.tgz linux-amd64
+          d8 --version
 
       - name: Install yq
         run: |
