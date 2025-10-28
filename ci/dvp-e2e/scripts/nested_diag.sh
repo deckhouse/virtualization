@@ -252,11 +252,45 @@ deep_nested() {
       elif [ -f /var/lib/bashible/bootstrap/kubeconfig ]; then
         KCFG=/var/lib/bashible/bootstrap/kubeconfig
       fi
-      # If not found, derive kubeconfig from current cluster context via kubectl
+      # If not found, build dedicated kubeconfig (cluster-admin token) avoiding 127.0.0.1:6445 proxy
       if [ -z "$KCFG" ] && command -v /opt/deckhouse/bin/kubectl >/dev/null 2>&1; then
-        TMPKCFG="/tmp/d8-kubeconfig"
-        # Try to render raw kubeconfig from in-cluster kubectl
-        if sudo /opt/deckhouse/bin/kubectl config view --raw > "$TMPKCFG" 2>/dev/null; then
+        CA=$(sudo /opt/deckhouse/bin/kubectl config view --raw -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' 2>/dev/null || true)
+        SERVER=$(sudo /opt/deckhouse/bin/kubectl config view --raw -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)
+        if echo "$SERVER" | grep -q '127.0.0.1:6445'; then
+          SVC=$(sudo /opt/deckhouse/bin/kubectl -n default get svc kubernetes -o jsonpath='{.spec.clusterIP}' 2>/dev/null || true)
+          if [ -n "$SVC" ]; then
+            SERVER="https://$SVC:443"
+          fi
+        fi
+        # Ensure SA and binding
+        sudo /opt/deckhouse/bin/kubectl -n kube-system get sa diag-d8 >/dev/null 2>&1 || sudo /opt/deckhouse/bin/kubectl -n kube-system create sa diag-d8 >/dev/null 2>&1
+        sudo /opt/deckhouse/bin/kubectl get clusterrolebinding diag-d8 >/dev/null 2>&1 || sudo /opt/deckhouse/bin/kubectl create clusterrolebinding diag-d8 --clusterrole=cluster-admin --serviceaccount=kube-system:diag-d8 >/dev/null 2>&1
+        TOKEN=$(sudo /opt/deckhouse/bin/kubectl -n kube-system create token diag-d8 --duration=2h 2>/dev/null || true)
+        if [ -n "$TOKEN" ] && [ -n "$SERVER" ]; then
+          TMPKCFG="/tmp/d8-kubeconfig"
+          {
+            echo "apiVersion: v1"
+            echo "kind: Config"
+            echo "clusters:"
+            echo "- cluster:"
+            if [ -n "$CA" ]; then
+              echo "    certificate-authority-data: $CA"
+            else
+              echo "    insecure-skip-tls-verify: true"
+            fi
+            echo "    server: $SERVER"
+            echo "  name: nested"
+            echo "contexts:"
+            echo "- context:"
+            echo "    cluster: nested"
+            echo "    user: diag-d8"
+            echo "  name: nested"
+            echo "current-context: nested"
+            echo "users:"
+            echo "- name: diag-d8"
+            echo "  user:"
+            echo "    token: $TOKEN"
+          } | sudo tee "$TMPKCFG" >/dev/null
           sudo chmod 600 "$TMPKCFG" || true
           KCFG="$TMPKCFG"
         fi
