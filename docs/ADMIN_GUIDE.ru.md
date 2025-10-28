@@ -61,6 +61,19 @@ spec:
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.size` — размер тома (например, `50G`). Для расширения хранилища увеличьте значение параметра;
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` — класс хранения (например, `sds-replicated-thin-r1`).
 
+
+{{< alert level="warning" >}}
+Перенос образов при изменении значения параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` не поддерживается.
+
+Все образы, хранящиеся в DVCR при смене StorageClass, будут утеряны.
+q
+Для изменения StorageClass DVCR выполните следующие действия:
+- Измените значение параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`
+- Удалите старый PVC для DVCR: `d8 k -n d8-virtualization delete pvc -l app=dvcr`
+- Перезапустите DVCR: `d8 k -n d8-virtualization rollout restart deployment dvcr`
+{{< /alert >}}
+
+
 {{< alert level="warning" >}}
 Хранилище, обслуживающее данный класс хранения (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`), должно быть доступно на узлах, где запускается DVCR (system-узлы, либо worker-узлы, при отсутствии system-узлов).
 {{< /alert >}}

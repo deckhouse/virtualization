@@ -62,6 +62,18 @@ The `.spec.settings.dvcr.storage` block configures a persistent volume for stori
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
 
 {{< alert level="warning" >}}
+Migrating images when changing the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter is not supported.
+
+All images stored in DVCR when changing StorageClass will be lost.
+
+To change the DVCR StorageClass, perform the following steps:
+
+- Change the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter
+- Delete the old PVC for DVCR: `d8 k -n d8-virtualization delete pvc -l app=dvcr`
+- Restart DVCR: `d8 k -n d8-virtualization rollout restart deployment dvcr`
+{{< /alert >}}
+
+{{< alert level="warning" >}}
 The storage serving this storage class (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`) must be accessible on the nodes where DVCR is running (system nodes, or worker nodes if there are no system nodes).
 {{< /alert >}}
 
@@ -82,7 +94,7 @@ spec:
 
 The first and the last subnet address are reserved and not available for use.
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
 
 It is forbidden to delete subnets if addresses from them have already been issued to virtual machines.
@@ -134,18 +146,18 @@ Where:
 
 **Security Event Audit**
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 Not available in CE edition.
-{{{< /alert >}}
+{{< /alert >}}
 
-{{{< alert level="warning">}}
+{{< alert level="warning" >}}
 To set up auditing, the following modules must be enabled:
 
 - `log-shipper`,
 - `runtime-audit-engine`.
-{{{< /alert >}}
+{{< /alert >}}
 
-To enable security event auditing, set the module’s `.spec.settings.audit.enabled` parameter to` true`:
+To enable security event auditing, set the module’s `.spec.settings.audit.enabled` parameter to `true`:
 
 ```yaml
 spec:
@@ -535,7 +547,7 @@ Next, let's take a closer look at the setting blocks.
 
 The `.spec.cpu` block allows you to specify or configure the vCPU for the VM.
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 Settings in the `.spec.cpu` block cannot be changed after the VirtualMachineClass resource is created.
 {{< /alert >}}
 
@@ -710,7 +722,7 @@ Invalid option (overlapping values):
     max: 8
 ```
 
-{{< alert level = "warning" >}}
+{{< alert level="warning" >}}
 Rule: Each new range must start with a value that immediately follows the max of the previous range.
 {{< /alert >}}
 
@@ -723,7 +735,7 @@ Additional requirements can be specified for each range of cores:
 
 2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage).
 
-{{< alert level = "warning" >}}
+{{< alert level="warning" >}}
 Important: For each range of cores, be sure to specify:
 
 - Either memory (or `memoryPerCore`),
