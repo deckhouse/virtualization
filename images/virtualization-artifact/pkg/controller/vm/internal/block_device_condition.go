@@ -21,11 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -57,17 +54,8 @@ func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s st
 	}
 
 	for _, vd := range vds {
-		scName := vd.Status.StorageClassName
-		sc, err := object.FetchObject(ctx, types.NamespacedName{Name: scName}, h.client, &storagev1.StorageClass{})
-		if err != nil {
-			return false, fmt.Errorf("fetch storage class %s: %w", scName, err)
-		}
-
-		if sc != nil && sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
-			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-			if readyCondition.Status != metav1.ConditionTrue {
-				return true, nil
-			}
+		if vd.Status.Phase == v1alpha2.DiskWaitForFirstConsumer {
+			return true, nil
 		}
 	}
 
