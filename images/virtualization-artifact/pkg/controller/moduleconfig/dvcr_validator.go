@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
@@ -90,21 +91,11 @@ func (v dvcrValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.M
 	}
 
 	// Validate size hasn't been reduced
-	oldSize, err := resource.ParseQuantity(oldDvcr.Size)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse old DVCR size %q: %w", oldDvcr.Size, err)
-	}
-
-	newSize, err := resource.ParseQuantity(newDvcr.Size)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse new DVCR size %q: %w", newDvcr.Size, err)
-	}
-
-	if newSize.Cmp(oldSize) < 0 {
+	if newDvcr.Size.Cmp(oldDvcr.Size) == common.CmpLesser {
 		return nil, fmt.Errorf(
 			"reducing DVCR size is forbidden when PVC already exists: old=%s, new=%s",
-			oldDvcr.Size,
-			newDvcr.Size,
+			oldDvcr.Size.String(),
+			newDvcr.Size.String(),
 		)
 	}
 
@@ -126,7 +117,7 @@ func (v dvcrValidator) checkPVCExists(ctx context.Context) (bool, error) {
 type dvcrSettings struct {
 	StorageType      string
 	StorageClassName string
-	Size             string
+	Size             resource.Quantity
 }
 
 func parseDvcrSettings(settings mcapi.SettingsValues) (*dvcrSettings, error) {
@@ -161,9 +152,14 @@ func parseDvcrSettings(settings mcapi.SettingsValues) (*dvcrSettings, error) {
 		}
 
 		// size is required by OpenAPI schema
-		size, ok := pvc[sizeField].(string)
+		sizeStr, ok := pvc[sizeField].(string)
 		if !ok {
 			return nil, fmt.Errorf("failed to parse %s.%s.%s.%s", dvcrField, storageField, persistentVolumeClaimField, sizeField)
+		}
+
+		size, err := resource.ParseQuantity(sizeStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse DVCR size %q: %w", sizeStr, err)
 		}
 		result.Size = size
 	}
