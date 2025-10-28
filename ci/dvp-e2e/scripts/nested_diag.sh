@@ -5,7 +5,7 @@ set -euo pipefail
 # Требует: kubectl, jq. Параметр --deep использует d8 (опционально).
 #
 # Usage:
-#   nested_diag.sh [--prefix PREFIX] [--limit N] [--namespaces ns1,ns2] [--deep]
+#   nested_diag.sh [--prefix PREFIX] [--limit N] [--namespaces ns1,ns2] [--deep] [--ssh-user USER] [--ssh-key PATH]
 # Defaults:
 #   --prefix nightly-nested-e2e-
 #   --limit  2 (игнорируется при --namespaces)
@@ -15,6 +15,8 @@ PREFIX="nightly-nested-e2e-"
 LIMIT=2
 NAMESPACES=""
 DEEP=0
+SSH_USER="ubuntu"
+SSH_KEY=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -22,8 +24,10 @@ while [[ $# -gt 0 ]]; do
     --limit)    LIMIT=${2:-$LIMIT}; shift 2 ;;
     --namespaces|--ns) NAMESPACES=${2:-""}; shift 2 ;;
     --deep)     DEEP=1; shift ;;
+    --ssh-user) SSH_USER=${2:-""}; shift 2 ;;
+    --ssh-key)  SSH_KEY=${2:-""}; shift 2 ;;
     -h|--help)
-      echo "Usage: $0 [--prefix PREFIX] [--limit N] [--namespaces ns1,ns2] [--deep]"
+      echo "Usage: $0 [--prefix PREFIX] [--limit N] [--namespaces ns1,ns2] [--deep] [--ssh-user USER] [--ssh-key PATH]"
       exit 0 ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
@@ -35,6 +39,46 @@ need_bin jq
 
 indent() { sed 's/^/  /'; }
 warn() { echo "[WARN] $*"; }
+
+# Try to obtain SSH private key from Secret e2e-ssh-key in a namespace when --ssh-key not provided
+ensure_ns_ssh_key() {
+  local ns=$1
+  if [[ -n "$SSH_KEY" && -f "$SSH_KEY" ]]; then
+    return 0
+  fi
+  if ! kubectl -n "$ns" get secret e2e-ssh-key >/dev/null 2>&1; then
+    warn "Secret e2e-ssh-key not found in namespace $ns; provide --ssh-key explicitly for --deep"
+    return 1
+  fi
+  local b64
+  b64=$(kubectl -n "$ns" get secret e2e-ssh-key -o jsonpath='{.data.cloud}' 2>/dev/null || true)
+  if [[ -z "$b64" || "$b64" == "null" ]]; then
+    warn "Secret e2e-ssh-key in $ns has no 'cloud' key (private key)"
+    return 1
+  fi
+  local tmpk
+  tmpk=$(mktemp -t nested-ssh.XXXXXX)
+  echo "$b64" | base64 -d > "$tmpk" 2>/dev/null || echo "$b64" | base64 -D > "$tmpk" 2>/dev/null || {
+    rm -f "$tmpk"; warn "Failed to decode private key from Secret e2e-ssh-key in $ns"; return 1;
+  }
+  chmod 600 "$tmpk"
+  SSH_KEY="$tmpk"
+  echo "[INFO] Using SSH key from Secret e2e-ssh-key in $ns: $SSH_KEY"
+}
+
+# Helper to run d8 v ssh with provided credentials and safe SSH opts
+d8_ssh() {
+  local host=$1; shift
+  local args=(v ssh --local-ssh=true)
+  # Pass each -o option separately to avoid ssh parsing errors
+  args+=(--local-ssh-opts "-o StrictHostKeyChecking=no")
+  args+=(--local-ssh-opts "-o UserKnownHostsFile=/dev/null")
+  # Prefer explicit identity usage if key provided
+  args+=(--local-ssh-opts "-o IdentitiesOnly=yes")
+  [[ -n "$SSH_USER" ]] && args+=(--username="$SSH_USER")
+  [[ -n "$SSH_KEY" ]] && args+=(--identity-file="$SSH_KEY")
+  d8 "${args[@]}" "$host" "$@"
+}
 
 list_ns() {
   if [[ -n "$NAMESPACES" ]]; then
@@ -139,44 +183,80 @@ deep_nested() {
     warn "master VM not found in $ns; skip deep"
     return
   fi
+  # Ensure SSH key available (from flag or Secret in this ns)
+  ensure_ns_ssh_key "$ns" || true
   
-  # Check and install d8 CLI on master VM if needed
+  # Check and (optionally) install d8 CLI on the master VM without assuming tar is present
   echo "[DEEP] Ensuring d8 CLI is available on master VM..."
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c '
-    if ! command -v d8 >/dev/null 2>&1; then
-      echo "Installing d8 CLI..."
-      curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-      bash /tmp/d8-install.sh
-      rm -f /tmp/d8-install.sh
-    else
+  d8_ssh "${master}.${ns}" -c '
+    if command -v d8 >/dev/null 2>&1; then
       echo "d8 CLI already installed"
+      exit 0
     fi
-  ' 2>&1 || warn "Failed to install d8 CLI on master VM"
+    echo "Installing d8 CLI..."
+    # Ensure curl
+    if ! command -v curl >/dev/null 2>&1; then
+      if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update -qq && sudo apt-get install -y -qq curl ca-certificates
+      elif command -v apk >/dev/null 2>&1; then
+        sudo apk add --no-cache curl ca-certificates
+      elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y curl ca-certificates
+      elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y curl ca-certificates
+      fi
+    fi
+    # Ensure tar
+    if ! command -v tar >/dev/null 2>&1; then
+      if command -v apt-get >/dev/null 2>&1; then
+        sudo apt-get update -qq && sudo apt-get install -y -qq tar
+      elif command -v apk >/dev/null 2>&1; then
+        sudo apk add --no-cache tar
+      elif command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y tar
+      elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y tar
+      fi
+    fi
+    if ! command -v tar >/dev/null 2>&1; then
+      echo "WARNING: 'tar' is not available, cannot install d8 CLI automatically" >&2
+      exit 0
+    fi
+    curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+    sudo bash /tmp/d8-install.sh
+    rm -f /tmp/d8-install.sh
+  ' 2>&1 || warn "Failed to prepare d8 CLI on master VM"
   
   echo "[DEEP] Platform queue list"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'd8 platform queue list --output json' 2>&1 | grep -v "The authenticity of host" | indent || true
+  d8_ssh "${master}.${ns}" -c '
+    if command -v d8 >/dev/null 2>&1; then
+      d8 platform queue list --output json
+    else
+      echo "d8 CLI not installed on VM; skipping platform queue"
+    fi
+  ' 2>&1 | grep -v "The authenticity of host" | indent || true
   echo "[DEEP] Nested nodes"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get nodes -o wide' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get nodes -o wide' 2>/dev/null | indent || true
   echo "[DEEP] NodeGroups"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get nodegroup -o wide' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get nodegroup -o wide' 2>/dev/null | indent || true
   echo "[DEEP] d8-cloud-provider-dvp pods"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-provider-dvp get pods' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-provider-dvp get pods' 2>/dev/null | indent || true
   echo "[DEEP] d8-cloud-provider-dvp recent logs"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-provider-dvp logs -l app=cloud-provider-dvp --tail=120' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-provider-dvp logs -l app=cloud-provider-dvp --tail=120' 2>/dev/null | indent || true
   echo "[DEEP] d8-cloud-instance-manager pods"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-instance-manager get pods' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-instance-manager get pods' 2>/dev/null | indent || true
   echo "[DEEP] d8-cloud-instance-manager recent events"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-instance-manager get events --sort-by=.lastTimestamp | tail -n 30' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl -n d8-cloud-instance-manager get events --sort-by=.lastTimestamp | tail -n 30' 2>/dev/null | indent || true
   echo "[DEEP] Default SC (mc.global)"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get mc global -o jsonpath="{.spec.settings.defaultClusterStorageClass}{"\n"}"' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get mc global -o jsonpath="{.spec.settings.defaultClusterStorageClass}{"\n"}"' 2>/dev/null | indent || true
   echo "[DEEP] Default SC object"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get sc -o json | jq -r ".items[] | select(.metadata.annotations[\"storageclass.kubernetes.io/is-default-class\"]==\"true\") | .metadata.name"' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get sc -o json | jq -r ".items[] | select(.metadata.annotations[\"storageclass.kubernetes.io/is-default-class\"]==\"true\") | .metadata.name"' 2>/dev/null | indent || true
   echo "[DEEP] Ceph namespace / rook-ceph-operator"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get ns d8-operator-ceph || true; sudo /opt/deckhouse/bin/kubectl -n d8-operator-ceph get pods -o wide 2>/dev/null || true' 2>/dev/null | indent
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get ns d8-operator-ceph || true; sudo /opt/deckhouse/bin/kubectl -n d8-operator-ceph get pods -o wide 2>/dev/null || true' 2>/dev/null | indent
   echo "[DEEP] Ceph SC presence"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get sc | grep -E "ceph-pool-r2-csi-rbd" || true' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get sc | grep -E "ceph-pool-r2-csi-rbd" || true' 2>/dev/null | indent || true
   echo "[DEEP] SDS CRDs (if any)"
-  d8 v ssh --local-ssh=true "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get crd | grep -E "lvmvolumegroups|replicatedstorage(pools|classes)" || true' 2>/dev/null | indent || true
+  d8_ssh "${master}.${ns}" -c 'sudo /opt/deckhouse/bin/kubectl get crd | grep -E "lvmvolumegroups|replicatedstorage(pools|classes)" || true' 2>/dev/null | indent || true
 }
 
 main() {
@@ -207,4 +287,3 @@ main() {
 }
 
 main "$@"
-
