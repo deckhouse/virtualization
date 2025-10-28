@@ -186,51 +186,65 @@ deep_nested() {
   # Ensure SSH key available (from flag or Secret in this ns)
   ensure_ns_ssh_key "$ns" || true
   
-  # Check and (optionally) install d8 CLI on the master VM without assuming tar is present
+  # Ensure d8 CLI (with queue support) on the master VM
   echo "[DEEP] Ensuring d8 CLI is available on master VM..."
   d8_ssh "${master}.${ns}" -c '
-    if command -v d8 >/dev/null 2>&1; then
-      echo "d8 CLI already installed"
-      exit 0
-    fi
-    echo "Installing d8 CLI..."
-    # Ensure curl
-    if ! command -v curl >/dev/null 2>&1; then
-      if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update -qq && sudo apt-get install -y -qq curl ca-certificates
-      elif command -v apk >/dev/null 2>&1; then
-        sudo apk add --no-cache curl ca-certificates
-      elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y curl ca-certificates
-      elif command -v yum >/dev/null 2>&1; then
-        sudo yum install -y curl ca-certificates
+    set -eu
+    REQUIRED_D8_VER="v0.13.2"
+    install_pinned() {
+      echo "Installing d8 CLI ${REQUIRED_D8_VER}..."
+      # Ensure curl
+      if ! command -v curl >/dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1; then
+          sudo apt-get update -qq && sudo apt-get install -y -qq curl ca-certificates
+        elif command -v apk >/dev/null 2>&1; then
+          sudo apk add --no-cache curl ca-certificates
+        elif command -v dnf >/dev/null 2>&1; then
+          sudo dnf install -y -q curl ca-certificates
+        elif command -v yum >/dev/null 2>&1; then
+          sudo yum install -y -q curl ca-certificates
+        fi
+      fi
+      # Ensure tar
+      if ! command -v tar >/dev/null 2>&1; then
+        if command -v apt-get >/dev/null 2>&1; then
+          sudo apt-get update -qq && sudo apt-get install -y -qq tar
+        elif command -v apk >/dev/null 2>&1; then
+          sudo apk add --no-cache tar
+        elif command -v dnf >/dev/null 2>&1; then
+          sudo dnf install -y -q tar
+        elif command -v yum >/dev/null 2>&1; then
+          sudo yum install -y -q tar
+        fi
+      fi
+      if ! command -v tar >/dev/null 2>&1; then
+        echo "WARNING: 'tar' is not available, cannot install d8 CLI automatically" >&2
+        return
+      fi
+      cd /tmp
+      curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${REQUIRED_D8_VER}/d8-${REQUIRED_D8_VER}-linux-amd64.tar.gz"
+      tar -xzf d8.tgz linux-amd64/bin/d8
+      sudo mv linux-amd64/bin/d8 /usr/local/bin/d8
+      sudo chmod +x /usr/local/bin/d8
+      rm -rf d8.tgz linux-amd64
+    }
+    if ! command -v d8 >/dev/null 2>&1; then
+      install_pinned
+    else
+      if ! d8 platform queue --help >/dev/null 2>&1; then
+        echo "Upgrading d8 CLI to ${REQUIRED_D8_VER} for queue support..."
+        install_pinned
+      else
+        echo "d8 CLI already installed and supports queue"
       fi
     fi
-    # Ensure tar
-    if ! command -v tar >/dev/null 2>&1; then
-      if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update -qq && sudo apt-get install -y -qq tar
-      elif command -v apk >/dev/null 2>&1; then
-        sudo apk add --no-cache tar
-      elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y tar
-      elif command -v yum >/dev/null 2>&1; then
-        sudo yum install -y tar
-      fi
-    fi
-    if ! command -v tar >/dev/null 2>&1; then
-      echo "WARNING: 'tar' is not available, cannot install d8 CLI automatically" >&2
-      exit 0
-    fi
-    curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-    sudo bash /tmp/d8-install.sh
-    rm -f /tmp/d8-install.sh
+    d8 --version || true
   ' 2>&1 || warn "Failed to prepare d8 CLI on master VM"
   
   echo "[DEEP] Platform queue list"
   d8_ssh "${master}.${ns}" -c '
     if command -v d8 >/dev/null 2>&1; then
-      d8 platform queue list --output json
+      d8 platform queue list --output json 2>/dev/null || d8 platform queue list
     else
       echo "d8 CLI not installed on VM; skipping platform queue"
     fi
