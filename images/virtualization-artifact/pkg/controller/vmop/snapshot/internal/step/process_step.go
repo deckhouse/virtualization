@@ -88,7 +88,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
@@ -101,14 +101,14 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	for _, status := range statuses {
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}

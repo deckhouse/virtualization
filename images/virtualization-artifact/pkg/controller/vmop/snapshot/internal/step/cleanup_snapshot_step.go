@@ -71,7 +71,7 @@ func (s CleanupSnapshotStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	for _, status := range vmop.Status.Resources {
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 			return nil, nil
 		}
 	}
