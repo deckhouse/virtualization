@@ -661,7 +661,7 @@ tasks:
     desc: Local flow — deploy infra + bootstrap nested (logs saved)
     vars:
       RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
+      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-local-%s" .RUN_ID) }}'
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
       LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "bootstrap.log") }}'
       VALUES_FILE: '{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}'
@@ -684,7 +684,7 @@ tasks:
     desc: Local flow — prepare nested kubeconfig and run E2E (logs saved)
     vars:
       RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
+      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-local-%s" .RUN_ID) }}'
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
       LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "tests.log") }}'
       E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../tests/e2e" }}'
@@ -954,7 +954,7 @@ tasks:
   cleanup:namespaces:safe:
     desc: Safely delete old dvp-e2e-* namespaces that belong to this project
     vars:
-      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "dvp-e2e-local-" }}'
       CONFIRM: '{{ .CONFIRM | default "false" }}'
     env:
       KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
@@ -992,7 +992,7 @@ tasks:
   cleanup:cleanup:namespaces:
     desc: Cleanup test namespaces by prefix
     vars:
-      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
+      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "dvp-e2e-local-" }}'
     cmds:
       - |
         set -euo pipefail

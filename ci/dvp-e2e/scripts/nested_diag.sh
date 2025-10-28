@@ -11,7 +11,8 @@ set -euo pipefail
 #   --limit  2 (игнорируется при --namespaces)
 #   --deep   добавляет проверки внутри nested (Deckhouse/Ceph/SDS)
 
-PREFIX="nightly-nested-e2e-"
+# Default to local namespaces to avoid clashing with CI auto-cleanup
+PREFIX="dvp-e2e-local-"
 LIMIT=2
 NAMESPACES=""
 DEEP=0
