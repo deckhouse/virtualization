@@ -858,7 +858,7 @@ tasks:
   nested:storage:configure:
     desc: Configure storage profile inside nested cluster (Ceph or SDS)
     vars:
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "sds" }}'
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "ceph" }}'
       NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS }}'
       STORAGE_PROFILE_NORMALIZED:
