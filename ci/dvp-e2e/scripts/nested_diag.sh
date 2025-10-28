@@ -244,7 +244,20 @@ deep_nested() {
   echo "[DEEP] Platform queue list"
   d8_ssh "${master}.${ns}" -c '
     if command -v d8 >/dev/null 2>&1; then
-      d8 platform queue list --output json 2>/dev/null || d8 platform queue list
+      KCFG=""
+      if [ -f /etc/kubernetes/admin.conf ]; then
+        KCFG=/etc/kubernetes/admin.conf
+      elif [ -f /var/lib/bashible/bootstrap/control-plane/kubeconfig ]; then
+        KCFG=/var/lib/bashible/bootstrap/control-plane/kubeconfig
+      elif [ -f /var/lib/bashible/bootstrap/kubeconfig ]; then
+        KCFG=/var/lib/bashible/bootstrap/kubeconfig
+      fi
+      if [ -n "$KCFG" ]; then
+        sudo -E env KUBECONFIG="$KCFG" d8 platform queue list --output json 2>/dev/null || \
+        sudo -E env KUBECONFIG="$KCFG" d8 platform queue list
+      else
+        d8 platform queue list --output json 2>/dev/null || d8 platform queue list
+      fi
     else
       echo "d8 CLI not installed on VM; skipping platform queue"
     fi
