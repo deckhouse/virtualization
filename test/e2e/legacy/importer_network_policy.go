@@ -23,12 +23,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("ImporterNetworkPolicy", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImporterNetworkPolicy", Ordered, func() {
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
 	var ns string
 

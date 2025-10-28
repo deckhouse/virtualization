@@ -32,7 +32,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineCancelMigration", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineCancelMigration", Ordered, func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 	var ns string
 

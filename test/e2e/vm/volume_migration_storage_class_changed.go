@@ -37,7 +37,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("StorageClassMigration", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("StorageClassMigration", Ordered, func() {
 	var (
 		f                = framework.NewFramework("volume-migration-storage-class-changed")
 		storageClass     *storagev1.StorageClass

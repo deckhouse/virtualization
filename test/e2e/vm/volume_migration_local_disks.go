@@ -43,7 +43,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("LocalVirtualDiskMigration", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("LocalVirtualDiskMigration", Ordered, func() {
 	var (
 		f            = framework.NewFramework("volume-migration-local-disks")
 		storageClass *storagev1.StorageClass

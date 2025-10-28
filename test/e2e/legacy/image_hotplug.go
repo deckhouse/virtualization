@@ -33,7 +33,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("ImageHotplug", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImageHotplug", Ordered, func() {
 	const (
 		viCount  = 2
 		cviCount = 2

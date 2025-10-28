@@ -23,11 +23,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineVersions", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineVersions", Ordered, func() {
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 	var ns string
 

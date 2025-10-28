@@ -39,7 +39,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualMachineLiveMigrationTCPSession", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 	var (
 		iperfServer *v1alpha2.VirtualMachine
 		iperfClient *v1alpha2.VirtualMachine

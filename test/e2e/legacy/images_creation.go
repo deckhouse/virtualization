@@ -24,12 +24,11 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("VirtualImageCreation", Ordered, framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualImageCreation", Ordered, func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "images-creation"}
 		ns            string

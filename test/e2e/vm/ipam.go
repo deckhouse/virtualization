@@ -36,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 )
 
-var _ = Describe("IPAM", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("IPAM", func() {
 	var (
 		f   = framework.NewFramework("ipam")
 		ctx context.Context
