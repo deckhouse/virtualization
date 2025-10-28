@@ -252,6 +252,15 @@ deep_nested() {
       elif [ -f /var/lib/bashible/bootstrap/kubeconfig ]; then
         KCFG=/var/lib/bashible/bootstrap/kubeconfig
       fi
+      # If not found, derive kubeconfig from current cluster context via kubectl
+      if [ -z "$KCFG" ] && command -v /opt/deckhouse/bin/kubectl >/dev/null 2>&1; then
+        TMPKCFG="/tmp/d8-kubeconfig"
+        # Try to render raw kubeconfig from in-cluster kubectl
+        if sudo /opt/deckhouse/bin/kubectl config view --raw > "$TMPKCFG" 2>/dev/null; then
+          sudo chmod 600 "$TMPKCFG" || true
+          KCFG="$TMPKCFG"
+        fi
+      fi
       if [ -n "$KCFG" ]; then
         sudo -E env KUBECONFIG="$KCFG" d8 platform queue list --output json 2>/dev/null || \
         sudo -E env KUBECONFIG="$KCFG" d8 platform queue list
