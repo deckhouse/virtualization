@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -62,17 +62,17 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	for _, w := range []Watcher{
-		watcher.NewKVVMWatcher(),
-		watcher.NewKVVMIWatcher(),
-		watcher.NewPodWatcher(),
-		watcher.NewVirtualImageWatcher(mgr.GetClient()),
-		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
-		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
-		watcher.NewVMIPWatcher(),
-		watcher.NewVirtualMachineClassWatcher(),
-		watcher.NewVirtualMachineSnapshotWatcher(),
-		watcher.NewVMOPWatcher(),
-		watcher.NewVMMACWatcher(),
+		// watcher.NewKVVMWatcher(),
+		// watcher.NewKVVMIWatcher(),
+		// watcher.NewPodWatcher(),
+		// watcher.NewVirtualImageWatcher(mgr.GetClient()),
+		// watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
+		// watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		// watcher.NewVMIPWatcher(),
+		// watcher.NewVirtualMachineClassWatcher(),
+		// watcher.NewVirtualMachineSnapshotWatcher(),
+		// watcher.NewVMOPWatcher(),
+		// watcher.NewVMMACWatcher(),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
@@ -108,7 +108,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return vm.Update(ctx)
 	})
 
-	return rec.Reconcile(ctx)
+	res, err := rec.Reconcile(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if vm.Changed().Status.Phase != v1alpha2.MachineRunning {
+		res.RequeueAfter = time.Second * 30
+	}
+
+	return res, nil
 }
 
 func (r *Reconciler) factory() *v1alpha2.VirtualMachine {
