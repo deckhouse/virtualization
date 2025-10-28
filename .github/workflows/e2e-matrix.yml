@@ -393,6 +393,10 @@ jobs:
         working-directory: ci/dvp-e2e
         run: |
           echo "💾 Configuring storage classes for profile: ${{ matrix.profile }}"
+          if [ -z "${{ matrix.profile }}" ]; then
+            echo "[ERR] matrix.profile is empty; aborting storage configuration" >&2
+            exit 1
+          fi
           task nested:storage:configure \
             STORAGE_PROFILE="${{ matrix.profile }}" \
             TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \

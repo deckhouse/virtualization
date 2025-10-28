@@ -655,6 +655,53 @@ tasks:
         fi
 
   # ------------------------------------------------------------
+  # Local flow wrappers with logs (DVP-over-DVP)
+  # ------------------------------------------------------------
+  local:bootstrap:
+    desc: Local flow — deploy infra + bootstrap nested (logs saved)
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
+      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-local-%s" .RUN_ID) }}'
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
+      LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "bootstrap.log") }}'
+      VALUES_FILE: '{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}'
+      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "ceph-pool-r2-csi-rbd-immediate" }}'
+      USE_GH_SSH_KEYS: '{{ .USE_GH_SSH_KEYS | default (env "USE_GH_SSH_KEYS") | default "true" }}'
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - |
+        set -euo pipefail
+        echo "[FLOW] Using RUN_ID={{ .RUN_ID }}, namespace={{ .RUN_NAMESPACE }}"
+        {
+          task run:values:prepare RUN_ID='{{ .RUN_ID }}' RUN_NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}'
+          task render-infra VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' USE_GH_SSH_KEYS='{{ .USE_GH_SSH_KEYS }}' SSH_FILE_NAME='id_ed'
+          task infra-deploy VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' SSH_FILE_NAME='id_ed'
+          task render-cluster-config VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' TARGET_STORAGE_CLASS='{{ .TARGET_STORAGE_CLASS }}' SSH_FILE_NAME='id_ed'
+          task dhctl-bootstrap VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' SSH_FILE_NAME='id_ed'
+        } 2>&1 | tee '{{ .LOG_FILE }}'
+
+  local:tests:
+    desc: Local flow — prepare nested kubeconfig and run E2E (logs saved)
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
+      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-local-%s" .RUN_ID) }}'
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
+      LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "tests.log") }}'
+      E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../tests/e2e" }}'
+      NESTED_SC: '{{ .NESTED_SC | default "ceph-pool-r2-csi-rbd-immediate" }}'
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - |
+        set -euo pipefail
+        {
+          task nested:kubeconfig NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}'
+          task nested:storage:ceph NESTED_KUBECONFIG='{{ .TMP_DIR }}/nested-{{ .RUN_NAMESPACE }}/kubeconfig' TARGET_SC='{{ .NESTED_SC }}'
+          task nested:ensure-sc NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}' SC_NAME='{{ .NESTED_SC }}'
+          task nested:ensure-vmclass-default NESTED_KUBECONFIG='{{ .TMP_DIR }}/nested-{{ .RUN_NAMESPACE }}/kubeconfig'
+          task nested:e2e NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}' E2E_DIR='{{ .E2E_DIR }}'
+        } 2>&1 | tee '{{ .LOG_FILE }}'
+
+  # ------------------------------------------------------------
   # Nested cluster helpers (SC + kubeconfig)
   # ------------------------------------------------------------
   nested:kubeconfig:
@@ -812,7 +859,7 @@ tasks:
   nested:storage:configure:
     desc: Configure storage profile inside nested cluster (Ceph or SDS)
     vars:
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "sds" }}'
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "ceph" }}'
       NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
       TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS }}'
       STORAGE_PROFILE_NORMALIZED:
@@ -858,6 +905,51 @@ tasks:
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
           SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
         if: '{{ eq .STORAGE_PROFILE_NORMALIZED "sds" }}'
+
+  nested:storage:ceph:
+    desc: Configure Ceph storage in nested cluster (enable modules, apply CephCluster, set default SC)
+    vars:
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      TARGET_SC: '{{ .TARGET_SC | default "ceph-pool-r2-csi-rbd-immediate" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        export KUBECONFIG='{{ .NESTED_KUBECONFIG }}'
+        echo "[Deckhouse] Waiting for deploy/deckhouse to be Available..."
+        kubectl -n d8-system rollout status deploy/deckhouse --timeout=10m || true
+        echo "[Deckhouse] Waiting for service endpoints deckhouse..."
+        for i in $(seq 1 60); do
+          EPS=$(kubectl -n d8-system get ep deckhouse -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || true)
+          [ -n "$EPS" ] && { echo "Endpoints: $EPS"; break; } || echo "waiting endpoints... $i/60"; sleep 5
+        done
+        echo "[Deckhouse] Grace period for webhooks init..."; sleep 20
+        echo "[Ceph] Applying ModuleConfig/MPO for operator-ceph/csi-ceph/snapshot-controller..."
+        for i in {1..12}; do
+          if kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
+            break; else echo "[Ceph] operator-ceph.yaml apply failed, retry $i/12"; sleep 10; fi
+        done
+        echo "[Ceph] Waiting for rook-ceph-operator..."
+        for i in $(seq 1 60); do
+          if kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
+            kubectl -n d8-operator-ceph rollout status deploy/rook-ceph-operator --timeout=180s && break
+          fi
+          echo "[Ceph] rook-ceph-operator not found yet ($i/60)"; sleep 10
+        done
+        echo "[Ceph] Waiting for CRD cephclusters.ceph.rook.io..."
+        kubectl wait --for=condition=Established --timeout=300s crd/cephclusters.ceph.rook.io || true
+        echo "[Ceph] Applying CephCluster CR..."
+        for i in {1..12}; do
+          if kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
+            break; else echo "[Ceph] ceph.yaml apply failed, retry $i/12"; sleep 10; fi
+        done
+        echo "[Ceph] Waiting for StorageClass '{{ .TARGET_SC }}'..."
+        for i in $(seq 1 60); do
+          kubectl get sc '{{ .TARGET_SC }}' >/dev/null 2>&1 && { echo "SC ready"; break; } || echo "waiting SC '{{ .TARGET_SC }}'... $i/60"; sleep 10
+        done
+        echo "[Ceph] Setting '{{ .TARGET_SC }}' as default StorageClass via mc global..."
+        kubectl patch mc global --type='json' -p='[
+          {"op":"replace","path":"/spec/settings/defaultClusterStorageClass","value":"'{{ .TARGET_SC }}'"}
+        ]'
 
   # ------------------------------------------------------------
   # Run E2E
