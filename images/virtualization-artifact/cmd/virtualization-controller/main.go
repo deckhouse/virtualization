@@ -59,6 +59,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -389,6 +390,16 @@ func main() {
 		os.Exit(1)
 	}
 	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmsopLogger := logger.NewControllerLogger(vmsop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmsop.SetupController(ctx, mgr, vmsopLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	if err = vmsop.SetupGC(mgr, vmsopLogger, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

@@ -37,6 +37,7 @@ function source::settings {
                               "VirtualMachineSnapshot"
                               "VirtualMachineRestore"
                               "VirtualMachineOperation"
+                              "VirtualMachineSnapshotOperation"
                               "VirtualDisk"
                               "VirtualImage"
                               "ClusterVirtualImage")

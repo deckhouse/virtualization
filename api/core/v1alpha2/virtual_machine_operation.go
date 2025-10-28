@@ -16,7 +16,9 @@ limitations under the License.
 
 package v1alpha2
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 const (
 	VirtualMachineOperationKind     = "VirtualMachineOperation"
@@ -112,10 +114,10 @@ type VirtualMachineOperationStatus struct {
 	//  Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Resources contains the list of resources that are affected by the snapshot operation.
-	Resources []VirtualMachineOperationResource `json:"resources,omitempty"`
+	Resources []SnapshotResourceStatus `json:"resources,omitempty"`
 }
 
-// VMOPResourceKind defines the kind of the resource affected by the operation.
+// SnapshotResourceKind defines the kind of the resource affected by the operation.
 // * `VirtualDisk`: VirtualDisk resource.
 // * `VirtualMachine`: VirtualMachine resource.
 // * `VirtualImage`: VirtualImage resource.
@@ -125,25 +127,25 @@ type VirtualMachineOperationStatus struct {
 // * `VirtualMachineClass`: VirtualMachineClass resource.
 // * `VirtualMachineOperation`: VirtualMachineOperation resource.
 // +kubebuilder:validation:Enum={VMOPResourceSecret,VMOPResourceNetwork,VMOPResourceVirtualDisk,VMOPResourceVirtualImage,VMOPResourceVirtualMachine,VMOPResourceClusterNetwork,VMOPResourceClusterVirtualImage,VMOPResourceVirtualMachineIPAddress,VMOPResourceVirtualMachineMacAddress,VMOPResourceVirtualMachineBlockDeviceAttachment}
-type VMOPResourceKind string
+type SnapshotResourceKind string
 
 const (
-	VMOPResourceSecret                              VMOPResourceKind = "Secret"
-	VMOPResourceNetwork                             VMOPResourceKind = "Network"
-	VMOPResourceVirtualDisk                         VMOPResourceKind = "VirtualDisk"
-	VMOPResourceVirtualImage                        VMOPResourceKind = "VirtualImage"
-	VMOPResourceVirtualMachine                      VMOPResourceKind = "VirtualMachine"
-	VMOPResourceClusterNetwork                      VMOPResourceKind = "ClusterNetwork"
-	VMOPResourceClusterVirtualImage                 VMOPResourceKind = "ClusterVirtualImage"
-	VMOPResourceVirtualMachineIPAddress             VMOPResourceKind = "VirtualMachineIPAddress"
-	VMOPResourceVirtualMachineMacAddress            VMOPResourceKind = "VirtualMachineMacAddress"
-	VMOPResourceVirtualMachineBlockDeviceAttachment VMOPResourceKind = "VirtualMachineBlockDeviceAttachment"
+	SnapshotResourceSecret                              SnapshotResourceKind = "Secret"
+	SnapshotResourceNetwork                             SnapshotResourceKind = "Network"
+	SnapshotResourceVirtualDisk                         SnapshotResourceKind = "VirtualDisk"
+	SnapshotResourceVirtualImage                        SnapshotResourceKind = "VirtualImage"
+	SnapshotResourceVirtualMachine                      SnapshotResourceKind = "VirtualMachine"
+	SnapshotResourceClusterNetwork                      SnapshotResourceKind = "ClusterNetwork"
+	SnapshotResourceClusterVirtualImage                 SnapshotResourceKind = "ClusterVirtualImage"
+	SnapshotResourceVirtualMachineIPAddress             SnapshotResourceKind = "VirtualMachineIPAddress"
+	SnapshotResourceVirtualMachineMacAddress            SnapshotResourceKind = "VirtualMachineMacAddress"
+	SnapshotResourceVirtualMachineBlockDeviceAttachment SnapshotResourceKind = "VirtualMachineBlockDeviceAttachment"
 )
 
 const (
-	VMOPResourceStatusInProgress VMOPResourceStatusPhase = "InProgress"
-	VMOPResourceStatusCompleted  VMOPResourceStatusPhase = "Completed"
-	VMOPResourceStatusFailed     VMOPResourceStatusPhase = "Failed"
+	SnapshotResourceStatusInProgress SnapshotResourceStatusPhase = "InProgress"
+	SnapshotResourceStatusCompleted  SnapshotResourceStatusPhase = "Completed"
+	SnapshotResourceStatusFailed     SnapshotResourceStatusPhase = "Failed"
 )
 
 // Current phase of the resource:
@@ -151,10 +153,10 @@ const (
 // * `Completed`: The operation for resource has been completed successfully.
 // * `Failed`: The operation for resource failed. For details, refer to the `Message` field.
 // +kubebuilder:validation:Enum={InProgress,Completed,Failed}
-type VMOPResourceStatusPhase string
+type SnapshotResourceStatusPhase string
 
-// VirtualMachineOperationResource defines the resource affected by the operation.
-type VirtualMachineOperationResource struct {
+// SnapshotResourceStatus defines the resource affected by the operation.
+type SnapshotResourceStatus struct {
 	// API version of the resource.
 	APIVersion string `json:"apiVersion"`
 	// Name of the resource.
@@ -162,7 +164,7 @@ type VirtualMachineOperationResource struct {
 	// Kind of the resource.
 	Kind string `json:"kind"`
 	// Status of the resource.
-	Status VMOPResourceStatusPhase `json:"status"`
+	Status SnapshotResourceStatusPhase `json:"status"`
 	// Message about the resource.
 	Message string `json:"message"`
 }

@@ -26,7 +26,7 @@ import (
 )
 
 type Resource interface {
-	*v1alpha2.VirtualDisk | *v1alpha2.VirtualImage | *v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineMACAddress | *v1alpha2.VirtualMachineOperation
+	*v1alpha2.VirtualDisk | *v1alpha2.VirtualImage | *v1alpha2.VirtualMachineIPAddress | *v1alpha2.VirtualMachineMACAddress | *v1alpha2.VirtualMachineOperation | *v1alpha2.VirtualMachineSnapshotOperation
 }
 
 type StepTaker[R Resource] interface {
