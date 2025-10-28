@@ -301,9 +301,14 @@ jobs:
             echo "[DEBUG] Ensuring d8 CLI is installed in deckhouse pod: $DECKHOUSE_POD"
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- sh -c '
               if ! command -v d8 >/dev/null 2>&1; then
-                curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-                bash /tmp/d8-install.sh
-                rm -f /tmp/d8-install.sh
+                # Install tar for Ubuntu
+                apt-get update -qq && apt-get install -y tar >/dev/null 2>&1
+                # Download and install d8 CLI official way
+                curl -LO https://deckhouse.io/downloads/deckhouse-cli/v0.13.2/d8-v0.13.2-linux-amd64.tar.gz
+                tar -xzf d8-v0.13.2-linux-amd64.tar.gz linux-amd64/bin/d8
+                mv linux-amd64/bin/d8 /usr/local/bin/d8
+                chmod +x /usr/local/bin/d8
+                rm -rf d8-v0.13.2-linux-amd64.tar.gz linux-amd64
               fi
             ' 2>&1 || echo "[DEBUG] d8 CLI installation failed"
             echo "[DEBUG] Getting platform queue..."
@@ -349,9 +354,14 @@ jobs:
             if [ -n "$DECKHOUSE_POD" ]; then
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- sh -c '
                 if ! command -v d8 >/dev/null 2>&1; then
-                  curl -fsSL -o /tmp/d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-                  bash /tmp/d8-install.sh
-                  rm -f /tmp/d8-install.sh
+                  # Install tar for Ubuntu
+                  apt-get update -qq && apt-get install -y tar >/dev/null 2>&1
+                  # Download and install d8 CLI official way
+                  curl -LO https://deckhouse.io/downloads/deckhouse-cli/v0.13.2/d8-v0.13.2-linux-amd64.tar.gz
+                  tar -xzf d8-v0.13.2-linux-amd64.tar.gz linux-amd64/bin/d8
+                  mv linux-amd64/bin/d8 /usr/local/bin/d8
+                  chmod +x /usr/local/bin/d8
+                  rm -rf d8-v0.13.2-linux-amd64.tar.gz linux-amd64
                 fi
               ' 2>&1 || true
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system exec "$DECKHOUSE_POD" -c deckhouse -- d8 platform queue list --output json 2>&1 || echo "[DEBUG] Failed to get queue"
