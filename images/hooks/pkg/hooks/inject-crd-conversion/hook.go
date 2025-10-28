@@ -18,93 +18,51 @@ package inject_crd_conversion_cabundle
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	crdSnapshotName        = "virtualmachineclasses-crd"
-	secretSnapshotName     = "controller-tls-secret"
-	crdName                = "virtualmachineclasses.virtualization.deckhouse.io"
+	crdName                 = "virtualmachineclasses.virtualization.deckhouse.io"
 	controllerTLSSecretName = "virtualization-controller-tls"
-	crdJQFilter            = `{
-		"name": .metadata.name,
-	}`
-	secretJQFilter = `{
-		"ca": .data."ca.crt",
-	}`
 )
-
-type CRDSnapshot struct {
-	Name string `json:"name"`
-}
-
-type SecretSnapshot struct {
-	CA string `json:"ca"`
-}
 
 var _ = registry.RegisterFunc(config, reconcile)
 
 var config = &pkg.HookConfig{
 	OnAfterHelm: &pkg.OrderedConfig{Order: 10},
-	Kubernetes: []pkg.KubernetesConfig{
-		{
-			Name:       crdSnapshotName,
-			APIVersion: "apiextensions.k8s.io/v1",
-			Kind:       "CustomResourceDefinition",
-			NameSelector: &pkg.NameSelector{
-				MatchNames: []string{crdName},
-			},
-			JqFilter: crdJQFilter,
-		},
-		{
-			Name:       secretSnapshotName,
-			APIVersion: "v1",
-			Kind:       "Secret",
-			NameSelector: &pkg.NameSelector{
-				MatchNames: []string{controllerTLSSecretName},
-			},
-			NamespaceSelector: &pkg.NamespaceSelector{
-				NameSelector: &pkg.NameSelector{
-					MatchNames: []string{settings.ModuleNamespace},
-				},
-			},
-			JqFilter: secretJQFilter,
-		},
-	},
-	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
+	Queue:       fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start inject CRD conversion webhook configuration hook")
 
-	secretSnapshots := input.Snapshots.Get(secretSnapshotName)
-	if len(secretSnapshots) == 0 {
-		input.Logger.Info("Controller TLS secret not found, skipping conversion webhook injection")
+	// Get Kubernetes client
+	k8sClient, err := input.DC.GetK8sClient()
+	if err != nil {
+		return fmt.Errorf("get k8s client: %w", err)
+	}
+
+	// Fetch the TLS secret directly
+	secret := &corev1.Secret{}
+	err = k8sClient.Get(ctx, types.NamespacedName{
+		Namespace: settings.ModuleNamespace,
+		Name:      controllerTLSSecretName,
+	}, secret)
+	if err != nil {
+		input.Logger.Info("Controller TLS secret not found, skipping conversion webhook injection", slog.Any("error", err))
 		return nil
 	}
 
-	var secretSnap SecretSnapshot
-	if err := secretSnapshots[0].UnmarshalTo(&secretSnap); err != nil {
-		return fmt.Errorf("failed to unmarshal secret snapshot: %w", err)
-	}
-
-	if secretSnap.CA == "" {
+	caBundle, ok := secret.Data["ca.crt"]
+	if !ok || len(caBundle) == 0 {
 		return fmt.Errorf("CA certificate is empty in controller TLS secret")
-	}
-
-	crdSnapshots := input.Snapshots.Get(crdSnapshotName)
-	if len(crdSnapshots) == 0 {
-		input.Logger.Info("CRD not found, skipping conversion webhook injection")
-		return nil
-	}
-
-	var crdSnap CRDSnapshot
-	if err := crdSnapshots[0].UnmarshalTo(&crdSnap); err != nil {
-		return fmt.Errorf("failed to unmarshal CRD snapshot: %w", err)
 	}
 
 	conversionConfig := map[string]interface{}{
@@ -117,7 +75,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 					"path":      "/convert",
 					"port":      443,
 				},
-				"caBundle": secretSnap.CA,
+				"caBundle": string(caBundle),
 			},
 			"conversionReviewVersions": []string{"v1"},
 		},
@@ -132,7 +90,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	}
 
 	input.PatchCollector.JSONPatch(patch, "apiextensions.k8s.io/v1", "CustomResourceDefinition", "", crdName)
-	input.Logger.Info("Successfully injected conversion webhook configuration into CRD %s", crdName)
+	input.Logger.Info("Successfully injected conversion webhook configuration into CRD", slog.String("crd", crdName))
 
 	return nil
 }
