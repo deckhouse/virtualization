@@ -294,12 +294,29 @@ jobs:
             # Continue anyway; subsequent applies have retries.
           fi
 
+          # Wait for Deckhouse service endpoints before queue diagnostics
+          echo "[Deckhouse] Waiting for 'deckhouse' endpoints..."
+          for i in $(seq 1 60); do
+            EPS=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get ep deckhouse -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || true)
+            if [ -n "$EPS" ]; then
+              echo "[Deckhouse] Endpoints: $EPS"; break
+            fi
+            echo "[Deckhouse] Waiting endpoints... $i/60"; sleep 5
+          done
+
           # Debug: Platform queue via runner-installed d8 using nested kubeconfig
           echo "[DEBUG] Platform queue diagnostics (runner d8)..."
           if command -v d8 >/dev/null 2>&1; then
-            echo "[DEBUG] d8 version: $(d8 version 2>/dev/null || echo unknown)"
-            KUBECONFIG="$NESTED_KUBECONFIG" d8 platform queue list --output json 2>/dev/null \
-              || echo "[DEBUG] Failed to get platform queue via d8"
+            echo "[DEBUG] d8 path: $(command -v d8 || echo 'not found')"
+            d8 --version 2>&1 || d8 version 2>&1 || true
+            ok=0
+            for i in $(seq 1 12); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" d8 platform queue list --output json 2>/dev/null; then
+                ok=1; break
+              fi
+              echo "[DEBUG] queue not ready ($i/12); sleep 5"; sleep 5
+            done
+            [ "$ok" -eq 1 ] || echo "[DEBUG] Failed to get platform queue via d8"
           else
             echo "[DEBUG] d8 not found on runner; skipping platform queue"
           fi
@@ -315,6 +332,16 @@ jobs:
               sleep 5
             done
           fi
+          # Wait for Deckhouse endpoints and give a small grace period for webhook init
+          echo "[Deckhouse] Verifying 'deckhouse' endpoints before ModuleConfig apply..."
+          for i in $(seq 1 60); do
+            EPS=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get ep deckhouse -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || true)
+            if [ -n "$EPS" ]; then
+              echo "[Deckhouse] Endpoints ready: $EPS"; break
+            fi
+            echo "[Deckhouse] Waiting endpoints... $i/60"; sleep 5
+          done
+          echo "[Deckhouse] Extra grace period for webhook init..."; sleep 20
 
           # Always enable and configure Ceph in nested cluster (default SC = Ceph)
           echo "[Ceph] Enabling operator-ceph module..."
@@ -338,8 +365,12 @@ jobs:
             # Additional diagnostics on failure
             echo "[DEBUG] Platform queue on error (runner d8)..."
             if command -v d8 >/dev/null 2>&1; then
-              KUBECONFIG="$NESTED_KUBECONFIG" d8 platform queue list --output json 2>/dev/null \
-                || echo "[DEBUG] Failed to get queue"
+              for i in $(seq 1 6); do
+                if KUBECONFIG="$NESTED_KUBECONFIG" d8 platform queue list --output json 2>/dev/null; then
+                  break
+                fi
+                echo "[DEBUG] queue not ready ($i/6); sleep 5"; sleep 5
+              done
             fi
             echo ""
             echo "[DEBUG] ModuleConfig status..."
