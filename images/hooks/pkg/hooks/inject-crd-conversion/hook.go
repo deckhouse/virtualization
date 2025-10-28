@@ -29,27 +29,41 @@ import (
 )
 
 const (
-	crdName                 = "virtualmachineclasses.virtualization.deckhouse.io"
-	controllerTLSSecretName = "virtualization-controller-tls"
+	crdName                  = "virtualmachineclasses.virtualization.deckhouse.io"
+	controllerTLSSecretName  = "virtualization-controller-tls"
+	controllerDeploymentName = "virtualization-controller"
+	deploymentSnapshotName   = "controller-deployment"
 )
 
 var _ = registry.RegisterFunc(config, reconcile)
 
 var config = &pkg.HookConfig{
-	OnAfterHelm: &pkg.OrderedConfig{Order: 10},
-	Queue:       fmt.Sprintf("modules/%s", settings.ModuleName),
+	Kubernetes: []pkg.KubernetesConfig{
+		{
+			Name:       deploymentSnapshotName,
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+			NameSelector: &pkg.NameSelector{
+				MatchNames: []string{controllerDeploymentName},
+			},
+			NamespaceSelector: &pkg.NamespaceSelector{
+				NameSelector: &pkg.NameSelector{
+					MatchNames: []string{settings.ModuleNamespace},
+				},
+			},
+		},
+	},
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start inject CRD conversion webhook configuration hook")
 
-	// Get Kubernetes client
 	k8sClient, err := input.DC.GetK8sClient()
 	if err != nil {
 		return fmt.Errorf("get k8s client: %w", err)
 	}
 
-	// Fetch the TLS secret directly
 	secret := &corev1.Secret{}
 	err = k8sClient.Get(ctx, types.NamespacedName{
 		Namespace: settings.ModuleNamespace,
