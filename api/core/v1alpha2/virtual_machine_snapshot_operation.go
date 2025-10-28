@@ -112,7 +112,7 @@ type VirtualMachineSnapshotOperationStatus struct {
 	//  Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Resources contains the list of resources that are affected by the snapshot operation.
-	Resources []VirtualMachineSnapshotOperationResource `json:"resources,omitempty"`
+	Resources []SnapshotResourceStatus `json:"resources,omitempty"`
 }
 
 // VMSOPResourceKind defines the kind of the resource affected by the operation.
@@ -140,33 +140,6 @@ const (
 	VMSOPResourceVirtualMachineBlockDeviceAttachment VMSOPResourceKind = "VirtualMachineBlockDeviceAttachment"
 )
 
-const (
-	VMSOPResourceStatusInProgress VMSOPResourceStatusPhase = "InProgress"
-	VMSOPResourceStatusCompleted  VMSOPResourceStatusPhase = "Completed"
-	VMSOPResourceStatusFailed     VMSOPResourceStatusPhase = "Failed"
-)
-
-// Current phase of the resource:
-// * `InProgress`: The operation for resource is in progress.
-// * `Completed`: The operation for resource has been completed successfully.
-// * `Failed`: The operation for resource failed. For details, refer to the `Message` field.
-// +kubebuilder:validation:Enum={InProgress,Completed,Failed}
-type VMSOPResourceStatusPhase string
-
-// VirtualMachineSnapshotOperationResource defines the resource affected by the operation.
-type VirtualMachineSnapshotOperationResource struct {
-	// API version of the resource.
-	APIVersion string `json:"apiVersion"`
-	// Name of the resource.
-	Name string `json:"name"`
-	// Kind of the resource.
-	Kind string `json:"kind"`
-	// Status of the resource.
-	Status VMSOPResourceStatusPhase `json:"status"`
-	// Message about the resource.
-	Message string `json:"message"`
-}
-
 // VirtualMachineSnapshotOperationList contains a list of VirtualMachineSnapshotOperation resources.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineSnapshotOperationList struct {
@@ -193,22 +166,10 @@ const (
 )
 
 // Type of the operation to execute on a virtual machine:
-// * `Start`: Start the virtual machine.
-// * `Stop`: Stop the virtual machine.
-// * `Restart`: Restart the virtual machine.
-// * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
-// * `Evict`: Migrate the virtual machine to another node where it can be started.
-// * `Restore`: Restore the virtual machine from a snapshot.
 // * `Clone`: Clone the virtual machine to a new virtual machine.
-// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict,Restore,Clone}
+// +kubebuilder:validation:Enum={Clone}
 type VMSOPType string
 
 const (
-	VMSOPTypeRestart VMSOPType = "Restart"
-	VMSOPTypeStart   VMSOPType = "Start"
-	VMSOPTypeStop    VMSOPType = "Stop"
-	VMSOPTypeMigrate VMSOPType = "Migrate"
-	VMSOPTypeEvict   VMSOPType = "Evict"
-	VMSOPTypeRestore VMSOPType = "Restore"
-	VMSOPTypeClone   VMSOPType = "Clone"
+	VMSOPTypeClone VMSOPType = "Clone"
 )

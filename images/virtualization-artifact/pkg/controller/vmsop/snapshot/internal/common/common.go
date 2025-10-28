@@ -49,16 +49,10 @@ func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2
 		Message(service.CapitalizeFirstLetter(msg) + ".")
 }
 
-func FillResourcesStatuses(vmop *v1alpha2.VirtualMachineSnapshotOperation, statuses []v1alpha2.VirtualMachineSnapshotOperationResource) {
-	vmop.Status.Resources = nil
+func FillResourcesStatuses(vmsop *v1alpha2.VirtualMachineSnapshotOperation, statuses []v1alpha2.SnapshotResourceStatus) {
+	vmsop.Status.Resources = nil
 
 	for _, status := range statuses {
-		vmop.Status.Resources = append(vmop.Status.Resources, v1alpha2.VirtualMachineSnapshotOperationResource{
-			APIVersion: status.APIVersion,
-			Kind:       status.Kind,
-			Name:       status.Name,
-			Message:    status.Message,
-			Status:     status.Status,
-		})
+		vmsop.Status.Resources = append(vmsop.Status.Resources, status)
 	}
 }

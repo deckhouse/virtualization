@@ -49,21 +49,9 @@ func NewVMSnapshotReadyStep(
 }
 
 func (s VMSnapshotReadyStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineSnapshotOperation) (*reconcile.Result, error) {
-	var vmopName string
-	if vmop.Spec.Type == v1alpha2.VMSOPTypeRestore {
-		if vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
-			err := fmt.Errorf("the virtual machine snapshot name is empty")
-			common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
-			return &reconcile.Result{}, err
-		}
-
-		vmopName = vmop.Spec.Restore.VirtualMachineSnapshotName
-	} else {
-		snapshotName, exist := vmop.Annotations[annotations.AnnVMOPSnapshotName]
-		if !exist {
-			return &reconcile.Result{}, nil
-		}
-		vmopName = snapshotName
+	vmopName, exist := vmop.Annotations[annotations.AnnVMOPSnapshotName]
+	if !exist {
+		return &reconcile.Result{}, nil
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmopName}

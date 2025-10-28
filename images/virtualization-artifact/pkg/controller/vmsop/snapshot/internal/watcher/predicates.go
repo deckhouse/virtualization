@@ -27,5 +27,5 @@ func NewSnapshotPredicate() predicate.TypedPredicate[*v1alpha2.VirtualMachineSna
 }
 
 func Match(vmop *v1alpha2.VirtualMachineSnapshotOperation) bool {
-	return vmop.Spec.Type == v1alpha2.VMSOPTypeRestore || vmop.Spec.Type == v1alpha2.VMSOPTypeClone
+	return vmop.Spec.Type == v1alpha2.VMSOPTypeClone
 }

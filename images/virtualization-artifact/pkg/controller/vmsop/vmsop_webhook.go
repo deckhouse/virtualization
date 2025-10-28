@@ -48,10 +48,6 @@ func NewLocalVirtualDiskValidator(client client.Client) *LocalVirtualDiskValidat
 }
 
 func (v *LocalVirtualDiskValidator) ValidateCreate(ctx context.Context, vmop *v1alpha2.VirtualMachineSnapshotOperation) (admission.Warnings, error) {
-	if vmop.Spec.Type != v1alpha2.VMSOPTypeEvict && vmop.Spec.Type != v1alpha2.VMSOPTypeMigrate {
-		return nil, nil
-	}
-
 	vm, err := object.FetchObject(ctx, types.NamespacedName{
 		Namespace: vmop.Namespace,
 		Name:      vmop.Spec.VirtualMachine,
@@ -150,10 +146,5 @@ func (v *LocalVirtualDiskValidator) isRWOPersistentVolumeClaim(ctx context.Conte
 type deprecateMigrateValidator struct{}
 
 func (v *deprecateMigrateValidator) ValidateCreate(_ context.Context, vmop *v1alpha2.VirtualMachineSnapshotOperation) (admission.Warnings, error) {
-	// TODO: Delete me after v0.15
-	if vmop.Spec.Type == v1alpha2.VMSOPTypeMigrate {
-		return admission.Warnings{"The Migrate type is deprecated, consider using Evict operation"}, nil
-	}
-
 	return admission.Warnings{}, nil
 }

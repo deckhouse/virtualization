@@ -71,6 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyCores":                                 schema_virtualization_api_core_v1alpha2_SizingPolicyCores(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemory":                                schema_virtualization_api_core_v1alpha2_SizingPolicyMemory(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemoryPerCore":                         schema_virtualization_api_core_v1alpha2_SizingPolicyMemoryPerCore(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.SnapshotResourceStatus":                            schema_virtualization_api_core_v1alpha2_SnapshotResourceStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed":                                       schema_virtualization_api_core_v1alpha2_StatusSpeed(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SysprepRef":                                        schema_virtualization_api_core_v1alpha2_SysprepRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Topology":                                          schema_virtualization_api_core_v1alpha2_Topology(ref),
@@ -140,7 +141,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneCustomization":         schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneCustomization(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationCloneSpec":                  schema_virtualization_api_core_v1alpha2_VirtualMachineOperationCloneSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":                       schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationResource":                   schema_virtualization_api_core_v1alpha2_VirtualMachineOperationResource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationSpec":                       schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":                     schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
@@ -156,7 +156,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationCloneCustomization": schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationCloneCustomization(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationCloneSpec":          schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationCloneSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationList":               schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationResource":           schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationResource(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationRestoreSpec":        schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationRestoreSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationStatus(ref),
@@ -2121,6 +2120,60 @@ func schema_virtualization_api_core_v1alpha2_SizingPolicyMemoryPerCore(ref commo
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_SnapshotResourceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SnapshotResourceStatus defines the resource affected by the operation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "API version of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message about the resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"apiVersion", "name", "kind", "status", "message"},
+			},
+		},
 	}
 }
 
@@ -5029,60 +5082,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref com
 	}
 }
 
-func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineOperationResource defines the resource affected by the operation.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "API version of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Status of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Message about the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"apiVersion", "name", "kind", "status", "message"},
-			},
-		},
-	}
-}
-
 func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5203,7 +5202,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref c
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationResource"),
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.SnapshotResourceStatus"),
 									},
 								},
 							},
@@ -5214,7 +5213,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationResource", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.SnapshotResourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
@@ -5722,60 +5721,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationList
 	}
 }
 
-func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationResource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineSnapshotOperationResource defines the resource affected by the operation.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "API version of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Status of the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"message": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Message about the resource.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"apiVersion", "name", "kind", "status", "message"},
-			},
-		},
-	}
-}
-
 func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5896,7 +5841,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationStat
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationResource"),
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.SnapshotResourceStatus"),
 									},
 								},
 							},
@@ -5907,7 +5852,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationStat
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationResource", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.SnapshotResourceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
