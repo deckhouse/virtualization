@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,7 +58,6 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		v1alpha2.AddToScheme,
 		virtv1.AddToScheme,
 		corev1.AddToScheme,
-		storagev1.AddToScheme,
 	} {
 		err := f(scheme)
 		Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
@@ -205,8 +203,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 				Namespace: namespacedName.Namespace,
 			},
 			Status: v1alpha2.VirtualDiskStatus{
-				Phase:            v1alpha2.DiskWaitForFirstConsumer,
-				StorageClassName: "wffc-storage",
+				Phase: v1alpha2.DiskWaitForFirstConsumer,
 				Target: v1alpha2.DiskTarget{
 					PersistentVolumeClaim: "testPvc",
 				},
@@ -225,19 +222,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		}
 	}
 
-	getWFFCStorageClass := func() *storagev1.StorageClass {
-		bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
-		return &storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "wffc-storage",
-			},
-			VolumeBindingMode: &bindingMode,
-		}
-	}
-
 	DescribeTable("One wffc disk", func(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine, status metav1.ConditionStatus, msg string) {
-		sc := getWFFCStorageClass()
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd, sc).Build()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
