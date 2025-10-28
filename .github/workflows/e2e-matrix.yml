@@ -230,12 +230,12 @@ jobs:
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e
         run: |
-          task render-infra \
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=cloud task render-infra \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="cloud"
-          task infra-deploy \
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=cloud task infra-deploy \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
@@ -349,81 +349,33 @@ jobs:
           done
           echo "[Deckhouse] Extra grace period for webhook init..."; sleep 20
 
-          # Always enable and configure Ceph in nested cluster (default SC = Ceph)
-          echo "[Ceph] Enabling operator-ceph module..."
-          for i in {1..12}; do
-            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
-              break; else echo "[Ceph] operator-ceph apply failed, retry $i/10"; sleep 10; fi
-          done
-          echo "[Ceph] Waiting for operator-ceph namespace..."
-          for i in $(seq 1 90); do
-            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
-              echo "[Ceph] Namespace d8-operator-ceph is ready"; break
-            fi
-            echo "[Ceph] Waiting for namespace... $i/90"; sleep 10
-          done
-          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl get ns d8-operator-ceph >/dev/null 2>&1; then
-            echo "[Ceph] ERROR: namespace d8-operator-ceph not created in time" >&2
-            echo "[Ceph] Deckhouse pods (d8-system):"
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -o wide || true
-            echo "[Ceph] Deckhouse recent logs (tail 120, filtered):"
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=120 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
-            # Additional diagnostics on failure
-            echo "[DEBUG] Platform queue on error (runner d8)..."
-            if command -v d8 >/dev/null 2>&1; then
-              for i in $(seq 1 6); do
-                if KUBECONFIG="$NESTED_KUBECONFIG" d8 platform queue list --output json 2>/dev/null; then
-                  break
-                fi
-                echo "[DEBUG] queue not ready ($i/6); sleep 5"; sleep 5
-              done
-            fi
-            echo ""
-            echo "[DEBUG] ModuleConfig status..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get moduleconfig operator-ceph -o yaml 2>/dev/null || true
-            echo "[DEBUG] ModuleConfig status for CSI-Ceph..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get moduleconfig csi-ceph -o yaml 2>/dev/null || true
-            echo "[DEBUG] Recent ModuleConfig events..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl get events -n d8-system --field-selector involvedObject.kind=ModuleConfig --sort-by='.lastTimestamp' --tail=20 2>/dev/null || true
-            exit 1
-          fi
-          echo "[Ceph] Waiting for rook-ceph-operator pod..."
-          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app=rook-ceph-operator --timeout=300s 2>/dev/null; then
-            echo "[Ceph] Trying alternative selector app.kubernetes.io/name=rook-ceph-operator..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph wait --for=condition=ready pod -l app.kubernetes.io/name=rook-ceph-operator --timeout=600s
-          fi
-          echo "[Ceph] Waiting for CephCluster CRD..."
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for condition=established --timeout=300s crd/cephclusters.ceph.rook.io
-          echo "[Ceph] Applying CephCluster..."
-          for i in {1..12}; do
-            if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
-              break; else echo "[Ceph] CephCluster apply failed, retry $i/10"; sleep 10; fi
-          done
-
-          # If SDS profile requested, enable SDS modules and resources too (but keep Ceph as default SC)
-          if [ "$PROFILE" = "sds" ]; then
-            echo "[SDS] Enabling SDS modules..."
-            for i in {1..10}; do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds-modules.yaml; then
-                break; else echo "[SDS] modules apply failed, retry $i/10"; sleep 10; fi
+          # If Ceph profile requested, enable Ceph modules and apply CephCluster
+          if [ "$PROFILE" = "cephrbd" ]; then
+            echo "[Ceph] Enabling operator-ceph and CSI-Ceph via ModuleConfig..."
+            for i in {1..12}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
+                break; else echo "[Ceph] operator-ceph apply failed, retry $i/12"; sleep 10; fi
             done
-
-            echo "[SDS] Waiting for SDS CRDs..."
-            for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
-              echo "[SDS] Waiting for CRD '$crd'..."
-              for i in $(seq 1 60); do
-                if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get crd "$crd" >/dev/null 2>&1; then
-                  break
-                fi
-                echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
-              done
-              KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
+            echo "[Ceph] Waiting for rook-ceph-operator deployment..."
+            for i in $(seq 1 60); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
+                KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph rollout status deploy/rook-ceph-operator --timeout=180s && break
+              fi
+              echo "[Ceph] Waiting for rook-ceph-operator (attempt $i/60)"; sleep 10
             done
-
-            echo "[SDS] Applying SDS resources..."
-            for i in {1..10}; do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/sds.yaml; then
-                break; else echo "[SDS] apply failed, retry $i/10"; sleep 10; fi
+            echo "[Ceph] Waiting for CephCluster CRD..."
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd/cephclusters.ceph.rook.io || true
+            echo "[Ceph] Applying CephCluster CR (with deviceFilter)"
+            for i in {1..12}; do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
+                break; else echo "[Ceph] ceph.yaml apply failed, retry $i/12"; sleep 10; fi
+            done
+            echo "[Ceph] Waiting for SC ceph-pool-r2-csi-rbd-immediate..."
+            for i in $(seq 1 60); do
+              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc ceph-pool-r2-csi-rbd-immediate >/dev/null 2>&1; then
+                echo "[Ceph] SC ceph-pool-r2-csi-rbd-immediate is available"; break
+              fi
+              echo "[Ceph] SC not found yet, retry $i/60"; sleep 10
             done
           fi
 

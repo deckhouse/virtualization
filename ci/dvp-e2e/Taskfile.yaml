@@ -108,7 +108,7 @@ tasks:
   render-infra:
     desc: Generate infra manifests
     deps:
-      - task: ssh-gen
+      - task: ssh:ensure
         vars:
           TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
@@ -615,6 +615,44 @@ tasks:
             --preflight-skip-registry-credential \
             --preflight-skip-deckhouse-edition-check \
             {{.CLI_ARGS}}
+
+  # ------------------------------------------------------------
+  # SSH Keys management (use GH keys or generate new ones)
+  # ------------------------------------------------------------
+  ssh:import-gh:
+    desc: Download predefined SSH keys from deckhouse/virtualization repo
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_FILE_NAME: '{{ .SSH_FILE_NAME | default "id_ed" }}'
+      GH_RAW_URL_PRIV: 'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed'
+      GH_RAW_URL_PUB:  'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed.pub'
+    cmds:
+      - mkdir -p {{ .SSH_DIR }}
+      - curl -fsSL {{ .GH_RAW_URL_PRIV }} -o {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}
+      - curl -fsSL {{ .GH_RAW_URL_PUB }} -o {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}.pub
+      - chmod 0600 {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}
+      - chmod 0644 {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}.pub
+    status:
+      - test -f "{{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}"
+
+  ssh:ensure:
+    desc: Ensure SSH keys exist (import from GH when USE_GH_SSH_KEYS=true)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_FILE_NAME: '{{ .SSH_FILE_NAME | default (env "SSH_FILE_NAME") | default "cloud" }}'
+      USE_GH_SSH_KEYS: '{{ .USE_GH_SSH_KEYS | default (env "USE_GH_SSH_KEYS") | default "false" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ "{{ .USE_GH_SSH_KEYS }}" = "true" ]; then
+          echo "[SSH] Importing GH keys to {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}"
+          task ssh:import-gh SSH_DIR='{{ .SSH_DIR }}' SSH_FILE_NAME='{{ .SSH_FILE_NAME }}'
+        else
+          echo "[SSH] Generating new SSH keypair at {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}"
+          task ssh-gen SSH_DIR='{{ .SSH_DIR }}' SSH_FILE_NAME='{{ .SSH_FILE_NAME }}'
+        fi
 
   # ------------------------------------------------------------
   # Nested cluster helpers (SC + kubeconfig)
