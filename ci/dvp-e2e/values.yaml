@@ -40,12 +40,18 @@ clusterConfigurationPrefix: e2e
 deckhouse:
   tag: main
   kubernetesVersion: Automatic
+  # devRegistryDockerCfg from dvp-over-dvp reference to use single dev registry
+  registryDockerCfg: 'eyJhdXRocyI6eyJkZXYtcmVnaXN0cnkuZGVja2hvdXNlLmlvIjp7ImF1dGgiOiJiR2xqWlc1elpTMTBiMnRsYmpwM2FISm1WelpHVEhwclluRlhjSFZRU21OTVJFaDVWbE5sUm1KMmFFRkZhdz09In19fQ=='
 virtualization:
+  tag: main
+ceph:
   tag: main
 image:
   url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
   defaultUser: ubuntu
   bootloader: EFI
+features:
+  virtualization: false
 ingressHosts:
   - api
   - grafana

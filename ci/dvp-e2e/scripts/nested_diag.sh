@@ -296,10 +296,9 @@ deep_nested() {
         fi
       fi
       if [ -n "$KCFG" ]; then
-        sudo -E env KUBECONFIG="$KCFG" d8 platform queue list --output json 2>/dev/null || \
         sudo -E env KUBECONFIG="$KCFG" d8 platform queue list
       else
-        d8 platform queue list --output json 2>/dev/null || d8 platform queue list
+        d8 platform queue list
       fi
     else
       echo "d8 CLI not installed on VM; skipping platform queue"

@@ -108,7 +108,7 @@ tasks:
   render-infra:
     desc: Generate infra manifests
     deps:
-      - task: ssh-gen
+      - task: ssh:ensure
         vars:
           TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
@@ -615,6 +615,90 @@ tasks:
             --preflight-skip-registry-credential \
             --preflight-skip-deckhouse-edition-check \
             {{.CLI_ARGS}}
+
+  # ------------------------------------------------------------
+  # SSH Keys management (use GH keys or generate new ones)
+  # ------------------------------------------------------------
+  ssh:import-gh:
+    desc: Download predefined SSH keys from deckhouse/virtualization repo
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_FILE_NAME: '{{ .SSH_FILE_NAME | default "id_ed" }}'
+      GH_RAW_URL_PRIV: 'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed'
+      GH_RAW_URL_PUB:  'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed.pub'
+    cmds:
+      - mkdir -p {{ .SSH_DIR }}
+      - curl -fsSL {{ .GH_RAW_URL_PRIV }} -o {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}
+      - curl -fsSL {{ .GH_RAW_URL_PUB }} -o {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}.pub
+      - chmod 0600 {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}
+      - chmod 0644 {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}.pub
+    status:
+      - test -f "{{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}"
+
+  ssh:ensure:
+    desc: Ensure SSH keys exist (import from GH when USE_GH_SSH_KEYS=true)
+    vars:
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+      SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
+      SSH_FILE_NAME: '{{ .SSH_FILE_NAME | default (env "SSH_FILE_NAME") | default "cloud" }}'
+      USE_GH_SSH_KEYS: '{{ .USE_GH_SSH_KEYS | default (env "USE_GH_SSH_KEYS") | default "false" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ "{{ .USE_GH_SSH_KEYS }}" = "true" ]; then
+          echo "[SSH] Importing GH keys to {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}"
+          task ssh:import-gh SSH_DIR='{{ .SSH_DIR }}' SSH_FILE_NAME='{{ .SSH_FILE_NAME }}'
+        else
+          echo "[SSH] Generating new SSH keypair at {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}"
+          task ssh-gen SSH_DIR='{{ .SSH_DIR }}' SSH_FILE_NAME='{{ .SSH_FILE_NAME }}'
+        fi
+
+  # ------------------------------------------------------------
+  # Local flow wrappers with logs
+  # ------------------------------------------------------------
+  local:bootstrap:
+    desc: Local flow — deploy infra + bootstrap nested (logs saved)
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
+      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
+      LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "bootstrap.log") }}'
+      VALUES_FILE: '{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}'
+      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS | default "ceph-pool-r2-csi-rbd-immediate" }}'
+      USE_GH_SSH_KEYS: '{{ .USE_GH_SSH_KEYS | default (env "USE_GH_SSH_KEYS") | default "true" }}'
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - |
+        set -euo pipefail
+        echo "[FLOW] Using RUN_ID={{ .RUN_ID }}, namespace={{ .RUN_NAMESPACE }}"
+        {
+          task run:values:prepare RUN_ID='{{ .RUN_ID }}' RUN_NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}'
+          task render-infra VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' USE_GH_SSH_KEYS='{{ .USE_GH_SSH_KEYS }}' SSH_FILE_NAME='id_ed'
+          task infra-deploy VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' SSH_FILE_NAME='id_ed'
+          task render-cluster-config VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' TARGET_STORAGE_CLASS='{{ .TARGET_STORAGE_CLASS }}' SSH_FILE_NAME='id_ed'
+          task dhctl-bootstrap VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' SSH_FILE_NAME='id_ed'
+        } 2>&1 | tee '{{ .LOG_FILE }}'
+
+  local:tests:
+    desc: Local flow — prepare nested kubeconfig and run E2E (logs saved)
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
+      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-%s" .RUN_ID) }}'
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
+      LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "tests.log") }}'
+      E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../tests/e2e" }}'
+      NESTED_SC: '{{ .NESTED_SC | default "ceph-pool-r2-csi-rbd" }}'
+    cmds:
+      - mkdir -p {{ .TMP_DIR }}
+      - |
+        set -euo pipefail
+        {
+          task nested:kubeconfig NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}'
+          task nested:ensure-sc NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}' SC_NAME='{{ .NESTED_SC }}'
+          task nested:ensure-vmclass-default NESTED_KUBECONFIG='{{ .TMP_DIR }}/nested-{{ .RUN_NAMESPACE }}/kubeconfig'
+          task nested:e2e NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}' E2E_DIR='{{ .E2E_DIR }}'
+        } 2>&1 | tee '{{ .LOG_FILE }}'
 
   # ------------------------------------------------------------
   # Nested cluster helpers (SC + kubeconfig)
