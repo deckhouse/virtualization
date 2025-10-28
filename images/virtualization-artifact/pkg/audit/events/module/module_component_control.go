@@ -17,6 +17,7 @@ limitations under the License.
 package module
 
 import (
+	"fmt"
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
@@ -61,8 +62,8 @@ func (m *ModuleComponentControl) IsMatched() bool {
 		return false
 	}
 
-	// Skip control requests from internal k8s controllers because we get them with almost empty ObjectRef
-	if strings.Contains(m.event.User.Username, kubeSystemUsername) {
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
 		return false
 	}
 
@@ -84,11 +85,11 @@ func (m *ModuleComponentControl) Fill() error {
 	m.eventLog.Type = "Virtualization control"
 
 	if m.event.Verb == "create" {
-		m.eventLog.Name = "Component creation"
+		m.eventLog.Name = fmt.Sprintf("Component '%s' has been created by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 		m.eventLog.Level = "info"
 		m.eventLog.Component = m.event.ObjectRef.Name
 	} else {
-		m.eventLog.Name = "Component deletion"
+		m.eventLog.Name = fmt.Sprintf("Component '%s' has been deleted by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 		m.eventLog.Level = "warn"
 		m.eventLog.Component = m.event.ObjectRef.Name
 	}

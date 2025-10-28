@@ -60,6 +60,11 @@ func (m *Forbid) IsMatched() bool {
 		return false
 	}
 
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
+		return false
+	}
+
 	if m.event.Annotations[annotations.AnnAuditDecision] == "forbid" {
 		return true
 	}
@@ -82,7 +87,7 @@ func (m *Forbid) Fill() error {
 	}
 
 	m.eventLog.Name = fmt.Sprintf(
-		"User (%s) attempted to perform a forbidden operation (%s) on resource (%s).",
+		"User '%s' attempted to perform a forbidden operation '%s' on resource '%s'.",
 		m.event.User.Username,
 		m.event.Verb,
 		resource)

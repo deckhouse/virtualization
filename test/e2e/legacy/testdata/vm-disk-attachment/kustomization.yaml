@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: testcases
+namePrefix: pr-number-or-commit-hash-
+resources:
+  - ns.yaml
+  - overlays/vm
+  - vi
+configurations:
+  - transformer.yaml
+labels:
+  - includeSelectors: true
+    pairs:
+      id: pr-number-or-commit-hash
+      testcase: vm-disk-attachment

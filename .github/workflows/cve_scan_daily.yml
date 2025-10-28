@@ -39,7 +39,7 @@ jobs:
     runs-on: [self-hosted, large]
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v5
+      - uses: deckhouse/modules-actions/cve_scan@v6
         with:
           tag: ${{ github.event.inputs.tag_name || 'main' }}
           tag_type: ${{ github.event.inputs.tag_type }}

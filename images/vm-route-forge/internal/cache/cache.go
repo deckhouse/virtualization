@@ -87,6 +87,8 @@ func (c *defaultCache) DeleteByIP(ip net.IP) {
 }
 
 func (c *defaultCache) Iterate(fn func(k types.NamespacedName, v Addresses) (next bool)) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	for k, v := range c.vmAddr {
 		if next := fn(k, v); !next {
 			break
