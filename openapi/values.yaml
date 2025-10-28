@@ -39,6 +39,11 @@ properties:
             type: string
           serviceIP:
             type: string
+          maintenanceModeEnabled:
+            type: string
+          maintenanceMode:
+            type: string
+            default: ""
       controller:
         type: object
         default: {}
