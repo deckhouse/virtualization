@@ -19,6 +19,7 @@ package vm
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -59,6 +60,11 @@ func (m *VMManage) IsMatched() bool {
 		return false
 	}
 
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
+		return false
+	}
+
 	uriWithoutQueryParams, err := util.RemoveAllQueryParams(m.event.RequestURI)
 	if err != nil {
 		log.Debug("failed to remove query params from URI", err.Error(), slog.String("uri", m.event.RequestURI))
@@ -84,12 +90,12 @@ func (m *VMManage) Fill() error {
 
 	switch m.event.Verb {
 	case "create":
-		m.eventLog.Name = "VM creation"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been created by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 	case "update", "patch":
-		m.eventLog.Name = "VM update"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been updated by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 	case "delete":
 		m.eventLog.Level = "warn"
-		m.eventLog.Name = "VM deletion"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been deleted by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 	}
 
 	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)

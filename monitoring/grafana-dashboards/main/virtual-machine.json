@@ -44,7 +44,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the current status of the virtual machine including Running, Stopped, Migrating, and other operational states.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -149,7 +149,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -165,7 +165,7 @@
           "refId": "A"
         }
       ],
-      "title": "VM status ",
+      "title": "Status",
       "type": "stat"
     },
     {
@@ -216,7 +216,7 @@
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -262,7 +262,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 3,
         "x": 6,
         "y": 1
@@ -284,7 +284,7 @@
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -308,7 +308,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the current CPU core usage percentage of the virtual machine, including OS usage, hypervisor overhead, and CPU reservation levels.",
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
@@ -356,7 +356,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -381,74 +381,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "Instance memory",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 3,
-        "x": 12,
-        "y": 1
-      },
-      "id": 15,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "pluginVersion": "10.4.15",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "avg by (namespace,name) (d8_virtualization_virtualmachine_memory_size_bytes{namespace=\"$namespace\", name=\"$name\"})",
-          "instant": true,
-          "legendFormat": "__auto",
-          "range": false,
-          "refId": "A"
-        }
-      ],
-      "title": "Memory",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "",
+      "description": "Displays the current memory usage percentage of the virtual machine based on configured memory allocation.",
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
@@ -477,7 +410,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 15,
+        "x": 12,
         "y": 1
       },
       "id": 79,
@@ -496,7 +429,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -538,12 +471,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 2,
         "w": 3,
-        "x": 18,
+        "x": 15,
         "y": 1
       },
-      "id": 66,
+      "id": 85,
       "options": {
         "colorMode": "value",
         "graphMode": "none",
@@ -560,23 +493,23 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "expr": "sum(\n  sum by (name, namespace) (\n   d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"} * on (name,namespace,uid)    d8_virtualization_virtualdisk_status_in_use{virtualmachine=~\"$name\"}\n  )\n)\n",
           "instant": true,
-          "legendFormat": "{{mount_point}}",
+          "legendFormat": "__auto",
           "range": false,
           "refId": "A"
         }
       ],
-      "title": "Discs capacity",
+      "title": "Storage allocated",
       "type": "stat"
     },
     {
@@ -613,7 +546,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 21,
+        "x": 18,
         "y": 1
       },
       "id": 63,
@@ -632,12 +565,12 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -648,7 +581,7 @@
           "refId": "A"
         }
       ],
-      "title": "Total disks usage",
+      "title": "Total filesystem usage",
       "type": "gauge"
     },
     {
@@ -656,7 +589,84 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 1
+      },
+      "id": 66,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "instant": true,
+          "legendFormat": "Capacity",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "Used",
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "Filesystem",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "description": "Shows the agent readiness status for the virtual machine, indicating whether the VM agent is ready to receive commands.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -715,7 +725,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -798,7 +808,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "10.4.15",
+      "pluginVersion": "10.4.19",
       "targets": [
         {
           "datasource": {
@@ -814,7 +824,74 @@
           "refId": "A"
         }
       ],
-      "title": "Configuration",
+      "title": "Config",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "description": "Instance memory",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 6,
+        "y": 3
+      },
+      "id": 15,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "avg by (namespace,name) (d8_virtualization_virtualmachine_memory_size_bytes{namespace=\"$namespace\", name=\"$name\"})",
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Memory",
       "type": "stat"
     },
     {
@@ -823,6 +900,75 @@
         "uid": "${ds_prometheus}"
       },
       "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 3,
+        "x": 15,
+        "y": 3
+      },
+      "id": 87,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.4.19",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum (\nd8_virtualization_virtualmachinesnapshot_info{namespace=~\"$namespace\",virtualmachine=~\"$name\"}\n) or vector(0)\n",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "VM snapshots",
+          "range": false,
+          "refId": "D"
+        }
+      ],
+      "title": "Snapshots",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${ds_prometheus}"
+      },
+      "description": "Shows detailed CPU core usage metrics including OS usage, hypervisor overhead, and CPU reservation levels over time.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1002,7 +1148,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Displays memory usage percentage over time, showing how much of the allocated memory is being used by the virtual machine.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1167,7 +1313,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows network bandwidth utilization displaying transmit and receive data rates for all network interfaces in the virtual machine.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1421,7 +1567,7 @@
       "type": "timeseries"
     },
     {
-      "collapsed": false,
+      "collapsed": true,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -1429,362 +1575,360 @@
         "y": 21
       },
       "id": 55,
-      "panels": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Whether the desired configuration is currently applied to a running VM",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineWidth": 0,
+                "spanNulls": false
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "0": {
+                      "color": "light-red",
+                      "index": 0,
+                      "text": "not applied"
+                    },
+                    "1": {
+                      "color": "green",
+                      "index": 1,
+                      "text": "applied"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "string"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 22
+          },
+          "id": 1,
+          "options": {
+            "alignValue": "left",
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "mergeValues": false,
+            "rowHeight": 0.9,
+            "showValue": "never",
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (name) (d8_virtualization_virtualmachine_configuration_applied{namespace=\"$namespace\", name=\"$name\"})",
+              "instant": false,
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Configuration",
+          "type": "state-timeline"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Timeline with information on VM statuses",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineWidth": 0,
+                "spanNulls": false
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "1": {
+                      "color": "semi-dark-red",
+                      "index": 0,
+                      "text": "Degraded"
+                    },
+                    "2": {
+                      "color": "orange",
+                      "index": 1,
+                      "text": "Migrating"
+                    },
+                    "3": {
+                      "color": "yellow",
+                      "index": 2,
+                      "text": "Pause"
+                    },
+                    "4": {
+                      "color": "#00ffff",
+                      "index": 3,
+                      "text": "Pending"
+                    },
+                    "5": {
+                      "color": "green",
+                      "index": 4,
+                      "text": "Running"
+                    },
+                    "6": {
+                      "color": "blue",
+                      "index": 5,
+                      "text": "Starting"
+                    },
+                    "7": {
+                      "color": "#808080",
+                      "index": 6,
+                      "text": "Stopped"
+                    },
+                    "8": {
+                      "color": "purple",
+                      "index": 7,
+                      "text": "Stopping"
+                    },
+                    "9": {
+                      "color": "dark-red",
+                      "index": 8,
+                      "text": "Terminating"
+                    }
+                  },
+                  "type": "value"
+                },
+                {
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "color": "transparent",
+                      "index": 9,
+                      "text": "Unknown"
+                    }
+                  },
+                  "type": "special"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  }
+                ]
+              },
+              "unit": "string"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 24,
+            "x": 0,
+            "y": 26
+          },
+          "id": 57,
+          "options": {
+            "alignValue": "left",
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "mergeValues": false,
+            "rowHeight": 0.9,
+            "showValue": "never",
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (name) ((d8_virtualization_virtualmachine_status_phase{namespace=\"$namespace\", name=\"$name\"} == 1) * on(phase) group_left()\n    (\n      label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n      label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n      label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n      label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n      label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n      label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n      label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n      label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n      label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n    ))",
+              "instant": false,
+              "legendFormat": "{{name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "VM status timeline",
+          "type": "state-timeline"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepAfter",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 1,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "Bps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 24,
+            "x": 0,
+            "y": 30
+          },
+          "id": 81,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
+              "instant": false,
+              "legendFormat": "Processed memory rate",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_remaining_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Remaining memory rate",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum(d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\", name=\"$name\"}) without (instance,job,node)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Dirty memory rate",
+              "range": true,
+              "refId": "C"
+            }
+          ],
+          "title": "Live migration memory metrics",
+          "type": "timeseries"
+        }
+      ],
       "title": "VM status details",
       "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "Whether the desired configuration is currently applied to a running VM",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "fillOpacity": 70,
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineWidth": 0,
-            "spanNulls": false
-          },
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "light-red",
-                  "index": 0,
-                  "text": "not applied"
-                },
-                "1": {
-                  "color": "light-green",
-                  "index": 1,
-                  "text": "applied"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "string"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 24,
-        "x": 0,
-        "y": 22
-      },
-      "id": 1,
-      "options": {
-        "alignValue": "left",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "mergeValues": false,
-        "rowHeight": 0.9,
-        "showValue": "never",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (name) (d8_virtualization_virtualmachine_configuration_applied{namespace=\"$namespace\", name=\"$name\"})",
-          "instant": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Configuration",
-      "type": "state-timeline"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "Timeline with information on VM statuses",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "fillOpacity": 70,
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineWidth": 0,
-            "spanNulls": false
-          },
-          "mappings": [
-            {
-              "options": {
-                "1": {
-                  "color": "semi-dark-red",
-                  "index": 0,
-                  "text": "Degraded"
-                },
-                "2": {
-                  "color": "light-orange",
-                  "index": 1,
-                  "text": "Migrating"
-                },
-                "3": {
-                  "color": "light-yellow",
-                  "index": 2,
-                  "text": "Pause"
-                },
-                "4": {
-                  "color": "#00ffff",
-                  "index": 3,
-                  "text": "Pending"
-                },
-                "5": {
-                  "color": "light-green",
-                  "index": 4,
-                  "text": "Running"
-                },
-                "6": {
-                  "color": "light-blue",
-                  "index": 5,
-                  "text": "Starting"
-                },
-                "7": {
-                  "color": "#808080",
-                  "index": 6,
-                  "text": "Stopped"
-                },
-                "8": {
-                  "color": "light-purple",
-                  "index": 7,
-                  "text": "Stopping"
-                },
-                "9": {
-                  "color": "dark-red",
-                  "index": 8,
-                  "text": "Terminating"
-                }
-              },
-              "type": "value"
-            },
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "color": "transparent",
-                  "index": 9,
-                  "text": "Unknown"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "string"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 24,
-        "x": 0,
-        "y": 26
-      },
-      "id": 57,
-      "options": {
-        "alignValue": "left",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "mergeValues": false,
-        "rowHeight": 0.9,
-        "showValue": "never",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (name) ((d8_virtualization_virtualmachine_status_phase{namespace=\"$namespace\", name=\"$name\"} == 1) * on(phase) group_left()\n    (\n      label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n      label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n      label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n      label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n      label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n      label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n      label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n      label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n      label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n    ))",
-          "instant": false,
-          "legendFormat": "{{name}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "VM status timeline",
-      "type": "state-timeline"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "stepAfter",
-            "lineStyle": {
-              "fill": "solid"
-            },
-            "lineWidth": 1,
-            "pointSize": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 30
-      },
-      "id": 81,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
-          "instant": false,
-          "legendFormat": "Processed memory rate",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(d8_virtualization_virtualmachine_migration_data_remaining_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) without (instance,job,node)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Remaining memory rate",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum(d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes{namespace=\"$namespace\", name=\"$name\"}) without (instance,job,node)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Dirty memory rate",
-          "range": true,
-          "refId": "C"
-        }
-      ],
-      "title": "Live migration memory metrics",
-      "type": "timeseries"
     },
     {
       "collapsed": true,
@@ -1792,7 +1936,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 36
+        "y": 22
       },
       "id": 21,
       "panels": [
@@ -2389,7 +2533,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 23
       },
       "id": 28,
       "panels": [
@@ -2398,7 +2542,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "description": "",
+          "description": "Timeline visualization displaying the virtual machine status changes over time, including running, stopped, migrating, and other states.",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2515,7 +2659,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 32
+            "y": 38
           },
           "id": 75,
           "options": {
@@ -2693,7 +2837,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 32
+            "y": 38
           },
           "id": 42,
           "options": {
@@ -2806,7 +2950,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 40
+            "y": 46
           },
           "id": 31,
           "options": {
@@ -2922,7 +3066,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 40
+            "y": 46
           },
           "id": 32,
           "options": {
@@ -2983,10 +3127,142 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 24
       },
       "id": 60,
       "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Chart showing changes in total storage usage by virtual machine. ",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 33,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Quota"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        0,
+                        10
+                      ],
+                      "fill": "dot"
+                    }
+                  },
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 25
+          },
+          "id": 83,
+          "options": {
+            "legend": {
+              "calcs": [
+                "last"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"} * on (name,uid,namespace) d8_virtualization_virtualdisk_status_in_use{virtualmachine=~\"$name\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{name}}",
+              "range": true,
+              "refId": "ConfiguredStorage"
+            }
+          ],
+          "title": "Storage usage ",
+          "type": "timeseries"
+        },
         {
           "datasource": {
             "type": "prometheus",
@@ -3091,7 +3367,7 @@
             "h": 14,
             "w": 12,
             "x": 0,
-            "y": 33
+            "y": 37
           },
           "id": 44,
           "maxPerRow": 2,
@@ -3161,7 +3437,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 39
+        "y": 25
       },
       "id": 5,
       "panels": [
@@ -3229,7 +3505,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 38
+            "y": 60
           },
           "id": 7,
           "options": {
@@ -3331,7 +3607,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 38
+            "y": 60
           },
           "id": 8,
           "options": {
@@ -3433,7 +3709,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 46
+            "y": 68
           },
           "id": 12,
           "options": {
@@ -3535,7 +3811,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 46
+            "y": 68
           },
           "id": 11,
           "options": {
@@ -3637,7 +3913,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 54
+            "y": 76
           },
           "id": 10,
           "options": {
@@ -3739,7 +4015,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 54
+            "y": 76
           },
           "id": 9,
           "options": {
@@ -3787,7 +4063,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 26
       },
       "id": 6,
       "panels": [
@@ -3887,7 +4163,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 35
+            "y": 51
           },
           "id": 13,
           "options": {
@@ -4034,7 +4310,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 35
+            "y": 51
           },
           "id": 14,
           "options": {
@@ -4181,7 +4457,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 43
+            "y": 59
           },
           "id": 18,
           "options": {
@@ -4328,7 +4604,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 43
+            "y": 59
           },
           "id": 17,
           "options": {
@@ -4415,8 +4691,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default",
-          "value": "default"
+          "text": "bunch-00",
+          "value": "bunch-00"
         },
         "datasource": {
           "type": "prometheus",
@@ -4443,8 +4719,8 @@
       {
         "current": {
           "selected": false,
-          "text": "default",
-          "value": "default"
+          "text": "vm-001",
+          "value": "vm-001"
         },
         "datasource": {
           "type": "prometheus",
@@ -4526,13 +4802,13 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 4,
+  "version": 2,
   "weekStart": ""
 }

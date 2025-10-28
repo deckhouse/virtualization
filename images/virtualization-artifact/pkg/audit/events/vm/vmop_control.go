@@ -19,6 +19,7 @@ package vm
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -60,6 +61,11 @@ func (m *VMOPControl) IsMatched() bool {
 		return false
 	}
 
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
+		return false
+	}
+
 	if m.event.ObjectRef.Resource == "virtualmachineoperations" && m.event.Verb == "create" {
 		return true
 	}
@@ -93,23 +99,23 @@ func (m *VMOPControl) Fill() error {
 
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeStart:
-		m.eventLog.Name = "VM started"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been started by '%s'", vmop.Spec.VirtualMachine, m.event.User.Username)
 		m.eventLog.Level = "info"
 		m.eventLog.ActionType = "start"
 	case v1alpha2.VMOPTypeStop:
-		m.eventLog.Name = "VM stopped"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been stopped by '%s'", vmop.Spec.VirtualMachine, m.event.User.Username)
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "stop"
 	case v1alpha2.VMOPTypeRestart:
-		m.eventLog.Name = "VM restarted"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been restarted by '%s'", vmop.Spec.VirtualMachine, m.event.User.Username)
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "restart"
 	case v1alpha2.VMOPTypeMigrate:
-		m.eventLog.Name = "VM migrated"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been migrated by '%s'", vmop.Spec.VirtualMachine, m.event.User.Username)
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "migrate"
 	case v1alpha2.VMOPTypeEvict:
-		m.eventLog.Name = "VM evicted"
+		m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' has been evicted by '%s'", vmop.Spec.VirtualMachine, m.event.User.Username)
 		m.eventLog.Level = "warn"
 		m.eventLog.ActionType = "evict"
 	}

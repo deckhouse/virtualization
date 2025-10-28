@@ -242,7 +242,7 @@ jobs:
             find . \
               -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
-              -path ./tests/performance/shatal -prune -o \
+              -path ./test/performance/shatal -prune -o \
               -type f -name '.golangci.yaml' -printf '%h\0' | \
             xargs -0 -n1 | sort -u
           )
@@ -353,51 +353,6 @@ jobs:
         if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}
         uses: ./.github/actions/remove-unwanted-software
 
-      - name: Start ssh-agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{secrets.SOURCE_REPO_SSH_KEY}}
-            ${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}
-
-      - name: Add ssh_known_hosts
-        run: |
-          HOST=$(grep -oP '(?<=@)[^/:]+' <<< ${{secrets.SOURCE_REPO_GIT}})
-          echo "::add-mask::$HOST"
-          IPS=$(nslookup "$HOST" | awk '/^Address: / { print $2 }')
-          for IP in $IPS; do
-            echo "::add-mask::$IP"
-          done
-          mkdir -p ~/.ssh
-          touch ~/.ssh/known_hosts
-          HOST_KEYS=$(ssh-keyscan -H "$HOST" 2>/dev/null)
-          while IFS= read -r KEY_LINE; do
-            CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
-            if ! grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
-              echo "$KEY_LINE" >> ~/.ssh/known_hosts
-            fi
-          done <<< "$HOST_KEYS"
-
-      - name: Add svace analyze server to ssh_known_hosts
-        continue-on-error: true
-        run: |
-          host=${{ secrets.SVACE_ANALYZE_HOST }}
-
-          host_ip=$(nslookup "$host" | awk '/^Address: / { print $2 }')
-          echo "::add-mask::$host_ip"
-
-          mkdir -p ~/.ssh
-          touch ~/.ssh/known_hosts
-          HOST_KEYS=$(ssh-keyscan -H "$host" 2>/dev/null)
-          while IFS= read -r KEY_LINE; do
-              CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
-              if grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
-                  ssh-keygen -R $host
-                  ssh-keygen -R $host_ip
-              fi
-              echo "$KEY_LINE" >> ~/.ssh/known_hosts
-          done <<< "$HOST_KEYS"
-
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
@@ -409,9 +364,12 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           svace_enabled: ${{ inputs.svace_enabled || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svace_analyze_ssh_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   pull_request_info:
     name: Get PR info
@@ -462,7 +420,7 @@ jobs:
       - dev_setup_build
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v5
+      - uses: deckhouse/modules-actions/cve_scan@v6
         with:
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
           tag_type: dev
@@ -595,7 +553,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install ginkgo
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           echo "Install ginkgo"
           go install tool
@@ -609,19 +567,19 @@ jobs:
       - name: Checkout cluster to revision
         env:
           v12n_tag: pr${{ github.event.pull_request.number }}
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task checkout-to-mpo
 
       - name: Download dependencies
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           echo "Download dependencies"
           go mod download
 
       - name: Run E2E
         id: e2e-tests
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task run -v
 
@@ -637,7 +595,7 @@ jobs:
         if: always() && steps.e2e-tests.outcome == 'cancelled'
         timeout-minutes: 60
         id: e2e-tests-cleanup
-        working-directory: ./tests/e2e/
+        working-directory: ./test/e2e/
         run: |
           task cleanup
 

@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -150,7 +151,10 @@ func ApplyVirtualMachineSpec(
 			// Attach ephemeral disk for storage: Kubernetes.
 			// Attach containerDisk for storage: ContainerRegistry (i.e. image from DVCR).
 
-			vi := viByName[bd.Name]
+			vi, ok := viByName[bd.Name]
+			if !ok || vi == nil {
+				return fmt.Errorf("unexpected error: virtual image %q should exist in the cluster; please recreate it", bd.Name)
+			}
 
 			name := GenerateVIDiskName(bd.Name)
 			switch vi.Spec.Storage {
@@ -182,7 +186,10 @@ func ApplyVirtualMachineSpec(
 		case v1alpha2.ClusterImageDevice:
 			// ClusterVirtualImage is attached as containerDisk.
 
-			cvi := cviByName[bd.Name]
+			cvi, ok := cviByName[bd.Name]
+			if !ok || cvi == nil {
+				return fmt.Errorf("unexpected error: cluster virtual image %q should exist in the cluster; please recreate it", bd.Name)
+			}
 
 			name := GenerateCVIDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
@@ -198,7 +205,10 @@ func ApplyVirtualMachineSpec(
 		case v1alpha2.DiskDevice:
 			// VirtualDisk is attached as a regular disk.
 
-			vd := vdByName[bd.Name]
+			vd, ok := vdByName[bd.Name]
+			if !ok || vd == nil {
+				return fmt.Errorf("unexpected error: virtual disk %q should exist in the cluster; please recreate it", bd.Name)
+			}
 
 			pvcName := vd.Status.Target.PersistentVolumeClaim
 			// VirtualDisk doesn't have pvc yet: wait for pvc and reconcile again.
@@ -225,11 +235,32 @@ func ApplyVirtualMachineSpec(
 	}
 
 	for _, device := range hotpluggedDevices {
+		name, kind := GetOriginalDiskName(device.VolumeName)
+
+		var obj client.Object
+		var exists bool
+
+		switch kind {
+		case v1alpha2.ImageDevice:
+			obj, exists = viByName[name]
+		case v1alpha2.ClusterImageDevice:
+			obj, exists = cviByName[name]
+		case v1alpha2.DiskDevice:
+			obj, exists = vdByName[name]
+		default:
+			return fmt.Errorf("unknown block device kind %q. %w", kind, common.ErrUnknownType)
+		}
+
+		if !exists || obj == nil || obj.GetUID() == "" {
+			continue
+		}
+
 		switch {
 		case device.PVCName != "":
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(device.PVCName),
 				IsHotplugged:          true,
+				Serial:                GenerateSerialFromObject(obj),
 			}); err != nil {
 				return err
 			}
@@ -237,6 +268,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(device.Image),
 				IsHotplugged:  true,
+				Serial:        GenerateSerialFromObject(obj),
 			}); err != nil {
 				return err
 			}

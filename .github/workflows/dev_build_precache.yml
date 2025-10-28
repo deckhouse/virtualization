@@ -47,14 +47,20 @@ jobs:
       - name: Set vars
         id: modules_module_tag
         run: |
-          branch="${{ matrix.branch }}"
-          if [[ "$branch" == 'main' ]]; then
-            MODULES_MODULE_TAG="$branch"
-          else
+          if [[ "${{ github.ref_name }}" == 'main' ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          elif [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
+          elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
+            MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
+          else
+            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for main and release branches, and PR number for builds from pull requests. Check workflow for correctness."
+            exit 1
           fi
-          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
-          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
+
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Remove unwanted software
         uses: ./.github/actions/remove-unwanted-software
@@ -65,8 +71,10 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v2
+      - uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+          source_repo: ${{secrets.SOURCE_REPO_GIT}}
+          source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
