@@ -38,6 +38,8 @@ type Settings struct {
 	InsecureTLS string
 	// UploaderIngressSettings are settings for uploading images to the DVCR using ingress.
 	UploaderIngressSettings UploaderIngressSettings
+	// AutoCleanupSchedule is a cron formatted schedule to periodically run auto cleanup.
+	AutoCleanupSchedule string
 }
 
 type UploaderIngressSettings struct {

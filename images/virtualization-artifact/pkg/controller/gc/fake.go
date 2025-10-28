@@ -103,7 +103,6 @@ const (
 )
 
 var (
-	_ SourceGCManager    = &fakeGCManager{}
 	_ ReconcileGCManager = &fakeGCManager{}
 )
 

@@ -36,6 +36,8 @@ true
   value: {{ $registry | quote }}
 - name: DVCR_INSECURE_TLS
   value: "true"
+- name: DVCR_AUTO_CLEANUP_SCHEDULE
+  value: "{{ .Values.virtualization.internal.moduleConfig | dig "dvcr" "autoCleanupSchedule" "" }}"
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
 {{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}

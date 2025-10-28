@@ -1,5 +1,7 @@
+//go:build linux
+
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,30 +16,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package storage
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
-
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/cmd/dvcr-cleaner/cmd"
+	"golang.org/x/sys/unix"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "dvcr-cleaner",
-	Short: "`dvcr-cleaner` is used for exploring and removing `VirtualImages` and `ClusterVirtualImages` from registry.",
-}
-
-func init() {
-	rootCmd.AddCommand(cmd.DeleteCmd, cmd.GcCmd, cmd.LsCmd, cmd.AutoCleanupCmd)
-}
-
-func main() {
-	err := rootCmd.Execute()
+func FSBytes(dir string) (FSInfo, error) {
+	var stat unix.Statfs_t
+	err := unix.Statfs(dir, &stat)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return FSInfo{}, err
 	}
+
+	return FSInfo{
+		//
+		Total: stat.Blocks * uint64(stat.Bsize),
+		// Available blocks * size per block = available space in bytes.
+		Available: stat.Bavail * uint64(stat.Bsize),
+	}, nil
 }

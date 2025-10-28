@@ -32,7 +32,7 @@ import (
 
 var _ = Describe("CronSource", func() {
 	const (
-		// Every day a 00:00
+		// Every day at 00:00
 		scheduleSpec = "0 0 * * *"
 	)
 
@@ -58,7 +58,7 @@ var _ = Describe("CronSource", func() {
 	})
 
 	newSource := func(scheduleSpec string) *CronSource {
-		source, err := NewCronSource(scheduleSpec, mgr, log)
+		source, err := NewCronSource(scheduleSpec, NewObjectLister(mgr.ListForDelete), log)
 		Expect(err).NotTo(HaveOccurred())
 		source.clock = fakeClock
 		return source

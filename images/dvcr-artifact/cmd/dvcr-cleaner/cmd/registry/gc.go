@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,30 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package registry
 
 import (
-	"fmt"
-	"os"
-
-	"github.com/spf13/cobra"
-
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/cmd/dvcr-cleaner/cmd"
+	"os/exec"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "dvcr-cleaner",
-	Short: "`dvcr-cleaner` is used for exploring and removing `VirtualImages` and `ClusterVirtualImages` from registry.",
-}
-
-func init() {
-	rootCmd.AddCommand(cmd.DeleteCmd, cmd.GcCmd, cmd.LsCmd, cmd.AutoCleanupCmd)
-}
-
-func main() {
-	err := rootCmd.Execute()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+func ExecGarbageCollect() ([]byte, error) {
+	execCmd := exec.Command("registry", "garbage-collect", "/etc/docker/registry/config.yml", "--delete-untagged")
+	return execCmd.Output()
 }
