@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -152,8 +153,8 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualD
 
 func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	var vms v1alpha2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.ListOptions{
-		Namespace: vd.GetNamespace(),
+	err := h.client.List(ctx, &vms, &client.MatchingFields{
+		indexer.IndexFieldVMByVD: vd.Name,
 	})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machines: %w", err)
