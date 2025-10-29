@@ -1,9 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: test-vd-blank
-  namespace: test-d8-virtualization
-spec:
-  persistentVolumeClaim:
-    storageClassName: "{{ .STORAGE_CLASS_NAME }}"
-    size: 100Mi

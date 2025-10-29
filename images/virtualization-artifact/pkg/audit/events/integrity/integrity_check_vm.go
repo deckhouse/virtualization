@@ -18,6 +18,7 @@ package integrity
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -54,6 +55,11 @@ func (m *IntegrityCheckVM) IsMatched() bool {
 		return false
 	}
 
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
+		return false
+	}
+
 	if (m.event.Verb == "patch" || m.event.Verb == "update") && m.event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
 		return true
 	}
@@ -64,25 +70,25 @@ func (m *IntegrityCheckVM) IsMatched() bool {
 func (m *IntegrityCheckVM) Fill() error {
 	m.eventLog = NewIntegrityCheckEventLog(m.event)
 
-	m.eventLog.Name = "VM config integrity check failed"
-	m.eventLog.ObjectType = "Virtual machine configuration"
-	m.eventLog.ControlMethod = "Integrity Check"
-	m.eventLog.ReactionType = "info"
-	m.eventLog.IntegrityCheckAlgo = "sha256"
-
 	vmi, err := util.GetInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}
 
-	if vmi.Annotations[annotations.AnnIntegrityCoreChecksum] == vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] {
-		m.eventLog.shouldLog = false
-		return nil
-	}
+	m.eventLog.Name = fmt.Sprintf("Virtual machine '%s' config integrity check failed", vmi.Name)
+	m.eventLog.ObjectType = "Virtual machine configuration"
+	m.eventLog.ControlMethod = "Integrity Check"
+	m.eventLog.ReactionType = "info"
+	m.eventLog.IntegrityCheckAlgo = "sha256"
 
 	m.eventLog.VirtualMachineName = vmi.Name
 	m.eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
 	m.eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
+
+	if vmi.Annotations[annotations.AnnIntegrityCoreChecksum] == vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] {
+		m.eventLog.shouldLog = false
+		return nil
+	}
 
 	return nil
 }

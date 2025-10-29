@@ -127,6 +127,9 @@ Supported scopes are the following:
 
   # Network related changes important for end-user.
   - network
+
+  # Testing related changes.
+  - test
   ```
 
 #### Subject

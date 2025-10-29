@@ -97,7 +97,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		listener.Close()
 	}()
 
-	log.Info("Server started", slog.String("address", s.addr))
+	log.Debug("Server started", slog.String("address", s.addr))
 
 	for {
 		conn, err := listener.Accept()
@@ -120,7 +120,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
-	log.Info("New connection", slog.String("remote", conn.RemoteAddr().String()))
+	log.Debug("New connection", slog.String("remote", conn.RemoteAddr().String()))
 
 	scanner := bufio.NewScanner(conn)
 	for scanner.Scan() {

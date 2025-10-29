@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -97,9 +98,13 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	case v1alpha2.CPUTypeHost, v1alpha2.CPUTypeHostPassthrough:
 		// Node is always has the "Host" CPU type, no additional filters required.
 	case v1alpha2.CPUTypeDiscovery:
-		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
+		var matchExpressions []metav1.LabelSelectorRequirement
+		if discovery := curr.Spec.CPU.Discovery; discovery != nil {
+			matchLabels = discovery.NodeSelector.MatchLabels
+			matchExpressions = discovery.NodeSelector.MatchExpressions
+		}
 		filters = append(filters, func(node *corev1.Node) bool {
-			return annotations.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
+			return annotations.MatchExpressions(node.GetLabels(), matchExpressions)
 		})
 	case v1alpha2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}

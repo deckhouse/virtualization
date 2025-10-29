@@ -1,0 +1,113 @@
+run:
+  concurrency: 4
+  timeout: 10m
+issues:
+  # Show all errors.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude:
+    - "don't use an underscore in package name"
+output:
+  sort-results: true
+
+exclude-files:
+  - "^zz_generated.*"
+
+linters-settings:
+  gofumpt:
+    extra-rules: true
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/deckhouse/)
+  goimports:
+    local-prefixes: github.com/deckhouse/
+  errcheck:
+    exclude-functions: fmt:.*,[rR]ead|[wW]rite|[cC]lose,io:Copy
+  revive:
+    rules:
+      - name: dot-imports
+        disabled: true
+  stylecheck:
+    dot-import-whitelist:
+      - github.com/onsi/gomega
+      - github.com/onsi/ginkgo/v2
+      - github.com/deckhouse/virtualization/test/e2e/internal/helper
+  nolintlint:
+    # Exclude following linters from requiring an explanation.
+    # Default: []
+    allow-no-explanation: [funlen, gocognit, lll]
+    # Enable to require an explanation of nonzero length after each nolint directive.
+    # Default: false
+    require-explanation: true
+    # Enable to require nolint directives to mention the specific linter being suppressed.
+    # Default: false
+    require-specific: true
+  importas:
+    # Do not allow unaliased imports of aliased packages.
+    # Default: false
+    no-unaliased: true
+    # Do not allow non-required aliases.
+    # Default: false
+    no-extra-aliases: false
+    # List of aliases
+    # Default: []
+    alias:
+      - pkg: github.com/deckhouse/virtualization/api/core/v1alpha2
+        alias: ""
+      - pkg: github.com/deckhouse/virtualization/api/subresources/v1alpha2
+        alias: subv1alpha2
+      - pkg: kubevirt.io/api/core/v1
+        alias: virtv1
+      - pkg: k8s.io/api/core/v1
+        alias: corev1
+      - pkg: k8s.io/api/authentication/v1
+        alias: authnv1
+      - pkg: k8s.io/api/storage/v1
+        alias: storagev1
+      - pkg: k8s.io/api/networking/v1
+        alias: netv1
+      - pkg: k8s.io/api/policy/v1
+        alias: policyv1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+
+linters:
+  disable-all: true
+  enable:
+    - asciicheck # checks that your code does not contain non-ASCII identifiers
+    - bidichk # checks for dangerous unicode character sequences
+    - bodyclose # checks whether HTTP response body is closed successfully
+    - contextcheck # [maby too many false positives] checks the function whether use a non-inherited context
+    - dogsled # checks assignments with too many blank identifiers (e.g. x, _, _, _, := f())
+    - errcheck # checking for unchecked errors, these unchecked errors can be critical bugs in some cases
+    - errname # checks that sentinel errors are prefixed with the Err and error types are suffixed with the Error
+    - errorlint # finds code that will cause problems with the error wrapping scheme introduced in Go 1.13
+    - copyloopvar # detects places where loop variables are copied (Go 1.22+)
+    - gci # controls golang package import order and makes it always deterministic
+    - gocritic # provides diagnostics that check for bugs, performance and style issues
+    - gofmt # [replaced by goimports] checks whether code was gofmt-ed
+    - gofumpt # [replaced by goimports, gofumports is not available yet] checks whether code was gofumpt-ed
+    - goimports # in addition to fixing imports, goimports also formats your code in the same style as gofmt
+    - gosimple # specializes in simplifying a code
+    - govet # reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - ineffassign # detects when assignments to existing variables are not used
+    - misspell # finds commonly misspelled English words in comments
+    - nolintlint # reports ill-formed or insufficient nolint directives
+    - reassign # Checks that package variables are not reassigned.
+    - revive # fast, configurable, extensible, flexible, and beautiful linter for Go, drop-in replacement of golint
+    - stylecheck # is a replacement for golint
+    - staticcheck # is a go vet on steroids, applying a ton of static analysis checks
+    - typecheck # like the front-end of a Go compiler, parses and type-checks Go code
+    - testifylint # checks usage of github.com/stretchr/testify
+    - unconvert # removes unnecessary type conversions
+    - unparam # reports unused function parameters
+    - unused # checks for unused constants, variables, functions and types
+    - usetesting # reports uses of functions with replacement inside the testing package
+    - testableexamples # checks if examples are testable (have an expected output)
+    - thelper # detects golang test helpers without t.Helper() call and checks the consistency of test helpers
+    - tparallel # detects inappropriate usage of t.Parallel() method in your Go test codes
+    - whitespace # detects leading and trailing whitespace
+    - wastedassign # Finds wasted assignment statements.
+    - importas # checks import aliases against the configured convention
