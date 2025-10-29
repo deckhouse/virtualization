@@ -113,6 +113,9 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 					if err != nil {
 						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("failed to parse core fraction: %w", err)
 					}
+					if fractionInt < 1 || fractionInt > 100 {
+						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("core fraction value must be between 1 and 100, got %d", fractionInt)
+					}
 					v2Policy.CoreFractions[j] = v1alpha2.CoreFractionValue(fractionInt)
 				}
 			}
