@@ -259,7 +259,6 @@ shell:
     rm -rf $OUTDIR/usr/bin/virsh
     rm -rf $OUTDIR/usr/bin/virt-admin
     rm -rf $OUTDIR/usr/lib64/wireshark/plugins/4.4/epan/libvirt.so
-    rm -rf $OUTDIR/usr/include/libvirt/libvirt-lxc.h
     rm -rf $OUTDIR/usr/share/libvirt/cpu_map/arm_a64fx.xml
     rm -rf $OUTDIR/usr/share/libvirt/cpu_map/arm_cortex-a53.xml
     rm -rf $OUTDIR/usr/share/libvirt/cpu_map/arm_cortex-a57.xml
