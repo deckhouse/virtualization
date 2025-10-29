@@ -16,15 +16,11 @@ imageSpec:
 
 ---
 {{- define "cdi-importer-deps" -}}
-libraries:
-- libsqlite3
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
   - /usr/lib64/nbdkit/filters/*.so
   - /usr/lib64/nbdkit/plugins/*.so
-  # Sqlite libs
-  - /usr/lib64/libsqlite3.so.0
   # CDI binaries
   - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
   # QEMU bins
@@ -73,11 +69,6 @@ import:
 {{- include "importPackageImages" (list . $cdiImporterDependencies.packages "install") -}}
 shell:
   install:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install --yes \
-      {{ $cdiImporterDependencies.libraries | join " " }}
-  {{- include "alt packages clean" . | nindent 2 }}
   - |
     echo "Install packages"
     PKGS="{{ $cdiImporterDependencies.packages | join " " }}"
