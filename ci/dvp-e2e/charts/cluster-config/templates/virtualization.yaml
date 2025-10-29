@@ -1,4 +1,6 @@
 ---
+{{- if hasKey .Values "features" }}
+{{- if .Values.features.virtualization }}
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
@@ -22,3 +24,5 @@ metadata:
 spec:
   imageTag: {{ .Values.virtualization.tag }}
   scanInterval: 15s
+{{- end }}
+{{- end }}

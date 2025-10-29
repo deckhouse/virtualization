@@ -42,6 +42,8 @@ deckhouse:
   kubernetesVersion: Automatic
 virtualization:
   tag: main
+features:
+  virtualization: false
 image:
   url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
   defaultUser: ubuntu
