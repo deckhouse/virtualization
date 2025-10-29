@@ -18,7 +18,6 @@ package crd
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"os"
 
@@ -44,12 +43,10 @@ func EnsureVMClassConversionWebhook(ctx context.Context, c client.Client, contro
 		return fmt.Errorf("get VirtualMachineClass CRD: %w", err)
 	}
 
-	caBytes, err := os.ReadFile(tlsCertPath)
+	caBundle, err := os.ReadFile(tlsCertPath)
 	if err != nil {
 		return fmt.Errorf("read TLS CA certificate from %s: %w", tlsCertPath, err)
 	}
-
-	caBundle := base64.StdEncoding.EncodeToString(caBytes)
 
 	crd.Spec.Conversion = &apiextensionsv1.CustomResourceConversion{
 		Strategy: apiextensionsv1.WebhookConverter,
@@ -61,7 +58,7 @@ func EnsureVMClassConversionWebhook(ctx context.Context, c client.Client, contro
 					Path:      ptr.To("/convert"),
 					Port:      ptr.To[int32](443),
 				},
-				CABundle: []byte(caBundle),
+				CABundle: caBundle,
 			},
 			ConversionReviewVersions: []string{"v1"},
 		},
