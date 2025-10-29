@@ -78,6 +78,9 @@ shell:
     mkdir /build
     cd /build
 
+    # this is a workaround for the glibc build system
+    # to have most of the files in the lib64 directory,
+    # we need to set the libdir and slibdir to /usr/lib64
     cat > configparms << EOF
     libdir=/usr/lib64
     slibdir=/usr/lib64
