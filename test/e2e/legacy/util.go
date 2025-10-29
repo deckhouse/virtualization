@@ -525,6 +525,11 @@ func DeleteTestCaseResources(ns string, resources ResourcesToDelete) {
 	})
 }
 
+func MigrateVirtualMachines(label map[string]string, vmNamespace string, vmNames ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, v1alpha2.VMOPTypeEvict, vmNamespace, vmNames...)
+}
+
 func RebootVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 	CreateAndApplyVMOPs(label, v1alpha2.VMOPTypeRestart, vmNamespace, vmNames...)
