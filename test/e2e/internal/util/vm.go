@@ -95,7 +95,7 @@ func MigrateVirtualMachine(vm *v1alpha2.VirtualMachine, options ...vmopbuilder.O
 }
 
 func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
-	err := f.SSHCommand(vm.Name, vm.Namespace, "sudo init 0")
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo init 0")
 	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
 		return nil
 	}

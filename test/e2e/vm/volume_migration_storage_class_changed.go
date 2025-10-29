@@ -37,7 +37,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("StorageClassMigration", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 	var (
 		f                = framework.NewFramework("volume-migration-storage-class-changed")
 		storageClass     *storagev1.StorageClass
@@ -226,7 +226,7 @@ var _ = Describe("StorageClassMigration", framework.CommonE2ETestDecorators(), f
 		}
 
 		f.DeferDelete(objs...)
-		err := f.Create(context.Background(), objs...)
+		err := f.CreateWithDeferredDeletion(context.Background(), objs...)
 		Expect(err).NotTo(HaveOccurred())
 
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)

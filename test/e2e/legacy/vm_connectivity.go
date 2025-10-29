@@ -41,7 +41,7 @@ const (
 	nginxActiveStatus = "active"
 )
 
-var _ = Describe("VirtualMachineConnectivity", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", Ordered, func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)

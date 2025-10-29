@@ -32,7 +32,7 @@ import (
 
 const VirtualMachineCount = 12
 
-var _ = Describe("ComplexTest", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("ComplexTest", Ordered, func() {
 	var (
 		testCaseLabel            = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
