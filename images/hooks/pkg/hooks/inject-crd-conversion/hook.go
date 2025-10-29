@@ -26,6 +26,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -63,6 +64,18 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	k8sClient, err := input.DC.GetK8sClient()
 	if err != nil {
 		return fmt.Errorf("get k8s client: %w", err)
+	}
+
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: crdName}, crd)
+	if err != nil {
+		input.Logger.Info("CRD not found, skipping conversion webhook injection", slog.Any("error", err))
+		return nil
+	}
+
+	if crd.Spec.Conversion != nil && crd.Spec.Conversion.Strategy == apiextensionsv1.WebhookConverter {
+		input.Logger.Info("CRD already has webhook conversion configured, skipping")
+		return nil
 	}
 
 	secret := &corev1.Secret{}
