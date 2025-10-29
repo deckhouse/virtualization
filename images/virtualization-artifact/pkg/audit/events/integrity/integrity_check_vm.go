@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	authnv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
@@ -55,8 +56,7 @@ func (m *IntegrityCheckVM) IsMatched() bool {
 		return false
 	}
 
-	if strings.HasPrefix(m.event.User.Username, "system:") &&
-		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
+	if m.ignoreForSystemUsers(m.event.User) {
 		return false
 	}
 
@@ -91,4 +91,17 @@ func (m *IntegrityCheckVM) Fill() error {
 	}
 
 	return nil
+}
+
+func (m *IntegrityCheckVM) ignoreForSystemUsers(userInfo authnv1.UserInfo) bool {
+	// Do not ignore for d8 service accounts.
+	if strings.HasPrefix(userInfo.Username, "system:serviceaccount:d8-service-accounts") {
+		return false
+	}
+	// Do not ignore for virtualization controller.
+	if strings.HasPrefix(userInfo.Username, "system:serviceaccount:d8-virtualization") {
+		return false
+	}
+	// Ignore for all other system users, not ignore for non-system users.
+	return strings.HasPrefix(m.event.User.Username, "system:")
 }
