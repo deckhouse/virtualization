@@ -62,10 +62,13 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 			Type:     v1alpha2.CPUType(v3Spec.CPU.Type),
 			Model:    v3Spec.CPU.Model,
 			Features: v3Spec.CPU.Features,
-			Discovery: &v1alpha2.CpuDiscovery{
-				NodeSelector: v3Spec.CPU.Discovery.NodeSelector,
-			},
 		},
+	}
+
+	if v3Spec.CPU.Discovery != nil {
+		v2Spec.CPU.Discovery = &v1alpha2.CpuDiscovery{
+			NodeSelector: v3Spec.CPU.Discovery.NodeSelector,
+		}
 	}
 
 	if len(v3Spec.SizingPolicies) > 0 {
@@ -136,7 +139,7 @@ func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) VirtualMachineCl
 	}
 
 	if v2Spec.CPU.Discovery != nil {
-		v3Spec.CPU.Discovery = CpuDiscovery{
+		v3Spec.CPU.Discovery = &CpuDiscovery{
 			NodeSelector: v2Spec.CPU.Discovery.NodeSelector,
 		}
 	}

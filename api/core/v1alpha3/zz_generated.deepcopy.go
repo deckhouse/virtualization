@@ -35,7 +35,11 @@ func (in *CPU) DeepCopyInto(out *CPU) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	in.Discovery.DeepCopyInto(&out.Discovery)
+	if in.Discovery != nil {
+		in, out := &in.Discovery, &out.Discovery
+		*out = new(CpuDiscovery)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
