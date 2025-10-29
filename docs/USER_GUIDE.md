@@ -2541,6 +2541,10 @@ Virtual machines can be connected not only to the main cluster network interface
 Additional networks are defined in the `.spec.networks` configuration block. If this block is absent (default value), the VM is connected only to the main cluster network.
 
 {{< alert level=“warning” >}}
+Cluster network policies do not apply to additional network interfaces. Please review and configure the necessary security rules within the VM.
+{{< /alert >}}
+
+{{< alert level=“warning” >}}
 Changes to the list of additional networks (adding or removing) take effect only after the VM is rebooted.
 {{< /alert >}}
 
