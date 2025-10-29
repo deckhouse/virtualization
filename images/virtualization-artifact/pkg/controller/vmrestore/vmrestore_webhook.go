@@ -34,29 +34,29 @@ func NewValidator() *Validator {
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	logger.FromContext(ctx).Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
+	return admission.Warnings{"The VirtualMachineRestore resource is deprecated, consider using VirtualMachineOperation with type Restore"}, nil
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	warnings := admission.Warnings{"The VirtualMachineRestore resource is deprecated, consider using VirtualMachineOperation with type Restore"}
+
 	oldVMRestore, ok := oldObj.(*v1alpha2.VirtualMachineRestore)
 	if !ok {
-		return nil, fmt.Errorf("expected an old VirtualMachineRestore but got a %T", newObj)
+		return warnings, fmt.Errorf("expected an old VirtualMachineRestore but got a %T", newObj)
 	}
 
 	newVMRestore, ok := newObj.(*v1alpha2.VirtualMachineRestore)
 	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineRestore but got a %T", newObj)
+		return warnings, fmt.Errorf("expected a new VirtualMachineRestore but got a %T", newObj)
 	}
 
 	logger.FromContext(ctx).Info("Validating VirtualMachineRestore")
 
 	if oldVMRestore.Generation != newVMRestore.Generation {
-		return nil, fmt.Errorf("VirtualMachineRestore is an idempotent resource: specification changes are not available")
+		return warnings, fmt.Errorf("VirtualMachineRestore is an idempotent resource: specification changes are not available")
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(ctx context.Context, _ runtime.Object) (admission.Warnings, error) {
