@@ -37,14 +37,11 @@ import (
 const (
 	externalHost = "https://flant.com"
 	httpStatusOk = "200"
+	biosURL      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2"
+	uefiURL      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-base.qcow2"
 )
 
 var _ = Describe("VirtualMachineMigration", func() {
-	const (
-		biosURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2"
-		uefiURL = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-base.qcow2"
-	)
-
 	var (
 		vdRootBIOS  *v1alpha2.VirtualDisk
 		vdBlankBIOS *v1alpha2.VirtualDisk
@@ -125,7 +122,19 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI)
 			Expect(err).NotTo(HaveOccurred())
+		})
 
+		By("Wait for VDs to be ready", func() {
+			util.UntilVDReady(crclient.ObjectKeyFromObject(vdRootBIOS), framework.LongTimeout)
+			util.UntilVDReady(crclient.ObjectKeyFromObject(vdRootUEFI), framework.LongTimeout)
+		})
+
+		By("Wait for VMs to be running", func() {
+			util.UntilVMRunning(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
+			util.UntilVMRunning(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
+		})
+
+		By("Wait for VM agents to be ready", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 		})

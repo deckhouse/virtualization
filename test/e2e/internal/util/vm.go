@@ -35,6 +35,40 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 )
 
+func UntilVDReady(key client.ObjectKey, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		vd, err := framework.GetClients().VirtClient().VirtualDisks(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if vd.Status.Phase == v1alpha2.DiskReady {
+			return nil
+		}
+
+		return fmt.Errorf("vd %s is not ready", key.Name)
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func UntilVMRunning(key client.ObjectKey, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if vm.Status.Phase == v1alpha2.MachineRunning {
+			return nil
+		}
+
+		return fmt.Errorf("vm %s is not running", key.Name)
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
@@ -117,6 +151,7 @@ func CheckExternalConnectivity(ctx context.Context, f *framework.Framework, vmNa
 	GinkgoHelper()
 
 	cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-	_, err := f.SSHCommand(vmName, f.Namespace().Name, cmd)
+	httpCode, err := f.SSHCommand(vmName, f.Namespace().Name, cmd)
 	Expect(err).NotTo(HaveOccurred(), "failed external connectivity check for VM %s", vmName)
+	Expect(strings.TrimSpace(httpCode)).To(Equal(expectedHTTPCode), "HTTP response code from %s should be %s, got %s", host, expectedHTTPCode, httpCode)
 }
