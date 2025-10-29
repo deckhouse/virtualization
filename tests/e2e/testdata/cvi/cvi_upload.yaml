@@ -1,7 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
-metadata:
-  name: test-cvi-upload
-spec:
-  dataSource:
-    type: "Upload"

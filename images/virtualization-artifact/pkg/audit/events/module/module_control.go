@@ -17,6 +17,9 @@ limitations under the License.
 package module
 
 import (
+	"fmt"
+	"strings"
+
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -50,7 +53,12 @@ func (m *ModuleControl) IsMatched() bool {
 		return false
 	}
 
-	if m.event.Verb == "get" || m.event.Verb == "list" {
+	if m.event.Verb != "create" && m.event.Verb != "patch" && m.event.Verb != "update" && m.event.Verb != "delete" {
+		return false
+	}
+
+	if strings.HasPrefix(m.event.User.Username, "system:") &&
+		!strings.HasPrefix(m.event.User.Username, "system:serviceaccount:d8-service-accounts") {
 		return false
 	}
 
@@ -69,13 +77,13 @@ func (m *ModuleControl) Fill() error {
 
 	switch m.event.Verb {
 	case "create":
-		m.eventLog.Name = "Module creation"
+		m.eventLog.Name = fmt.Sprintf("Module '%s' has been created by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 		m.eventLog.Level = "info"
 	case "patch", "update":
-		m.eventLog.Name = "Module update"
+		m.eventLog.Name = fmt.Sprintf("Module '%s' has been updated by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 		m.eventLog.Level = "info"
 	case "delete":
-		m.eventLog.Name = "Module deletion"
+		m.eventLog.Name = fmt.Sprintf("Module '%s' has been deleted by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 		m.eventLog.Level = "warn"
 	}
 
@@ -86,7 +94,7 @@ func (m *ModuleControl) Fill() error {
 	}
 
 	if (m.event.Verb == "patch" || m.event.Verb == "update") && (moduleConfig.Spec.Enabled != nil && !*moduleConfig.Spec.Enabled) {
-		m.eventLog.Name = "Module disabled"
+		m.eventLog.Name = fmt.Sprintf("Module '%s' has been disabled by '%s'", m.event.ObjectRef.Name, m.event.User.Username)
 		m.eventLog.Level = "warn"
 	}
 

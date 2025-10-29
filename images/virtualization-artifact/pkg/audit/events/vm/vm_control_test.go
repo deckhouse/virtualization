@@ -44,6 +44,7 @@ type vmControlTestArgs struct {
 	shouldLostVM                 bool
 	shouldLostVD                 bool
 	shouldLostNode               bool
+	shoulntLog                   bool
 	customObjectRef              *audit.ObjectReference
 	customObjectRefNil           bool
 	customContainerStatusMessage string
@@ -82,7 +83,14 @@ var _ = Describe("VMOP Events", func() {
 		}
 
 		pod = &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "virt-launcher-test-vm", Namespace: "test", UID: "0000-0000-4567"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "virt-launcher-test-vm",
+				Namespace: "test",
+				UID:       "0000-0000-4567",
+				Labels: map[string]string{
+					"vm.kubevirt.internal.virtualization.deckhouse.io/name": "test-vm",
+				},
+			},
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
@@ -230,6 +238,11 @@ var _ = Describe("VMOP Events", func() {
 			err := eventLog.Fill()
 			Expect(err).To(BeNil())
 
+			if args.shoulntLog {
+				Expect(eventLog.ShouldLog()).To(BeFalse())
+				return
+			}
+
 			Expect(eventLog.eventLog.Type).To(Equal("Control VM"))
 			Expect(eventLog.eventLog.Level).To(Equal(args.expectedLevel))
 			Expect(eventLog.eventLog.Name).To(Equal(args.expectedName))
@@ -304,45 +317,41 @@ var _ = Describe("VMOP Events", func() {
 		}),
 		Entry("VM deleted by user event should filled without errors", vmControlTestArgs{
 			expectedLevel:      "critical",
-			expectedName:       "VM killed abnormal way",
+			expectedName:       "Virtual machine 'test-vm' has been killed abnormal way by 'test-user'",
 			expectedActionType: "delete",
 		}),
 		Entry("VM stopped from OS by controller event should filled without errors", vmControlTestArgs{
 			customEventUser:              "system:serviceaccount:d8-virtualization",
 			customContainerStatusMessage: "guest-shutdown",
 			expectedLevel:                "warn",
-			expectedName:                 "VM stoped from OS",
+			expectedName:                 "Virtual machine 'test-vm' has been stopped from OS",
 			expectedActionType:           "delete",
 		}),
 		Entry("VM restarted from OS by controller event should filled without errors", vmControlTestArgs{
 			customEventUser:              "system:serviceaccount:d8-virtualization",
 			customContainerStatusMessage: "guest-reset",
 			expectedLevel:                "warn",
-			expectedName:                 "VM restarted from OS",
+			expectedName:                 "Virtual machine 'test-vm' has been restarted from OS",
 			expectedActionType:           "delete",
 		}),
 		Entry("VM deleted by node event should filled without errors", vmControlTestArgs{
-			customEventUser:    "system:node",
-			expectedLevel:      "info",
-			expectedName:       "VM stopped by system",
-			expectedActionType: "delete",
+			customEventUser: "system:node",
+			shoulntLog:      true,
 		}),
 		Entry("VM deleted by controller with unknown termination message event should filled without errors", vmControlTestArgs{
 			customContainerStatusMessage: "poped",
 			customEventUser:              "system:serviceaccount:d8-virtualization",
-			expectedLevel:                "warn",
-			expectedName:                 "VM stopped by system",
-			expectedActionType:           "delete",
+			shoulntLog:                   true,
 		}),
 		Entry("VM deleted by user event with losted VM should filled without errors", vmControlTestArgs{
 			expectedLevel:      "critical",
-			expectedName:       "VM killed abnormal way",
+			expectedName:       "Virtual machine 'test-vm' has been killed abnormal way by 'test-user'",
 			expectedActionType: "delete",
 			shouldLostVM:       true,
 		}),
 		Entry("VM deleted by user event with losted VD and Node should filled without errors", vmControlTestArgs{
 			expectedLevel:      "critical",
-			expectedName:       "VM killed abnormal way",
+			expectedName:       "Virtual machine 'test-vm' has been killed abnormal way by 'test-user'",
 			expectedActionType: "delete",
 			shouldLostNode:     true,
 			shouldLostVD:       true,

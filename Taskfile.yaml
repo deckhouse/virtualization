@@ -16,11 +16,11 @@ includes:
     taskfile: ./images/hooks
     dir: ./images/hooks
   e2e:
-    taskfile: ./tests/e2e
-    dir: ./tests/e2e
+    taskfile: ./test/e2e
+    dir: ./test/e2e
   perf:
-    taskfile: ./tests/performance
-    dir: ./tests/performance
+    taskfile: ./test/performance
+    dir: ./test/performance
 
 vars:
   deckhouse_lib_helm_ver: 1.55.1

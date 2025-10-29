@@ -877,7 +877,6 @@ func schema_virtualization_api_core_v1alpha2_CPU(ref common.ReferenceCallback) c
 					"discovery": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Create a CPU model based on intersecting CPU features for selected nodes.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery"),
 						},
 					},
