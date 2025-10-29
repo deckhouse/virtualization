@@ -87,7 +87,7 @@ var _ = Describe("IPAM", func() {
 			intermediate, lease = WaitToBeBound(ctx, f, intermediate.Name)
 
 			By("Delete the intermediate vmip and check that the lease is released")
-			err = f.Delete(ctx, intermediate)
+			err = f.Delete(ctx, framework.DeleteOptions{}, intermediate)
 			Expect(err).NotTo(HaveOccurred())
 			lease = WaitForLeaseToBeReleased(ctx, f, lease.Name)
 
@@ -103,7 +103,7 @@ var _ = Describe("IPAM", func() {
 			WaitToBeBound(ctx, f, vmipStatic.Name)
 
 			By("Delete the static vmip and lease, then create another static vmip with this ip address")
-			err = f.Delete(ctx, vmipStatic, lease)
+			err = f.Delete(ctx, framework.DeleteOptions{}, vmipStatic, lease)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmipStatic = object.NewVirtualMachineIPAddress(

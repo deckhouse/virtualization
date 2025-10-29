@@ -70,25 +70,27 @@ func (f *Framework) Before() {
 func (f *Framework) After() {
 	GinkgoHelper()
 
+	if config.IsCleanUpNeeded() {
+		defer func() {
+			if f.namespace != nil {
+				By("Cleanup: delete namespace")
+				err := f.Delete(context.Background(), DeleteOptions{Timeout: 40 * time.Second}, f.namespace)
+				Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
+			}
+		}()
+
+		defer func() {
+			By("Cleanup: process deferred deletions")
+			err := f.Delete(context.Background(), DeleteOptions{}, f.objectsToDelete...)
+			Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+		}()
+	}
+
 	if CurrentSpecReport().Failed() {
 		if f.namespace != nil {
 			By("Failed: save resource dump")
 			f.saveTestCaseDump()
 		}
-	}
-
-	if config.IsCleanUpNeeded() {
-		defer func() {
-			if f.namespace != nil {
-				By("Cleanup: delete namespace")
-				err := f.Delete(context.Background(), f.namespace)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete namespace %q", f.namespace.Name)
-			}
-		}()
-
-		By("Cleanup: process deferred deletions")
-		err := f.Delete(context.Background(), f.objectsToDelete...)
-		Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
 	}
 }
 
@@ -122,7 +124,16 @@ func (f *Framework) DeferDelete(objs ...client.Object) {
 	f.objectsToDelete = append(f.objectsToDelete, objs...)
 }
 
-func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
+type DeleteOptions struct {
+	Timeout time.Duration
+}
+
+func (f *Framework) Delete(ctx context.Context, opts DeleteOptions, objs ...client.Object) error {
+	timeout := 30 * time.Second
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
+	}
+
 	// 1. Send deletion request for objects.
 	for _, obj := range objs {
 		err := f.client.Delete(ctx, obj)
@@ -138,7 +149,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 			Name:      obj.GetName(),
 		}
 
-		err := wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Second, timeout, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
 			case err == nil:

@@ -110,7 +110,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		})
 
 		By("Migrate the iPerf server", func() {
-			util.MigrateVirtualMachine(iperfServer)
+			util.MigrateVirtualMachine(f, iperfServer)
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
 		})
 
