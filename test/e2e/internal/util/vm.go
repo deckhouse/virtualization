@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 )
 
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
@@ -100,4 +101,22 @@ func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachin
 		return nil
 	}
 	return err
+}
+
+func CheckCiliumAgentsForVM(ctx context.Context, f *framework.Framework, vmName string) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		kubectl := f.Clients.Kubectl()
+		err := network.CheckCiliumAgents(ctx, kubectl, vmName, f.Namespace().Name)
+		g.Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmName)
+	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func CheckExternalConnectivity(ctx context.Context, f *framework.Framework, vmName, host, expectedHTTPCode string) {
+	GinkgoHelper()
+
+	cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
+	_, err := f.SSHCommand(vmName, f.Namespace().Name, cmd)
+	Expect(err).NotTo(HaveOccurred(), "failed external connectivity check for VM %s", vmName)
 }
