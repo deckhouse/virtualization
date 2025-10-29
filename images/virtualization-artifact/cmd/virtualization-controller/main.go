@@ -299,19 +299,19 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	onlyMigrationClient, err := client.New(cfg, client.Options{Scheme: scheme})
+	preManagerClient, err := client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	mCtrl, err := migration.NewController(onlyMigrationClient, log)
+	mCtrl, err := migration.NewController(preManagerClient, log)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 	mCtrl.Run(ctx)
 
-	if err = crd.EnsureVMClassConversionWebhook(ctx, mgr.GetClient(), controllerNamespace); err != nil {
+	if err = crd.EnsureVMClassConversionWebhook(ctx, preManagerClient, controllerNamespace); err != nil {
 		log.Error("Failed to ensure VirtualMachineClass CRD conversion webhook", logger.SlogErr(err))
 		os.Exit(1)
 	}
