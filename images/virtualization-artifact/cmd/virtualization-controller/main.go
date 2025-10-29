@@ -61,6 +61,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
+	"github.com/deckhouse/virtualization-controller/pkg/crd"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
@@ -309,6 +310,11 @@ func main() {
 		os.Exit(1)
 	}
 	mCtrl.Run(ctx)
+
+	if err = crd.EnsureVMClassConversionWebhook(ctx, mgr.GetClient(), controllerNamespace); err != nil {
+		log.Error("Failed to ensure VirtualMachineClass CRD conversion webhook", logger.SlogErr(err))
+		os.Exit(1)
+	}
 
 	if err = indexer.IndexALL(ctx, mgr); err != nil {
 		log.Error(err.Error())
