@@ -17,6 +17,7 @@ package inject_crd_conversion_cabundle
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 
@@ -89,7 +90,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 					"path":      "/convert",
 					"port":      443,
 				},
-				"caBundle": string(caBundle),
+				"caBundle": base64.StdEncoding.EncodeToString(caBundle),
 			},
 			"conversionReviewVersions": []string{"v1"},
 		},
