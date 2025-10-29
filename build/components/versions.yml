@@ -15,7 +15,7 @@ package:
   file: FILE5_45
   gcc: releases/gcc-13.2.0
   glib2: 2.84.2
-  glibc: 650a0aaaffa9ddb44732fa6156b31c5f30ee596f
+  glibc: 650a0aaaffa9ddb44732fa6156b31c5f30ee596f # release/2.38/master
   libgmp: 6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2
