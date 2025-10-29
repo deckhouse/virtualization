@@ -62,12 +62,14 @@ func makeSSHCommandOptions(options ...SSHCommandOption) *sshCommandOptions {
 	return o
 }
 
-func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...SSHCommandOption) error {
+// SSHCommand returns the STDOUT of the command result and nil for the error if the command execution is successful.
+// It returns an empty string and an error if the command execution fails.
+func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...SSHCommandOption) (string, error) {
 	o := makeSSHCommandOptions(options...)
 
 	file, err := os.CreateTemp(os.TempDir(), "ssh-key-")
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer func() {
 		_ = file.Close()
@@ -75,10 +77,10 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	}()
 
 	if _, err = file.WriteString(o.privateKey); err != nil {
-		return err
+		return "", err
 	}
 	if err = os.Chmod(file.Name(), 0o600); err != nil {
-		return err
+		return "", err
 	}
 
 	res := f.d8virtualization.SSHCommand(vmName, command, d8.SSHOptions{
@@ -89,8 +91,8 @@ func (f *Framework) SSHCommand(vmName, vmNamespace, command string, options ...S
 	})
 
 	if !res.WasSuccess() {
-		return fmt.Errorf("failed to execute command %s: %w: %s", command, res.Error(), res.StdErr())
+		return "", fmt.Errorf("failed to execute command %s: %w: %s", command, res.Error(), res.StdErr())
 	}
 
-	return nil
+	return res.StdOut(), nil
 }

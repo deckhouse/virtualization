@@ -30,10 +30,11 @@ const (
 )
 
 var (
-	ShortTimeout  = getTimeout(E2EShortTimeoutEnv, 30*time.Second)
-	MiddleTimeout = getTimeout(E2EMiddleTimeoutEnv, 60*time.Second)
-	LongTimeout   = getTimeout(E2ELongTimeoutEnv, 300*time.Second)
-	MaxTimeout    = getTimeout(E2EMaxTimeoutEnv, 600*time.Second)
+	ShortTimeout    = getTimeout(E2EShortTimeoutEnv, 30*time.Second)
+	MiddleTimeout   = getTimeout(E2EMiddleTimeoutEnv, 60*time.Second)
+	LongTimeout     = getTimeout(E2ELongTimeoutEnv, 300*time.Second)
+	MaxTimeout      = getTimeout(E2EMaxTimeoutEnv, 600*time.Second)
+	PollingInterval = 1 * time.Second
 )
 
 func getTimeout(env string, defaultTimeout time.Duration) time.Duration {

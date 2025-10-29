@@ -28,11 +28,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineRestoreSafe", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 	var (
 		ctx                 context.Context
 		namespace           string

@@ -29,6 +29,7 @@ const (
 	sdsReplicatedVolume = "replicated.csi.storage.deckhouse.io"
 )
 
+// Deprecated: do not use for new e2e tests (only for legacy ones).
 func (f *Framework) GetNamePrefix(storageClass *storagev1.StorageClass) (string, error) {
 	if prNumber, ok := os.LookupEnv("MODULES_MODULE_TAG"); ok && prNumber != "" {
 		return prNumber, nil
@@ -40,8 +41,7 @@ func (f *Framework) GetNamePrefix(storageClass *storagev1.StorageClass) (string,
 	}
 
 	commitHash := res.StdOut()
-	commitHash = commitHash[:len(commitHash)-1]
-
+	commitHash = commitHash[:5]
 	namePrefix := fmt.Sprintf("v12n-%s", commitHash)
 
 	var scPrefix string
@@ -52,7 +52,7 @@ func (f *Framework) GetNamePrefix(storageClass *storagev1.StorageClass) (string,
 		case sdsReplicatedVolume:
 			scPrefix = "sds-rep-vol"
 		default:
-			scPrefix = "ukn-strg"
+			scPrefix = "unknown-csi"
 		}
 
 		namePrefix = fmt.Sprintf("%s-%s", namePrefix, scPrefix)

@@ -25,11 +25,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineLabelAndAnnotation", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineLabelAndAnnotation", Ordered, func() {
 	const (
 		specialKey   = "specialKey"
 		specialValue = "specialValue"

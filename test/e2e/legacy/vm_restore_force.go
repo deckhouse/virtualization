@@ -30,11 +30,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
-	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineRestoreForce", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineRestoreForce", Ordered, func() {
 	var (
 		ctx                 context.Context
 		namespace           string

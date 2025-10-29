@@ -196,7 +196,7 @@ webhooks:
     rules:
       - apiGroups:   ["virtualization.deckhouse.io"]
         apiVersions: ["v1alpha2"]
-        operations:  ["UPDATE"]
+        operations:  ["CREATE", "UPDATE"]
         resources:   ["virtualmachinerestores"]
         scope:       "Namespaced"
     clientConfig:
