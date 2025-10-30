@@ -43,10 +43,10 @@ type VMWatcher struct{}
 func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	mgrClient := mgr.GetClient()
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineSnapshot{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vms *v1alpha2.VirtualMachineSnapshot) []reconcile.Request {
 				vmops := &v1alpha2.VirtualMachineSnapshotOperationList{}
-				if err := mgrClient.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
+				if err := mgrClient.List(ctx, vmops, client.InNamespace(vms.GetNamespace())); err != nil {
 					return nil
 				}
 				var requests []reconcile.Request
@@ -55,7 +55,7 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 						continue
 					}
 
-					if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == v1alpha2.VMSOPPhaseInProgress {
+					if vmop.Spec.VirtualMachineSnapshot == vms.GetName() && vmop.Status.Phase == v1alpha2.VMSOPPhaseInProgress {
 						requests = append(requests, reconcile.Request{
 							NamespacedName: types.NamespacedName{
 								Namespace: vmop.GetNamespace(),
@@ -67,8 +67,8 @@ func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 				}
 				return requests
 			}),
-			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineSnapshot]) bool {
 					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || !equality.Semantic.DeepEqual(e.ObjectOld.Status.Conditions, e.ObjectNew.Status.Conditions)
 				},
 			},

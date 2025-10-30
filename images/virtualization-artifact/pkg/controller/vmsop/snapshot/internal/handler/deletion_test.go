@@ -62,7 +62,7 @@ var _ = Describe("DeletionHandler", func() {
 			Phase:      phase,
 			Conditions: []metav1.Condition{},
 		}
-		vmsop.Spec.VirtualMachine = "test-vm"
+		vmsop.Spec.VirtualMachineSnapshot = "test-vm"
 		vmsopbuilder.ApplyOptions(vmsop, opts...)
 		return vmsop
 	}

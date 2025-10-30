@@ -55,11 +55,7 @@ func NewExitMaintenanceStep(
 }
 
 func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineSnapshotOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.Mode == v1alpha2.VMSOPRestoreModeDryRun {
-		return &reconcile.Result{}, nil
-	}
-
-	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachineSnapshot}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)

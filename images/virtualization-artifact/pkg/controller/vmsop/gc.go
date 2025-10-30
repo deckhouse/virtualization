@@ -106,5 +106,5 @@ func (m *vmopGCManager) getIndex(obj client.Object) string {
 	if !ok {
 		return ""
 	}
-	return vmop.Spec.VirtualMachine
+	return vmop.Spec.VirtualMachineSnapshot
 }

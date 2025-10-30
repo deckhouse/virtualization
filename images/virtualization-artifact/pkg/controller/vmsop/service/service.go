@@ -76,7 +76,7 @@ func (s *BaseVMSOPService) ShouldExecute(ctx context.Context, vmop *v1alpha2.Vir
 	}
 
 	for _, other := range vmopList.Items {
-		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
+		if other.Spec.VirtualMachineSnapshot != vmop.Spec.VirtualMachineSnapshot {
 			continue
 		}
 		if commonvmsop.IsFinished(&other) {
@@ -111,7 +111,7 @@ func (s *BaseVMSOPService) Init(vmop *v1alpha2.VirtualMachineSnapshotOperation) 
 
 func (s *BaseVMSOPService) FetchVirtualMachineOrSetFailedPhase(ctx context.Context, vmop *v1alpha2.VirtualMachineSnapshotOperation) (*v1alpha2.VirtualMachine, error) {
 	// 1. Get VirtualMachine for validation vmop.
-	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}, s.client, &v1alpha2.VirtualMachine{})
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmop.Spec.VirtualMachineSnapshot, Namespace: vmop.Namespace}, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("get VirtualMachine for VMSOP: %w", err)
 	}

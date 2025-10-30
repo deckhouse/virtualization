@@ -57,7 +57,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
-	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachineSnapshot}
 	vm, err := object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		log.Debug("Failed to fetch VirtualMachine", logger.SlogErr(err))

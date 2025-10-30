@@ -68,7 +68,7 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	vmKey := types.NamespacedName{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachine}
+	vmKey := types.NamespacedName{Namespace: o.vmop.Namespace, Name: o.vmop.Spec.VirtualMachineSnapshot}
 	vm, err := object.FetchObject(ctx, vmKey, o.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		err := fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
@@ -83,7 +83,6 @@ func (o CloneOperation) Execute(ctx context.Context) (reconcile.Result, error) {
 	}
 
 	return steptaker.NewStepTakers(
-		step.NewVMSnapshotReadyStep(o.client, cb),
 		step.NewProcessCloneStep(o.client, o.recorder, cb),
 	).Run(ctx, o.vmop)
 }

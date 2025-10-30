@@ -40,14 +40,8 @@ func WithType(t v1alpha2.VMSOPType) Option {
 	}
 }
 
-func WithVirtualMachine(vm string) Option {
+func WithVirtualMachineSnapshot(vms *v1alpha2.VirtualMachineSnapshot) Option {
 	return func(vmsop *v1alpha2.VirtualMachineSnapshotOperation) {
-		vmsop.Spec.VirtualMachine = vm
-	}
-}
-
-func WithForce(force *bool) Option {
-	return func(vmsop *v1alpha2.VirtualMachineSnapshotOperation) {
-		vmsop.Spec.Force = force
+		vmsop.Spec.VirtualMachineSnapshot = vms.Name
 	}
 }
