@@ -43,7 +43,7 @@ spec:
         openAPIV3Schema:
           description:
             VirtualMachineSnapshotOperation enables declarative management
-            of virtual machine state changes.
+            of virtual machine snapshot state changes.
           properties:
             apiVersion:
               description: |-
@@ -151,36 +151,6 @@ spec:
                         && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix)
                         && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement)
                         && size(self.nameReplacement) > 0)
-                force:
-                  description: |-
-                    Force execution of an operation.
-
-                    * Effect on `Restart` and `Stop`: operation performs immediately.
-                    * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
-                  type: boolean
-                restore:
-                  description: Restore defines the restore operation.
-                  properties:
-                    mode:
-                      description: |-
-                        VMSOPRestoreMode defines the kind of the restore operation.
-                        * `DryRun`: DryRun run without any changes. Compatibility shows in status.
-                        * `Strict`: Strict restore as is in the snapshot.
-                        * `BestEffort`: BestEffort restore without deleted external missing dependencies.
-                      enum:
-                        - DryRun
-                        - Strict
-                        - BestEffort
-                      type: string
-                    virtualMachineSnapshotName:
-                      description:
-                        VirtualMachineSnapshotName defines the source of
-                        the restore operation.
-                      type: string
-                  required:
-                    - mode
-                    - virtualMachineSnapshotName
-                  type: object
                 type:
                   description: |-
                     Type of the operation to execute on a virtual machine:
@@ -190,8 +160,8 @@ spec:
                   type: string
                 virtualMachineName:
                   description:
-                    Name of the virtual machine the operation is performed
-                    for.
+                    Name of the virtual machine snapshot the operation is
+                    performed for.
                   type: string
               required:
                 - type

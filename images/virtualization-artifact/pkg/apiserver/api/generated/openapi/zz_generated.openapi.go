@@ -5558,7 +5558,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperation(ref
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineSnapshotOperation enables declarative management of virtual machine state changes.",
+				Description: "VirtualMachineSnapshotOperation enables declarative management of virtual machine snapshot state changes.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -5765,23 +5765,10 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationSpec
 					},
 					"virtualMachineName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name of the virtual machine the operation is performed for.",
+							Description: "Name of the virtual machine snapshot the operation is performed for.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
-						},
-					},
-					"force": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Force execution of an operation.\n\n* Effect on `Restart` and `Stop`: operation performs immediately. * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"restore": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Restore defines the restore operation.",
-							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationRestoreSpec"),
 						},
 					},
 					"clone": {
@@ -5795,7 +5782,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotOperationSpec
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationCloneSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationRestoreSpec"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotOperationCloneSpec"},
 	}
 }
 

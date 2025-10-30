@@ -23,7 +23,7 @@ const (
 	VirtualmachineSnapshotOperationResource = "virtualmachinesnapshotoperations"
 )
 
-// VirtualMachineSnapshotOperation enables declarative management of virtual machine state changes.
+// VirtualMachineSnapshotOperation enables declarative management of virtual machine snapshot state changes.
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
@@ -49,15 +49,8 @@ type VirtualMachineSnapshotOperation struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Clone' ? has(self.clone) : true",message="Clone requires clone field."
 type VirtualMachineSnapshotOperationSpec struct {
 	Type VMSOPType `json:"type"`
-	// Name of the virtual machine the operation is performed for.
-	VirtualMachine string `json:"virtualMachineName"`
-	// Force execution of an operation.
-	//
-	// * Effect on `Restart` and `Stop`: operation performs immediately.
-	// * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
-	Force *bool `json:"force,omitempty"`
-	// Restore defines the restore operation.
-	Restore *VirtualMachineSnapshotOperationRestoreSpec `json:"restore,omitempty"`
+	// Name of the virtual machine snapshot the operation is performed for.
+	VirtualMachineSnapshot string `json:"virtualMachineName"`
 	// Clone defines the clone operation.
 	Clone *VirtualMachineSnapshotOperationCloneSpec `json:"clone,omitempty"`
 }
