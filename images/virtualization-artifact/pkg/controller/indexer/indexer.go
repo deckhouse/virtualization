@@ -34,6 +34,7 @@ const (
 	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByIP    = "status.ipAddress"
 	IndexFieldVMByNode  = "status.node"
 
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
@@ -64,6 +65,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVD,
 	IndexVMByVI,
 	IndexVMByCVI,
+	IndexVMByIP,
 	IndexVMByNode,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
@@ -118,6 +120,16 @@ func IndexVMByVI() (obj client.Object, field string, extractValue client.Indexer
 func IndexVMByCVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &v1alpha2.VirtualMachine{}, IndexFieldVMByCVI, func(vm client.Object) []string {
 		return getBlockDeviceNamesByKind(vm, v1alpha2.ClusterImageDevice)
+	}
+}
+
+func IndexVMByIP() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByIP, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil || vm.Status.IPAddress == "" {
+			return nil
+		}
+		return []string{vm.Status.IPAddress}
 	}
 }
 
