@@ -2990,18 +2990,18 @@ d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 
 ## Экспорт данных
 
-DVP позволяет экспортировать диски и снимки дисков виртуальных машин с использованием утилиты `d8` (версия 1.17 и выше).
+DVP позволяет экспортировать диски и снимки дисков виртуальных машин с использованием утилиты `d8` (версия 0.20.9 и выше).
 
 Пример: экспорт диска (выполняется на узле кластера):
 
 ```bash
-d8 download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data export download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Пример: экспорт снимка диска (выполняется на узле кластера):
 
 ```bash
-d8 download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
 Для экспорта ресурсов за пределы кластера необходимо также использовать флаг `--publish`.
