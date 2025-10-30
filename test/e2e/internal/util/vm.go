@@ -101,3 +101,12 @@ func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachin
 	}
 	return err
 }
+
+func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTTPCode string) {
+	GinkgoHelper()
+
+	cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
+	httpCode, err := f.SSHCommand(vmName, f.Namespace().Name, cmd)
+	Expect(err).NotTo(HaveOccurred(), "failed external connectivity check for VM %s", vmName)
+	Expect(strings.TrimSpace(httpCode)).To(Equal(expectedHTTPCode), "HTTP response code from %s should be %s, got %s", host, expectedHTTPCode, httpCode)
+}
