@@ -114,7 +114,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func(g Gomega) {
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
@@ -158,7 +158,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f)
 
@@ -191,7 +191,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 			vmopName := "local-disks-migration-" + strconv.Itoa(i)
 
 			By("Starting migrations for virtual machines")
-			util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func(g Gomega) {
 				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
@@ -234,7 +234,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		const vmopName1 = "local-disks-migration-1"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName1))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName1))
 
 		untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f)
 
@@ -244,7 +244,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		const vmopName2 = "local-disks-migration-2"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName2))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
 
 		Eventually(func(g Gomega) {
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName2, metav1.GetOptions{})
@@ -285,7 +285,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
 			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
@@ -395,7 +395,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 			const vmopName = "local-disks-migration"
 
 			By("Starting migrations for virtual machines")
-			util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
 				pods, err := f.KubeClient().CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{})
@@ -475,7 +475,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		By("Waiting for migration failed")
 		Eventually(func(g Gomega) {

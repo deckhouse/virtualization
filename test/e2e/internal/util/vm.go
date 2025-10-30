@@ -78,7 +78,7 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-func MigrateVirtualMachine(vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {
+func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
@@ -90,7 +90,7 @@ func MigrateVirtualMachine(vm *v1alpha2.VirtualMachine, options ...vmopbuilder.O
 	opts = append(opts, options...)
 	vmop := vmopbuilder.New(opts...)
 
-	_, err := framework.GetClients().VirtClient().VirtualMachineOperations(vm.Namespace).Create(context.Background(), vmop, metav1.CreateOptions{})
+	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
 	Expect(err).NotTo(HaveOccurred())
 }
 
