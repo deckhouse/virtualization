@@ -94,7 +94,7 @@ tasks:
     cmds:
       - |
         if [ -z "$E2E_PREFIX" ]; then
-          E2E_PREFIX="head-$(git rev-parse --short HEAD)"
+          E2E_PREFIX="v12n-$(git rev-parse --short=5 HEAD)"
           echo "E2E_PREFIX not set. Setting E2E_PREFIX to $E2E_PREFIX"
         else
           echo "Using existing E2E_PREFIX: $E2E_PREFIX"
