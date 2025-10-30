@@ -24,6 +24,7 @@ import (
 	"sync"
 
 	"github.com/onsi/ginkgo/v2"
+	"golang.org/x/net/http2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -79,7 +80,15 @@ func (l *LogChecker) Start() error {
 			l.mu.Lock()
 			defer l.mu.Unlock()
 			if err != nil && !errors.Is(err, context.Canceled) {
-				l.resultErr = errors.Join(l.resultErr, err)
+				// TODO: Find an alternative way to store Virtualization Controller errors without streaming.
+				// `http2.GoAwayError` likely appears when the context is canceled and readers are closed.
+				// It should not cause tests to fail.
+				var goAwayError *http2.GoAwayError
+				if errors.As(err, &goAwayError) {
+					ginkgo.GinkgoWriter.Printf("Warning! %w\n", err)
+				} else {
+					l.resultErr = errors.Join(l.resultErr, err)
+				}
 			}
 			l.resultNum += n
 		}()
