@@ -34,14 +34,12 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const (
-	externalHost = "https://flant.com"
-	httpStatusOk = "200"
-	biosURL      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-bios-base.qcow2"
-	uefiURL      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-base.qcow2"
-)
-
 var _ = Describe("VirtualMachineMigration", func() {
+	const (
+		externalHost = "https://flant.com"
+		httpStatusOk = "200"
+	)
+
 	var (
 		vdRootBIOS  *v1alpha2.VirtualDisk
 		vdBlankBIOS *v1alpha2.VirtualDisk
@@ -50,9 +48,6 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 		vmBIOS *v1alpha2.VirtualMachine
 		vmUEFI *v1alpha2.VirtualMachine
-
-		vmopMigrateBIOS *v1alpha2.VirtualMachineOperation
-		vmopMigrateUEFI *v1alpha2.VirtualMachineOperation
 
 		f = framework.NewFramework("vm-migration")
 	)
@@ -70,7 +65,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: biosURL,
+					URL: object.AlpineBIOSURL,
 				}),
 			)
 			vdBlankBIOS = vd.New(
@@ -83,7 +78,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: uefiURL,
+					URL: object.AlpineUEFIPerfHTTP,
 				}),
 			)
 			vdBlankUEFI = vd.New(
@@ -140,20 +135,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Create VMOP to trigger migration", func() {
-			vmopMigrateBIOS = vmop.New(
-				vmop.WithGenerateName("vmop-migrate-bios-"),
-				vmop.WithNamespace(f.Namespace().Name),
-				vmop.WithType(v1alpha2.VMOPTypeEvict),
-				vmop.WithVirtualMachine(vmBIOS.Name),
-			)
-			vmopMigrateUEFI = vmop.New(
-				vmop.WithGenerateName("vmop-migrate-uefi-"),
-				vmop.WithNamespace(f.Namespace().Name),
-				vmop.WithType(v1alpha2.VMOPTypeEvict),
-				vmop.WithVirtualMachine(vmUEFI.Name),
-			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmopMigrateBIOS, vmopMigrateUEFI)
-			Expect(err).NotTo(HaveOccurred())
+			util.MigrateVirtualMachine(vmBIOS, vmop.WithGenerateName("vmop-migrate-bios-"))
+			util.MigrateVirtualMachine(vmUEFI, vmop.WithGenerateName("vmop-migrate-uefi-"))
 		})
 
 		By("Wait for migration to complete", func() {
@@ -161,14 +144,14 @@ var _ = Describe("VirtualMachineMigration", func() {
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 		})
 
-		By("Validate Cilium agents are properly configured for the VM", func() {
+		By("Check Cilium agents are properly configured for the VM", func() {
 			util.CheckCiliumAgentsForVM(context.Background(), f, vmBIOS.Name)
 			util.CheckCiliumAgentsForVM(context.Background(), f, vmUEFI.Name)
 		})
 
-		By("Validate VM can reach external network", func() {
-			util.CheckExternalConnectivity(context.Background(), f, vmBIOS.Name, externalHost, httpStatusOk)
-			util.CheckExternalConnectivity(context.Background(), f, vmUEFI.Name, externalHost, httpStatusOk)
+		By("Check VM can reach external network", func() {
+			util.CheckExternalConnectivity(f, vmBIOS.Name, externalHost, httpStatusOk)
+			util.CheckExternalConnectivity(f, vmUEFI.Name, externalHost, httpStatusOk)
 		})
 	})
 })

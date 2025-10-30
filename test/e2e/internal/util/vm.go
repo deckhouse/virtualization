@@ -123,14 +123,12 @@ func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachin
 func CheckCiliumAgentsForVM(ctx context.Context, f *framework.Framework, vmName string) {
 	GinkgoHelper()
 
-	Eventually(func(g Gomega) {
-		kubectl := f.Clients.Kubectl()
-		err := network.CheckCiliumAgents(ctx, kubectl, vmName, f.Namespace().Name)
-		g.Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmName)
-	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+	kubectl := f.Clients.Kubectl()
+	err := network.CheckCiliumAgents(ctx, kubectl, vmName, f.Namespace().Name)
+	Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmName)
 }
 
-func CheckExternalConnectivity(ctx context.Context, f *framework.Framework, vmName, host, expectedHTTPCode string) {
+func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTTPCode string) {
 	GinkgoHelper()
 
 	cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
