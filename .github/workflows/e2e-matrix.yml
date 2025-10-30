@@ -349,6 +349,32 @@ jobs:
           done
           echo "[Deckhouse] Extra grace period for webhook init..."; sleep 20
 
+          # Configure deckhouse-prod ModuleSource if Ceph profile is requested
+          if [ "$PROFILE" = "cephrbd" ]; then
+            echo "[Deckhouse] Configuring ModuleSource 'deckhouse-prod' for module images..."
+            MODSRC_REPO="${{ vars.DECKHOUSE_PROD_MODULES_REPO || 'registry.deckhouse.io/deckhouse/ee/modules' }}"
+            CFG_B64='${{ secrets.REGISTRY_DOCKER_CFG || '' }}'
+            if [ -z "$CFG_B64" ]; then
+              echo "[ERR] REGISTRY_DOCKER_CFG secret is not set; Ceph requires deckhouse-prod modules source." >&2
+              exit 1
+            else
+              cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+              apiVersion: deckhouse.io/v1alpha1
+              kind: ModuleSource
+              metadata:
+                name: deckhouse-prod
+              spec:
+                registry:
+                  repo: ${MODSRC_REPO}
+                  scheme: HTTPS
+                  dockerCfg: ${CFG_B64}
+                releaseChannel: EarlyAccess
+              EOF
+              echo "[Deckhouse] ModuleSource 'deckhouse-prod' applied."
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl get modulesources.deckhouse.io || true
+            fi
+          fi
+
           # If Ceph profile requested, enable Ceph modules and apply CephCluster
           if [ "$PROFILE" = "cephrbd" ]; then
             echo "[Ceph] Enabling operator-ceph and CSI-Ceph via ModuleConfig..."
@@ -365,10 +391,48 @@ jobs:
             done
             echo "[Ceph] Waiting for CephCluster CRD..."
             KUBECONFIG="$NESTED_KUBECONFIG" kubectl wait --for=condition=Established --timeout=300s crd/cephclusters.ceph.rook.io || true
-            echo "[Ceph] Applying CephCluster CR (with deviceFilter)"
+            echo "[Ceph] Applying CephCluster CR (first, only CephCluster)"
             for i in {1..12}; do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
-                break; else echo "[Ceph] ceph.yaml apply failed, retry $i/12"; sleep 10; fi
+              if yq 'select(.kind == "CephCluster")' ci/dvp-e2e/manifests/storage/ceph.yaml | \
+                 KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=15s apply --validate=false -f -; then
+                break; else echo "[Ceph] CephCluster apply failed, retry $i/12"; sleep 10; fi
+            done
+
+            echo "[Ceph] Waiting for CephCluster phase=Ready and HEALTH_OK..."
+            for i in $(seq 1 60); do
+              PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              HEALTH=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.ceph.health}' 2>/dev/null || true)
+              echo "[Ceph] Status: phase=${PHASE:-?} health=${HEALTH:-?}"
+              if [ "$PHASE" = "Ready" ] && [ "$HEALTH" = "HEALTH_OK" ]; then
+                break
+              fi
+              sleep 20
+            done
+
+            echo "[Ceph] Ensure required ServiceAccounts and imagePullSecrets (fallback)"
+            # Create SAs if missing
+            for sa in rook-ceph-cmd-reporter rook-ceph-default rook-ceph-mgr rook-ceph-osd; do
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph create sa "$sa" --dry-run=client -o yaml | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - || true
+            done
+            PULL_SECRET=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get deploy rook-ceph-operator -o jsonpath='{.spec.template.spec.imagePullSecrets[0].name}' 2>/dev/null || true)
+            if [ -n "$PULL_SECRET" ]; then
+              echo "[Ceph] Propagating imagePullSecret '$PULL_SECRET' to SAs..."
+              for sa in default rook-ceph-mgr rook-ceph-osd; do
+                KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph patch sa "$sa" -p '{"imagePullSecrets":[{"name":"'$PULL_SECRET'"}]}' || true
+              done
+            else
+              echo "[WARN] rook-ceph-operator has no imagePullSecrets; skipping SA patch"
+            fi
+
+            echo "[Ceph] Applying CephBlockPool and StorageClass..."
+            yq 'select(.kind == "CephBlockPool" or .kind == "StorageClass")' ci/dvp-e2e/manifests/storage/ceph.yaml | \
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=15s apply --validate=false -f -
+
+            echo "[Ceph] Waiting for CephBlockPool to be Ready..."
+            for i in $(seq 1 30); do
+              BP_PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get cephblockpool pool-rbd-auto-test -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              [ "$BP_PHASE" = "Ready" ] && break
+              echo "[Ceph] BlockPool phase=$BP_PHASE; retry $i/30"; sleep 10
             done
             echo "[Ceph] Waiting for SC ceph-pool-r2-csi-rbd-immediate..."
             for i in $(seq 1 60); do
@@ -412,6 +476,51 @@ jobs:
             DEFAULT_USER="ubuntu" \
             NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+
+      - name: Ceph CSI smoke check (PVC)
+        if: ${{ matrix.profile == 'cephrbd' }}
+        run: |
+          set -euo pipefail
+          NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+          echo "[Ceph] Current pods in d8-operator-ceph:"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get pods -o wide || true
+          echo "[Ceph] CSI resources:"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get ds,deploy | sed -n '/csi\|rook/p' || true
+          echo "[Ceph] StorageClasses:"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc || true
+
+          SMOKE_NS="ceph-smoke-${{ env.RUN_ID }}"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl create ns "$SMOKE_NS" || true
+          cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" apply -f -
+          apiVersion: v1
+          kind: PersistentVolumeClaim
+          metadata:
+            name: smoke-pvc
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            storageClassName: ceph-pool-r2-csi-rbd-immediate
+            resources:
+              requests:
+                storage: 1Gi
+          EOF
+
+          echo "[Ceph] Waiting for PVC to become Bound..."
+          for i in $(seq 1 60); do
+            PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" get pvc smoke-pvc -o jsonpath='{.status.phase}' 2>/dev/null || true)
+            if [ "$PHASE" = "Bound" ]; then echo "[Ceph] PVC is Bound"; break; fi
+            if [ "$i" -eq 60 ]; then
+              echo "[ERR] PVC did not reach Bound state" >&2
+              echo "[DEBUG] Describe PVC:"; KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" describe pvc smoke-pvc || true
+              echo "[DEBUG] Events in namespace:"; KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" get events --sort-by=.lastTimestamp | tail -n 50 || true
+              echo "[DEBUG] CSI pods:"; KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get pods -o wide || true
+              exit 1
+            fi
+            sleep 10
+          done
+
+          echo "[Ceph] Cleanup smoke resources"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" delete pvc smoke-pvc --wait=true --ignore-not-found=true || true
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl delete ns "$SMOKE_NS" --wait=false || true
 
       - name: Prepare JUnit directory
         run: |
