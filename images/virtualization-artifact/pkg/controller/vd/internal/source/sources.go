@@ -183,7 +183,7 @@ func setPhaseConditionForPVCProvisioningDisk(
 		}
 
 		dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, dv.Status.Conditions)
-		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningCond.Status == corev1.ConditionFalse && dvRunningCond.Reason == "" {
+		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningCond.Reason == "" {
 			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 			cb.
 				Status(metav1.ConditionFalse).
