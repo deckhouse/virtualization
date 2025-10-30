@@ -2538,8 +2538,21 @@ EOF
 
 ### Additional network interfaces
 
+<<<<<<< Updated upstream
 {{< alert level="warning" >}}
 To work with additional networks, the `sdn` module must be activated.
+=======
+Virtual machines can be connected not only to the main cluster network interface but also to additional networks provided by the `d8-sdn` module. Such networks include project Networks and ClusterNetworks.
+
+Additional networks are defined in the `.spec.networks` configuration block. If this block is absent (default value), the VM is connected only to the main cluster network.
+
+{{< alert level=“warning” >}}
+Cluster network policies do not apply to additional network interfaces. Please review and configure the necessary security rules within the VM.
+{{< /alert >}}
+
+{{< alert level=“warning” >}}
+Changes to the list of additional networks (adding or removing) take effect only after the VM is rebooted.
+>>>>>>> Stashed changes
 {{< /alert >}}
 
 Virtual machines can be connected to additional networks — project (Network) or cluster (ClusterNetwork).
