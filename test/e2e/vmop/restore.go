@@ -26,6 +26,7 @@ import (
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
@@ -67,12 +68,12 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 
 	It("restores a virtual machine from a snapshot", func() {
 		By("Environment preparation", func() {
-
+			initializeEnvironment(f.Namespace().Name, cvi, vi, vdRoot, vdBlank, vm, vmbda)
 		})
 	})
 })
 
-func generateResources(
+func initializeEnvironment(
 	namespace string,
 	cvi *v1alpha2.ClusterVirtualImage,
 	vi *v1alpha2.VirtualImage, vdRoot *v1alpha2.VirtualDisk,
@@ -92,24 +93,30 @@ func generateResources(
 	vdRoot = object.NewGeneratedHTTPVDUbuntu("vd-root", namespace)
 	vdBlank = object.NewBlankVD("vd-blank", namespace, nil, ptr.To(resource.MustParse("51Mi")))
 	vm = object.NewMinimalVM(
-		"vm-test", namespace,
+		"", namespace,
+		vmbuilder.WithName("vm"),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.VirtualDiskKind,
+				Kind: v1alpha2.DiskDevice,
 				Name: vdRoot.Name,
 			},
 		),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.ClusterVirtualImageKind,
+				Kind: v1alpha2.ClusterImageDevice,
 				Name: cvi.Name,
 			},
 		),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
-				Kind: v1alpha2.VirtualImageKind,
+				Kind: v1alpha2.ImageDevice,
 				Name: vi.Name,
 			},
 		),
+	)
+	vmbda = vmbdabuilder.New(
+		vmbdabuilder.WithName("vmbda"),
+		vmbdabuilder.WithVirtualMachineName(vm.Name),
+		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, vdRoot.Name),
 	)
 }
