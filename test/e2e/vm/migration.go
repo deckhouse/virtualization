@@ -65,7 +65,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.AlpineBIOSURL,
+					URL: object.ImageURLAlpineBIOS,
 				}),
 			)
 			vdBlankBIOS = vd.New(
@@ -78,7 +78,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithSize(ptr.To(resource.MustParse("10Gi"))),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.AlpineUEFIPerfHTTP,
+					URL: object.ImageURLAlpineUEFIPerf,
 				}),
 			)
 			vdBlankUEFI = vd.New(

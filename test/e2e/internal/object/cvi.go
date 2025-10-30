@@ -25,7 +25,7 @@ func NewHTTPCVIUbuntu(name string) *v1alpha2.ClusterVirtualImage {
 	return cvi.New(
 		cvi.WithName(name),
 		cvi.WithDataSourceHTTP(
-			UbuntuHTTP,
+			ImageURLUbuntu,
 			nil,
 			nil,
 		),
@@ -36,7 +36,7 @@ func NewGenerateHTTPCVIUbuntu(prefix string) *v1alpha2.ClusterVirtualImage {
 	return cvi.New(
 		cvi.WithGenerateName(prefix),
 		cvi.WithDataSourceHTTP(
-			UbuntuHTTP,
+			ImageURLUbuntu,
 			nil,
 			nil,
 		),

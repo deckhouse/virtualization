@@ -25,7 +25,7 @@ func NewHTTPVIUbuntu(name string) *v1alpha2.VirtualImage {
 	return vi.New(
 		vi.WithName(name),
 		vi.WithDataSourceHTTP(
-			UbuntuHTTP,
+			ImageURLUbuntu,
 			nil,
 			nil,
 		),
@@ -36,7 +36,7 @@ func NewGeneratedHTTPVIUbuntu(prefix string) *v1alpha2.VirtualImage {
 	return vi.New(
 		vi.WithGenerateName(prefix),
 		vi.WithDataSourceHTTP(
-			UbuntuHTTP,
+			ImageURLUbuntu,
 			nil,
 			nil,
 		),
