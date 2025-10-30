@@ -2958,13 +2958,13 @@ DVP allows you to export virtual machine disks and disk images using the `d8` ut
 Example: export a disk (run on a cluster node):
 
 ```bash
-d8 data export download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Example: export a disk snapshot (run on a cluster node):
 
 ```bash
-d8 data export download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
 To export resources outside the cluster, you must also use the `--publish` flag.
