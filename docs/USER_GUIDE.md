@@ -2953,7 +2953,7 @@ d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 
 ## Data export
 
-DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 0.20.9 and above).
+DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 0.20.7 and above).
 
 Example: export a disk (run on a cluster node):
 
