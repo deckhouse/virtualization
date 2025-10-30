@@ -65,20 +65,17 @@ altLibs:
   - libparted-devel
   - libdevmapper-devel
   - libglusterfs-devel
-  - libfuse-devel
   - systemtap-sdt-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
   - fdisk
   - hwclock
-  - iptables
   - passt
   - procps
   - policycoreutils
   - psmisc
   - msulogin
-  - iproute2
   - strace
 binaries:
   # Gnu utils (requared for swtpm)
@@ -239,6 +236,12 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
+- image: tools/iproute2
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/tc
 
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
