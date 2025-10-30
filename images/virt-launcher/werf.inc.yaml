@@ -92,8 +92,6 @@ binaries:
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # Iproute2
-  - /usr/sbin/tc
   # qemu
   # commented out due to automatic relocate in `beforeInstall` step
   # - /usr/bin/elf2dmp
@@ -238,7 +236,7 @@ import:
   - usr/bin/coreutils
 - image: tools/iproute2
   add: /
-  to: /relocate/usr
+  to: /relocate/
   after: setup
   includePaths:
   - sbin/tc
