@@ -40,18 +40,18 @@ shell:
   - |
     echo "Build virtualization-controller binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
-    
+
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-controller" }}
     go build -tags {{ .MODULE_EDITION }} -v -a -o /out/virtualization-controller ./cmd/virtualization-controller
     {{- else }}
     {{-   $buildCommand := printf "go build -ldflags=\"-s -w\" -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
     {{-   include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 4 }}
     {{- end }}
-    
+
   - |
     echo "Build virtualization-api binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
-    
+
     {{- if eq $.DEBUG_COMPONENT "delve/virtualization-api" }}
     go build -v -o /out/virtualization-api ./cmd/virtualization-api
     {{- else }}
