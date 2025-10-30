@@ -32,25 +32,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
-	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 )
-
-func UntilVMRunning(key client.ObjectKey, timeout time.Duration) {
-	GinkgoHelper()
-
-	Eventually(func() error {
-		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		if vm.Status.Phase == v1alpha2.MachineRunning {
-			return nil
-		}
-
-		return fmt.Errorf("vm %s is not running", key.Name)
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
-}
 
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
@@ -118,14 +100,6 @@ func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachin
 		return nil
 	}
 	return err
-}
-
-func CheckCiliumAgentsForVM(ctx context.Context, f *framework.Framework, vmName string) {
-	GinkgoHelper()
-
-	kubectl := f.Clients.Kubectl()
-	err := network.CheckCiliumAgents(ctx, kubectl, vmName, f.Namespace().Name)
-	Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmName)
 }
 
 func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTTPCode string) {

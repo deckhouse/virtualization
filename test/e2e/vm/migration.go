@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
+	"github.com/deckhouse/virtualization/test/e2e/internal/network"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -117,19 +118,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 
 			err := f.CreateWithDeferredDeletion(context.Background(), vdRootBIOS, vdBlankBIOS, vmBIOS, vdRootUEFI, vdBlankUEFI, vmUEFI)
 			Expect(err).NotTo(HaveOccurred())
-		})
 
-		By("Wait for VDs to be ready", func() {
-			util.UntilVDReady(crclient.ObjectKeyFromObject(vdRootBIOS), framework.LongTimeout)
-			util.UntilVDReady(crclient.ObjectKeyFromObject(vdRootUEFI), framework.LongTimeout)
-		})
-
-		By("Wait for VMs to be running", func() {
-			util.UntilVMRunning(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
-			util.UntilVMRunning(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
-		})
-
-		By("Wait for VM agents to be ready", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmBIOS), framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 		})
@@ -145,8 +134,10 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Check Cilium agents are properly configured for the VM", func() {
-			util.CheckCiliumAgentsForVM(context.Background(), f, vmBIOS.Name)
-			util.CheckCiliumAgentsForVM(context.Background(), f, vmUEFI.Name)
+			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBIOS.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmBIOS.Name)
+			err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmUEFI.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmUEFI.Name)
 		})
 
 		By("Check VM can reach external network", func() {
