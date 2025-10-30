@@ -1323,7 +1323,9 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
 
 ### User Configuration for Cloud Images
 
+{{< alert level="warning" >}}
 When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
+{{< /alert >}}
 
 Examples:
 
