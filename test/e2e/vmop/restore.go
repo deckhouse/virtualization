@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,6 +34,7 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
+	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -61,6 +63,10 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		vmbda      *v1alpha2.VirtualMachineBlockDeviceAttachment
 		vmsnapshot *v1alpha2.VirtualMachineSnapshot
 
+		vmoRestoreDryRun     *v1alpha2.VirtualMachineOperation
+		vmoRestoreBestEffort *v1alpha2.VirtualMachineOperation
+		vmoRestoreStrict     *v1alpha2.VirtualMachineOperation
+
 		generatedValue            string
 		runningLastTransitionTime time.Time
 
@@ -69,7 +75,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		createEnvironmentResources     func(namespace string)
 		shellCreateFsAndSetValueOnDisk func(value string) string
 		// shellChangeValueOnDisk         func(value string) string
-		// shellMountAndGetValueFromDisk  func() string
+		shellMountAndGetValueFromDisk func() string
 	)
 
 	BeforeEach(func() {
@@ -81,9 +87,6 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	It("restores a virtual machine from a snapshot", func() {
 		By("Environment preparation", func() {
 			createEnvironmentResources(f.Namespace().Name)
-
-			// vm.Annotations[testAnnotationName] = changedValue
-			vm.Labels[testLabelName] = changedValue
 
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
@@ -108,6 +111,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		By("Changing VM", func() {
 			err := f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
+			Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
 			vm.Annotations[testAnnotationName] = changedValue
 			vm.Labels[testLabelName] = changedValue
 			vm.Spec.CPU.Cores = 2
@@ -130,12 +135,100 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
-				g.Expect(runningCondition.LastTransitionTime.Time.After(runningLastTransitionTime)).Should(BeTrue())
+				g.Expect(runningCondition.LastTransitionTime.Time.After(runningLastTransitionTime)).To(BeTrue())
 			}, framework.LongTimeout, time.Second).Should(Succeed())
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
-		By("Rebooted")
+		By("Create restore DryRun operation", func() {
+			vmoRestoreDryRun = vmopbuilder.New(
+				vmopbuilder.WithName("restore-dry-run"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
+				vmopbuilder.WithVirtualMachine(vm.Name),
+				vmopbuilder.WithVMOPRestoreMode(v1alpha2.VMOPRestoreModeDryRun),
+				vmopbuilder.WithVirtualMachineSnapshotName(vmsnapshot.Name),
+			)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreDryRun)
+			Expect(err).NotTo(HaveOccurred())
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreDryRun), framework.ShortTimeout)
+		})
+		By("Check VM in changed state", func() {
+			err := f.UpdateFromCluster(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Annotations[testAnnotationName]).To(Equal(changedValue))
+			Expect(vm.Labels[testLabelName]).To(Equal(changedValue))
+			Expect(vm.Spec.CPU.Cores).To(Equal(2))
+			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("2Gi")))
+		})
+		By("Create restore BestEffort operation", func() {
+			vmoRestoreBestEffort = vmopbuilder.New(
+				vmopbuilder.WithName("restore-best-effort"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
+				vmopbuilder.WithVirtualMachine(vm.Name),
+				vmopbuilder.WithVMOPRestoreMode(v1alpha2.VMOPRestoreModeBestEffort),
+				vmopbuilder.WithVirtualMachineSnapshotName(vmsnapshot.Name),
+			)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreBestEffort)
+			Expect(err).NotTo(HaveOccurred())
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreBestEffort), framework.ShortTimeout)
+		})
+		By("Check VM in restored state", func() {
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
+
+			err := f.UpdateFromCluster(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
+			Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
+			Expect(vm.Spec.CPU.Cores).To(Equal(1))
+			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("1Gi")))
+			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
+		})
+		By("Changing VM", func() {
+			err := f.UpdateFromCluster(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
+			Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
+			vm.Annotations[testAnnotationName] = changedValue
+			vm.Labels[testLabelName] = changedValue
+			vm.Spec.CPU.Cores = 2
+			vm.Spec.Memory.Size = resource.MustParse("2Gi")
+			err = f.Clients.GenericClient().Update(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
+			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
+		})
+		By("Create restore Strict operation", func() {
+			vmoRestoreStrict = vmopbuilder.New(
+				vmopbuilder.WithName("restore-strict"),
+				vmopbuilder.WithNamespace(f.Namespace().Name),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
+				vmopbuilder.WithVirtualMachine(vm.Name),
+				vmopbuilder.WithVMOPRestoreMode(v1alpha2.VMOPRestoreModeStrict),
+				vmopbuilder.WithVirtualMachineSnapshotName(vmsnapshot.Name),
+			)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreStrict)
+			Expect(err).NotTo(HaveOccurred())
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreStrict), framework.ShortTimeout)
+		})
+		By("Check VM in restored state", func() {
+			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
+
+			err := f.UpdateFromCluster(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
+			Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
+			Expect(vm.Spec.CPU.Cores).To(Equal(1))
+			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("1Gi")))
+			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
+		})
 	})
 
 	createEnvironmentResources = func(namespace string) {
@@ -173,6 +266,10 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		vm = object.NewMinimalVM(
 			"", namespace,
 			vmbuilder.WithName("vm"),
+			vmbuilder.WithAnnotation(testAnnotationName, defaultValue),
+			vmbuilder.WithLabel(testLabelName, defaultValue),
+			vmbuilder.WithCPU(1, ptr.To("5%")),
+			vmbuilder.WithMemory(resource.MustParse("1Gi")),
 			vmbuilder.WithBlockDeviceRefs(
 				v1alpha2.BlockDeviceSpecRef{
 					Kind: v1alpha2.DiskDevice,
@@ -213,7 +310,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	// 	return fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value)
 	// }
 
-	// shellMountAndGetValueFromDisk = func() string {
-	// 	return "umount /mnt &>/dev/null || DEV=/dev/$(sudo lsblk | grep disk | tail -n 1 | awk \"{print \\$1}\") && sudo mount $DEV /mnt && cat /mnt/value"
-	// }
+	shellMountAndGetValueFromDisk = func() string {
+		return "umount /mnt &>/dev/null || DEV=/dev/$(sudo lsblk | grep disk | tail -n 1 | awk \"{print \\$1}\") && sudo mount $DEV /mnt && cat /mnt/value"
+	}
 })
