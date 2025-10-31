@@ -29,6 +29,7 @@ rules:
   - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines
+  - apivirtualmachines
   verbs:
   - get
   - list
@@ -56,6 +57,11 @@ rules:
   - virtualmachines/portforward
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - apivirtualmachines/console
+  - apivirtualmachines/vnc
+  - apivirtualmachines/portforward
+  - apivirtualmachines/addvolume
+  - apivirtualmachines/removevolume
   verbs:
   - get
   - create

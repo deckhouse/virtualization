@@ -589,8 +589,10 @@ rules:
   resources:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - apivirtualmachines/addvolume
+  - apivirtualmachines/removevolume
   verbs:
-  - update
+    - update
 - apiGroups:
   - subresources.kubevirt.io
   resources:

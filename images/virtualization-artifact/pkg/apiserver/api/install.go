@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	subv1alpha3 "github.com/deckhouse/virtualization/api/subresources/v1alpha3"
 )
 
 var (
@@ -55,20 +56,33 @@ func init() {
 	)
 }
 
-func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
+func Build(store *storage.VirtualMachineStorage, legacyStore *storage.LegacyVirtualMachineStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
-	resources := map[string]rest.Storage{
-		"virtualmachines":                  store,
-		"virtualmachines/console":          store.ConsoleREST(),
-		"virtualmachines/vnc":              store.VncREST(),
-		"virtualmachines/portforward":      store.PortForwardREST(),
-		"virtualmachines/addvolume":        store.AddVolumeREST(),
-		"virtualmachines/removevolume":     store.RemoveVolumeREST(),
-		"virtualmachines/freeze":           store.FreezeREST(),
-		"virtualmachines/unfreeze":         store.UnfreezeREST(),
-		"virtualmachines/cancelevacuation": store.CancelEvacuationREST(),
+	resourcesV1alpha3 := map[string]rest.Storage{
+		"apivirtualmachines":                  store,
+		"apivirtualmachines/console":          store.ConsoleREST(),
+		"apivirtualmachines/vnc":              store.VncREST(),
+		"apivirtualmachines/portforward":      store.PortForwardREST(),
+		"apivirtualmachines/addvolume":        store.AddVolumeREST(),
+		"apivirtualmachines/removevolume":     store.RemoveVolumeREST(),
+		"apivirtualmachines/freeze":           store.FreezeREST(),
+		"apivirtualmachines/unfreeze":         store.UnfreezeREST(),
+		"apivirtualmachines/cancelevacuation": store.CancelEvacuationREST(),
 	}
-	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resources
+	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha3.SchemeGroupVersion.Version] = resourcesV1alpha3
+	// TODO: legacy, should be removed in the future
+	resourcesV1alpha2 := map[string]rest.Storage{
+		"virtualmachines":                  legacyStore,
+		"virtualmachines/console":          legacyStore.ConsoleREST(),
+		"virtualmachines/vnc":              legacyStore.VncREST(),
+		"virtualmachines/portforward":      legacyStore.PortForwardREST(),
+		"virtualmachines/addvolume":        legacyStore.AddVolumeREST(),
+		"virtualmachines/removevolume":     legacyStore.RemoveVolumeREST(),
+		"virtualmachines/freeze":           legacyStore.FreezeREST(),
+		"virtualmachines/unfreeze":         legacyStore.UnfreezeREST(),
+		"virtualmachines/cancelevacuation": legacyStore.CancelEvacuationREST(),
+	}
+	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
 	return apiGroupInfo
 }
 
@@ -80,13 +94,19 @@ func Install(
 	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) error {
-	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"),
+	vmStorage := storage.NewStorage(
+		vmLister,
+		kubevirt,
+		proxyCertManager,
+		vmClient,
+	)
+	legacyVMStorage := storage.NewLegacyStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
 		crd,
 		vmClient,
 	)
-	info := Build(vmStorage)
+	info := Build(vmStorage, legacyVMStorage)
 	return server.InstallAPIGroup(&info)
 }
