@@ -68,9 +68,9 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		vmbda      *v1alpha2.VirtualMachineBlockDeviceAttachment
 		vmsnapshot *v1alpha2.VirtualMachineSnapshot
 
-		vmoRestoreDryRun     *v1alpha2.VirtualMachineOperation
-		vmoRestoreBestEffort *v1alpha2.VirtualMachineOperation
-		vmoRestoreStrict     *v1alpha2.VirtualMachineOperation
+		vmopRestoreDryRun     *v1alpha2.VirtualMachineOperation
+		vmopRestoreBestEffort *v1alpha2.VirtualMachineOperation
+		vmopRestoreStrict     *v1alpha2.VirtualMachineOperation
 
 		generatedValue            string
 		runningLastTransitionTime time.Time
@@ -101,6 +101,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
 		By("Create file on last disk", func() {
+			// Create a unique value on the disk to verify it's preserved after restore
 			generatedValue = strconv.Itoa(time.Now().UTC().Second())
 			_, err := f.SSHCommand(vm.Name, vm.Namespace, shellCreateFsAndSetValueOnDisk(generatedValue))
 			Expect(err).NotTo(HaveOccurred())
@@ -123,6 +124,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
 		By("Reboot VM", func() {
+			// Reboot VM to ensure configuration changes are applied and persisted
 			err := f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
@@ -134,7 +136,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
 		By("Create restore DryRun operation", func() {
-			vmoRestoreDryRun = vmopbuilder.New(
+			vmopRestoreDryRun = vmopbuilder.New(
 				vmopbuilder.WithName("restore-dry-run"),
 				vmopbuilder.WithNamespace(f.Namespace().Name),
 				vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
@@ -142,15 +144,16 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				vmopbuilder.WithVMOPRestoreMode(v1alpha2.VMOPRestoreModeDryRun),
 				vmopbuilder.WithVirtualMachineSnapshotName(vmsnapshot.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreDryRun)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmopRestoreDryRun)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreDryRun), framework.ShortTimeout)
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmopRestoreDryRun), framework.ShortTimeout)
 		})
 		By("Check VM in changed state", func() {
+			// Verify that DryRun mode doesn't change the VM state
 			checkVMInChangedState()
 		})
 		By("Create restore BestEffort operation", func() {
-			vmoRestoreBestEffort = vmopbuilder.New(
+			vmopRestoreBestEffort = vmopbuilder.New(
 				vmopbuilder.WithName("restore-best-effort"),
 				vmopbuilder.WithNamespace(f.Namespace().Name),
 				vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
@@ -158,9 +161,9 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				vmopbuilder.WithVMOPRestoreMode(v1alpha2.VMOPRestoreModeBestEffort),
 				vmopbuilder.WithVirtualMachineSnapshotName(vmsnapshot.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreBestEffort)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmopRestoreBestEffort)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreBestEffort), framework.LongTimeout)
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmopRestoreBestEffort), framework.LongTimeout)
 		})
 		By("Check VM in restored state", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
@@ -185,10 +188,12 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
 		By("Remove resources", func() {
+			// Remove disks to simulate a scenario where resources from snapshot are missing.
+			// Strict mode should still be able to restore by recreating missing resources.
 			removeDisks()
 		})
 		By("Create restore Strict operation", func() {
-			vmoRestoreStrict = vmopbuilder.New(
+			vmopRestoreStrict = vmopbuilder.New(
 				vmopbuilder.WithName("restore-strict"),
 				vmopbuilder.WithNamespace(f.Namespace().Name),
 				vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
@@ -196,9 +201,9 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				vmopbuilder.WithVMOPRestoreMode(v1alpha2.VMOPRestoreModeStrict),
 				vmopbuilder.WithVirtualMachineSnapshotName(vmsnapshot.Name),
 			)
-			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreStrict)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmopRestoreStrict)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreStrict), framework.LongTimeout)
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmopRestoreStrict), framework.LongTimeout)
 		})
 		By("Check VM in restored state", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
@@ -264,6 +269,11 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	}
 
 	changeVMConfiguration = func() {
+		// Change VM configuration to verify restore functionality:
+		// - Modify data on disk
+		// - Change annotations and labels
+		// - Update CPU and memory resources
+		// After restore, all these should revert to original values from snapshot
 		_, err := f.SSHCommand(vm.Name, vm.Namespace, shellChangeValueOnDisk(changedValue))
 		Expect(err).NotTo(HaveOccurred())
 		err = f.UpdateFromCluster(context.Background(), vm)
@@ -279,6 +289,10 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	}
 
 	checkVMInInitialState = func() {
+		// Verify that VM has been restored to its initial state from snapshot:
+		// - Disk contains the original value
+		// - Annotations and labels match snapshot
+		// - CPU and memory resources are restored to original values
 		value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
@@ -303,6 +317,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	}
 
 	removeDisks = func() {
+		// Stop VM and remove all disks to test Strict restore mode.
 		err := util.StopVirtualMachineFromOS(f, vm)
 		Expect(err).NotTo(HaveOccurred())
 		util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
@@ -312,6 +327,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		err = f.Delete(context.Background(), vdBlank)
 		Expect(err).NotTo(HaveOccurred())
 
+		// Wait for disks to be fully deleted before proceeding with restore
 		Eventually(func(g Gomega) {
 			var vdRootLocal v1alpha2.VirtualDisk
 			err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
