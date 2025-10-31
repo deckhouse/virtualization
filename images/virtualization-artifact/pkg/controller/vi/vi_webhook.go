@@ -33,21 +33,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/validator"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type Validator struct {
-	logger    *log.Logger
-	client    client.Client
-	scService *intsvc.VirtualImageStorageClassService
+	logger                     *log.Logger
+	client                     client.Client
+	scService                  *intsvc.VirtualImageStorageClassService
+	storageClassMatchValidator *validator.StorageClassMatchValidator
 }
 
 func NewValidator(logger *log.Logger, client client.Client, scService *intsvc.VirtualImageStorageClassService) *Validator {
 	return &Validator{
-		logger:    logger.With("webhook", "validator"),
-		client:    client,
-		scService: scService,
+		logger:                     logger.With("webhook", "validator"),
+		client:                     client,
+		scService:                  scService,
+		storageClassMatchValidator: validator.NewStorageClassMatchValidator(client, scService),
 	}
 }
 
@@ -105,6 +108,11 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 				return nil, err
 			}
 		}
+	}
+
+	_, err := v.storageClassMatchValidator.ValidateCreate(ctx, vi)
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil
@@ -185,6 +193,11 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	if len(newVI.Name) > validate.MaxVirtualImageNameLen {
 		warnings = append(warnings, fmt.Sprintf("the VirtualImage name %q is too long: it must be no more than %d characters", newVI.Name, validate.MaxVirtualImageNameLen))
+	}
+
+	_, err := v.storageClassMatchValidator.ValidateUpdate(ctx, oldVI, newVI)
+	if err != nil {
+		return warnings, err
 	}
 
 	return warnings, nil
