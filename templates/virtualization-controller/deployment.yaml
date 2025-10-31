@@ -54,7 +54,7 @@ metadata:
   namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 spec:
-  replicas: {{ include "helm_lib_is_ha_to_value" (list . 3 1) }}
+  replicas: 1
   {{- if (include "helm_lib_ha_enabled" .) }}
   strategy:
     type: RollingUpdate
