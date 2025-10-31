@@ -36,8 +36,10 @@ const (
 )
 
 const (
-	helmManagedByLabel = "app.kubernetes.io/managed-by"
-	helmHeritageLabel  = "heritage"
+	helmManagedByLabel       = "app.kubernetes.io/managed-by"
+	helmHeritageLabel        = "heritage"
+	helmReleaseNameAnno      = "meta.helm.sh/release-name"
+	helmReleaseNamespaceAnno = "meta.helm.sh/release-namespace"
 )
 
 var _ = registry.RegisterFunc(configDropHelmLabels, handlerDropHelmLabels)
@@ -49,7 +51,7 @@ var configDropHelmLabels = &pkg.HookConfig{
 			Name:       vmClassSnapshot,
 			APIVersion: "virtualization.deckhouse.io/v1alpha2",
 			Kind:       v1alpha2.VirtualMachineClassKind,
-			JqFilter:   ".metadata",
+			JqFilter:   "{name: .metadata.name, labels: .metadata.labels, annotations: .metadata.annotations}",
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{genericVMClassName},
 			},
@@ -69,8 +71,9 @@ var configDropHelmLabels = &pkg.HookConfig{
 }
 
 type VMClassMetadata struct {
-	Name   string            `json:"name"`
-	Labels map[string]string `json:"labels"`
+	Name        string            `json:"name"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
 }
 
 func handlerDropHelmLabels(_ context.Context, input *pkg.HookInput) error {
@@ -100,7 +103,7 @@ func handlerDropHelmLabels(_ context.Context, input *pkg.HookInput) error {
 	}
 
 	var patches []map[string]interface{}
-	hasLabelsToRemove := false
+	hasChanges := false
 
 	// Check and prepare patches for Helm labels
 	if _, exists := vmClass.Labels[helmManagedByLabel]; exists {
@@ -109,7 +112,7 @@ func handlerDropHelmLabels(_ context.Context, input *pkg.HookInput) error {
 			"path":  fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(helmManagedByLabel)),
 			"value": nil,
 		})
-		hasLabelsToRemove = true
+		hasChanges = true
 	}
 
 	if _, exists := vmClass.Labels[helmHeritageLabel]; exists {
@@ -118,14 +121,35 @@ func handlerDropHelmLabels(_ context.Context, input *pkg.HookInput) error {
 			"path":  fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(helmHeritageLabel)),
 			"value": nil,
 		})
-		hasLabelsToRemove = true
+		hasChanges = true
 	}
 
-	if !hasLabelsToRemove {
+	// Check and prepare patches for Helm annotations
+	if vmClass.Annotations != nil {
+		if releaseName, exists := vmClass.Annotations[helmReleaseNameAnno]; exists && releaseName == settings.ModuleName {
+			patches = append(patches, map[string]interface{}{
+				"op":    "remove",
+				"path":  fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(helmReleaseNameAnno)),
+				"value": nil,
+			})
+			hasChanges = true
+		}
+
+		if releaseNamespace, exists := vmClass.Annotations[helmReleaseNamespaceAnno]; exists && releaseNamespace == settings.ModuleNamespace {
+			patches = append(patches, map[string]interface{}{
+				"op":    "remove",
+				"path":  fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(helmReleaseNamespaceAnno)),
+				"value": nil,
+			})
+			hasChanges = true
+		}
+	}
+
+	if !hasChanges {
 		return nil
 	}
 
-	input.Logger.Info("Removing Helm labels from generic VMClass")
+	input.Logger.Info("Removing Helm labels and annotations from generic VMClass")
 	input.PatchCollector.PatchWithJSON(
 		patches,
 		"virtualization.deckhouse.io/v1alpha2",

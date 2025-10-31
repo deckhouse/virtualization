@@ -47,7 +47,7 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 		}
 	}
 
-	newSnapshot := func(withManagedBy, withHeritage bool) pkg.Snapshot {
+	newSnapshot := func(withManagedBy, withHeritage bool, withAnnotations bool) pkg.Snapshot {
 		return mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
 			obj, ok := v.(*VMClassMetadata)
 			Expect(ok).To(BeTrue())
@@ -65,6 +65,12 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 				obj.Labels[helmHeritageLabel] = "deckhouse"
 			}
 
+			if withAnnotations {
+				obj.Annotations = make(map[string]string)
+				obj.Annotations[helmReleaseNameAnno] = "virtualization"
+				obj.Annotations[helmReleaseNamespaceAnno] = "d8-virtualization"
+			}
+
 			return nil
 		})
 	}
@@ -78,8 +84,8 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 		patchCollector = mock.NewPatchCollectorMock(GinkgoT())
 	})
 
-	It("Should drop both Helm labels from generic VMClass with all required labels", func() {
-		setSnapshots(newSnapshot(true, true))
+	It("Should drop both Helm labels and annotations from generic VMClass with all required labels", func() {
+		setSnapshots(newSnapshot(true, true, true))
 		patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
 			Expect(apiVersion).To(Equal("virtualization.deckhouse.io/v1alpha2"))
 			Expect(kind).To(Equal("VirtualMachineClass"))
@@ -89,7 +95,7 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 
 			jsonPatch, ok := patch.([]map[string]interface{})
 			Expect(ok).To(BeTrue())
-			Expect(jsonPatch).To(HaveLen(2))
+			Expect(jsonPatch).To(HaveLen(4))
 
 			// Check first patch (managed-by label)
 			Expect(jsonPatch[0]["op"]).To(Equal("remove"))
@@ -100,6 +106,16 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 			Expect(jsonPatch[1]["op"]).To(Equal("remove"))
 			Expect(jsonPatch[1]["path"]).To(Equal(fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(helmHeritageLabel))))
 			Expect(jsonPatch[1]["value"]).To(BeNil())
+
+			// Check third patch (release-name annotation)
+			Expect(jsonPatch[2]["op"]).To(Equal("remove"))
+			Expect(jsonPatch[2]["path"]).To(Equal(fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(helmReleaseNameAnno))))
+			Expect(jsonPatch[2]["value"]).To(BeNil())
+
+			// Check fourth patch (release-namespace annotation)
+			Expect(jsonPatch[3]["op"]).To(Equal("remove"))
+			Expect(jsonPatch[3]["path"]).To(Equal(fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(helmReleaseNamespaceAnno))))
+			Expect(jsonPatch[3]["value"]).To(BeNil())
 		})
 
 		Expect(handlerDropHelmLabels(context.Background(), newInput())).To(Succeed())
@@ -122,6 +138,60 @@ var _ = Describe("Drop Helm labels from generic VMClass", func() {
 		})
 
 		setSnapshots(partialLabelSnapshot)
+		Expect(handlerDropHelmLabels(context.Background(), newInput())).To(Succeed())
+	})
+
+	It("Should drop only labels when annotations are missing", func() {
+		setSnapshots(newSnapshot(true, true, false))
+		patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
+			jsonPatch, ok := patch.([]map[string]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(jsonPatch).To(HaveLen(2))
+
+			// Check first patch (managed-by label)
+			Expect(jsonPatch[0]["op"]).To(Equal("remove"))
+			Expect(jsonPatch[0]["path"]).To(Equal(fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(helmManagedByLabel))))
+
+			// Check second patch (heritage label)
+			Expect(jsonPatch[1]["op"]).To(Equal("remove"))
+			Expect(jsonPatch[1]["path"]).To(Equal(fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(helmHeritageLabel))))
+		})
+
+		Expect(handlerDropHelmLabels(context.Background(), newInput())).To(Succeed())
+	})
+
+	It("Should not drop annotations with wrong values", func() {
+		wrongAnnotationSnapshot := mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
+			obj, ok := v.(*VMClassMetadata)
+			Expect(ok).To(BeTrue())
+			obj.Name = genericVMClassName
+			obj.Labels = make(map[string]string)
+
+			// Required labels for VMClass to be found by the hook
+			obj.Labels["app"] = "virtualization-controller"
+			obj.Labels["module"] = "virtualization"
+			obj.Labels[helmManagedByLabel] = "Helm"
+			obj.Labels[helmHeritageLabel] = "deckhouse"
+
+			// Annotations with wrong values - should not be removed
+			obj.Annotations = make(map[string]string)
+			obj.Annotations[helmReleaseNameAnno] = "wrong-module-name"
+			obj.Annotations[helmReleaseNamespaceAnno] = "wrong-namespace"
+
+			return nil
+		})
+
+		setSnapshots(wrongAnnotationSnapshot)
+		patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
+			jsonPatch, ok := patch.([]map[string]interface{})
+			Expect(ok).To(BeTrue())
+			Expect(jsonPatch).To(HaveLen(2))
+
+			// Only labels should be removed, not annotations with wrong values
+			Expect(jsonPatch[0]["path"]).To(ContainSubstring("/metadata/labels/"))
+			Expect(jsonPatch[1]["path"]).To(ContainSubstring("/metadata/labels/"))
+		})
+
 		Expect(handlerDropHelmLabels(context.Background(), newInput())).To(Succeed())
 	})
 
