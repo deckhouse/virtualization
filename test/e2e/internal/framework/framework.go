@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -165,6 +166,13 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 // Returns an error if the creation of any resource
 func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...client.Object) error {
 	for _, obj := range objs {
+		labels := obj.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		maps.Copy(labels, map[string]string{NamespaceLabel: f.namespacePrefix})
+		obj.SetLabels(labels)
+
 		err := f.client.Create(ctx, obj)
 		if err != nil {
 			return err
