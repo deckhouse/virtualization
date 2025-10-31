@@ -128,6 +128,22 @@ func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTT
 	Expect(strings.TrimSpace(httpCode)).To(Equal(expectedHTTPCode), "HTTP response code from %s should be %s, got %s", host, expectedHTTPCode, httpCode)
 }
 
+func UntilVirtualMachineStopped(key client.ObjectKey, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
+		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
+		if err != nil {
+			return err
+		}
+		if vm.Status.Phase == v1alpha2.MachineStopped {
+			return nil
+		}
+		return fmt.Errorf("virtual machine %s is not stopped (phase: %s)", key.Name, vm.Status.Phase)
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
 func RebootVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo reboot")
 	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
