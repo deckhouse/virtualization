@@ -92,14 +92,14 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		return nil
 	}
 
-	// if module-state secret exists and contains generic-vmclass-created=true, nothing to do
+	// if module-state secret exists and contains generic-vmclass-was-ever-created=true, nothing to do
 	if len(moduleStateSecrets) > 0 {
 		var moduleStateSecret corev1.Secret
 		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateSecret); err != nil {
 			return err
 		}
 
-		if string(moduleStateSecret.Data["generic-vmclass-created"]) == "true" {
+		if string(moduleStateSecret.Data["generic-vmclass-was-ever-created"]) == "true" {
 			return nil
 		}
 	}

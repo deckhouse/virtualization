@@ -44,7 +44,7 @@ const (
 	apiVersion = core.GroupName + "/" + v1alpha2.Version
 
 	// State fields configuration
-	genericVMClassStateKey = "generic-vmclass-created"
+	genericVMClassStateKey = "generic-vmclass-was-ever-created"
 )
 
 var _ = registry.RegisterFunc(config, Reconcile)
@@ -125,7 +125,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 		}
 	}
 
-	// Update state: generic-vmclass-created can only transition from false to true
+	// Update state: generic-vmclass-was-ever-created can only transition from false to true
 	newState := ModuleState{
 		GenericVMClassCreated: currentState.GenericVMClassCreated || vmClassExists,
 	}

@@ -60,7 +60,7 @@ var _ = Describe("Create Generic VMClass hook", func() {
 		patchCollector = nil
 	})
 
-	Context("when module-state secret exists with generic-vmclass-created=true", func() {
+	Context("when module-state secret exists with generic-vmclass-was-ever-created=true", func() {
 		BeforeEach(func() {
 			moduleStateSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -68,7 +68,7 @@ var _ = Describe("Create Generic VMClass hook", func() {
 					Namespace: "d8-virtualization",
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("true"),
+					"generic-vmclass-was-ever-created": []byte("true"),
 				},
 			}
 
@@ -117,7 +117,7 @@ var _ = Describe("Create Generic VMClass hook", func() {
 
 	})
 
-	Context("when module-state secret exists but doesn't contain generic-vmclass-created", func() {
+	Context("when module-state secret exists but doesn't contain generic-vmclass-was-ever-created", func() {
 		BeforeEach(func() {
 			moduleStateSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -158,7 +158,7 @@ var _ = Describe("Create Generic VMClass hook", func() {
 
 	})
 
-	Context("when module-state secret exists with generic-vmclass-created=false", func() {
+	Context("when module-state secret exists with generic-vmclass-was-ever-created=false", func() {
 		BeforeEach(func() {
 			moduleStateSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -166,7 +166,7 @@ var _ = Describe("Create Generic VMClass hook", func() {
 					Namespace: "d8-virtualization",
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("false"),
+					"generic-vmclass-was-ever-created": []byte("false"),
 				},
 			}
 

@@ -77,9 +77,9 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(ok).To(BeTrue())
 				Expect(secret.Name).To(Equal("module-state"))
 				Expect(secret.Namespace).To(Equal(settings.ModuleNamespace))
-				Expect(secret.Data).To(HaveKey("generic-vmclass-created"))
+				Expect(secret.Data).To(HaveKey("generic-vmclass-was-ever-created"))
 
-				Expect(string(secret.Data["generic-vmclass-created"])).To(Equal("true"))
+				Expect(string(secret.Data["generic-vmclass-was-ever-created"])).To(Equal("true"))
 			})
 
 			patchCollector.PatchWithMergeMock.Optional()
@@ -96,7 +96,7 @@ var _ = Describe("Update Module State hook", func() {
 					Namespace: settings.ModuleNamespace,
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("false"),
+					"generic-vmclass-was-ever-created": []byte("false"),
 				},
 			}
 
@@ -116,9 +116,9 @@ var _ = Describe("Update Module State hook", func() {
 
 				data, ok := patchData["data"].(map[string]string)
 				Expect(ok).To(BeTrue())
-				Expect(data).To(HaveKey("generic-vmclass-created"))
+				Expect(data).To(HaveKey("generic-vmclass-was-ever-created"))
 
-				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
+				Expect(data["generic-vmclass-was-ever-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -135,7 +135,7 @@ var _ = Describe("Update Module State hook", func() {
 					Namespace: settings.ModuleNamespace,
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("true"),
+					"generic-vmclass-was-ever-created": []byte("true"),
 				},
 			}
 
@@ -155,9 +155,9 @@ var _ = Describe("Update Module State hook", func() {
 
 				data, ok := patchData["data"].(map[string]string)
 				Expect(ok).To(BeTrue())
-				Expect(data).To(HaveKey("generic-vmclass-created"))
+				Expect(data).To(HaveKey("generic-vmclass-was-ever-created"))
 
-				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
+				Expect(data["generic-vmclass-was-ever-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("true"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -181,9 +181,9 @@ var _ = Describe("Update Module State hook", func() {
 				Expect(ok).To(BeTrue())
 				Expect(secret.Name).To(Equal("module-state"))
 				Expect(secret.Namespace).To(Equal(settings.ModuleNamespace))
-				Expect(secret.Data).To(HaveKey("generic-vmclass-created"))
+				Expect(secret.Data).To(HaveKey("generic-vmclass-was-ever-created"))
 
-				Expect(string(secret.Data["generic-vmclass-created"])).To(Equal("false"))
+				Expect(string(secret.Data["generic-vmclass-was-ever-created"])).To(Equal("false"))
 			})
 
 			patchCollector.PatchWithMergeMock.Optional()
@@ -200,7 +200,7 @@ var _ = Describe("Update Module State hook", func() {
 					Namespace: settings.ModuleNamespace,
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("true"),
+					"generic-vmclass-was-ever-created": []byte("true"),
 				},
 			}
 
@@ -240,7 +240,7 @@ var _ = Describe("Update Module State hook", func() {
 					Namespace: settings.ModuleNamespace,
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("false"),
+					"generic-vmclass-was-ever-created": []byte("false"),
 				},
 			}
 
@@ -260,10 +260,10 @@ var _ = Describe("Update Module State hook", func() {
 
 				data, ok := patchData["data"].(map[string]string)
 				Expect(ok).To(BeTrue())
-				Expect(data).To(HaveKey("generic-vmclass-created"))
+				Expect(data).To(HaveKey("generic-vmclass-was-ever-created"))
 
 				// Should remain false since VMClass doesn't exist
-				Expect(data["generic-vmclass-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("false"))))
+				Expect(data["generic-vmclass-was-ever-created"]).To(Equal(base64.StdEncoding.EncodeToString([]byte("false"))))
 			})
 
 			patchCollector.CreateMock.Optional()
@@ -283,7 +283,7 @@ var _ = Describe("Update Module State hook", func() {
 					Namespace: settings.ModuleNamespace,
 				},
 				Data: map[string][]byte{
-					"generic-vmclass-created": []byte("true"),
+					"generic-vmclass-was-ever-created": []byte("true"),
 				},
 			}
 
