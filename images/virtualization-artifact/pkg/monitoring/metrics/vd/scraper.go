@@ -60,6 +60,7 @@ func (s *scraper) updateMetricDiskStatusPhase(m *dataMetric) {
 		{phase == v1alpha2.DiskReady, string(v1alpha2.DiskReady)},
 		{phase == v1alpha2.DiskResizing, string(v1alpha2.DiskResizing)},
 		{phase == v1alpha2.DiskTerminating, string(v1alpha2.DiskTerminating)},
+		{phase == v1alpha2.DiskMigrating, string(v1alpha2.DiskMigrating)},
 	}
 
 	for _, p := range phases {
