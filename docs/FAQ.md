@@ -396,7 +396,7 @@ ansible -m shell -a "uptime" \
 
 ## How to redirect traffic to a virtual machine?
 
-The virtual machine operates within a Kubernetes cluster, so directing network traffic to it is similar to directing traffic to pods. To route network traffic to a virtual machine, the standard Kubernetes mechanism—the Service resource—is used, which selects target objects based on labels (selector).
+The virtual machine operates within a Kubernetes cluster, so directing network traffic to it is similar to directing traffic to pods. To route network traffic to a virtual machine, the standard Kubernetes mechanism - the Service resource is used, which selects target objects based on labels (selector).
 
 1. Create a service with the required settings.
 
