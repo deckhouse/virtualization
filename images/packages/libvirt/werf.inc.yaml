@@ -18,7 +18,7 @@ final: false
 fromImage: builder/src
 git:
 - add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
-  to: /src
+  to: /
   includePaths:
   - patches
   excludePaths:
@@ -35,6 +35,11 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
 
     cd /src/{{ $gitRepoName }}-{{ $version }}
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
@@ -111,10 +116,6 @@ import:
   add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
-  add: /src/patches
-  to: /patches
-  before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
@@ -151,11 +152,6 @@ shell:
     export PYTHON="/usr/bin/python3"
 
     cd /{{ $gitRepoName }}-{{ $version }}
-
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
 
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
       -Dinit_script=systemd \
