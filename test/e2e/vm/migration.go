@@ -124,8 +124,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Create VMOP to trigger migration", func() {
-			util.MigrateVirtualMachine(vmBIOS, vmop.WithGenerateName("vmop-migrate-bios-"))
-			util.MigrateVirtualMachine(vmUEFI, vmop.WithGenerateName("vmop-migrate-uefi-"))
+			util.MigrateVirtualMachine(f, vmBIOS, vmop.WithGenerateName("vmop-migrate-bios-"))
+			util.MigrateVirtualMachine(f, vmUEFI, vmop.WithGenerateName("vmop-migrate-uefi-"))
 		})
 
 		By("Wait for migration to complete", func() {

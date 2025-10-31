@@ -140,7 +140,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 			Name:      obj.GetName(),
 		}
 
-		err := wait.PollUntilContextTimeout(ctx, time.Second, MiddleTimeout, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Second, LongTimeout, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
 			case err == nil:
