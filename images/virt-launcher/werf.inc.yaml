@@ -24,7 +24,6 @@ altLibs:
   - libxfs-devel
   - libpci-devel
   - libgvnc-devel
-  - libfdt-devel
   - libdrm-devel
   - libxdp-devel
   - libSDL2-devel
@@ -128,7 +127,7 @@ packages:
 - libvirt
 - libffi
 - libbrotli libntlm gcc libcap libgpg-error lz4
-- libuserspace-rcu lzo
+- libuserspace-rcu lzo dtc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
