@@ -18,7 +18,6 @@ package create_generic_vmclass
 
 import (
 	"context"
-	"encoding/base64"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +27,8 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestCreateGenericVMClass(t *testing.T) {
@@ -61,15 +62,21 @@ var _ = Describe("Create Generic VMClass hook", func() {
 
 	Context("when module-state secret exists with generic-vmclass-created=true", func() {
 		BeforeEach(func() {
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("true")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: "d8-virtualization",
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("true"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})
@@ -112,15 +119,21 @@ var _ = Describe("Create Generic VMClass hook", func() {
 
 	Context("when module-state secret exists but doesn't contain generic-vmclass-created", func() {
 		BeforeEach(func() {
-			moduleStateData := map[string]interface{}{
-				"other-key": base64.StdEncoding.EncodeToString([]byte("other-value")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: "d8-virtualization",
+				},
+				Data: map[string][]byte{
+					"other-key": []byte("other-value"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})
@@ -147,15 +160,21 @@ var _ = Describe("Create Generic VMClass hook", func() {
 
 	Context("when module-state secret exists with generic-vmclass-created=false", func() {
 		BeforeEach(func() {
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("false")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: "d8-virtualization",
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("false"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})

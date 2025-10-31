@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestUpdateModuleState(t *testing.T) {
@@ -89,15 +90,21 @@ var _ = Describe("Update Module State hook", func() {
 		})
 
 		It("should update module-state secret when it exists but has wrong value", func() {
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("false")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: settings.ModuleNamespace,
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("false"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})
@@ -122,15 +129,21 @@ var _ = Describe("Update Module State hook", func() {
 		})
 
 		It("should update module-state secret even when it has correct value", func() {
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("true")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: settings.ModuleNamespace,
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("true"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})
@@ -181,15 +194,21 @@ var _ = Describe("Update Module State hook", func() {
 		})
 
 		It("should update module-state secret and keep historical record when vmclass doesn't exist but module-state indicates it was created", func() {
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("true")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: settings.ModuleNamespace,
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("true"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})
@@ -215,15 +234,21 @@ var _ = Describe("Update Module State hook", func() {
 		})
 
 		It("should update module-state secret when vmclass doesn't exist and secret contains false", func() {
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("false")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: settings.ModuleNamespace,
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("false"),
+				},
 			}
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})
@@ -252,8 +277,14 @@ var _ = Describe("Update Module State hook", func() {
 	Context("state transition logic", func() {
 		It("should preserve historical true value even when vmclass is deleted and recreated", func() {
 			// First, simulate that VMClass was created and state recorded as true
-			moduleStateData := map[string]interface{}{
-				"generic-vmclass-created": base64.StdEncoding.EncodeToString([]byte("true")),
+			moduleStateSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "module-state",
+					Namespace: settings.ModuleNamespace,
+				},
+				Data: map[string][]byte{
+					"generic-vmclass-created": []byte("true"),
+				},
 			}
 
 			// VMClass doesn't exist now (was deleted)
@@ -261,9 +292,9 @@ var _ = Describe("Update Module State hook", func() {
 
 			snapshots.GetMock.When(moduleStateSecretSnapshot).Then([]pkg.Snapshot{
 				mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-					data, ok := v.(*map[string]interface{})
+					secret, ok := v.(*corev1.Secret)
 					Expect(ok).To(BeTrue())
-					*data = moduleStateData
+					*secret = *moduleStateSecret
 					return nil
 				}),
 			})

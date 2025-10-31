@@ -17,7 +17,6 @@ package create_generic_vmclass
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 
 	"hooks/pkg/settings"
@@ -28,6 +27,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
@@ -51,7 +51,7 @@ var config = &pkg.HookConfig{
 			Name:       moduleStateSecretSnapshot,
 			APIVersion: "v1",
 			Kind:       "Secret",
-			JqFilter:   `.data`,
+			JqFilter:   `{"metadata": .metadata, "data": .data}`,
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{moduleStateSecretName},
 			},
@@ -94,20 +94,13 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 
 	// if module-state secret exists and contains generic-vmclass-created=true, nothing to do
 	if len(moduleStateSecrets) > 0 {
-		moduleStateData := make(map[string]interface{})
-		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err != nil {
+		var moduleStateSecret corev1.Secret
+		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateSecret); err != nil {
 			return err
 		}
 
-		if genericCreatedEncoded, exists := moduleStateData["generic-vmclass-created"]; exists {
-			if encodedStr, ok := genericCreatedEncoded.(string); ok {
-				if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
-					genericCreated := string(decodedBytes) == "true"
-					if genericCreated {
-						return nil
-					}
-				}
-			}
+		if string(moduleStateSecret.Data["generic-vmclass-created"]) == "true" {
+			return nil
 		}
 	}
 

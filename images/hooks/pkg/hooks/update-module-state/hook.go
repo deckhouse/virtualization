@@ -72,7 +72,7 @@ var config = &pkg.HookConfig{
 			Name:       moduleStateSecretSnapshot,
 			APIVersion: "v1",
 			Kind:       "Secret",
-			JqFilter:   `.data`,
+			JqFilter:   `{"metadata": .metadata, "data": .data}`,
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{moduleStateSecretName},
 			},
@@ -117,14 +117,10 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	// Load existing state
 	currentState := ModuleState{GenericVMClassCreated: false}
 	if len(moduleStateSecrets) > 0 {
-		moduleStateData := make(map[string]interface{})
-		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateData); err == nil {
-			if genericCreatedEncoded, exists := moduleStateData[genericVMClassStateKey]; exists {
-				if encodedStr, ok := genericCreatedEncoded.(string); ok {
-					if decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr); err == nil {
-						currentState.GenericVMClassCreated = string(decodedBytes) == "true"
-					}
-				}
+		var moduleStateSecret corev1.Secret
+		if err := moduleStateSecrets[0].UnmarshalTo(&moduleStateSecret); err == nil {
+			if string(moduleStateSecret.Data[genericVMClassStateKey]) == "true" {
+				currentState.GenericVMClassCreated = true
 			}
 		}
 	}
