@@ -423,7 +423,7 @@ ansible -m shell -a "uptime" \
     apiVersion: v1
     kind: Service
     metadata:
-      name: web-svc
+      name: frontend-0-svc
       namespace: dev
     spec:
       type: LoadBalancer
