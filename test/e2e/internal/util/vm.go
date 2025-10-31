@@ -151,3 +151,22 @@ func RebootVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMach
 	}
 	return err
 }
+
+func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
+	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
+		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
+		if err != nil {
+			return fmt.Errorf("failed to get virtual machine: %w", err)
+		}
+
+		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+
+		if runningCondition.LastTransitionTime.Time.After(previousRunningTime) {
+			return nil
+		}
+
+		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
+	}, framework.LongTimeout, time.Second).Should(Succeed())
+	UntilVMAgentReady(key, framework.LongTimeout)
+}
