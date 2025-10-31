@@ -60,18 +60,8 @@ type VirtualDiskStatus struct {
 	DownloadSpeed *StatusSpeed `json:"downloadSpeed,omitempty"`
 	// Requested PVC capacity in human-readable format.
 	// +kubebuilder:example:="50G"
-	Capacity string `json:"capacity,omitempty"`
-	// ProvisionedCapacity represents the actual physical size of the volume as provisioned by the CSI driver.
-	// CSI drivers typically don't provision volumes with exact byte precision - the actual size
-	// is often slightly larger than requested.
-	// This discrepancy depends on the underlying storage
-	// provider, which may perform alignment optimizations for better performance, use allocation
-	// units, or apply storage-specific rounding.
-	// This field shows the real capacity of our volume.
-	// Note that we can only detect the real size when the virtual machine is powered.
-	// If the disk is unattached or the VM is powered off, this field may be empty.
-	ProvisionedCapacity *resource.Quantity `json:"provisionedCapacity,omitempty"`
-	Target              DiskTarget         `json:"target,omitempty"`
+	Capacity string     `json:"capacity,omitempty"`
+	Target   DiskTarget `json:"target,omitempty"`
 	// Progress of copying an image from a source to PVC. Appears only during the `Provisioning' phase.
 	Progress string `json:"progress,omitempty"`
 	// Deprecated. Use `ImageUploadURLs` instead.

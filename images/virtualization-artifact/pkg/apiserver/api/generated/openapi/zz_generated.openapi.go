@@ -2878,12 +2878,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 							Format:      "",
 						},
 					},
-					"provisionedCapacity": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ProvisionedCapacity represents the actual physical size of the volume as provisioned by the CSI driver. CSI drivers typically don't provision volumes with exact byte precision - the actual size is often slightly larger than requested. This discrepancy depends on the underlying storage provider, which may perform alignment optimizations for better performance, use allocation units, or apply storage-specific rounding. This field shows the real capacity of our volume. Note that we can only detect the real size when the virtual machine is powered. If the disk is unattached or the VM is powered off, this field may be empty.",
-							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
 					"target": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2980,7 +2974,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine", "github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget", "github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs", "github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 

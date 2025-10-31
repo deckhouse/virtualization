@@ -1307,11 +1307,6 @@ func (in *VirtualDiskStatus) DeepCopyInto(out *VirtualDiskStatus) {
 		*out = new(StatusSpeed)
 		**out = **in
 	}
-	if in.ProvisionedCapacity != nil {
-		in, out := &in.ProvisionedCapacity, &out.ProvisionedCapacity
-		x := (*in).DeepCopy()
-		*out = &x
-	}
 	out.Target = in.Target
 	if in.ImageUploadURLs != nil {
 		in, out := &in.ImageUploadURLs, &out.ImageUploadURLs

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -38,6 +39,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -71,10 +73,6 @@ func NewMigrationHandler(client client.Client, storageClassValidator storageClas
 		modeGetter:  modeGetter,
 		gate:        gate,
 	}
-}
-
-func (h MigrationHandler) Name() string {
-	return migrationHandlerName
 }
 
 func (h MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk) (reconcile.Result, error) {
@@ -408,7 +406,11 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return fmt.Errorf("get volume and access modes: %w", err)
 	}
 
-	size = calculateTargetSize(size, vd.Status.ProvisionedCapacity, actualPvc.Spec.VolumeMode, volumeMode)
+	provisionedCapacity, err := h.getProvisionedCapacity(ctx, vd)
+	if err != nil {
+		return fmt.Errorf("get provisioned capacity: %w", err)
+	}
+	size = calculateTargetSize(ctx, size, provisionedCapacity)
 
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
 	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim, volumeMode, accessMode)
@@ -440,29 +442,34 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	return h.handleMigrateSync(ctx, vd)
 }
 
-func calculateTargetSize(size resource.Quantity, realSize *resource.Quantity, oldVolumeMode *corev1.PersistentVolumeMode, newVolumeMode corev1.PersistentVolumeMode) resource.Quantity {
-	if realSize != nil && realSize.Cmp(size) == 1 {
-		return *realSize
+func (h MigrationHandler) getProvisionedCapacity(ctx context.Context, vd *v1alpha2.VirtualDisk) (resource.Quantity, error) {
+	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
+	if currentlyMountedVM == "" {
+		return resource.Quantity{}, fmt.Errorf("no currently mounted VM")
 	}
 
-	blockToFs := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeBlock && newVolumeMode == corev1.PersistentVolumeFilesystem
-	fsToBlock := oldVolumeMode != nil && *oldVolumeMode == corev1.PersistentVolumeFilesystem && newVolumeMode == corev1.PersistentVolumeBlock
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	err := h.client.Get(ctx, types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}, kvvmi)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("get KVVMI: %w", err)
+	}
 
-	if blockToFs {
-		// 1% overhead for filesystem
-		fsOverhead := size.Value() / 100
-		size.Add(*resource.NewQuantity(fsOverhead, resource.BinarySI))
+	volumeName := kvbuilder.GenerateVDDiskName(vd.Name)
+	for _, volumeStatus := range kvvmi.Status.VolumeStatus {
+		if volumeStatus.Name == volumeName {
+			return *resource.NewQuantity(volumeStatus.Size, resource.BinarySI), nil
+		}
+	}
+
+	return resource.Quantity{}, nil
+}
+
+func calculateTargetSize(ctx context.Context, size, realSize resource.Quantity) resource.Quantity {
+	if realSize.IsZero() {
+		logger.FromContext(ctx).Error("Failed to detect RealSize disk on KVVMI. Please report a bug.")
 		return size
 	}
-
-	if fsToBlock {
-		// overhead no need to add
-		return size
-	}
-
-	const blockOverhead = int64(8 * 1024 * 1024)
-	size.Add(*resource.NewQuantity(blockOverhead, resource.BinarySI))
-	return size
+	return realSize
 }
 
 func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
