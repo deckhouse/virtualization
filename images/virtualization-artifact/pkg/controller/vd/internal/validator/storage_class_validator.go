@@ -152,7 +152,7 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 
 	// NOTE: Volume mode migration is currently not supported. This is a known limitation and may be addressed in future releases.
 	if currentMode != desiredMode {
-		return fmt.Errorf("changing storage class is not allowed because migration to a different volume mode is not supported yet. Please use a storage class with the same volume mode, or contact support for future migration plans.")
+		return fmt.Errorf("changing storage class is not allowed because migration to a different volume mode is not supported yet. Please use a storage class with the same volume mode, or contact support for future migration plans")
 	}
 
 	return nil
