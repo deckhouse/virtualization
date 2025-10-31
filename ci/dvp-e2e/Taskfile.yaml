@@ -164,6 +164,12 @@ tasks:
       - kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
       - |
+        # Wait for NFS server if present in manifests (best-effort)
+        if kubectl -n {{ .NAMESPACE }} get deploy nfs-server >/dev/null 2>&1; then
+          echo "[INFRA] Waiting for nfs-server to be Ready..."
+          kubectl -n {{ .NAMESPACE }} rollout status deployment/nfs-server --timeout=300s || true
+        fi
+      - |
         # Persist SSH keypair in parent cluster namespace for diagnostics tools (nested_diag.sh)
         # Secret contains private and public parts; will be removed with namespace cleanup
         kubectl -n {{ .NAMESPACE }} create secret generic e2e-ssh-key \
