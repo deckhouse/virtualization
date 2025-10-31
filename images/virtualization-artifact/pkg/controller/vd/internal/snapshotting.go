@@ -68,7 +68,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDis
 			continue
 		}
 
-		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseTerminating {
+		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseTerminating || vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed {
 			continue
 		}
 
