@@ -3,6 +3,16 @@ title: "Release Notes"
 weight: 70
 ---
 
+# v1.1.2
+
+## Fixes
+
+- [vd] Fixed online disk migration between different csi drivers. Limitations:
+  - Migration between `Block` and `Filesystem` volume modes is not supported. Only migrations between the same volume modes are allowed: from `Block` to `Block` and from `Filesystem` to `Filesystem`.
+  - After performing an online disk migration between different csi drivers, the virtual machine must be restarted.
+
+- [vm] When a virtual machine migration fails, a human-readable error message will now be displayed in the `Migrating` condition.
+
 # v1.1.1
 
 ## Fixes
