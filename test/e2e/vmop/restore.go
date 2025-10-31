@@ -25,7 +25,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -74,8 +76,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 
 		createEnvironmentResources     func(namespace string)
 		shellCreateFsAndSetValueOnDisk func(value string) string
-		// shellChangeValueOnDisk         func(value string) string
-		shellMountAndGetValueFromDisk func() string
+		shellChangeValueOnDisk         func(value string) string
+		shellMountAndGetValueFromDisk  func() string
 	)
 
 	BeforeEach(func() {
@@ -109,7 +111,9 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMSnapshotReady(crclient.ObjectKeyFromObject(vmsnapshot), framework.ShortTimeout)
 		})
 		By("Changing VM", func() {
-			err := f.UpdateFromCluster(context.Background(), vm)
+			_, err := f.SSHCommand(vm.Name, vm.Namespace, shellChangeValueOnDisk(changedValue))
+			Expect(err).NotTo(HaveOccurred())
+			err = f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
 			Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
@@ -154,7 +158,10 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreDryRun), framework.ShortTimeout)
 		})
 		By("Check VM in changed state", func() {
-			err := f.UpdateFromCluster(context.Background(), vm)
+			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(value)).To(Equal(changedValue))
+			err = f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Annotations[testAnnotationName]).To(Equal(changedValue))
 			Expect(vm.Labels[testLabelName]).To(Equal(changedValue))
@@ -178,18 +185,20 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 
-			err := f.UpdateFromCluster(context.Background(), vm)
+			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
+			err = f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
 			Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
 			Expect(vm.Spec.CPU.Cores).To(Equal(1))
 			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("1Gi")))
-			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
 		})
 		By("Changing VM", func() {
-			err := f.UpdateFromCluster(context.Background(), vm)
+			_, err := f.SSHCommand(vm.Name, vm.Namespace, shellChangeValueOnDisk(changedValue))
+			Expect(err).NotTo(HaveOccurred())
+			err = f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
 			Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
@@ -201,6 +210,32 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
+		})
+		By("Remove resources", func() {
+			err := util.StopVirtualMachineFromOS(f, vm)
+			Expect(err).NotTo(HaveOccurred())
+			util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
+
+			err = f.Delete(context.Background(), vdRoot)
+			Expect(err).NotTo(HaveOccurred())
+			err = f.Delete(context.Background(), vdBlank)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				var vdRootLocal v1alpha2.VirtualDisk
+				err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+					Namespace: vdRoot.Namespace,
+					Name:      vdRoot.Name,
+				}, &vdRootLocal)
+				g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
+				var vdBlankLocal v1alpha2.VirtualDisk
+				err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+					Namespace: vdBlank.Namespace,
+					Name:      vdBlank.Name,
+				}, &vdBlankLocal)
+				g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+			}, framework.LongTimeout, time.Second).Should(Succeed())
 		})
 		By("Create restore Strict operation", func() {
 			vmoRestoreStrict = vmopbuilder.New(
@@ -219,15 +254,15 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 
-			err := f.UpdateFromCluster(context.Background(), vm)
+			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
+			err = f.UpdateFromCluster(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
 			Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
 			Expect(vm.Spec.CPU.Cores).To(Equal(1))
 			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("1Gi")))
-			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
 		})
 	})
 
@@ -306,9 +341,9 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		return fmt.Sprintf("umount /mnt &>/dev/null || DEV=/dev/$(sudo lsblk | grep disk | tail -n 1 | awk \"{print \\$1}\") && sudo mkfs.ext4 $DEV && sudo mount $DEV /mnt && sudo bash -c \"echo %s > /mnt/value\"", value)
 	}
 
-	// shellChangeValueOnDisk = func(value string) string {
-	// 	return fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value)
-	// }
+	shellChangeValueOnDisk = func(value string) string {
+		return fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value)
+	}
 
 	shellMountAndGetValueFromDisk = func() string {
 		return "umount /mnt &>/dev/null || DEV=/dev/$(sudo lsblk | grep disk | tail -n 1 | awk \"{print \\$1}\") && sudo mount $DEV /mnt && cat /mnt/value"
