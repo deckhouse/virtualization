@@ -35,7 +35,6 @@ import (
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
-	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -54,6 +53,10 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		changedValue       = "changed"
 		testAnnotationName = "test-annotation"
 		testLabelName      = "test-label"
+		defaultCPUCores    = 1
+		defaultMemorySize  = "256Mi"
+		changedCPUCores    = 2
+		changedMemorySize  = "512Mi"
 	)
 
 	var (
@@ -75,6 +78,10 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		f = framework.NewFramework("vmop-restore")
 
 		createEnvironmentResources     func(namespace string)
+		changeVMConfiguration          func()
+		checkVMInInitialState          func()
+		checkVMInChangedState          func()
+		removeDisks                    func()
 		shellCreateFsAndSetValueOnDisk func(value string) string
 		shellChangeValueOnDisk         func(value string) string
 		shellMountAndGetValueFromDisk  func() string
@@ -111,18 +118,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMSnapshotReady(crclient.ObjectKeyFromObject(vmsnapshot), framework.ShortTimeout)
 		})
 		By("Changing VM", func() {
-			_, err := f.SSHCommand(vm.Name, vm.Namespace, shellChangeValueOnDisk(changedValue))
-			Expect(err).NotTo(HaveOccurred())
-			err = f.UpdateFromCluster(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
-			Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
-			vm.Annotations[testAnnotationName] = changedValue
-			vm.Labels[testLabelName] = changedValue
-			vm.Spec.CPU.Cores = 2
-			vm.Spec.Memory.Size = resource.MustParse("2Gi")
-			err = f.Clients.GenericClient().Update(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
+			changeVMConfiguration()
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
@@ -134,14 +130,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			err = util.RebootVirtualMachineFromOS(f, vm)
 			Expect(err).NotTo(HaveOccurred())
 
-			Eventually(func(g Gomega) {
-				err = f.UpdateFromCluster(context.Background(), vm)
-				Expect(err).NotTo(HaveOccurred())
-
-				runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
-				g.Expect(runningCondition.LastTransitionTime.Time.After(runningLastTransitionTime)).To(BeTrue())
-			}, framework.LongTimeout, time.Second).Should(Succeed())
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
+			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), runningLastTransitionTime, framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
 		By("Create restore DryRun operation", func() {
@@ -158,15 +147,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreDryRun), framework.ShortTimeout)
 		})
 		By("Check VM in changed state", func() {
-			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(value)).To(Equal(changedValue))
-			err = f.UpdateFromCluster(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Annotations[testAnnotationName]).To(Equal(changedValue))
-			Expect(vm.Labels[testLabelName]).To(Equal(changedValue))
-			Expect(vm.Spec.CPU.Cores).To(Equal(2))
-			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("2Gi")))
+			checkVMInChangedState()
 		})
 		By("Create restore BestEffort operation", func() {
 			vmoRestoreBestEffort = vmopbuilder.New(
@@ -179,63 +160,32 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			)
 			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreBestEffort)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreBestEffort), framework.ShortTimeout)
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreBestEffort), framework.LongTimeout)
 		})
 		By("Check VM in restored state", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 
-			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
-			err = f.UpdateFromCluster(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
-			Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
-			Expect(vm.Spec.CPU.Cores).To(Equal(1))
-			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("1Gi")))
+			checkVMInInitialState()
 		})
 		By("Changing VM", func() {
-			_, err := f.SSHCommand(vm.Name, vm.Namespace, shellChangeValueOnDisk(changedValue))
-			Expect(err).NotTo(HaveOccurred())
-			err = f.UpdateFromCluster(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
-			Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
-			vm.Annotations[testAnnotationName] = changedValue
-			vm.Labels[testLabelName] = changedValue
-			vm.Spec.CPU.Cores = 2
-			vm.Spec.Memory.Size = resource.MustParse("2Gi")
-			err = f.Clients.GenericClient().Update(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
+			changeVMConfiguration()
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 		})
+		By("Reboot VM", func() {
+			err := f.UpdateFromCluster(context.Background(), vm)
+			Expect(err).NotTo(HaveOccurred())
+			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+			runningLastTransitionTime = runningCondition.LastTransitionTime.Time
+			err = util.RebootVirtualMachineFromOS(f, vm)
+			Expect(err).NotTo(HaveOccurred())
+
+			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(vm), runningLastTransitionTime, framework.LongTimeout)
+			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
+		})
 		By("Remove resources", func() {
-			err := util.StopVirtualMachineFromOS(f, vm)
-			Expect(err).NotTo(HaveOccurred())
-			util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
-
-			err = f.Delete(context.Background(), vdRoot)
-			Expect(err).NotTo(HaveOccurred())
-			err = f.Delete(context.Background(), vdBlank)
-			Expect(err).NotTo(HaveOccurred())
-
-			Eventually(func(g Gomega) {
-				var vdRootLocal v1alpha2.VirtualDisk
-				err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-					Namespace: vdRoot.Namespace,
-					Name:      vdRoot.Name,
-				}, &vdRootLocal)
-				g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
-
-				var vdBlankLocal v1alpha2.VirtualDisk
-				err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-					Namespace: vdBlank.Namespace,
-					Name:      vdBlank.Name,
-				}, &vdBlankLocal)
-				g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
-			}, framework.LongTimeout, time.Second).Should(Succeed())
+			removeDisks()
 		})
 		By("Create restore Strict operation", func() {
 			vmoRestoreStrict = vmopbuilder.New(
@@ -248,21 +198,13 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			)
 			err := f.CreateWithDeferredDeletion(context.Background(), vmoRestoreStrict)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreStrict), framework.ShortTimeout)
+			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(vmoRestoreStrict), framework.LongTimeout)
 		})
 		By("Check VM in restored state", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(vmbda), framework.ShortTimeout)
 
-			value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
-			err = f.UpdateFromCluster(context.Background(), vm)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
-			Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
-			Expect(vm.Spec.CPU.Cores).To(Equal(1))
-			Expect(vm.Spec.Memory.Size).To(Equal(resource.MustParse("1Gi")))
+			checkVMInInitialState()
 		})
 	})
 
@@ -282,19 +224,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			vibuilder.WithDataSourceHTTP(viURL, nil, nil),
 			vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 		)
-		vdRoot = vdbuilder.New(
-			vdbuilder.WithName("vd-root"),
-			vdbuilder.WithNamespace(namespace),
-			vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-				URL: object.UbuntuHTTP,
-			}),
-			vdbuilder.WithSize(ptr.To(resource.MustParse("10Gi"))),
-		)
-		vdBlank = vdbuilder.New(
-			vdbuilder.WithName("vd-blank"),
-			vdbuilder.WithNamespace(namespace),
-			vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("51Mi"))),
-		)
+		vdRoot = object.NewGeneratedHTTPVDUbuntu("", namespace, vdbuilder.WithName("vd-root"))
+		vdBlank = object.NewBlankVD("", namespace, nil, ptr.To(resource.MustParse("51Mi")), vdbuilder.WithName("vd-blank"))
 		err = f.CreateWithDeferredDeletion(context.Background(), vi, vdRoot, vdBlank)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -303,8 +234,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			vmbuilder.WithName("vm"),
 			vmbuilder.WithAnnotation(testAnnotationName, defaultValue),
 			vmbuilder.WithLabel(testLabelName, defaultValue),
-			vmbuilder.WithCPU(1, ptr.To("5%")),
-			vmbuilder.WithMemory(resource.MustParse("1Gi")),
+			vmbuilder.WithCPU(defaultCPUCores, ptr.To("5%")),
+			vmbuilder.WithMemory(resource.MustParse(defaultMemorySize)),
 			vmbuilder.WithBlockDeviceRefs(
 				v1alpha2.BlockDeviceSpecRef{
 					Kind: v1alpha2.DiskDevice,
@@ -327,14 +258,75 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		err = f.CreateWithDeferredDeletion(context.Background(), vm)
 		Expect(err).NotTo(HaveOccurred())
 
-		vmbda = vmbdabuilder.New(
-			vmbdabuilder.WithName("vmbda"),
-			vmbdabuilder.WithNamespace(namespace),
-			vmbdabuilder.WithVirtualMachineName(vm.Name),
-			vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, vdBlank.Name),
-		)
+		vmbda = object.NewVMBDAFromDisk("vmbda", vm.Name, vdBlank)
 		err = f.CreateWithDeferredDeletion(context.Background(), vmbda)
 		Expect(err).NotTo(HaveOccurred())
+	}
+
+	changeVMConfiguration = func() {
+		_, err := f.SSHCommand(vm.Name, vm.Namespace, shellChangeValueOnDisk(changedValue))
+		Expect(err).NotTo(HaveOccurred())
+		err = f.UpdateFromCluster(context.Background(), vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
+		Expect(vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
+		vm.Annotations[testAnnotationName] = changedValue
+		vm.Labels[testLabelName] = changedValue
+		vm.Spec.CPU.Cores = changedCPUCores
+		vm.Spec.Memory.Size = resource.MustParse(changedMemorySize)
+		err = f.Clients.GenericClient().Update(context.Background(), vm)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	checkVMInInitialState = func() {
+		value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(strings.TrimSpace(value)).To(Equal(generatedValue))
+		err = f.UpdateFromCluster(context.Background(), vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
+		Expect(vm.Labels[testLabelName]).To(Equal(defaultValue))
+		Expect(vm.Status.Resources.CPU.Cores).To(Equal(defaultCPUCores))
+		Expect(vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(defaultMemorySize)))
+	}
+
+	checkVMInChangedState = func() {
+		value, err := f.SSHCommand(vm.Name, vm.Namespace, shellMountAndGetValueFromDisk())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(strings.TrimSpace(value)).To(Equal(changedValue))
+		err = f.UpdateFromCluster(context.Background(), vm)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Annotations[testAnnotationName]).To(Equal(changedValue))
+		Expect(vm.Labels[testLabelName]).To(Equal(changedValue))
+		Expect(vm.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
+		Expect(vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
+	}
+
+	removeDisks = func() {
+		err := util.StopVirtualMachineFromOS(f, vm)
+		Expect(err).NotTo(HaveOccurred())
+		util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(vm), framework.ShortTimeout)
+
+		err = f.Delete(context.Background(), vdRoot)
+		Expect(err).NotTo(HaveOccurred())
+		err = f.Delete(context.Background(), vdBlank)
+		Expect(err).NotTo(HaveOccurred())
+
+		Eventually(func(g Gomega) {
+			var vdRootLocal v1alpha2.VirtualDisk
+			err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+				Namespace: vdRoot.Namespace,
+				Name:      vdRoot.Name,
+			}, &vdRootLocal)
+			g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
+			var vdBlankLocal v1alpha2.VirtualDisk
+			err = f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+				Namespace: vdBlank.Namespace,
+				Name:      vdBlank.Name,
+			}, &vdBlankLocal)
+			g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+		}, framework.LongTimeout, time.Second).Should(Succeed())
 	}
 
 	shellCreateFsAndSetValueOnDisk = func(value string) string {
