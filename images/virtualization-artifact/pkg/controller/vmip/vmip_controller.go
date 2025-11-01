@@ -20,10 +20,12 @@ import (
 	"context"
 	"time"
 
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
@@ -68,6 +70,10 @@ func NewController(
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
+		RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](
+			5*time.Second,
+			5*time.Second,
+		),
 	})
 	if err != nil {
 		return nil, err
