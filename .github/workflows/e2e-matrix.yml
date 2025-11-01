@@ -436,23 +436,19 @@ jobs:
             echo "[Ceph] Monitors: $MON_IPS"
 
             echo "[Ceph] Creating CephClusterConnection..."
-            MONITORS_LIST=$(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
-            if [ -z "$MONITORS_LIST" ]; then
-              echo "[ERR] Failed to generate monitors list" >&2
-              exit 1
-            fi
+            MONITORS_YAML=$(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
             cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
-            apiVersion: storage.deckhouse.io/v1alpha1
-            kind: CephClusterConnection
-            metadata:
-              name: ceph-cluster-1
-            spec:
-              clusterID: ${FSID}
-              monitors:
-            ${MONITORS_LIST}
-              userID: admin
-              userKey: ${USER_KEY}
-            EOF
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: CephClusterConnection
+metadata:
+  name: ceph-cluster-1
+spec:
+  clusterID: ${FSID}
+  monitors:
+${MONITORS_YAML}
+  userID: admin
+  userKey: ${USER_KEY}
+EOF
 
             echo "[Ceph] Waiting for CephClusterConnection to be Created..."
             for i in $(seq 1 30); do

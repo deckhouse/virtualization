@@ -737,7 +737,15 @@ tasks:
           SUDO="sudo /opt/deckhouse/bin/kubectl"
           $SUDO -n kube-system get sa e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create sa e2e-admin >/dev/null 2>&1
           $SUDO -n kube-system get clusterrolebinding e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create clusterrolebinding e2e-admin --clusterrole=cluster-admin --serviceaccount=kube-system:e2e-admin >/dev/null 2>&1
-          $SUDO -n kube-system create token e2e-admin --duration=240h
+          for i in $(seq 1 10); do
+            TOKEN=$($SUDO -n kube-system create token e2e-admin --duration=24h 2>/dev/null) && echo "$TOKEN" && break
+            echo "[WARN] Failed to create token (attempt $i/10); retrying in 3s" >&2
+            sleep 3
+          done
+          if [ -z "${TOKEN:-}" ]; then
+            echo "[ERR] Unable to create token for e2e-admin after 10 attempts" >&2
+            exit 1
+          fi
         ' > {{ .NESTED_DIR }}/token.txt
         NESTED_TOKEN=$(cat {{ .NESTED_DIR }}/token.txt)
         SERVER_URL="https://api.{{ .NAMESPACE }}.{{ .DOMAIN }}"
