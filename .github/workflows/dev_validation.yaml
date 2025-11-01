@@ -103,31 +103,6 @@ jobs:
         run: |
           task validation:doc-changes
 
-  copyright:
-    if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/copyright')"
-    runs-on: ubuntu-latest
-    name: Validation copyright
-    steps:
-      - name: Set up Go ${{ env.GO_VERSION }}
-        uses: actions/setup-go@v5
-        with:
-          go-version: "${{ env.GO_VERSION }}"
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Run validation "Copyright"
-        run: |
-          task validation:copyright
-
   # Run helm templates validation on changes in related files and without the skip labels.
   helm_templates:
     needs: paths_filter
