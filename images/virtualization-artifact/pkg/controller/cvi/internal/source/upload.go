@@ -104,7 +104,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cvi.Status.Phase = v1alpha2.ImageReady
 
 		// Unprotect upload time supplements to delete them later.
-		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -215,7 +215,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		cvi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(cvi.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

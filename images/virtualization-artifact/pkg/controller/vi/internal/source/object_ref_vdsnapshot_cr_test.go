@@ -86,6 +86,9 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
+			GetPodFunc: func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) {
+				return pod, nil
+			},
 		}
 		stat = &StatMock{
 			GetDVCRImageNameFunc: func(_ *corev1.Pod) string {
@@ -111,6 +114,9 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		diskService = &DiskMock{
 			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
 				return false, nil
+			},
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return pvc, nil
 			},
 		}
 
@@ -192,6 +198,13 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings) error {
 				podCreated = true
 				return nil
+			}
+
+			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+			importer.GetPodFunc = func(_ context.Context, _ supplements.Generator) (*corev1.Pod, error) {
+				return nil, nil
 			}
 
 			vi.Status = v1alpha2.VirtualImageStatus{}

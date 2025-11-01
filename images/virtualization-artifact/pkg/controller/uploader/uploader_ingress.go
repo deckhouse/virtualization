@@ -22,12 +22,10 @@ import (
 
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pwgen"
 )
 
@@ -146,12 +144,4 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 
 func (i *Ingress) generatePath() string {
 	return fmt.Sprintf(tmplIngressPath, pwgen.AlphaNum(32))
-}
-
-type IngressNamer interface {
-	UploaderIngress() types.NamespacedName
-}
-
-func FindIngress(ctx context.Context, client client.Client, name IngressNamer) (*netv1.Ingress, error) {
-	return object.FetchObject(ctx, name.UploaderIngress(), client, &netv1.Ingress{})
 }

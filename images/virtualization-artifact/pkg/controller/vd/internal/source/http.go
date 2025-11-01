@@ -120,18 +120,18 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, supgen, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -185,7 +185,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 			return reconcile.Result{}, setPhaseConditionFromPodError(ctx, err, pod, vd, cb, ds.client)
 		}
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -321,7 +321,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (re
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 
-		err = ds.diskService.Protect(ctx, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
