@@ -69,7 +69,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			helper.CreateEnvironmentResources()
 
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(helper.VM), framework.LongTimeout)
-			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(helper.VMBDA), framework.ShortTimeout)
+			util.UntilObjectPhase(helper.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
 		})
 		By("Create file on last disk", func() {
 			// Create a unique value on the disk to verify it's preserved after restore
@@ -79,12 +79,12 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		})
 		By("Snapshot creation", func() {
 			helper.CreateVMSnapshot()
-			util.UntilVMSnapshotReady(crclient.ObjectKeyFromObject(helper.VMSnapshot), framework.ShortTimeout)
+			util.UntilObjectPhase(helper.VMSnapshot, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout)
 		})
 		By("Changing VM", func() {
 			helper.ChangeVMConfiguration()
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(helper.VM), framework.ShortTimeout)
-			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(helper.VMBDA), framework.ShortTimeout)
+			util.UntilObjectPhase(helper.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
 		})
 		By("Reboot VM", func() {
 			// Reboot VM to ensure configuration changes are applied and persisted
@@ -96,7 +96,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(helper.VM), helper.RunningLastTransitionTime, framework.LongTimeout)
-			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(helper.VMBDA), framework.ShortTimeout)
+			util.UntilObjectPhase(helper.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
 		})
 		By("Check VM in changed state", func() {
 			helper.CheckVMInChangedState()
@@ -113,7 +113,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		})
 		By("Check VM after restore", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(helper.VM), framework.LongTimeout)
-			util.UntilVMBDAttached(crclient.ObjectKeyFromObject(helper.VMBDA), framework.ShortTimeout)
+			util.UntilObjectPhase(helper.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
 
 			switch restoreMode {
 			case v1alpha2.VMOPRestoreModeStrict, v1alpha2.VMOPRestoreModeBestEffort:
