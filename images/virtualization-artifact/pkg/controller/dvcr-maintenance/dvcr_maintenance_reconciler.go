@@ -77,7 +77,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
 		watcher.NewDVCRDeploymentWatcher(mgr.GetClient()),
-		watcher.NewCronWatcher(),
+		// watcher.NewVirtualImageWatcher(mgr.GetClient()),
+		// watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		// watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

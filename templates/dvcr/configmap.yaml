@@ -17,7 +17,7 @@ data:
 {{- if eq (include "dvcr.isMaintenance" . ) "true" }}
       maintenance:
         readonly: true
-{{- else }}
+{{- end }}
     http:
       addr: :5000
       headers:

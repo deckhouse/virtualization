@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -68,8 +69,8 @@ func NewController(
 		return nil, err
 	}
 
-	// Not an elegant solution, but it is easier to setup cron watch here.
-	cronSource, err := gc.NewCronSource(dvcr.CleanupSchedule, gc.NewSingleObjectLister(ns, "dvcr"), log)
+	// Not an elegant solution, but it is easier to setup cron watch here, than in internal/watcher package.
+	cronSource, err := gc.NewCronSource(dvcr.AutoCleanupSchedule, gc.NewSingleObjectLister(ns, "dvcr"), log)
 	if err != nil {
 		return nil, fmt.Errorf("setup DVCR cleanup cron source: %w", err)
 	}
