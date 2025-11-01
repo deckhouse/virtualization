@@ -105,12 +105,17 @@ func (s AttachmentService) CanHotPlug(ad *AttachmentDisk, vm *v1alpha2.VirtualMa
 	if kvvm.Spec.Template != nil {
 		for _, vs := range kvvm.Spec.Template.Spec.Volumes {
 			if vs.Name == name {
-				if vs.PersistentVolumeClaim == nil {
-					return false, fmt.Errorf("kvvm %s/%s spec volume %s does not have a pvc reference", kvvm.Namespace, kvvm.Name, vs.Name)
-				}
-
-				if !vs.PersistentVolumeClaim.Hotpluggable {
-					return false, fmt.Errorf("%w: virtual machine has a block device reference, but it is not a hot-plugged volume", ErrBlockDeviceIsSpecAttached)
+				switch {
+				case vs.PersistentVolumeClaim != nil:
+					if !vs.PersistentVolumeClaim.Hotpluggable {
+						return false, fmt.Errorf("%w: virtual machine has a block device reference, but it is not a hot-plugged volume", ErrBlockDeviceIsSpecAttached)
+					}
+				case vs.ContainerDisk != nil:
+					if !vs.ContainerDisk.Hotpluggable {
+						return false, fmt.Errorf("%w: virtual machine has a block device reference, but it is not a hot-plugged volume", ErrBlockDeviceIsSpecAttached)
+					}
+				default:
+					return false, fmt.Errorf("kvvm %s/%s spec volume %s does not have a pvc or container disk reference", kvvm.Namespace, kvvm.Name, vs.Name)
 				}
 
 				return false, ErrHotPlugRequestAlreadySent
