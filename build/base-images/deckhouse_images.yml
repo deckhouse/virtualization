@@ -1,6 +1,3 @@
-# alias for absent bulder/alt-go-svace (it builder/golang-alt-svace-1.24.9 in v0.5.38)
-builder/alt-go-svace: "sha256:82659c57ddfeaa988ea73c10da0f69d217f0b5a59db723e1b6834bfee35d69c8" # fromImage: builder/golang-alt-1.24.9
-
 # version=v0.5.38
 # REGISTRY_PATH is a special key which is concatenated with other base images
 REGISTRY_PATH: registry.deckhouse.io/base_images
