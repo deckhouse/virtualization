@@ -34,23 +34,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-func UntilVMRunning(key client.ObjectKey, timeout time.Duration) {
-	GinkgoHelper()
-
-	Eventually(func() error {
-		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-
-		if vm.Status.Phase == v1alpha2.MachineRunning {
-			return nil
-		}
-
-		return fmt.Errorf("vm %s is not running", key.Name)
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
-}
-
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
