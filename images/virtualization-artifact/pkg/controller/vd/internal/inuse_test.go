@@ -27,9 +27,9 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -150,7 +150,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm, vm2, vm3).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vm, vm2, vm3)
+			Expect(err).ToNot(HaveOccurred())
 			handler = &InUseHandler{client: k8sClient}
 
 			result, err := handler.Handle(ctx, vd)
@@ -215,7 +216,9 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vm)
+			Expect(err).ToNot(HaveOccurred())
+
 			handler = &InUseHandler{client: k8sClient}
 
 			result, err := handler.Handle(ctx, vd)
@@ -243,7 +246,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd)
+			Expect(err).ToNot(HaveOccurred())
 			handler = &InUseHandler{client: k8sClient}
 
 			result, err := handler.Handle(ctx, vd)
@@ -272,7 +276,9 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd)
+			Expect(err).ToNot(HaveOccurred())
+
 			handler = &InUseHandler{client: k8sClient}
 
 			result, err := handler.Handle(ctx, vd)
@@ -300,7 +306,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -331,7 +338,8 @@ var _ = Describe("InUseHandler", func() {
 			}
 			vd.Generation = 3
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -380,7 +388,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vm)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -431,7 +440,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vm)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -477,7 +487,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vi).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vi)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -525,7 +536,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, cvi).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, cvi)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -587,7 +599,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vi, vm).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vi, vm)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -635,7 +648,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vm)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -688,7 +702,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vi).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, vi)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -720,7 +735,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -752,7 +768,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
@@ -792,7 +809,8 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, pvc).Build()
+			k8sClient, err := testutil.NewFakeClientWithObjects(vd, pvc)
+			Expect(err).ToNot(HaveOccurred())
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
