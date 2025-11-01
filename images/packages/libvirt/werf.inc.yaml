@@ -36,11 +36,6 @@ shell:
 
     cd /src/{{ $gitRepoName }}-{{ $version }}
 
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
-
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
       git submodule update --init --recursive --depth=1
@@ -51,6 +46,11 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive --depth=1
     fi
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
