@@ -113,3 +113,11 @@ type VirtualMachineSnapshotListerExpansion interface{}
 // VirtualMachineSnapshotNamespaceListerExpansion allows custom methods to be added to
 // VirtualMachineSnapshotNamespaceLister.
 type VirtualMachineSnapshotNamespaceListerExpansion interface{}
+
+// VirtualMachineSnapshotOperationListerExpansion allows custom methods to be added to
+// VirtualMachineSnapshotOperationLister.
+type VirtualMachineSnapshotOperationListerExpansion interface{}
+
+// VirtualMachineSnapshotOperationNamespaceListerExpansion allows custom methods to be added to
+// VirtualMachineSnapshotOperationNamespaceLister.
+type VirtualMachineSnapshotOperationNamespaceListerExpansion interface{}

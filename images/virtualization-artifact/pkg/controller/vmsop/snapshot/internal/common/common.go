@@ -25,34 +25,34 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, err error) {
-	*phase = v1alpha2.VMOPPhaseFailed
+func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMSOPPhase, err error) {
+	*phase = v1alpha2.VMSOPPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmopcondition.ReasonRestoreOperationFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func SetPhaseCloneConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, err error) {
-	*phase = v1alpha2.VMOPPhaseFailed
+func SetPhaseCloneConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VMSOPPhase, err error) {
+	*phase = v1alpha2.VMSOPPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmopcondition.ReasonCloneOperationFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2.VMOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
-	*phase = v1alpha2.VMOPPhaseCompleted
+func SetPhaseConditionCompleted(cb *conditions.ConditionBuilder, phase *v1alpha2.VMSOPPhase, reason vmopcondition.ReasonRestoreCompleted, msg string) {
+	*phase = v1alpha2.VMSOPPhaseCompleted
 	cb.
 		Status(metav1.ConditionTrue).
 		Reason(reason).
 		Message(service.CapitalizeFirstLetter(msg) + ".")
 }
 
-func FillResourcesStatuses(vmop *v1alpha2.VirtualMachineOperation, statuses []v1alpha2.SnapshotResourceStatus) {
-	vmop.Status.Resources = nil
+func FillResourcesStatuses(vmsop *v1alpha2.VirtualMachineSnapshotOperation, statuses []v1alpha2.SnapshotResourceStatus) {
+	vmsop.Status.Resources = nil
 
 	for _, status := range statuses {
-		vmop.Status.Resources = append(vmop.Status.Resources, status)
+		vmsop.Status.Resources = append(vmsop.Status.Resources, status)
 	}
 }

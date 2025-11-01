@@ -108,7 +108,7 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	for _, status := range statuses {
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}

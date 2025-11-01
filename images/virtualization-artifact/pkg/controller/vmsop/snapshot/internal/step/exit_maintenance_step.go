@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/snapshot/internal/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop/snapshot/internal/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -54,19 +54,15 @@ func NewExitMaintenanceStep(
 	}
 }
 
-func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
-		return &reconcile.Result{}, nil
-	}
-
-	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachine}
+func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineSnapshotOperation) (*reconcile.Result, error) {
+	vmKey := types.NamespacedName{Namespace: vmop.Namespace, Name: vmop.Spec.VirtualMachineSnapshot}
 	vm, err := object.FetchObject(ctx, vmKey, s.client, &v1alpha2.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch the virtual machine %q: %w", vmKey.Name, err)
 	}
 
-	maintenanceVMOPCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
-	if !found || maintenanceVMOPCondition.Status == metav1.ConditionFalse {
+	maintenanceVMSOPCondition, found := conditions.GetCondition(vmopcondition.TypeMaintenanceMode, vmop.Status.Conditions)
+	if !found || maintenanceVMSOPCondition.Status == metav1.ConditionFalse {
 		return &reconcile.Result{}, nil
 	}
 
@@ -104,7 +100,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 		s.recorder.Event(
 			vmop,
 			corev1.EventTypeWarning,
-			v1alpha2.ReasonErrVMOPFailed,
+			v1alpha2.ReasonErrVMSOPFailed,
 			"Failed to exit maintenance mode: "+err.Error(),
 		)
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
@@ -116,7 +112,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 			Generation(vmop.GetGeneration()).
 			Reason(vmopcondition.ReasonMaintenanceModeDisabled).
 			Status(metav1.ConditionFalse).
-			Message("VMOP has disabled maintenance mode on VM."),
+			Message("VMSOP has disabled maintenance mode on VM."),
 		&vmop.Status.Conditions,
 	)
 
