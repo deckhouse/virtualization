@@ -70,3 +70,7 @@ type Stat interface {
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	CheckPod(pod *corev1.Pod) error
 }
+
+type DVCRMaintenance interface {
+	IsMaintenanceModeEnabled(ctx context.Context) (bool, error)
+}

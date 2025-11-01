@@ -46,6 +46,7 @@ type HTTPDataSource struct {
 	statService         Stat
 	importerService     Importer
 	dvcrSettings        *dvcr.Settings
+	dvcrService         DVCRMaintenance
 	controllerNamespace string
 	recorder            eventrecord.EventRecorderLogger
 }
@@ -55,12 +56,14 @@ func NewHTTPDataSource(
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
+	dvcrService DVCRMaintenance,
 	controllerNamespace string,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:         statService,
 		importerService:     importerService,
 		dvcrSettings:        dvcrSettings,
+		dvcrService:         dvcrService,
 		controllerNamespace: controllerNamespace,
 		recorder:            recorder,
 	}
@@ -111,6 +114,24 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 
 		log.Info("Cleaning up...")
 	case pod == nil:
+		isMaintenance, err := ds.dvcrService.IsMaintenanceModeEnabled(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("checking DVCR maintenance mode: %w", err)
+		}
+
+		if isMaintenance {
+			ds.recorder.Event(
+				cvi,
+				corev1.EventTypeNormal,
+				v1alpha2.ReasonImageOperationPostponedDueToDVCRMaintenance,
+				"Postpone image operation until the end of DVCR maintenance mode.",
+			)
+			cb.Status(metav1.ConditionFalse).
+				Reason(cvicondition.Provisioning).
+				Message("DVCR is in maintenance mode: wait until it finishes before creating provisioner.")
+			return reconcile.Result{}, nil
+		}
+
 		ds.recorder.Event(
 			cvi,
 			corev1.EventTypeNormal,

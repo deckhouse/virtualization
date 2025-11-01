@@ -17,9 +17,11 @@ limitations under the License.
 package gc
 
 import (
+	"context"
+	"time"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -28,22 +30,29 @@ import (
 type ReconcileGCManager interface {
 	New() client.Object
 	ShouldBeDeleted(obj client.Object) bool
+	ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error)
 }
 
 func SetupGcController(
 	controllerName string,
 	mgr manager.Manager,
 	log *log.Logger,
-	watchSource source.Source,
+	schedule string,
 	gcMgr ReconcileGCManager,
 ) error {
 	log = log.With(logger.SlogController(controllerName))
+
+	cronSource, err := NewCronSource(schedule, NewObjectLister(gcMgr.ListForDelete), log)
+	if err != nil {
+		return err
+	}
+
 	reconciler := NewReconciler(mgr.GetClient(),
-		watchSource,
+		cronSource,
 		gcMgr,
 	)
 
-	err := reconciler.SetupWithManager(controllerName, mgr, log)
+	err = reconciler.SetupWithManager(controllerName, mgr, log)
 	if err != nil {
 		return err
 	}

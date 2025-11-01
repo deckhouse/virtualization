@@ -1,0 +1,31 @@
+{{- if eq (include "dvcr.isEnabled" . ) "true"}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dvcr-config-cleanup
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr" )) | nindent 2 }}
+data:
+  config.yml: |-
+    version: 0.1
+    log:
+      fields:
+        service: dvcr
+    storage:
+      cache:
+        blobdescriptor: inmemory
+    http:
+      addr: :5000
+      headers:
+        X-Content-Type-Options: [nosniff]
+      debug:
+        addr: 127.0.0.1:5001
+        prometheus:
+          enabled: true
+          path: /metrics
+    health:
+      storagedriver:
+        enabled: true
+        interval: 10s
+        threshold: 3
+{{- end }}

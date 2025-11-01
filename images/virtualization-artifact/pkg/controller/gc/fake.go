@@ -102,10 +102,7 @@ const (
 	fakeObjectPhaseCompleted = "Completed"
 )
 
-var (
-	_ SourceGCManager    = &fakeGCManager{}
-	_ ReconcileGCManager = &fakeGCManager{}
-)
+var _ ReconcileGCManager = &fakeGCManager{}
 
 func newFakeGCManager(client client.Client, ttl time.Duration, max int) *fakeGCManager {
 	if ttl == 0 {

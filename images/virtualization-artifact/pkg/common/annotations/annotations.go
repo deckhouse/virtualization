@@ -187,6 +187,8 @@ const (
 	AnnVMOPUID = AnnAPIGroupV + "/vmop-uid"
 	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
 	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
+
+	AnnDVCRMaintenanceAutoCleanupEnabled = AnnAPIGroupV + "/dvcr-auto-clean-enabled"
 )
 
 // AddAnnotation adds an annotation to an object

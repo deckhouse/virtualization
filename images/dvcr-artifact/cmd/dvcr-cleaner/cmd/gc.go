@@ -20,10 +20,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
+
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/cmd/dvcr-cleaner/cmd/registry"
 )
 
 var GcCmd = &cobra.Command{
@@ -51,8 +52,7 @@ var gcRunCmd = &cobra.Command{
 			return fmt.Errorf("cache data cannot be deleted: %w", err)
 		}
 
-		execCmd := exec.Command("registry", "garbage-collect", "/etc/docker/registry/config.yml", "--delete-untagged")
-		stdout, err := execCmd.Output()
+		stdout, err := registry.ExecGarbageCollect()
 		if err != nil {
 			fmt.Println(err.Error())
 			return nil
