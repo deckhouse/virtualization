@@ -881,20 +881,7 @@ tasks:
         set -euo pipefail
         case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
           ceph)
-            echo "[CEPH] Waiting for Ceph StorageClass to be available..."
-            CEPH_SC_NAME='{{ .TARGET_STORAGE_CLASS }}'
-            for i in $(seq 1 30); do
-              if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "$CEPH_SC_NAME" >/dev/null 2>&1; then
-                echo "[CEPH] StorageClass '$CEPH_SC_NAME' is available"
-                break
-              fi
-              echo "[CEPH] Waiting for StorageClass '$CEPH_SC_NAME' (attempt $i/30)..."
-              sleep 10
-            done
-            if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "$CEPH_SC_NAME" >/dev/null 2>&1; then
-              echo "[ERR] StorageClass '$CEPH_SC_NAME' not found in nested cluster" >&2
-              exit 1
-            fi
+            echo "[CEPH] StorageClass already configured in workflow, skipping redundant check"
             ;;
           sds)
             echo "[SDS] Configuring SDS storage..."
