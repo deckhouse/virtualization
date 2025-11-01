@@ -46,8 +46,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda"
@@ -321,14 +321,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	vdLogger := logFactory(vd.ControllerName)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
+	viLogger := logFactory(vi.ControllerName)
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	viLogger := logFactory(vi.ControllerName)
-	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+	supervdLogger := logFactory(supervd.ControllerName)
+	if _, err = supervd.NewController(ctx, mgr, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings, logFactory, supervdLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
