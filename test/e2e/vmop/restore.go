@@ -109,7 +109,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		}
 		By("Create restore operation", func() {
 			helper.CreateRestoreOperation(restoreMode)
-			util.UntilVMOPCompleted(crclient.ObjectKeyFromObject(helper.VMOPRestore), framework.LongTimeout)
+			util.UntilObjectPhase(helper.VMOPRestore, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout)
 		})
 		By("Check VM after restore", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(helper.VM), framework.LongTimeout)
