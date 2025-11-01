@@ -30,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,14 +49,18 @@ type Handler interface {
 }
 
 type Reconciler struct {
-	handlers []Handler
-	client   client.Client
+	handlers             []Handler
+	client               client.Client
+	imageMonitorSchedule string
+	log                  *log.Logger
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, imageMonitorSchedule string, log *log.Logger, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		client:               client,
+		imageMonitorSchedule: imageMonitorSchedule,
+		log:                  log,
+		handlers:             handlers,
 	}
 }
 
@@ -121,6 +128,18 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		err := w.Watch(mgr, ctr)
 		if err != nil {
 			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
+	}
+
+	if r.imageMonitorSchedule != "" {
+		enqueuer := internal.NewPeriodicEnqueuer(mgr.GetClient())
+		cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, enqueuer, r.log.With("source", "image-monitor"))
+		if err != nil {
+			return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
+		}
+
+		if err := ctr.Watch(cronSource); err != nil {
+			return fmt.Errorf("failed to setup periodic image check: %w", err)
 		}
 	}
 

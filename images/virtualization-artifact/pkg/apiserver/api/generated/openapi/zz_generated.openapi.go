@@ -1257,7 +1257,7 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Current status of the ClusterVirtualImage resource: * `Pending`: The resource has been created and is on a waiting queue. * `Provisioning`: The resource is being created: copying, downloading, or building of the image is in progress. * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`. * `Ready`: The resource has been created and is ready to use. * `Failed`: There was an error when creating the resource. * `Terminating`: The resource is being deleted.",
+							Description: "Current status of the ClusterVirtualImage resource: * `Pending`: The resource has been created and is on a waiting queue. * `Provisioning`: The resource is being created: copying, downloading, or building of the image is in progress. * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`. * `Ready`: The resource has been created and is ready to use. * `Failed`: There was an error when creating the resource. * `Terminating`: The resource is being deleted. * `ImageLost`: The image is missing in DVCR. The resource cannot be used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3267,7 +3267,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 					},
 					"phase": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Current status of the ClusterVirtualImage resource: * `Pending`: The resource has been created and is on a waiting queue. * `Provisioning`: The resource is being created: copying, downloading, or building the image. * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`. * `Ready`: The resource has been created and is ready to use. * `Failed`: There was an error when creating the resource. * `Terminating`: The resource is being deleted. * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.",
+							Description: "Current status of the ClusterVirtualImage resource: * `Pending`: The resource has been created and is on a waiting queue. * `Provisioning`: The resource is being created: copying, downloading, or building the image. * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`. * `Ready`: The resource has been created and is ready to use. * `Failed`: There was an error when creating the resource. * `Terminating`: The resource is being deleted. * `ImageLost`: The image is missing in DVCR. The resource cannot be used. * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

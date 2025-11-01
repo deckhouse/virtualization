@@ -90,7 +90,11 @@ const (
 	// DatasourceNotReady indicates that the datasource is not ready, which prevents the import process from starting.
 	DatasourceNotReady ReadyReason = "DatasourceNotReady"
 
-	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
+	// ImageLost indicates that the image in DVCR has been lost and the `VirtualImage` can no longer be used.
+	ImageLost ReadyReason = "ImageLost"
+	// PVCLost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
+	PVCLost ReadyReason = "PVCLost"
+	// Lost is deprecated, use PVCLost instead.
 	Lost ReadyReason = "PVCLost"
 
 	// StorageClassReady indicates that the chosen StorageClass exists.

@@ -133,7 +133,8 @@ type ClusterVirtualImageStatus struct {
 	// * `Ready`: The resource has been created and is ready to use.
 	// * `Failed`: There was an error when creating the resource.
 	// * `Terminating`: The resource is being deleted.
-	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating}
+	// * `ImageLost`: The image is missing in DVCR. The resource cannot be used.
+	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,ImageLost}
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from the source to DVCR. Appears only during the `Provisioning' phase.
 	Progress string `json:"progress,omitempty"`
