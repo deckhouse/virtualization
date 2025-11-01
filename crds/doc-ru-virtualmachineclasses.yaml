@@ -133,7 +133,7 @@ spec:
                     properties:
                       coreFractions:
                         description: |
-                          Допустимые значения параметра `coreFraction`.
+                          Допустимые значения параметра `coreFraction` в процентах (например, "5%", "10%", "25%", "50%", "100%").
                       cores:
                         description: |
                           Политика применяется для заданного диапазона числа ядер CPU.

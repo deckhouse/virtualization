@@ -22,6 +22,8 @@ import (
 	clientset "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	fakevirtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2/fake"
+	virtualizationv1alpha3 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha3"
+	fakevirtualizationv1alpha3 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha3/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
@@ -91,4 +93,9 @@ var (
 // VirtualizationV1alpha2 retrieves the VirtualizationV1alpha2Client
 func (c *Clientset) VirtualizationV1alpha2() virtualizationv1alpha2.VirtualizationV1alpha2Interface {
 	return &fakevirtualizationv1alpha2.FakeVirtualizationV1alpha2{Fake: &c.Fake}
+}
+
+// VirtualizationV1alpha3 retrieves the VirtualizationV1alpha3Client
+func (c *Clientset) VirtualizationV1alpha3() virtualizationv1alpha3.VirtualizationV1alpha3Interface {
+	return &fakevirtualizationv1alpha3.FakeVirtualizationV1alpha3{Fake: &c.Fake}
 }
