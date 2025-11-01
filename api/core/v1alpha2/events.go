@@ -104,6 +104,9 @@ const (
 	// ReasonDataSourceQuotaExceeded is event reason that DataSource sync is failed because quota exceed.
 	ReasonDataSourceQuotaExceeded = "DataSourceQuotaExceed"
 
+	// ReasonImageOperationPostponedDueToDVCRMaintenance is event reason that operation is postponed until the end of DVCR maintenance mode.
+	ReasonImageOperationPostponedDueToDVCRMaintenance = "ImageOperationPostponedDueToDVCRMaintenance"
+
 	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
 	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"
 

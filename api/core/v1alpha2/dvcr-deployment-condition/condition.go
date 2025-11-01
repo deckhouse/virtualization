@@ -38,8 +38,10 @@ func (s MaintenanceReason) String() string {
 }
 
 const (
-	// MaintenanceStartScheduled indicates that the deployment is in the normal mode, but the maintenance is scheduled for some time in the future.
-	MaintenanceStartScheduled MaintenanceReason = "StartScheduled"
+	// PrepareAutoCleanup indicates that the maintenance is prepared: create secret, wait for vi/cvi/vd to stop uploading.
+	PrepareAutoCleanup MaintenanceReason = "PrepareAutoCleanup"
 	// MaintenanceAutoCleanupInProgress indicates that deployment is in the maintenance mode.
 	MaintenanceAutoCleanupInProgress MaintenanceReason = "AutoCleanupInProgress"
+	// MaintenanceAutoCleanupScheduled indicates that the deployment is in the normal mode, and the maintenance is scheduled for some time in the future
+	MaintenanceAutoCleanupScheduled MaintenanceReason = "AutoCleanupScheduled"
 )
