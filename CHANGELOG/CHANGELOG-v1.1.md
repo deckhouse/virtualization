@@ -14,6 +14,7 @@
     - The feature is not available in the CE edition.
     - Migration is only possible for running VMs (`phase: Running`).
     - Storage migration for disks connected via `VirtualMachineBlockDeviceAttachment` (hotplug) is not supported yet. [#1360](https://github.com/deckhouse/virtualization/pull/1360)
+ - **[vmop]** Improve vmop migration condition. Adds more detailed and descriptive messages when a migration fails. [#1569](https://github.com/deckhouse/virtualization/pull/1569)
  - **[vmop]** Added an operation with the `Clone` type to create a clone of a VM from an existing VM (`VirtualMachineOperation` `.spec.type: Clone`). [#1418](https://github.com/deckhouse/virtualization/pull/1418)
 
 ## Fixes
@@ -25,6 +26,7 @@
  - **[observability]** Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration. [#1474](https://github.com/deckhouse/virtualization/pull/1474)
  - **[vd]** respect user-specified storage class when restoring from snapshot [#1417](https://github.com/deckhouse/virtualization/pull/1417)
  - **[vi]** When creating virtual images from virtual disk snapshots, the `spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it could be ignored. [#1533](https://github.com/deckhouse/virtualization/pull/1533)
+ - **[vm]** ensure accurate PVC sizing during volume migration between different CSI drivers [#1613](https://github.com/deckhouse/virtualization/pull/1613)
  - **[vm]** Fixed the `NetworkReady` condition output. It no longer shows the `Unknown` state and appears only when needed. [#1567](https://github.com/deckhouse/virtualization/pull/1567)
  - **[vm]** Prohibit duplicate networks in the virtual machine `.spec.network` specification. [#1545](https://github.com/deckhouse/virtualization/pull/1545)
  - **[vmbda]** Fixed a bug where, when detaching a virtual image through `VirtualMachineBlockDeviceAttachment`, the resource could get stuck in the Terminating state. [#1542](https://github.com/deckhouse/virtualization/pull/1542)
@@ -36,5 +38,6 @@
 ## Chore
 
 
+ - **[core]** fix nil map panic when kube-apiserver is not healthy [#1609](https://github.com/deckhouse/virtualization/pull/1609)
  - **[observability]** Added Prometheus metrics for virtual machine snapshots (`d8_virtualization_virtualmachinesnapshot_info`) and virtual disk snapshots (`d8_virtualization_virtualdisksnapshot_info`), showing which objects they are associated with. [#1555](https://github.com/deckhouse/virtualization/pull/1555)
 

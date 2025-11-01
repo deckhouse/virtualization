@@ -1,0 +1,11 @@
+vm:
+  fixes:
+    - summary: ensure accurate PVC sizing during volume migration between different CSI drivers
+      pull_request: https://github.com/deckhouse/virtualization/pull/1613
+vmop:
+  features:
+    - summary: >-
+        Improve vmop migration condition. Adds more detailed and descriptive messages when a
+        migration fails.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1569
+
