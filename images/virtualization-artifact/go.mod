@@ -162,7 +162,6 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.33.3
 	k8s.io/component-base => k8s.io/component-base v0.33.3
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250701173324-9bd5c66d9911
-	kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.3.1-v12n.17
 )
 
 // CVE Replaces
@@ -171,3 +170,6 @@ replace (
 	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )
+
+// Kubevirt API replaces
+replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.3.1-v12n.18

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -38,6 +39,7 @@ import (
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -399,8 +401,19 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 		return nil
 	}
 
+	volumeMode, accessMode, err := h.modeGetter.GetVolumeAndAccessModes(ctx, vd, targetStorageClass)
+	if err != nil {
+		return fmt.Errorf("get volume and access modes: %w", err)
+	}
+
+	provisionedCapacity, err := h.getProvisionedCapacity(ctx, vd)
+	if err != nil {
+		return fmt.Errorf("get provisioned capacity: %w", err)
+	}
+	size = calculateTargetSize(ctx, size, provisionedCapacity)
+
 	log.Info("Start creating target PersistentVolumeClaim", slog.String("storageClass", targetStorageClass.Name), slog.String("capacity", size.String()))
-	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim)
+	pvc, err := h.createTargetPersistentVolumeClaim(ctx, vd, targetStorageClass, size, targetPVCName, vd.Status.Target.PersistentVolumeClaim, volumeMode, accessMode)
 	if err != nil {
 		return err
 	}
@@ -427,6 +440,36 @@ func (h MigrationHandler) handleMigratePrepareTarget(ctx context.Context, vd *v1
 	conditions.SetCondition(cb, &vd.Status.Conditions)
 
 	return h.handleMigrateSync(ctx, vd)
+}
+
+func (h MigrationHandler) getProvisionedCapacity(ctx context.Context, vd *v1alpha2.VirtualDisk) (resource.Quantity, error) {
+	currentlyMountedVM := commonvd.GetCurrentlyMountedVMName(vd)
+	if currentlyMountedVM == "" {
+		return resource.Quantity{}, fmt.Errorf("no currently mounted VM")
+	}
+
+	kvvmi := &virtv1.VirtualMachineInstance{}
+	err := h.client.Get(ctx, types.NamespacedName{Name: currentlyMountedVM, Namespace: vd.Namespace}, kvvmi)
+	if err != nil {
+		return resource.Quantity{}, fmt.Errorf("get KVVMI: %w", err)
+	}
+
+	volumeName := kvbuilder.GenerateVDDiskName(vd.Name)
+	for _, volumeStatus := range kvvmi.Status.VolumeStatus {
+		if volumeStatus.Name == volumeName {
+			return *resource.NewQuantity(volumeStatus.Size, resource.BinarySI), nil
+		}
+	}
+
+	return resource.Quantity{}, nil
+}
+
+func calculateTargetSize(ctx context.Context, size, realSize resource.Quantity) resource.Quantity {
+	if realSize.IsZero() {
+		logger.FromContext(ctx).Error("Failed to detect RealSize disk on KVVMI. Please report a bug.")
+		return size
+	}
+	return realSize
 }
 
 func (h MigrationHandler) handleMigrateSync(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
@@ -587,7 +630,7 @@ func (h MigrationHandler) getInProgressMigratingVMOP(ctx context.Context, vm *v1
 	return nil, nil
 }
 
-func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string) (*corev1.PersistentVolumeClaim, error) {
+func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context, vd *v1alpha2.VirtualDisk, sc *storagev1.StorageClass, size resource.Quantity, targetPVCName, sourcePVCName string, volumeMode corev1.PersistentVolumeMode, accessMode corev1.PersistentVolumeAccessMode) (*corev1.PersistentVolumeClaim, error) {
 	pvcs, err := listPersistentVolumeClaims(ctx, vd, h.client)
 	if err != nil {
 		return nil, err
@@ -604,11 +647,6 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 		}
 	default:
 		return nil, fmt.Errorf("unexpected number of pvcs: %d, please report a bug", len(pvcs))
-	}
-
-	volumeMode, accessMode, err := h.modeGetter.GetVolumeAndAccessModes(ctx, vd, sc)
-	if err != nil {
-		return nil, fmt.Errorf("get volume and access modes: %w", err)
 	}
 
 	pvc := &corev1.PersistentVolumeClaim{

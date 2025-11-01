@@ -51,6 +51,7 @@ runs:
           module
           observability
           ci:low
+          test:low
           docs
           network
           cli
