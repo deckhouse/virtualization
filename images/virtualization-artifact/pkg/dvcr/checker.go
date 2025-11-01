@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -55,16 +56,13 @@ func (c *DefaultImageChecker) CheckImageExists(ctx context.Context, imageURL str
 		return false, fmt.Errorf("image URL is empty")
 	}
 
-	// Parse the image reference
 	ref, err := name.ParseReference(imageURL, c.nameOptions()...)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse image reference %q: %w", imageURL, err)
 	}
 
-	// Perform a HEAD request to check if the image exists
 	_, err = remote.Head(ref, c.remoteOptions(ctx)...)
 	if err != nil {
-		// Check if the error is due to the image not being found
 		if isNotFoundError(err) {
 			return false, nil
 		}
@@ -89,7 +87,6 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) []remote.Option
 		remote.WithContext(ctx),
 	}
 
-	// Add authentication if credentials are provided
 	if c.username != "" || c.password != "" {
 		opts = append(opts, remote.WithAuth(&authn.Basic{
 			Username: c.username,
@@ -97,7 +94,6 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) []remote.Option
 		}))
 	}
 
-	// Configure TLS settings
 	if c.insecure {
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: true,
@@ -115,25 +111,9 @@ func isNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Check for common "not found" error patterns
 	errStr := err.Error()
-	return contains(errStr, "MANIFEST_UNKNOWN") ||
-		contains(errStr, "NAME_UNKNOWN") ||
-		contains(errStr, "not found") ||
-		contains(errStr, "404")
-}
-
-// contains checks if a string contains a substring (case-insensitive helper).
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || containsHelper(s, substr))
-}
-
-// containsHelper is a simple substring check helper.
-func containsHelper(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(errStr, "MANIFEST_UNKNOWN") ||
+		strings.Contains(errStr, "NAME_UNKNOWN") ||
+		strings.Contains(errStr, "not found") ||
+		strings.Contains(errStr, "404")
 }

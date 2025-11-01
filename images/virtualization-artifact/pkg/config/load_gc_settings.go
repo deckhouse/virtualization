@@ -57,7 +57,6 @@ func LoadGcSettings() (GCSettings, error) {
 	}
 	gcSettings.VMIMigration = base
 
-	// Image monitor only uses schedule (no TTL)
 	base, err = GetImageMonitorSettingsFromEnv(GcImageMonitorScheduleVar)
 	if err != nil {
 		return gcSettings, err
@@ -102,8 +101,7 @@ func GetImageMonitorSettingsFromEnv(envSchedule string) (BaseGcSettings, error) 
 
 func NewDefaultImageMonitorSettings() BaseGcSettings {
 	return BaseGcSettings{
-		// No TTL for image monitoring
 		TTL:      metav1.Duration{Duration: 0},
-		Schedule: "*/5 * * * *", // Every 5 minutes by default
+		Schedule: "*/5 * * * *",
 	}
 }

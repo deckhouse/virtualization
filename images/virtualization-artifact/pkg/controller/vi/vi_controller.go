@@ -61,6 +61,7 @@ func NewController(
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualImageStorageClassSettings,
+	imageMonitorSchedule string,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVIProtection)
@@ -82,6 +83,7 @@ func NewController(
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
+		internal.NewImagePresenceHandler(mgr.GetClient(), dvcr),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
@@ -99,6 +101,12 @@ func NewController(
 	err = reconciler.SetupController(ctx, mgr, viController)
 	if err != nil {
 		return nil, err
+	}
+
+	if imageMonitorSchedule != "" {
+		if err = SetupPeriodicImageCheck(mgr, viController, imageMonitorSchedule, log); err != nil {
+			return nil, err
+		}
 	}
 
 	if err = builder.WebhookManagedBy(mgr).

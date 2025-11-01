@@ -30,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -119,6 +122,20 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), cviFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
+	}
+
+	return nil
+}
+
+func SetupPeriodicImageCheck(mgr manager.Manager, ctr controller.Controller, schedule string, log *log.Logger) error {
+	enqueuer := internal.NewPeriodicEnqueuer(mgr.GetClient())
+	cronSource, err := gc.NewCronSource(schedule, enqueuer, log.With("source", "image-monitor"))
+	if err != nil {
+		return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
+	}
+
+	if err := ctr.Watch(cronSource); err != nil {
+		return fmt.Errorf("failed to setup periodic image check: %w", err)
 	}
 
 	return nil
