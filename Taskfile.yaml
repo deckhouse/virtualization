@@ -26,7 +26,7 @@ vars:
   deckhouse_lib_helm_ver: 1.55.1
   TRIVY_VERSION: 0.55.0
   target: ""
-  VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go"
+  VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
 
   DLV_IMAGE:
     sh: if [ -z $DLV_IMAGE ]; then echo "ttl.sh/$(uuidgen | awk '{print tolower($0)}'):10m" ; else echo $DLV_IMAGE ; fi
@@ -125,11 +125,6 @@ tasks:
     desc: "Doc-changes"
     cmds:
       - go run {{ .VALIDATION_FILES }} --type doc-changes
-
-  validation:copyright:
-    desc: "Check copyright"
-    cmds:
-      - go run {{ .VALIDATION_FILES }} --type copyright
 
   validation:helm-templates:
     desc: "Check Helm templates"

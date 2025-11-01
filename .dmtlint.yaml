@@ -50,15 +50,10 @@ linters-settings:
   module:
     exclude-rules:
       license:
-        files:
-          - images/hooks/cmd/virtualization-module-hooks/register-ee.go
-          - images/hooks/pkg/hooks/tls-certificates-audit/hook.go
         directories:
-          - test/
-          - api/client/generated
-          - hack/
-          - images/
-          - tools/
+          - tools/addlicense/testdata
+          - test/performance/ssh
+          - test/e2e/legacy/testdata/sshkeys
   images:
     # CDI patches are soon to be phased out by moving them to 3p repo
     patches:

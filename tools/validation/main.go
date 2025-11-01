@@ -26,7 +26,7 @@ import (
 
 func main() {
 	var validationType string
-	flag.StringVar(&validationType, "type", "", "Validation type: copyright, cyrillic or doc-changes.")
+	flag.StringVar(&validationType, "type", "", "Validation type: cyrillic or doc-changes.")
 	var patchFile string
 	flag.StringVar(&patchFile, "file", "", "Patch file. git diff is executed if not passed.")
 	var title string
@@ -56,8 +56,6 @@ func main() {
 
 	exitCode := 0
 	switch validationType {
-	case "copyright":
-		exitCode = RunCopyrightValidation(diffInfo)
 	case "no-cyrillic":
 		exitCode = RunNoCyrillicValidation(diffInfo, title, description)
 	case "doc-changes":
