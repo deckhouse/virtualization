@@ -50,7 +50,6 @@ const (
 	moduleNamespace           = "d8-virtualization"
 	dvcrDeploymentName        = "dvcr"
 	maintenanceModeSecretName = "dvcr-maintenance"
-	//autoCleanupAnno =
 )
 
 func (d *DVCRService) CreateMaintenanceModeSecret(ctx context.Context) error {

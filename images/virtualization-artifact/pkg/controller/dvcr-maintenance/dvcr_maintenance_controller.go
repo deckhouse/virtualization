@@ -14,14 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dvcr_maintenance
+package dvcrmaintenance
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -34,28 +33,22 @@ import (
 )
 
 const (
-	DVCRMaintenanceController = "dvcr-maintenance-controller"
+	ControllerName = "dvcr-maintenance-controller"
 )
 
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
-	requirements corev1.ResourceRequirements,
-	dvcr *dvcr.Settings,
-	ns string,
+	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
 	// init services
-
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		internal.NewLifeCycleHandler(mgr.GetClient()),
 	)
-	//if err != nil {
-	//	return nil, err
-	//}
 
-	dvcrController, err := controller.New(DVCRMaintenanceController, mgr, controller.Options{
+	dvcrController, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       reconciler,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
@@ -70,11 +63,14 @@ func NewController(
 	}
 
 	// Not an elegant solution, but it is easier to setup cron watch here, than in internal/watcher package.
-	cronSource, err := gc.NewCronSource(dvcr.AutoCleanupSchedule, gc.NewSingleObjectLister(ns, "dvcr"), log)
+	cronSource, err := gc.NewCronSource(dvcrSettings.AutoCleanupSchedule, gc.NewSingleObjectLister("__cron_injected__", "run_auto_cleanup"), log)
 	if err != nil {
 		return nil, fmt.Errorf("setup DVCR cleanup cron source: %w", err)
 	}
-	dvcrController.Watch(cronSource)
+	err = dvcrController.Watch(cronSource)
+	if err != nil {
+		return nil, fmt.Errorf("faield to setup cron watcher: %w", err)
+	}
 
 	log.Info("Initialized DVCR maintenance controller")
 

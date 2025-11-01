@@ -61,9 +61,7 @@ func newVMIMGCManager(client client.Client, ttl time.Duration, max int) *vmimGCM
 	}
 }
 
-var (
-	_ gc.ReconcileGCManager = &vmimGCManager{}
-)
+var _ gc.ReconcileGCManager = &vmimGCManager{}
 
 type vmimGCManager struct {
 	client client.Client

@@ -57,9 +57,7 @@ func newVMOPGCManager(client client.Client, ttl time.Duration, max int) *vmopGCM
 	}
 }
 
-var (
-	_ gc.ReconcileGCManager = &vmopGCManager{}
-)
+var _ gc.ReconcileGCManager = &vmopGCManager{}
 
 type vmopGCManager struct {
 	client client.Client
