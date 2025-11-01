@@ -80,6 +80,8 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		imageMonitorSchedule,
+		log,
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
@@ -101,12 +103,6 @@ func NewController(
 	err = reconciler.SetupController(ctx, mgr, viController)
 	if err != nil {
 		return nil, err
-	}
-
-	if imageMonitorSchedule != "" {
-		if err = SetupPeriodicImageCheck(mgr, viController, imageMonitorSchedule, log); err != nil {
-			return nil, err
-		}
 	}
 
 	if err = builder.WebhookManagedBy(mgr).

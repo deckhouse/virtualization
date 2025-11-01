@@ -102,6 +102,6 @@ func GetImageMonitorSettingsFromEnv(envSchedule string) (BaseGcSettings, error) 
 func NewDefaultImageMonitorSettings() BaseGcSettings {
 	return BaseGcSettings{
 		TTL:      metav1.Duration{Duration: 0},
-		Schedule: "*/5 * * * *",
+		Schedule: "0 * * * *",
 	}
 }

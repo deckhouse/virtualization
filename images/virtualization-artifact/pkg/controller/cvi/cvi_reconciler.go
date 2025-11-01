@@ -48,14 +48,18 @@ type Handler interface {
 }
 
 type Reconciler struct {
-	handlers []Handler
-	client   client.Client
+	handlers             []Handler
+	client               client.Client
+	imageMonitorSchedule string
+	log                  *log.Logger
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, imageMonitorSchedule string, log *log.Logger, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		client:               client,
+		imageMonitorSchedule: imageMonitorSchedule,
+		log:                  log,
+		handlers:             handlers,
 	}
 }
 
@@ -124,18 +128,16 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
-	return nil
-}
+	if r.imageMonitorSchedule != "" {
+		enqueuer := internal.NewPeriodicEnqueuer(mgr.GetClient())
+		cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, enqueuer, r.log.With("source", "image-monitor"))
+		if err != nil {
+			return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
+		}
 
-func SetupPeriodicImageCheck(mgr manager.Manager, ctr controller.Controller, schedule string, log *log.Logger) error {
-	enqueuer := internal.NewPeriodicEnqueuer(mgr.GetClient())
-	cronSource, err := gc.NewCronSource(schedule, enqueuer, log.With("source", "image-monitor"))
-	if err != nil {
-		return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
-	}
-
-	if err := ctr.Watch(cronSource); err != nil {
-		return fmt.Errorf("failed to setup periodic image check: %w", err)
+		if err := ctr.Watch(cronSource); err != nil {
+			return fmt.Errorf("failed to setup periodic image check: %w", err)
+		}
 	}
 
 	return nil
