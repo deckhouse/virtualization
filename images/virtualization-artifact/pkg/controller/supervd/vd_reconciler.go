@@ -14,20 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vd
+package supervd
 
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervd/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -73,7 +76,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 		if vd.Changed().Status.Target.PersistentVolumeClaim == "" {
 			logger.FromContext(ctx).Error("Target.PersistentVolumeClaim is empty, restore previous value. Please report a bug.")
-			vdsupplements.SetPVCName(vd.Changed(), vd.Current().Status.Target.PersistentVolumeClaim)
+			vd.Changed().Status.Target.PersistentVolumeClaim = vd.Current().Status.Target.PersistentVolumeClaim
 		}
 
 		return vd.Update(ctx)
@@ -82,10 +85,40 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) SetupController(_ context.Context, ctr controller.Controller, queue <-chan reconcile.Request) error {
-	err := ctr.Watch(watcher.NewSuperSource(queue))
-	if err != nil {
-		return fmt.Errorf("failed to run super watcher: %w", err)
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualDisk]{},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
+	}
+
+	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualDiskObjectRefKindVirtualImage)
+	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
+	if err := viWatcher.Run(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on VIs: %w", err)
+	}
+
+	vdFromCVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.ClusterVirtualImage{}, v1alpha2.VirtualDiskObjectRefKindClusterVirtualImage)
+	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), vdFromCVIEnqueuer)
+	if err := cviWatcher.Run(mgr, ctr); err != nil {
+		return fmt.Errorf("error setting watch on CVIs: %w", err)
+	}
+
+	mgrClient := mgr.GetClient()
+	for _, w := range []Watcher{
+		watcher.NewPersistentVolumeClaimWatcher(mgrClient),
+		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
+		watcher.NewStorageClassWatcher(mgrClient),
+		watcher.NewDataVolumeWatcher(),
+		watcher.NewVirtualMachineWatcher(),
+		watcher.NewResourceQuotaWatcher(mgrClient),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
 	}
 
 	return nil

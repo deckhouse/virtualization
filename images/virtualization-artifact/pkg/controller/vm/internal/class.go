@@ -58,7 +58,7 @@ func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	changed := s.VirtualMachine().Changed()
 
 	if update := addAllUnknown(changed, vmcondition.TypeClassReady); update {
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if isDeletion(current) {

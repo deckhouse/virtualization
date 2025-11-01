@@ -28,7 +28,7 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 

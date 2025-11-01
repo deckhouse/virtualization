@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vd
+package supervd
 
 import (
 	"context"
@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validator"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/supervd/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervd/internal/validator"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -45,7 +45,7 @@ func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClas
 		validators: []VirtualDiskValidator{
 			validator.NewPVCSizeValidator(client),
 			validator.NewSpecChangesValidator(scService),
-			validator.NewISOSourceValidator(client),
+			// validator.NewISOSourceValidator(client),
 			validator.NewNameValidator(),
 			validator.NewMigrationStorageClassValidator(client, scService, diskService),
 		},
