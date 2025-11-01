@@ -54,6 +54,10 @@ for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
     delete_resources_with_prefix_or_label "prefix" "$E2E_PREFIX" "$RESOURCE"
 done
 
+delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "namespaces"
+
+delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "projects"
+
 readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
 for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
     delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "$RESOURCE"
