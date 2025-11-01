@@ -234,7 +234,7 @@ When connected to a virtual machine, the image is accessed in read-only mode.
 The image creation process includes the following steps:
 
 - The user creates a `VirtualImage` resource.
-- After creation, the image is automatically loaded from the specified source into the storage (DVCR).
+- After creation, the image is automatically downloaded from the source specified in the specification to DVCR or PVC storage, depending on the type.
 - Once the download is complete, the resource becomes available for disk creation.
 
 There are different types of images:
@@ -1323,7 +1323,9 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
 
 ### User Configuration for Cloud Images
 
+{{< alert level="warning" >}}
 When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
+{{< /alert >}}
 
 Examples:
 
@@ -1707,7 +1709,15 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes.
+- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to a VM. An example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint is provided below.
+
+```yaml
+spec:
+  tolerations:
+    - key: "node.deckhouse.io/group"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
 
 {{< alert level="info" >}}
 When changing placement parameters:
@@ -2528,23 +2538,21 @@ EOF
 
 ### Additional network interfaces
 
-Virtual machines can be connected not only to the main cluster network interface but also to additional networks provided by the `d8-sdn` module. Such networks include project Networks and ClusterNetworks.
-
-Additional networks are defined in the `.spec.networks` configuration block. If this block is absent (default value), the VM is connected only to the main cluster network.
-
-{{< alert level=“warning” >}}
-Changes to the list of additional networks (adding or removing) take effect only after the VM is rebooted.
+{{< alert level="warning" >}}
+To work with additional networks, the `sdn` module must be activated.
 {{< /alert >}}
 
-{{< alert level=“info” >}}
-To avoid changing the order of network interfaces inside the guest OS, always add new networks to the end of the `.spec.networks` list.
-{{< /alert >}}
+Virtual machines can be connected to additional networks — project (Network) or cluster (ClusterNetwork).
 
-Conditions and limitations:
+To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default value), the VM will use only the main cluster network.
 
-- The `d8-sdn` module is required to work with additional networks.
-- The order of networks in `.spec.networks` determines the sequence in which interfaces are attached to the VM bus.
-- Configuration of network parameters (IP addresses, gateways, DNS, etc.) in additional networks must be performed manually inside the guest OS (for example, via cloud-init).
+Features and important points about working with additional network interfaces:
+
+- The order of listing networks in `.spec.networks` determines the order in which interfaces are connected inside the virtual machine.
+- Adding or removing additional networks takes effect only after the VM is rebooted.
+- To preserve the order of network interfaces inside the guest operating system, it is recommended to add new networks to the end of the `.spec.networks` list (do not change the order of existing ones).
+- Network security policies (NetworkPolicy) do not apply to additional network interfaces.
+- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using cloud-init).
 
 Example of connecting a VM to the project network `user-net`:
 
@@ -2945,18 +2953,18 @@ d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 
 ## Data export
 
-DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 1.17 and above).
+DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 0.20.7 and above).
 
 Example: export a disk (run on a cluster node):
 
 ```bash
-d8 download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Example: export a disk snapshot (run on a cluster node):
 
 ```bash
-d8 download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
 To export resources outside the cluster, you must also use the `--publish` flag.
