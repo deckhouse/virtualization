@@ -93,49 +93,7 @@ tasks:
       - d8
     cmds:
       - |
-        if [ -z "$LEGACY_E2E_PREFIX" ]; then
-          LEGACY_E2E_PREFIX="v12n-$(git rev-parse --short=5 HEAD)"
-          echo "LEGACY_E2E_PREFIX not set. Setting LEGACY_E2E_PREFIX to $LEGACY_E2E_PREFIX"
-        else
-          echo "Using existing LEGACY_E2E_PREFIX: $LEGACY_E2E_PREFIX"
-        fi
-        if [ -z "$E2E_PREFIX" ]; then
-          E2E_PREFIX="v12n-e2e"
-          echo "E2E_PREFIX not set. Setting E2E_PREFIX to $E2E_PREFIX"
-        else
-          echo "Using existing E2E_PREFIX: $E2E_PREFIX"
-        fi
-
-        delete_resources_with_prefix() {
-            local PREFIX=$1
-            local RESOURCE_TYPE=$2
-            local RESOURCES=$(kubectl get "$RESOURCE_TYPE" --no-headers 2>/dev/null | awk "/$PREFIX/ {print \$1}")
-            if [[ -n "$RESOURCES" ]]; then
-              echo "Deleting $RESOURCE_TYPE:"
-              echo "$RESOURCES" | awk '{print "  - " $1}'
-              echo "$RESOURCES" | xargs -r kubectl delete "$RESOURCE_TYPE"
-            else
-                echo "No $RESOURCE_TYPE found with prefix $PREFIX"
-            fi
-        }
-
-        delete_resources_with_prefix "$LEGACY_E2E_PREFIX" "namespaces"
-
-        delete_resources_with_prefix "$LEGACY_E2E_PREFIX" "projects"
-
-        readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
-        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
-            delete_resources_with_prefix "$LEGACY_E2E_PREFIX" "$RESOURCE"
-        done
-        echo "Deleting namespaces and projects with prefix $E2E_PREFIX"
-        delete_resources_with_prefix "$E2E_PREFIX" "namespaces"
-
-        delete_resources_with_prefix "$E2E_PREFIX" "projects"
-
-        readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
-        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
-            delete_resources_with_prefix "$E2E_PREFIX" "$RESOURCE"
-        done
+        ./scripts/cleanup.sh
 
   checkout-to-mpo:
     deps:
