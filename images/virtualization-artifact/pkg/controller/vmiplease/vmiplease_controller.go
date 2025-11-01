@@ -62,6 +62,7 @@ func NewController(
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
+		UsePriorityQueue: ptr.To(true),
 	})
 	if err != nil {
 		return nil, err
