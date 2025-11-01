@@ -1,0 +1,79 @@
+ci:
+  fixes:
+    - summary: Fix run script path.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1627
+    - summary: add intvirtvm describe to e2e test dumps, change restart approval mode
+      pull_request: https://github.com/deckhouse/virtualization/pull/1554
+core:
+  fixes:
+    - summary: More frequent polling for applied checksum to get audit events about changed checksum.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1637
+    - summary: fix map iterate concurrency panic in vm-route-forge
+      pull_request: https://github.com/deckhouse/virtualization/pull/1602
+module:
+  features:
+    - summary: Validate dvcr section in ModuleConfig.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1628
+    - summary: add project/namespace virtual machines overview dashboard and fix virtualmachine dashboard
+      pull_request: https://github.com/deckhouse/virtualization/pull/1603
+  fixes:
+    - summary: Improving audit events names. Also add ignoring system service acconts.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1611
+    - summary: >-
+        Improve module control audit event name field. Also process event only for supported methods
+        and skip  service accounts events.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1604
+    - summary: Fix virtualization-audit image check.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1589
+observability:
+  features:
+    - summary: >-
+        Added three new Prometheus metrics for VirtualDisk monitoring (capacity_bytes, info, and
+        status_inuse).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1592
+test:
+  features:
+    - summary: Mark test case resources with label.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1645
+  fixes:
+    - summary: Fix migration helper usage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1644
+    - summary: Exclude `http2.GoAwayError` from error checker.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1640
+    - summary: Set MiddleTimeout for framework Delete method.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1639
+vd:
+  fixes:
+    - summary: Do not block volume migrations if failed snapshot exists.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1647
+vdsnapshot:
+  fixes:
+    - summary: >-
+        A virtual disk snapshot will be in the Failed phase if `spec.requiredConsistency` is `true`,
+        but a virtual machine has not been stopped or filesystem has not been frozen during the
+        snapshotting process.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1605
+vm:
+  fixes:
+    - summary: >-
+        Fixed an issue where the Virtualization Controller could panic on unexpected block device
+        deletion.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1585
+vmbda:
+  fixes:
+    - summary: Fix missing Serial for Attached images and disks in intvirtvm.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1580
+    - summary: VMBDA now reports a clear error if the device is not available on the VM's node.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1561
+vmrestore:
+  features:
+    - summary: >-
+        VirtualMachineRestore is deprecated and replaced by VirtualMachineOperation with type
+        'Restore'.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1631
+  fixes:
+    - summary: >-
+        Remove spurious error logs when snapshot secret name is not yet populated during
+        initialization.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1624
+
