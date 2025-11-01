@@ -56,21 +56,22 @@ func NewController(
 	importerImage string,
 	uploaderImage string,
 	requirements corev1.ResourceRequirements,
-	dvcr *dvcr.Settings,
+	dvcrSettings *dvcr.Settings,
 	ns string,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerCVIProtection)
-	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
+	importer := service.NewImporterService(dvcrSettings, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	disk := service.NewDiskService(mgr.GetClient(), dvcrSettings, protection, ControllerName)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
+	dvcrMaintenance := service.NewDVCRService(mgr.GetClient(), dvcrSettings)
 
 	sources := source.NewSources()
-	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, ns))
-	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), ns))
-	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient(), ns))
-	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, ns))
+	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcrSettings, dvcrMaintenance, ns))
+	sources.Set(v1alpha2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcrSettings, mgr.GetClient(), ns))
+	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, disk, dvcrSettings, mgr.GetClient(), ns))
+	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcrSettings, ns))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
