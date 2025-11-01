@@ -409,6 +409,64 @@ jobs:
               sleep 20
             done
 
+            echo "[Ceph] Getting cluster connection details..."
+            for i in $(seq 1 30); do
+              FSID=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph exec deploy/rook-ceph-tools -c ceph-tools -- ceph fsid 2>/dev/null | tr -d '\r\n' || true)
+              if [ -n "$FSID" ]; then break; fi
+              echo "[Ceph] Waiting for FSID (attempt $i/30)..."; sleep 5
+            done
+            if [ -z "$FSID" ]; then
+              echo "[ERR] Failed to get Ceph FSID" >&2
+              exit 1
+            fi
+            echo "[Ceph] FSID: $FSID"
+            
+            USER_KEY=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph exec deploy/rook-ceph-tools -c ceph-tools -- ceph auth get-key client.admin 2>/dev/null | tr -d '\r\n' || true)
+            if [ -z "$USER_KEY" ]; then
+              echo "[ERR] Failed to get admin key" >&2
+              exit 1
+            fi
+            echo "[Ceph] Admin key obtained"
+            
+            MON_IPS=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get svc -l ceph-mon -o jsonpath='{.items[*].spec.clusterIP}' 2>/dev/null || true)
+            if [ -z "$MON_IPS" ]; then
+              echo "[ERR] Failed to get monitor IPs" >&2
+              exit 1
+            fi
+            echo "[Ceph] Monitors: $MON_IPS"
+            
+            echo "[Ceph] Creating CephClusterConnection..."
+            cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+            apiVersion: storage.deckhouse.io/v1alpha1
+            kind: CephClusterConnection
+            metadata:
+              name: ceph-cluster-1
+            spec:
+              clusterID: ${FSID}
+              monitors:
+            $(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
+              userID: admin
+              userKey: ${USER_KEY}
+            EOF
+            
+            echo "[Ceph] Waiting for CephClusterConnection to be Created..."
+            for i in $(seq 1 30); do
+              PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get cephclusterconnection ceph-cluster-1 -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$PHASE" = "Created" ]; then break; fi
+              echo "[Ceph] CephClusterConnection phase=$PHASE, retry $i/30"; sleep 5
+            done
+            
+            echo "[Ceph] Disabling cloud-provider-dvp module to avoid StorageClass conflict..."
+            cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+            apiVersion: deckhouse.io/v1alpha1
+            kind: ModuleConfig
+            metadata:
+              name: cloud-provider-dvp
+            spec:
+              enabled: false
+            EOF
+            sleep 10
+
             echo "[Ceph] Ensure required ServiceAccounts and imagePullSecrets (fallback)"
             # Create SAs if missing
             for sa in rook-ceph-cmd-reporter rook-ceph-default rook-ceph-mgr rook-ceph-osd; do
@@ -424,8 +482,8 @@ jobs:
               echo "[WARN] rook-ceph-operator has no imagePullSecrets; skipping SA patch"
             fi
 
-            echo "[Ceph] Applying CephBlockPool and StorageClass..."
-            yq 'select(.kind == "CephBlockPool" or .kind == "StorageClass")' ci/dvp-e2e/manifests/storage/ceph.yaml | \
+            echo "[Ceph] Applying CephBlockPool (StorageClass will be created by CephStorageClass)..."
+            yq 'select(.kind == "CephBlockPool")' ci/dvp-e2e/manifests/storage/ceph.yaml | \
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=15s apply --validate=false -f -
 
             echo "[Ceph] Waiting for CephBlockPool to be Ready..."
@@ -434,12 +492,37 @@ jobs:
               [ "$BP_PHASE" = "Ready" ] && break
               echo "[Ceph] BlockPool phase=$BP_PHASE; retry $i/30"; sleep 10
             done
-            echo "[Ceph] Waiting for SC ceph-pool-r2-csi-rbd-immediate..."
+            
+            echo "[Ceph] Creating CephStorageClass..."
+            cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+            apiVersion: storage.deckhouse.io/v1alpha1
+            kind: CephStorageClass
+            metadata:
+              name: ceph-pool-r2-csi-rbd-immediate
+            spec:
+              clusterConnectionName: ceph-cluster-1
+              reclaimPolicy: Delete
+              type: RBD
+              rbd:
+                defaultFSType: ext4
+                pool: pool-rbd-auto-test
+            EOF
+            
+            echo "[Ceph] Waiting for CephStorageClass to be Created..."
             for i in $(seq 1 60); do
-              if KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc ceph-pool-r2-csi-rbd-immediate >/dev/null 2>&1; then
-                echo "[Ceph] SC ceph-pool-r2-csi-rbd-immediate is available"; break
+              PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get cephstorageclass ceph-pool-r2-csi-rbd-immediate -o jsonpath='{.status.phase}' 2>/dev/null || true)
+              if [ "$PHASE" = "Created" ]; then
+                echo "[Ceph] CephStorageClass is Created"; break
               fi
-              echo "[Ceph] SC not found yet, retry $i/60"; sleep 10
+              echo "[Ceph] CephStorageClass phase=$PHASE, retry $i/60"; sleep 10
+            done
+            echo "[Ceph] Waiting for StorageClass to be created by CephStorageClass..."
+            for i in $(seq 1 30); do
+              PROV=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc ceph-pool-r2-csi-rbd-immediate -o jsonpath='{.provisioner}' 2>/dev/null || true)
+              if [ "$PROV" = "rbd.csi.ceph.com" ]; then
+                echo "[Ceph] StorageClass created with correct provisioner"; break
+              fi
+              echo "[Ceph] Waiting for StorageClass, retry $i/30"; sleep 5
             done
           fi
 
