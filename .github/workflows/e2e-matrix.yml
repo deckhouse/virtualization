@@ -436,6 +436,11 @@ jobs:
             echo "[Ceph] Monitors: $MON_IPS"
             
             echo "[Ceph] Creating CephClusterConnection..."
+            MONITORS_LIST=$(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
+            if [ -z "$MONITORS_LIST" ]; then
+              echo "[ERR] Failed to generate monitors list" >&2
+              exit 1
+            fi
             cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
             apiVersion: storage.deckhouse.io/v1alpha1
             kind: CephClusterConnection
@@ -444,7 +449,7 @@ jobs:
             spec:
               clusterID: ${FSID}
               monitors:
-            $(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
+            ${MONITORS_LIST}
               userID: admin
               userKey: ${USER_KEY}
             EOF
