@@ -206,19 +206,19 @@ jobs:
         run: |
           # Get storage class configuration from profiles.json
           PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
-          
+
           # Parse the output more carefully
           STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
           IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
           SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
           ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
-          
+
           echo "Profile: ${PROFILE}"
           echo "Storage Class: ${STORAGE_CLASS}"
           echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
           echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
           echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
-          
+
           # Export variables safely
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
@@ -420,21 +420,21 @@ jobs:
               exit 1
             fi
             echo "[Ceph] FSID: $FSID"
-            
+
             USER_KEY=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph exec deploy/rook-ceph-tools -c ceph-tools -- ceph auth get-key client.admin 2>/dev/null | tr -d '\r\n' || true)
             if [ -z "$USER_KEY" ]; then
               echo "[ERR] Failed to get admin key" >&2
               exit 1
             fi
             echo "[Ceph] Admin key obtained"
-            
+
             MON_IPS=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get svc -l ceph-mon -o jsonpath='{.items[*].spec.clusterIP}' 2>/dev/null || true)
             if [ -z "$MON_IPS" ]; then
               echo "[ERR] Failed to get monitor IPs" >&2
               exit 1
             fi
             echo "[Ceph] Monitors: $MON_IPS"
-            
+
             echo "[Ceph] Creating CephClusterConnection..."
             MONITORS_LIST=$(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
             if [ -z "$MONITORS_LIST" ]; then
@@ -453,14 +453,14 @@ jobs:
               userID: admin
               userKey: ${USER_KEY}
             EOF
-            
+
             echo "[Ceph] Waiting for CephClusterConnection to be Created..."
             for i in $(seq 1 30); do
               PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get cephclusterconnection ceph-cluster-1 -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$PHASE" = "Created" ]; then break; fi
               echo "[Ceph] CephClusterConnection phase=$PHASE, retry $i/30"; sleep 5
             done
-            
+
             echo "[Ceph] Disabling cloud-provider-dvp module to avoid StorageClass conflict..."
             cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
             apiVersion: deckhouse.io/v1alpha1
@@ -497,7 +497,7 @@ jobs:
               [ "$BP_PHASE" = "Ready" ] && break
               echo "[Ceph] BlockPool phase=$BP_PHASE; retry $i/30"; sleep 10
             done
-            
+
             echo "[Ceph] Creating CephStorageClass..."
             cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
             apiVersion: storage.deckhouse.io/v1alpha1
@@ -512,7 +512,7 @@ jobs:
                 defaultFSType: ext4
                 pool: pool-rbd-auto-test
             EOF
-            
+
             echo "[Ceph] Waiting for CephStorageClass to be Created..."
             for i in $(seq 1 60); do
               PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get cephstorageclass ceph-pool-r2-csi-rbd-immediate -o jsonpath='{.status.phase}' 2>/dev/null || true)

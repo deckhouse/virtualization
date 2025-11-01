@@ -189,7 +189,7 @@ tasks:
       - |
         set -euo pipefail
         echo "[INFRA] Creating {{ .DISK_COUNT }} storage disks per worker VM ({{ .WORKER_COUNT }} workers) in namespace {{ .NAMESPACE }}"
-        
+
         # Create VirtualDisks for all expected worker VMs
         # We'll use predictable naming based on Deckhouse's naming pattern
         for worker_idx in $(seq 0 $(({{ .WORKER_COUNT }} - 1))); do
@@ -212,7 +212,7 @@ tasks:
             echo "[INFRA] VirtualDisk $vd created"
           done
         done
-        
+
   infra:attach-storage-disks-hotplug:
     desc: Attach storage disks to worker VMs using hotplug (VirtualMachineBlockDeviceAttachment)
     vars:
@@ -231,7 +231,7 @@ tasks:
         # Enable shell tracing when DEBUG_HOTPLUG is set
         [ -n "${DEBUG_HOTPLUG:-}" ] && set -x || true
         echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
-        
+
         # Wait for worker VMs
         for i in $(seq 1 60); do
           worker_count=$(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker | wc -l)
@@ -240,22 +240,22 @@ tasks:
           fi
           echo "[INFRA] Waiting for worker VMs... ($i/60)"; sleep 10
         done
-        
+
         workers=()
         while IFS= read -r line; do
           [ -n "$line" ] && workers+=("$line")
         done < <(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
-        
+
         if [ ${#workers[@]} -eq 0 ]; then
           echo "[INFRA] No worker VMs found; nothing to do"; exit 0
         fi
-        
+
         echo "[INFRA] Found ${#workers[@]} worker VMs: ${workers[*]}"
-        
+
         for vm in "${workers[@]}"; do
           [ -z "$vm" ] && continue
           echo "[INFRA] Processing VM: $vm"
-          
+
           # Wait for VM to be Running
           for i in $(seq 1 60); do
             phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
@@ -264,7 +264,7 @@ tasks:
             fi
             echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
           done
-          
+
           for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
             vd="storage-disk-${disk_num}-$vm"
             echo "[INFRA] Creating VirtualDisk $vd ({{ .DISK_SIZE }}, sc={{ .STORAGE_CLASS }})"
@@ -327,7 +327,7 @@ tasks:
             else
               echo "[WARN] PVC name for VD $vd is empty; proceeding with attachment"
             fi
-            
+
             echo "[INFRA] Creating VirtualMachineBlockDeviceAttachment for $vd"
             cat > /tmp/attach-$vd.yaml <<EOF
         apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -342,7 +342,7 @@ tasks:
             name: $vd
         EOF
             kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
-            
+
             echo "[INFRA] Waiting for hotplug attachment of $vd..."
             success_by_vm=0
             for i in $(seq 1 30); do
@@ -374,7 +374,7 @@ tasks:
                   | jq -r '{phase: .status.phase, blockDeviceRefs: (.status.blockDeviceRefs // []) | map({name, virtualMachineBlockDeviceAttachmentName, attached, hotplugged})}' || true
               fi
             done
-            
+
             if [ "$phase" != "Attached" ] && [ "${success_by_vm:-0}" -ne 1 ]; then
               echo "[ERROR] Disk $vd failed to attach to VM $vm within timeout" >&2
               echo "[DEBUG] Final VMBDA summary:"
@@ -386,10 +386,10 @@ tasks:
               exit 1
             fi
           done
-          
+
           echo "[INFRA] VM $vm configured with hotplug disks"
         done
-        
+
         echo "[INFRA] All worker VMs configured with storage disks via hotplug"
 
   infra:attach-worker-disks:
@@ -444,7 +444,7 @@ tasks:
             name: $vd
         EOF
             kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
-            
+
             echo "[INFRA] Waiting for hotplug attachment of $vd..."
             for i in $(seq 1 30); do
               phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
@@ -456,14 +456,14 @@ tasks:
                 echo "[INFRA] Disk $vd phase=$phase; retry $i/30"
               fi
               sleep 5
-              
+
               # Periodic debug snapshot approximately every 60 seconds
               if [ $((i % 12)) -eq 0 ]; then
                 echo "[DEBUG] VMBDA $vd status:"
                 kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json | jq -r '.status' || true
               fi
             done
-            
+
             if [ "$phase" != "Attached" ]; then
               # Fallback on VM events confirming successful hotplug
               echo "[DEBUG] Checking VM events for hotplug success fallback..."
@@ -626,7 +626,7 @@ tasks:
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
       SSH_FILE_NAME: '{{ .SSH_FILE_NAME | default "id_ed" }}'
       GH_RAW_URL_PRIV: 'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed'
-      GH_RAW_URL_PUB:  'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed.pub'
+      GH_RAW_URL_PUB: 'https://raw.githubusercontent.com/deckhouse/virtualization/main/test/e2e/legacy/testdata/sshkeys/id_ed.pub'
     cmds:
       - mkdir -p {{ .SSH_DIR }}
       - curl -fsSL {{ .GH_RAW_URL_PRIV }} -o {{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}
