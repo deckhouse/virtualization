@@ -93,6 +93,9 @@ spec:
             - containerPort: 8119
               name: pprof
               protocol: TCP
+            - containerPort: 8118
+              name: health
+              protocol: TCP
             {{- include "delvePorts" (list $delve "delve/vm-route-forge") | nindent 12 }}
           {{- if ne "delve/vm-route-forge" ($delve | dig "debug" "component" "<missing>") }}
           readinessProbe:
