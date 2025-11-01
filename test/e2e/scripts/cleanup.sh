@@ -32,7 +32,7 @@ delete_resources_with_prefix_or_label() {
     if [[ -n "$RESOURCES" ]]; then
         echo "Deleting $RESOURCE_TYPE:"
         echo "$RESOURCES" | awk '{print "  - " $1}'
-        echo "$RESOURCES" | xargs -r echo kubectl delete
+        echo "$RESOURCES" | xargs -r kubectl delete
     else
         echo "No $RESOURCE_TYPE found with selector type $SELECTOR_TYPE and value $VALUE"
     fi
