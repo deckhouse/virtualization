@@ -14,27 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm
+package supervm
 
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error)
-	Name() string
+	Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error)
 }
 
 type Watcher interface {
@@ -53,18 +54,34 @@ type Reconciler struct {
 	handlers []Handler
 }
 
-func (r *Reconciler) SetupController(_ context.Context, ctr controller.Controller, queue <-chan reconcile.Request) error {
-	err := ctr.Watch(watcher.NewSuperSource(queue))
-	if err != nil {
-		return fmt.Errorf("failed to run super watcher: %w", err)
+func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{}, &handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachine]{})); err != nil {
+		return fmt.Errorf("error setting watch on VM: %w", err)
+	}
+
+	for _, w := range []Watcher{
+		watcher.NewKVVMWatcher(),
+		watcher.NewKVVMIWatcher(),
+		watcher.NewPodWatcher(),
+		watcher.NewVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		watcher.NewVMIPWatcher(),
+		watcher.NewVirtualMachineClassWatcher(),
+		watcher.NewVirtualMachineSnapshotWatcher(),
+		watcher.NewVMOPWatcher(),
+		watcher.NewVMMACWatcher(),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
 	}
 
 	return nil
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	logger.FromContext(ctx).Warn("[test][NAMESPACED] START")
-
 	log := logger.FromContext(ctx)
 
 	vm := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
@@ -79,11 +96,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, vm)
-
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, s)
+		return h.Handle(ctx, vm.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		return vm.Update(ctx)

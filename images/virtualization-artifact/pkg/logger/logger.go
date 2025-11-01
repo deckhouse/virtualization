@@ -49,21 +49,25 @@ func NewLogger(level, output string, debugVerbosity int) *log.Logger {
 	})
 }
 
-func NewControllerLogger(controllerName, level, output string, debugVerbosity int, controllerDebugList []string) *log.Logger {
+type Factory func(controllerName string) *log.Logger
+
+func NewFactory(level, output string, debugVerbosity int, controllerDebugList []string) Factory {
 	slogLevel := detectLogLevel(level, debugVerbosity)
 
-	if slices.Contains(controllerDebugList, controllerName) {
-		if debugVerbosity != 0 {
-			slogLevel = slog.Level(-1 * debugVerbosity)
-		} else {
-			slogLevel = log.LevelDebug.Level()
+	return func(controllerName string) *log.Logger {
+		if slices.Contains(controllerDebugList, controllerName) {
+			if debugVerbosity != 0 {
+				slogLevel = slog.Level(-1 * debugVerbosity)
+			} else {
+				slogLevel = log.LevelDebug.Level()
+			}
 		}
-	}
 
-	return log.NewLogger(log.Options{
-		Level:  slogLevel,
-		Output: detectLogOutput(output),
-	}).With(SlogController(controllerName))
+		return log.NewLogger(log.Options{
+			Level:  slogLevel,
+			Output: detectLogOutput(output),
+		}).With(SlogController(controllerName))
+	}
 }
 
 func detectLogLevel(level string, debugVerbosity int) slog.Level {

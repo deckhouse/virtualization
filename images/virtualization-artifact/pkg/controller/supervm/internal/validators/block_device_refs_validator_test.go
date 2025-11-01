@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
