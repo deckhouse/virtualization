@@ -44,20 +44,15 @@ E2E_LABEL="${E2E_LABEL:-v12n-e2e}"
 echo "Using E2E_PREFIX: $E2E_PREFIX"
 echo "Using E2E_LABEL: $E2E_LABEL"
 
-
-delete_resources_with_prefix_or_label "prefix" "$E2E_PREFIX" "namespaces"
-
 delete_resources_with_prefix_or_label "prefix" "$E2E_PREFIX" "projects"
-
+delete_resources_with_prefix_or_label "prefix" "$E2E_PREFIX" "namespaces"
 readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
 for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
     delete_resources_with_prefix_or_label "prefix" "$E2E_PREFIX" "$RESOURCE"
 done
 
-delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "namespaces"
-
 delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "projects"
-
+delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "namespaces"
 readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
 for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
     delete_resources_with_prefix_or_label "label" "$E2E_LABEL" "$RESOURCE"
