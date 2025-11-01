@@ -34,6 +34,23 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
+func UntilVMRunning(key client.ObjectKey, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		vm, err := framework.GetClients().VirtClient().VirtualMachines(key.Namespace).Get(context.Background(), key.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if vm.Status.Phase == v1alpha2.MachineRunning {
+			return nil
+		}
+
+		return fmt.Errorf("vm %s is not running", key.Name)
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
@@ -109,4 +126,47 @@ func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTT
 	httpCode, err := f.SSHCommand(vmName, f.Namespace().Name, cmd)
 	Expect(err).NotTo(HaveOccurred(), "failed external connectivity check for VM %s", vmName)
 	Expect(strings.TrimSpace(httpCode)).To(Equal(expectedHTTPCode), "HTTP response code from %s should be %s, got %s", host, expectedHTTPCode, httpCode)
+}
+
+func UntilVirtualMachineStopped(key client.ObjectKey, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
+		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
+		if err != nil {
+			return err
+		}
+		if vm.Status.Phase == v1alpha2.MachineStopped {
+			return nil
+		}
+		return fmt.Errorf("virtual machine %s is not stopped (phase: %s)", key.Name, vm.Status.Phase)
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func RebootVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo reboot")
+	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
+		return nil
+	}
+	return err
+}
+
+func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
+	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
+		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
+		if err != nil {
+			return fmt.Errorf("failed to get virtual machine: %w", err)
+		}
+
+		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+
+		if runningCondition.LastTransitionTime.Time.After(previousRunningTime) {
+			return nil
+		}
+
+		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
+	}, framework.LongTimeout, time.Second).Should(Succeed())
+	UntilVMAgentReady(key, framework.LongTimeout)
 }
