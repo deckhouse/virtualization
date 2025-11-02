@@ -32,7 +32,6 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
-	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
@@ -166,8 +165,8 @@ func (r *restoreModeTest) CreateEnvironmentResources() {
 		vibuilder.WithDataSourceHTTP(viURL, nil, nil),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
-	r.VDRoot = object.NewGeneratedHTTPVDUbuntu("", r.f.Namespace().Name, vdbuilder.WithName("vd-root"))
-	r.VDBlank = object.NewBlankVD("", r.f.Namespace().Name, nil, ptr.To(resource.MustParse("51Mi")), vdbuilder.WithName("vd-blank"))
+	r.VDRoot = object.NewHTTPVDUbuntu("vd-root", r.f.Namespace().Name)
+	r.VDBlank = object.NewBlankVD("vd-blank", r.f.Namespace().Name, nil, ptr.To(resource.MustParse("51Mi")))
 	err = r.f.CreateWithDeferredDeletion(context.Background(), r.VI, r.VDRoot, r.VDBlank)
 	Expect(err).NotTo(HaveOccurred())
 
