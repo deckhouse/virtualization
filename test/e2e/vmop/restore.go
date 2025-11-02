@@ -326,5 +326,5 @@ func (r *restoreModeTest) ShellChangeValueOnDisk(value string) string {
 }
 
 func (r *restoreModeTest) ShellMountAndGetValueFromDisk() string {
-	return "sudo umount /mnt &>/dev/null ; DEV=/dev/$(sudo lsblk | grep disk | tail -n 1 | awk \"{print \\$1}\") && sudo mount $DEV /mnt && cat /mnt/value"
+	return "sudo umount /mnt &>/dev/null ; DEV=/dev/$(sudo lsblk | grep disk | tail -n 1 | awk \"{print \\$1}\") && sudo mount $DEV /mnt && sudo cat /mnt/value"
 }
