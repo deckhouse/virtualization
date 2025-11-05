@@ -75,7 +75,7 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-storage-class-changed-")
+		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-storage-class-changed-", f.Namespace().Name)
 		newVI, err = f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)

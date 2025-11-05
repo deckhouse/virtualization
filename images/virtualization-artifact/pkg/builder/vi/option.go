@@ -71,7 +71,7 @@ func WithDataSourceContainerImage(image string, imagePullSecret v1alpha2.ImagePu
 	}
 }
 
-func WithDataSourceObjectRef(kind v1alpha2.VirtualImageObjectRefKind, name, namespace string) Option {
+func WithDataSourceObjectRef(kind v1alpha2.VirtualImageObjectRefKind, name string) Option {
 	return func(vi *v1alpha2.VirtualImage) {
 		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
 			Type: v1alpha2.DataSourceTypeObjectRef,
