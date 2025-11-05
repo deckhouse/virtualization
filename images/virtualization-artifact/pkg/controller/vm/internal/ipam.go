@@ -69,7 +69,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	changed := s.VirtualMachine().Changed()
 
 	if update := addAllUnknown(changed, vmcondition.TypeIPAddressReady); update {
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{}, nil
 	}
 
 	//nolint:staticcheck // it's deprecated.

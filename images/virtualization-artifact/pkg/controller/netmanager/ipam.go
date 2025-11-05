@@ -48,12 +48,14 @@ func (m IPAM) IsBound(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) boo
 		return false
 	}
 
-	attachedCondition, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
-	if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmip) {
-		return false
-	}
+	// TODO: temporary solution to test performance.
+	// attachedCondition, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
+	// if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmip) {
+	// 	return false
+	// }
 
-	return vmip.Status.VirtualMachine == vmName
+	// return vmip.Status.VirtualMachine == vmName
+	return true
 }
 
 func (m IPAM) CheckIPAddressAvailableForBinding(vmName string, vmip *v1alpha2.VirtualMachineIPAddress) error {

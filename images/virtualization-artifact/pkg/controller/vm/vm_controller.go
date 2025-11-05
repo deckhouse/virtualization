@@ -18,13 +18,14 @@ package vm
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
@@ -35,8 +36,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -49,12 +48,12 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
+	ns string,
+	queue <-chan reconcile.Request,
 ) error {
-	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	mgrCache := mgr.GetCache()
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName+"-"+ns)
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
-	vmClassService := service.NewVirtualMachineClassService(client)
 
 	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
 
@@ -81,32 +80,37 @@ func SetupController(
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),
 	}
+
 	r := NewReconciler(client, handlers...)
 
-	c, err := controller.New(ControllerName, mgr, controller.Options{
+	options := controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
-	})
+		RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](
+			5*time.Second,
+			5*time.Second,
+		),
+	}
+	options.DefaultFromConfig(mgr.GetControllerOptions())
+	c, err := controller.NewTypedUnmanaged(ControllerName+"-"+ns, options)
 	if err != nil {
+		return fmt.Errorf("new typed unmanaged controller failed: %w", err)
+	}
+
+	if err = r.SetupController(ctx, c, queue); err != nil {
 		return err
 	}
 
-	if err = r.SetupController(ctx, mgr, c); err != nil {
-		return err
-	}
+	go func() {
+		err = c.Start(ctx)
+		if err != nil {
+			log.Error(fmt.Errorf("error starting controller %q: %w", ControllerName+"-"+ns, err).Error())
+		}
+	}()
 
-	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(client, blockDeviceService, featuregates.Default(), log)).
-		WithDefaulter(NewDefaulter(client, vmClassService, log)).
-		Complete(); err != nil {
-		return err
-	}
+	log.Info(fmt.Sprintf("the NamespacedVirtualMachine controller has been started for %q", ns))
 
-	vmmetrics.SetupCollector(mgrCache, metrics.Registry, log)
-
-	log.Info("Initialized VirtualMachine controller")
 	return nil
 }

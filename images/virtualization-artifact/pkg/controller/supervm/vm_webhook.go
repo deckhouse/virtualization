@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm
+package supervm
 
 import (
 	"context"
@@ -27,8 +27,8 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm/internal/defaulter"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 

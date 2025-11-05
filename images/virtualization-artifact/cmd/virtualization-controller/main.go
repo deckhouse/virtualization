@@ -46,10 +46,10 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supervm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
@@ -313,77 +313,79 @@ func main() {
 		os.Exit(1)
 	}
 
-	cviLogger := logger.NewControllerLogger(cvi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	logFactory := logger.NewFactory(logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+
+	cviLogger := logFactory(cvi.ControllerName)
 	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	viLogger := logFactory(vi.ControllerName)
 	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage); err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-	if err = vm.SetupGC(mgr, vmLogger, gcSettings.VMIMigration); err != nil {
+	supervdLogger := logFactory(supervd.ControllerName)
+	if _, err = supervd.NewController(ctx, mgr, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings, logFactory, supervdLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmbdaLogger := logger.NewControllerLogger(vmbda.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	supervmLogger := logFactory(supervm.ControllerName)
+	if err = supervm.SetupController(ctx, mgr, dvcrSettings, firmwareImage, logFactory, supervmLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	if err = supervm.SetupGC(mgr, supervmLogger, gcSettings.VMIMigration); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmbdaLogger := logFactory(vmbda.ControllerName)
 	if _, err = vmbda.NewController(ctx, mgr, virtClient, vmbdaLogger, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmipLogger := logger.NewControllerLogger(vmip.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmipLogger := logFactory(vmip.ControllerName)
 	if _, err = vmip.NewController(ctx, mgr, virtClient, vmipLogger, virtualMachineCIDRs); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmipleaseLogger := logger.NewControllerLogger(vmiplease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmipleaseLogger := logFactory(vmiplease.ControllerName)
 	if _, err = vmiplease.NewController(ctx, mgr, vmipleaseLogger, virtualMachineIPLeasesRetentionDuration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmclassLogger := logger.NewControllerLogger(vmclass.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmclassLogger := logFactory(vmclass.ControllerName)
 	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, vmclassLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vdsnapshotLogger := logger.NewControllerLogger(vdsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vdsnapshotLogger := logFactory(vdsnapshot.ControllerName)
 	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmsnapshotLogger := logger.NewControllerLogger(vmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmsnapshotLogger := logFactory(vmsnapshot.ControllerName)
 	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmrestoreLogger := logger.NewControllerLogger(vmrestore.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmrestoreLogger := logFactory(vmrestore.ControllerName)
 	if err = vmrestore.NewController(ctx, mgr, vmrestoreLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmopLogger := logFactory(vmop.ControllerName)
 	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -393,7 +395,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	liveMigrationLogger := logger.NewControllerLogger(livemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	liveMigrationLogger := logFactory(livemigration.ControllerName)
 	if err = livemigration.SetupController(ctx, mgr, liveMigrationLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -404,31 +406,31 @@ func main() {
 		os.Exit(1)
 	}
 
-	workloadUpdaterLogger := logger.NewControllerLogger(workloadupdater.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	workloadUpdaterLogger := logFactory(workloadupdater.ControllerName)
 	if err = workloadupdater.SetupController(ctx, mgr, workloadUpdaterLogger, firmwareImage, controllerNamespace, virtControllerName); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	evacuationLogger := logger.NewControllerLogger(evacuation.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	evacuationLogger := logFactory(evacuation.ControllerName)
 	if err = evacuation.SetupController(ctx, mgr, virtClient, evacuationLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	volumeMigrationLogger := logger.NewControllerLogger(volumemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	volumeMigrationLogger := logFactory(volumemigration.ControllerName)
 	if err = volumemigration.SetupController(ctx, mgr, volumeMigrationLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmmacLogger := logFactory(vmmac.ControllerName)
 	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, clusterUUID, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	vmmacleaseLogger := logFactory(vmmaclease.ControllerName)
 	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)

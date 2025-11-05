@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/supervd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"

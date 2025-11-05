@@ -18,14 +18,15 @@ package vd
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
@@ -37,7 +38,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	vdcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -61,6 +61,8 @@ func NewController(
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualDiskStorageClassSettings,
+	ns string,
+	queue <-chan reconcile.Request,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVDProtection)
@@ -78,7 +80,7 @@ func NewController(
 	sources.Set(v1alpha2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, disk, mgr.GetClient()))
 	sources.Set(v1alpha2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
 
-	reconciler := NewReconciler(
+	r := NewReconciler(
 		mgr.GetClient(),
 		internal.NewInitHandler(),
 		internal.NewStorageClassReadyHandler(scService),
@@ -93,31 +95,34 @@ func NewController(
 		internal.NewProtectionHandler(),
 	)
 
-	vdController, err := controller.New(ControllerName, mgr, controller.Options{
-		Reconciler:       reconciler,
+	options := controller.Options{
+		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
-	})
+		RateLimiter: workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](
+			5*time.Second,
+			5*time.Second,
+		),
+	}
+	options.DefaultFromConfig(mgr.GetControllerOptions())
+	c, err := controller.NewTypedUnmanaged(ControllerName+"-"+ns, options)
 	if err != nil {
+		return nil, fmt.Errorf("new typed unmanaged controller failed: %w", err)
+	}
+
+	if err = r.SetupController(ctx, c, queue); err != nil {
 		return nil, err
 	}
 
-	err = reconciler.SetupController(ctx, mgr, vdController)
-	if err != nil {
-		return nil, err
-	}
+	go func() {
+		err = c.Start(ctx)
+		if err != nil {
+			log.Error(fmt.Errorf("error starting controller %q: %w", ControllerName+"-"+ns, err).Error())
+		}
+	}()
 
-	if err = builder.WebhookManagedBy(mgr).
-		For(&v1alpha2.VirtualDisk{}).
-		WithValidator(NewValidator(mgr.GetClient(), scService, disk)).
-		Complete(); err != nil {
-		return nil, err
-	}
+	log.Info(fmt.Sprintf("the NamespacedVirtualMachine controller has been started for %q", ns))
 
-	vdcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, log)
-
-	log.Info("Initialized VirtualDisk controller", "image", importerImage)
-
-	return vdController, nil
+	return c, nil
 }
