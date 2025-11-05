@@ -353,7 +353,7 @@ jobs:
               echo "[ERR] REGISTRY_DOCKER_CFG secret is not set; Ceph requires deckhouse-prod modules source." >&2
               exit 1
             else
-              cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+              KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
               apiVersion: deckhouse.io/v1alpha1
               kind: ModuleSource
               metadata:
@@ -453,7 +453,7 @@ jobs:
             done
 
             echo "[Ceph] Disabling cloud-provider-dvp module to avoid StorageClass conflict..."
-            cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
             apiVersion: deckhouse.io/v1alpha1
             kind: ModuleConfig
             metadata:
@@ -490,7 +490,7 @@ jobs:
             done
 
             echo "[Ceph] Creating CephStorageClass..."
-            cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
             apiVersion: storage.deckhouse.io/v1alpha1
             kind: CephStorageClass
             metadata:
@@ -570,7 +570,7 @@ jobs:
 
           SMOKE_NS="ceph-smoke-${{ env.RUN_ID }}"
           KUBECONFIG="$NESTED_KUBECONFIG" kubectl create ns "$SMOKE_NS" || true
-          cat <<EOF | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" apply -f -
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" apply -f - <<EOF
           apiVersion: v1
           kind: PersistentVolumeClaim
           metadata:
