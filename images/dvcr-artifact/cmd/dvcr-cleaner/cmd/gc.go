@@ -259,14 +259,14 @@ func getAbsentImages() ([]registry.Image, error) {
 		return nil, fmt.Errorf("list all images: %w", err)
 	}
 
-	// Get all VirtualImages and ClusterImages
+	// Get all VirtualDisks, VirtualImages, and ClusterVirtualImages
 	virtClient, err := kubernetes.NewVirtualizationClient()
 	if err != nil {
 		return nil, fmt.Errorf("initialize Kubernetes client: %w", err)
 	}
 
 	kubeImages, err := virtClient.ListAllPossibleImages(context.Background())
-	if err == nil {
+	if err != nil {
 		return nil, fmt.Errorf("list images in cluster: %w", err)
 	}
 
@@ -333,16 +333,6 @@ func compareRegistryAndClusterImages(images []registry.Image, kubeImages []kuber
 	}
 
 	return absentImages
-}
-
-func writeTerminationMessage(err error, extra map[string]string) error {
-	report := map[string]string{
-		"result": "success",
-	}
-	if err != nil {
-		report["result"] = "fail"
-	}
-	return kubernetes.ReportTerminationMessage(err, report, extra)
 }
 
 const (
