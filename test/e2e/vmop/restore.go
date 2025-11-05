@@ -61,70 +61,35 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.VMOPRestoreMode) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		f.Before()
-		h := NewRestoreModeTest(f)
+		t := NewRestoreTest(f)
 		DeferCleanup(f.After)
 
 		By("Environment preparation", func() {
-			h.CreateEnvironmentResources()
-
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(h.VM), framework.LongTimeout)
-		})
-		By("Create VMBDA", func() {
-			h.devicesWithoutVMBDA = h.ListDisks()
-			h.CreateVMBDA()
-			util.UntilObjectPhase(h.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+			t.PrepareEnvironment()
 		})
 		By("Create file on last disk", func() {
-			h.CreateFilesystemOnDisk()
-			h.MountVMBDADeviceIfNotMounted()
-			// Create a unique value on the disk to verify it's preserved after restore
-			h.GeneratedValue = strconv.Itoa(time.Now().UTC().Second())
-			h.CreateFileOnDisk(h.GeneratedValue)
+			t.CreateUniqueValueOnDisk()
 		})
 		By("Snapshot creation", func() {
-			h.CreateVMSnapshot()
-			util.UntilObjectPhase(h.VMSnapshot, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout)
+			t.CreateSnapshot()
 		})
 		By("Changing VM", func() {
-			h.ChangeVMConfiguration()
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(h.VM), framework.ShortTimeout)
-			util.UntilObjectPhase(h.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
-		})
-		By("Reboot VM", func() {
-			// Reboot VM to ensure configuration changes are applied and persisted
-			err := f.UpdateFromCluster(context.Background(), h.VM)
-			Expect(err).NotTo(HaveOccurred())
-			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, h.VM.Status.Conditions)
-			h.RunningLastTransitionTime = runningCondition.LastTransitionTime.Time
-			err = util.RebootVirtualMachineFromOS(f, h.VM)
-			Expect(err).NotTo(HaveOccurred())
-
-			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(h.VM), h.RunningLastTransitionTime, framework.LongTimeout)
-			util.UntilObjectPhase(h.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+			t.ChangeVM()
 		})
 		By("Check VM in changed state", func() {
-			h.CheckVMInChangedState()
+			t.CheckVMInChangedState()
 		})
 		if restoreMode == v1alpha2.VMOPRestoreModeStrict {
 			By("Remove disks", func() {
 				// Remove disks to simulate a scenario where resources from snapshot are missing.
-				h.RemoveDisks()
+				t.RemoveDisks()
 			})
 		}
 		By("Create restore operation", func() {
-			h.CreateRestoreOperation(restoreMode)
-			util.UntilObjectPhase(h.VMOPRestore, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout)
+			t.CreateRestoreOperation(restoreMode)
 		})
 		By("Check VM after restore", func() {
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(h.VM), framework.LongTimeout)
-			util.UntilObjectPhase(h.VMBDA, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
-
-			switch restoreMode {
-			case v1alpha2.VMOPRestoreModeStrict, v1alpha2.VMOPRestoreModeBestEffort:
-				h.CheckVMInInitialState()
-			case v1alpha2.VMOPRestoreModeDryRun:
-				h.CheckVMInChangedState()
-			}
+			t.CheckVMAfterRestore(restoreMode)
 		})
 	},
 		Entry("DryRun", v1alpha2.VMOPRestoreModeDryRun),
@@ -134,51 +99,156 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 })
 
 type restoreModeTest struct {
-	CVI         *v1alpha2.ClusterVirtualImage
-	VI          *v1alpha2.VirtualImage
-	VDRoot      *v1alpha2.VirtualDisk
-	VDBlank     *v1alpha2.VirtualDisk
-	VM          *v1alpha2.VirtualMachine
-	VMBDA       *v1alpha2.VirtualMachineBlockDeviceAttachment
-	VMSnapshot  *v1alpha2.VirtualMachineSnapshot
-	VMOPRestore *v1alpha2.VirtualMachineOperation
+	cvi         *v1alpha2.ClusterVirtualImage
+	vi          *v1alpha2.VirtualImage
+	vdRoot      *v1alpha2.VirtualDisk
+	vdBlank     *v1alpha2.VirtualDisk
+	vm          *v1alpha2.VirtualMachine
+	vmbda       *v1alpha2.VirtualMachineBlockDeviceAttachment
+	vmSnapshot  *v1alpha2.VirtualMachineSnapshot
+	vmopRestore *v1alpha2.VirtualMachineOperation
 
-	GeneratedValue            string
-	RunningLastTransitionTime time.Time
+	generatedValue            string
+	runningLastTransitionTime time.Time
 	f                         *framework.Framework
 
 	devicesWithoutVMBDA []string
 }
 
-func NewRestoreModeTest(f *framework.Framework) *restoreModeTest {
+func NewRestoreTest(f *framework.Framework) *restoreModeTest {
 	return &restoreModeTest{
 		f:                   f,
 		devicesWithoutVMBDA: []string{},
 	}
 }
 
-func (r *restoreModeTest) CreateEnvironmentResources() {
+func (r *restoreModeTest) PrepareEnvironment() {
 	GinkgoHelper()
 
-	r.CVI = cvibuilder.New(
+	r.createEnvironmentResources()
+	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(r.vm), framework.LongTimeout)
+	r.devicesWithoutVMBDA = r.listDisks()
+	r.createVMBDA()
+	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+	r.createFilesystemOnDisk()
+}
+
+func (r *restoreModeTest) CreateUniqueValueOnDisk() {
+	GinkgoHelper()
+
+	r.generatedValue = strconv.Itoa(time.Now().UTC().Second())
+	r.mountVMBDADeviceIfNotMounted()
+	r.createFileOnDisk(r.generatedValue)
+}
+
+func (r *restoreModeTest) CreateSnapshot() {
+	GinkgoHelper()
+
+	r.vmSnapshot = vmsnapshotbuilder.New(
+		vmsnapshotbuilder.WithName("vmsnapshot"),
+		vmsnapshotbuilder.WithNamespace(r.f.Namespace().Name),
+		vmsnapshotbuilder.WithVirtualMachineName(r.vm.Name),
+		vmsnapshotbuilder.WithRequiredConsistency(true),
+		vmsnapshotbuilder.WithKeepIPAddress(v1alpha2.KeepIPAddressAlways),
+	)
+	err := r.f.CreateWithDeferredDeletion(context.Background(), r.vmSnapshot)
+	Expect(err).NotTo(HaveOccurred())
+
+	util.UntilObjectPhase(r.vmSnapshot, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout)
+}
+
+func (r *restoreModeTest) ChangeVM() {
+	GinkgoHelper()
+
+	r.changeVMConfiguration()
+	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(r.vm), framework.ShortTimeout)
+	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+
+	r.rebootVM()
+}
+
+func (r *restoreModeTest) CreateRestoreOperation(restoreMode v1alpha2.VMOPRestoreMode) {
+	r.vmopRestore = vmopbuilder.New(
+		vmopbuilder.WithName("restore-strict"),
+		vmopbuilder.WithNamespace(r.f.Namespace().Name),
+		vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
+		vmopbuilder.WithVirtualMachine(r.vm.Name),
+		vmopbuilder.WithVMOPRestoreMode(restoreMode),
+		vmopbuilder.WithVirtualMachineSnapshotName(r.vmSnapshot.Name),
+	)
+	err := r.f.CreateWithDeferredDeletion(context.Background(), r.vmopRestore)
+	Expect(err).NotTo(HaveOccurred())
+
+	util.UntilObjectPhase(r.vmopRestore, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout)
+}
+
+func (r *restoreModeTest) CheckVMAfterRestore(restoreMode v1alpha2.VMOPRestoreMode) {
+	GinkgoHelper()
+
+	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(r.vm), framework.LongTimeout)
+	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+
+	switch restoreMode {
+	case v1alpha2.VMOPRestoreModeStrict, v1alpha2.VMOPRestoreModeBestEffort:
+		r.checkVMInInitialState()
+	case v1alpha2.VMOPRestoreModeDryRun:
+		r.CheckVMInChangedState()
+	}
+}
+
+func (r *restoreModeTest) RemoveDisks() {
+	GinkgoHelper()
+
+	// Stop VM and remove all disks to test Strict restore mode.
+	err := util.StopVirtualMachineFromOS(r.f, r.vm)
+	Expect(err).NotTo(HaveOccurred())
+	util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(r.vm), framework.ShortTimeout)
+
+	err = r.f.Delete(context.Background(), r.vdRoot)
+	Expect(err).NotTo(HaveOccurred())
+	err = r.f.Delete(context.Background(), r.vdBlank)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Wait for disks to be fully deleted before proceeding with restore
+	Eventually(func(g Gomega) {
+		var vdRootLocal v1alpha2.VirtualDisk
+		err = r.f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: r.vdRoot.Namespace,
+			Name:      r.vdRoot.Name,
+		}, &vdRootLocal)
+		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
+		var vdBlankLocal v1alpha2.VirtualDisk
+		err = r.f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: r.vdBlank.Namespace,
+			Name:      r.vdBlank.Name,
+		}, &vdBlankLocal)
+		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+	}, framework.LongTimeout, time.Second).Should(Succeed())
+}
+
+func (r *restoreModeTest) createEnvironmentResources() {
+	GinkgoHelper()
+
+	r.cvi = cvibuilder.New(
 		cvibuilder.WithGenerateName("cvi-"),
 		cvibuilder.WithDataSourceHTTP(cviURL, nil, nil),
 	)
-	err := r.f.CreateWithDeferredDeletion(context.Background(), r.CVI)
+	err := r.f.CreateWithDeferredDeletion(context.Background(), r.cvi)
 	Expect(err).NotTo(HaveOccurred())
 
-	r.VI = vibuilder.New(
+	r.vi = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(r.f.Namespace().Name),
 		vibuilder.WithDataSourceHTTP(viURL, nil, nil),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
-	r.VDRoot = object.NewHTTPVDUbuntu("vd-root", r.f.Namespace().Name)
-	r.VDBlank = object.NewBlankVD("vd-blank", r.f.Namespace().Name, nil, ptr.To(resource.MustParse("51Mi")))
-	err = r.f.CreateWithDeferredDeletion(context.Background(), r.VI, r.VDRoot, r.VDBlank)
+	r.vdRoot = object.NewHTTPVDUbuntu("vd-root", r.f.Namespace().Name)
+	r.vdBlank = object.NewBlankVD("vd-blank", r.f.Namespace().Name, nil, ptr.To(resource.MustParse("51Mi")))
+	err = r.f.CreateWithDeferredDeletion(context.Background(), r.vi, r.vdRoot, r.vdBlank)
 	Expect(err).NotTo(HaveOccurred())
 
-	r.VM = object.NewMinimalVM(
+	r.vm = object.NewMinimalVM(
 		"", r.f.Namespace().Name,
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithAnnotation(testAnnotationName, defaultValue),
@@ -188,58 +258,31 @@ func (r *restoreModeTest) CreateEnvironmentResources() {
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.DiskDevice,
-				Name: r.VDRoot.Name,
+				Name: r.vdRoot.Name,
 			},
 		),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ClusterImageDevice,
-				Name: r.CVI.Name,
+				Name: r.cvi.Name,
 			},
 		),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ImageDevice,
-				Name: r.VI.Name,
+				Name: r.vi.Name,
 			},
 		),
 	)
-	err = r.f.CreateWithDeferredDeletion(context.Background(), r.VM)
+	err = r.f.CreateWithDeferredDeletion(context.Background(), r.vm)
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) CreateVMBDA() {
+func (r *restoreModeTest) createVMBDA() {
 	GinkgoHelper()
 
-	r.VMBDA = object.NewVMBDAFromDisk("vmbda", r.VM.Name, r.VDBlank)
-	err := r.f.CreateWithDeferredDeletion(context.Background(), r.VMBDA)
-	Expect(err).NotTo(HaveOccurred())
-}
-
-func (r *restoreModeTest) CreateVMSnapshot() {
-	GinkgoHelper()
-
-	r.VMSnapshot = vmsnapshotbuilder.New(
-		vmsnapshotbuilder.WithName("vmsnapshot"),
-		vmsnapshotbuilder.WithNamespace(r.f.Namespace().Name),
-		vmsnapshotbuilder.WithVirtualMachineName(r.VM.Name),
-		vmsnapshotbuilder.WithRequiredConsistency(true),
-		vmsnapshotbuilder.WithKeepIPAddress(v1alpha2.KeepIPAddressAlways),
-	)
-	err := r.f.CreateWithDeferredDeletion(context.Background(), r.VMSnapshot)
-	Expect(err).NotTo(HaveOccurred())
-}
-
-func (r *restoreModeTest) CreateRestoreOperation(restoreMode v1alpha2.VMOPRestoreMode) {
-	r.VMOPRestore = vmopbuilder.New(
-		vmopbuilder.WithName("restore-strict"),
-		vmopbuilder.WithNamespace(r.f.Namespace().Name),
-		vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
-		vmopbuilder.WithVirtualMachine(r.VM.Name),
-		vmopbuilder.WithVMOPRestoreMode(restoreMode),
-		vmopbuilder.WithVirtualMachineSnapshotName(r.VMSnapshot.Name),
-	)
-	err := r.f.CreateWithDeferredDeletion(context.Background(), r.VMOPRestore)
+	r.vmbda = object.NewVMBDAFromDisk("vmbda", r.vm.Name, r.vdBlank)
+	err := r.f.CreateWithDeferredDeletion(context.Background(), r.vmbda)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -248,19 +291,19 @@ func (r *restoreModeTest) CreateRestoreOperation(restoreMode v1alpha2.VMOPRestor
 // - Change annotations and labels
 // - Update CPU and memory resources
 // After restore, all these should revert to original values from snapshot
-func (r *restoreModeTest) ChangeVMConfiguration() {
+func (r *restoreModeTest) changeVMConfiguration() {
 	GinkgoHelper()
 
-	r.ChangeValueOnDisk(changedValue)
-	err := r.f.UpdateFromCluster(context.Background(), r.VM)
+	r.changeValueOnDisk(changedValue)
+	err := r.f.UpdateFromCluster(context.Background(), r.vm)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(r.VM.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
-	Expect(r.VM.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
-	r.VM.Annotations[testAnnotationName] = changedValue
-	r.VM.Labels[testLabelName] = changedValue
-	r.VM.Spec.CPU.Cores = changedCPUCores
-	r.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
-	err = r.f.Clients.GenericClient().Update(context.Background(), r.VM)
+	Expect(r.vm.Annotations).ToNot(BeNil()) // otherwise a panic may potentially occur
+	Expect(r.vm.Labels).ToNot(BeNil())      // otherwise a panic may potentially occur
+	r.vm.Annotations[testAnnotationName] = changedValue
+	r.vm.Labels[testLabelName] = changedValue
+	r.vm.Spec.CPU.Cores = changedCPUCores
+	r.vm.Spec.Memory.Size = resource.MustParse(changedMemorySize)
+	err = r.f.Clients.GenericClient().Update(context.Background(), r.vm)
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -268,67 +311,50 @@ func (r *restoreModeTest) ChangeVMConfiguration() {
 // - Disk contains the original value
 // - Annotations and labels match snapshot
 // - CPU and memory resources are restored to original values
-func (r *restoreModeTest) CheckVMInInitialState() {
+func (r *restoreModeTest) checkVMInInitialState() {
 	GinkgoHelper()
 
-	r.MountVMBDADeviceIfNotMounted()
-	Expect(r.GetValueFromDisk()).To(Equal(r.GeneratedValue))
-	err := r.f.UpdateFromCluster(context.Background(), r.VM)
+	r.mountVMBDADeviceIfNotMounted()
+	Expect(r.getValueFromDisk()).To(Equal(r.generatedValue))
+	err := r.f.UpdateFromCluster(context.Background(), r.vm)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(r.VM.Annotations[testAnnotationName]).To(Equal(defaultValue))
-	Expect(r.VM.Labels[testLabelName]).To(Equal(defaultValue))
-	Expect(r.VM.Status.Resources.CPU.Cores).To(Equal(defaultCPUCores))
-	Expect(r.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(defaultMemorySize)))
+	Expect(r.vm.Annotations[testAnnotationName]).To(Equal(defaultValue))
+	Expect(r.vm.Labels[testLabelName]).To(Equal(defaultValue))
+	Expect(r.vm.Status.Resources.CPU.Cores).To(Equal(defaultCPUCores))
+	Expect(r.vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(defaultMemorySize)))
 }
 
 func (r *restoreModeTest) CheckVMInChangedState() {
 	GinkgoHelper()
 
-	r.MountVMBDADeviceIfNotMounted()
-	Expect(r.GetValueFromDisk()).To(Equal(changedValue))
-	err := r.f.UpdateFromCluster(context.Background(), r.VM)
+	r.mountVMBDADeviceIfNotMounted()
+	Expect(r.getValueFromDisk()).To(Equal(changedValue))
+	err := r.f.UpdateFromCluster(context.Background(), r.vm)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(r.VM.Annotations[testAnnotationName]).To(Equal(changedValue))
-	Expect(r.VM.Labels[testLabelName]).To(Equal(changedValue))
-	Expect(r.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
-	Expect(r.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
+	Expect(r.vm.Annotations[testAnnotationName]).To(Equal(changedValue))
+	Expect(r.vm.Labels[testLabelName]).To(Equal(changedValue))
+	Expect(r.vm.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
+	Expect(r.vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 }
 
-func (r *restoreModeTest) RemoveDisks() {
+func (r *restoreModeTest) rebootVM() {
 	GinkgoHelper()
 
-	// Stop VM and remove all disks to test Strict restore mode.
-	err := util.StopVirtualMachineFromOS(r.f, r.VM)
+	err := r.f.UpdateFromCluster(context.Background(), r.vm)
 	Expect(err).NotTo(HaveOccurred())
-	util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(r.VM), framework.ShortTimeout)
-
-	err = r.f.Delete(context.Background(), r.VDRoot)
-	Expect(err).NotTo(HaveOccurred())
-	err = r.f.Delete(context.Background(), r.VDBlank)
+	runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, r.vm.Status.Conditions)
+	r.runningLastTransitionTime = runningCondition.LastTransitionTime.Time
+	err = util.RebootVirtualMachineFromOS(r.f, r.vm)
 	Expect(err).NotTo(HaveOccurred())
 
-	// Wait for disks to be fully deleted before proceeding with restore
-	Eventually(func(g Gomega) {
-		var vdRootLocal v1alpha2.VirtualDisk
-		err = r.f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-			Namespace: r.VDRoot.Namespace,
-			Name:      r.VDRoot.Name,
-		}, &vdRootLocal)
-		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
-
-		var vdBlankLocal v1alpha2.VirtualDisk
-		err = r.f.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-			Namespace: r.VDBlank.Namespace,
-			Name:      r.VDBlank.Name,
-		}, &vdBlankLocal)
-		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
-	}, framework.LongTimeout, time.Second).Should(Succeed())
+	util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(r.vm), r.runningLastTransitionTime, framework.LongTimeout)
+	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
 }
 
-func (r *restoreModeTest) ListDisks() (disks []string) {
+func (r *restoreModeTest) listDisks() (disks []string) {
 	GinkgoHelper()
 
-	lsblkOut, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, "lsblk | grep disk")
+	lsblkOut, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, "lsblk | grep disk")
 	Expect(err).NotTo(HaveOccurred())
 	lsblkLines := strings.Split(strings.TrimSpace(lsblkOut), "\n")
 
@@ -340,7 +366,7 @@ func (r *restoreModeTest) ListDisks() (disks []string) {
 	return
 }
 
-func (r *restoreModeTest) GetVMBDADevicePath() string {
+func (r *restoreModeTest) getVMBDADevicePath() string {
 	GinkgoHelper()
 
 	checkMap := make(map[string]struct{})
@@ -349,7 +375,7 @@ func (r *restoreModeTest) GetVMBDADevicePath() string {
 		checkMap[device] = struct{}{}
 	}
 
-	disks := r.ListDisks()
+	disks := r.listDisks()
 	for _, disk := range disks {
 		if _, ok := checkMap[disk]; ok {
 			continue
@@ -360,51 +386,51 @@ func (r *restoreModeTest) GetVMBDADevicePath() string {
 	return ""
 }
 
-func (r *restoreModeTest) CheckMntOccupied() bool {
+func (r *restoreModeTest) checkMntOccupied() bool {
 	GinkgoHelper()
 
-	cmdOut, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, "findmnt /mnt &> /dev/null ; echo $?")
+	cmdOut, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, "findmnt /mnt &> /dev/null ; echo $?")
 	Expect(err).NotTo(HaveOccurred())
 	return strings.TrimSpace(cmdOut) == "0"
 }
 
-func (r *restoreModeTest) MountVMBDADeviceIfNotMounted() {
+func (r *restoreModeTest) mountVMBDADeviceIfNotMounted() {
 	GinkgoHelper()
 
-	if r.CheckMntOccupied() {
+	if r.checkMntOccupied() {
 		return
 	}
 
-	devicePath := r.GetVMBDADevicePath()
-	_, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
+	devicePath := r.getVMBDADevicePath()
+	_, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) CreateFilesystemOnDisk() {
+func (r *restoreModeTest) createFilesystemOnDisk() {
 	GinkgoHelper()
 
-	_, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo mkfs.ext4 %s", r.GetVMBDADevicePath()))
+	_, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, fmt.Sprintf("sudo mkfs.ext4 %s", r.getVMBDADevicePath()))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) CreateFileOnDisk(value string) {
+func (r *restoreModeTest) createFileOnDisk(value string) {
 	GinkgoHelper()
 
-	_, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
+	_, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) ChangeValueOnDisk(value string) {
+func (r *restoreModeTest) changeValueOnDisk(value string) {
 	GinkgoHelper()
 
-	_, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
+	_, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) GetValueFromDisk() string {
+func (r *restoreModeTest) getValueFromDisk() string {
 	GinkgoHelper()
 
-	cmdOut, err := r.f.SSHCommand(r.VM.Name, r.VM.Namespace, "sudo cat /mnt/value")
+	cmdOut, err := r.f.SSHCommand(r.vm.Name, r.vm.Namespace, "sudo cat /mnt/value")
 	Expect(err).NotTo(HaveOccurred())
 	return strings.TrimSpace(cmdOut)
 }
