@@ -74,12 +74,13 @@ tasks:
       - werf build {{ .target }}
 
   base-images-in-use:
+    desc: |
+      Show base images used by the module.
     deps:
       - check-werf
       - check-yq
     cmds:
       - (werf config render ; SVACE_ENABLED=true werf config render ) | yq -ojson | jq .fromImage | sort | uniq -c
-
 
   dev:format:yaml:
     desc: "Format non-templated YAML files, e.g. CRDs"
