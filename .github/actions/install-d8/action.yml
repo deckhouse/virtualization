@@ -4,7 +4,7 @@ runs:
   using: "composite"
   steps:
     - name: Install deckhouse-cli
-      uses: werf/trdl/actions/setup-app@v0.12.1
+      uses: werf/trdl/actions/setup-app@v0.12.2
       with:
         repo: d8
         url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
