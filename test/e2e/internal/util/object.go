@@ -31,6 +31,49 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
+// UntilObjectPhase waits for an object to reach the specified phase.
+// It accepts a runtime.Object (which serves as a template with name and namespace),
+// expected phase string, and timeout duration.
+// The GVK is automatically extracted from the object via the client's scheme.
+func UntilObjectPhase(obj runtime.Object, expectedPhase string, timeout time.Duration) {
+	GinkgoHelper()
+	untilObjectStatusField(obj, extractPhase, expectedPhase, "phase", timeout)
+}
+
+// UntilObjectState waits for an object to reach the specified state.
+// It accepts a runtime.Object (which serves as a template with name and namespace),
+// expected state string, and timeout duration.
+// The GVK is automatically extracted from the object via the client's scheme.
+func UntilObjectState(obj runtime.Object, expectedState string, timeout time.Duration) {
+	GinkgoHelper()
+	untilObjectStatusField(obj, extractState, expectedState, "state", timeout)
+}
+
+// extractPhase extracts the phase field from an object's status.
+func extractPhase(obj client.Object) string {
+	return extractStatusField(obj, "phase")
+}
+
+// extractState extracts the state field from an object's status.
+func extractState(obj client.Object) string {
+	return extractStatusField(obj, "state")
+}
+
+// extractStatusField extracts a string value from status field of an unstructured object.
+func extractStatusField(obj client.Object, field string) string {
+	u, ok := obj.(*unstructured.Unstructured)
+	if !ok {
+		return "Unknown"
+	}
+
+	value, found, err := unstructured.NestedString(u.Object, "status", field)
+	if err != nil || !found {
+		return "Unknown"
+	}
+
+	return value
+}
+
 // untilObjectStatusField waits for an object to reach the specified value using an extractor function.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // extractor function to get the current value, expected value string, field name for error messages, and timeout duration.
@@ -86,47 +129,4 @@ func untilObjectStatusField(obj runtime.Object, extractor func(client.Object) st
 
 		return fmt.Errorf("object %s/%s %s is %s, expected %s", namespace, name, fieldNameForError, value, expectedValue)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
-}
-
-// extractStatusField extracts a string value from status field of an unstructured object.
-func extractStatusField(obj client.Object, field string) string {
-	u, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		return "Unknown"
-	}
-
-	value, found, err := unstructured.NestedString(u.Object, "status", field)
-	if err != nil || !found {
-		return "Unknown"
-	}
-
-	return value
-}
-
-// UntilObjectPhase waits for an object to reach the specified phase.
-// It accepts a runtime.Object (which serves as a template with name and namespace),
-// expected phase string, and timeout duration.
-// The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectPhase(obj runtime.Object, expectedPhase string, timeout time.Duration) {
-	GinkgoHelper()
-	untilObjectStatusField(obj, extractPhase, expectedPhase, "phase", timeout)
-}
-
-// UntilObjectState waits for an object to reach the specified state.
-// It accepts a runtime.Object (which serves as a template with name and namespace),
-// expected state string, and timeout duration.
-// The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectState(obj runtime.Object, expectedState string, timeout time.Duration) {
-	GinkgoHelper()
-	untilObjectStatusField(obj, extractState, expectedState, "state", timeout)
-}
-
-// extractPhase extracts the phase field from an object's status.
-func extractPhase(obj client.Object) string {
-	return extractStatusField(obj, "phase")
-}
-
-// extractState extracts the state field from an object's status.
-func extractState(obj client.Object) string {
-	return extractStatusField(obj, "state")
 }
