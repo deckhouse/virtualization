@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vdsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vdsnapshot"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
@@ -52,7 +53,15 @@ var _ = Describe("VirtualImageCreation", func() {
 		)
 
 		By("Creating VirtualDisk", func() {
-			vd = object.NewGeneratedHTTPVDUbuntu("vd-", f.Namespace().Name)
+			vd = vdbuilder.New(
+				vdbuilder.WithGenerateName("vd-"),
+				vdbuilder.WithNamespace(f.Namespace().Name),
+				vdbuilder.WithDataSourceHTTP(
+					&v1alpha2.DataSourceHTTP{
+						URL: object.ImageURLAlpineUEFIPerf,
+					},
+				),
+			)
 			err := f.CreateWithDeferredDeletion(context.Background(), vd)
 			Expect(err).NotTo(HaveOccurred())
 			vm := object.NewMinimalVM("vm-", f.Namespace().Name, vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
