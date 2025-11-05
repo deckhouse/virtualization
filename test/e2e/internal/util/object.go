@@ -56,7 +56,6 @@ func UntilObjectPhase(obj runtime.Object, expectedPhase string, timeout time.Dur
 	if unstructuredObj, ok := obj.(*unstructured.Unstructured); ok {
 		// Object is already unstructured - just copy it and extract GVK
 		templateUnstructured = unstructuredObj.DeepCopy()
-		gvk = unstructuredObj.GroupVersionKind()
 	} else {
 		// Object is a typed struct - convert to unstructured format
 		objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
