@@ -44,7 +44,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the current status of the virtual machine including Running, Stopped, Migrating, and other operational states.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -165,7 +165,7 @@
           "refId": "A"
         }
       ],
-      "title": "VM status ",
+      "title": "Status",
       "type": "stat"
     },
     {
@@ -308,7 +308,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the current CPU core usage percentage of the virtual machine, including OS usage, hypervisor overhead, and CPU reservation levels.",
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
@@ -448,7 +448,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Displays the current memory usage percentage of the virtual machine based on configured memory allocation.",
       "fieldConfig": {
         "defaults": {
           "decimals": 1,
@@ -565,7 +565,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -637,7 +637,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "exemplar": false,
@@ -648,7 +648,7 @@
           "refId": "A"
         }
       ],
-      "title": "Total disks usage",
+      "title": "Total filesystem usage",
       "type": "gauge"
     },
     {
@@ -656,7 +656,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows the agent readiness status for the virtual machine, indicating whether the VM agent is ready to receive commands.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1002,7 +1002,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Displays memory usage percentage over time, showing how much of the allocated memory is being used by the virtual machine.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1167,7 +1167,7 @@
         "type": "prometheus",
         "uid": "${ds_prometheus}"
       },
-      "description": "",
+      "description": "Shows network bandwidth utilization displaying transmit and receive data rates for all network interfaces in the virtual machine.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1747,7 +1747,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "P0D6E4079E36703EB"
+            "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
           "expr": "rate(d8_virtualization_virtualmachine_migration_data_processed_bytes{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])",
@@ -2398,7 +2398,7 @@
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "description": "",
+          "description": "Timeline visualization displaying the virtual machine status changes over time, including running, stopped, migrating, and other states.",
           "fieldConfig": {
             "defaults": {
               "color": {
