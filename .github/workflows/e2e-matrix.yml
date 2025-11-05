@@ -353,18 +353,18 @@ jobs:
               echo "[ERR] REGISTRY_DOCKER_CFG secret is not set; Ceph requires deckhouse-prod modules source." >&2
               exit 1
             else
-              KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
-              apiVersion: deckhouse.io/v1alpha1
-              kind: ModuleSource
-              metadata:
-                name: deckhouse-prod
-              spec:
-                registry:
-                  repo: ${MODSRC_REPO}
-                  scheme: HTTPS
-                  dockerCfg: ${CFG_B64}
-                releaseChannel: EarlyAccess
-              EOF
+              printf '%s\n' \
+                'apiVersion: deckhouse.io/v1alpha1' \
+                'kind: ModuleSource' \
+                'metadata:' \
+                '  name: deckhouse-prod' \
+                'spec:' \
+                '  registry:' \
+                "    repo: ${MODSRC_REPO}" \
+                '    scheme: HTTPS' \
+                "    dockerCfg: ${CFG_B64}" \
+                '  releaseChannel: EarlyAccess' \
+                | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
               echo "[Deckhouse] ModuleSource 'deckhouse-prod' applied."
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl get modulesources.deckhouse.io || true
             fi
@@ -453,14 +453,14 @@ jobs:
             done
 
             echo "[Ceph] Disabling cloud-provider-dvp module to avoid StorageClass conflict..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
-            apiVersion: deckhouse.io/v1alpha1
-            kind: ModuleConfig
-            metadata:
-              name: cloud-provider-dvp
-            spec:
-              enabled: false
-            EOF
+            printf '%s\n' \
+              'apiVersion: deckhouse.io/v1alpha1' \
+              'kind: ModuleConfig' \
+              'metadata:' \
+              '  name: cloud-provider-dvp' \
+              'spec:' \
+              '  enabled: false' \
+              | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
             sleep 10
 
             echo "[Ceph] Ensure required ServiceAccounts and imagePullSecrets (fallback)"
@@ -490,19 +490,19 @@ jobs:
             done
 
             echo "[Ceph] Creating CephStorageClass..."
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f - <<EOF
-            apiVersion: storage.deckhouse.io/v1alpha1
-            kind: CephStorageClass
-            metadata:
-              name: ceph-pool-r2-csi-rbd-immediate
-            spec:
-              clusterConnectionName: ceph-cluster-1
-              reclaimPolicy: Delete
-              type: RBD
-              rbd:
-                defaultFSType: ext4
-                pool: pool-rbd-auto-test
-            EOF
+            printf '%s\n' \
+              'apiVersion: storage.deckhouse.io/v1alpha1' \
+              'kind: CephStorageClass' \
+              'metadata:' \
+              '  name: ceph-pool-r2-csi-rbd-immediate' \
+              'spec:' \
+              '  clusterConnectionName: ceph-cluster-1' \
+              '  reclaimPolicy: Delete' \
+              '  type: RBD' \
+              '  rbd:' \
+              '    defaultFSType: ext4' \
+              '    pool: pool-rbd-auto-test' \
+              | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
 
             echo "[Ceph] Waiting for CephStorageClass to be Created..."
             for i in $(seq 1 60); do
@@ -570,18 +570,18 @@ jobs:
 
           SMOKE_NS="ceph-smoke-${{ env.RUN_ID }}"
           KUBECONFIG="$NESTED_KUBECONFIG" kubectl create ns "$SMOKE_NS" || true
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" apply -f - <<EOF
-          apiVersion: v1
-          kind: PersistentVolumeClaim
-          metadata:
-            name: smoke-pvc
-          spec:
-            accessModes: ["ReadWriteOnce"]
-            storageClassName: ceph-pool-r2-csi-rbd-immediate
-            resources:
-              requests:
-                storage: 1Gi
-          EOF
+          printf '%s\n' \
+            'apiVersion: v1' \
+            'kind: PersistentVolumeClaim' \
+            'metadata:' \
+            '  name: smoke-pvc' \
+            'spec:' \
+            '  accessModes: ["ReadWriteOnce"]' \
+            '  storageClassName: ceph-pool-r2-csi-rbd-immediate' \
+            '  resources:' \
+            '    requests:' \
+            '      storage: 1Gi' \
+            | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" apply -f -
 
           echo "[Ceph] Waiting for PVC to become Bound..."
           for i in $(seq 1 60); do
