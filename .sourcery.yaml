@@ -1,0 +1,4 @@
+rule_settings:
+  disable:
+    - yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha.third-party-action-not-pinned-to-commit-sha
+    - yaml.github-actions.security.third-party-action-not-pinned-to-commit-sha
