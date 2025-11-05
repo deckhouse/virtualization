@@ -86,7 +86,7 @@ jobs:
       GO_VERSION: "1.24.6"
       TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
       LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
-      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
+      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }}  # TODO: replace with channel secret after successful run
 
     steps:
       - uses: actions/checkout@v4
@@ -192,11 +192,6 @@ jobs:
           registry: ${{ vars.DEV_REGISTRY }}
           username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
           password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
-
-      - name: Verify dev-registry access
-        run: |
-          set -euo pipefail
-          docker pull dev-registry.deckhouse.io/sys/deckhouse-oss/install:main
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
@@ -353,7 +348,7 @@ jobs:
           if [ "$PROFILE" = "cephrbd" ]; then
             echo "[Deckhouse] Configuring ModuleSource 'deckhouse-prod' for module images..."
             MODSRC_REPO="${{ vars.DECKHOUSE_PROD_MODULES_REPO || 'registry.deckhouse.io/deckhouse/ee/modules' }}"
-            CFG_B64='${{ secrets.REGISTRY_DOCKER_CFG || '' }}'
+            CFG_B64="${{ secrets.REGISTRY_DOCKER_CFG || '' }}"
             if [ -z "$CFG_B64" ]; then
               echo "[ERR] REGISTRY_DOCKER_CFG secret is not set; Ceph requires deckhouse-prod modules source." >&2
               exit 1
@@ -638,20 +633,6 @@ jobs:
             SNAPSHOT_STORAGE_CLASS="${SNAPSHOT_STORAGE_CLASS}" \
             TIMEOUT="${{ inputs.timeout || '4h' }}"
 
-      - name: Verify JUnit file creation
-        if: always()
-        run: |
-          JUNIT_FILE="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
-          if [ -f "$JUNIT_FILE" ]; then
-            echo "✅ JUnit file created: $JUNIT_FILE"
-            ls -la "$JUNIT_FILE"
-            echo "JUnit file size: $(wc -c < "$JUNIT_FILE") bytes"
-          else
-            echo "❌ JUnit file not found: $JUNIT_FILE"
-            echo "Available files in artifacts directory:"
-            find "${{ github.workspace }}/ci/dvp-e2e/artifacts" -type f 2>/dev/null || echo "No artifacts directory found"
-          fi
-
       - name: Collect JUnit for this run
         if: always()
         run: |
@@ -753,17 +734,6 @@ jobs:
           path: ci/dvp-e2e/tmp/matrix-logs
           merge-multiple: true
 
-      - name: Debug artifacts layout
-        run: |
-          echo "=== JUnit artifacts ==="
-          find results -maxdepth 3 -type f -print || true
-          echo "=== Matrix logs ==="
-          find ci/dvp-e2e/tmp/matrix-logs -maxdepth 2 -type f -print || true
-          echo "=== Checking for JUnit files ==="
-          find . -name "junit.xml" -type f 2>/dev/null || echo "No junit.xml files found"
-          echo "=== Results directory structure ==="
-          ls -la ./results/ 2>/dev/null || echo "Results directory not found"
-
       - name: Generate matrix summary
         if: always()
         working-directory: ci/dvp-e2e
@@ -800,7 +770,7 @@ jobs:
 
           # Check each profile result
           for profile in sds cephrbd; do
-            if [ -f "./results/junit-${profile}-*/junit.xml" ]; then
+            if compgen -G "./results/junit-${profile}-*/junit.xml" > /dev/null; then
               echo "| $profile | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
             else
               echo "| $profile | ❌ Failed/Missing |" >> $GITHUB_STEP_SUMMARY
