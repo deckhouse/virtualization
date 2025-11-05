@@ -43,7 +43,7 @@ var _ = Describe("VirtualImageCreation", func() {
 		DeferCleanup(f.After)
 	})
 
-	It("verifies that images are created successfully", func() {
+	It("verifies the images are created successfully", func() {
 		const cviPrefix = "v12-e2e"
 		var (
 			vd         *v1alpha2.VirtualDisk
@@ -223,9 +223,9 @@ var _ = Describe("VirtualImageCreation", func() {
 				Expect(err).NotTo(HaveOccurred())
 			}
 
-			// All entities created in the previous steps must be taken into account
-			vis = append(vis, baseVis...)
-			cvis = append(cvis, baseCvis...)
+			// Base images should be considered
+			vis = append(baseVis, vis...)
+			cvis = append(baseCvis, cvis...)
 		})
 
 		By("Verifying that images are ready", func() {
