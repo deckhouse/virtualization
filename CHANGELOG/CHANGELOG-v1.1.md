@@ -23,8 +23,11 @@
  - **[core]** Added error reporting in the status of disks and images when the data source (URL) is unavailable. [#1534](https://github.com/deckhouse/virtualization/pull/1534)
  - **[module]** fix CVE-2025-58058 and CVE-2025-54410 [#1572](https://github.com/deckhouse/virtualization/pull/1572)
  - **[observability]** Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration. [#1474](https://github.com/deckhouse/virtualization/pull/1474)
+ - **[vd]** Fixed live disk migration between storage classes using different drivers. Limitations:
+    - Migration between `Block` and `Filesystem` is not supported. Only migrations between the same volume modes are allowed: from `Block` to `Block` and from `Filesystem` to `Filesystem`. [#1613](https://github.com/deckhouse/virtualization/pull/1613)
  - **[vd]** respect user-specified storage class when restoring from snapshot [#1417](https://github.com/deckhouse/virtualization/pull/1417)
  - **[vi]** When creating virtual images from virtual disk snapshots, the `spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it could be ignored. [#1533](https://github.com/deckhouse/virtualization/pull/1533)
+ - **[vm]** In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails. [#1569](https://github.com/deckhouse/virtualization/pull/1569)
  - **[vm]** Fixed the `NetworkReady` condition output. It no longer shows the `Unknown` state and appears only when needed. [#1567](https://github.com/deckhouse/virtualization/pull/1567)
  - **[vm]** Prohibit duplicate networks in the virtual machine `.spec.network` specification. [#1545](https://github.com/deckhouse/virtualization/pull/1545)
  - **[vmbda]** Fixed a bug where, when detaching a virtual image through `VirtualMachineBlockDeviceAttachment`, the resource could get stuck in the Terminating state. [#1542](https://github.com/deckhouse/virtualization/pull/1542)
