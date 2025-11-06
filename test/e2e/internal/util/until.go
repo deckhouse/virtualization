@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,7 +35,7 @@ import (
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected phase string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...runtime.Object) {
+func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
 	untilObjectField("status.phase", expectedPhase, timeout, objs...)
 }
@@ -43,7 +44,7 @@ func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...runti
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected state string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectState(expectedState string, timeout time.Duration, objs ...runtime.Object) {
+func UntilObjectState(expectedState string, timeout time.Duration, objs ...client.Object) {
 	GinkgoHelper()
 	untilObjectField("status.state", expectedState, timeout, objs...)
 }
@@ -55,7 +56,7 @@ func extractField(obj client.Object, fieldPath string) string {
 		return "Unknown"
 	}
 	path := make([]string, 0)
-	for _, part := range splitFieldPath(fieldPath) {
+	for _, part := range strings.Split(fieldPath, ".") {
 		if part != "" {
 			path = append(path, part)
 		}
@@ -67,38 +68,17 @@ func extractField(obj client.Object, fieldPath string) string {
 	return value
 }
 
-// splitFieldPath splits a dot-separated field path into its parts.
-func splitFieldPath(fieldPath string) []string {
-	var parts []string
-	curr := ""
-	for i := 0; i < len(fieldPath); i++ {
-		if fieldPath[i] == '.' {
-			parts = append(parts, curr)
-			curr = ""
-		} else {
-			curr += string(fieldPath[i])
-		}
-	}
-	if curr != "" {
-		parts = append(parts, curr)
-	}
-	return parts
-}
-
 // untilObjectField waits for an object field to reach the specified value.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // fieldPath (dot-separated path to the field, e.g. "status.phase" or "metadata.name"),
 // expected value string, field name for error messages, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, objs ...runtime.Object) {
+func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, objs ...client.Object) {
 	Eventually(func(g Gomega) {
 		for _, obj := range objs {
-			// Get name and namespace from client.Object
-			clientObj, ok := obj.(client.Object)
-			Expect(ok).To(BeTrue(), "object must implement client.Object interface")
-			key := client.ObjectKeyFromObject(clientObj)
-			name := clientObj.GetName()
-			namespace := clientObj.GetNamespace()
+			key := client.ObjectKeyFromObject(obj)
+			name := obj.GetName()
+			namespace := obj.GetNamespace()
 
 			// Create a new unstructured object for each Get call
 			u := getTemplateUnstructured(obj).DeepCopy()
@@ -113,7 +93,7 @@ func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, ob
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-func getTemplateUnstructured(obj runtime.Object) *unstructured.Unstructured {
+func getTemplateUnstructured(obj client.Object) *unstructured.Unstructured {
 	// Convert the template object to unstructured once
 	var templateUnstructured *unstructured.Unstructured
 	var gvk schema.GroupVersionKind
