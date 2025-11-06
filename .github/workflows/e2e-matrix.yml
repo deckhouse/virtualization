@@ -358,15 +358,27 @@ jobs:
               echo "[ERR] REGISTRY_DOCKER_CFG is empty; ensure PROD_READ_REGISTRY_* secrets are configured." >&2
               exit 1
             else
-              REPO="$MODSRC_REPO" CFG="$CFG_B64" yq eval -n '
-                  .apiVersion = "deckhouse.io/v1alpha1" |
-                  .kind = "ModuleSource" |
-                  .metadata.name = "deckhouse-prod" |
-                  .spec.registry.repo = env(REPO) |
-                  .spec.registry.scheme = "HTTPS" |
-                  .spec.registry.dockerCfg = env(CFG) |
-                  .spec.releaseChannel = "EarlyAccess"
-                ' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+            success=0
+            for attempt in $(seq 1 5); do
+              if REPO="$MODSRC_REPO" CFG="$CFG_B64" yq eval -n '
+                    .apiVersion = "deckhouse.io/v1alpha1" |
+                    .kind = "ModuleSource" |
+                    .metadata.name = "deckhouse-prod" |
+                    .spec.registry.repo = env(REPO) |
+                    .spec.registry.scheme = "HTTPS" |
+                    .spec.registry.dockerCfg = env(CFG) |
+                    .spec.releaseChannel = "EarlyAccess"
+                  ' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply --validate=false -f -; then
+                success=1
+                break
+              fi
+              echo "[Deckhouse] ModuleSource apply failed (attempt $attempt); retry in 10s..."
+              sleep 10
+            done
+            if [ "$success" -ne 1 ]; then
+              echo "[ERR] Failed to apply deckhouse-prod ModuleSource after retries" >&2
+              exit 1
+            fi
               echo "[Deckhouse] ModuleSource 'deckhouse-prod' applied."
               KUBECONFIG="$NESTED_KUBECONFIG" kubectl get modulesources.deckhouse.io || true
             fi

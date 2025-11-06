@@ -830,23 +830,36 @@ tasks:
       - |
         set -euo pipefail
         echo "[SDS] Enabling SDS modules (node-configurator, replicated-volume)..."
-        cat <<'EOF' | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
-        apiVersion: deckhouse.io/v1alpha1
-        kind: ModuleConfig
-        metadata:
-          name: sds-node-configurator
-        spec:
-          enabled: true
-          version: 1
-        ---
-        apiVersion: deckhouse.io/v1alpha1
-        kind: ModuleConfig
-        metadata:
-          name: sds-replicated-volume
-        spec:
-          enabled: true
-          version: 1
-        EOF
+        success=0
+        for attempt in $(seq 1 5); do
+          if cat <<'EOF' | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f -
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-node-configurator
+spec:
+  enabled: true
+  version: 1
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-replicated-volume
+spec:
+  enabled: true
+  version: 1
+EOF
+          then
+            success=1
+            break
+          fi
+          echo "[SDS] ModuleConfig apply failed (attempt $attempt); retrying in 10s..."
+          sleep 10
+        done
+        if [ "$success" -ne 1 ]; then
+          echo "[ERR] Unable to enable SDS modules after retries" >&2
+          exit 1
+        fi
       - |
         set -euo pipefail
         echo "[SDS] Waiting for SDS CRDs to be established..."
