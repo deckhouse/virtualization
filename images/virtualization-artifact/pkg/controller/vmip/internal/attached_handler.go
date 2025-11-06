@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -84,8 +85,9 @@ func (h *AttachedHandler) Handle(ctx context.Context, vmip *v1alpha2.VirtualMach
 
 func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (*v1alpha2.VirtualMachine, error) {
 	var vms v1alpha2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.MatchingFields{
-		indexer.IndexFieldVMByIP: vmip.Status.Address,
+	err := h.client.List(ctx, &vms, &client.ListOptions{
+		Namespace:     vmip.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByIP, vmip.Status.Address),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("list vms: %w", err)
