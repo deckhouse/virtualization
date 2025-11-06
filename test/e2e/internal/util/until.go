@@ -18,7 +18,6 @@ package util
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,18 +34,18 @@ import (
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected phase string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectPhase(obj runtime.Object, expectedPhase string, timeout time.Duration) {
+func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...runtime.Object) {
 	GinkgoHelper()
-	untilObjectField(obj, "status.phase", expectedPhase, timeout)
+	untilObjectField("status.phase", expectedPhase, timeout, objs...)
 }
 
 // UntilObjectState waits for an object to reach the specified state.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected state string, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func UntilObjectState(obj runtime.Object, expectedState string, timeout time.Duration) {
+func UntilObjectState(expectedState string, timeout time.Duration, objs ...runtime.Object) {
 	GinkgoHelper()
-	untilObjectField(obj, "status.state", expectedState, timeout)
+	untilObjectField("status.state", expectedState, timeout, objs...)
 }
 
 // extractField extracts a string value from an unstructured object at the provided fieldPath (dot-separated, e.g. "status.phase" or "metadata.name").
@@ -91,14 +90,30 @@ func splitFieldPath(fieldPath string) []string {
 // fieldPath (dot-separated path to the field, e.g. "status.phase" or "metadata.name"),
 // expected value string, field name for error messages, and timeout duration.
 // The GVK is automatically extracted from the object via the client's scheme.
-func untilObjectField(obj runtime.Object, fieldPath, expectedValue string, timeout time.Duration) {
-	// Get name and namespace from client.Object
-	clientObj, ok := obj.(client.Object)
-	Expect(ok).To(BeTrue(), "object must implement client.Object interface")
-	key := client.ObjectKeyFromObject(clientObj)
-	name := clientObj.GetName()
-	namespace := clientObj.GetNamespace()
+func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, objs ...runtime.Object) {
+	Eventually(func(g Gomega) {
+		for _, obj := range objs {
+			// Get name and namespace from client.Object
+			clientObj, ok := obj.(client.Object)
+			Expect(ok).To(BeTrue(), "object must implement client.Object interface")
+			key := client.ObjectKeyFromObject(clientObj)
+			name := clientObj.GetName()
+			namespace := clientObj.GetNamespace()
 
+			// Create a new unstructured object for each Get call
+			u := getTemplateUnstructured(obj).DeepCopy()
+			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			if err != nil {
+				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s/%s", namespace, name)
+			}
+
+			value := extractField(u, fieldPath)
+			g.Expect(value).To(Equal(expectedValue), "object %s/%s %s is %s, expected %s", namespace, name, fieldPath, value, expectedValue)
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func getTemplateUnstructured(obj runtime.Object) *unstructured.Unstructured {
 	// Convert the template object to unstructured once
 	var templateUnstructured *unstructured.Unstructured
 	var gvk schema.GroupVersionKind
@@ -124,20 +139,5 @@ func untilObjectField(obj runtime.Object, fieldPath, expectedValue string, timeo
 		gvk = gvks[0]
 		templateUnstructured.SetGroupVersionKind(gvk)
 	}
-
-	Eventually(func() error {
-		// Create a new unstructured object for each Get call
-		u := templateUnstructured.DeepCopy()
-		err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
-		if err != nil {
-			return fmt.Errorf("failed to get object %s/%s: %w", namespace, name, err)
-		}
-
-		value := extractField(u, fieldPath)
-		if value == expectedValue {
-			return nil
-		}
-
-		return fmt.Errorf("object %s/%s %s is %s, expected %s", namespace, name, fieldPath, value, expectedValue)
-	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+	return templateUnstructured
 }

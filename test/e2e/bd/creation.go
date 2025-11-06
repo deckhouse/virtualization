@@ -19,10 +19,10 @@ package images
 import (
 	"context"
 	"fmt"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -73,7 +73,7 @@ var _ = Describe("VirtualImageCreation", func() {
 			}))
 			err = f.CreateWithDeferredDeletion(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(vd, string(v1alpha2.DiskReady), framework.LongTimeout)
+			util.UntilObjectPhase(string(v1alpha2.DiskReady), framework.LongTimeout, vd)
 			err = f.Delete(context.Background(), vm)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -87,7 +87,7 @@ var _ = Describe("VirtualImageCreation", func() {
 			)
 			err := f.CreateWithDeferredDeletion(context.Background(), vdSnapshot)
 			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(vdSnapshot, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout)
+			util.UntilObjectPhase(string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout, vdSnapshot)
 		})
 
 		By("Generating base cvis", func() {
@@ -252,18 +252,14 @@ var _ = Describe("VirtualImageCreation", func() {
 			vis = append(baseVis, vis...)
 			cvis = append(baseCvis, cvis...)
 
-			Eventually(func(g Gomega) {
-				for _, vi := range vis {
-					err := f.Get(context.Background(), vi)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
-				}
-				for _, cvi := range cvis {
-					err := f.Get(context.Background(), cvi)
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageReady))
-				}
-			}, framework.LongTimeout, time.Second).Should(Succeed())
+			var objects []runtime.Object
+			for _, vi := range vis {
+				objects = append(objects, vi)
+			}
+			for _, cvi := range cvis {
+				objects = append(objects, cvi)
+			}
+			util.UntilObjectPhase(string(v1alpha2.ImageReady), framework.LongTimeout, objects...)
 		})
 	})
 })
