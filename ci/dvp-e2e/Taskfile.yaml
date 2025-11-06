@@ -732,21 +732,36 @@ tasks:
           echo "[ERR] master VM not found in namespace {{ .NAMESPACE }}" >&2
           exit 1
         fi
-        KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} d8 v ssh --username={{ .DEFAULT_USER }} --identity-file={{ .SSH_PRIV_KEY_FILE }} --local-ssh=true --local-ssh-opts="-o StrictHostKeyChecking=no" --local-ssh-opts="-o UserKnownHostsFile=/dev/null" "${MASTER_NAME}.{{ .NAMESPACE }}" -c '
-          set -euo pipefail
-          SUDO="sudo /opt/deckhouse/bin/kubectl"
-          $SUDO -n kube-system get sa e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create sa e2e-admin >/dev/null 2>&1
-          $SUDO -n kube-system get clusterrolebinding e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create clusterrolebinding e2e-admin --clusterrole=cluster-admin --serviceaccount=kube-system:e2e-admin >/dev/null 2>&1
-          for i in $(seq 1 10); do
-            TOKEN=$($SUDO -n kube-system create token e2e-admin --duration=24h 2>/dev/null) && echo "$TOKEN" && break
-            echo "[WARN] Failed to create token (attempt $i/10); retrying in 3s" >&2
-            sleep 3
-          done
-          if [ -z "${TOKEN:-}" ]; then
-            echo "[ERR] Unable to create token for e2e-admin after 10 attempts" >&2
-            exit 1
+        TOKEN_FILE="{{ .NESTED_DIR }}/token.txt"
+        rm -f "$TOKEN_FILE"
+        SSH_OK=0
+        for attempt in $(seq 1 6); do
+          if KUBECONFIG={{ .PARENT_KUBECONFIG_PATH }} d8 v ssh --username={{ .DEFAULT_USER }} --identity-file={{ .SSH_PRIV_KEY_FILE }} --local-ssh=true --local-ssh-opts="-o StrictHostKeyChecking=no" --local-ssh-opts="-o UserKnownHostsFile=/dev/null" "${MASTER_NAME}.{{ .NAMESPACE }}" -c '
+            set -euo pipefail
+            SUDO="sudo /opt/deckhouse/bin/kubectl"
+            $SUDO -n kube-system get sa e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create sa e2e-admin >/dev/null 2>&1
+            $SUDO -n kube-system get clusterrolebinding e2e-admin >/dev/null 2>&1 || $SUDO -n kube-system create clusterrolebinding e2e-admin --clusterrole=cluster-admin --serviceaccount=kube-system:e2e-admin >/dev/null 2>&1
+            for i in $(seq 1 10); do
+              TOKEN=$($SUDO -n kube-system create token e2e-admin --duration=24h 2>/dev/null) && echo "$TOKEN" && break
+              echo "[WARN] Failed to create token (attempt $i/10); retrying in 3s" >&2
+              sleep 3
+            done
+            if [ -z "${TOKEN:-}" ]; then
+              echo "[ERR] Unable to create token for e2e-admin after 10 attempts" >&2
+              exit 1
+            fi
+          ' > "$TOKEN_FILE"; then
+            SSH_OK=1
+            break
           fi
-        ' > {{ .NESTED_DIR }}/token.txt
+          echo "[WARN] d8 v ssh attempt $attempt failed; retry in 15s..."
+          sleep 15
+        done
+        if [ "$SSH_OK" -ne 1 ] || [ ! -s "$TOKEN_FILE" ]; then
+          echo "[ERR] Failed to obtain nested token via d8 v ssh after multiple attempts" >&2
+          cat "$TOKEN_FILE" 2>/dev/null || true
+          exit 1
+        fi
         NESTED_TOKEN=$(cat {{ .NESTED_DIR }}/token.txt)
         SERVER_URL="https://api.{{ .NAMESPACE }}.{{ .DOMAIN }}"
         {
@@ -835,26 +850,31 @@ tasks:
       - |
         set -euo pipefail
         echo "[SDS] Waiting for SDS CRDs to be established..."
-        for base in lvmvolumegroups replicatedstoragepools replicatedstorageclasses; do
-          found_crd=""
-          for group in storage.deckhouse.io sds.deckhouse.io; do
-            candidate="${base}.${group}"
-            echo "[SDS] Checking for CRD '$candidate'..."
-            for i in $(seq 1 60); do
-              if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$candidate" >/dev/null 2>&1; then
-                found_crd="$candidate"
-                break
-              fi
-              echo "[SDS] CRD '$candidate' not found yet, retry $i/60"; sleep 10
-            done
-            [ -n "$found_crd" ] && break
+        for module in sds-node-configurator sds-replicated-volume; do
+          for i in $(seq 1 60); do
+            state=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get module "$module" -o jsonpath='{.status.state}' 2>/dev/null || true)
+            state=${state:-unknown}
+            case "$state" in
+              Ready|Enabled|Deployed) echo "[SDS] Module $module state=$state"; break ;;
+              *) echo "[SDS] Module $module state=$state; retry $i/60"; sleep 10 ;;
+            esac
           done
-          if [ -z "$found_crd" ]; then
-            echo "[WARN] CRD '${base}.(storage|sds).deckhouse.io' was not found in time" >&2
-            continue
+        done
+        for crd in lvmvolumegroups.storage.deckhouse.io replicatedstoragepools.storage.deckhouse.io replicatedstorageclasses.storage.deckhouse.io; do
+          echo "[SDS] Waiting for CRD '$crd'..."
+          found=0
+          for i in $(seq 1 36); do
+            if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$crd" >/dev/null 2>&1; then
+              found=1
+              break
+            fi
+            echo "[SDS] CRD '$crd' not found yet, retry $i/36"; sleep 5
+          done
+          if [ "$found" -eq 1 ]; then
+            KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=180s crd "$crd" || true
+          else
+            echo "[WARN] CRD '$crd' not found after waiting" >&2
           fi
-          echo "[SDS] Waiting for CRD '$found_crd' to become Established..."
-          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=300s crd "$found_crd" || true
         done
       - |
         set -euo pipefail
