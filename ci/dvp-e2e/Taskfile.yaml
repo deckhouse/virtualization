@@ -835,17 +835,26 @@ tasks:
       - |
         set -euo pipefail
         echo "[SDS] Waiting for SDS CRDs to be established..."
-        for crd in lvmvolumegroups.sds.deckhouse.io replicatedstoragepools.sds.deckhouse.io replicatedstorageclasses.sds.deckhouse.io; do
-          echo "[SDS] Waiting for CRD '$crd'..."
-          # First, wait for the CRD to appear
-          for i in $(seq 1 60); do
-            if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$crd" >/dev/null 2>&1; then
-              break
-            fi
-            echo "[SDS] CRD '$crd' not found yet, retry $i/60"; sleep 10
+        for base in lvmvolumegroups replicatedstoragepools replicatedstorageclasses; do
+          found_crd=""
+          for group in storage.deckhouse.io sds.deckhouse.io; do
+            candidate="${base}.${group}"
+            echo "[SDS] Checking for CRD '$candidate'..."
+            for i in $(seq 1 60); do
+              if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$candidate" >/dev/null 2>&1; then
+                found_crd="$candidate"
+                break
+              fi
+              echo "[SDS] CRD '$candidate' not found yet, retry $i/60"; sleep 10
+            done
+            [ -n "$found_crd" ] && break
           done
-          # Then, wait until it is Established (ignore errors to proceed if already established)
-          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=300s crd "$crd" || true
+          if [ -z "$found_crd" ]; then
+            echo "[WARN] CRD '${base}.(storage|sds).deckhouse.io' was not found in time" >&2
+            continue
+          fi
+          echo "[SDS] Waiting for CRD '$found_crd' to become Established..."
+          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=300s crd "$found_crd" || true
         done
       - |
         set -euo pipefail

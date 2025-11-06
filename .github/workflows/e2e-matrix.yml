@@ -179,19 +179,38 @@ jobs:
             RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
           echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
 
+      - name: Prepare Deckhouse registry auth
+        run: |
+          set -euo pipefail
+          user='${{ secrets.PROD_READ_REGISTRY_USER }}'
+          pass='${{ secrets.PROD_READ_REGISTRY_PASSWORD }}'
+          if [ -z "$user" ] || [ -z "$pass" ]; then
+            echo "[ERR] PROD_READ_REGISTRY_* secrets are not configured" >&2
+            exit 1
+          fi
+          echo "::add-mask::$user"
+          echo "::add-mask::$pass"
+          auth_b64=$(printf '%s:%s' "$user" "$pass" | base64 -w0)
+          docker_cfg=$(printf '{"auths":{"registry.deckhouse.io":{"auth":"%s"}}}' "$auth_b64")
+          docker_cfg_b64=$(printf '%s' "$docker_cfg" | base64 -w0)
+          echo "::add-mask::$docker_cfg_b64"
+          {
+            echo "REGISTRY_DOCKER_CFG=$docker_cfg_b64"
+            echo "DECKHOUSE_REGISTRY_USER=$user"
+            echo "DECKHOUSE_REGISTRY_PASSWORD=$pass"
+          } >> "$GITHUB_ENV"
+
       - name: Configure registry auth (REGISTRY_DOCKER_CFG)
         working-directory: ci/dvp-e2e
-        env:
-          REGISTRY_DOCKER_CFG: ${{ secrets.REGISTRY_DOCKER_CFG }}
         run: |
-          REGISTRY_DOCKER_CFG='${{ secrets.REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+          yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
 
-      - name: Docker login to Deckhouse dev registry
+      - name: Docker login to Deckhouse registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.DEV_REGISTRY }}
-          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
-          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
+          registry: registry.deckhouse.io
+          username: ${{ env.DECKHOUSE_REGISTRY_USER }}
+          password: ${{ env.DECKHOUSE_REGISTRY_PASSWORD }}
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
@@ -318,9 +337,9 @@ jobs:
           if [ "$PROFILE" = "cephrbd" ]; then
             echo "[Deckhouse] Configuring ModuleSource 'deckhouse-prod' for module images..."
             MODSRC_REPO="${{ vars.DECKHOUSE_PROD_MODULES_REPO || 'registry.deckhouse.io/deckhouse/ee/modules' }}"
-            CFG_B64="${{ secrets.REGISTRY_DOCKER_CFG || '' }}"
+            CFG_B64="${{ env.REGISTRY_DOCKER_CFG || '' }}"
             if [ -z "$CFG_B64" ]; then
-              echo "[ERR] REGISTRY_DOCKER_CFG secret is not set; Ceph requires deckhouse-prod modules source." >&2
+              echo "[ERR] REGISTRY_DOCKER_CFG is empty; ensure PROD_READ_REGISTRY_* secrets are configured." >&2
               exit 1
             else
               REPO="$MODSRC_REPO" CFG="$CFG_B64" yq eval -n '
