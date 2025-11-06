@@ -80,6 +80,8 @@ true
 {{- end -}}
 
 {{- define "dvcr.volumeMounts.maintenance" -}}
+- name: "dvcr-config"
+  mountPath: "/etc/docker/registry"
 {{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
 - name: data
   mountPath: /var/lib/registry/

@@ -39,6 +39,7 @@ func RemoveImages(images []Image) error {
 }
 
 func RemoveImage(image Image) error {
+	fmt.Printf("Remove manifest in %s directory\n", image.Path)
 	if _, err := os.Stat(image.Path); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("image directory %s for `%s` %q is not found", image.Path, image.Type, image.Name)

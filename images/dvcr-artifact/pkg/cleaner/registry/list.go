@@ -90,6 +90,12 @@ func ListImagesAll() ([]Image, error) {
 		return nil, err
 	}
 
+	fmt.Printf("Found %d cvi, %d vi, %d vd manifests in registry\n",
+		len(clusterVirtualImages),
+		len(virtualImages),
+		len(virtualDiskImages),
+	)
+
 	clusterVirtualImages = append(clusterVirtualImages, virtualImages...)
 	return append(clusterVirtualImages, virtualDiskImages...), nil
 }
@@ -156,8 +162,8 @@ func ListVirtualImagesForNamespace(namespace string) ([]Image, error) {
 	images := make([]Image, 0)
 	for _, imageEntry := range imagesEntries {
 		images = append(images, Image{
-			Type:      v1alpha2.ClusterVirtualImageKind,
-			Namespace: "",
+			Type:      v1alpha2.VirtualImageKind,
+			Namespace: namespace,
 			Name:      imageEntry.Name(),
 			Path:      filepath.Join(imagesDir, imageEntry.Name()),
 		})

@@ -79,6 +79,11 @@ func (c *Client) ListAllPossibleImages(ctx context.Context) ([]ImageInfo, error)
 		return nil, err
 	}
 
+	fmt.Printf("Found %d cvi, %d vi, %d vd resources in cluster\n",
+		len(clusterVirtualImages),
+		len(virtualImages),
+		len(virtualDisks),
+	)
 	// Return all 3 arrays.
 	clusterVirtualImages = append(clusterVirtualImages, virtualImages...)
 	return append(clusterVirtualImages, virtualDisks...), nil
