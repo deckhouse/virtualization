@@ -37,7 +37,7 @@ import (
 // The GVK is automatically extracted from the object via the client's scheme.
 func UntilObjectPhase(obj runtime.Object, expectedPhase string, timeout time.Duration) {
 	GinkgoHelper()
-	untilObjectStatusField(obj, extractPhase, expectedPhase, "phase", timeout)
+	untilObjectField(obj, "status.phase", expectedPhase, timeout)
 }
 
 // UntilObjectState waits for an object to reach the specified state.
@@ -46,41 +46,52 @@ func UntilObjectPhase(obj runtime.Object, expectedPhase string, timeout time.Dur
 // The GVK is automatically extracted from the object via the client's scheme.
 func UntilObjectState(obj runtime.Object, expectedState string, timeout time.Duration) {
 	GinkgoHelper()
-	untilObjectStatusField(obj, extractState, expectedState, "state", timeout)
+	untilObjectField(obj, "status.state", expectedState, timeout)
 }
 
-// extractPhase extracts the phase field from an object's status.
-func extractPhase(obj client.Object) string {
-	return extractStatusField(obj, "phase")
-}
-
-// extractState extracts the state field from an object's status.
-func extractState(obj client.Object) string {
-	return extractStatusField(obj, "state")
-}
-
-// extractStatusField extracts a string value from status field of an unstructured object.
-func extractStatusField(obj client.Object, field string) string {
+// extractField extracts a string value from an unstructured object at the provided fieldPath (dot-separated, e.g. "status.phase" or "metadata.name").
+func extractField(obj client.Object, fieldPath string) string {
 	u, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		return "Unknown"
 	}
-
-	value, found, err := unstructured.NestedString(u.Object, "status", field)
+	path := make([]string, 0)
+	for _, part := range splitFieldPath(fieldPath) {
+		if part != "" {
+			path = append(path, part)
+		}
+	}
+	value, found, err := unstructured.NestedString(u.Object, path...)
 	if err != nil || !found {
 		return "Unknown"
 	}
-
 	return value
 }
 
-// untilObjectStatusField waits for an object to reach the specified value using an extractor function.
-// It accepts a runtime.Object (which serves as a template with name and namespace),
-// extractor function to get the current value, expected value string, field name for error messages, and timeout duration.
-// The GVK is automatically extracted from the object via the client's scheme.
-func untilObjectStatusField(obj runtime.Object, extractor func(client.Object) string, expectedValue, fieldNameForError string, timeout time.Duration) {
-	GinkgoHelper()
+// splitFieldPath splits a dot-separated field path into its parts.
+func splitFieldPath(fieldPath string) []string {
+	var parts []string
+	curr := ""
+	for i := 0; i < len(fieldPath); i++ {
+		if fieldPath[i] == '.' {
+			parts = append(parts, curr)
+			curr = ""
+		} else {
+			curr += string(fieldPath[i])
+		}
+	}
+	if curr != "" {
+		parts = append(parts, curr)
+	}
+	return parts
+}
 
+// untilObjectField waits for an object field to reach the specified value.
+// It accepts a runtime.Object (which serves as a template with name and namespace),
+// fieldPath (dot-separated path to the field, e.g. "status.phase" or "metadata.name"),
+// expected value string, field name for error messages, and timeout duration.
+// The GVK is automatically extracted from the object via the client's scheme.
+func untilObjectField(obj runtime.Object, fieldPath, expectedValue string, timeout time.Duration) {
 	// Get name and namespace from client.Object
 	clientObj, ok := obj.(client.Object)
 	Expect(ok).To(BeTrue(), "object must implement client.Object interface")
@@ -122,11 +133,11 @@ func untilObjectStatusField(obj runtime.Object, extractor func(client.Object) st
 			return fmt.Errorf("failed to get object %s/%s: %w", namespace, name, err)
 		}
 
-		value := extractor(u)
+		value := extractField(u, fieldPath)
 		if value == expectedValue {
 			return nil
 		}
 
-		return fmt.Errorf("object %s/%s %s is %s, expected %s", namespace, name, fieldNameForError, value, expectedValue)
+		return fmt.Errorf("object %s/%s %s is %s, expected %s", namespace, name, fieldPath, value, expectedValue)
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
