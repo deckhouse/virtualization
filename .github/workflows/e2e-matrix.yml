@@ -321,33 +321,7 @@ jobs:
             echo "[INFO] Waiting for API Server... $i/30"; sleep 10
           done
 
-          echo "[Deckhouse] Waiting for Deckhouse to become Available..."
-          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system rollout status deploy/deckhouse --timeout=10m; then
-            echo "[Deckhouse] Not Available in time. Quick status:" >&2
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get pods -o wide || true
-            echo "[Deckhouse] Recent logs (tail 100):"
-            KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system logs deploy/deckhouse --tail=100 2>/dev/null | sed -n '/module\|ceph\|webhook\|error\|failed/p' || true
-            # Continue anyway; subsequent applies have retries.
-          fi
-
-          # Ensure webhook service object exists before applying ModuleConfigs
-          if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1; then
-            echo "[Deckhouse] Service deckhouse not found yet; waiting a bit..."
-            for i in $(seq 1 12); do
-              KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1 && break || true
-              sleep 5
-            done
-          fi
-          # Wait for Deckhouse endpoints and give a small grace period for webhook init
-          echo "[Deckhouse] Verifying 'deckhouse' endpoints before ModuleConfig apply..."
-          for i in $(seq 1 60); do
-            EPS=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get ep deckhouse -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || true)
-            if [ -n "$EPS" ]; then
-              echo "[Deckhouse] Endpoints ready: $EPS"; break
-            fi
-            echo "[Deckhouse] Waiting endpoints... $i/60"; sleep 5
-          done
-          echo "[Deckhouse] Extra grace period for webhook init..."; sleep 20
+          
 
           # Configure deckhouse-prod ModuleSource if Ceph profile is requested
           if [ "$PROFILE" = "cephrbd" ]; then
