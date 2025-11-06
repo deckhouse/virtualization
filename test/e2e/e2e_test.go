@@ -22,8 +22,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	_ "github.com/deckhouse/virtualization/test/e2e/bd"
 	"github.com/deckhouse/virtualization/test/e2e/controller"
-	_ "github.com/deckhouse/virtualization/test/e2e/images"
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
 )
