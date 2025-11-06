@@ -820,6 +820,43 @@ tasks:
           sleep 10
         done
 
+  nested:storage:configure:
+    desc: Configure storage profile inside nested cluster (Ceph or SDS)
+    vars:
+      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "ceph" }}'
+      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS }}'
+      STORAGE_PROFILE_NORMALIZED:
+        sh: |
+          case '{{ .STORAGE_PROFILE }}' in
+            sds|sds-local|sds_local|sds-replicated|sds_replicated) echo sds ;;
+            ceph|ceph-rbd|cephrbd) echo ceph ;;
+            *) echo '{{ .STORAGE_PROFILE }}' ;;
+          esac
+    cmds:
+      - cmd: 'echo "[STORAGE] normalized profile = {{ .STORAGE_PROFILE_NORMALIZED }}"'
+      - |
+        set -euo pipefail
+        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
+          ceph|sds) ;;
+          *) echo "Unknown storage profile: {{ .STORAGE_PROFILE }}" >&2; exit 1 ;;
+        esac
+      - |
+        set -euo pipefail
+        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
+          ceph)
+            echo "[CEPH] StorageClass already configured in workflow, skipping redundant check"
+            ;;
+          sds)
+            echo "[SDS] Configuring SDS storage..."
+            ;;
+        esac
+      - task: "nested:storage:sds"
+        vars:
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+          SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
+        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "sds" }}'
+
   nested:storage:sds:
     desc: Configure SDS storage profile in nested cluster
     vars:
@@ -906,43 +943,6 @@ EOF
           }
         ]'
 
-  nested:storage:configure:
-    desc: Configure storage profile inside nested cluster (Ceph or SDS)
-    vars:
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "ceph" }}'
-      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-      TARGET_STORAGE_CLASS: '{{ .TARGET_STORAGE_CLASS }}'
-      STORAGE_PROFILE_NORMALIZED:
-        sh: |
-          case '{{ .STORAGE_PROFILE }}' in
-            sds|sds-local|sds_local|sds-replicated|sds_replicated) echo sds ;;
-            ceph|ceph-rbd|cephrbd) echo ceph ;;
-            *) echo '{{ .STORAGE_PROFILE }}' ;;
-          esac
-    cmds:
-      - cmd: 'echo "[STORAGE] normalized profile = {{ .STORAGE_PROFILE_NORMALIZED }}"'
-      - |
-        set -euo pipefail
-        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
-          ceph|sds) ;;
-          *) echo "Unknown storage profile: {{ .STORAGE_PROFILE }}" >&2; exit 1 ;;
-        esac
-      - |
-        set -euo pipefail
-        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
-          ceph)
-            echo "[CEPH] StorageClass already configured in workflow, skipping redundant check"
-            ;;
-          sds)
-            echo "[SDS] Configuring SDS storage..."
-            ;;
-        esac
-      - task: "nested:storage:sds"
-        vars:
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
-        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "sds" }}'
-
   nested:storage:ceph:
     desc: Configure Ceph storage in nested cluster (enable modules, apply CephCluster, set default SC)
     vars:
@@ -965,6 +965,18 @@ EOF
           if kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
             break; else echo "[Ceph] operator-ceph.yaml apply failed, retry $i/12"; sleep 10; fi
         done
+        echo "[Ceph] Waiting for modules operator-ceph, csi-ceph, snapshot-controller to become Ready..."
+        for module in operator-ceph csi-ceph snapshot-controller; do
+          for i in $(seq 1 60); do
+            state=$(kubectl get module "$module" -o jsonpath='{.status.state}' 2>/dev/null || true)
+            state=${state:-unknown}
+            if [ "$state" = "Ready" ] || [ "$state" = "Enabled" ] || [ "$state" = "Deployed" ]; then
+              echo "[Ceph] Module $module state=$state"
+              break
+            fi
+            echo "[Ceph] Module $module state=$state; retry $i/60"; sleep 10
+          done
+        done
         echo "[Ceph] Waiting for rook-ceph-operator..."
         for i in $(seq 1 60); do
           if kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
@@ -972,8 +984,17 @@ EOF
           fi
           echo "[Ceph] rook-ceph-operator not found yet ($i/60)"; sleep 10
         done
-        echo "[Ceph] Waiting for CRD cephclusters.ceph.rook.io..."
-        kubectl wait --for=condition=Established --timeout=300s crd/cephclusters.ceph.rook.io || true
+        echo "[Ceph] Waiting for Ceph CRDs to appear..."
+        for crd in cephclusters.ceph.rook.io cephblockpools.ceph.rook.io cephfilesystems.ceph.rook.io; do
+          for i in $(seq 1 36); do
+            if kubectl get crd "$crd" >/dev/null 2>&1; then
+              echo "[Ceph] CRD $crd detected"
+              kubectl wait --for=condition=Established --timeout=300s crd/"$crd" || true
+              break
+            fi
+            echo "[Ceph] CRD $crd not found yet, retry $i/36"; sleep 5
+          done
+        done
         echo "[Ceph] Applying CephCluster CR..."
         for i in {1..12}; do
           if kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
@@ -1030,62 +1051,3 @@ EOF
         export KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
         cd {{ .E2E_DIR }}
         task run TIMEOUT='{{ .TIMEOUT }}' {{ if .FOCUS }}FOCUS='{{ .FOCUS }}'{{ end }} {{ if .LABELS }}LABELS='{{ .LABELS }}'{{ end }} {{ if .JUNIT_PATH }}JUNIT_PATH='{{ .JUNIT_PATH }}'{{ end }}
-
-  # ------------------------------------------------------------
-  # Cleanup used by workflow cleanup job
-  # ------------------------------------------------------------
-  cleanup:namespaces:safe:
-    desc: Safely delete old dvp-e2e-* namespaces that belong to this project
-    vars:
-      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
-      CONFIRM: '{{ .CONFIRM | default "false" }}'
-    env:
-      KUBECONFIG: "{{ .PARENT_KUBECONFIG | default .PARENT_KUBECONFIG_FILE }}"
-    cmds:
-      - |
-        set -euo pipefail
-        echo "[SCAN] Searching namespaces with prefix '{{ .FILTER_PREFIX }}' and deployment 'jump-host'"
-        declare -a candidates=()
-        mapfile -t candidates < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
-        ours=()
-        for ns in "${candidates[@]:-}"; do
-          [ -z "${ns:-}" ] && continue
-          if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
-            ours+=("$ns")
-          fi
-        done
-        if [ ${#ours[@]} -eq 0 ]; then
-          echo "[INFO] No namespaces to delete."
-          exit 0
-        fi
-        echo "[MATCH] Will delete the following namespaces (detected as ours):"
-        printf ' - %s\n' "${ours[@]}"
-        if [ "{{ .CONFIRM }}" != "true" ]; then
-          echo "[SAFE] Dry-run only. Re-run with CONFIRM=true to delete."
-          echo "Example: task cleanup:namespaces:safe CONFIRM=true"
-          exit 0
-        fi
-        for ns in "${ours[@]}"; do
-          echo "[DEL] Deleting namespace $ns"
-          kubectl delete ns "$ns" --wait=false || true
-          echo "[WAIT] Waiting for delete $ns (polling)"
-          sleep 3
-        done
-
-  cleanup:cleanup:namespaces:
-    desc: Cleanup test namespaces by prefix
-    vars:
-      FILTER_PREFIX: '{{ .FILTER_PREFIX | default "nightly-nested-e2e-" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        echo "Scanning namespaces with prefix: {{ .FILTER_PREFIX }}"
-        namespaces=()
-        mapfile -t namespaces < <(kubectl get ns -o json | jq -r --arg pfx '{{ .FILTER_PREFIX }}' '.items[].metadata.name | select(startswith($pfx))')
-        if [ ${#namespaces[@]} -eq 0 ]; then
-          echo "No namespaces found to delete"; exit 0; fi
-        printf 'Will delete:\n'; printf ' - %s\n' "${namespaces[@]}"
-        for ns in "${namespaces[@]}"; do
-          kubectl delete ns "$ns" --wait=false || true
-        done
-        echo "Requested deletions triggered"

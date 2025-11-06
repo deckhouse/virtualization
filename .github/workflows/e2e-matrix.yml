@@ -260,16 +260,16 @@ jobs:
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e
         run: |
-          USE_GH_SSH_KEYS=true SSH_FILE_NAME=cloud task render-infra \
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task render-infra \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="cloud"
-          USE_GH_SSH_KEYS=true SSH_FILE_NAME=cloud task infra-deploy \
+            SSH_FILE_NAME="id_ed"
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task infra-deploy \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="cloud"
+            SSH_FILE_NAME="id_ed"
 
       - name: Bootstrap nested cluster
         working-directory: ci/dvp-e2e
@@ -279,7 +279,7 @@ jobs:
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="cloud" \
+            SSH_FILE_NAME="id_ed" \
             TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
 
       - name: Attach data disks to worker VMs using hotplug
@@ -301,7 +301,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             NAMESPACE="${{ env.RUN_ID }}" \
             SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
-            SSH_FILE_NAME="cloud" \
+            SSH_FILE_NAME="id_ed" \
             NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
@@ -556,7 +556,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
             SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
-            SSH_FILE_NAME="cloud" \
+            SSH_FILE_NAME="id_ed" \
             PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
             PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
             NAMESPACE="${{ env.RUN_ID }}" \
@@ -723,7 +723,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
             SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
-            SSH_FILE_NAME="cloud" \
+            SSH_FILE_NAME="id_ed" \
             PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
             PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
             NAMESPACE="${{ env.RUN_ID }}" \
@@ -933,12 +933,27 @@ jobs:
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
       - name: Cleanup test namespaces
-        working-directory: ci/dvp-e2e
         run: |
-          echo "🧹 Cleaning up test namespaces..."
-          task cleanup:namespaces:safe \
-            FILTER_PREFIX="nightly-nested-e2e-" \
-            CONFIRM=true
+          set -euo pipefail
+          PREFIX="nightly-nested-e2e-"
+          echo "🧹 Cleaning up namespaces matching prefix '${PREFIX}'"
+          mapfile -t CANDIDATES < <(kubectl get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep "^${PREFIX}" || true)
+          OURS=()
+          for ns in "${CANDIDATES[@]:-}"; do
+            [ -z "$ns" ] && continue
+            if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
+              OURS+=("$ns")
+            fi
+          done
+          if [ "${#OURS[@]}" -eq 0 ]; then
+            echo "[INFO] No namespaces to delete."
+          else
+            echo "[INFO] Deleting namespaces:"
+            printf ' - %s\n' "${OURS[@]}"
+            for ns in "${OURS[@]}"; do
+              kubectl delete ns "$ns" --wait=false || true
+            done
+          fi
 
       - name: Cleanup ingress smoke namespaces
         if: always()
