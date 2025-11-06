@@ -553,6 +553,110 @@ jobs:
             NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
 
+      - name: Enable ingress-nginx in nested cluster
+        run: |
+          set -euo pipefail
+          NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+          echo "[Ingress] Enabling ModuleConfig ingress-nginx"
+          cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModuleConfig
+          metadata:
+            name: ingress-nginx
+          spec:
+            enabled: true
+          EOF
+
+          echo "[Ingress] Creating IngressNginxController (HostPort, class=nginx)"
+          cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
+          apiVersion: deckhouse.io/v1
+          kind: IngressNginxController
+          metadata:
+            name: main
+          spec:
+            ingressClass: "nginx"
+            inlet: "HostPort"
+          EOF
+
+          echo "[Ingress] Waiting controller pod"
+          for i in $(seq 1 60); do
+            READY=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-ingress-nginx get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}' 2>/dev/null | awk '/^controller-/{print $2}' | head -n1)
+            [ "$READY" = "Running" ] && { echo "[Ingress] Controller Running"; break; } || true
+            echo "[Ingress] Waiting... $i/60"; sleep 5
+          done
+
+      - name: Ingress publish smoke (in-cluster)
+        run: |
+          set -euo pipefail
+          NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+          RUN_NS="${{ env.RUN_ID }}-ingress"
+
+          echo "[Ingress] Namespace $RUN_NS"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl create ns "$RUN_NS" || true
+
+          echo "[Ingress] Echo pod and Service"
+          cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$RUN_NS" apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: echo
+            labels:
+              app: vm-http
+          spec:
+            containers:
+            - name: echo
+              image: hashicorp/http-echo:0.2.3
+              args: ["-text=hello from ingress"]
+              ports:
+              - containerPort: 5678
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: vm-http
+          spec:
+            selector:
+              app: vm-http
+            ports:
+            - name: http
+              port: 80
+              targetPort: 5678
+          EOF
+
+          echo "[Ingress] Ingress resource"
+          cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$RUN_NS" apply -f -
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: vm-http
+            annotations:
+              nginx.ingress.kubernetes.io/ssl-redirect: "false"
+          spec:
+            ingressClassName: nginx
+            rules:
+            - host: vm-http.localtest
+              http:
+                paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: vm-http
+                      port:
+                        number: 80
+          EOF
+
+          echo "[Ingress] Resolve controller host IP"
+          HOST_IP=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-ingress-nginx get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.hostIP}{"\n"}{end}' | awk '/^controller-/{print $2; exit}')
+          if [ -z "$HOST_IP" ]; then
+            HOST_IP=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+          fi
+          echo "[Ingress] HOST_IP=$HOST_IP"
+
+          echo "[Ingress] Curl from in-cluster"
+          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$RUN_NS" run curl --image=curlimages/curl:8.10.1 --restart=Never --rm -i -- /bin/sh -c "curl -sS -H 'Host: vm-http.localtest' http://$HOST_IP/ | head -n1" || {
+            echo "[Ingress] Smoke failed" >&2; exit 1; }
+
       - name: Ceph CSI smoke check (PVC)
         if: ${{ matrix.profile == 'cephrbd' }}
         run: |
@@ -823,6 +927,15 @@ jobs:
           task cleanup:namespaces:safe \
             FILTER_PREFIX="nightly-nested-e2e-" \
             CONFIRM=true
+
+      - name: Cleanup ingress smoke namespaces
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "[Cleanup] Deleting ingress smoke namespaces matching nightly-nested-e2e-*-ingress"
+          kubectl get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | awk '/^nightly-nested-e2e-.*-ingress$/{print $1}' | while read -r ns; do
+            echo "[Cleanup] Deleting namespace $ns"; kubectl delete ns "$ns" --wait=false || true;
+          done
 
       - name: Report cleanup results
         if: always()
