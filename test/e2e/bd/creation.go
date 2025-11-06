@@ -232,12 +232,12 @@ var _ = Describe("VirtualImageCreation", func() {
 			Eventually(func(g Gomega) {
 				for _, vi := range vis {
 					err := f.Get(context.Background(), vi)
-					Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 				}
 				for _, cvi := range cvis {
 					err := f.Get(context.Background(), cvi)
-					Expect(err).NotTo(HaveOccurred())
+					g.Expect(err).NotTo(HaveOccurred())
 					g.Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 				}
 			}, framework.LongTimeout, time.Second).Should(Succeed())
