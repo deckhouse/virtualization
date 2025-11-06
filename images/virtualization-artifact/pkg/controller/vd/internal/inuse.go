@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -153,8 +154,9 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *v1alpha2.VirtualD
 
 func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *v1alpha2.VirtualDisk) error {
 	var vms v1alpha2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.MatchingFields{
-		indexer.IndexFieldVMByVD: vd.Name,
+	err := h.client.List(ctx, &vms, &client.ListOptions{
+		Namespace:     vd.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMByVD, vd.Name),
 	})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machines: %w", err)
