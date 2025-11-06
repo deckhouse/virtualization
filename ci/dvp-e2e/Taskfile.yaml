@@ -869,7 +869,7 @@ tasks:
         echo "[SDS] Enabling SDS modules (node-configurator, replicated-volume)..."
         success=0
         for attempt in $(seq 1 5); do
-          if cat <<'EOF' | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f -
+          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f - <<'EOF'
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
