@@ -182,22 +182,31 @@ jobs:
       - name: Prepare Deckhouse registry auth
         run: |
           set -euo pipefail
-          user='${{ secrets.PROD_READ_REGISTRY_USER }}'
-          pass='${{ secrets.PROD_READ_REGISTRY_PASSWORD }}'
-          if [ -z "$user" ] || [ -z "$pass" ]; then
+          prod_user='${{ secrets.PROD_READ_REGISTRY_USER }}'
+          prod_pass='${{ secrets.PROD_READ_REGISTRY_PASSWORD }}'
+          dev_user='${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}'
+          dev_pass='${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}'
+          if [ -z "$prod_user" ] || [ -z "$prod_pass" ]; then
             echo "[ERR] PROD_READ_REGISTRY_* secrets are not configured" >&2
             exit 1
           fi
-          echo "::add-mask::$user"
-          echo "::add-mask::$pass"
-          auth_b64=$(printf '%s:%s' "$user" "$pass" | base64 -w0)
-          docker_cfg=$(printf '{"auths":{"registry.deckhouse.io":{"auth":"%s"}}}' "$auth_b64")
-          docker_cfg_b64=$(printf '%s' "$docker_cfg" | base64 -w0)
+          if [ -z "$dev_user" ] || [ -z "$dev_pass" ]; then
+            echo "[ERR] BOOTSTRAP_DEV_REGISTRY_* secrets are not configured" >&2
+            exit 1
+          fi
+          echo "::add-mask::$prod_user"
+          echo "::add-mask::$prod_pass"
+          echo "::add-mask::$dev_user"
+          echo "::add-mask::$dev_pass"
+          prod_auth_b64=$(printf '%s:%s' "$prod_user" "$prod_pass" | base64 | tr -d '\n')
+          dev_auth_b64=$(printf '%s:%s' "$dev_user" "$dev_pass" | base64 | tr -d '\n')
+          docker_cfg=$(printf '{"auths":{"registry.deckhouse.io":{"auth":"%s"},"dev-registry.deckhouse.io":{"auth":"%s"}}}' "$prod_auth_b64" "$dev_auth_b64")
+          docker_cfg_b64=$(printf '%s' "$docker_cfg" | base64 | tr -d '\n')
           echo "::add-mask::$docker_cfg_b64"
           {
             echo "REGISTRY_DOCKER_CFG=$docker_cfg_b64"
-            echo "DECKHOUSE_REGISTRY_USER=$user"
-            echo "DECKHOUSE_REGISTRY_PASSWORD=$pass"
+            echo "DECKHOUSE_REGISTRY_USER=$prod_user"
+            echo "DECKHOUSE_REGISTRY_PASSWORD=$prod_pass"
           } >> "$GITHUB_ENV"
 
       - name: Configure registry auth (REGISTRY_DOCKER_CFG)
