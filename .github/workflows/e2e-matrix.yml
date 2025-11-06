@@ -212,6 +212,13 @@ jobs:
           username: ${{ env.DECKHOUSE_REGISTRY_USER }}
           password: ${{ env.DECKHOUSE_REGISTRY_PASSWORD }}
 
+      - name: Docker login to Deckhouse dev registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
+          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
+
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
         id: profile-config
