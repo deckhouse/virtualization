@@ -231,12 +231,12 @@ var _ = Describe("VirtualImageCreation", func() {
 		By("Verifying that images are ready", func() {
 			Eventually(func(g Gomega) {
 				for _, vi := range vis {
-					err := f.UpdateFromCluster(context.Background(), vi)
+					err := f.Get(context.Background(), vi)
 					Expect(err).NotTo(HaveOccurred())
 					g.Expect(vi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 				}
 				for _, cvi := range cvis {
-					err := f.UpdateFromCluster(context.Background(), cvi)
+					err := f.Get(context.Background(), cvi)
 					Expect(err).NotTo(HaveOccurred())
 					g.Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 				}

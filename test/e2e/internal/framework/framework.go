@@ -184,19 +184,10 @@ func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...clie
 	return nil
 }
 
-// UpdateFromCluster updates the state of the provided Kubernetes resources from the cluster.
-//
-// For each provided object, it fetches the latest state from the API server and updates the object.
-// Returns an error if any of the gets fail.
-func (f *Framework) UpdateFromCluster(ctx context.Context, objs ...client.Object) error {
-	for _, obj := range objs {
-		key := types.NamespacedName{
-			Namespace: obj.GetNamespace(),
-			Name:      obj.GetName(),
-		}
-		if err := f.client.Get(ctx, key, obj); err != nil {
-			return err
-		}
+func (f *Framework) Get(ctx context.Context, obj client.Object) error {
+	key := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
 	}
-	return nil
+	return f.client.Get(ctx, key, obj)
 }
