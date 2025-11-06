@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -252,7 +252,7 @@ var _ = Describe("VirtualImageCreation", func() {
 			vis = append(baseVis, vis...)
 			cvis = append(baseCvis, cvis...)
 
-			var objects []runtime.Object
+			var objects []client.Object
 			for _, vi := range vis {
 				objects = append(objects, vi)
 			}
