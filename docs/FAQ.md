@@ -396,11 +396,11 @@ ansible -m shell -a "uptime" \
 
 ## How to redirect traffic to a virtual machine?
 
-The virtual machine operates within a Kubernetes cluster, so directing network traffic to it is similar to directing traffic to pods. To route network traffic to a virtual machine, the standard Kubernetes mechanism - the Service resource is used, which selects target objects based on labels (selector).
+The virtual machine operates within a Kubernetes cluster, so directing network traffic to it is similar to routing traffic to pods. To route network traffic to a virtual machine, Kubernetes uses a standard mechanism — the Service resource, which selects target objects using labels selectors.
 
-1. Create a service with the required settings.
+1. Create a Service with the required settings.
 
-   For example, consider a virtual machine with the label `vm: frontend-0`, an HTTP service exposed on port 80/443, and open SSH on port 22:
+   For example, consider a virtual machine with the label `vm: frontend-0`, an HTTP service exposed on ports 80 and 443, and SSH access on port 22:
 
     ```yaml
     apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -413,9 +413,9 @@ The virtual machine operates within a Kubernetes cluster, so directing network t
     spec: ...
     ```
 
-1. To route network traffic to the virtual machine's ports, create a service:
+1. To route network traffic to the virtual machine's ports, create the following Service:
 
-   The following Service provides access to the virtual machine. The service listens on ports 80/443 and routes traffic to the target virtual machine's ports 80/443, while external SSH access is provided on port 2211:
+   This Service listens on ports 80 and 443 and forwards traffic to the target virtual machine’s ports 80 and 443. SSH access from outside the cluster is provided on port 2211.
 
     ```yaml
     apiVersion: v1
