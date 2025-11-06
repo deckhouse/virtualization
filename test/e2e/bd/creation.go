@@ -50,6 +50,9 @@ var _ = Describe("VirtualImageCreation", func() {
 			vdSnapshot *v1alpha2.VirtualDiskSnapshot
 			vis        []*v1alpha2.VirtualImage
 			cvis       []*v1alpha2.ClusterVirtualImage
+
+			baseCvis []*v1alpha2.ClusterVirtualImage
+			baseVis  []*v1alpha2.VirtualImage
 		)
 
 		By("Creating VirtualDisk", func() {
@@ -87,12 +90,7 @@ var _ = Describe("VirtualImageCreation", func() {
 			util.UntilObjectPhase(vdSnapshot, string(v1alpha2.VirtualDiskSnapshotPhaseReady), framework.ShortTimeout)
 		})
 
-		By("Creating images", func() {
-			var (
-				baseCvis []*v1alpha2.ClusterVirtualImage
-				baseVis  []*v1alpha2.VirtualImage
-			)
-
+		By("Generating base cvis", func() {
 			baseCvis = append(baseCvis, object.NewGenerateContainerImageCVI(fmt.Sprintf("%s-cvi-ci-", cviPrefix)))
 			baseCvis = append(baseCvis, cvibuilder.New(
 				cvibuilder.WithGenerateName(fmt.Sprintf("%s-cvi-http-", cviPrefix)),
@@ -110,11 +108,9 @@ var _ = Describe("VirtualImageCreation", func() {
 				cvibuilder.WithGenerateName(fmt.Sprintf("%s-cvi-from-vds-", cviPrefix)),
 				cvibuilder.WithDataSourceObjectRef(v1alpha2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name, f.Namespace().Name),
 			))
-			for _, cvi := range baseCvis {
-				err := f.CreateWithDeferredDeletion(context.Background(), cvi)
-				Expect(err).NotTo(HaveOccurred())
-			}
+		})
 
+		By("Generating base vis on dvcr", func() {
 			baseVis = append(baseVis, object.NewGeneratedContainerImageVI("vi-ci-", f.Namespace().Name))
 			baseVis = append(baseVis, vibuilder.New(
 				vibuilder.WithGenerateName("vi-http-"),
@@ -138,8 +134,20 @@ var _ = Describe("VirtualImageCreation", func() {
 				vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			))
-			baseVis = append(baseVis, object.NewGeneratedHTTPVIUbuntu("vi-pvc-http-", f.Namespace().Name, vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim)))
+		})
+
+		By("Generating base vis on pvc", func() {
 			baseVis = append(baseVis, object.NewGeneratedContainerImageVI("vi-pvc-ci-", f.Namespace().Name, vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim)))
+			baseVis = append(baseVis, vibuilder.New(
+				vibuilder.WithGenerateName("vi-http-"),
+				vibuilder.WithNamespace(f.Namespace().Name),
+				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+				vibuilder.WithDataSourceHTTP(
+					object.ImageURLAlpineUEFIPerf,
+					nil,
+					nil,
+				),
+			))
 			baseVis = append(baseVis, vibuilder.New(
 				vibuilder.WithGenerateName("vi-pvc-from-vd-"),
 				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
@@ -152,28 +160,38 @@ var _ = Describe("VirtualImageCreation", func() {
 				vibuilder.WithNamespace(f.Namespace().Name),
 				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
 			))
+		})
+
+		By("Creating base images", func() {
+			for _, cvi := range baseCvis {
+				err := f.CreateWithDeferredDeletion(context.Background(), cvi)
+				Expect(err).NotTo(HaveOccurred())
+			}
 			for _, vi := range baseVis {
 				err := f.CreateWithDeferredDeletion(context.Background(), vi)
 				Expect(err).NotTo(HaveOccurred())
 			}
+		})
 
-			// Create cluster virtual images from cluster virtual images
+		By("Generating cvis from base cvis", func() {
 			for _, baseCvi := range baseCvis {
 				cvis = append(cvis, cvibuilder.New(
 					cvibuilder.WithName(fmt.Sprintf("%s-cvi-from-%s", cviPrefix, baseCvi.Name)),
 					cvibuilder.WithDataSourceObjectRef(v1alpha2.ClusterVirtualImageObjectRefKindClusterVirtualImage, baseCvi.Name, ""),
 				))
 			}
+		})
 
-			// Create cluster virtual images from virtual images
+		By("Generating cvis from base vis", func() {
 			for _, baseVi := range baseVis {
 				cvis = append(cvis, cvibuilder.New(
 					cvibuilder.WithName(fmt.Sprintf("%s-cvi-from-%s", cviPrefix, baseVi.Name)),
 					cvibuilder.WithDataSourceObjectRef(v1alpha2.ClusterVirtualImageObjectRefKindVirtualImage, baseVi.Name, baseVi.Namespace),
 				))
 			}
+		})
 
-			// Create virtual images from cluster virtual images
+		By("Generating dvcr vis from base cvis", func() {
 			for _, baseCvi := range baseCvis {
 				vis = append(vis, vibuilder.New(
 					vibuilder.WithName(fmt.Sprintf("vi-from-%s", baseCvi.Name)),
@@ -182,8 +200,9 @@ var _ = Describe("VirtualImageCreation", func() {
 					vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 				))
 			}
+		})
 
-			// Create virtual images from virtual images
+		By("Generating dvcr vis from base vis", func() {
 			for _, baseVi := range baseVis {
 				vis = append(vis, vibuilder.New(
 					vibuilder.WithName(fmt.Sprintf("vi-from-%s", baseVi.Name)),
@@ -192,8 +211,9 @@ var _ = Describe("VirtualImageCreation", func() {
 					vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVi.Name),
 				))
 			}
+		})
 
-			// Create pvc virtual images from cluster virtual images
+		By("Generating pvc vis from base cvis", func() {
 			for _, baseCvi := range baseCvis {
 				vis = append(vis, vibuilder.New(
 					vibuilder.WithName(fmt.Sprintf("vi-pvc-from-%s", baseCvi.Name)),
@@ -202,8 +222,9 @@ var _ = Describe("VirtualImageCreation", func() {
 					vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
 				))
 			}
+		})
 
-			// Create pvc virtual images from virtual images
+		By("Generating pvc vis from base vis", func() {
 			for _, baseVi := range baseVis {
 				vis = append(vis, vibuilder.New(
 					vibuilder.WithName(fmt.Sprintf("vi-pvc-from-%s", baseVi.Name)),
@@ -212,7 +233,9 @@ var _ = Describe("VirtualImageCreation", func() {
 					vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVi.Name),
 				))
 			}
+		})
 
+		By("Creating images", func() {
 			for _, vi := range vis {
 				err := f.CreateWithDeferredDeletion(context.Background(), vi)
 				Expect(err).NotTo(HaveOccurred())
@@ -222,13 +245,13 @@ var _ = Describe("VirtualImageCreation", func() {
 				err := f.CreateWithDeferredDeletion(context.Background(), cvi)
 				Expect(err).NotTo(HaveOccurred())
 			}
-
-			// Base images should be considered
-			vis = append(baseVis, vis...)
-			cvis = append(baseCvis, cvis...)
 		})
 
 		By("Verifying that images are ready", func() {
+			// Should check base images too
+			vis = append(baseVis, vis...)
+			cvis = append(baseCvis, cvis...)
+
 			Eventually(func(g Gomega) {
 				for _, vi := range vis {
 					err := f.Get(context.Background(), vi)
