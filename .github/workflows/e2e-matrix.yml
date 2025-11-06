@@ -295,36 +295,6 @@ jobs:
             # Continue anyway; subsequent applies have retries.
           fi
 
-          # Wait for Deckhouse service endpoints before queue diagnostics
-          echo "[Deckhouse] Waiting for 'deckhouse' endpoints..."
-          for i in $(seq 1 60); do
-            EPS=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get ep deckhouse -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || true)
-            if [ -n "$EPS" ]; then
-              echo "[Deckhouse] Endpoints: $EPS"; break
-            fi
-            echo "[Deckhouse] Waiting endpoints... $i/60"; sleep 5
-          done
-
-          # Debug: Platform queue via runner-installed d8 using nested kubeconfig
-          echo "[DEBUG] Platform queue diagnostics (runner d8)..."
-          if command -v d8 >/dev/null 2>&1; then
-            echo "[DEBUG] d8 path: $(command -v d8 || echo 'not found')"
-            d8 --version 2>&1 || d8 version 2>&1 || true
-            ok=0
-            for i in $(seq 1 12); do
-              if KUBECONFIG="$NESTED_KUBECONFIG" d8 platform queue list --output json 2>/dev/null; then
-                ok=1; break
-              fi
-              echo "[DEBUG] queue not ready ($i/12); sleep 5"; sleep 5
-            done
-            [ "$ok" -eq 1 ] || echo "[DEBUG] Failed to get platform queue via d8"
-          else
-            echo "[DEBUG] d8 not found on runner; skipping platform queue"
-          fi
-          echo ""
-          echo "[DEBUG] Recent Deckhouse events..."
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get events --sort-by='.lastTimestamp' --tail=20 2>/dev/null || true
-
           # Ensure webhook service object exists before applying ModuleConfigs
           if ! KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-system get svc deckhouse >/dev/null 2>&1; then
             echo "[Deckhouse] Service deckhouse not found yet; waiting a bit..."
@@ -353,15 +323,13 @@ jobs:
               echo "[ERR] REGISTRY_DOCKER_CFG secret is not set; Ceph requires deckhouse-prod modules source." >&2
               exit 1
             else
-              yq eval -n \
-                --arg repo "$MODSRC_REPO" \
-                --arg cfg "$CFG_B64" '
+              REPO="$MODSRC_REPO" CFG="$CFG_B64" yq eval -n '
                   .apiVersion = "deckhouse.io/v1alpha1" |
                   .kind = "ModuleSource" |
                   .metadata.name = "deckhouse-prod" |
-                  .spec.registry.repo = $repo |
+                  .spec.registry.repo = env(REPO) |
                   .spec.registry.scheme = "HTTPS" |
-                  .spec.registry.dockerCfg = $cfg |
+                  .spec.registry.dockerCfg = env(CFG) |
                   .spec.releaseChannel = "EarlyAccess"
                 ' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
               echo "[Deckhouse] ModuleSource 'deckhouse-prod' applied."
@@ -514,17 +482,17 @@ jobs:
               fi
               echo "[Ceph] Waiting for StorageClass, retry $i/30"; sleep 5
             done
-          fi
 
-          echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
-          DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
-            {
-              "op": "replace",
-              "path": "/spec/settings/defaultClusterStorageClass",
-              "value": "'$DEFAULT_STORAGE_CLASS'"
-            }
-          ]'
+            echo "[Ceph] Setting ceph-pool-r2-csi-rbd-immediate as default StorageClass..."
+            DEFAULT_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+            KUBECONFIG="$NESTED_KUBECONFIG" kubectl patch mc global --type='json' -p='[
+              {
+                "op": "replace",
+                "path": "/spec/settings/defaultClusterStorageClass",
+                "value": "'$DEFAULT_STORAGE_CLASS'"
+              }
+            ]'
+          fi
 
       - name: Configure storage classes
         working-directory: ci/dvp-e2e
