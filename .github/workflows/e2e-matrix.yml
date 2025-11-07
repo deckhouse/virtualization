@@ -69,13 +69,13 @@ jobs:
   # ============================================
   # 2. E2E - Parallel test execution
   # ============================================
-  e2e:
-    name: E2E (${{ matrix.profile }})
+  prepare:
+    name: Prepare Cluster (${{ matrix.profile }})
     needs: [setup]
     runs-on: ubuntu-latest
     timeout-minutes: 300
     concurrency:
-      group: e2e-${{ github.ref }}-${{ matrix.profile }}
+      group: prepare-${{ github.ref }}-${{ matrix.profile }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
@@ -87,6 +87,13 @@ jobs:
       TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
       LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
       LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }}  # TODO: replace with channel secret after successful run
+
+    outputs:
+      run_id: ${{ steps.prep.outputs.run_id }}
+      storage_class: ${{ steps.profile-config.outputs.storage_class }}
+      image_storage_class: ${{ steps.profile-config.outputs.image_storage_class }}
+      snapshot_storage_class: ${{ steps.profile-config.outputs.snapshot_storage_class }}
+      attach_disk_size: ${{ steps.profile-config.outputs.attach_disk_size }}
 
     steps:
       - uses: actions/checkout@v4
@@ -254,6 +261,10 @@ jobs:
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
+          echo "storage_class=$STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "image_storage_class=$IMAGE_STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "snapshot_storage_class=$SNAPSHOT_STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "attach_disk_size=$ATTACH_DISK_SIZE" >> $GITHUB_OUTPUT
           # Pass storage profile into run values for Helm templates
           PROFILE='${{ matrix.profile }}' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
 
@@ -684,6 +695,119 @@ jobs:
           KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" delete pvc smoke-pvc --wait=true --ignore-not-found=true || true
           KUBECONFIG="$NESTED_KUBECONFIG" kubectl delete ns "$SMOKE_NS" --wait=false || true
 
+      - name: Upload run context
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-context-${{ env.RUN_ID }}
+          path: |
+            ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
+            ci/dvp-e2e/tmp/shared
+          if-no-files-found: warn
+
+  run-e2e:
+    name: E2E Tests (${{ matrix.profile }})
+    needs: [setup, prepare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    concurrency:
+      group: e2e-${{ github.ref }}-${{ matrix.profile }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
+
+    env:
+      GO_VERSION: "1.24.6"
+      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'latest'
+
+      - name: Install Deckhouse CLI
+        env:
+          D8_VERSION: v0.13.2
+        run: |
+          set -euo pipefail
+          echo "Installing d8 ${D8_VERSION}..."
+          curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
+          tar -xzf d8.tgz linux-amd64/bin/d8
+          mv linux-amd64/bin/d8 /usr/local/bin/d8
+          chmod +x /usr/local/bin/d8
+          rm -rf d8.tgz linux-amd64
+          d8 --version
+
+      - name: Install yq
+        run: |
+          echo "Installing yq..."
+          curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Restore run context
+        uses: actions/download-artifact@v4
+        with:
+          name: run-context-${{ needs.prepare.outputs.run_id }}
+          path: .
+
+      - name: Export run variables
+        run: |
+          echo "RUN_ID=${{ needs.prepare.outputs.run_id }}" >> "$GITHUB_ENV"
+          echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
+          echo "STORAGE_CLASS=${{ needs.prepare.outputs.storage_class }}" >> "$GITHUB_ENV"
+          echo "IMAGE_STORAGE_CLASS=${{ needs.prepare.outputs.image_storage_class }}" >> "$GITHUB_ENV"
+          echo "SNAPSHOT_STORAGE_CLASS=${{ needs.prepare.outputs.snapshot_storage_class }}" >> "$GITHUB_ENV"
+
+      - name: Build parent kubeconfig from secret (tests)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
       - name: Prepare JUnit directory
         run: |
           mkdir -p "${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}"
@@ -721,7 +845,6 @@ jobs:
         run: |
           JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
           mkdir -p "$(dirname "$JUNIT_OUT")"
-          # JUnit file should already be created by nested:test-run task
           if [ -f "$JUNIT_OUT" ]; then
             echo "JUnit file found at $JUNIT_OUT"
           else
@@ -765,7 +888,7 @@ jobs:
   # ============================================
   report:
     name: Report Results
-    needs: e2e
+    needs: [setup, run-e2e]
     if: always()
     runs-on: ubuntu-latest
     steps:
