@@ -77,17 +77,6 @@ shell:
     cd /containerized-data-importer
     go mod download
 
-    # echo Update modules to mitigate CVEs...
-
-    # # CVE-2024-45337,CVE-2025-22869
-    # go get golang.org/x/crypto@v0.38.0
-    # # CVE-2025-22870, CVE-2025-22872
-    # go get golang.org/x/net@v0.40.0
-    # # CVE-2025-27144
-    # go get github.com/go-jose/go-jose/v3@v3.0.4
-    # # CVE-2025-22868
-    # go get golang.org/x/oauth2@v0.27.0
-
     go mod vendor
 
     # Apply patch for json-patch from 3p-cdi repo
