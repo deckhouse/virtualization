@@ -3,7 +3,8 @@
 {{- $gitRepoName := "3p-kubevirt" }}
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $tag := get $.Core $gitRepoName }}
-{{- $version := (split "-" $tag)._0 }}
+{{/* {{- $version := (split "-" $tag)._0 }} */}}
+{{- $version := "v1.3.1" }}
 
 
 ---
