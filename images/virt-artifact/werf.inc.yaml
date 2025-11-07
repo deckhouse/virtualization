@@ -16,8 +16,6 @@ secrets:
 shell:
   install:
   - |
-    echo "$date"
-  - |
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
