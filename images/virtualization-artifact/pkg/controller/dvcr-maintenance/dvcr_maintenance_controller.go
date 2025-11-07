@@ -27,7 +27,10 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal"
+	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal/service"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -43,9 +46,12 @@ func NewController(
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
 	// init services
+	dvcrService := service.NewDVCRService(mgr.GetClient())
+	provisioningLister := internalservice.NewProvisioningLister(mgr.GetClient())
+
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewLifeCycleHandler(mgr.GetClient()),
+		internal.NewLifeCycleHandler(mgr.GetClient(), dvcrService, provisioningLister),
 	)
 
 	dvcrController, err := controller.New(ControllerName, mgr, controller.Options{
@@ -62,15 +68,26 @@ func NewController(
 		return nil, err
 	}
 
-	// Not an elegant solution, but it is easier to add cron watch here, than in internal/watcher package.
-	cronSource, err := gc.NewCronSource(dvcrSettings.GCSchedule, gc.NewSingleObjectLister("__cron_injected__", "run_auto_cleanup"), log)
+	// Not an elegant solution, but it is easier to add cron watches here, than in internal/watcher package.
+	// Cron source to initiate garbage collection from the user specified schedule.
+	cronSourceGC, err := gc.NewCronSource(dvcrSettings.GCSchedule, gc.NewSingleObjectLister(dvcrtypes.CronSourceNamespace, dvcrtypes.CronSourceRunGC), log)
 	if err != nil {
 		return nil, fmt.Errorf("setup DVCR cleanup cron source: %w", err)
 	}
-	err = dvcrController.Watch(cronSource)
+	err = dvcrController.Watch(cronSourceGC)
 	if err != nil {
-		return nil, fmt.Errorf("faield to setup cron watcher: %w", err)
+		return nil, fmt.Errorf("failed to setup dvcr-cleanup cron watcher: %w", err)
 	}
+
+	//// Second cron source to poll for cvi/vi/vd readiness.
+	//cronSourceProvisioning, err := gc.NewCronSource(dvcrtypes.ProvisioningPollSchedule, gc.NewSingleObjectLister(dvcrtypes.CronSourceNamespace, dvcrtypes.CronSourceProvisioningPoll), log)
+	//if err != nil {
+	//	return nil, fmt.Errorf("setup provisioning poll cron source: %w", err)
+	//}
+	//err = dvcrController.Watch(cronSourceProvisioning)
+	//if err != nil {
+	//	return nil, fmt.Errorf("failed to setup provisioning-poll cron watcher: %w", err)
+	//}
 
 	log.Info("Initialized DVCR maintenance controller")
 

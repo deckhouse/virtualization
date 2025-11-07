@@ -17,50 +17,47 @@ limitations under the License.
 package watcher
 
 import (
-	"context"
+	"reflect"
 
-	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
 )
 
-type DVCRDeploymentWatcher struct {
+type DVCRMaintenanceSecretWatcher struct {
 	client client.Client
 }
 
-func NewDVCRDeploymentWatcher(client client.Client) *DVCRDeploymentWatcher {
-	return &DVCRDeploymentWatcher{
+func NewDVCRMaintenanceSecretWatcher(client client.Client) *DVCRMaintenanceSecretWatcher {
+	return &DVCRMaintenanceSecretWatcher{
 		client: client,
 	}
 }
 
 // Watch adds watching for Deployment/dvcr changes and for cron events.
-func (w *DVCRDeploymentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+func (w *DVCRMaintenanceSecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
-			&appsv1.Deployment{},
-			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, deploy *appsv1.Deployment) []reconcile.Request {
-				if deploy.GetNamespace() == dvcrtypes.ModuleNamespace && deploy.GetName() == dvcrtypes.DVCRDeploymentName {
-					return []reconcile.Request{
-						{
-							NamespacedName: client.ObjectKeyFromObject(deploy),
-						},
+			&corev1.Secret{},
+			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{},
+			predicate.TypedFuncs[*corev1.Secret]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+					// Handle only dvcr-maintenance secret.
+					if e.ObjectOld.Namespace != dvcrtypes.ModuleNamespace {
+						return false
 					}
-				}
-				return nil
-			}),
-			predicate.TypedFuncs[*appsv1.Deployment]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*appsv1.Deployment]) bool {
-					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+					if e.ObjectOld.Name != dvcrtypes.DVCRMaintenanceSecretName {
+						return false
+					}
+					return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
 				},
 			},
 		),

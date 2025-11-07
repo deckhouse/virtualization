@@ -72,5 +72,6 @@ type Stat interface {
 }
 
 type DVCRMaintenance interface {
-	IsMaintenanceModeEnabled(ctx context.Context) (bool, error)
+	GetMaintenanceSecret(ctx context.Context) (*corev1.Secret, error)
+	IsMaintenanceInitiatedOrInProgress(secret *corev1.Secret) bool
 }

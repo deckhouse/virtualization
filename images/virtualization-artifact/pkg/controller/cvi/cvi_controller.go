@@ -65,7 +65,7 @@ func NewController(
 	uploader := service.NewUploaderService(dvcrSettings, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcrSettings, protection, ControllerName)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	dvcrMaintenance := service.NewDVCRService(mgr.GetClient(), dvcrSettings)
+	dvcrMaintenance := service.NewDVCRService(mgr.GetClient())
 
 	sources := source.NewSources()
 	sources.Set(v1alpha2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcrSettings, dvcrMaintenance, ns))

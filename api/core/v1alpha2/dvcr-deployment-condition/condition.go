@@ -16,16 +16,13 @@ limitations under the License.
 
 package dvcr_deployment_condition
 
-// Type represents the various condition types for the `ClusterVirtualImage`.
-type Type string
-
-func (s Type) String() string {
-	return string(s)
-}
+import appsv1 "k8s.io/api/apps/v1"
 
 const (
 	// MaintenanceType indicates whether the deployment/dvcr is in maintenance mode.
-	MaintenanceType Type = "Maintenance"
+	MaintenanceType appsv1.DeploymentConditionType = "Maintenance"
+
+	// LastMaintenanceResultType Type = "LastMaintenanceResult"
 )
 
 type (
@@ -38,10 +35,9 @@ func (s MaintenanceReason) String() string {
 }
 
 const (
-	// PrepareAutoCleanup indicates that the maintenance is prepared: create secret, wait for vi/cvi/vd to stop uploading.
-	PrepareAutoCleanup MaintenanceReason = "PrepareAutoCleanup"
-	// MaintenanceAutoCleanupInProgress indicates that deployment is in the maintenance mode.
-	MaintenanceAutoCleanupInProgress MaintenanceReason = "AutoCleanupInProgress"
-	// MaintenanceAutoCleanupScheduled indicates that the deployment is in the normal mode, and the maintenance is scheduled for some time in the future
-	MaintenanceAutoCleanupScheduled MaintenanceReason = "AutoCleanupScheduled"
+	// InProgress indicates that the maintenance is in progress: wait for provisioners, or deployment is modified to run garbage collection.  (status true)
+	InProgress MaintenanceReason = "GarbageCollectionInProgress"
+
+	// LastResult indicates that the maintenance is done and result is in the message. (status false)
+	LastResult MaintenanceReason = "LastResult"
 )

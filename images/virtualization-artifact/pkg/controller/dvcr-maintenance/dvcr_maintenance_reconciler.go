@@ -22,12 +22,15 @@ import (
 	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal/watcher"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 )
 
@@ -36,7 +39,7 @@ type Watcher interface {
 }
 
 type Handler interface {
-	Handle(ctx context.Context, deploy *appsv1.Deployment) (reconcile.Result, error)
+	Handle(ctx context.Context, req reconcile.Request, deploy *appsv1.Deployment) (reconcile.Result, error)
 }
 
 type Reconciler struct {
@@ -52,20 +55,19 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	deploy := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
-
+	deploy := reconciler.NewResource(dvcrtypes.DVCRDeploymentKey(), r.client, r.factory, r.statusGetter)
 	err := deploy.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
+	// DVCR maintenance is needless if Deploy/dvcr is absent.
 	if deploy.IsEmpty() {
 		return reconcile.Result{}, nil
 	}
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, deploy.Changed())
+		return h.Handle(ctx, req, deploy.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		return deploy.Update(ctx)
@@ -76,14 +78,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
-		watcher.NewDVCRDeploymentWatcher(mgr.GetClient()),
+		//watcher.NewDVCRDeploymentWatcher(mgr.GetClient()),
+		watcher.NewDVCRMaintenanceSecretWatcher(mgr.GetClient()),
 		// watcher.NewVirtualImageWatcher(mgr.GetClient()),
 		// watcher.NewVirtualDiskWatcher(mgr.GetClient()),
 		// watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
-			return fmt.Errorf("faield to setup watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+			return fmt.Errorf("failed to setup watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
 		}
 	}
 
@@ -96,4 +99,17 @@ func (r *Reconciler) factory() *appsv1.Deployment {
 
 func (r *Reconciler) statusGetter(obj *appsv1.Deployment) appsv1.DeploymentStatus {
 	return obj.Status
+}
+
+func (r *Reconciler) getDVCRMaintenanceSecret(ctx context.Context) (*corev1.Secret, error) {
+	var secret corev1.Secret
+	err := r.client.Get(ctx, dvcrtypes.DVCRMaintenanceSecretKey(), &secret)
+
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &secret, nil
 }

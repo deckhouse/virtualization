@@ -18,88 +18,103 @@ package internal
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	dvcrcondition "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/condition"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
+	dvcr_deployment_condition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
 type LifeCycleHandler struct {
-	client client.Client
+	client             client.Client
+	dvcrService        dvcrtypes.DVCRService
+	provisioningLister dvcrtypes.ProvisioningLister
 }
 
-func NewLifeCycleHandler(client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(client client.Client, dvcrService dvcrtypes.DVCRService, provisioningLister dvcrtypes.ProvisioningLister) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		client: client,
+		client:             client,
+		dvcrService:        dvcrService,
+		provisioningLister: provisioningLister,
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, deploy *appsv1.Deployment) (reconcile.Result, error) {
-	// Detect event source: cron, deployment, or vi/cvi/vd status change.
-	// Get secret
-	// Get deployment, detect maintenance mode and readiness.
+func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, deploy *appsv1.Deployment) (reconcile.Result, error) {
+	if req.Namespace == dvcrtypes.CronSourceNamespace && req.Name == dvcrtypes.CronSourceRunGC {
+		dvcrcondition.UpdateMaintenanceCondition(deploy,
+			dvcr_deployment_condition.InProgress,
+			"garbage collection initiated",
+		)
+		return reconcile.Result{}, h.dvcrService.InitiateMaintenanceMode(ctx)
+	}
 
-	// If wait for vi/cvi/vd, list them and detect the moment when there are no resources in Provisioning state.
+	if req.Name == dvcrtypes.DVCRMaintenanceSecretName {
+		// Secret has 3 states:
+		// - created, without annotations (InitiatedNotStarted)
+		//   - wait for all provisioners to finish, add switch annotation.
+		//   - add condition to deployment
+		// - switch annotation is present. (Started)
+		//   - wait for cleanup to finish, just return.
+		//   - add condition to deployment
+		// - done annotation is present. (Done)
+		//   - cleanup is done, copy result to deployment condition.
+		//   - delete secret.
+		secret, err := h.dvcrService.GetMaintenanceSecret(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("fetch maintenance secret: %w", err)
+		}
+		if secret == nil || secret.GetDeletionTimestamp() != nil {
+			// Secret is gone, no action required.
+			dvcrcondition.DeleteMaintenanceCondition(deploy)
+			return reconcile.Result{}, nil
+		}
 
-	// Switch to the net state: Update secret annotation/Delete secret/ deployment
+		if h.dvcrService.IsMaintenanceDone(secret) {
+			dvcrcondition.UpdateMaintenanceCondition(deploy,
+				dvcr_deployment_condition.LastResult,
+				string(secret.Data["result"]),
+			)
+			return reconcile.Result{}, h.dvcrService.DeleteMaintenanceSecret(ctx)
+		}
+
+		if h.dvcrService.IsMaintenanceStarted(secret) {
+			dvcrcondition.UpdateMaintenanceCondition(deploy,
+				dvcr_deployment_condition.InProgress,
+				"wait for garbage collection to finish",
+			)
+			// Wait for done annotation.
+			return reconcile.Result{}, nil
+		}
+
+		// No special annotation, check for provisioners to finish.
+		resourcesInProvisioning, err := h.provisioningLister.ListAllInProvisioning(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("list resources in provisioning: %w", err)
+		}
+		remainInProvisioning := len(resourcesInProvisioning)
+		if remainInProvisioning > 0 {
+			dvcrcondition.UpdateMaintenanceCondition(deploy,
+				dvcr_deployment_condition.InProgress,
+				"wait for cvi/vi/vd finish provisioning: %d resources remain", remainInProvisioning,
+			)
+			return reconcile.Result{RequeueAfter: time.Second * 20}, nil
+		}
+		// All provisioners are finished, switch to garbage collection.
+		err = h.dvcrService.SwitchToMaintenanceMode(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("switch to maintenance mode: %w", err)
+		}
+		dvcrcondition.UpdateMaintenanceCondition(deploy,
+			dvcr_deployment_condition.InProgress,
+			"wait for garbage collection to finish",
+		)
+		return reconcile.Result{}, nil
+	}
 
 	return reconcile.Result{}, nil
-
-	/*
-		maintenanceCondition, ok := conditions.GetCondition(cvicondition.ReadyType, deploy.Status.Conditions)
-		if !ok {
-			cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
-				Status(metav1.ConditionUnknown).
-				Reason(conditions.ReasonUnknown).
-				Generation(cvi.Generation)
-			conditions.SetCondition(cb, &cvi.Status.Conditions)
-
-			readyCondition = cb.Condition()
-		}
-
-		if cvi.DeletionTimestamp != nil {
-			cvi.Status.Phase = v1alpha2.ImageTerminating
-			return reconcile.Result{}, nil
-		}
-
-		if cvi.Status.Phase == "" {
-			cvi.Status.Phase = v1alpha2.ImagePending
-		}
-
-		dataSourceReadyCondition, exists := conditions.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
-		if !exists {
-			return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", cvicondition.DatasourceReadyType)
-		}
-
-		if dataSourceReadyCondition.Status != metav1.ConditionTrue {
-			return reconcile.Result{}, nil
-		}
-
-		if readyCondition.Status != metav1.ConditionTrue && h.sources.Changed(ctx, cvi) {
-			cvi.Status = v1alpha2.ClusterVirtualImageStatus{
-				Phase:              v1alpha2.ImagePending,
-				Conditions:         cvi.Status.Conditions,
-				ObservedGeneration: cvi.Status.ObservedGeneration,
-			}
-
-			_, err := h.sources.CleanUp(ctx, cvi)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		ds, exists := h.sources.Get(cvi.Spec.DataSource.Type)
-		if !exists {
-			return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", cvi.Spec.DataSource.Type)
-		}
-
-		result, err := ds.Sync(ctx, cvi)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return result, nil
-	*/
 }

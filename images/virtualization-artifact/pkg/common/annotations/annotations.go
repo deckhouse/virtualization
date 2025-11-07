@@ -189,6 +189,7 @@ const (
 	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 
 	AnnDVCRDeploymentSwitchToMaintenanceMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-maintenance-mode"
+	AnnDVCRCleanupDone                       = AnnAPIGroupV + "/dvcr-cleanup-done"
 )
 
 // AddAnnotation adds an annotation to an object

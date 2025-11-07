@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,21 +27,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 )
 
 type DVCRService struct {
-	client       client.Client
-	dvcrSettings *dvcr.Settings
+	client client.Client
 }
 
-func NewDVCRService(
-	client client.Client,
-	dvcrSettings *dvcr.Settings,
-) *DVCRService {
+func NewDVCRService(client client.Client) *DVCRService {
 	return &DVCRService{
-		client:       client,
-		dvcrSettings: dvcrSettings,
+		client: client,
 	}
 }
 
@@ -66,24 +59,70 @@ func (d *DVCRService) CreateMaintenanceModeSecret(ctx context.Context) error {
 	return d.client.Create(ctx, secret)
 }
 
-func (d *DVCRService) IsMaintenanceModeEnabled(ctx context.Context) (bool, error) {
+// IsMaintenanceSecretExist returns true if maintenance secret exists.
+func (d *DVCRService) IsMaintenanceSecretExist(ctx context.Context) (bool, error) {
 	secret, err := d.GetMaintenanceSecret(ctx)
-	if secret == nil {
-		return false, err
-	}
-	return true, err
+	return secret != nil, err
 }
 
-func (d *DVCRService) IsAutoCleanupEnabled(ctx context.Context) (bool, error) {
-	secret, err := d.GetMaintenanceSecret(ctx)
+// IsMaintenanceInitiatedNotStarted returns true if secret exists but
+// cleanup is not done yet.
+// Use it to postpone switch deployment to maintenance until all write operations are finished.
+func (d *DVCRService) IsMaintenanceInitiatedNotStarted(secret *corev1.Secret) bool {
 	if secret == nil {
-		return false, err
+		return false
 	}
-	_, ok := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode]
-	return ok, nil
+	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode]
+	_, done := secret.GetAnnotations()[annotations.AnnDVCRCleanupDone]
+	return !switched && !done
 }
 
-func (d *DVCRService) EnableAutoCleanup(ctx context.Context) error {
+// IsMaintenanceStarted returns true if switch to maintenance mode is on.
+// Use it to determine "wait" state.
+func (d *DVCRService) IsMaintenanceStarted(secret *corev1.Secret) bool {
+	if secret == nil {
+		return false
+	}
+	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode]
+	return switched
+}
+
+// IsMaintenanceInitiatedOrInProgress returns true if secret exists but
+// cleanup is not done yet. (Use it to postpone rw operations with registry).
+func (d *DVCRService) IsMaintenanceInitiatedOrInProgress(secret *corev1.Secret) bool {
+	if secret == nil {
+		return false
+	}
+	_, done := secret.GetAnnotations()[annotations.AnnDVCRCleanupDone]
+	return !done
+}
+
+// IsMaintenanceDone returns true if secret exists and annotated with
+// "done" annotation.
+func (d *DVCRService) IsMaintenanceDone(secret *corev1.Secret) bool {
+	if secret == nil {
+		return false
+	}
+	_, done := secret.GetAnnotations()[annotations.AnnDVCRCleanupDone]
+	return done
+}
+
+func (d *DVCRService) InitiateMaintenanceMode(ctx context.Context) error {
+	secret, err := d.GetMaintenanceSecret(ctx)
+	if err != nil {
+		return fmt.Errorf("get maintenance secret: %w", err)
+	}
+	if secret == nil {
+		return d.CreateMaintenanceModeSecret(ctx)
+	}
+
+	// Update existing secret to initial state: remove annotations and data.
+	secret.SetAnnotations(nil)
+	secret.Data = nil
+	return d.client.Update(ctx, secret)
+}
+
+func (d *DVCRService) SwitchToMaintenanceMode(ctx context.Context) error {
 	secret, err := d.GetMaintenanceSecret(ctx)
 	if secret == nil {
 		return fmt.Errorf("get maintenance secret to update: %w", err)
@@ -115,7 +154,7 @@ func (d *DVCRService) GetMaintenanceSecret(ctx context.Context) (*corev1.Secret,
 	return &secret, nil
 }
 
-func (d *DVCRService) RemoveMaintenanceModeSecret(ctx context.Context) error {
+func (d *DVCRService) DeleteMaintenanceSecret(ctx context.Context) error {
 	secret := &corev1.Secret{}
 	secret.SetNamespace(moduleNamespace)
 	secret.SetName(maintenanceModeSecretName)
@@ -123,36 +162,36 @@ func (d *DVCRService) RemoveMaintenanceModeSecret(ctx context.Context) error {
 	return client.IgnoreNotFound(err)
 }
 
-func (d *DVCRService) GetDeployment(ctx context.Context) (*appsv1.Deployment, error) {
-	var dvcrDeployment appsv1.Deployment
-	dvcrKey := types.NamespacedName{
-		Namespace: moduleNamespace,
-		Name:      dvcrDeploymentName,
-	}
-	err := d.client.Get(ctx, dvcrKey, &dvcrDeployment)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &dvcrDeployment, nil
-}
-
-func (d *DVCRService) UpdateDeploymentMaintenanceConditions(ctx context.Context, conditions []appsv1.DeploymentCondition) (*appsv1.Deployment, error) {
-	var dvcrDeployment appsv1.Deployment
-	dvcrKey := types.NamespacedName{
-		Namespace: moduleNamespace,
-		Name:      dvcrDeploymentName,
-	}
-	err := d.client.Get(ctx, dvcrKey, &dvcrDeployment)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &dvcrDeployment, nil
-}
+//func (d *DVCRService) GetDeployment(ctx context.Context) (*appsv1.Deployment, error) {
+//	var dvcrDeployment appsv1.Deployment
+//	dvcrKey := types.NamespacedName{
+//		Namespace: moduleNamespace,
+//		Name:      dvcrDeploymentName,
+//	}
+//	err := d.client.Get(ctx, dvcrKey, &dvcrDeployment)
+//	if err != nil {
+//		if k8serrors.IsNotFound(err) {
+//			return nil, nil
+//		}
+//		return nil, err
+//	}
+//
+//	return &dvcrDeployment, nil
+//}
+//
+//func (d *DVCRService) UpdateDeploymentMaintenanceConditions(ctx context.Context, conditions []appsv1.DeploymentCondition) (*appsv1.Deployment, error) {
+//	var dvcrDeployment appsv1.Deployment
+//	dvcrKey := types.NamespacedName{
+//		Namespace: moduleNamespace,
+//		Name:      dvcrDeploymentName,
+//	}
+//	err := d.client.Get(ctx, dvcrKey, &dvcrDeployment)
+//	if err != nil {
+//		if k8serrors.IsNotFound(err) {
+//			return nil, nil
+//		}
+//		return nil, err
+//	}
+//
+//	return &dvcrDeployment, nil
+//}
