@@ -3,8 +3,7 @@
 {{- $gitRepoName := "3p-kubevirt" }}
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
 {{- $tag := get $.Core $gitRepoName }}
-{{/* {{- $version := (split "-" $tag)._0 }} */}}
-{{- $version := "v1.3.1" }}
+{{- $version := (split "-" $tag)._0 }}
 
 
 ---
@@ -15,7 +14,6 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
-  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
     echo "$date"
@@ -77,10 +75,7 @@ shell:
 
   {{- include "alt packages clean" . | nindent 2 }}
 
-  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
-  - |
-    echo $date
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
