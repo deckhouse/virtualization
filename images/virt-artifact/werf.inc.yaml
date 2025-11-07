@@ -80,8 +80,6 @@ shell:
   installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
-    echo "$date"
-  - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
@@ -93,9 +91,13 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     cd /kubevirt
 
-    echo "== run go mod =="
     go mod download
     go mod vendor
+
+    for p in patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
   setup:
     - mkdir /kubevirt-binaries
