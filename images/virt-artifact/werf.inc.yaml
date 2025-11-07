@@ -15,7 +15,10 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
+  - |
+    echo "$date"
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
@@ -74,7 +77,10 @@ shell:
 
   {{- include "alt packages clean" . | nindent 2 }}
 
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
+  - |
+    echo "$date"
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
