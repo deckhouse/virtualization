@@ -26,6 +26,22 @@ rules:
   - list
   - update
 - apiGroups:
+  - "apps"
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - "apps"
+  resources:
+  - deployments/status
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+- apiGroups:
   - virtualization.deckhouse.io
   resources:
   - virtualdisks

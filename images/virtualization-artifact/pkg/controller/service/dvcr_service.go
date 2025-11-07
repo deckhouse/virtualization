@@ -73,7 +73,7 @@ func (d *DVCRService) IsMaintenanceInitiatedNotStarted(secret *corev1.Secret) bo
 		return false
 	}
 	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode]
-	_, done := secret.GetAnnotations()[annotations.AnnDVCRCleanupDone]
+	_, done := secret.GetAnnotations()[annotations.AnnDVCRGarbageCollectionDone]
 	return !switched && !done
 }
 
@@ -93,7 +93,7 @@ func (d *DVCRService) IsMaintenanceInitiatedOrInProgress(secret *corev1.Secret) 
 	if secret == nil {
 		return false
 	}
-	_, done := secret.GetAnnotations()[annotations.AnnDVCRCleanupDone]
+	_, done := secret.GetAnnotations()[annotations.AnnDVCRGarbageCollectionDone]
 	return !done
 }
 
@@ -103,7 +103,7 @@ func (d *DVCRService) IsMaintenanceDone(secret *corev1.Secret) bool {
 	if secret == nil {
 		return false
 	}
-	_, done := secret.GetAnnotations()[annotations.AnnDVCRCleanupDone]
+	_, done := secret.GetAnnotations()[annotations.AnnDVCRGarbageCollectionDone]
 	return done
 }
 

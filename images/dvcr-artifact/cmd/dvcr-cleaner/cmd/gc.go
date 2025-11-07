@@ -336,8 +336,8 @@ func compareRegistryAndClusterImages(images []registry.Image, kubeImages []kuber
 }
 
 const (
-	cleanupDoneAnno         = "virtualization.deckhouse.io/dvcr-deployment-cleanup-done"
-	switchToMaintenanceAnno = "virtualization.deckhouse.io/dvcr-deployment-switch-to-maintenance-mode"
+	garbageCollectionDoneAnno = "virtualization.deckhouse.io/dvcr-garbage-collection-done"
+	switchToMaintenanceAnno   = "virtualization.deckhouse.io/dvcr-deployment-switch-to-maintenance-mode"
 )
 
 func annotateMaintenanceSecretOnCleanupDone(ctx context.Context, result map[string]string) error {
@@ -360,7 +360,7 @@ func annotateMaintenanceSecretOnCleanupDone(ctx context.Context, result map[stri
 	if secret.Annotations == nil {
 		secret.Annotations = make(map[string]string)
 	}
-	secret.Annotations[cleanupDoneAnno] = ""
+	secret.Annotations[garbageCollectionDoneAnno] = ""
 	delete(secret.Annotations, switchToMaintenanceAnno)
 
 	if secret.Data == nil {
