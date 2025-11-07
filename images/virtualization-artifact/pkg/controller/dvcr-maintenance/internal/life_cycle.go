@@ -70,7 +70,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		}
 		if secret == nil || secret.GetDeletionTimestamp() != nil {
 			// Secret is gone, no action required.
-			dvcrcondition.DeleteMaintenanceCondition(deploy)
 			return reconcile.Result{}, nil
 		}
 
