@@ -93,6 +93,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     cd /kubevirt
 
+    echo "== run go mod =="
     go mod download
     go mod vendor
 
