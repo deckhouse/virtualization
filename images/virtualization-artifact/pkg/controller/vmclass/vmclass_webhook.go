@@ -58,7 +58,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		vmclass = obj
 	case *v1alpha3.VirtualMachineClass:
 		vmclass = &v1alpha2.VirtualMachineClass{}
-		if err := obj.ConvertTo(vmclass); err != nil {
+		if err := vmclass.ConvertFrom(obj); err != nil {
 			return nil, fmt.Errorf("failed to convert v1alpha3 to v1alpha2: %w", err)
 		}
 	default:
@@ -86,7 +86,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		oldVMClass = oldObj
 	case *v1alpha3.VirtualMachineClass:
 		oldVMClass = &v1alpha2.VirtualMachineClass{}
-		if err := oldObj.ConvertTo(oldVMClass); err != nil {
+		if err := oldVMClass.ConvertFrom(oldObj); err != nil {
 			return nil, fmt.Errorf("failed to convert old v1alpha3 to v1alpha2: %w", err)
 		}
 	default:
@@ -98,7 +98,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		newVMClass = newObj
 	case *v1alpha3.VirtualMachineClass:
 		newVMClass = &v1alpha2.VirtualMachineClass{}
-		if err := newObj.ConvertTo(newVMClass); err != nil {
+		if err := newVMClass.ConvertFrom(newObj); err != nil {
 			return nil, fmt.Errorf("failed to convert new v1alpha3 to v1alpha2: %w", err)
 		}
 	default:
