@@ -682,6 +682,7 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `WaitForFirstConsumer` - the disk is waiting for the virtual machine that will use it to be created.
 - `WaitForUserUpload` - the disk is waiting for the user to upload an image (type: Upload).
 - `Ready` - the disk has been created and is ready for use.
+- `Migrating` - live migration of a disk
 - `Failed` - an error occurred during the creation process.
 - `PVCLost` - system error, PVC with data has been lost.
 - `Terminating` - the disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
