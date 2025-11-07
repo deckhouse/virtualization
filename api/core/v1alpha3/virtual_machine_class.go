@@ -124,7 +124,7 @@ type SizingPolicy struct {
 }
 
 // CoreFractionValue represents CPU core fraction as a percentage string (e.g., "5%", "10%", "25%", "50%", "100%").
-// +kubebuilder:validation:XValidation:rule="self.matches('^([1-9]|[1-9][0-9]|100)%$')",message="must be a percentage from 1% to 100% (e.g., \"5%\", \"25%\", \"100%\")"
+// +kubebuilder:validation:Pattern=`^([1-9]|[1-9][0-9]|100)%$`
 type CoreFractionValue string
 
 type SizingPolicyMemory struct {
