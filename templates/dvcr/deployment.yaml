@@ -127,6 +127,8 @@ spec:
             - auto-cleanup
             - --maintenance-secret-name
             - dvcr-maintenance
+            - --gc-timeout
+            - 45s
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

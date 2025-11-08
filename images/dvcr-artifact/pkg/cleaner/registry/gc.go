@@ -17,10 +17,13 @@ limitations under the License.
 package registry
 
 import (
+	"context"
 	"os/exec"
+	"time"
 )
 
-func ExecGarbageCollect() ([]byte, error) {
-	execCmd := exec.Command("registry", "garbage-collect", "/etc/docker/registry/config.yml", "--delete-untagged")
+func ExecGarbageCollect(ctx context.Context) ([]byte, error) {
+	time.Sleep(time.Minute)
+	execCmd := exec.CommandContext(ctx, "registry", "garbage-collect", "/etc/docker/registry/config.yml", "--delete-untagged")
 	return execCmd.Output()
 }

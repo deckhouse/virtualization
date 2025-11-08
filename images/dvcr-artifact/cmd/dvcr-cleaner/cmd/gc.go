@@ -22,8 +22,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/manifoldco/promptui"
@@ -62,7 +64,7 @@ var gcRunCmd = &cobra.Command{
 			return fmt.Errorf("cache data cannot be deleted: %w", err)
 		}
 
-		stdout, err := registry.ExecGarbageCollect()
+		stdout, err := registry.ExecGarbageCollect(context.Background())
 		if err != nil {
 			fmt.Println(err.Error())
 			return nil
@@ -77,11 +79,13 @@ var gcRunCmd = &cobra.Command{
 
 var (
 	MaintenanceSecretName string
+	GCTimeout             time.Duration
+	GCTimeoutDefault      = time.Minute * 10
 )
 
 var autoCleanupCmd = &cobra.Command{
-	Use:           "auto-cleanup [--maintenance-secret-name secret]",
-	Short:         "`auto-cleanup` deletes all stale images that have no corresponding resource in the cluster and then runs garbage-collect to remove underlying blobs (Note: not for manual run unless you 100% sure what are you doing)",
+	Use:           "auto-cleanup [--maintenance-secret-name secret] [--gc-timeout duration]",
+	Short:         "`auto-cleanup` deletes all stale images that have no corresponding resource in the cluster and then runs garbage-collect to remove underlying blobs (Note: not to be run with kubectl exec until you 100% sure what are you doing)",
 	Args:          cobra.OnlyValidArgs,
 	RunE:          autoCleanupHandler,
 	SilenceUsage:  true,
@@ -103,6 +107,7 @@ func init() {
 	// Add 'run' command.
 	GcCmd.AddCommand(autoCleanupCmd)
 	autoCleanupCmd.Flags().StringVar(&MaintenanceSecretName, "maintenance-secret-name", "", "update secret with result and annotation after the cleanup")
+	autoCleanupCmd.Flags().DurationVar(&GCTimeout, "gc-timeout", GCTimeoutDefault, "max time for running garbage collection command")
 	// Add 'check' command.
 	GcCmd.AddCommand(checkCmd)
 }
@@ -210,9 +215,22 @@ func performAutoCleanup() error {
 	}
 
 	// Run 'registry garbage-collect' to remove blobs.
-	stdout, err := registry.ExecGarbageCollect()
+	gcContext, _ := context.WithTimeoutCause(context.Background(), GCTimeout, fmt.Errorf("garbage collect command is terminated, it runs more than %s", GCTimeout.String()))
+	stdout, err := registry.ExecGarbageCollect(gcContext)
+	errMsg := ""
+	if gcContext.Err() != nil {
+		errMsg = gcContext.Err().Error() + "\n"
+	}
 	if err != nil {
-		return err
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			errMsg += fmt.Sprintf("Exit code: %d\nStderr: %s\n", exitErr.ExitCode(), exitErr.Stderr)
+		} else {
+			errMsg += err.Error()
+		}
+	}
+
+	if errMsg != "" {
+		return errors.New(errMsg)
 	}
 
 	fmt.Println(string(stdout))
