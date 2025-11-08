@@ -9,6 +9,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ProvisioningLister struct {
@@ -61,11 +63,11 @@ func (p *ProvisioningLister) ListClusterVirtualImagesInProvisioning(ctx context.
 	provisioning := make([]v1alpha2.ClusterVirtualImage, 0)
 
 	for _, cvi := range cviList.Items {
-		cond, ok := conditions.GetCondition(cvicondition.Provisioning, cvi.Status.Conditions)
+		cond, ok := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 		if !ok {
 			continue
 		}
-		if cond.Status == "True" {
+		if cond.Status == "False" && cond.Reason == cvicondition.Provisioning.String() {
 			provisioning = append(provisioning, cvi)
 		}
 	}
@@ -83,11 +85,11 @@ func (p *ProvisioningLister) ListVirtualImagesInProvisioning(ctx context.Context
 	provisioning := make([]v1alpha2.VirtualImage, 0)
 
 	for _, vi := range viList.Items {
-		cond, ok := conditions.GetCondition(cvicondition.Provisioning, vi.Status.Conditions)
+		cond, ok := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 		if !ok {
 			continue
 		}
-		if cond.Status == "True" {
+		if cond.Status == "False" && cond.Reason == vicondition.Provisioning.String() {
 			provisioning = append(provisioning, vi)
 		}
 	}
@@ -109,11 +111,11 @@ func (p *ProvisioningLister) ListVirtualDisksInProvisioning(ctx context.Context)
 		if !vdHasDVCRStage(&vd) {
 			continue
 		}
-		cond, ok := conditions.GetCondition(cvicondition.Provisioning, vd.Status.Conditions)
+		cond, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 		if !ok {
 			continue
 		}
-		if cond.Status == "True" {
+		if cond.Status == "False" && cond.Reason == vdcondition.Provisioning.String() {
 			provisioning = append(provisioning, vd)
 		}
 	}
