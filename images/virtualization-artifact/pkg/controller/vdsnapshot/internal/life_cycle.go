@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -153,8 +154,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !h.snapshotter.IsFrozen(vm) {
-			if h.snapshotter.CanFreeze(vm) {
+		isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+		if err != nil {
+			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				return reconcile.Result{}, nil
+			}
+			return reconcile.Result{}, err
+		}
+		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFrozen {
+			canFreeze, err := h.snapshotter.CanFreeze(ctx, vm)
+			if err != nil {
+				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+					return reconcile.Result{}, nil
+				}
+				return reconcile.Result{}, err
+			}
+			if canFreeze {
 				log.Debug("Freeze the virtual machine to take a snapshot")
 
 				if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhasePending {
@@ -308,15 +323,26 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	default:
 		log.Debug("The volume snapshot is ready to use")
 
+		isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+		if err != nil {
+			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				return reconcile.Result{}, nil
+			}
+			return reconcile.Result{}, err
+		}
+
 		switch {
 		case vm == nil, vm.Status.Phase == v1alpha2.MachineStopped:
 			vdSnapshot.Status.Consistent = ptr.To(true)
-		case h.snapshotter.IsFrozen(vm):
+		case isFrozen:
 			vdSnapshot.Status.Consistent = ptr.To(true)
 
 			var canUnfreeze bool
 			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
 			if err != nil {
+				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+					return reconcile.Result{}, nil
+				}
 				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 				return reconcile.Result{}, err
 			}

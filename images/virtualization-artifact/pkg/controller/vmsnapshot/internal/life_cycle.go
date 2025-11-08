@@ -82,6 +82,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 
 		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 		if err != nil {
+			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				return reconcile.Result{}, nil
+			}
 			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 			return reconcile.Result{}, err
 		}
@@ -190,9 +193,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	needToFreeze := h.needToFreeze(vm, vmSnapshot.Spec.RequiredConsistency)
+	needToFreeze, err := h.needToFreeze(ctx, vm, vmSnapshot.Spec.RequiredConsistency)
+	if err != nil {
+		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
 
-	isAwaitingConsistency := needToFreeze && !h.snapshotter.CanFreeze(vm) && vmSnapshot.Spec.RequiredConsistency
+	canFreeze, err := h.snapshotter.CanFreeze(ctx, vm)
+	if err != nil {
+		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+	isAwaitingConsistency := needToFreeze && !canFreeze && vmSnapshot.Spec.RequiredConsistency
 	if isAwaitingConsistency {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
 		msg := fmt.Sprintf(
@@ -335,6 +351,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	// 7. Unfreeze VirtualMachine if can.
 	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 	if err != nil {
+		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			return reconcile.Result{}, nil
+		}
 		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
@@ -490,20 +509,24 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*v1alp
 	return true
 }
 
-func (h LifeCycleHandler) needToFreeze(vm *v1alpha2.VirtualMachine, requiredConsistency bool) bool {
+func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, requiredConsistency bool) (bool, error) {
 	if !requiredConsistency {
-		return false
+		return false, nil
 	}
 
 	if vm.Status.Phase == v1alpha2.MachineStopped {
-		return false
+		return false, nil
 	}
 
-	if h.snapshotter.IsFrozen(vm) {
-		return false
+	isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+	if err != nil {
+		return false, err
+	}
+	if isFrozen {
+		return false, nil
 	}
 
-	return true
+	return true, nil
 }
 
 func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
@@ -527,7 +550,15 @@ func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *v1alpha2
 }
 
 func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (bool, error) {
-	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning || !h.snapshotter.IsFrozen(vm) {
+	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning {
+		return false, nil
+	}
+
+	isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+	if err != nil {
+		return false, err
+	}
+	if !isFrozen {
 		return false, nil
 	}
 

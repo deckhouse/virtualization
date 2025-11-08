@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -72,6 +73,9 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 			var canUnfreeze bool
 			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
 			if err != nil {
+				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+					return reconcile.Result{}, nil
+				}
 				return reconcile.Result{}, err
 			}
 

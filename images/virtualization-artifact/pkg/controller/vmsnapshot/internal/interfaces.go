@@ -39,7 +39,7 @@ type Snapshotter interface {
 	CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error)
 	Freeze(ctx context.Context, name, namespace string) error
 	Unfreeze(ctx context.Context, name, namespace string) error
-	IsFrozen(vm *v1alpha2.VirtualMachine) bool
-	CanFreeze(vm *v1alpha2.VirtualMachine) bool
+	IsFrozen(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error)
+	CanFreeze(ctx context.Context, vm *v1alpha2.VirtualMachine) (bool, error)
 	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error)
 }

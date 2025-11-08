@@ -89,6 +89,9 @@ var _ = Describe("LifeCycle handler", func() {
 			GetVolumeSnapshotFunc: func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
 				return nil, nil
 			},
+			IsFrozenFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
+			},
 		}
 	})
 
@@ -179,11 +182,11 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
 			}
-			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			snapshotter.IsFrozenFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			}
-			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return true
+			snapshotter.CanFreezeFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return true, nil
 			}
 			snapshotter.FreezeFunc = func(_ context.Context, _, _ string) error {
 				return nil
@@ -226,8 +229,8 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("Cannot freeze virtual machine: deny potentially inconsistent", func() {
 			vdSnapshot.Spec.RequiredConsistency = true
-			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			snapshotter.CanFreezeFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			}
 			h := NewLifeCycleHandler(snapshotter)
 
@@ -242,8 +245,8 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("Cannot freeze virtual machine: allow potentially inconsistent", func() {
 			vdSnapshot.Spec.RequiredConsistency = false
-			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			snapshotter.CanFreezeFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			}
 			h := NewLifeCycleHandler(snapshotter)
 
@@ -257,8 +260,8 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("Unfreeze virtual machine", func() {
-			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return true
+			snapshotter.IsFrozenFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return true, nil
 			}
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
@@ -280,8 +283,8 @@ var _ = Describe("LifeCycle handler", func() {
 		DescribeTable("Check unfreeze if failed", func(vm *v1alpha2.VirtualMachine, expectUnfreezing bool) {
 			unFreezeCalled := false
 
-			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return true
+			snapshotter.IsFrozenFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return true, nil
 			}
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
