@@ -124,14 +124,14 @@ var _ = Describe("LifeCycle handler", func() {
 			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
 			},
-			IsFrozenFunc: func(_ *v1alpha2.VirtualMachine) bool {
-				return true
+			IsFrozenFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return true, nil
 			},
 			CanUnfreezeWithVirtualMachineSnapshotFunc: func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine) (bool, error) {
 				return true, nil
 			},
-			CanFreezeFunc: func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			CanFreezeFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			},
 			UnfreezeFunc: func(ctx context.Context, _, _ string) error {
 				return nil
@@ -248,11 +248,11 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The virtual machine is potentially inconsistent", func() {
-			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			snapshotter.IsFrozenFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			}
-			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			snapshotter.CanFreezeFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			}
 
 			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
@@ -267,11 +267,11 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The virtual machine has frozen", func() {
-			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return false
+			snapshotter.IsFrozenFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return false, nil
 			}
-			snapshotter.CanFreezeFunc = func(_ *v1alpha2.VirtualMachine) bool {
-				return true
+			snapshotter.CanFreezeFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (bool, error) {
+				return true, nil
 			}
 			snapshotter.FreezeFunc = func(_ context.Context, _, _ string) error {
 				return nil
