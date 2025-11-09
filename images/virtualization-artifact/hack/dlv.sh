@@ -76,9 +76,22 @@ kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -
         "template": {
             "spec": {
                 "containers": [{
-                    "name": "${deployment}",
-                    "image": "${IMAGE}",
-                    "ports": [{"containerPort": 2345, "name": "dlv"}]
+                       "name": "${deployment}",
+                        "image": "${IMAGE}",
+                        "ports": [{"containerPort": 2345, "name": "dlv"}]
+                        "readinessProbe": null,
+                        "livenessProbe": null
+                    },
+                    {
+                        "name": "proxy",
+                        "readinessProbe": null,
+                        "livenessProbe": null
+                    },
+                    {
+                        "name": "kube-rbac-proxy",
+                        "readinessProbe": null,
+                        "livenessProbe": null
+                    }
                 }]
             }
         }
