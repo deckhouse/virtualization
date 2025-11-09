@@ -26,8 +26,6 @@ import (
 
 func IndexVMIPLeaseByVMIP() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &v1alpha2.VirtualMachineIPAddressLease{}, IndexFieldVMIPLeaseByVMIP, func(object client.Object) []string {
-		const defaultNamespaceName = "default"
-
 		lease, ok := object.(*v1alpha2.VirtualMachineIPAddressLease)
 		if !ok || lease == nil {
 			return nil
