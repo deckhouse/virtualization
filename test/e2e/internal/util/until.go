@@ -79,16 +79,20 @@ func untilObjectField(fieldPath, expectedValue string, timeout time.Duration, ob
 			key := client.ObjectKeyFromObject(obj)
 			name := obj.GetName()
 			namespace := obj.GetNamespace()
+			divider := ""
+			if namespace != "" {
+				divider = "/"
+			}
 
 			// Create a new unstructured object for each Get call
 			u := getTemplateUnstructured(obj).DeepCopy()
 			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
 			if err != nil {
-				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s/%s", namespace, name)
+				g.Expect(err).NotTo(HaveOccurred(), "failed to get object %s%s%s", namespace, divider, name)
 			}
 
 			value := extractField(u, fieldPath)
-			g.Expect(value).To(Equal(expectedValue), "object %s/%s %s is %s, expected %s", namespace, name, fieldPath, value, expectedValue)
+			g.Expect(value).To(Equal(expectedValue), "object %s%s%s %s is %s, expected %s", namespace, divider, name, fieldPath, value, expectedValue)
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
