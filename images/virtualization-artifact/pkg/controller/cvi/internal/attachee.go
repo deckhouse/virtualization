@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -68,6 +69,21 @@ func (h AttacheeHandler) hasAttachedVM(ctx context.Context, cvi client.Object) (
 	}
 
 	for _, vm := range vms.Items {
+		if vm.Status.Phase == "" {
+			continue
+		}
+
+		if vm.Status.Phase == v1alpha2.MachineStopped {
+			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
+			if err != nil {
+				return false, err
+			}
+
+			if !vmIsActive {
+				continue
+			}
+		}
+
 		if h.isCVIAttachedToVM(cvi.GetName(), vm) {
 			return true, nil
 		}
