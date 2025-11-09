@@ -56,7 +56,7 @@ func extractField(obj client.Object, fieldPath string) string {
 		return "Unknown"
 	}
 	path := make([]string, 0)
-	for _, part := range strings.Split(fieldPath, ".") {
+	for part := range strings.SplitSeq(fieldPath, ".") {
 		if part != "" {
 			path = append(path, part)
 		}
