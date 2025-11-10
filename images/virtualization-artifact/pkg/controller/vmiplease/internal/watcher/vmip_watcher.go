@@ -64,18 +64,18 @@ func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controlle
 }
 
 func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (requests []reconcile.Request) {
+	requestMap := make(map[string]struct{})
+
 	if vmip.Status.Address != "" {
 		leaseName := ip.IPToLeaseName(vmip.Status.Address)
 		if leaseName != "" {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: leaseName},
-			})
+			requestMap[leaseName] = struct{}{}
 		}
 	}
 
 	var leases v1alpha2.VirtualMachineIPAddressLeaseList
 	err := w.client.List(ctx, &leases, &client.MatchingFields{
-		indexer.IndexFieldVMIPLeaseByVMIP: indexer.GetVMIPLeaseIndexKeyByVMIP(vmip.GetName(), vmip.GetNamespace()),
+		indexer.IndexFieldVMIPLeaseByVMIP: fmt.Sprintf("%s/%s", vmip.GetNamespace(), vmip.GetName()),
 	})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))
@@ -85,10 +85,12 @@ func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmi
 	for _, lease := range leases.Items {
 		vmipRef := lease.Spec.VirtualMachineIPAddressRef
 		if vmipRef != nil && vmipRef.Name == vmip.GetName() && vmipRef.Namespace == vmip.GetNamespace() {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: lease.Name},
-			})
+			requestMap[lease.Name] = struct{}{}
 		}
+	}
+
+	for leaseName := range requestMap {
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: leaseName}})
 	}
 
 	return requests

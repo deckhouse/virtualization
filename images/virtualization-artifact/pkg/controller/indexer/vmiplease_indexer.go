@@ -35,18 +35,6 @@ func IndexVMIPLeaseByVMIP() (obj client.Object, field string, extractValue clien
 			return nil
 		}
 
-		return []string{GetVMIPLeaseIndexKeyByVMIP(vmipRef.Name, vmipRef.Namespace)}
+		return []string{fmt.Sprintf("%s/%s", vmipRef.Namespace, vmipRef.Name)}
 	}
-}
-
-func GetVMIPLeaseIndexKeyByVMIP(name, namespace string) string {
-	if name == "" {
-		return ""
-	}
-
-	if namespace == "" {
-		return name
-	}
-
-	return fmt.Sprintf("%s/%s", namespace, name)
 }
