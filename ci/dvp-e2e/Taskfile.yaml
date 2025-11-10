@@ -908,16 +908,6 @@ tasks:
       - |
         set -euo pipefail
         echo "[SDS] Waiting for SDS CRDs to be established..."
-        for module in sds-node-configurator sds-replicated-volume; do
-          for i in $(seq 1 60); do
-            state=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get module "$module" -o jsonpath='{.status.state}' 2>/dev/null || true)
-            state=${state:-unknown}
-            case "$state" in
-              Ready|Enabled|Deployed) echo "[SDS] Module $module state=$state"; break ;;
-              *) echo "[SDS] Module $module state=$state; retry $i/60"; sleep 10 ;;
-            esac
-          done
-        done
         for crd in lvmvolumegroups.storage.deckhouse.io replicatedstoragepools.storage.deckhouse.io replicatedstorageclasses.storage.deckhouse.io; do
           echo "[SDS] Waiting for CRD '$crd'..."
           found=0
@@ -978,18 +968,7 @@ tasks:
           if kubectl --request-timeout=10s apply --validate=false -f manifests/storage/operator-ceph.yaml; then
             break; else echo "[Ceph] operator-ceph.yaml apply failed, retry $i/12"; sleep 10; fi
         done
-        echo "[Ceph] Waiting for modules operator-ceph, csi-ceph, snapshot-controller to become Ready..."
-        for module in operator-ceph csi-ceph snapshot-controller; do
-          for i in $(seq 1 60); do
-            state=$(kubectl get module "$module" -o jsonpath='{.status.state}' 2>/dev/null || true)
-            state=${state:-unknown}
-            if [ "$state" = "Ready" ] || [ "$state" = "Enabled" ] || [ "$state" = "Deployed" ]; then
-              echo "[Ceph] Module $module state=$state"
-              break
-            fi
-            echo "[Ceph] Module $module state=$state; retry $i/60"; sleep 10
-          done
-        done
+        # Rely on operator rollout + CRDs instead of module state polling
         echo "[Ceph] Waiting for rook-ceph-operator..."
         for i in $(seq 1 60); do
           if kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
