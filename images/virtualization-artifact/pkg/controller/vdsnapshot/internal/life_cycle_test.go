@@ -177,7 +177,7 @@ var _ = Describe("LifeCycle handler", func() {
 					Phase: v1alpha2.MachineRunning,
 				},
 			}
-			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm.Name}}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm.Name, Mounted: true}}
 
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
