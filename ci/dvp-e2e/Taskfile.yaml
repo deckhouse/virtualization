@@ -507,13 +507,47 @@ tasks:
           echo "https://$HOST"
       TOKEN:
         sh: |
-          for i in $(seq 1 5); do
-            TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null) && break
-            echo "[WARN] Failed to issue SA token (attempt $i); retrying in 3s" >&2
-            sleep 3
+          set -euo pipefail
+          # Wait for namespace and SA readiness
+          for i in $(seq 1 30); do
+            kubectl get ns {{ .NAMESPACE }} >/dev/null 2>&1 && break || true
+            echo "[INFO] Waiting for namespace '{{ .NAMESPACE }}' ($i/30)"; sleep 2
           done
-          [ -z "${TOKEN:-}" ] && { echo "[ERR] Unable to obtain token for dkp-sa" >&2; exit 1; }
-          echo "$TOKEN"
+          for i in $(seq 1 30); do
+            kubectl -n {{ .NAMESPACE }} get sa dkp-sa >/dev/null 2>&1 && break || true
+            echo "[INFO] Waiting for sa/dkp-sa in '{{ .NAMESPACE }}' ($i/30)"; sleep 2
+          done
+          # First try TokenRequest (ephemeral token)
+          TOKEN=""
+          for i in $(seq 1 10); do
+            TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null || true)
+            [ -n "${TOKEN}" ] && break || true
+            echo "[WARN] TokenRequest failed (attempt $i); retrying in 5s" >&2
+            sleep 5
+          done
+          if [ -z "${TOKEN}" ]; then
+            # Fallback: read from SA token Secret (explicitly created by our chart)
+            for i in $(seq 1 30); do
+              TDATA=$(kubectl -n {{ .NAMESPACE }} get secret dkp-sa-secret -o jsonpath='{.data.token}' 2>/dev/null || true)
+              if [ -n "${TDATA}" ]; then
+                TOKEN=$(echo "${TDATA}" | base64 -d)
+                break
+              fi
+              # Try any bound token secret for dkp-sa
+              TDATA=$(kubectl -n {{ .NAMESPACE }} get secrets -o json 2>/dev/null \
+                | jq -r '.items[] | select(.type=="kubernetes.io/service-account-token" and .metadata.annotations["kubernetes.io/service-account.name"]=="dkp-sa") | .data.token // empty' | head -n1 || true)
+              if [ -n "${TDATA}" ]; then
+                TOKEN=$(echo "${TDATA}" | base64 -d)
+                break
+              fi
+              echo "[INFO] Waiting for dkp-sa token Secret to be populated ($i/30)"; sleep 2
+            done
+          fi
+          if [ -z "${TOKEN}" ]; then
+            echo "[ERR] Unable to obtain token for dkp-sa after retries (TokenRequest and Secret fallback)" >&2
+            exit 1
+          fi
+          echo "${TOKEN}"
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     silent: true
