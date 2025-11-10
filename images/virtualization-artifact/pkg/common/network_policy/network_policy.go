@@ -81,7 +81,6 @@ func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, legac
 	}
 	if np != nil {
 		return np, nil
-
 	}
 
 	// Return object with legacy naming otherwise
