@@ -283,7 +283,7 @@ jobs:
         working-directory: ci/dvp-e2e
         run: |
           echo "🚀 dhctl bootstrap (profile: ${{ matrix.profile }})"
-          PARENT_SA_TOKEN='${{ secrets.E2E_NESTED_SA_SECRET }}' task dhctl-bootstrap \
+          task dhctl-bootstrap \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \

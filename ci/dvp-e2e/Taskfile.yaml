@@ -507,30 +507,13 @@ tasks:
           echo "https://$HOST"
       TOKEN:
         sh: |
-          set -euo pipefail
-          # Prefer explicitly provided parent token from CI secret.
-          if [ -n "${PARENT_SA_TOKEN:-}" ]; then
-            echo "$PARENT_SA_TOKEN"; exit 0;
-          fi
-          # Try to extract token from provided parent kubeconfig (written from GH secret earlier).
-          KCONF='{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
-          if [ -s "$KCONF" ]; then
-            TOK=$(yq -r '.users[0].user.token // ""' "$KCONF" 2>/dev/null || true)
-            if [ -n "$TOK" ] && [ "$TOK" != "null" ]; then
-              echo "$TOK"; exit 0;
-            fi
-            # Fallback via kubectl config view
-            TOK=$(kubectl config view --kubeconfig="$KCONF" --minify --raw -o jsonpath='{.users[0].user.token}' 2>/dev/null || true)
-            if [ -n "$TOK" ]; then echo "$TOK"; exit 0; fi
-          fi
-          # As a last resort, try TokenRequest on the in-cluster SA (kept for compatibility)
-          for i in $(seq 1 10); do
-            TOK=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null || true)
-            [ -n "$TOK" ] && { echo "$TOK"; exit 0; } || true
-            echo "[WARN] TokenRequest failed (attempt $i); retrying in 5s" >&2; sleep 5
+          for i in $(seq 1 5); do
+            TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null) && break
+            echo "[WARN] Failed to issue SA token (attempt $i); retrying in 3s" >&2
+            sleep 3
           done
-          echo "[ERR] Unable to obtain API token (neither PARENT_SA_TOKEN, kubeconfig token, nor TokenRequest)" >&2
-          exit 1
+          [ -z "${TOKEN:-}" ] && { echo "[ERR] Unable to obtain token for dkp-sa" >&2; exit 1; }
+          echo "$TOKEN"
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     silent: true
