@@ -173,7 +173,7 @@ jobs:
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-EOF
+          EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
@@ -563,7 +563,7 @@ EOF
             name: ingress-nginx
           spec:
             enabled: true
-EOF
+          EOF
 
           echo "[Ingress] Creating IngressNginxController (HostPort, class=nginx)"
           cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
@@ -574,7 +574,7 @@ EOF
           spec:
             ingressClass: "nginx"
             inlet: "HostPort"
-EOF
+          EOF
 
           echo "[Ingress] Waiting controller pod"
           for i in $(seq 1 60); do
@@ -619,7 +619,7 @@ EOF
             - name: http
               port: 80
               targetPort: 5678
-EOF
+          EOF
 
           echo "[Ingress] Ingress resource"
           cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$RUN_NS" apply -f -
@@ -642,7 +642,7 @@ EOF
                       name: vm-http
                       port:
                         number: 80
-EOF
+          EOF
 
           echo "[Ingress] Resolve controller host IP"
           HOST_IP=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-ingress-nginx get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.hostIP}{"\n"}{end}' | awk '/^controller-/{print $2; exit}')
@@ -805,7 +805,7 @@ EOF
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-EOF
+          EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
@@ -923,7 +923,7 @@ EOF
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-EOF
+          EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
@@ -965,7 +965,7 @@ EOF
           stringData:
             summary: |
               $(cat matrix_summary.md | sed 's/^/      /')
-EOF
+          EOF
 
       - name: Create test summary
         if: always()
@@ -1026,7 +1026,7 @@ EOF
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-EOF
+          EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
