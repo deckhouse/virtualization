@@ -57,7 +57,14 @@ func StorageClassChanged(vd *v1alpha2.VirtualDisk) bool {
 	}
 
 	specSc := vd.Spec.PersistentVolumeClaim.StorageClass
-	statusSc := vd.Status.StorageClassName
+	if specSc == nil {
+		return false
+	}
 
-	return specSc != nil && *specSc != statusSc && *specSc != "" && statusSc != ""
+	statusSc := vd.Status.StorageClassName
+	if *specSc == statusSc {
+		return false
+	}
+
+	return *specSc != "" && statusSc != ""
 }

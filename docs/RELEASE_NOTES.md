@@ -3,6 +3,14 @@ title: "Release Notes"
 weight: 70
 ---
 
+# v1.1.2
+
+## Fixes
+
+- [vd] Fixed live disk migration between storage classes using different drivers. Limitations:
+  - Migration between `Block` and `Filesystem` is not supported. Only migrations between the same volume modes are allowed: from `Block` to `Block` and from `Filesystem` to `Filesystem`.
+- [vm] In the `Migrating` state, detailed error information is now displayed when a live migration of a virtual machine fails.
+
 # v1.1.1
 
 ## Fixes

@@ -74,7 +74,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.AlpineUEFIPerfHTTP,
+					URL: object.ImageURLAlpineUEFIPerf,
 				}),
 			)
 
@@ -83,7 +83,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 				vd.WithNamespace(f.Namespace().Name),
 				vd.WithStorageClass(&storageClass.Name),
 				vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-					URL: object.AlpineUEFIPerfHTTP,
+					URL: object.ImageURLAlpineUEFIPerf,
 				}),
 			)
 
@@ -110,7 +110,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		})
 
 		By("Migrate the iPerf server", func() {
-			util.MigrateVirtualMachine(iperfServer)
+			util.MigrateVirtualMachine(f, iperfServer)
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
 		})
 
