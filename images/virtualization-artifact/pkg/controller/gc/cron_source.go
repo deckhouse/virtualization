@@ -54,7 +54,7 @@ func NewCronSource(scheduleSpec string, objLister ObjectLister, log *log.Logger)
 	specParser := cron.NewParser(cron.Second | cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	schedule, err := specParser.Parse(scheduleSpec)
 	if err != nil {
-		return nil, fmt.Errorf("parse schedule: %v\n", err)
+		return nil, fmt.Errorf("parse schedule: %w\n", err)
 	}
 
 	return &CronSource{

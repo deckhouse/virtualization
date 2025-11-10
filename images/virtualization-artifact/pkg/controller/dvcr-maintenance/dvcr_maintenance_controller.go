@@ -79,16 +79,6 @@ func NewController(
 		return nil, fmt.Errorf("failed to setup dvcr-cleanup cron watcher: %w", err)
 	}
 
-	//// Second cron source to poll for cvi/vi/vd readiness.
-	//cronSourceProvisioning, err := gc.NewCronSource(dvcrtypes.ProvisioningPollSchedule, gc.NewSingleObjectLister(dvcrtypes.CronSourceNamespace, dvcrtypes.CronSourceProvisioningPoll), log)
-	//if err != nil {
-	//	return nil, fmt.Errorf("setup provisioning poll cron source: %w", err)
-	//}
-	//err = dvcrController.Watch(cronSourceProvisioning)
-	//if err != nil {
-	//	return nil, fmt.Errorf("failed to setup provisioning-poll cron watcher: %w", err)
-	//}
-
 	log.Info("Initialized DVCR maintenance controller")
 
 	return dvcrController, nil

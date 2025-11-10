@@ -56,6 +56,7 @@ func (h PostponeHandlerPreFilter) Handle(ctx context.Context, vd *v1alpha2.Virtu
 
 	return h.postponeHandler.Handle(logger.ToContext(ctx, log), vd)
 }
+
 func (h PostponeHandlerPreFilter) shouldRunDVCRClient(vd *v1alpha2.VirtualDisk) (bool, error) {
 	if vd == nil || vd.Spec.DataSource == nil {
 		return false, nil

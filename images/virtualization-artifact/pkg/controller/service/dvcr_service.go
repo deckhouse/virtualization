@@ -161,37 +161,3 @@ func (d *DVCRService) DeleteMaintenanceSecret(ctx context.Context) error {
 	err := d.client.Delete(ctx, secret)
 	return client.IgnoreNotFound(err)
 }
-
-//func (d *DVCRService) GetDeployment(ctx context.Context) (*appsv1.Deployment, error) {
-//	var dvcrDeployment appsv1.Deployment
-//	dvcrKey := types.NamespacedName{
-//		Namespace: moduleNamespace,
-//		Name:      dvcrDeploymentName,
-//	}
-//	err := d.client.Get(ctx, dvcrKey, &dvcrDeployment)
-//	if err != nil {
-//		if k8serrors.IsNotFound(err) {
-//			return nil, nil
-//		}
-//		return nil, err
-//	}
-//
-//	return &dvcrDeployment, nil
-//}
-//
-//func (d *DVCRService) UpdateDeploymentMaintenanceConditions(ctx context.Context, conditions []appsv1.DeploymentCondition) (*appsv1.Deployment, error) {
-//	var dvcrDeployment appsv1.Deployment
-//	dvcrKey := types.NamespacedName{
-//		Namespace: moduleNamespace,
-//		Name:      dvcrDeploymentName,
-//	}
-//	err := d.client.Get(ctx, dvcrKey, &dvcrDeployment)
-//	if err != nil {
-//		if k8serrors.IsNotFound(err) {
-//			return nil, nil
-//		}
-//		return nil, err
-//	}
-//
-//	return &dvcrDeployment, nil
-//}

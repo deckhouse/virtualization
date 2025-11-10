@@ -22,8 +22,6 @@ import (
 	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -78,11 +76,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
-		//watcher.NewDVCRDeploymentWatcher(mgr.GetClient()),
 		watcher.NewDVCRMaintenanceSecretWatcher(mgr.GetClient()),
-		// watcher.NewVirtualImageWatcher(mgr.GetClient()),
-		// watcher.NewVirtualDiskWatcher(mgr.GetClient()),
-		// watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
@@ -99,17 +93,4 @@ func (r *Reconciler) factory() *appsv1.Deployment {
 
 func (r *Reconciler) statusGetter(obj *appsv1.Deployment) appsv1.DeploymentStatus {
 	return obj.Status
-}
-
-func (r *Reconciler) getDVCRMaintenanceSecret(ctx context.Context) (*corev1.Secret, error) {
-	var secret corev1.Secret
-	err := r.client.Get(ctx, dvcrtypes.DVCRMaintenanceSecretKey(), &secret)
-
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &secret, nil
 }

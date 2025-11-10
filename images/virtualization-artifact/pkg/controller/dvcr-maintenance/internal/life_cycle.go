@@ -76,7 +76,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		if h.dvcrService.IsMaintenanceDone(secret) {
 			dvcrcondition.UpdateMaintenanceCondition(deploy,
 				dvcr_deployment_condition.LastResult,
-				string(secret.Data["result"]),
+				"%s", string(secret.Data["result"]),
 			)
 			return reconcile.Result{}, h.dvcrService.DeleteMaintenanceSecret(ctx)
 		}
