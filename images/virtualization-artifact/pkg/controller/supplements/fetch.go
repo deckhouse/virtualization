@@ -18,6 +18,7 @@ package supplements
 
 import (
 	"context"
+	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,16 +29,20 @@ import (
 type SupplementType string
 
 const (
+	// Pods
 	SupplementImporterPod SupplementType = "ImporterPod"
 	SupplementUploaderPod SupplementType = "UploaderPod"
 	SupplementBounderPod  SupplementType = "BounderPod"
 
+	// Network
 	SupplementUploaderService SupplementType = "UploaderService"
 	SupplementUploaderIngress SupplementType = "UploaderIngress"
 
+	// Volumes
 	SupplementPVC        SupplementType = "PersistentVolumeClaim"
 	SupplementDataVolume SupplementType = "DataVolume"
 
+	// ConfigMaps/Secrets
 	SupplementDVCRAuthSecret        SupplementType = "DVCRAuthSecret"
 	SupplementDVCRAuthSecretForDV   SupplementType = "DVCRAuthSecretForDV"
 	SupplementDVCRCABundleConfigMap SupplementType = "DVCRCABundleConfigMapForDV"
@@ -47,80 +52,86 @@ const (
 )
 
 // GetSupplementName returns the name for the requested supplement type
-func GetSupplementName(gen Generator, supplementType SupplementType) types.NamespacedName {
+func GetSupplementName(gen Generator, supplementType SupplementType) (types.NamespacedName, error) {
 	switch supplementType {
+	// Pods
 	case SupplementImporterPod:
-		return gen.ImporterPod()
+		return gen.ImporterPod(), nil
 	case SupplementUploaderPod:
-		return gen.UploaderPod()
+		return gen.UploaderPod(), nil
 	case SupplementBounderPod:
-		return gen.BounderPod()
+		return gen.BounderPod(), nil
 
+	// Network
 	case SupplementUploaderService:
-		return gen.UploaderService()
+		return gen.UploaderService(), nil
 	case SupplementUploaderIngress:
-		return gen.UploaderIngress()
+		return gen.UploaderIngress(), nil
 
+	// Volumes
 	case SupplementPVC:
-		return gen.PersistentVolumeClaim()
+		return gen.PersistentVolumeClaim(), nil
 	case SupplementDataVolume:
-		return gen.DataVolume()
+		return gen.DataVolume(), nil
 
+	// ConfigMaps/Secrets
 	case SupplementDVCRAuthSecret:
-		return gen.DVCRAuthSecret()
+		return gen.DVCRAuthSecret(), nil
 	case SupplementDVCRAuthSecretForDV:
-		return gen.DVCRAuthSecretForDV()
+		return gen.DVCRAuthSecretForDV(), nil
 	case SupplementDVCRCABundleConfigMap:
-		return gen.DVCRCABundleConfigMapForDV()
+		return gen.DVCRCABundleConfigMapForDV(), nil
 	case SupplementCABundleConfigMap:
-		return gen.CABundleConfigMap()
+		return gen.CABundleConfigMap(), nil
 	case SupplementImagePullSecret:
-		return gen.ImagePullSecret()
+		return gen.ImagePullSecret(), nil
 	case SupplementUploaderTLSSecret:
-		return gen.UploaderTLSSecretForIngress()
+		return gen.UploaderTLSSecretForIngress(), nil
 
 	default:
-		// This should never happen if enum is used properly
-		return types.NamespacedName{}
+		return types.NamespacedName{}, fmt.Errorf("unknown supplement type: %s", supplementType)
 	}
 }
 
 // GetLegacySupplementName returns the legacy name for the requested supplement type
-func GetLegacySupplementName(gen Generator, supplementType SupplementType) types.NamespacedName {
+func GetLegacySupplementName(gen Generator, supplementType SupplementType) (types.NamespacedName, error) {
 	switch supplementType {
+	// Pods
 	case SupplementImporterPod:
-		return gen.LegacyImporterPod()
+		return gen.LegacyImporterPod(), nil
 	case SupplementUploaderPod:
-		return gen.LegacyUploaderPod()
+		return gen.LegacyUploaderPod(), nil
 	case SupplementBounderPod:
-		return gen.LegacyBounderPod()
+		return gen.LegacyBounderPod(), nil
 
+	// Network
 	case SupplementUploaderService:
-		return gen.LegacyUploaderService()
+		return gen.LegacyUploaderService(), nil
 	case SupplementUploaderIngress:
-		return gen.LegacyUploaderIngress()
+		return gen.LegacyUploaderIngress(), nil
 
+	// Volumes
 	case SupplementPVC:
-		return gen.LegacyPersistentVolumeClaim()
+		return gen.LegacyPersistentVolumeClaim(), nil
 	case SupplementDataVolume:
-		return gen.LegacyDataVolume()
+		return gen.LegacyDataVolume(), nil
 
+	// ConfigMaps/Secrets
 	case SupplementDVCRAuthSecret:
-		return gen.LegacyDVCRAuthSecret()
+		return gen.LegacyDVCRAuthSecret(), nil
 	case SupplementDVCRAuthSecretForDV:
-		return gen.LegacyDVCRAuthSecretForDV()
+		return gen.LegacyDVCRAuthSecretForDV(), nil
 	case SupplementDVCRCABundleConfigMap:
-		return gen.LegacyDVCRCABundleConfigMapForDV()
+		return gen.LegacyDVCRCABundleConfigMapForDV(), nil
 	case SupplementCABundleConfigMap:
-		return gen.LegacyCABundleConfigMap()
+		return gen.LegacyCABundleConfigMap(), nil
 	case SupplementImagePullSecret:
-		return gen.LegacyImagePullSecret()
+		return gen.LegacyImagePullSecret(), nil
 	case SupplementUploaderTLSSecret:
-		return gen.LegacyUploaderTLSSecretForIngress()
+		return gen.LegacyUploaderTLSSecretForIngress(), nil
 
 	default:
-		// This should never happen if enum is used properly
-		return types.NamespacedName{}
+		return types.NamespacedName{}, fmt.Errorf("unknown supplement type: %s", supplementType)
 	}
 }
 
@@ -134,8 +145,12 @@ func FetchSupplement[T client.Object](
 ) (T, error) {
 	var empty T
 
-	newName := GetSupplementName(gen, supplementType)
-	err := c.Get(ctx, newName, obj)
+	newName, err := GetSupplementName(gen, supplementType)
+	if err != nil {
+		return empty, err
+	}
+
+	err = c.Get(ctx, newName, obj)
 	if err == nil {
 		return obj, nil
 	}
@@ -143,7 +158,11 @@ func FetchSupplement[T client.Object](
 		return empty, err
 	}
 
-	legacyName := GetLegacySupplementName(gen, supplementType)
+	legacyName, err := GetLegacySupplementName(gen, supplementType)
+	if err != nil {
+		return empty, err
+	}
+
 	err = c.Get(ctx, legacyName, obj)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

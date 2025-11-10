@@ -61,7 +61,7 @@ func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object
 	return client.IgnoreAlreadyExists(err)
 }
 
-func GetNetworkPolicy(ctx context.Context, client client.Client, name types.NamespacedName, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
+func GetNetworkPolicy(ctx context.Context, client client.Client, legacyName types.NamespacedName, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
 	np, err := object.FetchObject(ctx, sup.NetworkPolicy(), client, &netv1.NetworkPolicy{})
 	if err != nil {
 		return nil, err
@@ -69,16 +69,21 @@ func GetNetworkPolicy(ctx context.Context, client client.Client, name types.Name
 	if np != nil {
 		return np, nil
 	}
-	return object.FetchObject(ctx, name, client, &netv1.NetworkPolicy{})
+
+	// Return object with legacy naming otherwise
+	return object.FetchObject(ctx, legacyName, client, &netv1.NetworkPolicy{})
 }
 
-func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, obj client.Object, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
+func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, legacyObjectKey client.Object, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
 	np, err := object.FetchObject(ctx, sup.NetworkPolicy(), client, &netv1.NetworkPolicy{})
 	if err != nil {
 		return nil, err
 	}
 	if np != nil {
 		return np, nil
+
 	}
-	return object.FetchObject(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, client, &netv1.NetworkPolicy{})
+
+	// Return object with legacy naming otherwise
+	return object.FetchObject(ctx, types.NamespacedName{Name: legacyObjectKey.GetName(), Namespace: legacyObjectKey.GetNamespace()}, client, &netv1.NetworkPolicy{})
 }

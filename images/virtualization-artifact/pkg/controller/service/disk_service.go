@@ -550,13 +550,11 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
-	dv := &cdiv1.DataVolume{}
-	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, dv)
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, &cdiv1.DataVolume{})
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	pvc := &corev1.PersistentVolumeClaim{}
-	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, pvc)
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, &corev1.PersistentVolumeClaim{})
 }
 
 func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {

@@ -236,8 +236,7 @@ func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod, sup sup
 }
 
 func (s ImporterService) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
-	pod := &corev1.Pod{}
-	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementImporterPod, pod)
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementImporterPod, &corev1.Pod{})
 }
 
 func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *importer.PodSettings {
