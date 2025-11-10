@@ -851,16 +851,20 @@ tasks:
             echo "[SDS] Configuring SDS storage..."
             ;;
         esac
-      - task: "nested:storage:ceph"
-        vars:
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          TARGET_SC: '{{ .TARGET_STORAGE_CLASS }}'
-        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "ceph" }}'
-      - task: "nested:storage:sds"
-        vars:
-          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-          SDS_SC_NAME: '{{ .TARGET_STORAGE_CLASS }}'
-        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "sds" }}'
+      - |
+        set -euo pipefail
+        case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
+          ceph)
+            task nested:storage:ceph \
+              NESTED_KUBECONFIG='{{ .NESTED_KUBECONFIG }}' \
+              TARGET_SC='{{ .TARGET_STORAGE_CLASS }}'
+            ;;
+          sds)
+            task nested:storage:sds \
+              NESTED_KUBECONFIG='{{ .NESTED_KUBECONFIG }}' \
+              SDS_SC_NAME='{{ .TARGET_STORAGE_CLASS }}'
+            ;;
+        esac
 
   nested:storage:sds:
     desc: Configure SDS storage profile in nested cluster
