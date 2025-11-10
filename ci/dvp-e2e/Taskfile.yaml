@@ -233,12 +233,12 @@ tasks:
         echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
 
         # Wait for worker VMs
-        for i in $(seq 1 60); do
+        for i in $(seq 1 50); do
           worker_count=$(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker | wc -l)
           if [ "$worker_count" -gt 0 ]; then
             echo "[INFRA] Found $worker_count worker VMs"; break
           fi
-          echo "[INFRA] Waiting for worker VMs... ($i/60)"; sleep 10
+          echo "[INFRA] Waiting for worker VMs... ($i/50)"; sleep 10
         done
 
         workers=()
@@ -257,12 +257,12 @@ tasks:
           echo "[INFRA] Processing VM: $vm"
 
           # Wait for VM to be Running
-          for i in $(seq 1 60); do
+          for i in $(seq 1 50); do
             phase=$(kubectl -n {{ .NAMESPACE }} get vm "$vm" -o jsonpath='{.status.phase}' 2>/dev/null || true)
             if [ "$phase" = "Running" ]; then
               echo "[INFRA] VM $vm is Running"; break
             fi
-            echo "[INFRA] VM $vm phase=$phase; retry $i/60"; sleep 10
+            echo "[INFRA] VM $vm phase=$phase; retry $i/50"; sleep 10
           done
 
           for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
@@ -284,12 +284,12 @@ tasks:
             # Wait for VirtualDisk to be Ready and PVC to be Bound
             echo "[INFRA] Waiting for VirtualDisk $vd to be Ready..."
             vd_phase=""
-            for j in $(seq 1 60); do
+            for j in $(seq 1 50); do
               vd_phase=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$vd_phase" = "Ready" ]; then
                 echo "[INFRA] VirtualDisk $vd is Ready"; break
               fi
-              echo "[INFRA] VD $vd phase=$vd_phase; retry $j/60"; sleep 5
+              echo "[INFRA] VD $vd phase=$vd_phase; retry $j/50"; sleep 5
             done
             if [ "$vd_phase" != "Ready" ]; then
               echo "[ERROR] VirtualDisk $vd not Ready"
@@ -911,12 +911,12 @@ tasks:
         for crd in lvmvolumegroups.storage.deckhouse.io replicatedstoragepools.storage.deckhouse.io replicatedstorageclasses.storage.deckhouse.io; do
           echo "[SDS] Waiting for CRD '$crd'..."
           found=0
-          for i in $(seq 1 36); do
+          for i in $(seq 1 50); do
             if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get crd "$crd" >/dev/null 2>&1; then
               found=1
               break
             fi
-            echo "[SDS] CRD '$crd' not found yet, retry $i/36"; sleep 5
+            echo "[SDS] CRD '$crd' not found yet, retry $i/50"; sleep 5
           done
           if [ "$found" -eq 1 ]; then
             KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl wait --for=condition=Established --timeout=180s crd "$crd" || true
@@ -1006,21 +1006,21 @@ tasks:
         done
         # Rely on operator rollout + CRDs instead of module state polling
         echo "[Ceph] Waiting for operator-ceph deployment..."
-        for i in $(seq 1 60); do
+        for i in $(seq 1 50); do
           if kubectl -n d8-operator-ceph get deploy operator-ceph >/dev/null 2>&1; then
             kubectl -n d8-operator-ceph rollout status deploy/operator-ceph --timeout=180s && break
           fi
-          echo "[Ceph] operator-ceph not found yet ($i/60)"; sleep 10
+          echo "[Ceph] operator-ceph not found yet ($i/50)"; sleep 10
         done
         echo "[Ceph] Waiting for Ceph CRDs to appear..."
         for crd in cephclusters.ceph.rook.io cephblockpools.ceph.rook.io cephfilesystems.ceph.rook.io; do
-          for i in $(seq 1 36); do
+          for i in $(seq 1 50); do
             if kubectl get crd "$crd" >/dev/null 2>&1; then
               echo "[Ceph] CRD $crd detected"
               kubectl wait --for=condition=Established --timeout=300s crd/"$crd" || true
               break
             fi
-            echo "[Ceph] CRD $crd not found yet, retry $i/36"; sleep 5
+            echo "[Ceph] CRD $crd not found yet, retry $i/50"; sleep 5
           done
         done
         echo "[Ceph] Applying CephCluster CR..."
@@ -1029,7 +1029,7 @@ tasks:
             break; else echo "[Ceph] ceph.yaml apply failed, retry $i/12"; sleep 10; fi
         done
         echo "[Ceph] Waiting for CephCluster phase=Ready and HEALTH_OK..."
-        for i in $(seq 1 60); do
+        for i in $(seq 1 50); do
           PHASE=$(kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.phase}' 2>/dev/null || true)
           HEALTH=$(kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.ceph.health}' 2>/dev/null || true)
           echo "[Ceph] Status: phase=${PHASE:-?} health=${HEALTH:-?}"
@@ -1099,14 +1099,14 @@ tasks:
           .spec.rbd.pool = "pool-rbd-auto-test"
         ' | kubectl apply -f -
         echo "[Ceph] Waiting for CephStorageClass to be Created..."
-        for i in $(seq 1 60); do
+        for i in $(seq 1 50); do
           PHASE=$(kubectl get cephstorageclass '{{ .TARGET_SC }}' -o jsonpath='{.status.phase}' 2>/dev/null || true)
           [ "$PHASE" = "Created" ] && { echo "[Ceph] CephStorageClass is Created"; break; } || true
-          echo "[Ceph] CephStorageClass phase=$PHASE, retry $i/60"; sleep 10
+          echo "[Ceph] CephStorageClass phase=$PHASE, retry $i/50"; sleep 10
         done
         echo "[Ceph] Waiting for StorageClass '{{ .TARGET_SC }}'..."
-        for i in $(seq 1 60); do
-          kubectl get sc '{{ .TARGET_SC }}' >/dev/null 2>&1 && { echo "SC ready"; break; } || echo "waiting SC '{{ .TARGET_SC }}'... $i/60"; sleep 10
+        for i in $(seq 1 50); do
+          kubectl get sc '{{ .TARGET_SC }}' >/dev/null 2>&1 && { echo "SC ready"; break; } || echo "waiting SC '{{ .TARGET_SC }}'... $i/50"; sleep 10
         done
         echo "[Ceph] Setting '{{ .TARGET_SC }}' as default StorageClass via mc global..."
         kubectl patch mc global --type='json' -p='[

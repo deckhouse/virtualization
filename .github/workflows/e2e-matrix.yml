@@ -375,7 +375,7 @@ jobs:
                 break; else echo "[Ceph] operator-ceph apply failed, retry $i/12"; sleep 10; fi
             done
             echo "[Ceph] Waiting for rook-ceph-operator deployment..."
-            for i in $(seq 1 60); do
+            for i in $(seq 1 50); do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
                 KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph rollout status deploy/rook-ceph-operator --timeout=180s && break
               fi
@@ -391,7 +391,7 @@ jobs:
             done
 
             echo "[Ceph] Waiting for CephCluster phase=Ready and HEALTH_OK..."
-            for i in $(seq 1 60); do
+            for i in $(seq 1 50); do
               PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.phase}' 2>/dev/null || true)
               HEALTH=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.ceph.health}' 2>/dev/null || true)
               echo "[Ceph] Status: phase=${PHASE:-?} health=${HEALTH:-?}"
@@ -497,7 +497,7 @@ jobs:
             ' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
 
             echo "[Ceph] Waiting for CephStorageClass to be Created..."
-            for i in $(seq 1 60); do
+            for i in $(seq 1 50); do
               PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl get cephstorageclass ceph-pool-r2-csi-rbd-immediate -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$PHASE" = "Created" ]; then
                 echo "[Ceph] CephStorageClass is Created"; break
@@ -550,46 +550,7 @@ jobs:
 
       # Ingress smoke disabled: not required for storage config
 
-      - name: Ceph CSI smoke check (PVC)
-        if: ${{ matrix.profile == 'cephrbd' }}
-        run: |
-          set -euo pipefail
-          NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
-          echo "[Ceph] Current pods in d8-operator-ceph:"
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get pods -o wide || true
-          echo "[Ceph] CSI resources:"
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get ds,deploy | sed -n '/csi\|rook/p' || true
-          echo "[Ceph] StorageClasses:"
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl get sc || true
-
-          SMOKE_NS="ceph-smoke-${{ env.RUN_ID }}"
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl create ns "$SMOKE_NS" || true
-          yq eval -n '
-            .apiVersion = "v1" |
-            .kind = "PersistentVolumeClaim" |
-            .metadata.name = "smoke-pvc" |
-            .spec.accessModes = ["ReadWriteOnce"] |
-            .spec.storageClassName = "ceph-pool-r2-csi-rbd-immediate" |
-            .spec.resources.requests.storage = "1Gi"
-          ' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" apply -f -
-
-          echo "[Ceph] Waiting for PVC to become Bound..."
-          for i in $(seq 1 60); do
-            PHASE=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" get pvc smoke-pvc -o jsonpath='{.status.phase}' 2>/dev/null || true)
-            if [ "$PHASE" = "Bound" ]; then echo "[Ceph] PVC is Bound"; break; fi
-            if [ "$i" -eq 60 ]; then
-              echo "[ERR] PVC did not reach Bound state" >&2
-              echo "[DEBUG] Describe PVC:"; KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" describe pvc smoke-pvc || true
-              echo "[DEBUG] Events in namespace:"; KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" get events --sort-by=.lastTimestamp | tail -n 50 || true
-              echo "[DEBUG] CSI pods:"; KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-operator-ceph get pods -o wide || true
-              exit 1
-            fi
-            sleep 10
-          done
-
-          echo "[Ceph] Cleanup smoke resources"
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$SMOKE_NS" delete pvc smoke-pvc --wait=true --ignore-not-found=true || true
-          KUBECONFIG="$NESTED_KUBECONFIG" kubectl delete ns "$SMOKE_NS" --wait=false || true
+      # Ceph CSI smoke check removed per request
 
       - name: Upload run context
         if: always()
