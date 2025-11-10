@@ -884,7 +884,8 @@ tasks:
               .kind = "ModuleConfig" |
               .metadata.name = "sds-node-configurator" |
               .spec.enabled = true |
-              .spec.version = 1
+              .spec.version = 1 |
+              .spec.source = "deckhouse-prod"
             ';
             echo '---';
             yq eval -n '
@@ -892,7 +893,8 @@ tasks:
               .kind = "ModuleConfig" |
               .metadata.name = "sds-replicated-volume" |
               .spec.enabled = true |
-              .spec.version = 1
+              .spec.version = 1 |
+              .spec.source = "deckhouse-prod"
             ';
           } | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f -; then
             success=1
@@ -924,6 +926,15 @@ tasks:
             echo "[WARN] CRD '$crd' not found after waiting" >&2
           fi
         done
+      - |
+        set -euo pipefail
+        echo "[SDS] Applying LVMVolumeGroup / ReplicatedStoragePool / ReplicatedStorageClass manifests..."
+        if [ -f manifests/storage/sds.yaml ]; then
+          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f manifests/storage/sds.yaml
+        else
+          echo "[ERR] manifests/storage/sds.yaml not found" >&2
+          exit 1
+        fi
       - |
         set -euo pipefail
         if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "{{ .SDS_SC_NAME }}" >/dev/null 2>&1; then

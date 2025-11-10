@@ -331,8 +331,8 @@ jobs:
 
           
 
-          # Configure deckhouse-prod ModuleSource if Ceph profile is requested
-          if [ "$PROFILE" = "cephrbd" ]; then
+          # Configure deckhouse-prod ModuleSource for profiles that need external modules (cephrbd, sds)
+          if [ "$PROFILE" = "cephrbd" ] || [ "$PROFILE" = "sds" ]; then
             echo "[Deckhouse] Configuring ModuleSource 'deckhouse-prod' for module images..."
             MODSRC_REPO="${{ vars.DECKHOUSE_PROD_MODULES_REPO || 'registry.deckhouse.io/deckhouse/ee/modules' }}"
             CFG_B64="${{ env.REGISTRY_DOCKER_CFG || '' }}"
@@ -534,7 +534,7 @@ jobs:
           fi
           task nested:storage:configure \
             STORAGE_PROFILE="${{ matrix.profile }}" \
-            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
+            TARGET_STORAGE_CLASS="${{ steps.profile-config.outputs.storage_class }}" \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
