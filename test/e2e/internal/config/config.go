@@ -80,26 +80,25 @@ type Config struct {
 }
 
 type TestData struct {
-	AffinityToleration    string `yaml:"affinityToleration"`
-	ComplexTest           string `yaml:"complexTest"`
-	Connectivity          string `yaml:"connectivity"`
-	DiskResizing          string `yaml:"diskResizing"`
-	SizingPolicy          string `yaml:"sizingPolicy"`
-	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
-	ImageHotplug          string `yaml:"imageHotplug"`
-	VMConfiguration       string `yaml:"vmConfiguration"`
-	VMLabelAnnotation     string `yaml:"vmLabelAnnotation"`
-	VMMigration           string `yaml:"vmMigration"`
-	VMMigrationCancel     string `yaml:"vmMigrationCancel"`
-	VMEvacuation          string `yaml:"vmEvacuation"`
-	VMDiskAttachment      string `yaml:"vmDiskAttachment"`
-	VMRestoreForce        string `yaml:"vmRestoreForce"`
-	VMRestoreSafe         string `yaml:"vmRestoreSafe"`
-	VMVersions            string `yaml:"vmVersions"`
-	VdSnapshots           string `yaml:"vdSnapshots"`
-	Sshkey                string `yaml:"sshKey"`
-	SSHUser               string `yaml:"sshUser"`
-	VMVpc                 string `yaml:"vmVpc"`
+	AffinityToleration string `yaml:"affinityToleration"`
+	ComplexTest        string `yaml:"complexTest"`
+	Connectivity       string `yaml:"connectivity"`
+	DiskResizing       string `yaml:"diskResizing"`
+	SizingPolicy       string `yaml:"sizingPolicy"`
+	ImageHotplug       string `yaml:"imageHotplug"`
+	VMConfiguration    string `yaml:"vmConfiguration"`
+	VMLabelAnnotation  string `yaml:"vmLabelAnnotation"`
+	VMMigration        string `yaml:"vmMigration"`
+	VMMigrationCancel  string `yaml:"vmMigrationCancel"`
+	VMEvacuation       string `yaml:"vmEvacuation"`
+	VMDiskAttachment   string `yaml:"vmDiskAttachment"`
+	VMRestoreForce     string `yaml:"vmRestoreForce"`
+	VMRestoreSafe      string `yaml:"vmRestoreSafe"`
+	VMVersions         string `yaml:"vmVersions"`
+	VdSnapshots        string `yaml:"vdSnapshots"`
+	Sshkey             string `yaml:"sshKey"`
+	SSHUser            string `yaml:"sshUser"`
+	VMVpc              string `yaml:"vmVpc"`
 }
 
 type StorageClass struct {
