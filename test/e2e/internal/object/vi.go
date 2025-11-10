@@ -21,7 +21,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewHTTPVIUbuntu(name string, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
+func NewHTTPVIUbuntu(name, namespace string, opts ...vi.Option) *v1alpha2.VirtualImage {
 	baseOpts := []vi.Option{
 		vi.WithName(name),
 		vi.WithStorage(v1alpha2.StorageContainerRegistry),
