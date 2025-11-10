@@ -218,8 +218,8 @@ func performAutoCleanup() error {
 	gcContext, _ := context.WithTimeoutCause(context.Background(), GCTimeout, fmt.Errorf("garbage collect command is terminated, it runs more than %s", GCTimeout.String()))
 	stdout, err := registry.ExecGarbageCollect(gcContext)
 	errMsg := ""
-	if gcContext.Err() != nil {
-		errMsg = gcContext.Err().Error() + "\n"
+	if cause := context.Cause(gcContext); cause != nil {
+		errMsg = cause.Error() + "\n"
 	}
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
