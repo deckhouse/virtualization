@@ -36,12 +36,16 @@ spec:
           jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
+      deprecated: true
+      deprecationWarning: v1alpha2.VirtualMachineClass is deprecated; use v1alpha3.VirtualMachineClass
       name: v1alpha2
       schema:
         openAPIV3Schema:
           description: |-
             VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
             A resource cannot be deleted as long as it is used in one of the VMs.
+
+            Deprecated: Use v1alpha3.VirtualMachineClass instead.
           properties:
             apiVersion:
               description: |-
@@ -733,7 +737,6 @@ spec:
                             CoreFractionValue represents CPU core fraction
                             as a percentage string (e.g., "5%", "10%", "25%", "50%",
                             "100%").
-                          pattern: ^([1-9]|[1-9][0-9]|100)%$
                           type: string
                         type: array
                       cores:

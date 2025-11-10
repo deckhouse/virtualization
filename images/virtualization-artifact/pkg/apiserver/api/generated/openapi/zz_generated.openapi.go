@@ -3760,7 +3760,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineClass(ref common.Refe
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources. A resource cannot be deleted as long as it is used in one of the VMs.",
+				Description: "VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources. A resource cannot be deleted as long as it is used in one of the VMs.\n\nDeprecated: Use v1alpha3.VirtualMachineClass instead.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {

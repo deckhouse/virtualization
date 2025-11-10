@@ -32,6 +32,8 @@ const (
 // VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
 // A resource cannot be deleted as long as it is used in one of the VMs.
 //
+// Deprecated: Use v1alpha3.VirtualMachineClass instead.
+//
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status
@@ -39,6 +41,7 @@ const (
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="IsDefault",type="string",JSONPath=".metadata.annotations.virtualmachineclass\\.virtualization\\.deckhouse\\.io\\/is-default-class",description="Default class for virtual machines without specified class."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
+// +kubebuilder:deprecatedversion:warning="v1alpha2.VirtualMachineClass is deprecated; use v1alpha3.VirtualMachineClass"
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

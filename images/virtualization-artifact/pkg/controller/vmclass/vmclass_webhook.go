@@ -19,6 +19,7 @@ package vmclass
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,6 +61,8 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	case *v1alpha2.VirtualMachineClass:
 		vmclass = obj
 	case *v1alpha3.VirtualMachineClass:
+		// Validate in webhook instead of CRD to provide clear error message
+		validateV1Alpha3CoreFractions(obj)
 		vmclass = &v1alpha2.VirtualMachineClass{}
 		if err := vmclass.ConvertFrom(obj); err != nil {
 			return nil, fmt.Errorf("failed to convert v1alpha3 to v1alpha2: %w", err)
@@ -88,6 +91,8 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	case *v1alpha2.VirtualMachineClass:
 		oldVMClass = oldObj
 	case *v1alpha3.VirtualMachineClass:
+		// Validate in webhook instead of CRD to provide clear error message
+		validateV1Alpha3CoreFractions(oldObj)
 		oldVMClass = &v1alpha2.VirtualMachineClass{}
 		if err := oldVMClass.ConvertFrom(oldObj); err != nil {
 			return nil, fmt.Errorf("failed to convert old v1alpha3 to v1alpha2: %w", err)
@@ -100,6 +105,8 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	case *v1alpha2.VirtualMachineClass:
 		newVMClass = newObj
 	case *v1alpha3.VirtualMachineClass:
+		// Validate in webhook instead of CRD to provide clear error message
+		validateV1Alpha3CoreFractions(newObj)
 		newVMClass = &v1alpha2.VirtualMachineClass{}
 		if err := newVMClass.ConvertFrom(newObj); err != nil {
 			return nil, fmt.Errorf("failed to convert new v1alpha3 to v1alpha2: %w", err)
@@ -125,4 +132,15 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err.Error())
 	return nil, nil
+}
+
+func validateV1Alpha3CoreFractions(vmclass *v1alpha3.VirtualMachineClass) error {
+	for i, policy := range vmclass.Spec.SizingPolicies {
+		for j, coreFraction := range policy.CoreFractions {
+			if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(string(coreFraction)) {
+				return fmt.Errorf("spec.sizingPolicies[%d].coreFractions[%d]: coreFraction must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%), got %q", i, j, coreFraction)
+			}
+		}
+	}
+	return nil
 }
