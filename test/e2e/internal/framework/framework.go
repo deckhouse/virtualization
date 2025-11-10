@@ -183,11 +183,3 @@ func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...clie
 
 	return nil
 }
-
-func (f *Framework) Get(ctx context.Context, obj client.Object) error {
-	key := types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	}
-	return f.client.Get(ctx, key, obj)
-}
