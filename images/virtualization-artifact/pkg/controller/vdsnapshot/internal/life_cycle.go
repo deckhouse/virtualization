@@ -78,6 +78,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
+	isFSFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+	if err != nil {
+		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			return reconcile.Result{}, nil
+		}
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
 	if vdSnapshot.DeletionTimestamp != nil {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseTerminating
 		cb.
@@ -146,22 +161,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, nil
 	}
 
-	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
 	switch {
 	case vs == nil:
-		isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
-		if err != nil {
-			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-				return reconcile.Result{}, nil
-			}
-			return reconcile.Result{}, err
-		}
-		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFrozen {
+		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen {
 			canFreeze, err := h.snapshotter.CanFreeze(ctx, vm)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
@@ -380,20 +382,22 @@ func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotte
 		return nil, nil
 	}
 
-	// TODO: ensure vd.Status.AttachedToVirtualMachines is in the actual state.
-	switch len(vd.Status.AttachedToVirtualMachines) {
-	case 0:
+	if vd.Status.AttachedToVirtualMachines == nil {
 		return nil, nil
-	case 1:
-		vm, err := snapshotter.GetVirtualMachine(ctx, vd.Status.AttachedToVirtualMachines[0].Name, vd.Namespace)
-		if err != nil {
-			return nil, err
-		}
-
-		return vm, nil
-	default:
-		return nil, fmt.Errorf("the virtual disk %q is attached to multiple virtual machines", vd.Name)
 	}
+
+	for _, avm := range vd.Status.AttachedToVirtualMachines {
+		if avm.Mounted {
+			vm, err := snapshotter.GetVirtualMachine(ctx, avm.Name, vd.Namespace)
+			if err != nil {
+				return nil, err
+			}
+
+			return vm, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.VirtualDiskSnapshotPhase, err error) {
