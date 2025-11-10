@@ -878,24 +878,23 @@ tasks:
         echo "[SDS] Enabling SDS modules (node-configurator, replicated-volume)..."
         success=0
         for attempt in $(seq 1 5); do
-          if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f - <<'EOF'
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: sds-node-configurator
-spec:
-  enabled: true
-  version: 1
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: sds-replicated-volume
-spec:
-  enabled: true
-  version: 1
-EOF
-          then
+          if {
+            yq eval -n '
+              .apiVersion = "deckhouse.io/v1alpha1" |
+              .kind = "ModuleConfig" |
+              .metadata.name = "sds-node-configurator" |
+              .spec.enabled = true |
+              .spec.version = 1
+            ';
+            echo '---';
+            yq eval -n '
+              .apiVersion = "deckhouse.io/v1alpha1" |
+              .kind = "ModuleConfig" |
+              .metadata.name = "sds-replicated-volume" |
+              .spec.enabled = true |
+              .spec.version = 1
+            ';
+          } | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f -; then
             success=1
             break
           fi
