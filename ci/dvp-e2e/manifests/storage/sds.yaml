@@ -1,5 +1,5 @@
 ---
-apiVersion: deckhouse.io/v1alpha1
+apiVersion: storage.deckhouse.io/v1alpha1
 kind: LVMVolumeGroup
 metadata:
   name: data
