@@ -4,9 +4,10 @@ kind: LVMVolumeGroup
 metadata:
   name: data
 spec:
-  # For SDS replicated-volume module, use Local VG
+  # Local VG; explicit local section is required for type=Local
   type: Local
-  actualVGNameOnTheNode: data
+  local:
+    actualVGNameOnTheNode: data
   blockDeviceSelector:
     devicePaths:
       - /dev/sdd
@@ -16,7 +17,8 @@ kind: ReplicatedStoragePool
 metadata:
   name: data
 spec:
-  type: Local
+  # Pool type must be LVM or LVMThin
+  type: LVM
   lvmVolumeGroups:
     - name: data
 ---

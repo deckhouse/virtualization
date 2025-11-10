@@ -975,12 +975,14 @@ tasks:
             break; else echo "[Ceph] operator-ceph.yaml apply failed, retry $i/12"; sleep 10; fi
         done
         # Rely on operator rollout + CRDs instead of module state polling
-        echo "[Ceph] Waiting for rook-ceph-operator..."
+        echo "[Ceph] Waiting for operator deployment..."
         for i in $(seq 1 60); do
-          if kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
+          if kubectl -n d8-operator-ceph get deploy operator-ceph >/dev/null 2>&1; then
+            kubectl -n d8-operator-ceph rollout status deploy/operator-ceph --timeout=180s && break
+          elif kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
             kubectl -n d8-operator-ceph rollout status deploy/rook-ceph-operator --timeout=180s && break
           fi
-          echo "[Ceph] rook-ceph-operator not found yet ($i/60)"; sleep 10
+          echo "[Ceph] operator not found yet ($i/60)"; sleep 10
         done
         echo "[Ceph] Waiting for Ceph CRDs to appear..."
         for crd in cephclusters.ceph.rook.io cephblockpools.ceph.rook.io cephfilesystems.ceph.rook.io; do
