@@ -100,10 +100,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
+      # Removed early Go setup; not needed for prepare phase
 
       - name: Install Task
         uses: arduino/setup-task@v2
