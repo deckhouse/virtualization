@@ -129,7 +129,7 @@ func (r *restoreModeTest) PrepareEnvironment() {
 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(r.vm), framework.LongTimeout)
 	r.devicesWithoutVMBDA = r.listDisks()
 	r.createVMBDA()
-	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, r.vmbda)
 	r.createFilesystemOnDisk()
 }
 
@@ -154,7 +154,7 @@ func (r *restoreModeTest) CreateSnapshot() {
 	err := r.f.CreateWithDeferredDeletion(context.Background(), r.vmSnapshot)
 	Expect(err).NotTo(HaveOccurred())
 
-	util.UntilObjectPhase(r.vmSnapshot, string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout)
+	util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout, r.vmSnapshot)
 }
 
 func (r *restoreModeTest) ChangeVM() {
@@ -162,7 +162,7 @@ func (r *restoreModeTest) ChangeVM() {
 
 	r.changeVMConfiguration()
 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(r.vm), framework.ShortTimeout)
-	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, r.vmbda)
 
 	r.rebootVM()
 }
@@ -179,14 +179,14 @@ func (r *restoreModeTest) CreateRestoreOperation(restoreMode v1alpha2.VMOPRestor
 	err := r.f.CreateWithDeferredDeletion(context.Background(), r.vmopRestore)
 	Expect(err).NotTo(HaveOccurred())
 
-	util.UntilObjectPhase(r.vmopRestore, string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout)
+	util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, r.vmopRestore)
 }
 
 func (r *restoreModeTest) CheckVMAfterRestore(restoreMode v1alpha2.VMOPRestoreMode) {
 	GinkgoHelper()
 
 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(r.vm), framework.LongTimeout)
-	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, r.vmbda)
 
 	switch restoreMode {
 	case v1alpha2.VMOPRestoreModeStrict, v1alpha2.VMOPRestoreModeBestEffort:
@@ -348,7 +348,7 @@ func (r *restoreModeTest) rebootVM() {
 	Expect(err).NotTo(HaveOccurred())
 
 	util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(r.vm), r.runningLastTransitionTime, framework.LongTimeout)
-	util.UntilObjectPhase(r.vmbda, string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, r.vmbda)
 }
 
 func (r *restoreModeTest) listDisks() (disks []string) {
