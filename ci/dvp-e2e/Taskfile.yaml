@@ -845,12 +845,17 @@ tasks:
         set -euo pipefail
         case '{{ .STORAGE_PROFILE_NORMALIZED }}' in
           ceph)
-            echo "[CEPH] StorageClass already configured in workflow, skipping redundant check"
+            echo "[CEPH] Configuring Ceph storage via Taskfile..."
             ;;
           sds)
             echo "[SDS] Configuring SDS storage..."
             ;;
         esac
+      - task: "nested:storage:ceph"
+        vars:
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
+          TARGET_SC: '{{ .TARGET_STORAGE_CLASS }}'
+        if: '{{ eq .STORAGE_PROFILE_NORMALIZED "ceph" }}'
       - task: "nested:storage:sds"
         vars:
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
@@ -999,6 +1004,82 @@ EOF
         for i in {1..12}; do
           if kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/ceph.yaml; then
             break; else echo "[Ceph] ceph.yaml apply failed, retry $i/12"; sleep 10; fi
+        done
+        echo "[Ceph] Waiting for CephCluster phase=Ready and HEALTH_OK..."
+        for i in $(seq 1 60); do
+          PHASE=$(kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.phase}' 2>/dev/null || true)
+          HEALTH=$(kubectl -n d8-operator-ceph get cephcluster rook-ceph-cluster -o jsonpath='{.status.ceph.health}' 2>/dev/null || true)
+          echo "[Ceph] Status: phase=${PHASE:-?} health=${HEALTH:-?}"
+          if [ "$PHASE" = "Ready" ] && [ "$HEALTH" = "HEALTH_OK" ]; then
+            break
+          fi
+          sleep 20
+        done
+        echo "[Ceph] Gathering cluster connection details..."
+        FSID=""
+        for i in $(seq 1 30); do
+          FSID=$(kubectl -n d8-operator-ceph exec deploy/rook-ceph-tools -c ceph-tools -- ceph fsid 2>/dev/null | tr -d '\r\n' || true)
+          [ -n "$FSID" ] && break || true
+          echo "[Ceph] Waiting for FSID (attempt $i/30)..."; sleep 5
+        done
+        if [ -z "$FSID" ]; then
+          echo "[ERR] Failed to get Ceph FSID" >&2
+          exit 1
+        fi
+        USER_KEY=$(kubectl -n d8-operator-ceph exec deploy/rook-ceph-tools -c ceph-tools -- ceph auth get-key client.admin 2>/dev/null | tr -d '\r\n' || true)
+        if [ -z "$USER_KEY" ]; then
+          echo "[ERR] Failed to get admin key" >&2
+          exit 1
+        fi
+        MON_IPS=$(kubectl -n d8-operator-ceph get svc -l ceph-mon -o jsonpath='{.items[*].spec.clusterIP}' 2>/dev/null || true)
+        if [ -z "$MON_IPS" ]; then
+          echo "[ERR] Failed to get monitor IPs" >&2
+          exit 1
+        fi
+        echo "[Ceph] Creating CephClusterConnection..."
+        MONITORS_YAML=$(echo "$MON_IPS" | tr ' ' '\n' | sed 's/^/    - /;s/$/:6789/')
+        {
+          echo "apiVersion: storage.deckhouse.io/v1alpha1"
+          echo "kind: CephClusterConnection"
+          echo "metadata:"
+          echo "  name: ceph-cluster-1"
+          echo "spec:"
+          echo "  clusterID: ${FSID}"
+          echo "  monitors:"
+          echo "$MONITORS_YAML"
+          echo "  userID: admin"
+          echo "  userKey: ${USER_KEY}"
+        } | kubectl apply -f -
+        echo "[Ceph] Waiting for CephClusterConnection to be Created..."
+        for i in $(seq 1 30); do
+          PHASE=$(kubectl get cephclusterconnection ceph-cluster-1 -o jsonpath='{.status.phase}' 2>/dev/null || true)
+          [ "$PHASE" = "Created" ] && break || true
+          echo "[Ceph] CephClusterConnection phase=$PHASE, retry $i/30"; sleep 5
+        done
+        echo "[Ceph] Applying CephBlockPool (idempotent)..."
+        yq 'select(.kind == "CephBlockPool")' ci/dvp-e2e/manifests/storage/ceph.yaml | kubectl --request-timeout=15s apply --validate=false -f -
+        echo "[Ceph] Waiting for CephBlockPool to be Ready..."
+        for i in $(seq 1 30); do
+          BP_PHASE=$(kubectl -n d8-operator-ceph get cephblockpool pool-rbd-auto-test -o jsonpath='{.status.phase}' 2>/dev/null || true)
+          [ "$BP_PHASE" = "Ready" ] && break || true
+          echo "[Ceph] BlockPool phase=$BP_PHASE; retry $i/30"; sleep 10
+        done
+        echo "[Ceph] Creating CephStorageClass '{{ .TARGET_SC }}'..."
+        yq eval -n '
+          .apiVersion = "storage.deckhouse.io/v1alpha1" |
+          .kind = "CephStorageClass" |
+          .metadata.name = "{{ .TARGET_SC }}" |
+          .spec.clusterConnectionName = "ceph-cluster-1" |
+          .spec.reclaimPolicy = "Delete" |
+          .spec.type = "RBD" |
+          .spec.rbd.defaultFSType = "ext4" |
+          .spec.rbd.pool = "pool-rbd-auto-test"
+        ' | kubectl apply -f -
+        echo "[Ceph] Waiting for CephStorageClass to be Created..."
+        for i in $(seq 1 60); do
+          PHASE=$(kubectl get cephstorageclass '{{ .TARGET_SC }}' -o jsonpath='{.status.phase}' 2>/dev/null || true)
+          [ "$PHASE" = "Created" ] && { echo "[Ceph] CephStorageClass is Created"; break; } || true
+          echo "[Ceph] CephStorageClass phase=$PHASE, retry $i/60"; sleep 10
         done
         echo "[Ceph] Waiting for StorageClass '{{ .TARGET_SC }}'..."
         for i in $(seq 1 60); do

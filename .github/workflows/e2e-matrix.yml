@@ -173,7 +173,7 @@ jobs:
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
+EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
@@ -370,7 +370,8 @@ jobs:
           fi
 
           # If Ceph profile requested, enable Ceph modules and apply CephCluster
-          if [ "$PROFILE" = "cephrbd" ]; then
+          echo "[Ceph] ModuleSource is configured; deferring Ceph setup to Taskfile..."
+          if false && [ "$PROFILE" = "cephrbd" ]; then
             echo "[Ceph] Enabling operator-ceph and CSI-Ceph via ModuleConfig..."
             for i in {1..12}; do
               if KUBECONFIG="$NESTED_KUBECONFIG" kubectl --request-timeout=10s apply --validate=false -f ci/dvp-e2e/manifests/storage/operator-ceph.yaml; then
@@ -562,7 +563,7 @@ jobs:
             name: ingress-nginx
           spec:
             enabled: true
-          EOF
+EOF
 
           echo "[Ingress] Creating IngressNginxController (HostPort, class=nginx)"
           cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl apply -f -
@@ -573,7 +574,7 @@ jobs:
           spec:
             ingressClass: "nginx"
             inlet: "HostPort"
-          EOF
+EOF
 
           echo "[Ingress] Waiting controller pod"
           for i in $(seq 1 60); do
@@ -618,7 +619,7 @@ jobs:
             - name: http
               port: 80
               targetPort: 5678
-          EOF
+EOF
 
           echo "[Ingress] Ingress resource"
           cat <<'EOF' | KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n "$RUN_NS" apply -f -
@@ -641,7 +642,7 @@ jobs:
                       name: vm-http
                       port:
                         number: 80
-          EOF
+EOF
 
           echo "[Ingress] Resolve controller host IP"
           HOST_IP=$(KUBECONFIG="$NESTED_KUBECONFIG" kubectl -n d8-ingress-nginx get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.hostIP}{"\n"}{end}' | awk '/^controller-/{print $2; exit}')
@@ -804,7 +805,7 @@ jobs:
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
+EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
@@ -922,7 +923,7 @@ jobs:
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
+EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
@@ -964,7 +965,7 @@ jobs:
           stringData:
             summary: |
               $(cat matrix_summary.md | sed 's/^/      /')
-          EOF
+EOF
 
       - name: Create test summary
         if: always()
@@ -1025,7 +1026,7 @@ jobs:
           - name: sa
             user:
               token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
+EOF
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
