@@ -884,8 +884,7 @@ tasks:
               .kind = "ModuleConfig" |
               .metadata.name = "sds-node-configurator" |
               .spec.enabled = true |
-              .spec.version = 1 |
-              .spec.source = "deckhouse-prod"
+              .spec.version = 1
             ';
             echo '---';
             yq eval -n '
@@ -893,8 +892,7 @@ tasks:
               .kind = "ModuleConfig" |
               .metadata.name = "sds-replicated-volume" |
               .spec.enabled = true |
-              .spec.version = 1 |
-              .spec.source = "deckhouse-prod"
+              .spec.version = 1
             ';
           } | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f -; then
             success=1
@@ -928,13 +926,45 @@ tasks:
         done
       - |
         set -euo pipefail
-        echo "[SDS] Applying LVMVolumeGroup / ReplicatedStoragePool / ReplicatedStorageClass manifests..."
-        if [ -f manifests/storage/sds.yaml ]; then
-          KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f manifests/storage/sds.yaml
-        else
-          echo "[ERR] manifests/storage/sds.yaml not found" >&2
-          exit 1
+        echo "[SDS] Creating per-node LVMVolumeGroups (type=Local)..."
+        NODES=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get nodes -o json \
+          | jq -r '.items[] | select(.metadata.labels["node-role.kubernetes.io/control-plane"]!=true and .metadata.labels["node-role.kubernetes.io/master"]!=true) | .metadata.name')
+        if [ -z "$NODES" ]; then
+          NODES=$(KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get nodes -o json | jq -r '.items[].metadata.name')
         fi
+        for node in $NODES; do
+          yq eval -n "
+            .apiVersion = \"storage.deckhouse.io/v1alpha1\" |
+            .kind = \"LVMVolumeGroup\" |
+            .metadata.name = \"data-\" + env(node) |
+            .spec.type = \"Local\" |
+            .spec.local.nodeName = env(node) |
+            .spec.local.actualVGNameOnTheNode = \"data\" |
+            .spec.blockDeviceSelector.devicePaths = [\"/dev/sdb\",\"/dev/vdb\",\"/dev/xvdb\",\"/dev/sdc\",\"/dev/vdc\",\"/dev/xvdc\",\"/dev/sdd\",\"/dev/vdd\",\"/dev/xvdd\"]
+          " | node="$node" KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
+        done
+        echo "[SDS] Creating ReplicatedStoragePool 'data' from LVMVolumeGroups..."
+        LVGS=$(printf "%s\n" $NODES | sed 's/^/      - name: data-/')
+        {
+          echo "apiVersion: storage.deckhouse.io/v1alpha1"
+          echo "kind: ReplicatedStoragePool"
+          echo "metadata:"
+          echo "  name: data"
+          echo "spec:"
+          echo "  type: LVM"
+          echo "  lvmVolumeGroups:"
+          printf "%s\n" "$LVGS"
+        } | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
+        echo "[SDS] Creating ReplicatedStorageClass '{{ .SDS_SC_NAME }}'..."
+        yq eval -n '
+          .apiVersion = "storage.deckhouse.io/v1alpha1" |
+          .kind = "ReplicatedStorageClass" |
+          .metadata.name = "{{ .SDS_SC_NAME }}" |
+          .spec.storagePool = "data" |
+          .spec.reclaimPolicy = "Delete" |
+          .spec.topology = "Ignored" |
+          .spec.volumeAccess = "Local"
+        ' | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
       - |
         set -euo pipefail
         if ! KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get storageclass "{{ .SDS_SC_NAME }}" >/dev/null 2>&1; then
@@ -975,14 +1005,12 @@ tasks:
             break; else echo "[Ceph] operator-ceph.yaml apply failed, retry $i/12"; sleep 10; fi
         done
         # Rely on operator rollout + CRDs instead of module state polling
-        echo "[Ceph] Waiting for operator deployment..."
+        echo "[Ceph] Waiting for operator-ceph deployment..."
         for i in $(seq 1 60); do
           if kubectl -n d8-operator-ceph get deploy operator-ceph >/dev/null 2>&1; then
             kubectl -n d8-operator-ceph rollout status deploy/operator-ceph --timeout=180s && break
-          elif kubectl -n d8-operator-ceph get deploy rook-ceph-operator >/dev/null 2>&1; then
-            kubectl -n d8-operator-ceph rollout status deploy/rook-ceph-operator --timeout=180s && break
           fi
-          echo "[Ceph] operator not found yet ($i/60)"; sleep 10
+          echo "[Ceph] operator-ceph not found yet ($i/60)"; sleep 10
         done
         echo "[Ceph] Waiting for Ceph CRDs to appear..."
         for crd in cephclusters.ceph.rook.io cephblockpools.ceph.rook.io cephfilesystems.ceph.rook.io; do
