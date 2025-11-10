@@ -55,12 +55,7 @@ func extractField(obj client.Object, fieldPath string) string {
 	if !ok {
 		return "Unknown"
 	}
-	path := make([]string, 0)
-	for part := range strings.SplitSeq(fieldPath, ".") {
-		if part != "" {
-			path = append(path, part)
-		}
-	}
+	path := strings.Split(fieldPath, ".")
 	value, found, err := unstructured.NestedString(u.Object, path...)
 	if err != nil || !found {
 		return "Unknown"
