@@ -78,21 +78,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
-	isFSFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
-	if err != nil {
-		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-			return reconcile.Result{}, nil
-		}
-		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
-	}
-
 	if vdSnapshot.DeletionTimestamp != nil {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseTerminating
 		cb.
@@ -161,10 +146,39 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, nil
 	}
 
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
+	kvvmi, err := h.snapshotter.GetKubeVirtVirtualMachineInstance(ctx, vm)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
+	err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
+	if err != nil {
+		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			return reconcile.Result{}, nil
+		}
+		return reconcile.Result{}, err
+	}
+
+	isFSFrozen, err := h.snapshotter.IsFrozen(ctx, kvvmi)
+	if err != nil {
+		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+			return reconcile.Result{}, nil
+		}
+		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case vs == nil:
 		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen {
-			canFreeze, err := h.snapshotter.CanFreeze(ctx, vm)
+			canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil
@@ -325,7 +339,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	default:
 		log.Debug("The volume snapshot is ready to use")
 
-		isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+		isFrozen, err := h.snapshotter.IsFrozen(ctx, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				return reconcile.Result{}, nil
@@ -340,7 +354,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			vdSnapshot.Status.Consistent = ptr.To(true)
 
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil
@@ -364,6 +378,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 				return reconcile.Result{}, err
 			}
+		}
+
+		err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
+		if err != nil {
+			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				return reconcile.Result{}, nil
+			}
+			return reconcile.Result{}, err
 		}
 
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady

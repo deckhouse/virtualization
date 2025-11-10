@@ -62,6 +62,11 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 			}
 		}
 
+		kvvmi, err := h.snapshotter.GetKubeVirtVirtualMachineInstance(ctx, vm)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		if vs != nil {
 			err = h.snapshotter.DeleteVolumeSnapshot(ctx, vs)
 			if err != nil {
@@ -71,7 +76,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 
 		if vm != nil {
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil

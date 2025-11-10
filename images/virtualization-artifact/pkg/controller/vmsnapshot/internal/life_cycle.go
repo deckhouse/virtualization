@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -73,6 +74,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
+	kvvmi, err := h.snapshotter.GetKubeVirtVirtualMachineInstance(ctx, vm)
+	if err != nil {
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
+		return reconcile.Result{}, err
+	}
+
 	if vmSnapshot.DeletionTimestamp != nil {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseTerminating
 		cb.
@@ -80,7 +87,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			Reason(conditions.ReasonUnknown).
 			Message("")
 
-		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
+		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				return reconcile.Result{}, nil
@@ -193,7 +200,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	needToFreeze, err := h.needToFreeze(ctx, vm, vmSnapshot.Spec.RequiredConsistency)
+	needToFreeze, err := h.needToFreeze(ctx, vm, kvvmi, vmSnapshot.Spec.RequiredConsistency)
 	if err != nil {
 		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 			return reconcile.Result{}, nil
@@ -201,7 +208,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	canFreeze, err := h.snapshotter.CanFreeze(ctx, vm)
+	canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
 	if err != nil {
 		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 			return reconcile.Result{}, nil
@@ -349,7 +356,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	}
 
 	// 7. Unfreeze VirtualMachine if can.
-	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
+	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 	if err != nil {
 		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 			return reconcile.Result{}, nil
@@ -509,7 +516,7 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*v1alp
 	return true
 }
 
-func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, requiredConsistency bool) (bool, error) {
+func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, requiredConsistency bool) (bool, error) {
 	if !requiredConsistency {
 		return false, nil
 	}
@@ -518,7 +525,7 @@ func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.Virtual
 		return false, nil
 	}
 
-	isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+	isFrozen, err := h.snapshotter.IsFrozen(ctx, kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -549,12 +556,12 @@ func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *v1alpha2
 	return true, nil
 }
 
-func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine) (bool, error) {
+func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	if vm == nil || vm.Status.Phase != v1alpha2.MachineRunning {
 		return false, nil
 	}
 
-	isFrozen, err := h.snapshotter.IsFrozen(ctx, vm)
+	isFrozen, err := h.snapshotter.IsFrozen(ctx, kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -562,7 +569,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 		return false, nil
 	}
 
-	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualMachineSnapshot(ctx, vmSnapshot.Name, vm)
+	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualMachineSnapshot(ctx, vmSnapshot.Name, vm, kvvmi)
 	if err != nil {
 		return false, err
 	}
