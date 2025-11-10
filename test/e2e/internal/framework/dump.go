@@ -104,10 +104,12 @@ func (f *Framework) savePodAdditionalInfo(testCaseFullText, dumpPath string) {
 	pods, err := f.Clients.kubeClient.CoreV1().Pods(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
+		return
 	}
 
 	if len(pods.Items) == 0 {
 		GinkgoWriter.Println("The list of pods is empty; nothing to dump.")
+		return
 	}
 
 	for _, pod := range pods.Items {
@@ -134,12 +136,14 @@ func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText str
 	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(namespace).GetLogs(name, &corev1.PodLogOptions{}).Stream(context.Background())
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %w\n", name, err)
+		return
 	}
 	defer podLogs.Close()
 
 	logs, err := io.ReadAll(podLogs)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nError: %w\n", name, err)
+		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__logs.json", filePath, testCaseFullText, name)
