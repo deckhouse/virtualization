@@ -81,6 +81,7 @@ kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -
                         "ports": [{"containerPort": 2345, "name": "dlv"}]
                         "readinessProbe": null,
                         "livenessProbe": null
+                        "args": []
                     },
                     {
                         "name": "proxy",
