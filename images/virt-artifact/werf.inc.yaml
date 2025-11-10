@@ -49,7 +49,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
