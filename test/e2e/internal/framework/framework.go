@@ -180,9 +180,8 @@ func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...clie
 		if err != nil {
 			return err
 		}
+		f.DeferDelete(obj)
 	}
-
-	f.DeferDelete(objs...)
 
 	return nil
 }
