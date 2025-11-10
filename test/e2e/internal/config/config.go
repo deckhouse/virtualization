@@ -87,7 +87,6 @@ type TestData struct {
 	SizingPolicy          string `yaml:"sizingPolicy"`
 	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
 	ImageHotplug          string `yaml:"imageHotplug"`
-	ImagesCreation        string `yaml:"imagesCreation"`
 	VMConfiguration       string `yaml:"vmConfiguration"`
 	VMLabelAnnotation     string `yaml:"vmLabelAnnotation"`
 	VMMigration           string `yaml:"vmMigration"`
