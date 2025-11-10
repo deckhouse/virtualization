@@ -61,8 +61,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.VMOPRestoreMode) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		f.Before()
-		t := NewRestoreTest(f)
 		DeferCleanup(f.After)
+		t := NewRestoreTest(f)
 
 		By("Environment preparation", func() {
 			t.PrepareEnvironment()
