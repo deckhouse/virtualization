@@ -508,46 +508,29 @@ tasks:
       TOKEN:
         sh: |
           set -euo pipefail
-          # Wait for namespace and SA readiness
-          for i in $(seq 1 30); do
-            kubectl get ns {{ .NAMESPACE }} >/dev/null 2>&1 && break || true
-            echo "[INFO] Waiting for namespace '{{ .NAMESPACE }}' ($i/30)"; sleep 2
-          done
-          for i in $(seq 1 30); do
-            kubectl -n {{ .NAMESPACE }} get sa dkp-sa >/dev/null 2>&1 && break || true
-            echo "[INFO] Waiting for sa/dkp-sa in '{{ .NAMESPACE }}' ($i/30)"; sleep 2
-          done
-          # First try TokenRequest (ephemeral token)
-          TOKEN=""
+          # Prefer explicitly provided parent token from CI secret.
+          if [ -n "${PARENT_SA_TOKEN:-}" ]; then
+            echo "$PARENT_SA_TOKEN"; exit 0;
+          fi
+          # Try to extract token from provided parent kubeconfig (written from GH secret earlier).
+          KCONF='{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+          if [ -s "$KCONF" ]; then
+            TOK=$(yq -r '.users[0].user.token // ""' "$KCONF" 2>/dev/null || true)
+            if [ -n "$TOK" ] && [ "$TOK" != "null" ]; then
+              echo "$TOK"; exit 0;
+            fi
+            # Fallback via kubectl config view
+            TOK=$(kubectl config view --kubeconfig="$KCONF" --minify --raw -o jsonpath='{.users[0].user.token}' 2>/dev/null || true)
+            if [ -n "$TOK" ]; then echo "$TOK"; exit 0; fi
+          fi
+          # As a last resort, try TokenRequest on the in-cluster SA (kept for compatibility)
           for i in $(seq 1 10); do
-            TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null || true)
-            [ -n "${TOKEN}" ] && break || true
-            echo "[WARN] TokenRequest failed (attempt $i); retrying in 5s" >&2
-            sleep 5
+            TOK=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null || true)
+            [ -n "$TOK" ] && { echo "$TOK"; exit 0; } || true
+            echo "[WARN] TokenRequest failed (attempt $i); retrying in 5s" >&2; sleep 5
           done
-          if [ -z "${TOKEN}" ]; then
-            # Fallback: read from SA token Secret (explicitly created by our chart)
-            for i in $(seq 1 30); do
-              TDATA=$(kubectl -n {{ .NAMESPACE }} get secret dkp-sa-secret -o jsonpath='{.data.token}' 2>/dev/null || true)
-              if [ -n "${TDATA}" ]; then
-                TOKEN=$(echo "${TDATA}" | base64 -d)
-                break
-              fi
-              # Try any bound token secret for dkp-sa
-              TDATA=$(kubectl -n {{ .NAMESPACE }} get secrets -o json 2>/dev/null \
-                | jq -r '.items[] | select(.type=="kubernetes.io/service-account-token" and .metadata.annotations["kubernetes.io/service-account.name"]=="dkp-sa") | .data.token // empty' | head -n1 || true)
-              if [ -n "${TDATA}" ]; then
-                TOKEN=$(echo "${TDATA}" | base64 -d)
-                break
-              fi
-              echo "[INFO] Waiting for dkp-sa token Secret to be populated ($i/30)"; sleep 2
-            done
-          fi
-          if [ -z "${TOKEN}" ]; then
-            echo "[ERR] Unable to obtain token for dkp-sa after retries (TokenRequest and Secret fallback)" >&2
-            exit 1
-          fi
-          echo "${TOKEN}"
+          echo "[ERR] Unable to obtain API token (neither PARENT_SA_TOKEN, kubeconfig token, nor TokenRequest)" >&2
+          exit 1
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     silent: true

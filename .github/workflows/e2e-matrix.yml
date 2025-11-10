@@ -100,7 +100,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Removed early Go setup; not needed for prepare phase
+      
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -283,7 +283,7 @@ jobs:
         working-directory: ci/dvp-e2e
         run: |
           echo "🚀 dhctl bootstrap (profile: ${{ matrix.profile }})"
-          task dhctl-bootstrap \
+          PARENT_SA_TOKEN='${{ secrets.E2E_NESTED_SA_SECRET }}' task dhctl-bootstrap \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
