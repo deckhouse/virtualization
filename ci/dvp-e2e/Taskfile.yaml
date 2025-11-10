@@ -970,11 +970,6 @@ tasks:
         done
         echo "[Deckhouse] Grace period for webhooks init..."; sleep 20
         echo "[Ceph] Applying ModuleConfig/MPO for operator-ceph/csi-ceph/snapshot-controller..."
-        echo "[Ceph] PWD=$(pwd)"; ls -la manifests/storage || true
-        if [ ! -f manifests/storage/operator-ceph.yaml ]; then
-          echo "[ERR] manifests/storage/operator-ceph.yaml not found (cwd=$(pwd))" >&2
-          exit 1
-        fi
         for i in {1..12}; do
           if kubectl --request-timeout=10s apply --validate=false -f manifests/storage/operator-ceph.yaml; then
             break; else echo "[Ceph] operator-ceph.yaml apply failed, retry $i/12"; sleep 10; fi
@@ -999,10 +994,6 @@ tasks:
           done
         done
         echo "[Ceph] Applying CephCluster CR..."
-        if [ ! -f manifests/storage/ceph.yaml ]; then
-          echo "[ERR] manifests/storage/ceph.yaml not found (cwd=$(pwd))" >&2
-          exit 1
-        fi
         for i in {1..12}; do
           if kubectl --request-timeout=10s apply --validate=false -f manifests/storage/ceph.yaml; then
             break; else echo "[Ceph] ceph.yaml apply failed, retry $i/12"; sleep 10; fi

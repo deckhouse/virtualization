@@ -4,21 +4,21 @@ kind: LVMVolumeGroup
 metadata:
   name: data
 spec:
-  type: LVMThin
-  thinPoolName: thin-pool
-  volumeGroupName: data
-  blockDevices:
-    - /dev/sdd
+  # For SDS replicated-volume module, use Local VG
+  type: Local
+  actualVGNameOnTheNode: data
+  blockDeviceSelector:
+    devicePaths:
+      - /dev/sdd
 ---
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: ReplicatedStoragePool
 metadata:
   name: data
 spec:
-  type: LVMThin
+  type: Local
   lvmVolumeGroups:
     - name: data
-      thinPoolName: thin-pool
 ---
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: ReplicatedStorageClass
