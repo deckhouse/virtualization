@@ -47,7 +47,7 @@ type BaseOptions struct {
 }
 
 func (o *BaseOptions) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVarP(&o.Output, outputFlag, outputFlagShort, outputYaml, o.Output)
+	fs.StringVarP(&o.Output, outputFlag, outputFlagShort, outputXml, o.Output)
 	fs.StringVarP(&o.Socket, socketFlag, socketFlagShort, defaultSocket, o.Socket)
 }
 
