@@ -79,6 +79,11 @@ func (h *MigrationHandler) Handle(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		h.recorder.Eventf(vd, corev1.EventTypeWarning, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VirtualDisk is not ready. Cannot be migrated now.")
 		return reconcile.Result{}, nil
 	}
+	migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+	if migrating.Status == metav1.ConditionTrue {
+		h.recorder.Eventf(vd, corev1.EventTypeNormal, v1alpha2.ReasonVolumeMigrationCannotBeProcessed, "VirtualDisk is migrating. Cannot be migrated now.")
+		return reconcile.Result{}, nil
+	}
 
 	vm, err := h.getVirtualMachine(ctx, vd)
 	if err != nil {

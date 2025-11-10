@@ -5,7 +5,6 @@
 {{- $tag := get $.Core $gitRepoName }}
 {{- $version := (split "-" $tag)._0 }}
 
-
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false

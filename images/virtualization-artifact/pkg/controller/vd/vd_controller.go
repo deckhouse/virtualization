@@ -98,6 +98,7 @@ func NewController(
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
+		UsePriorityQueue: ptr.To(true),
 	})
 	if err != nil {
 		return nil, err
@@ -110,7 +111,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualDisk{}).
-		WithValidator(NewValidator(mgr.GetClient(), scService)).
+		WithValidator(NewValidator(mgr.GetClient(), scService, disk)).
 		Complete(); err != nil {
 		return nil, err
 	}

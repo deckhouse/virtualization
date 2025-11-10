@@ -19,6 +19,7 @@ package framework
 import (
 	"context"
 	"fmt"
+	"maps"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -70,13 +71,6 @@ func (f *Framework) Before() {
 func (f *Framework) After() {
 	GinkgoHelper()
 
-	if CurrentSpecReport().Failed() {
-		if f.namespace != nil {
-			By("Failed: save resource dump")
-			f.saveTestCaseDump()
-		}
-	}
-
 	if config.IsCleanUpNeeded() {
 		defer func() {
 			if f.namespace != nil {
@@ -86,9 +80,18 @@ func (f *Framework) After() {
 			}
 		}()
 
-		By("Cleanup: process deferred deletions")
-		err := f.Delete(context.Background(), f.objectsToDelete...)
-		Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+		defer func() {
+			By("Cleanup: process deferred deletions")
+			err := f.Delete(context.Background(), f.objectsToDelete...)
+			Expect(err).NotTo(HaveOccurred(), "Failed to delete object")
+		}()
+	}
+
+	if CurrentSpecReport().Failed() {
+		if f.namespace != nil {
+			By("Failed: save resource dump")
+			f.saveTestCaseDump()
+		}
 	}
 }
 
@@ -138,7 +141,7 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 			Name:      obj.GetName(),
 		}
 
-		err := wait.PollUntilContextTimeout(ctx, time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		err := wait.PollUntilContextTimeout(ctx, time.Second, LongTimeout, true, func(ctx context.Context) (bool, error) {
 			err := f.client.Get(ctx, key, obj)
 			switch {
 			case err == nil:
@@ -163,6 +166,13 @@ func (f *Framework) Delete(ctx context.Context, objs ...client.Object) error {
 // Returns an error if the creation of any resource
 func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...client.Object) error {
 	for _, obj := range objs {
+		labels := obj.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		maps.Copy(labels, map[string]string{NamespaceLabel: f.namespacePrefix})
+		obj.SetLabels(labels)
+
 		err := f.client.Create(ctx, obj)
 		if err != nil {
 			return err
