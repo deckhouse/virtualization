@@ -378,11 +378,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 }
 
 func getVirtualMachine(ctx context.Context, vd *v1alpha2.VirtualDisk, snapshotter LifeCycleSnapshotter) (*v1alpha2.VirtualMachine, error) {
-	if vd == nil {
-		return nil, nil
-	}
-
-	if vd.Status.AttachedToVirtualMachines == nil {
+	if vd == nil || vd.Status.AttachedToVirtualMachines == nil {
 		return nil, nil
 	}
 
