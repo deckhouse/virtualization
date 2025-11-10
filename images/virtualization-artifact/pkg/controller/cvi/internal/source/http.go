@@ -114,24 +114,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtualI
 
 		log.Info("Cleaning up...")
 	case pod == nil:
-		maintenanceSecret, err := ds.dvcrService.GetMaintenanceSecret(ctx)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("checking DVCR maintenance mode: %w", err)
-		}
-
-		if ds.dvcrService.IsMaintenanceInitiatedOrInProgress(maintenanceSecret) {
-			ds.recorder.Event(
-				cvi,
-				corev1.EventTypeNormal,
-				v1alpha2.ReasonImageOperationPostponedDueToDVCRMaintenance,
-				"Postpone image operation until the end of DVCR maintenance mode.",
-			)
-			cb.Status(metav1.ConditionFalse).
-				Reason(cvicondition.Provisioning).
-				Message("DVCR is in maintenance mode: wait until it finishes before creating provisioner.")
-			return reconcile.Result{RequeueAfter: time.Second * 15}, nil
-		}
-
 		ds.recorder.Event(
 			cvi,
 			corev1.EventTypeNormal,

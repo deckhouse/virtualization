@@ -106,6 +106,7 @@ const (
 
 	// ReasonImageOperationPostponedDueToDVCRMaintenance is event reason that operation is postponed until the end of DVCR maintenance mode.
 	ReasonImageOperationPostponedDueToDVCRMaintenance = "ImageOperationPostponedDueToDVCRMaintenance"
+	ReasonImageOperationContinueAfterDVCRMaintenance  = "ImageOperationContinueAfterDVCRMaintenance"
 
 	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
 	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"
