@@ -136,7 +136,7 @@ var _ = Describe("LifeCycle handler", func() {
 			IsFrozenFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			},
-			CanUnfreezeFunc: func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			CanUnfreezeWithVirtualMachineSnapshotFunc: func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			},
 			CanFreezeFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {

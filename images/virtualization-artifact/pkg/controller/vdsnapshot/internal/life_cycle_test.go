@@ -192,7 +192,7 @@ var _ = Describe("LifeCycle handler", func() {
 				},
 			}
 
-			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm.Name, Mounted: true}}
+			vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{{Name: vm.Name}}
 
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
@@ -209,7 +209,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.FreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
 				return nil
 			}
-			snapshotter.CanUnfreezeFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			}
 			snapshotter.UnfreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
@@ -299,7 +299,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		DescribeTable("Check unfreeze if failed", func(vm *v1alpha2.VirtualMachine, expectUnfreezing bool) {
-			unFreezeCalled := false
+			unfreezeCalled := false
 
 			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
@@ -311,7 +311,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return vs, nil
 			}
 			snapshotter.UnfreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
-				unFreezeCalled = true
+				unfreezeCalled = true
 				return nil
 			}
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
@@ -325,7 +325,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
-			Expect(unFreezeCalled).To(Equal(expectUnfreezing))
+			Expect(unfreezeCalled).To(Equal(expectUnfreezing))
 		},
 			Entry("Has VM with frozen filesystem",
 				&v1alpha2.VirtualMachine{

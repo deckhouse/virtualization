@@ -355,7 +355,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			vdSnapshot.Status.Consistent = ptr.To(true)
 
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm, kvvmi)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil
@@ -453,7 +453,7 @@ func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshot *v1
 		return err
 	}
 
-	canUnfreeze, err := h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm, kvvmi)
+	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 	if err != nil {
 		return err
 	}

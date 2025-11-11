@@ -76,7 +76,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 
 		if vm != nil {
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm, kvvmi)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil
