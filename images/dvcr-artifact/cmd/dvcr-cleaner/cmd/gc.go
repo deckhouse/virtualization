@@ -24,18 +24,18 @@ import (
 	"os"
 	"os/exec"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/kubernetes"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/registry"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/signal"
-	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/storage"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/humanize"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -142,27 +142,42 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 		errs = multierror.Append(errs, cleanupErr)
 	}
 
+	result := map[string]string{
+		"result": "success",
+	}
+	if cleanupErr != nil {
+		result["result"] = "fail"
+		result["error"] = cleanupErr.Error()
+	}
+
 	// Report disk usage.
 	fsInfoAfterCleanup, errFSInfo := registry.StorageStats()
 	if errFSInfo != nil {
 		errs = multierror.Append(errs, fmt.Errorf("get repositories filesystem info after cleanup: %w", errFSInfo))
-	}
-	freedSpace := ""
-	availableSpace := ""
-	usedSpace := ""
-	totalSpace := ""
-	if errFSInfo == nil {
+
 		// Available space after cleanup should be greater than available space before cleanup.
 		// The difference is the freed space. Format it with GiB/MiB suffix.
-		freedSpaceRaw := fsInfoAfterCleanup.Available - fsInfoBeforeCleanup.Available
-		freedSpace = storage.HumanizeQuantity(freedSpaceRaw) + "B"
-		availableSpace = storage.HumanizeQuantity(fsInfoAfterCleanup.Available) + "B"
-		usedSpace = storage.HumanizeQuantity(fsInfoAfterCleanup.Total-fsInfoAfterCleanup.Available) + "B"
-		totalSpace = storage.HumanizeQuantity(fsInfoAfterCleanup.Total) + "B"
+		totalSpaceBytes := int64(fsInfoAfterCleanup.Total)
+		usedSpaceBytes := int64(fsInfoAfterCleanup.Total - fsInfoAfterCleanup.Available)
+		availableSpaceBytes := int64(fsInfoAfterCleanup.Available)
+		freedSpaceBytes := int64(fsInfoAfterCleanup.Available - fsInfoBeforeCleanup.Available)
+
+		result["totalSpaceBytes"] = strconv.FormatInt(totalSpaceBytes, 10)
+		result["totalSpace"] = humanize.HumanizeBytes(totalSpaceBytes)
+		result["usedSpaceBytes"] = strconv.FormatInt(usedSpaceBytes, 10)
+		result["usedSpace"] = humanize.HumanizeBytes(usedSpaceBytes)
+		result["availableSpaceBytes"] = strconv.FormatInt(availableSpaceBytes, 10)
+		result["availableSpace"] = humanize.HumanizeBytes(availableSpaceBytes)
+		result["freedSpaceBytes"] = strconv.FormatInt(freedSpaceBytes, 10)
+		result["freedSpace"] = humanize.HumanizeBytes(freedSpaceBytes)
+
+		// Also report to stdout.
+		fmt.Printf("Freed space during cleanup: %s\n", result["freedSpace"])
+		fmt.Printf("%7s  %7s  %7s\n", "Total", "Used", "Avail")
+		fmt.Printf("%7s  %7s  %7s\n", result["totalSpace"], result["usedSpace"], result["availableSpace"])
+	} else {
+		fmt.Printf("FS stats not available: %v\n", errFSInfo)
 	}
-	fmt.Printf("Freed space during cleanup: %s, available space now: %s\n", freedSpace, availableSpace)
-	fmt.Printf("%7s  %7s  %7s\n", "Total", "Used", "Avail")
-	fmt.Printf("%7s  %7s  %7s\n", totalSpace, usedSpace, availableSpace)
 
 	// Terminate without waiting if no secret name was provided.
 	if MaintenanceSecretName == "" {
@@ -170,16 +185,6 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update maintenance secret and wait for termination signal.
-	result := map[string]string{
-		"result":         "success",
-		"freedSpace":     freedSpace,
-		"availableSpace": availableSpace,
-	}
-	if cleanupErr != nil {
-		result["result"] = "fail"
-		result["error"] = cleanupErr.Error()
-	}
-
 	secretErr := annotateMaintenanceSecretOnCleanupDone(context.Background(), result)
 	if secretErr != nil {
 		errs = multierror.Append(errs, secretErr)
@@ -248,12 +253,16 @@ func checkCleanupHandler(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	availableSpace := resource.NewQuantity(int64(fsInfo.Available), resource.BinarySI).String() + "B"
+	totalSpace := humanize.HumanizeBytes(int64(fsInfo.Total))
+	usedSpace := humanize.HumanizeBytes(int64(fsInfo.Total - fsInfo.Available))
+	availableSpace := humanize.HumanizeBytes(int64(fsInfo.Available))
 
-	fmt.Printf("Available space: %s\n", availableSpace)
+	fmt.Printf("%7s  %7s  %7s\n", "Total", "Used", "Avail")
+	fmt.Printf("%7s  %7s  %7s\n", totalSpace, usedSpace, availableSpace)
 
 	if len(absentImages) == 0 {
 		fmt.Println("No images eligible for auto-cleanup.")
+		return nil
 	}
 
 	sort.SliceStable(absentImages, func(i, j int) bool {

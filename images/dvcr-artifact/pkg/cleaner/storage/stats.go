@@ -16,41 +16,7 @@ limitations under the License.
 
 package storage
 
-import (
-	"fmt"
-	"math"
-	"strconv"
-)
-
 type FSInfo struct {
 	Total     uint64
 	Available uint64
-}
-
-func HumanizeQuantity(q uint64) string {
-	suffixes := []string{"B", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
-	return humanizeQuantity(q, 1024, suffixes)
-}
-
-func humanizeQuantity(s uint64, base float64, suffixes []string) string {
-	if s < 1200 {
-		return strconv.FormatUint(s, 10)
-	}
-
-	e := math.Floor(logn(float64(s), base))
-
-	suffix := suffixes[int(e)]
-	val := math.Floor(float64(s)/math.Pow(base, e)*10+0.5) / 10
-	_, frac := math.Modf(val)
-	f := "%.0f%s"
-
-	if frac > 0 {
-		f = "%.1f%s"
-	}
-
-	return fmt.Sprintf(f, val, suffix)
-}
-
-func logn(n, b float64) float64 {
-	return math.Log(n) / math.Log(b)
 }
