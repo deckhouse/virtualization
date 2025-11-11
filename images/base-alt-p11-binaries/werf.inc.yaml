@@ -36,4 +36,4 @@ shell:
     done
     
     rm -f /var/lib/rpm/__db*
-    rpm -vv --rebuilddb
+    rpm -v --rebuilddb
