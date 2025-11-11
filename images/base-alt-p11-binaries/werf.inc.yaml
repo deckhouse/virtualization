@@ -36,3 +36,5 @@ shell:
       echo "remove /$pkg"
       rm -rf /$pkg
     done
+    
+    apt-get update -y
