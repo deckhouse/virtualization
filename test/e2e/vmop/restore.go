@@ -77,6 +77,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			if runPolicy == v1alpha2.ManualPolicy {
+				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 				util.StartVirtualMachine(f, t.VM)
 			}
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
@@ -136,6 +137,11 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
 			if restoreMode != v1alpha2.VMOPRestoreModeDryRun {
+				if runPolicy == v1alpha2.ManualPolicy {
+					util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+					util.StartVirtualMachine(f, t.VM)
+				}
+
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				t.MountVMBDA(t.GetVMBDADevicePath())
@@ -164,7 +170,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		Entry("BestEffort restore mode with VM manual restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Manual, v1alpha2.AlwaysOnPolicy),
 		Entry("Strict restore mode with VM manual restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeStrict, v1alpha2.Manual, v1alpha2.AlwaysOnPolicy),
 		Entry("BestEffort restore mode with VM automatic restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.AlwaysOnPolicy),
-		Entry("BestEffort restore mode with VM automatic restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.ManualPolicy),
+		Entry("BestEffort restore mode with VM automatic restart approval mode, manual run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.ManualPolicy),
 	)
 })
 
