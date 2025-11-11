@@ -59,7 +59,7 @@ func NewCronSource(scheduleSpec string, objLister ObjectLister, log *log.Logger)
 	return &CronSource{
 		schedule:  schedule,
 		objLister: objLister,
-		log:       log.With("WatchSource", sourceName),
+		log:       log.With("watchSource", sourceName),
 		clock:     &clock.RealClock{},
 	}, nil
 }
