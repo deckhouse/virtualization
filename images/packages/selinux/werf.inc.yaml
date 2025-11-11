@@ -87,7 +87,6 @@ shell:
     OUTDIR=/out
 
     cd libselinux
-    # make -j$(nproc)
 
     make -j$(nproc) \
       DESTDIR=$OUTDIR \
