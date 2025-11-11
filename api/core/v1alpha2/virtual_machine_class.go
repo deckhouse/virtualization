@@ -32,8 +32,6 @@ const (
 // VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
 // A resource cannot be deleted as long as it is used in one of the VMs.
 //
-// Deprecated: Use v1alpha3.VirtualMachineClass instead.
-//
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status

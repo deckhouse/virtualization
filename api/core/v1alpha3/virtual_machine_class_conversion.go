@@ -16,4 +16,8 @@ limitations under the License.
 
 package v1alpha3
 
+import "sigs.k8s.io/controller-runtime/pkg/conversion"
+
+var _ conversion.Hub = &VirtualMachineClass{}
+
 func (*VirtualMachineClass) Hub() {}
