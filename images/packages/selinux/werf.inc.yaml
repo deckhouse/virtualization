@@ -67,7 +67,7 @@ import:
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
+  {{/* {{- include "alt packages proxy" . | nindent 2 }} */}}
   - |
     apt-get install -y \
       {{ $builderDependencies.altPackages | join " " }}
