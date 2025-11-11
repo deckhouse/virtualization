@@ -42,7 +42,7 @@ import:
   includePaths:
   - nsswitch.conf
 {{- if eq $.DEBUG_COMPONENT "delve/virt-handler" }}
-- image: debuger
+- image: debugger
   add: /app/dlv
   to: /app/dlv
   after: install
