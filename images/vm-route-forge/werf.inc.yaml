@@ -49,7 +49,7 @@ import:
   to: /app/vm-route-forge
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
-- image: debugger
+- image: debuger
   add: /app/dlv
   to: /app/dlv
   after: install
