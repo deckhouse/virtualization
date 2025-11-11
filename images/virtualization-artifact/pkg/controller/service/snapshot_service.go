@@ -90,7 +90,7 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 
 	for _, c := range kvvmi.Status.Conditions {
 		if c.Type == virtv1.VirtualMachineInstanceAgentConnected {
-			return c.Status == "True", nil
+			return c.Status == corev1.ConditionTrue, nil
 		}
 	}
 
@@ -115,7 +115,64 @@ func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachi
 	return nil
 }
 
-func (s *SnapshotService) CanUnfreeze(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if vm == nil {
+		return false, nil
+	}
+
+	isFrozen, err := s.IsFrozen(ctx, kvvmi)
+	if err != nil {
+		return false, err
+	}
+
+	if !isFrozen {
+		return false, nil
+	}
+
+	vdByName := make(map[string]struct{})
+	for _, bdr := range vm.Status.BlockDeviceRefs {
+		if bdr.Kind == v1alpha2.DiskDevice {
+			vdByName[bdr.Name] = struct{}{}
+		}
+	}
+
+	var vdSnapshots v1alpha2.VirtualDiskSnapshotList
+	err = s.client.List(ctx, &vdSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vdSnapshot := range vdSnapshots.Items {
+		if vdSnapshot.Name == vdSnapshotName {
+			continue
+		}
+
+		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
+		if ok && vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseInProgress {
+			return false, nil
+		}
+	}
+
+	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
+	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vmSnapshot := range vmSnapshots.Items {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == v1alpha2.VirtualMachineSnapshotPhaseInProgress {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	if vm == nil {
 		return false, nil
 	}

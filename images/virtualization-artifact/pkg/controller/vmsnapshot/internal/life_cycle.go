@@ -569,7 +569,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 		return false, nil
 	}
 
-	canUnfreeze, err := h.snapshotter.CanUnfreeze(ctx, vmSnapshot.Name, vm, kvvmi)
+	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualMachineSnapshot(ctx, vmSnapshot.Name, vm, kvvmi)
 	if err != nil {
 		return false, err
 	}
