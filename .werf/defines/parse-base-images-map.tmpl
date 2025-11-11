@@ -1,10 +1,13 @@
 {{- define "project_images"}}
 {{-   $globImages := "images/*/werf.inc.yaml" }}
 {{-   $globPackages := "images/packages/*/werf.inc.yaml" }}
+{{-   $globRootWerf := "werf.yaml" }}
 {{-   $globAll := merge (.Files.Glob $globImages) (.Files.Glob $globPackages) }}
+{{-   $globAll = merge (.Files.Glob $globRootWerf) $globAll }}
 {{-   $imagesList := list }}
+{{-   $imagesMap := dict }}
 {{-   range $path, $content := $globAll }}
-{{-     $findImg := regexFindAll "(?:(builder|tools))/([a-zA-Z0-9._-]+)" $content -1 }}
+{{-     $findImg := regexFindAll "(?:(builder|tools|libs|base))/([a-zA-Z0-9._-]+)" $content -1 }}
 {{-     if gt (len $findImg) 0 }}
 {{-       range $findImg }}
 {{-         if not (has . $imagesList) }}
