@@ -885,7 +885,7 @@ tasks:
               .metadata.name = "sds-node-configurator" |
               .spec.enabled = true |
               .spec.version = 1 |
-              .spec.source = "deckhouse"
+              .spec.source = "deckhouse-prod"
             ';
             echo '---';
             yq eval -n '
@@ -894,7 +894,7 @@ tasks:
               .metadata.name = "sds-replicated-volume" |
               .spec.enabled = true |
               .spec.version = 1 |
-              .spec.source = "deckhouse"
+              .spec.source = "deckhouse-prod"
             ';
           } | KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply --validate=false -f -; then
             success=1
@@ -939,12 +939,12 @@ tasks:
           yq eval -n "
             .apiVersion = \"storage.deckhouse.io/v1alpha1\" |
             .kind = \"LVMVolumeGroup\" |
-            .metadata.name = \"data-\" + env(node) |
+            .metadata.name = \"data-\" + env(NODE) |
             .spec.type = \"Local\" |
-            .spec.local.nodeName = env(node) |
+            .spec.local.nodeName = env(NODE) |
             .spec.local.actualVGNameOnTheNode = \"data\" |
             .spec.blockDeviceSelector.devicePaths = [\"/dev/sdb\",\"/dev/vdb\",\"/dev/xvdb\",\"/dev/sdc\",\"/dev/vdc\",\"/dev/xvdc\",\"/dev/sdd\",\"/dev/vdd\",\"/dev/xvdd\"]
-          " | NODE="$node" node="$node" KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
+          " | NODE="$node" KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl apply -f -
         done
         echo "[SDS] Creating ReplicatedStoragePool 'data' from LVMVolumeGroups..."
         LVGS=$(printf "%s\n" $NODES | sed 's/^/      - name: data-/')
