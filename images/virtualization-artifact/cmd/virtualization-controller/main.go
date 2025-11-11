@@ -39,6 +39,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
@@ -336,7 +337,15 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	if err = vm.SetupGC(mgr, vmLogger, gcSettings.VMIMigration); err != nil {
+
+	gcMIGLogger := logger.NewControllerLogger(vm.GCVMMigrationControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vm.SetupGCMigrations(mgr, gcMIGLogger, gcSettings.VMIMigration); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	gcPODGLogger := logger.NewControllerLogger(vm.GCCompletedPodControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vm.SetupGCCompletedPods(mgr, gcPODGLogger, gcSettings.CompletedPod); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
