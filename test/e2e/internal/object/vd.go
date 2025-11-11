@@ -84,15 +84,3 @@ func NewHTTPVDUbuntu(name, namespace string, opts ...vd.Option) *v1alpha2.Virtua
 	baseOpts = append(baseOpts, opts...)
 	return vd.New(baseOpts...)
 }
-
-func NewGeneratedHTTPVDUbuntu(prefix, namespace string, opts ...vd.Option) *v1alpha2.VirtualDisk {
-	baseOpts := []vd.Option{
-		vd.WithGenerateName(prefix),
-		vd.WithNamespace(namespace),
-		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
-			URL: ImageURLUbuntu,
-		}),
-	}
-	baseOpts = append(baseOpts, opts...)
-	return vd.New(baseOpts...)
-}
