@@ -36,7 +36,10 @@ import (
 
 const (
 	NamespaceBasePrefix = "v12n-e2e"
-	NamespaceLabel      = "v12n-e2e"
+	// A label allows to tag the resources created during e2e testing.
+	// In case the resource cleanup at the end of the test does not work properly,
+	// the resources created during testing can be manually deleted using this label.
+	E2ELabel = "v12n-e2e"
 )
 
 type Framework struct {
@@ -104,7 +107,7 @@ func (f *Framework) createNamespace(prefix string) (*corev1.Namespace, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-%s-", NamespaceBasePrefix, prefix),
 			Labels: map[string]string{
-				NamespaceLabel: prefix,
+				E2ELabel: "true",
 			},
 		},
 	}
@@ -170,7 +173,7 @@ func (f *Framework) CreateWithDeferredDeletion(ctx context.Context, objs ...clie
 		if labels == nil {
 			labels = make(map[string]string)
 		}
-		maps.Copy(labels, map[string]string{NamespaceLabel: f.namespacePrefix})
+		maps.Copy(labels, map[string]string{E2ELabel: f.namespacePrefix})
 		obj.SetLabels(labels)
 
 		err := f.client.Create(ctx, obj)

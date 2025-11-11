@@ -39,7 +39,7 @@ delete_resources_with_prefix_or_label() {
 }
 
 E2E_PREFIX="${E2E_PREFIX:-v12n-$(git rev-parse --short=5 HEAD)}"
-E2E_LABEL="${E2E_LABEL:-v12n-e2e}"
+E2E_LABEL="v12n-e2e"
 
 echo "Using E2E_PREFIX: $E2E_PREFIX"
 echo "Using E2E_LABEL: $E2E_LABEL"

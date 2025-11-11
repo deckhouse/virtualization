@@ -63,7 +63,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-local-disks-")
+		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-local-disks-", f.Namespace().Name)
 		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
