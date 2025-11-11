@@ -22,6 +22,6 @@ shell:
     export GOARCH=amd64 
 
     mkdir -p /out
-    git clone --depth=1 --branch v1.25.1 https://github.com/go-delve/delve.git /src
+    git clone --depth=1 --branch v1.25.2 https://github.com/go-delve/delve.git /src
     cd /src
     go build -o /out/dlv -ldflags "-s -w" github.com/go-delve/delve/cmd/dlv
