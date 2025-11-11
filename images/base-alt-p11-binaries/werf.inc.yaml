@@ -31,10 +31,9 @@ shell:
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
-      echo "copy /$pkg to /"
       cp -af /$pkg/. /
-      echo "remove /$pkg"
       rm -rf /$pkg
     done
     
-    apt-get update -y
+    rm -f /var/lib/rpm/__db*
+    rpm -vv --rebuilddb
