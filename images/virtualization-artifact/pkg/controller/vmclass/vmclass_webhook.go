@@ -62,7 +62,10 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		vmclass = obj
 	case *v1alpha3.VirtualMachineClass:
 		// Validate in webhook instead of CRD to provide clear error message
-		validateV1Alpha3CoreFractions(obj)
+		if err := validateV1Alpha3CoreFractions(obj); err != nil {
+			return nil, err
+		}
+
 		vmclass = &v1alpha2.VirtualMachineClass{}
 		if err := vmclass.ConvertFrom(obj); err != nil {
 			return nil, fmt.Errorf("failed to convert v1alpha3 to v1alpha2: %w", err)
@@ -92,7 +95,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		oldVMClass = oldObj
 	case *v1alpha3.VirtualMachineClass:
 		// Validate in webhook instead of CRD to provide clear error message
-		validateV1Alpha3CoreFractions(oldObj)
+		if err := validateV1Alpha3CoreFractions(oldObj); err != nil {
+			return nil, err
+		}
+
 		oldVMClass = &v1alpha2.VirtualMachineClass{}
 		if err := oldVMClass.ConvertFrom(oldObj); err != nil {
 			return nil, fmt.Errorf("failed to convert old v1alpha3 to v1alpha2: %w", err)
@@ -106,7 +112,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		newVMClass = newObj
 	case *v1alpha3.VirtualMachineClass:
 		// Validate in webhook instead of CRD to provide clear error message
-		validateV1Alpha3CoreFractions(newObj)
+		if err := validateV1Alpha3CoreFractions(newObj); err != nil {
+			return nil, err
+		}
+
 		newVMClass = &v1alpha2.VirtualMachineClass{}
 		if err := newVMClass.ConvertFrom(newObj); err != nil {
 			return nil, fmt.Errorf("failed to convert new v1alpha3 to v1alpha2: %w", err)
