@@ -31,6 +31,8 @@ shell:
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
     for pkg in $PKGS; do
+      echo "copy /$pkg to /"
       cp -af /$pkg/. /
+      echo "remove /$pkg"
       rm -rf /$pkg
     done
