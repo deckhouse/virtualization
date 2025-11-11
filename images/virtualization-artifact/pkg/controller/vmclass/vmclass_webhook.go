@@ -1,12 +1,9 @@
 /*
 Copyright 2024 Flant JSC
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
      http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,7 +16,6 @@ package vmclass
 import (
 	"context"
 	"fmt"
-	"regexp"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,13 +25,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 type VirtualMachineClassValidator interface {
-	ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachineClass) (admission.Warnings, error)
-	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachineClass) (admission.Warnings, error)
+	ValidateCreate(ctx context.Context, vm *v1alpha3.VirtualMachineClass) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha3.VirtualMachineClass) (admission.Warnings, error)
 }
 
 type Validator struct {
@@ -55,22 +50,8 @@ func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.Ev
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	var vmclass *v1alpha2.VirtualMachineClass
-
-	switch obj := obj.(type) {
-	case *v1alpha2.VirtualMachineClass:
-		vmclass = obj
-	case *v1alpha3.VirtualMachineClass:
-		// Validate in webhook instead of CRD to provide clear error message
-		if err := validateV1Alpha3CoreFractions(obj); err != nil {
-			return nil, err
-		}
-
-		vmclass = &v1alpha2.VirtualMachineClass{}
-		if err := vmclass.ConvertFrom(obj); err != nil {
-			return nil, fmt.Errorf("failed to convert v1alpha3 to v1alpha2: %w", err)
-		}
-	default:
+	vmclass, ok := obj.(*v1alpha3.VirtualMachineClass)
+	if !ok {
 		return nil, fmt.Errorf("expected a VirtualMachineClass but got a %T", obj)
 	}
 
@@ -88,39 +69,13 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	var oldVMClass, newVMClass *v1alpha2.VirtualMachineClass
-
-	switch oldObj := oldObj.(type) {
-	case *v1alpha2.VirtualMachineClass:
-		oldVMClass = oldObj
-	case *v1alpha3.VirtualMachineClass:
-		// Validate in webhook instead of CRD to provide clear error message
-		if err := validateV1Alpha3CoreFractions(oldObj); err != nil {
-			return nil, err
-		}
-
-		oldVMClass = &v1alpha2.VirtualMachineClass{}
-		if err := oldVMClass.ConvertFrom(oldObj); err != nil {
-			return nil, fmt.Errorf("failed to convert old v1alpha3 to v1alpha2: %w", err)
-		}
-	default:
+	oldVMClass, ok := oldObj.(*v1alpha3.VirtualMachineClass)
+	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualMachineClass but got a %T", oldObj)
 	}
 
-	switch newObj := newObj.(type) {
-	case *v1alpha2.VirtualMachineClass:
-		newVMClass = newObj
-	case *v1alpha3.VirtualMachineClass:
-		// Validate in webhook instead of CRD to provide clear error message
-		if err := validateV1Alpha3CoreFractions(newObj); err != nil {
-			return nil, err
-		}
-
-		newVMClass = &v1alpha2.VirtualMachineClass{}
-		if err := newVMClass.ConvertFrom(newObj); err != nil {
-			return nil, fmt.Errorf("failed to convert new v1alpha3 to v1alpha2: %w", err)
-		}
-	default:
+	newVMClass, ok := newObj.(*v1alpha3.VirtualMachineClass)
+	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachineClass but got a %T", newObj)
 	}
 
@@ -141,15 +96,4 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err.Error())
 	return nil, nil
-}
-
-func validateV1Alpha3CoreFractions(vmclass *v1alpha3.VirtualMachineClass) error {
-	for i, policy := range vmclass.Spec.SizingPolicies {
-		for j, coreFraction := range policy.CoreFractions {
-			if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(string(coreFraction)) {
-				return fmt.Errorf("spec.sizingPolicies[%d].coreFractions[%d]: coreFraction must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%), got %q", i, j, coreFraction)
-			}
-		}
-	}
-	return nil
 }

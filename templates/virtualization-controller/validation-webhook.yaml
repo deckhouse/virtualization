@@ -209,24 +209,7 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
-  - name: "vmclass-v1alpha2.virtualization-controller.validate.d8-virtualization"
-    rules:
-    - apiGroups: ["virtualization.deckhouse.io"]
-      apiVersions: ["v1alpha2"]
-      operations: ["CREATE", "UPDATE"]
-      resources: ["virtualmachineclasses"]
-      scope: "Cluster"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller
-        path: /validate-virtualization-deckhouse-io-v1alpha2-virtualmachineclass
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
-    admissionReviewVersions: ["v1"]
-    sideEffects: None
-  - name: "vmclass-v1alpha3.virtualization-controller.validate.d8-virtualization"
+  - name: "vmclass.virtualization-controller.validate.d8-virtualization"
     rules:
     - apiGroups: ["virtualization.deckhouse.io"]
       apiVersions: ["v1alpha3"]
