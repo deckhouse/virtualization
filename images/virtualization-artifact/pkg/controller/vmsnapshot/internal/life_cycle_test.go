@@ -136,13 +136,13 @@ var _ = Describe("LifeCycle handler", func() {
 			IsFrozenFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			},
-			CanUnfreezeWithVirtualMachineSnapshotFunc: func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			CanUnfreezeFunc: func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			},
 			CanFreezeFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			},
-			UnfreezeFunc: func(ctx context.Context, _, _ string) error {
+			UnfreezeFunc: func(ctx context.Context, _ *virtv1.VirtualMachineInstance) error {
 				return nil
 			},
 			GetSecretFunc: func(_ context.Context, _, _ string) (*corev1.Secret, error) {
@@ -285,7 +285,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			}
-			snapshotter.FreezeFunc = func(_ context.Context, _, _ string) error {
+			snapshotter.FreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
 				return nil
 			}
 

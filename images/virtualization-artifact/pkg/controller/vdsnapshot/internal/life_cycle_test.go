@@ -206,13 +206,13 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			}
-			snapshotter.FreezeFunc = func(_ context.Context, _, _ string) error {
+			snapshotter.FreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
 				return nil
 			}
-			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.CanUnfreezeFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			}
-			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {
+			snapshotter.UnfreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
 				return nil
 			}
 		})
@@ -310,7 +310,7 @@ var _ = Describe("LifeCycle handler", func() {
 				}
 				return vs, nil
 			}
-			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {
+			snapshotter.UnfreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
 				unFreezeCalled = true
 				return nil
 			}
