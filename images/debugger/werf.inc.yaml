@@ -10,7 +10,7 @@ import:
 ---
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: builder/alt
 shell:
   install:
   - |
