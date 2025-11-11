@@ -34,15 +34,11 @@ const gcControllerName = "vmsop-gc-controller"
 
 func SetupGC(mgr manager.Manager, log *log.Logger, gcSettings config.BaseGcSettings) error {
 	vmsopGCMgr := newVMSOPGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 10)
-	source, err := gc.NewCronSource(gcSettings.Schedule, vmsopGCMgr, log.With("resource", "vmsop"))
-	if err != nil {
-		return err
-	}
 
 	return gc.SetupGcController(gcControllerName,
 		mgr,
-		log,
-		source,
+		log.With("resource", "vmsop"),
+		gcSettings.Schedule,
 		vmsopGCMgr,
 	)
 }
@@ -61,10 +57,7 @@ func newVMSOPGCManager(client client.Client, ttl time.Duration, max int) *vmsopG
 	}
 }
 
-var (
-	_ gc.ReconcileGCManager = &vmsopGCManager{}
-	_ gc.SourceGCManager    = &vmsopGCManager{}
-)
+var _ gc.ReconcileGCManager = &vmsopGCManager{}
 
 type vmsopGCManager struct {
 	client client.Client
