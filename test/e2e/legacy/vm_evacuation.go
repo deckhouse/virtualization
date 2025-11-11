@@ -34,7 +34,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualMachineEvacuation", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineEvacuation", Ordered, func() {
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
 	kubeClient := framework.GetClients().KubeClient()
 	var ns string

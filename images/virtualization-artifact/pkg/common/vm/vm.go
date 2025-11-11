@@ -17,10 +17,18 @@ limitations under the License.
 package vm
 
 import (
+	"context"
+	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -81,4 +89,31 @@ func RestartRequired(vm *v1alpha2.VirtualMachine) bool {
 
 func IsComputeContainer(name string) bool {
 	return strings.HasSuffix(name, VMContainerNameSuffix)
+}
+
+func IsVMActive(ctx context.Context, cli client.Client, vm v1alpha2.VirtualMachine) (bool, error) {
+	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, cli, &virtv1.VirtualMachine{})
+	if err != nil {
+		return false, fmt.Errorf("error getting kvvms: %w", err)
+	}
+	if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
+		return true, nil
+	}
+
+	podList := corev1.PodList{}
+	err = cli.List(ctx, &podList, &client.ListOptions{
+		Namespace:     vm.GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
+	})
+	if err != nil {
+		return false, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
+	}
+
+	for _, pod := range podList.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

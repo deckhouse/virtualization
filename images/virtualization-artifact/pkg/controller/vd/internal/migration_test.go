@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -80,6 +81,7 @@ var _ = Describe("MigrationHandler", func() {
 		migrationHandler *MigrationHandler
 		vd               *v1alpha2.VirtualDisk
 		vm               *v1alpha2.VirtualMachine
+		kvvmi            *virtv1.VirtualMachineInstance
 		storageClass     *storagev1.StorageClass
 		pvc              *corev1.PersistentVolumeClaim
 	)
@@ -90,6 +92,7 @@ var _ = Describe("MigrationHandler", func() {
 		scheme = runtime.NewScheme()
 		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
 		Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 
 		scValidator = &fakeStorageClassValidator{
 			allowedStorageClasses: map[string]bool{
@@ -135,6 +138,25 @@ var _ = Describe("MigrationHandler", func() {
 			},
 			Status: v1alpha2.VirtualMachineStatus{
 				Conditions: []metav1.Condition{},
+			},
+		}
+
+		kvvmi = &virtv1.VirtualMachineInstance{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "VirtualMachineInstance",
+				APIVersion: "kubevirt.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-vm",
+				Namespace: "default",
+			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				VolumeStatus: []virtv1.VolumeStatus{
+					{
+						Name: "vd-test-vd",
+						Size: 10*104*1024*1024 + 2*1024*1024, // 10Gi + 2Mi overhead
+					},
+				},
 			},
 		}
 
@@ -306,7 +328,14 @@ var _ = Describe("MigrationHandler", func() {
 				pvc.Status.Capacity = corev1.ResourceList{
 					corev1.ResourceStorage: resource.MustParse("10Gi"),
 				}
+				vd.Status.AttachedToVirtualMachines = []v1alpha2.AttachedVirtualMachine{
+					{
+						Name:    "test-vm",
+						Mounted: true,
+					},
+				}
 				Expect(fakeClient.Create(ctx, pvc)).To(Succeed())
+				Expect(fakeClient.Create(ctx, kvvmi)).To(Succeed())
 			})
 
 			It("should start migration", func() {

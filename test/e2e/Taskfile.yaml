@@ -93,33 +93,7 @@ tasks:
       - d8
     cmds:
       - |
-        if [ -z "$E2E_PREFIX" ]; then
-          E2E_PREFIX="head-$(git rev-parse --short HEAD)"
-          echo "E2E_PREFIX not set. Setting E2E_PREFIX to $E2E_PREFIX"
-        else
-          echo "Using existing E2E_PREFIX: $E2E_PREFIX"
-        fi
-
-        delete_resources_with_prefix() {
-            local RESOURCE_TYPE=$1
-            local RESOURCES=$(kubectl get "$RESOURCE_TYPE" --no-headers 2>/dev/null | awk "/$E2E_PREFIX/ {print \$1}")
-            if [[ -n "$RESOURCES" ]]; then
-              echo "Deleting $RESOURCE_TYPE:"
-              echo "$RESOURCES" | awk '{print "  - " $1}'
-              echo "$RESOURCES" | xargs -r kubectl delete "$RESOURCE_TYPE"
-            else
-                echo "No $RESOURCE_TYPE found with prefix $E2E_PREFIX"
-            fi
-        }
-
-        delete_resources_with_prefix "namespaces"
-
-        delete_resources_with_prefix "projects"
-
-        readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
-        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
-            delete_resources_with_prefix "$RESOURCE"
-        done
+        ./scripts/cleanup.sh
 
   checkout-to-mpo:
     deps:

@@ -1,0 +1,16 @@
+vd:
+  fixes:
+    - summary: >-
+        Fixed live disk migration between storage classes using different drivers. Limitations:
+
+        - Migration between `Block` and `Filesystem` is not supported. Only migrations between the
+        same volume modes are allowed: from `Block` to `Block` and from `Filesystem` to
+        `Filesystem`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1613
+vm:
+  fixes:
+    - summary: >-
+        In the `Migrating` state, detailed error information is now displayed when a live migration
+        of a virtual machine fails.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1569
+

@@ -70,7 +70,6 @@ type KustomizeLabel struct {
 
 type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
-	Ipam             IpamConf         `yaml:"ipam"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	NamespaceSuffix  string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
@@ -81,27 +80,25 @@ type Config struct {
 }
 
 type TestData struct {
-	AffinityToleration    string `yaml:"affinityToleration"`
-	ComplexTest           string `yaml:"complexTest"`
-	Connectivity          string `yaml:"connectivity"`
-	DiskResizing          string `yaml:"diskResizing"`
-	SizingPolicy          string `yaml:"sizingPolicy"`
-	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
-	ImageHotplug          string `yaml:"imageHotplug"`
-	ImagesCreation        string `yaml:"imagesCreation"`
-	VMConfiguration       string `yaml:"vmConfiguration"`
-	VMLabelAnnotation     string `yaml:"vmLabelAnnotation"`
-	VMMigration           string `yaml:"vmMigration"`
-	VMMigrationCancel     string `yaml:"vmMigrationCancel"`
-	VMEvacuation          string `yaml:"vmEvacuation"`
-	VMDiskAttachment      string `yaml:"vmDiskAttachment"`
-	VMRestoreForce        string `yaml:"vmRestoreForce"`
-	VMRestoreSafe         string `yaml:"vmRestoreSafe"`
-	VMVersions            string `yaml:"vmVersions"`
-	VdSnapshots           string `yaml:"vdSnapshots"`
-	Sshkey                string `yaml:"sshKey"`
-	SSHUser               string `yaml:"sshUser"`
-	VMVpc                 string `yaml:"vmVpc"`
+	AffinityToleration string `yaml:"affinityToleration"`
+	ComplexTest        string `yaml:"complexTest"`
+	Connectivity       string `yaml:"connectivity"`
+	DiskResizing       string `yaml:"diskResizing"`
+	SizingPolicy       string `yaml:"sizingPolicy"`
+	ImageHotplug       string `yaml:"imageHotplug"`
+	VMConfiguration    string `yaml:"vmConfiguration"`
+	VMLabelAnnotation  string `yaml:"vmLabelAnnotation"`
+	VMMigration        string `yaml:"vmMigration"`
+	VMMigrationCancel  string `yaml:"vmMigrationCancel"`
+	VMEvacuation       string `yaml:"vmEvacuation"`
+	VMDiskAttachment   string `yaml:"vmDiskAttachment"`
+	VMRestoreForce     string `yaml:"vmRestoreForce"`
+	VMRestoreSafe      string `yaml:"vmRestoreSafe"`
+	VMVersions         string `yaml:"vmVersions"`
+	VdSnapshots        string `yaml:"vdSnapshots"`
+	Sshkey             string `yaml:"sshKey"`
+	SSHUser            string `yaml:"sshUser"`
+	VMVpc              string `yaml:"vmVpc"`
 }
 
 type StorageClass struct {
@@ -138,21 +135,6 @@ func (c ClusterTransport) RestConfig() (*rest.Config, error) {
 	return configFlags.ToRESTConfig()
 }
 
-type DisksConf struct {
-	UploadHelperImage string `yaml:"uploadHelperImage"`
-	CviTestDataDir    string `yaml:"cviTestDataDir"`
-	ViTestDataDir     string `yaml:"viTestDataDir"`
-	VdTestDataDir     string `yaml:"vdTestDataDir"`
-}
-
-type VMConf struct {
-	TestDataDir string `yaml:"testDataDir"`
-}
-
-type IpamConf struct {
-	TestDataDir string `yaml:"testDataDir"`
-}
-
 type HelperImages struct {
 	CurlImage string `yaml:"curlImage"`
 }
@@ -177,10 +159,6 @@ func (c *Config) setEnvs() error {
 			return err
 		}
 		c.ClusterTransport.InsecureTLS = v
-	}
-	// IPAM
-	if e, ok := os.LookupEnv("E2E_IPAM_TESTDATADIR"); ok {
-		c.Ipam.TestDataDir = e
 	}
 	return nil
 }

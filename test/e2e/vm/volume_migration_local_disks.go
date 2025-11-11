@@ -43,7 +43,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func() {
 	var (
 		f            = framework.NewFramework("volume-migration-local-disks")
 		storageClass *storagev1.StorageClass
@@ -63,7 +63,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 
 		DeferCleanup(f.After)
 
-		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-local-disks-")
+		newVI := object.NewGeneratedHTTPVIUbuntu("volume-migration-local-disks-", f.Namespace().Name)
 		newVI, err := f.VirtClient().VirtualImages(f.Namespace().Name).Create(context.Background(), newVI, metav1.CreateOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		f.DeferDelete(newVI)
@@ -114,7 +114,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func(g Gomega) {
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
@@ -158,7 +158,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f)
 
@@ -191,7 +191,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			vmopName := "local-disks-migration-" + strconv.Itoa(i)
 
 			By("Starting migrations for virtual machines")
-			util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func(g Gomega) {
 				vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
@@ -234,7 +234,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		const vmopName1 = "local-disks-migration-1"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName1))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName1))
 
 		untilVirtualMachinesWillBeStartMigratingAndCancelImmediately(f)
 
@@ -244,7 +244,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		const vmopName2 = "local-disks-migration-2"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName2))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName2))
 
 		Eventually(func(g Gomega) {
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName2, metav1.GetOptions{})
@@ -285,7 +285,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		const vmopName = "local-disks-migration"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		Eventually(func() error {
 			vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
@@ -395,7 +395,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 			const vmopName = "local-disks-migration"
 
 			By("Starting migrations for virtual machines")
-			util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+			util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 			Eventually(func() error {
 				pods, err := f.KubeClient().CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{})
@@ -475,7 +475,7 @@ var _ = Describe("LocalVirtualDiskMigration", framework.CommonE2ETestDecorators(
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
 
 		By("Starting migrations for virtual machines")
-		util.MigrateVirtualMachine(vm, vmopbuilder.WithName(vmopName))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
 		By("Waiting for migration failed")
 		Eventually(func(g Gomega) {

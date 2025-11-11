@@ -535,11 +535,8 @@ jobs:
               core.exportVariable('KUBECONFIG', kubeconfigFile)
             }
 
-      - name: Install Deckhouse-cli
-        run: |
-          echo "Install d8"
-          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-          bash d8-install.sh
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
 
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5

@@ -35,7 +35,7 @@ import (
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
-var _ = Describe("VirtualDiskResizing", framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualDiskResizing", Ordered, func() {
 	const (
 		vmCount   = 1
 		diskCount = 3

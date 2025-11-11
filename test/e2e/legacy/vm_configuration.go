@@ -38,7 +38,7 @@ const (
 	StageAfter    = "after"
 )
 
-var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelProcess()), framework.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConfiguration", Ordered, func() {
 	var (
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}
