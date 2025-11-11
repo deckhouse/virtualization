@@ -64,18 +64,21 @@ const (
 )
 
 var _ = Describe("VirtualMachineOperationRestore", func() {
-	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.VMOPRestoreMode) {
+	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		f.Before()
 		DeferCleanup(f.After)
 		t := NewRestoreTest(f)
 
 		By("Environment preparation", func() {
-			t.GenerateEnvironmentResources(restoreMode)
+			t.GenerateEnvironmentResources(restoreMode, restartApprovalMode, runPolicy)
 			err := f.CreateWithDeferredDeletion(
 				context.Background(), t.CVI, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
 			)
 			Expect(err).NotTo(HaveOccurred())
+			if runPolicy == v1alpha2.ManualPolicy {
+				util.StartVirtualMachine(f, t.VM)
+			}
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 
@@ -107,7 +110,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			if t.VM.Spec.Disruptions.RestartApprovalMode == v1alpha2.Manual {
-				util.RebootVirtualMachineFromOS(f, t.VM)
+				err := util.RebootVirtualMachineFromOS(f, t.VM)
+				Expect(err).NotTo(HaveOccurred())
 			}
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
@@ -128,7 +132,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			}
 		})
 		By("Restore VM from snapshot", func() {
-			f.CreateWithDeferredDeletion(context.Background(), t.VMOPRestore)
+			err := f.CreateWithDeferredDeletion(context.Background(), t.VMOPRestore)
+			Expect(err).NotTo(HaveOccurred())
 			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
 			if restoreMode != v1alpha2.VMOPRestoreModeDryRun {
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
@@ -155,9 +160,11 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			}
 		})
 	},
-		Entry("DryRun", v1alpha2.VMOPRestoreModeDryRun),
-		Entry("BestEffort", v1alpha2.VMOPRestoreModeBestEffort),
-		Entry("Strict", v1alpha2.VMOPRestoreModeStrict),
+		Entry("DryRun restore mode with VM manual restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeDryRun, v1alpha2.Manual, v1alpha2.AlwaysOnPolicy),
+		Entry("BestEffort restore mode with VM manual restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Manual, v1alpha2.AlwaysOnPolicy),
+		Entry("Strict restore mode with VM manual restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeStrict, v1alpha2.Manual, v1alpha2.AlwaysOnPolicy),
+		Entry("BestEffort restore mode with VM automatic restart approval mode, always on run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.AlwaysOnPolicy),
+		Entry("BestEffort restore mode with VM automatic restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.ManualPolicy),
 	)
 })
 
@@ -182,7 +189,7 @@ func NewRestoreTest(f *framework.Framework) *restoreModeTest {
 	}
 }
 
-func (r *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOPRestoreMode) {
+func (r *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
 	r.CVI = cvibuilder.New(
 		cvibuilder.WithName(fmt.Sprintf("%s-cvi", r.Framework.Namespace().Name)),
 		cvibuilder.WithDataSourceHTTP(minimalCviURL, nil, nil),
@@ -237,6 +244,8 @@ func (r *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOP
 				Name: r.VI.Name,
 			},
 		),
+		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
+		vmbuilder.WithRunPolicy(runPolicy),
 	)
 
 	r.VMBDA = vmbdabuilder.New(
