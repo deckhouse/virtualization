@@ -4,19 +4,14 @@
 {{-   $globRootWerf := "werf.yaml" }}
 {{-   $globAll := merge (.Files.Glob $globImages) (.Files.Glob $globPackages) }}
 {{-   $globAll = merge (.Files.Glob $globRootWerf) $globAll }}
-{{-   $imagesList := list }}
 {{-   $imagesMap := dict }}
 {{-   range $path, $content := $globAll }}
 {{-     $findImg := regexFindAll "(?:(builder|tools|libs|base))/([a-zA-Z0-9._-]+)" $content -1 }}
-{{-     if gt (len $findImg) 0 }}
-{{-       range $findImg }}
-{{-         if not (has . $imagesList) }}
-{{-           $imagesList = append $imagesList . }}
-{{-         end }}
-{{-       end }}
+{{-     range $findImg }}
+{{-       $_ := set $imagesMap . "" }}
 {{-     end }}
 {{-   end }}
-{{- $imagesList | toJson }}
+{{- $imagesMap | toJson }}
 {{- end }}
 
 {{- define "parse_base_images_map" }}
@@ -25,7 +20,7 @@
   # deckhouse_images has a format
   # <prefix>/<name>: "sha256:abcde12345
 */}}
-{{-   $usedImages := (include "project_images" . | fromJson) }}
+{{-   $usedImagesDict := (include "project_images" . | fromJson) }}
 {{-   range $k, $v := $deckhouseImages }}
 {{-     $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
 {{-     if ne $k "REGISTRY_PATH" }}
@@ -36,7 +31,7 @@
 {{-   $_ := set . "Images" (mustMerge $deckhouseImages) }}
 {{/* # base images artifacts */}}
 {{-   range $k, $v := .Images }}
-{{-     if has $k $usedImages }}
+{{-     if hasKey $usedImagesDict $k }}
 ---
 image: {{ $k }}
 from: {{ $v }}
