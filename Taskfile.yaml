@@ -165,8 +165,7 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null,
-                  "args": []
+                  "command": null
                 },
                 {
                   "name": "proxy",
@@ -215,8 +214,7 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null,
-                  "args": []
+                  "command": null
                 },
                 {
                   "name": "proxy",
@@ -265,8 +263,7 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null,
-                  "args": []
+                  "command": null
                 },
                 {
                   "name": "proxy",
@@ -283,5 +280,5 @@ tasks:
           }
         }
       }'
-      kubectl -n d8-virtualization port-forward deploy/vit-api 2345:2345
+      kubectl -n d8-virtualization port-forward deploy/virt-api 2345:2345
       EOF
