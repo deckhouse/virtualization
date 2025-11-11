@@ -44,8 +44,6 @@ spec:
           description: |-
             VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
             A resource cannot be deleted as long as it is used in one of the VMs.
-
-            Deprecated: Use v1alpha3.VirtualMachineClass instead.
           properties:
             apiVersion:
               description: |-
