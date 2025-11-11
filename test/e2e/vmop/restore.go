@@ -308,17 +308,13 @@ func (r *restoreModeTest) GetDataFromVMBDA() string {
 func (r *restoreModeTest) RemoveDisks() {
 	GinkgoHelper()
 
-	// Stop VM and remove all disks to test Strict restore mode.
 	err := util.StopVirtualMachineFromOS(r.Framework, r.VM)
 	Expect(err).NotTo(HaveOccurred())
-	util.UntilVirtualMachineStopped(crclient.ObjectKeyFromObject(r.VM), framework.ShortTimeout)
+	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, r.VM)
 
-	err = r.Framework.Delete(context.Background(), r.VDRoot)
-	Expect(err).NotTo(HaveOccurred())
-	err = r.Framework.Delete(context.Background(), r.VDBlank)
+	err = r.Framework.Delete(context.Background(), r.VDRoot, r.VDBlank)
 	Expect(err).NotTo(HaveOccurred())
 
-	// Wait for disks to be fully deleted before proceeding with restore
 	Eventually(func(g Gomega) {
 		var vdRootLocal v1alpha2.VirtualDisk
 		err = r.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
