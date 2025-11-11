@@ -264,6 +264,9 @@ jobs:
           echo "attach_disk_size=$ATTACH_DISK_SIZE" >> $GITHUB_OUTPUT
           # Pass storage profile into run values for Helm templates
           PROFILE='${{ matrix.profile }}' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+          # Effective disk SC used for worker data disks (prefer image SC when set)
+          EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
+          echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
 
       - name: Install infra (namespace/RBAC/jump-host)
         working-directory: ci/dvp-e2e
@@ -288,7 +291,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="id_ed" \
-            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+            TARGET_STORAGE_CLASS="${STORAGE_CLASS}"
 
       - name: Attach data disks to worker VMs using hotplug
         working-directory: ci/dvp-e2e
@@ -298,7 +301,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
+            STORAGE_CLASS="${EFFECTIVE_DISK_SC}" \
             DISK_COUNT="2"
 
       - name: Build nested kubeconfig
@@ -750,6 +753,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Download matrix logs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          path: ci/dvp-e2e/tmp/matrix-logs
+          merge-multiple: true
+
+      - name: Download JUnit reports
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-*
+          path: ci/dvp-e2e/artifacts
+          merge-multiple: true
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -783,19 +800,7 @@ jobs:
           chmod 600 "$HOME/.kube/config"
           echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
 
-      - name: Download all JUnit reports
-        uses: actions/download-artifact@v4
-        with:
-          pattern: junit-*
-          path: ./results
-          merge-multiple: true
-
-      - name: Download matrix logs
-        uses: actions/download-artifact@v4
-        with:
-          pattern: logs-*
-          path: ci/dvp-e2e/tmp/matrix-logs
-          merge-multiple: true
+      # Artifacts are downloaded above; skip duplicate downloads
 
       - name: Generate matrix summary
         if: always()
@@ -831,9 +836,9 @@ jobs:
           echo "| Profile | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
 
-          # Check each profile result
-          for profile in sds cephrbd; do
-            if compgen -G "./results/junit-${profile}-*/junit.xml" > /dev/null; then
+          # Check each profile result by scanning collected artifacts
+          for profile in $(echo ${{ join(needs.setup.outputs.profiles, ' ') }} | tr -d '[]",'); do
+            if compgen -G "ci/dvp-e2e/artifacts/*${profile}*/junit.xml" > /dev/null; then
               echo "| $profile | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
             else
               echo "| $profile | ❌ Failed/Missing |" >> $GITHUB_STEP_SUMMARY

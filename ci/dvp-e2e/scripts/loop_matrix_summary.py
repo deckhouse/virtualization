@@ -352,22 +352,7 @@ def main(argv: list[str]) -> int:
         result = parse_test_log(log_file)
         results.append(result)
     
-    # Filter by run_id_prefix and normalize profiles
-    profile_aliases = {
-        "ceph": "cephrbd",
-        "ceph-rbd": "cephrbd",
-        "cephrbd": "cephrbd",
-        "sds": "sds",
-        "sds-local": "sds",
-        "sds_local": "sds",
-        "sds-replicated": "sds",
-        "sds_replicated": "sds",
-        "nfs": "nfs",
-        "nfs-4-1-wffc": "nfs",
-        "hostpath": "hostpath",
-        "hp": "hostpath"
-    }
-    
+    # Filter by run_id_prefix and profile (no aliases; use canonical names)
     allowed_profiles = set([p.strip() for p in args.profiles.split(",")])
     filtered_results = []
     
@@ -376,8 +361,8 @@ def main(argv: list[str]) -> int:
         if not result['run_id'].startswith(args.run_id_prefix):
             continue
         
-        # Normalize and filter by profile
-        normalized_profile = profile_aliases.get(result['storage_profile'], result['storage_profile'])
+        # Filter by canonical profile name from run_id
+        normalized_profile = result['storage_profile']
         if normalized_profile not in allowed_profiles:
             continue
         
