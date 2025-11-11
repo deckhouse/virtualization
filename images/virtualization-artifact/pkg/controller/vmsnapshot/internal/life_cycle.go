@@ -266,7 +266,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 
 	// 2. Ensure the virtual machine is consistent for snapshotting.
 	if needToFreeze {
-		hasFrozen, err = h.freezeVirtualMachine(ctx, vm, vmSnapshot)
+		hasFrozen, err = h.freezeVirtualMachine(ctx, kvvmi, vmSnapshot)
 		if err != nil {
 			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 			return reconcile.Result{}, err
@@ -536,21 +536,21 @@ func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.Virtual
 	return true, nil
 }
 
-func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
-	if vm.Status.Phase != v1alpha2.MachineRunning {
-		return false, errors.New("cannot freeze not Running virtual machine")
+func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
+	if kvvmi.Status.Phase != virtv1.Running {
+		return false, fmt.Errorf("cannot freeze not Running %s/%s virtual machine", kvvmi.Namespace, kvvmi.Name)
 	}
 
-	err := h.snapshotter.Freeze(ctx, vm.Name, vm.Namespace)
+	err := h.snapshotter.Freeze(ctx, kvvmi)
 	if err != nil {
-		return false, fmt.Errorf("freeze the virtual machine %q: %w", vm.Name, err)
+		return false, fmt.Errorf("freeze the virtual machine %s/%s: %w", kvvmi.Namespace, kvvmi.Name, err)
 	}
 
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeNormal,
 		v1alpha2.ReasonVMSnapshottingFrozen,
-		fmt.Sprintf("The file system of the virtual machine %q is frozen.", vm.Name),
+		fmt.Sprintf("The file system of the virtual machine %q is frozen.", kvvmi.Name),
 	)
 
 	return true, nil
@@ -569,7 +569,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 		return false, nil
 	}
 
-	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualMachineSnapshot(ctx, vmSnapshot.Name, vm, kvvmi)
+	canUnfreeze, err := h.snapshotter.CanUnfreeze(ctx, vmSnapshot.Name, vm, kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -578,7 +578,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 		return false, nil
 	}
 
-	err = h.snapshotter.Unfreeze(ctx, vm.Name, vm.Namespace)
+	err = h.snapshotter.Unfreeze(ctx, kvvmi)
 	if err != nil {
 		return false, fmt.Errorf("unfreeze the virtual machine %q: %w", vm.Name, err)
 	}

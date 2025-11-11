@@ -103,13 +103,13 @@ var _ LifeCycleSnapshotter = &LifeCycleSnapshotterMock{}
 //			CanFreezeFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 //				panic("mock out the CanFreeze method")
 //			},
-//			CanUnfreezeWithVirtualDiskSnapshotFunc: func(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-//				panic("mock out the CanUnfreezeWithVirtualDiskSnapshot method")
+//			CanUnfreezeFunc: func(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+//				panic("mock out the CanUnfreeze method")
 //			},
 //			CreateVolumeSnapshotFunc: func(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error) {
 //				panic("mock out the CreateVolumeSnapshot method")
 //			},
-//			FreezeFunc: func(ctx context.Context, name string, namespace string) error {
+//			FreezeFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 //				panic("mock out the Freeze method")
 //			},
 //			GetKubeVirtVirtualMachineInstanceFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
@@ -133,7 +133,7 @@ var _ LifeCycleSnapshotter = &LifeCycleSnapshotterMock{}
 //			SyncFSFreezeRequestFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 //				panic("mock out the SyncFSFreezeRequest method")
 //			},
-//			UnfreezeFunc: func(ctx context.Context, name string, namespace string) error {
+//			UnfreezeFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 //				panic("mock out the Unfreeze method")
 //			},
 //		}
@@ -146,14 +146,14 @@ type LifeCycleSnapshotterMock struct {
 	// CanFreezeFunc mocks the CanFreeze method.
 	CanFreezeFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 
-	// CanUnfreezeWithVirtualDiskSnapshotFunc mocks the CanUnfreezeWithVirtualDiskSnapshot method.
-	CanUnfreezeWithVirtualDiskSnapshotFunc func(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	// CanUnfreezeFunc mocks the CanUnfreeze method.
+	CanUnfreezeFunc func(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 
 	// CreateVolumeSnapshotFunc mocks the CreateVolumeSnapshot method.
 	CreateVolumeSnapshotFunc func(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error)
 
 	// FreezeFunc mocks the Freeze method.
-	FreezeFunc func(ctx context.Context, name string, namespace string) error
+	FreezeFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 
 	// GetKubeVirtVirtualMachineInstanceFunc mocks the GetKubeVirtVirtualMachineInstance method.
 	GetKubeVirtVirtualMachineInstanceFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
@@ -177,7 +177,7 @@ type LifeCycleSnapshotterMock struct {
 	SyncFSFreezeRequestFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 
 	// UnfreezeFunc mocks the Unfreeze method.
-	UnfreezeFunc func(ctx context.Context, name string, namespace string) error
+	UnfreezeFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -188,8 +188,8 @@ type LifeCycleSnapshotterMock struct {
 			// Kvvmi is the kvvmi argument value.
 			Kvvmi *virtv1.VirtualMachineInstance
 		}
-		// CanUnfreezeWithVirtualDiskSnapshot holds details about calls to the CanUnfreezeWithVirtualDiskSnapshot method.
-		CanUnfreezeWithVirtualDiskSnapshot []struct {
+		// CanUnfreeze holds details about calls to the CanUnfreeze method.
+		CanUnfreeze []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// VdSnapshotName is the vdSnapshotName argument value.
@@ -210,10 +210,8 @@ type LifeCycleSnapshotterMock struct {
 		Freeze []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Name is the name argument value.
-			Name string
-			// Namespace is the namespace argument value.
-			Namespace string
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
 		}
 		// GetKubeVirtVirtualMachineInstance holds details about calls to the GetKubeVirtVirtualMachineInstance method.
 		GetKubeVirtVirtualMachineInstance []struct {
@@ -276,24 +274,22 @@ type LifeCycleSnapshotterMock struct {
 		Unfreeze []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Name is the name argument value.
-			Name string
-			// Namespace is the namespace argument value.
-			Namespace string
+			// Kvvmi is the kvvmi argument value.
+			Kvvmi *virtv1.VirtualMachineInstance
 		}
 	}
-	lockCanFreeze                          sync.RWMutex
-	lockCanUnfreezeWithVirtualDiskSnapshot sync.RWMutex
-	lockCreateVolumeSnapshot               sync.RWMutex
-	lockFreeze                             sync.RWMutex
-	lockGetKubeVirtVirtualMachineInstance  sync.RWMutex
-	lockGetPersistentVolumeClaim           sync.RWMutex
-	lockGetVirtualDisk                     sync.RWMutex
-	lockGetVirtualMachine                  sync.RWMutex
-	lockGetVolumeSnapshot                  sync.RWMutex
-	lockIsFrozen                           sync.RWMutex
-	lockSyncFSFreezeRequest                sync.RWMutex
-	lockUnfreeze                           sync.RWMutex
+	lockCanFreeze                         sync.RWMutex
+	lockCanUnfreeze                       sync.RWMutex
+	lockCreateVolumeSnapshot              sync.RWMutex
+	lockFreeze                            sync.RWMutex
+	lockGetKubeVirtVirtualMachineInstance sync.RWMutex
+	lockGetPersistentVolumeClaim          sync.RWMutex
+	lockGetVirtualDisk                    sync.RWMutex
+	lockGetVirtualMachine                 sync.RWMutex
+	lockGetVolumeSnapshot                 sync.RWMutex
+	lockIsFrozen                          sync.RWMutex
+	lockSyncFSFreezeRequest               sync.RWMutex
+	lockUnfreeze                          sync.RWMutex
 }
 
 // CanFreeze calls CanFreezeFunc.
@@ -332,10 +328,10 @@ func (mock *LifeCycleSnapshotterMock) CanFreezeCalls() []struct {
 	return calls
 }
 
-// CanUnfreezeWithVirtualDiskSnapshot calls CanUnfreezeWithVirtualDiskSnapshotFunc.
-func (mock *LifeCycleSnapshotterMock) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	if mock.CanUnfreezeWithVirtualDiskSnapshotFunc == nil {
-		panic("LifeCycleSnapshotterMock.CanUnfreezeWithVirtualDiskSnapshotFunc: method is nil but LifeCycleSnapshotter.CanUnfreezeWithVirtualDiskSnapshot was just called")
+// CanUnfreeze calls CanUnfreezeFunc.
+func (mock *LifeCycleSnapshotterMock) CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	if mock.CanUnfreezeFunc == nil {
+		panic("LifeCycleSnapshotterMock.CanUnfreezeFunc: method is nil but LifeCycleSnapshotter.CanUnfreeze was just called")
 	}
 	callInfo := struct {
 		Ctx            context.Context
@@ -348,17 +344,17 @@ func (mock *LifeCycleSnapshotterMock) CanUnfreezeWithVirtualDiskSnapshot(ctx con
 		VM:             vm,
 		Kvvmi:          kvvmi,
 	}
-	mock.lockCanUnfreezeWithVirtualDiskSnapshot.Lock()
-	mock.calls.CanUnfreezeWithVirtualDiskSnapshot = append(mock.calls.CanUnfreezeWithVirtualDiskSnapshot, callInfo)
-	mock.lockCanUnfreezeWithVirtualDiskSnapshot.Unlock()
-	return mock.CanUnfreezeWithVirtualDiskSnapshotFunc(ctx, vdSnapshotName, vm, kvvmi)
+	mock.lockCanUnfreeze.Lock()
+	mock.calls.CanUnfreeze = append(mock.calls.CanUnfreeze, callInfo)
+	mock.lockCanUnfreeze.Unlock()
+	return mock.CanUnfreezeFunc(ctx, vdSnapshotName, vm, kvvmi)
 }
 
-// CanUnfreezeWithVirtualDiskSnapshotCalls gets all the calls that were made to CanUnfreezeWithVirtualDiskSnapshot.
+// CanUnfreezeCalls gets all the calls that were made to CanUnfreeze.
 // Check the length with:
 //
-//	len(mockedLifeCycleSnapshotter.CanUnfreezeWithVirtualDiskSnapshotCalls())
-func (mock *LifeCycleSnapshotterMock) CanUnfreezeWithVirtualDiskSnapshotCalls() []struct {
+//	len(mockedLifeCycleSnapshotter.CanUnfreezeCalls())
+func (mock *LifeCycleSnapshotterMock) CanUnfreezeCalls() []struct {
 	Ctx            context.Context
 	VdSnapshotName string
 	VM             *v1alpha2.VirtualMachine
@@ -370,9 +366,9 @@ func (mock *LifeCycleSnapshotterMock) CanUnfreezeWithVirtualDiskSnapshotCalls() 
 		VM             *v1alpha2.VirtualMachine
 		Kvvmi          *virtv1.VirtualMachineInstance
 	}
-	mock.lockCanUnfreezeWithVirtualDiskSnapshot.RLock()
-	calls = mock.calls.CanUnfreezeWithVirtualDiskSnapshot
-	mock.lockCanUnfreezeWithVirtualDiskSnapshot.RUnlock()
+	mock.lockCanUnfreeze.RLock()
+	calls = mock.calls.CanUnfreeze
+	mock.lockCanUnfreeze.RUnlock()
 	return calls
 }
 
@@ -413,23 +409,21 @@ func (mock *LifeCycleSnapshotterMock) CreateVolumeSnapshotCalls() []struct {
 }
 
 // Freeze calls FreezeFunc.
-func (mock *LifeCycleSnapshotterMock) Freeze(ctx context.Context, name string, namespace string) error {
+func (mock *LifeCycleSnapshotterMock) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if mock.FreezeFunc == nil {
 		panic("LifeCycleSnapshotterMock.FreezeFunc: method is nil but LifeCycleSnapshotter.Freeze was just called")
 	}
 	callInfo := struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
 	}{
-		Ctx:       ctx,
-		Name:      name,
-		Namespace: namespace,
+		Ctx:   ctx,
+		Kvvmi: kvvmi,
 	}
 	mock.lockFreeze.Lock()
 	mock.calls.Freeze = append(mock.calls.Freeze, callInfo)
 	mock.lockFreeze.Unlock()
-	return mock.FreezeFunc(ctx, name, namespace)
+	return mock.FreezeFunc(ctx, kvvmi)
 }
 
 // FreezeCalls gets all the calls that were made to Freeze.
@@ -437,14 +431,12 @@ func (mock *LifeCycleSnapshotterMock) Freeze(ctx context.Context, name string, n
 //
 //	len(mockedLifeCycleSnapshotter.FreezeCalls())
 func (mock *LifeCycleSnapshotterMock) FreezeCalls() []struct {
-	Ctx       context.Context
-	Name      string
-	Namespace string
+	Ctx   context.Context
+	Kvvmi *virtv1.VirtualMachineInstance
 } {
 	var calls []struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
 	}
 	mock.lockFreeze.RLock()
 	calls = mock.calls.Freeze
@@ -721,23 +713,21 @@ func (mock *LifeCycleSnapshotterMock) SyncFSFreezeRequestCalls() []struct {
 }
 
 // Unfreeze calls UnfreezeFunc.
-func (mock *LifeCycleSnapshotterMock) Unfreeze(ctx context.Context, name string, namespace string) error {
+func (mock *LifeCycleSnapshotterMock) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if mock.UnfreezeFunc == nil {
 		panic("LifeCycleSnapshotterMock.UnfreezeFunc: method is nil but LifeCycleSnapshotter.Unfreeze was just called")
 	}
 	callInfo := struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
 	}{
-		Ctx:       ctx,
-		Name:      name,
-		Namespace: namespace,
+		Ctx:   ctx,
+		Kvvmi: kvvmi,
 	}
 	mock.lockUnfreeze.Lock()
 	mock.calls.Unfreeze = append(mock.calls.Unfreeze, callInfo)
 	mock.lockUnfreeze.Unlock()
-	return mock.UnfreezeFunc(ctx, name, namespace)
+	return mock.UnfreezeFunc(ctx, kvvmi)
 }
 
 // UnfreezeCalls gets all the calls that were made to Unfreeze.
@@ -745,14 +735,12 @@ func (mock *LifeCycleSnapshotterMock) Unfreeze(ctx context.Context, name string,
 //
 //	len(mockedLifeCycleSnapshotter.UnfreezeCalls())
 func (mock *LifeCycleSnapshotterMock) UnfreezeCalls() []struct {
-	Ctx       context.Context
-	Name      string
-	Namespace string
+	Ctx   context.Context
+	Kvvmi *virtv1.VirtualMachineInstance
 } {
 	var calls []struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx   context.Context
+		Kvvmi *virtv1.VirtualMachineInstance
 	}
 	mock.lockUnfreeze.RLock()
 	calls = mock.calls.Unfreeze
