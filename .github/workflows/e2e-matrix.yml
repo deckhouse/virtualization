@@ -12,23 +12,101 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (bootstrap)
+name: E2E Matrix Tests (Skeleton)
 
 on:
+  push:
+    branches:
+      - chore/ci/e2e-matrix-skeleton
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
       - main
-      - feat/ci-e2e-matrix
+      - chore/ci/e2e-matrix-skeleton
+  schedule:
+    - cron: "30 2 * * *"
   workflow_dispatch:
+    inputs:
+      profiles:
+        description: "Storage profiles (comma-separated): sds, cephrbd"
+        required: false
+        default: "sds,cephrbd"
+      timeout:
+        description: "Ginkgo timeout (e.g. 2h, 4h)"
+        required: false
+        default: "4h"
 
 permissions:
   contents: read
 
 jobs:
-  noop:
-    name: Bootstrap
+  setup:
+    name: Setup (skeleton)
+    runs-on: ubuntu-latest
+    outputs:
+      profiles: ${{ steps.profiles.outputs.profiles }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse profiles input to JSON
+        id: profiles
+        run: |
+          set -euo pipefail
+          PROFILES_CSV="${{ inputs.profiles || 'sds,cephrbd' }}"
+          # Convert CSV to JSON array without external deps
+          JSON="[$(awk -v csv="$PROFILES_CSV" 'BEGIN{n=split(csv, a, /,/); for(i=1;i<=n;i++){gsub(/^ +| +$/,"",a[i]); printf "%s\"%s\"", (i>1?",":""), a[i]}}')]"
+          echo "profiles=$JSON" >> "$GITHUB_OUTPUT"
+
+      - name: Echo planned matrix
+        run: |
+          echo "Matrix profiles: ${{ steps.profiles.outputs.profiles }}"
+
+  prepare:
+    name: Prepare (${{ matrix.profile }}) [skeleton]
+    needs: [setup]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: prepare-${{ github.ref }}-${{ matrix.profile }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
+    steps:
+      - name: Echo prepare
+        run: |
+          echo "Prepare stage for profile=${{ matrix.profile }}"
+
+  run-e2e:
+    name: E2E (${{ matrix.profile }}) [skeleton]
+    needs: [setup, prepare]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: e2e-${{ github.ref }}-${{ matrix.profile }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
+    steps:
+      - name: Echo run
+        run: |
+  report:
+    name: Report [skeleton]
+    needs: [setup, run-e2e]
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+      - name: Echo report
+        run: |
+          echo "Report stage (skeleton). Collecting results from matrix..."
+
+  cleanup:
+    name: Cleanup [skeleton]
+    needs: report
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo cleanup
+        run: |
+          echo "Cleanup stage (skeleton). Nothing to do."
