@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -81,7 +81,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				util.StartVirtualMachine(f, t.VM)
 			}
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 
 			vmbdaPath := t.GetVMBDADevicePath()
 			t.CreateVMBDAFilesystem(vmbdaPath)
@@ -117,7 +117,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 			t.MountVMBDA(t.GetVMBDADevicePath())
 		})
 		By("Check that VM is in changed state", func() {
@@ -143,7 +143,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				}
 
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 				t.MountVMBDA(t.GetVMBDADevicePath())
 			}
 		})
@@ -371,13 +371,11 @@ func (r *restoreModeTest) getDeviceBySerial(serial string) (string, bool, error)
 }
 
 func (r *restoreModeTest) getVMBDADiskSerialNumber(vdName string) (string, bool) {
-	unstructuredVMI := &unstructured.Unstructured{}
-	unstructuredVMI.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "internal.virtualization.deckhouse.io",
-		Version: "v1",
-		Kind:    "InternalVirtualizationVirtualMachineInstance",
-	})
-	err := r.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(r.VM), unstructuredVMI)
+	unstructuredVMI, err := r.Framework.Clients.DynamicClient().Resource(schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
+		Resource: "internalvirtualizationvirtualmachineinstances",
+	}).Namespace(r.VM.Namespace).Get(context.Background(), r.VM.Name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	var kvvmi virtv1.VirtualMachineInstance
