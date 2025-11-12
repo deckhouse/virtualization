@@ -291,7 +291,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="id_ed" \
-            TARGET_STORAGE_CLASS="${STORAGE_CLASS}"
+            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
 
       - name: Attach data disks to worker VMs using hotplug
         working-directory: ci/dvp-e2e
@@ -301,7 +301,7 @@ jobs:
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="${EFFECTIVE_DISK_SC}" \
+            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
             DISK_COUNT="2"
 
       - name: Build nested kubeconfig
