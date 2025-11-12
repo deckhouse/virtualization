@@ -38,7 +38,6 @@ import (
 var _ = Describe("VirtualMachineMigration", func() {
 	const (
 		externalHost = "https://flant.ru"
-		httpStatusOk = "200"
 	)
 
 	var (
