@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/postponehandler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
@@ -68,6 +69,7 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
 	scService := intsvc.NewVirtualDiskStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
+	dvcrService := service.NewDVCRService(mgr.GetClient())
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
@@ -80,6 +82,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewPostponeHandlerPreFilter(postponehandler.New[*v1alpha2.VirtualDisk](dvcrService, recorder)),
 		internal.NewInitHandler(),
 		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
