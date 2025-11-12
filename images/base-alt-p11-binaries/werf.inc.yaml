@@ -34,3 +34,6 @@ shell:
       cp -af /$pkg/. /
       rm -rf /$pkg
     done
+    
+    rm -f /var/lib/rpm/__db*
+    rpm -v --rebuilddb

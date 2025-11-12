@@ -1,7 +1,0 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDiskSnapshot
-metadata:
-  name: vdsnapshot
-spec:
-  requiredConsistency: true
-  virtualDiskName: vd-alpine-http

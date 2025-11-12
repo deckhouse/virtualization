@@ -33,6 +33,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -63,27 +64,33 @@ func (w VirtualMachineIPAddressWatcher) Watch(mgr manager.Manager, ctr controlle
 }
 
 func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, vmip *v1alpha2.VirtualMachineIPAddress) (requests []reconcile.Request) {
+	requestMap := make(map[string]struct{})
+
+	if vmip.Status.Address != "" {
+		leaseName := ip.IPToLeaseName(vmip.Status.Address)
+		if leaseName != "" {
+			requestMap[leaseName] = struct{}{}
+		}
+	}
+
 	var leases v1alpha2.VirtualMachineIPAddressLeaseList
-	err := w.client.List(ctx, &leases, &client.ListOptions{})
+	err := w.client.List(ctx, &leases, &client.MatchingFields{
+		indexer.IndexFieldVMIPLeaseByVMIP: fmt.Sprintf("%s/%s", vmip.GetNamespace(), vmip.GetName()),
+	})
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))
 		return
 	}
 
 	for _, lease := range leases.Items {
-		if vmip.Status.Address != "" && vmip.Status.Address == ip.LeaseNameToIP(lease.Name) {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: lease.Name},
-			})
-			continue
-		}
-
 		vmipRef := lease.Spec.VirtualMachineIPAddressRef
 		if vmipRef != nil && vmipRef.Name == vmip.GetName() && vmipRef.Namespace == vmip.GetNamespace() {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: lease.Name},
-			})
+			requestMap[lease.Name] = struct{}{}
 		}
+	}
+
+	for leaseName := range requestMap {
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Name: leaseName}})
 	}
 
 	return requests

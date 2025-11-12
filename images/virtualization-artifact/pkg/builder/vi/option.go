@@ -1,9 +1,12 @@
 /*
 Copyright 2025 Flant JSC
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
      http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -68,7 +71,7 @@ func WithDataSourceContainerImage(image string, imagePullSecret v1alpha2.ImagePu
 	}
 }
 
-func WithDataSourceObjectRef(kind v1alpha2.VirtualImageObjectRefKind, name, namespace string) Option {
+func WithDataSourceObjectRef(kind v1alpha2.VirtualImageObjectRefKind, name string) Option {
 	return func(vi *v1alpha2.VirtualImage) {
 		vi.Spec.DataSource = v1alpha2.VirtualImageDataSource{
 			Type: v1alpha2.DataSourceTypeObjectRef,
