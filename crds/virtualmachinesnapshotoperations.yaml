@@ -65,19 +65,19 @@ spec:
             spec:
               properties:
                 createVirtualMachine:
-                  description: CreateVirtualMachine defines the clone operation.
+                  description: CreateVirtualMachine defines parameters for the operation of creating a virtual machine from a snapshot.
                   properties:
                     customization:
-                      description: Customization defines customization options for cloning.
+                      description: Customization defines customization options for creating a virtual machine.
                       properties:
                         namePrefix:
                           description: |-
-                            NamePrefix adds a prefix to resource names during cloning.
+                            NamePrefix adds a prefix to resource names during creation.
                             Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
                           type: string
                         nameSuffix:
                           description: |-
-                            NameSuffix adds a suffix to resource names during cloning.
+                            NameSuffix adds a suffix to resource names during creation.
                             Applied to VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment, and Secret resources.
                           type: string
                       type: object
@@ -96,9 +96,11 @@ spec:
                             && size(self.nameSuffix) <= 59)"
                     mode:
                       description: |-
-                        VMSOPCreateVirtualMachineMode defines the kind of the clone operation.
-                        * `Strict`: Strict clone as is in the snapshot.
-                        * `BestEffort`: BestEffort clone without deleted external missing dependencies.
+                        Clone mode:
+
+                        * `DryRun`: Run without performing creation. Conflicts and inconsistencies are recorded in the operation status.
+                        * `Strict`: Strict clone mode "as in the original VM". Missing external dependencies may cause the cloned virtual machine to be in `Pending` state after creation.
+                        * `BestEffort`: Clone mode with removal of missing external dependencies (ClusterVirtualImage, VirtualImage) from the virtual machine specification.
                       enum:
                         - DryRun
                         - Strict
@@ -107,7 +109,7 @@ spec:
                     nameReplacement:
                       description:
                         NameReplacement defines rules for renaming resources
-                        during cloning.
+                        during virtual machine creation.
                       items:
                         description:
                           NameReplacement represents a rule for redefining
@@ -152,8 +154,8 @@ spec:
                         && size(self.nameReplacement) > 0)
                 type:
                   description: |-
-                    Type of the operation to execute on a virtual machine:
-                    * `CreateVirtualMachine`: CreateVirtualMachine the virtual machine to a new virtual machine.
+                    Type of the operation to execute on a virtual machine snapshot:
+                    * `CreateVirtualMachine`: Create a virtual machine from the snapshot.
                   enum:
                     - CreateVirtualMachine
                   type: string
@@ -216,14 +218,14 @@ spec:
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         type: string
                       status:
-                        description: status of the condition, one of True, False, Unknown.
+                        description: Status of the condition.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                         type: string
                       type:
-                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        description: Type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -236,12 +238,13 @@ spec:
                     type: object
                   type: array
                 observedGeneration:
-                  description: " Resource generation last processed by the controller."
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
                     Current phase of the resource:
+
                     * `Pending`: The operation is queued for execution.
                     * `InProgress`: The operation is in progress.
                     * `Completed`: The operation has been completed successfully.
@@ -257,7 +260,7 @@ spec:
                 resources:
                   description:
                     Resources contains the list of resources that are affected
-                    by the snapshot operation.
+                    by the snapshot creation operation.
                   items:
                     description:
                       SnapshotResourceStatus defines the resource affected

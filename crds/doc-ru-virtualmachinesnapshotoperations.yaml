@@ -10,15 +10,15 @@ spec:
               properties:
                 type:
                   description: |
-                    Операции над снимком виртуальной машиной:
+                    Тип операции, выполняемой над снимком виртуальной машины:
 
-                    * `CreateVirtualMachine` — создать виртуальную машину из снимка;
+                    * `CreateVirtualMachine` — создать виртуальную машину из снимка.
                 virtualMachineSnapshotName:
                   description: |
-                    Имя виртуальной машины, для которой выполняется операция.
+                    Имя снимка виртуальной машины, для которого выполняется операция.
                 createVirtualMachine:
                   description: |
-                    Определяет операцию создания виртуальной машины.
+                    Определяет параметры операции создания виртуальной машины из снимка.
                   properties:
                     mode:
                       description: |
@@ -29,7 +29,7 @@ spec:
                         * `BestEffort` — режим клонирования с удалением отсутствующих внешних зависимостей (ClusterVirtualImage, VirtualImage) из спецификации виртуальной машины.
                     customization:
                       description: |
-                        Определяет параметры кастомизации для создания.
+                        Определяет параметры кастомизации для создания виртуальной машины.
                       properties:
                         namePrefix:
                           description: |
@@ -41,7 +41,7 @@ spec:
                             Применяется к ресурсам VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment и Secret.
                     nameReplacement:
                       description: |
-                        Определяет правила переименования ресурсов при создании.
+                        Определяет правила переименования ресурсов при создании виртуальной машины.
                       items:
                         description: |
                           Представляет правило для переопределения имён ресурсов виртуальной машины.
@@ -80,7 +80,7 @@ spec:
                         description: Краткая причина последнего перехода состояния.
                       status:
                         description: |
-                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                          Статус условия.
                       type:
                         description: Тип условия.
                 phase:
