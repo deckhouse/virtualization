@@ -1,5 +1,10 @@
 {{- $priorityClassName := include "priorityClassName" . }}
-{{- define "dvcr_resources" }}
+{{- define "dvcr.resources" }}
+cpu: 50m
+memory: 15Mi
+{{- end }}
+
+{{- define "dvcr.resources.maintenance" }}
 cpu: 50m
 memory: 15Mi
 {{- end }}
@@ -25,7 +30,13 @@ spec:
     {{- include "kube_rbac_proxy.vpa_container_policy" . | nindent 4 }}
     - containerName: dvcr
       minAllowed:
-        {{- include "dvcr_resources" . | nindent 8 }}
+        {{- include "dvcr.resources" . | nindent 8 }}
+      maxAllowed:
+        cpu: 100m
+        memory: 250Mi
+    - containerName: dvcr-maintenance
+      minAllowed:
+        {{- include "dvcr.resources.maintenance" . | nindent 8 }}
       maxAllowed:
         cpu: 100m
         memory: 250Mi
@@ -94,7 +105,7 @@ spec:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
               {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-              {{- include "dvcr_resources" . | nindent 14 }}
+              {{- include "dvcr.resources" . | nindent 14 }}
               {{- end }}
           env: {{ include "dvcr.envs" . | nindent 12 }}
           volumeMounts: {{ include "dvcr.volumeMounts" . | nindent 12 }}
@@ -105,6 +116,28 @@ spec:
             (dict "upstream" "http://127.0.0.1:5001/metrics" "path" "/metrics" "name" "dvcr")
         ) }}
         {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
+
+        {{- if eq (include "dvcr.isMaintenance" . ) "true" }}
+        - name: dvcr-maintenance
+          image: {{ include "helm_lib_module_image" (list . "dvcr") }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /usr/local/bin/dvcr-cleaner
+            - gc
+            - auto-cleanup
+            - --maintenance-secret-name
+            - dvcr-maintenance
+            - --gc-timeout
+            - 45s
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
+              {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
+              {{- include "dvcr.resources.maintenance" . | nindent 14 }}
+              {{- end }}
+          env: {{ include "dvcr.envs.maintenance" . | nindent 12 }}
+          volumeMounts: {{ include "dvcr.volumeMounts.maintenance" . | nindent 12 }}
+        {{- end }}
       volumes: {{ include "dvcr.volumes" . | nindent 8 }}
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "system") | nindent 6 }}
