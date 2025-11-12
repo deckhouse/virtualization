@@ -16,12 +16,15 @@ spec:
     scheme: https
     tlsConfig:
       insecureSkipVerify: true
-    # metricRelabelings:
-    #   # exported_namespace -> namespace
-    #   - action: replace
-    #     sourceLabels:
-    #       - exported_namespace
-    #     targetLabel: namespace
+    metricRelabelings:
+      # exported_namespace -> namespace (only for d8_virtualization.+)
+      - action: replace
+        sourceLabels:
+          - __name__
+          - exported_namespace
+        regex: 'd8_virtualization.+;(.*)'
+        targetLabel: namespace
+        replacement: '${1}'
   namespaceSelector:
     matchNames:
     - d8-{{ .Chart.Name }}
