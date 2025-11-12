@@ -927,7 +927,7 @@
                   {
                     "targetBlank": true,
                     "title": "Controller Details",
-                    "url": "/d/bdw6dw2izvpxcb/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-name=${__value.raw}&${__url_time_range}"
+                    "url": "/d/bdw6dw2izvpxcb2/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-name=${__value.raw}&${__url_time_range}"
                   }
                 ]
               },
@@ -2620,7 +2620,7 @@
                       {
                         "targetBlank": true,
                         "title": "",
-                        "url": "/d/bdw6dw2izvpxcb/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-name=${__value.raw}&${__url_time_range}"
+                        "url": "/d/bdw6dw2izvpxcb2/namespace-virtual-machine?var-ds_prometheus=${ds_prometheus}&var-namespace=${namespace}&var-name=${__value.raw}&${__url_time_range}"
                       }
                     ]
                   }
@@ -4580,7 +4580,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Namespace / Virtual Machines",
-  "uid": "aenrewb6nk0sgf",
+  "uid": "aenrewb6nk0sgf2",
   "version": 1,
   "weekStart": ""
 }
