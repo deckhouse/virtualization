@@ -12,7 +12,6 @@ helperImages:
 testData:
   affinityToleration: "/tmp/testdata/affinity-toleration"
   complexTest: "/tmp/testdata/complex-test"
-  connectivity: "/tmp/testdata/connectivity"
   diskResizing: "/tmp/testdata/disk-resizing"
   imageHotplug: "/tmp/testdata/image-hotplug"
   sizingPolicy: "/tmp/testdata/sizing-policy"
