@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/kubernetes"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/registry"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/signal"
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/cleaner/storage"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/humanize"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -154,29 +155,22 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	fsInfoAfterCleanup, errFSInfo := registry.StorageStats()
 	if errFSInfo != nil {
 		errs = multierror.Append(errs, fmt.Errorf("get repositories filesystem info after cleanup: %w", errFSInfo))
-
-		// Available space after cleanup should be greater than available space before cleanup.
-		// The difference is the freed space. Format it with GiB/MiB suffix.
-		totalSpaceBytes := int64(fsInfoAfterCleanup.Total)
-		usedSpaceBytes := int64(fsInfoAfterCleanup.Total - fsInfoAfterCleanup.Available)
-		availableSpaceBytes := int64(fsInfoAfterCleanup.Available)
-		freedSpaceBytes := int64(fsInfoAfterCleanup.Available - fsInfoBeforeCleanup.Available)
-
-		result["totalSpaceBytes"] = strconv.FormatInt(totalSpaceBytes, 10)
-		result["totalSpace"] = humanize.HumanizeBytes(totalSpaceBytes)
-		result["usedSpaceBytes"] = strconv.FormatInt(usedSpaceBytes, 10)
-		result["usedSpace"] = humanize.HumanizeBytes(usedSpaceBytes)
-		result["availableSpaceBytes"] = strconv.FormatInt(availableSpaceBytes, 10)
-		result["availableSpace"] = humanize.HumanizeBytes(availableSpaceBytes)
-		result["freedSpaceBytes"] = strconv.FormatInt(freedSpaceBytes, 10)
-		result["freedSpace"] = humanize.HumanizeBytes(freedSpaceBytes)
-
-		// Also report to stdout.
-		fmt.Printf("Freed space during cleanup: %s\n", result["freedSpace"])
-		fmt.Printf("%7s  %7s  %7s\n", "Total", "Used", "Avail")
-		fmt.Printf("%7s  %7s  %7s\n", result["totalSpace"], result["usedSpace"], result["availableSpace"])
+		fmt.Printf("Error! FS stats not available: %v\n", errFSInfo)
 	} else {
-		fmt.Printf("FS stats not available: %v\n", errFSInfo)
+		totalBytes := int64(fsInfoAfterCleanup.Total)
+		availableBytes := int64(fsInfoAfterCleanup.Available)
+		freedBytes := int64(fsInfoAfterCleanup.Available - fsInfoBeforeCleanup.Available)
+
+		result["total"] = strconv.FormatInt(totalBytes, 10)
+		result["available"] = strconv.FormatInt(availableBytes, 10)
+		result["freed"] = strconv.FormatInt(freedBytes, 10)
+		result["message"] = fmt.Sprintf("Freed space after cleanup: %s. Available space %s of total %s.",
+			humanize.Bytes(freedBytes),
+			humanize.Bytes(availableBytes),
+			humanize.Bytes(totalBytes),
+		)
+		// Also report to stdout.
+		fmt.Print(reportFSState(fsInfoAfterCleanup, &fsInfoBeforeCleanup))
 	}
 
 	// Terminate without waiting if no secret name was provided.
@@ -253,12 +247,7 @@ func checkCleanupHandler(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	totalSpace := humanize.HumanizeBytes(int64(fsInfo.Total))
-	usedSpace := humanize.HumanizeBytes(int64(fsInfo.Total - fsInfo.Available))
-	availableSpace := humanize.HumanizeBytes(int64(fsInfo.Available))
-
-	fmt.Printf("%7s  %7s  %7s\n", "Total", "Used", "Avail")
-	fmt.Printf("%7s  %7s  %7s\n", totalSpace, usedSpace, availableSpace)
+	fmt.Print(reportFSState(fsInfo, nil))
 
 	if len(absentImages) == 0 {
 		fmt.Println("No images eligible for auto-cleanup.")
@@ -401,4 +390,24 @@ func annotateMaintenanceSecretOnCleanupDone(ctx context.Context, result map[stri
 	}
 
 	return nil
+}
+
+func reportFSState(fsInfo storage.FSInfo, fsInfoBefore *storage.FSInfo) (report string) {
+	total := humanize.Bytes(int64(fsInfo.Total))
+	used := humanize.Bytes(int64(fsInfo.Total - fsInfo.Available))
+	available := humanize.Bytes(int64(fsInfo.Available))
+	usePct := 100 - fsInfo.Available*100/fsInfo.Total
+	freed := ""
+	if fsInfoBefore != nil {
+		freedBytes := int64(fsInfo.Available - fsInfoBefore.Available)
+		freed = humanize.Bytes(freedBytes)
+	}
+
+	if fsInfoBefore != nil {
+		report += fmt.Sprintf("Freed space after cleanup: %s\n", freed)
+	}
+	report += fmt.Sprintf("%7s  %7s  %7s  %7s\n", "Total", "Used", "Avail", "Use%")
+	report += fmt.Sprintf("%7s  %7s  %7s  %6d%%\n", total, used, available, usePct)
+
+	return report
 }
