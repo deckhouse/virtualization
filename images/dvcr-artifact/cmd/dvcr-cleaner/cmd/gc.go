@@ -25,7 +25,6 @@ import (
 	"os/exec"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -259,10 +258,13 @@ func checkCleanupHandler(_ *cobra.Command, _ []string) error {
 	})
 
 	fmt.Println("Images eligible for cleanup:")
+	fmt.Printf("%-22s %-20s %-45s\n", "KIND", "NAMESPACE", "NAME")
 	for _, image := range absentImages {
-		img := strings.TrimPrefix(image.Path, registry.RepoDir)
-		img = strings.TrimPrefix(image.Path, "/")
-		fmt.Println(img)
+		ns := image.Namespace
+		if image.Type == v1alpha2.ClusterVirtualImageKind {
+			ns = ""
+		}
+		fmt.Printf("%-22s %-20s %-45s\n", image.Type, ns, image.Name)
 	}
 
 	return nil
