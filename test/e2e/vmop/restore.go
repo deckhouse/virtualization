@@ -124,8 +124,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(t.GetDataFromVMBDA()).To(Equal(changedValue))
 			Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValue))
 			Expect(t.VM.Labels[testLabelName]).To(Equal(changedValue))
-			Expect(t.VM.Spec.CPU.Cores).To(Equal(changedCPUCores))
-			Expect(t.VM.Spec.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
+			Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
+			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
 		By("Resource preparation", func() {
 			if restoreMode == v1alpha2.VMOPRestoreModeStrict {
@@ -155,14 +155,14 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				Expect(t.GetDataFromVMBDA()).To(Equal(changedValue))
 				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValue))
 				Expect(t.VM.Labels[testLabelName]).To(Equal(changedValue))
-				Expect(t.VM.Spec.CPU.Cores).To(Equal(changedCPUCores))
-				Expect(t.VM.Spec.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
+				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
+				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 			} else {
 				Expect(t.GetDataFromVMBDA()).To(Equal(t.GeneratedValue))
 				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(initialValue))
 				Expect(t.VM.Labels[testLabelName]).To(Equal(initialValue))
-				Expect(t.VM.Spec.CPU.Cores).To(Equal(initialCPUCores))
-				Expect(t.VM.Spec.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
+				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
+				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
 			}
 		})
 	},
