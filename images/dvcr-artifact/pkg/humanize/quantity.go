@@ -33,7 +33,9 @@ var (
 	SISuffixes = []string{"", "K", "M", "G", "P", "E", "Z"}
 )
 
-// humanizeQuantity4 return 3 or 4 chars for num plus scale suffix.
+// humanizeQuantity4 returns a string representation of the quantity
+// scaled to fit into 4 chars and prefixed with scale prefix.
+// One character is for decimal separator, so sometimes it returns only 3 chars (e.g. 132M).
 func humanizeQuantity4(num int64, base int) string {
 	var suffixes []string
 	switch base {
