@@ -40,8 +40,15 @@ func WithType(t v1alpha2.VMSOPType) Option {
 	}
 }
 
-func WithVirtualMachineSnapshot(vms *v1alpha2.VirtualMachineSnapshot) Option {
+func WithVirtualMachineSnapshotName(name string) Option {
 	return func(vmsop *v1alpha2.VirtualMachineSnapshotOperation) {
-		vmsop.Spec.VirtualMachineSnapshotName = vms.Name
+		vmsop.Spec.VirtualMachineSnapshotName = name
+	}
+}
+
+func WithCreateVirtualMachine(create *v1alpha2.VMSOPCreateVirtualMachineSpec) Option {
+	return func(vmsop *v1alpha2.VirtualMachineSnapshotOperation) {
+		vmsop.Spec.Type = v1alpha2.VMSOPTypeCreateVirtualMachine
+		vmsop.Spec.CreateVirtualMachine = create
 	}
 }
