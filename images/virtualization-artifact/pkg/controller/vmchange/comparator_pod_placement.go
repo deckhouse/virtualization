@@ -80,7 +80,7 @@ func compareTolerations(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.Tolerations, desired.Tolerations),
-		ActionRestart,
+		placementAction(),
 	)
 }
 
