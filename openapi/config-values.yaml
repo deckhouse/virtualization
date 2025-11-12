@@ -179,6 +179,18 @@ properties:
             properties:
               type:
                 enum: ["ObjectStorage"]
+      gc:
+        description: |
+          Parameters for garbage collection.
+        type: object
+        properties:
+          schedule:
+            type: string
+            default: "0 2 * * *"
+            description: |
+              Schedule to run garbage collection procedure that remove stale images for `ClusterVirtualImage`, `VirtualImage`, `VirtualDisk` resources deleted from the cluster.
+
+              Default is to run every day at 2:00 AM ("0 2 * * *").
   audit:
     type: object
     description: |

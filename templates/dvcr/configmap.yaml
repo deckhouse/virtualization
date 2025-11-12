@@ -14,6 +14,11 @@ data:
     storage:
       cache:
         blobdescriptor: inmemory
+{{- if eq (include "dvcr.isMaintenance" . ) "true" }}
+      maintenance:
+        readonly:
+          enabled: true
+{{- end }}
     http:
       addr: :5000
       headers:

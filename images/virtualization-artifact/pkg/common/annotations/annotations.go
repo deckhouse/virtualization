@@ -190,6 +190,9 @@ const (
 
 	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
 	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
+
+	AnnDVCRDeploymentSwitchToMaintenanceMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-maintenance-mode"
+	AnnDVCRGarbageCollectionDone             = AnnAPIGroupV + "/dvcr-garbage-collection-done"
 )
 
 // AddAnnotation adds an annotation to an object
