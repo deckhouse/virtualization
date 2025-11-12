@@ -59,7 +59,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
-			return fmt.Errorf("faield to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
 		}
 	}
 
