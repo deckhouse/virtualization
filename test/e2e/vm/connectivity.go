@@ -61,7 +61,7 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 	})
 
 	It("verifies that virtual machines are connected to each other", func() {
-		By("Enviroment preparation", func() {
+		By("Environment preparation", func() {
 			t.GenerateEnvironmentResources()
 			err := f.CreateWithDeferredDeletion(context.Background(), t.VDa, t.VDb, t.VMa, t.VMb, t.ServiceA, t.ServiceB, t.CurlPod)
 			Expect(err).NotTo(HaveOccurred())
