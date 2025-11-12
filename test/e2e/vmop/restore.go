@@ -377,10 +377,7 @@ func (r *restoreModeTest) getVMBDADiskSerialNumber(vdName string) (string, bool)
 		Version: "v1",
 		Kind:    "InternalVirtualizationVirtualMachineInstance",
 	})
-	err := r.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-		Namespace: r.VM.Namespace,
-		Name:      r.VM.Name,
-	}, unstructuredVMI)
+	err := r.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(r.VM), unstructuredVMI)
 	Expect(err).NotTo(HaveOccurred())
 
 	var kvvmi virtv1.VirtualMachineInstance
