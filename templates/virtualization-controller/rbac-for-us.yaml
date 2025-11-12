@@ -242,6 +242,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - deployments/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
   - ""
   resources:
   - resourcequotas
