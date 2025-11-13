@@ -281,7 +281,7 @@ func (t *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOP
 	)
 
 	t.VMOPRestore = vmopbuilder.New(
-		vmopbuilder.WithName("restore-strict"),
+		vmopbuilder.WithName(fmt.Sprintf("restore-%s", strings.ToLower(string(restoreMode)))),
 		vmopbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
 		vmopbuilder.WithVirtualMachine(t.VM.Name),
