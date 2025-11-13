@@ -192,7 +192,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen && vdSnapshot.Spec.RequiredConsistency {
+		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen {
 			canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
@@ -379,12 +379,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		} else {
 			switch {
 			case vm == nil, vm.Status.Phase == v1alpha2.MachineStopped:
-				if vdSnapshot.Spec.RequiredConsistency && vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
+				if vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
 					vdSnapshot.Status.Consistent = ptr.To(true)
 					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 				}
 			case isFrozen && vdSnapshot.Spec.RequiredConsistency:
-				if vdSnapshot.Spec.RequiredConsistency && vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
+				if vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
 					vdSnapshot.Status.Consistent = ptr.To(true)
 					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 				}
@@ -500,10 +500,6 @@ func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshot *v1
 }
 
 func (h LifeCycleHandler) isConsistent(vdSnapshot *v1alpha2.VirtualDiskSnapshot) bool {
-	if !vdSnapshot.Spec.RequiredConsistency {
-		return false
-	}
-
 	if vdSnapshot.Status.Consistent == nil {
 		return false
 	}
