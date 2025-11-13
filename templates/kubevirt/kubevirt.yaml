@@ -62,6 +62,7 @@ spec:
       - VolumeSnapshotDataSource
       - VolumeMigration
       - VolumesUpdateStrategy
+      - HostDevicesWithDRA
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
