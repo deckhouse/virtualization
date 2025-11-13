@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -114,7 +114,7 @@ var _ = Describe("VMSOPCreateVirtualMachine", func() {
 
 		By("Verify that the created VM is running", func() {
 			newName := fmt.Sprintf("created-from-vmsop-%s", vm.Name)
-			createdVM, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), newName, v1.GetOptions{})
+			createdVM, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), newName, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(createdVM), framework.LongTimeout)
