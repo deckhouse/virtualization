@@ -2431,7 +2431,6 @@ spec:
                                         to the guest via config drive
                                       type: string
                                   required:
-                                  - deviceName
                                   - name
                                   type: object
                                 type: array
