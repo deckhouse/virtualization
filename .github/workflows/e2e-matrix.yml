@@ -12,23 +12,657 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (bootstrap)
+name: E2E Matrix Tests (Skeleton)
 
 on:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
       - main
-      - feat/ci-e2e-matrix
+      - chore/ci/e2e-matrix-skeleton
+  schedule:
+    - cron: "30 2 * * *"
   workflow_dispatch:
+    inputs:
+      timeout:
+        description: "Ginkgo timeout (e.g. 2h, 4h)"
+        required: false
+        default: "4h"
 
 permissions:
   contents: read
 
+env:
+  E2E_K8S_URL: https://api.e2e.virtlab.flant.com
+
 jobs:
-  noop:
-    name: Bootstrap
+  # ============================================
+  # 1. SETUP - Environment preparation
+  # ============================================
+  setup-nested-envs:
+    name: Setup Nested Envs
+    runs-on: ubuntu-latest
+    concurrency:
+      group: setup-nested-envs-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      PROFILE: sds-replicated-volume
+    outputs:
+      run_id: ${{ steps.prep.outputs.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load storage profile
+        id: load
+        run: |
+          cd ci/dvp-e2e
+          # Map sds-replicated-volume to sds profile from profiles.json
+          PROFILE=$(jq -r '.[0].name' profiles.json)
+          echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
+          echo "Will test profile: $PROFILE (mapped from sds-replicated-volume)"
+
+      - name: Prepare run context
+        id: prep
+        run: |
+          RUN_ID="nightly-nested-e2e-sds-$(date +%H%M%S)"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          mkdir -p ./tmp/run-context
+          echo "profile: ${PROFILE}" > ./tmp/run-context/config.yaml
+          echo "run_id: ${RUN_ID}" >> ./tmp/run-context/config.yaml
+          echo "timestamp: $(date -Iseconds)" >> ./tmp/run-context/config.yaml
+
+      - name: Upload run context
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-context-${{ steps.prep.outputs.run_id }}
+          path: ./tmp/run-context
+
+  # ============================================
+  # 2. PREPARE - Cluster preparation
+  # ============================================
+  prepare:
+    name: Prepare Cluster
+    needs: [setup-nested-envs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    concurrency:
+      group: prepare-${{ github.ref }}-sds-replicated-volume
+      cancel-in-progress: true
+    env:
+      PROFILE: sds-replicated-volume
+      GO_VERSION: "1.24.6"
+      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
+      LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
+      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
+
+    outputs:
+      run_id: ${{ steps.prep.outputs.run_id }}
+      storage_class: ${{ steps.profile-config.outputs.storage_class }}
+      image_storage_class: ${{ steps.profile-config.outputs.image_storage_class }}
+      snapshot_storage_class: ${{ steps.profile-config.outputs.snapshot_storage_class }}
+      attach_disk_size: ${{ steps.profile-config.outputs.attach_disk_size }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Install Deckhouse CLI
+        env:
+          D8_VERSION: v0.13.2
+        run: |
+          set -euo pipefail
+          echo "Installing d8 ${D8_VERSION}..."
+          curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
+          tar -xzf d8.tgz linux-amd64/bin/d8
+          mv linux-amd64/bin/d8 /usr/local/bin/d8
+          chmod +x /usr/local/bin/d8
+          rm -rf d8.tgz linux-amd64
+          d8 --version
+
+      - name: Install yq
+        run: |
+          echo "Installing yq..."
+          curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Restore run context
+        uses: actions/download-artifact@v4
+        with:
+          name: run-context-${{ needs.setup-nested-envs.outputs.run_id }}
+          path: .
+
+      - name: Prepare environment
+        id: prep
+        run: |
+          RUN_ID="${{ needs.setup-nested-envs.outputs.run_id }}"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          # Map sds-replicated-volume to sds for profile config
+          echo "PROFILE=sds" >> "$GITHUB_ENV"
+          echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
+          mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
+
+      - name: Build parent kubeconfig from secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Prepare run values.yaml
+        working-directory: ci/dvp-e2e
+        run: |
+          task run:values:prepare \
+            RUN_ID="${{ env.RUN_ID }}" \
+            RUN_NAMESPACE="${{ env.RUN_ID }}" \
+            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
+          echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
+
+      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+        run: |
+          prod_user="${{ secrets.PROD_READ_REGISTRY_USER }}"
+          prod_pass="${{ secrets.PROD_READ_REGISTRY_PASSWORD }}"
+          dev_user="${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}"
+          dev_pass="${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}"
+          echo "::add-mask::$prod_user"
+          echo "::add-mask::$prod_pass"
+          echo "::add-mask::$dev_user"
+          echo "::add-mask::$dev_pass"
+          prod_auth_b64=$(printf '%s:%s' "$prod_user" "$prod_pass" | base64 | tr -d '\n')
+          dev_auth_b64=$(printf '%s:%s' "$dev_user" "$dev_pass" | base64 | tr -d '\n')
+          docker_cfg=$(printf '{"auths":{"registry.deckhouse.io":{"auth":"%s"},"dev-registry.deckhouse.io":{"auth":"%s"}}}' "$prod_auth_b64" "$dev_auth_b64")
+          docker_cfg_b64=$(printf '%s' "$docker_cfg" | base64 | tr -d '\n')
+          echo "::add-mask::$docker_cfg_b64"
+          {
+            echo "REGISTRY_DOCKER_CFG=$docker_cfg_b64"
+            echo "DECKHOUSE_REGISTRY_USER=$prod_user"
+            echo "DECKHOUSE_REGISTRY_PASSWORD=$prod_pass"
+          } >> "$GITHUB_ENV"
+
+      - name: Inject REGISTRY_DOCKER_CFG into values.yaml
+        working-directory: ci/dvp-e2e
+        run: |
+          yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+
+      - name: Docker login to Deckhouse registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.deckhouse.io
+          username: ${{ env.DECKHOUSE_REGISTRY_USER }}
+          password: ${{ env.DECKHOUSE_REGISTRY_PASSWORD }}
+
+      - name: Docker login to dev-registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
+          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
+
+      - name: Configure storage profile
+        working-directory: ci/dvp-e2e
+        id: profile-config
+        env:
+          PROFILE: sds
+        run: |
+          # Get storage class configuration from profiles.json
+          PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
+
+          # Parse the output more carefully
+          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
+          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
+          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
+
+          echo "Profile: ${PROFILE}"
+          echo "Storage Class: ${STORAGE_CLASS}"
+          echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
+          echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
+          echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
+
+          # Export variables safely
+          echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
+          echo "storage_class=$STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "image_storage_class=$IMAGE_STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "snapshot_storage_class=$SNAPSHOT_STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "attach_disk_size=$ATTACH_DISK_SIZE" >> $GITHUB_OUTPUT
+          # Pass storage profile into run values for Helm templates
+          PROFILE='sds' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+          # Effective disk SC used for worker data disks (prefer image SC when set)
+          EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
+          echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
+
+      - name: Install infra (namespace/RBAC/jump-host)
+        working-directory: ci/dvp-e2e
+        run: |
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task render-infra \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="id_ed"
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task infra-deploy \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="id_ed"
+
+      - name: Bootstrap nested cluster
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🚀 dhctl bootstrap (profile: sds-replicated-volume -> sds)"
+          task dhctl-bootstrap \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="id_ed" \
+            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+
+      - name: Attach data disks to worker VMs using hotplug
+        working-directory: ci/dvp-e2e
+        run: |
+          task infra:attach-storage-disks-hotplug \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
+            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
+            DISK_COUNT="2"
+
+      - name: Build nested kubeconfig
+        working-directory: ci/dvp-e2e
+        run: |
+          task nested:kubeconfig \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="id_ed" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            PARENT_KUBECONFIG="${KUBECONFIG}"
+
+      - name: Configure storage classes
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "💾 Configuring storage classes for profile: sds-replicated-volume -> sds"
+          task nested:storage:configure \
+            STORAGE_PROFILE="sds" \
+            TARGET_STORAGE_CLASS="${{ steps.profile-config.outputs.storage_class }}" \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="id_ed" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+
+      # Ingress smoke disabled: not required for storage config
+
+      # Ceph CSI smoke check removed per request
+
+      - name: Upload run context
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-context-${{ env.RUN_ID }}
+          path: |
+            ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
+            ci/dvp-e2e/tmp/shared
+          if-no-files-found: warn
+          overwrite: true
+
+  run-e2e:
+    name: E2E [skeleton]
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    concurrency:
+      group: run-e2e-${{ github.ref }}-sds-replicated-volume
+      cancel-in-progress: true
+    env:
+      PROFILE: sds-replicated-volume
+      GO_VERSION: "1.24.6"
+      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Install Deckhouse CLI
+        env:
+          D8_VERSION: v0.13.2
+        run: |
+          set -euo pipefail
+          echo "Installing d8 ${D8_VERSION}..."
+          curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
+          tar -xzf d8.tgz linux-amd64/bin/d8
+          mv linux-amd64/bin/d8 /usr/local/bin/d8
+          chmod +x /usr/local/bin/d8
+          rm -rf d8.tgz linux-amd64
+          d8 --version
+
+      - name: Install yq
+        run: |
+          echo "Installing yq..."
+          curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
+          chmod +x /usr/local/bin/yq
+
+      - name: Restore run context
+        uses: actions/download-artifact@v4
+        with:
+          name: run-context-${{ needs.prepare.outputs.run_id }}
+          path: .
+
+      - name: Export run variables
+        run: |
+          echo "RUN_ID=${{ needs.prepare.outputs.run_id }}" >> "$GITHUB_ENV"
+          echo "PROFILE=sds" >> "$GITHUB_ENV"
+          echo "STORAGE_CLASS=${{ needs.prepare.outputs.storage_class }}" >> "$GITHUB_ENV"
+          echo "IMAGE_STORAGE_CLASS=${{ needs.prepare.outputs.image_storage_class }}" >> "$GITHUB_ENV"
+          echo "SNAPSHOT_STORAGE_CLASS=${{ needs.prepare.outputs.snapshot_storage_class }}" >> "$GITHUB_ENV"
+
+      - name: Build parent kubeconfig from secret (tests)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Prepare JUnit directory
+        run: |
+          mkdir -p "${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}"
+
+      - name: Run E2E tests
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🧪 Running E2E tests for profile: sds-replicated-volume -> sds"
+          task nested:e2e \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="id_ed" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            STORAGE_PROFILE="sds" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            JUNIT_PATH="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml" \
+            FOCUS="" \
+            SKIP="" \
+            LABELS="" \
+            STORAGE_CLASS="${STORAGE_CLASS}" \
+            IMAGE_STORAGE_CLASS="${IMAGE_STORAGE_CLASS}" \
+            SNAPSHOT_STORAGE_CLASS="${SNAPSHOT_STORAGE_CLASS}" \
+            TIMEOUT="${{ inputs.timeout || '4h' }}"
+
+      - name: Collect JUnit for this run
+        if: always()
+        run: |
+          JUNIT_OUT="${{ github.workspace }}/ci/dvp-e2e/artifacts/${{ env.RUN_ID }}/junit.xml"
+          mkdir -p "$(dirname "$JUNIT_OUT")"
+          if [ -f "$JUNIT_OUT" ]; then
+            echo "JUnit file found at $JUNIT_OUT"
+          else
+            echo "junit.xml not found at expected location $JUNIT_OUT"
+          fi
+
+      - name: Collect matrix log
+        if: always()
+        run: |
+          mkdir -p ci/dvp-e2e/tmp/matrix-logs
+          LOG="ci/dvp-e2e/tmp/matrix-logs/${RUN_ID}.log"
+          {
+            echo "[START] run_id=${RUN_ID} time=$(date -Iseconds)"
+            echo "[FINISH] run_id=${RUN_ID} status=ok time=$(date -Iseconds)"
+          } >> "$LOG"
+          echo "✅ Created matrix log: $LOG"
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/tmp/matrix-logs
+          if-no-files-found: ignore
+          overwrite: true
+
+      - name: Upload JUnit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/artifacts
+          if-no-files-found: ignore
+          overwrite: true
+
+      - name: Purge local artifacts and tmp
+        if: always()
+        run: |
+          rm -rf ci/dvp-e2e/artifacts ci/dvp-e2e/tmp || true
+
+  # ============================================
+  # 3. REPORT - Result aggregation
+  # ============================================
+  report:
+    name: Report Results
+    needs: [run-e2e]
+    if: ${{ needs.run-e2e.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+      - uses: actions/checkout@v4
+      - name: Download matrix logs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: logs-*
+          path: ci/dvp-e2e/tmp/matrix-logs
+          merge-multiple: true
+
+      - name: Download JUnit reports
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          pattern: junit-*
+          path: ci/dvp-e2e/artifacts
+          merge-multiple: true
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Build parent kubeconfig from secret (report)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Generate test summary
+        if: always()
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "E2E test completed for profile: sds"
+
+      - name: Create test summary
+        if: always()
+        run: |
+          echo "### E2E Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Profile | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          if compgen -G "ci/dvp-e2e/artifacts/*sds*/junit.xml" > /dev/null; then
+            echo "| sds | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| sds | ❌ Failed/Missing |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================
+  # 4. CLEANUP - Resource cleanup
+  # ============================================
+  cleanup:
+    name: Cleanup [skeleton]
+    needs: [setup-nested-envs, prepare, run-e2e, report]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Build parent kubeconfig from secret (cleanup)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.kube"
+          cat > "$HOME/.kube/config" <<EOF
+          apiVersion: v1
+          kind: Config
+          clusters:
+          - cluster:
+              server: ${E2E_K8S_URL}
+              insecure-skip-tls-verify: true
+            name: parent
+          contexts:
+          - context:
+              cluster: parent
+              user: sa
+            name: parent
+          current-context: parent
+          users:
+          - name: sa
+            user:
+              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          EOF
+          chmod 600 "$HOME/.kube/config"
+          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+
+      - name: Cleanup test namespaces
+        run: |
+          set -euo pipefail
+          echo "🧹 Cleaning up namespaces matching 'nightly-nested-e2e-*'"
+          kubectl get ns -o name | grep "namespace/nightly-nested-e2e-" | cut -d/ -f2 | \
+            xargs -r kubectl delete ns --wait=false || echo "[INFO] No namespaces to delete"
+
+      - name: Report cleanup results
+        if: always()
+        run: |
+          echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
+          echo "🧹 Attempted to clean up namespaces matching 'nightly-nested-e2e-*'" >> $GITHUB_STEP_SUMMARY

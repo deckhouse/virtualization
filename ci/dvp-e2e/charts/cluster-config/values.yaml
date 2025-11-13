@@ -1,0 +1,77 @@
+# Cluster configuration values for E2E testing
+
+# Instance configuration
+instances:
+  masterNodes:
+    count: 1
+    cores: 8
+    coreFraction: 50%
+    memory: 20Gi
+  additionalNodes:
+    - name: worker
+      count: 3
+      cores: 6
+      coreFraction: 50%
+      memory: 12Gi
+
+# Deckhouse configuration
+deckhouse:
+  tag: main
+  kubernetesVersion: Automatic
+
+# Virtualization configuration
+virtualization:
+  tag: main
+
+# Image configuration
+image:
+  url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+  defaultUser: ubuntu
+  bootloader: EFI
+
+# Ingress hosts
+ingressHosts:
+  - api
+  - grafana
+  - dex
+  - prometheus
+  - console
+  - virtualization
+
+# Storage classes configuration (for parent cluster)
+storageClasses:
+  controlPlane:
+    root: ceph-pool-r2-csi-rbd-immediate
+    etcd: ceph-pool-r2-csi-rbd-immediate
+  workers:
+    root: ceph-pool-r2-csi-rbd-immediate
+
+# Infrastructure components
+infra:
+  nfs:
+    storageClass: nfs-4-1-wffc
+  dvcr:
+    storageClass: ceph-pool-r2-csi-rbd-immediate
+
+# Virtual disks configuration
+virtualDisks:
+  os:
+    storageClass: ceph-pool-r2-csi-rbd-immediate
+  data:
+    storageClass: nfs-4-1-wffc
+
+# Security settings
+security:
+  admissionPolicyEngine:
+    enabled: true
+  networkPolicies:
+    enabled: true
+
+# Feature flags
+features:
+  virtualization: true
+  monitoring: true
+  logging: true
+  ingress: true
+  nfs:
+    enabled: false

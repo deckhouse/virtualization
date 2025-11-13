@@ -1,0 +1,69 @@
+storageProfiles:
+  default:
+    controlPlane:
+      root: linstor-thin-r2
+      etcd: linstor-thin-r2
+    workers:
+      root: linstor-thin-r2
+    infra:
+      nfs: nfs-4-1-wffc
+    dvcr: linstor-thin-r2
+    virtualDisks:
+      os: linstor-thin-r2
+      data: nfs-4-1-wffc
+  cephrbd:
+    controlPlane:
+      root: ceph-pool-r2-csi-rbd
+      etcd: ceph-pool-r2-csi-rbd
+    workers:
+      root: ceph-pool-r2-csi-rbd
+    infra:
+      nfs: nfs-4-1-wffc
+    dvcr: ceph-pool-r2-csi-rbd
+    virtualDisks:
+      os: ceph-pool-r2-csi-rbd
+      data: ceph-pool-r2-csi-rbd
+  sds-local:
+    controlPlane:
+      root: sds-local-storage
+      etcd: sds-local-storage
+    workers:
+      root: sds-local-storage
+    infra:
+      nfs: nfs-4-1-wffc
+    dvcr: sds-local-storage
+    virtualDisks:
+      os: sds-local-storage
+      data: sds-local-storage
+domain: e2e.virtlab.flant.com
+clusterConfigurationPrefix: e2e
+deckhouse:
+  tag: main
+  kubernetesVersion: Automatic
+virtualization:
+  tag: main
+features:
+  virtualization: true
+image:
+  url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+  defaultUser: ubuntu
+  bootloader: EFI
+ingressHosts:
+  - api
+  - grafana
+  - dex
+  - prometheus
+  - console
+  - virtualization
+instances:
+  masterNodes:
+    count: 1
+    cores: 8
+    coreFraction: 50%
+    memory: 20Gi
+  additionalNodes:
+    - name: worker
+      count: 3
+      cores: 6
+      coreFraction: 50%
+      memory: 12Gi
