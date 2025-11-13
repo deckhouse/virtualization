@@ -22,9 +22,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -48,7 +50,7 @@ func NewLifeCycleHandler(snapshotter LifeCycleSnapshotter) *LifeCycleHandler {
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (reconcile.Result, error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (result reconcile.Result, handlerErr error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskSnapshotReadyType).Generation(vdSnapshot.Generation)
@@ -57,6 +59,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed {
 			err := h.unfreezeFilesystem(ctx, vdSnapshot)
 			if err != nil {
+				if k8serrors.IsConflict(err) {
+					result = reconcile.Result{RequeueAfter: 5 * time.Second}
+					handlerErr = err
+				}
+				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+					result = reconcile.Result{}
+					handlerErr = nil
+				}
 				if cb.Condition().Message != "" {
 					cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
 				} else {
@@ -164,6 +174,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 			return reconcile.Result{}, nil
 		}
+		if k8serrors.IsConflict(err) {
+			result = reconcile.Result{RequeueAfter: 5 * time.Second}
+			handlerErr = err
+		}
 		return reconcile.Result{}, err
 	}
 
@@ -178,7 +192,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen {
+		if vm != nil && vm.Status.Phase != v1alpha2.MachineStopped && !isFSFrozen && vdSnapshot.Spec.RequiredConsistency {
 			canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
@@ -200,6 +214,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 				err = h.snapshotter.Freeze(ctx, kvvmi)
 				if err != nil {
+					if k8serrors.IsConflict(err) {
+						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+					}
 					setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 					return reconcile.Result{}, err
 				}
@@ -348,36 +365,46 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, err
 		}
 
-		switch {
-		case vm == nil, vm.Status.Phase == v1alpha2.MachineStopped:
-			vdSnapshot.Status.Consistent = ptr.To(true)
-		case isFrozen:
-			vdSnapshot.Status.Consistent = ptr.To(true)
-
-			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
+		if h.isConsistent(vdSnapshot) {
+			err := h.unfreezeFilesystem(ctx, vdSnapshot)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil
 				}
-				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+				if k8serrors.IsConflict(err) {
+					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+				}
 				return reconcile.Result{}, err
 			}
+		} else {
+			switch {
+			case vm == nil, vm.Status.Phase == v1alpha2.MachineStopped:
+				if vdSnapshot.Spec.RequiredConsistency && vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
+					vdSnapshot.Status.Consistent = ptr.To(true)
+					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+				}
+			case isFrozen && vdSnapshot.Spec.RequiredConsistency:
+				if vdSnapshot.Spec.RequiredConsistency && vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
+					vdSnapshot.Status.Consistent = ptr.To(true)
+					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+				}
 
-			if canUnfreeze {
-				log.Debug("Unfreeze the virtual machine after taking a snapshot")
-
-				err = h.snapshotter.Unfreeze(ctx, kvvmi)
+				err := h.unfreezeFilesystem(ctx, vdSnapshot)
 				if err != nil {
+					if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+						return reconcile.Result{}, nil
+					}
+					if k8serrors.IsConflict(err) {
+						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+					}
+					return reconcile.Result{}, err
+				}
+			default:
+				if vdSnapshot.Spec.RequiredConsistency && vdSnapshot.Status.Consistent == nil {
+					err := fmt.Errorf("virtual disk snapshot is not consistent because the virtual machine %s has not been stopped or its filesystem has not been frozen", vm.Name)
 					setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 					return reconcile.Result{}, err
 				}
-			}
-		default:
-			if vdSnapshot.Spec.RequiredConsistency {
-				err := fmt.Errorf("virtual disk snapshot is not consistent because the virtual machine %s has not been stopped or its filesystem has not been frozen", vm.Name)
-				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-				return reconcile.Result{}, err
 			}
 		}
 
@@ -385,6 +412,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				return reconcile.Result{}, nil
+			}
+			if k8serrors.IsConflict(err) {
+				result = reconcile.Result{RequeueAfter: 5 * time.Second}
+				handlerErr = err
 			}
 			return reconcile.Result{}, err
 		}
@@ -466,4 +497,20 @@ func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshot *v1
 	}
 
 	return nil
+}
+
+func (h LifeCycleHandler) isConsistent(vdSnapshot *v1alpha2.VirtualDiskSnapshot) bool {
+	if !vdSnapshot.Spec.RequiredConsistency {
+		return false
+	}
+
+	if vdSnapshot.Status.Consistent == nil {
+		return false
+	}
+
+	if !*vdSnapshot.Status.Consistent {
+		return false
+	}
+
+	return true
 }

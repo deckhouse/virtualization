@@ -19,7 +19,9 @@ package internal
 import (
 	"context"
 	"errors"
+	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -87,6 +89,9 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 			if canUnfreeze {
 				err = h.snapshotter.Unfreeze(ctx, kvvmi)
 				if err != nil {
+					if k8serrors.IsConflict(err) {
+						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+					}
 					return reconcile.Result{}, err
 				}
 			}
