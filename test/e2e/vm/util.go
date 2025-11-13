@@ -35,7 +35,10 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 )
 
-const httpStatusOk = "200"
+const (
+	httpStatusOk = "200"
+	externalHost = "https://flant.ru"
+)
 
 type buildOption struct {
 	name         string

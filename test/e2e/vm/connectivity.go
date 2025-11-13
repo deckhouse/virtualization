@@ -43,7 +43,6 @@ import (
 
 const (
 	curlPodName       = "curl-helper"
-	externalHost      = "https://flant.ru"
 	nginxActiveStatus = "active"
 )
 
