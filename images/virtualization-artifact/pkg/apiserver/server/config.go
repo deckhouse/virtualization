@@ -17,20 +17,16 @@ limitations under the License.
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager/filesystem"
-	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtclient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 )
 
 var ErrConfigInvalid = errors.New("configuration is invalid")
@@ -85,26 +81,18 @@ func (c Config) Complete() (*Server, error) {
 		return nil, err
 	}
 
-	kubeclient, err := apiextensionsv1.NewForConfig(c.Rest)
-	if err != nil {
-		return nil, err
-	}
-	crd, err := kubeclient.CustomResourceDefinitions().Get(context.Background(), v1alpha2.Resource(v1alpha2.VirtualMachineResource).String(), metav1.GetOptions{})
+	virtClient, err := virtclient.NewForConfig(c.Rest)
 	if err != nil {
 		return nil, err
 	}
 
-	virtclient, err := virtClient.NewForConfig(c.Rest)
-	if err != nil {
-		return nil, err
-	}
-	if err = api.Install(vmInformer.Lister(),
+	err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
-		crd,
-		virtclient.VirtualizationV1alpha2(),
-	); err != nil {
+		virtClient.VirtualizationV1alpha2(),
+	)
+	if err != nil {
 		return nil, err
 	}
 

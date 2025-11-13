@@ -17,7 +17,6 @@ limitations under the License.
 package api
 
 import (
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -57,7 +56,7 @@ func init() {
 
 func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
-	resources := map[string]rest.Storage{
+	resourcesV1alpha2 := map[string]rest.Storage{
 		"virtualmachines":                  store,
 		"virtualmachines/console":          store.ConsoleREST(),
 		"virtualmachines/vnc":              store.VncREST(),
@@ -68,7 +67,7 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 		"virtualmachines/unfreeze":         store.UnfreezeREST(),
 		"virtualmachines/cancelevacuation": store.CancelEvacuationREST(),
 	}
-	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resources
+	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
 	return apiGroupInfo
 }
 
@@ -77,14 +76,12 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) error {
-	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"),
+	vmStorage := storage.NewStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
-		crd,
 		vmClient,
 	)
 	info := Build(vmStorage)
