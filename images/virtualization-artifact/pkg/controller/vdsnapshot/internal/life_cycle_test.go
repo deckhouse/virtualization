@@ -162,6 +162,7 @@ var _ = Describe("LifeCycle handler", func() {
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
 			_, err = h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
@@ -290,6 +291,7 @@ var _ = Describe("LifeCycle handler", func() {
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
 			_, err = h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
