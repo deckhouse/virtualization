@@ -21,8 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -91,6 +93,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				return reconcile.Result{}, nil
+			}
+			if k8serrors.IsConflict(err) {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 			return reconcile.Result{}, err
@@ -268,6 +273,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	if needToFreeze {
 		hasFrozen, err = h.freezeVirtualMachine(ctx, kvvmi, vmSnapshot)
 		if err != nil {
+			if k8serrors.IsConflict(err) {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 			return reconcile.Result{}, err
 		}
@@ -360,6 +368,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	if err != nil {
 		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 			return reconcile.Result{}, nil
+		}
+		if k8serrors.IsConflict(err) {
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
