@@ -29,6 +29,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -57,7 +58,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	defer func() {
 		if vdSnapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseFailed {
-			err := h.unfreezeFilesystem(ctx, vdSnapshot)
+			err := h.unfreezeFilesystemIfFailed(ctx, vdSnapshot)
 			if err != nil {
 				if k8serrors.IsConflict(err) {
 					result = reconcile.Result{RequeueAfter: 5 * time.Second}
@@ -366,7 +367,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		}
 
 		if h.isConsistent(vdSnapshot) {
-			err := h.unfreezeFilesystem(ctx, vdSnapshot)
+			err := h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
 			if err != nil {
 				if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 					return reconcile.Result{}, nil
@@ -389,7 +390,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 				}
 
-				err := h.unfreezeFilesystem(ctx, vdSnapshot)
+				err := h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
 				if err != nil {
 					if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 						return reconcile.Result{}, nil
@@ -460,7 +461,7 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *v1alpha2.
 		Message(service.CapitalizeFirstLetter(err.Error() + "."))
 }
 
-func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
+func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) error {
 	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
 	if err != nil {
 		return err
@@ -485,6 +486,22 @@ func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshot *v1
 	}
 
 	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm, kvvmi)
+	if err != nil {
+		return err
+	}
+
+	if canUnfreeze {
+		err = h.snapshotter.Unfreeze(ctx, kvvmi)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshotName, vm, kvvmi)
 	if err != nil {
 		return err
 	}
