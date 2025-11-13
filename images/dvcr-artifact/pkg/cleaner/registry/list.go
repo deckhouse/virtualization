@@ -37,6 +37,8 @@ type Image struct {
 	Path      string
 }
 
+var ErrVINonNamespacedImage = errors.New("VI repository without namespace")
+
 // clusterVirtualImagesDir returns a directory where stored all images for ClusterVirtualImage resources.
 //
 // Example:
@@ -161,6 +163,15 @@ func ListVirtualImagesForNamespace(namespace string) ([]Image, error) {
 
 	images := make([]Image, 0)
 	for _, imageEntry := range imagesEntries {
+		if imageEntry.Name() == "_manifests" {
+			// Workaround for a bug: some transient images for CVI are uploaded into vi/<cvi-name> repositories.
+			// There are no images in "namespace" directory: "namespace" directory is an image itself.
+			return []Image{{
+				Type: v1alpha2.ClusterVirtualImageKind,
+				Name: namespace,
+				Path: imagesDir,
+			}}, nil
+		}
 		images = append(images, Image{
 			Type:      v1alpha2.VirtualImageKind,
 			Namespace: namespace,
