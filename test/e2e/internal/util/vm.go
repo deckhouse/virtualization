@@ -127,7 +127,7 @@ func CheckExternalConnectivity(f *framework.Framework, vmName, host, expectedHTT
 	Expect(strings.TrimSpace(httpCode)).To(Equal(expectedHTTPCode), "HTTP response code from %s should be %s, got %s", host, expectedHTTPCode, httpCode)
 }
 
-func RebootVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
+func RebootVirtualMachineBySSH(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo reboot")
 	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
 		return nil

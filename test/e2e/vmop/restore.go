@@ -112,7 +112,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			if t.VM.Spec.Disruptions.RestartApprovalMode == v1alpha2.Manual {
-				util.RebootVirtualMachineByVMOP(f, t.VM)
+				util.RebootVirtualMachineBySSH(f, t.VM)
 			}
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
