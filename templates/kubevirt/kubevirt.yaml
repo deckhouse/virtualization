@@ -58,6 +58,10 @@ spec:
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
+      - VolumeMigration
+      - VolumesUpdateStrategy
+      - HostDevicesWithDRA
+      - HostDevices
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
