@@ -15,6 +15,10 @@
 name: E2E Matrix Tests (Skeleton)
 
 on:
+  push:
+    branches:
+      - chore/ci/e2e-matrix-skeleton
+      - ci-e2e-nested-sds
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
@@ -271,7 +275,7 @@ jobs:
           EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
           echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
 
-      - name: Install infra (namespace/RBAC/jump-host)
+      - name: Install infra (namespace/RBAC/ingress)
         working-directory: ci/dvp-e2e
         run: |
           USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task render-infra \

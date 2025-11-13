@@ -511,7 +511,7 @@ tasks:
   # Kubeconfig for bootstrap and cluster config
   # ------------------------------------------------------------
   render-kubeconfig:
-    desc: Generate kubeconfig for bootstrap
+    desc: Generate kubeconfig for bootstrap (external parent API)
     deps:
       - password-gen
     vars:
@@ -521,6 +521,8 @@ tasks:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
       SERVER:
         sh: |
+          # Use external parent cluster API (ingress host) so that both dhctl Job
+          # and components inside the nested cluster can reach the parent API.
           HOST=$(kubectl -n d8-user-authn get ingress kubernetes-api -o json | jq -r '.spec.rules[0].host')
           [ -z "$HOST" -o "$HOST" = "null" ] && { echo "[ERR] kubernetes-api ingress host not found" >&2; exit 1; }
           echo "https://$HOST"
@@ -623,10 +625,10 @@ tasks:
         set -euo pipefail
         # Ensure namespace exists
         kubectl get ns "{{ .NAMESPACE }}" >/dev/null 2>&1 || kubectl create ns "{{ .NAMESPACE }}"
-        # Parent kubeconfig secret
+        # Parent kubeconfig secret (use in-cluster endpoint kubeconfig we generated)
         kubectl -n {{ .NAMESPACE }} create secret generic e2e-parent-kubeconfig \
           --dry-run=client -o yaml \
-          --from-file=kubeconfig="${KUBECONFIG}" \
+          --from-file=kubeconfig="{{ .TMP_DIR }}/kubeconfig.yaml" \
           | kubectl apply -f -
         # ConfigMap with rendered cluster config
         kubectl -n {{ .NAMESPACE }} create configmap dhctl-config \
@@ -709,15 +711,51 @@ tasks:
           sleep 2
         done
 
-        # Stream logs while waiting completion (best-effort)
-        if [ -n "$POD" ]; then
-          echo "[DHCTL] Streaming logs from $POD..."
-          kubectl -n {{ .NAMESPACE }} logs -f "$POD" --since=0s || true
-        fi
+        # Live logs intentionally disabled to avoid long-lived streams over LB
 
-        # Final wait for completion
-        if ! kubectl -n {{ .NAMESPACE }} wait --for=condition=complete job/{{ .JOB_NAME }} --timeout=30m; then
-          echo "[DHCTL] Job did not complete in time. Dumping diagnostics..." >&2
+        # Wait for completion or failure explicitly to avoid hanging on failed jobs
+        TOTAL_TIMEOUT_SEC=$((30 * 60))
+        SLEEP_SEC=10
+        ELAPSED=0
+        TICK=0
+        while [ $ELAPSED -lt $TOTAL_TIMEOUT_SEC ]; do
+          # Read basic job counters (default to 0 if empty)
+          SUC=$(kubectl -n {{ .NAMESPACE }} get job {{ .JOB_NAME }} -o jsonpath='{.status.succeeded}' 2>/dev/null | sed 's/[^0-9]//g'); [ -n "$SUC" ] || SUC=0
+          FAIL=$(kubectl -n {{ .NAMESPACE }} get job {{ .JOB_NAME }} -o jsonpath='{.status.failed}' 2>/dev/null | sed 's/[^0-9]//g'); [ -n "$FAIL" ] || FAIL=0
+          ACT=$(kubectl -n {{ .NAMESPACE }} get job {{ .JOB_NAME }} -o jsonpath='{.status.active}' 2>/dev/null | sed 's/[^0-9]//g'); [ -n "$ACT" ] || ACT=0
+
+          # Success fast-path
+          if [ "$SUC" -ge 1 ]; then
+            echo "[DHCTL] Job completed successfully (succeeded=$SUC, failed=$FAIL)"
+            break
+          fi
+
+          # Failure fast-path
+          if [ "$FAIL" -ge 1 ]; then
+            echo "[DHCTL] Job failed early (succeeded=$SUC, failed=$FAIL). Dumping diagnostics..." >&2
+            kubectl -n {{ .NAMESPACE }} describe job/{{ .JOB_NAME }} || true
+            if [ -n "$POD" ]; then
+              kubectl -n {{ .NAMESPACE }} describe pod "$POD" || true
+              kubectl -n {{ .NAMESPACE }} logs "$POD" --tail=200 || true
+            fi
+            kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 100 || true
+            exit 1
+          fi
+
+          # Heartbeat every ~60s
+          if [ $TICK -ge $((60 / SLEEP_SEC)) ]; then
+            echo "[DHCTL] still running... active=$ACT succeeded=$SUC failed=$FAIL"
+            TICK=0
+          else
+            TICK=$((TICK + 1))
+          fi
+
+          sleep $SLEEP_SEC
+          ELAPSED=$((ELAPSED + SLEEP_SEC))
+        done
+
+        if [ $ELAPSED -ge $TOTAL_TIMEOUT_SEC ]; then
+          echo "[DHCTL] Timeout waiting for job completion (${TOTAL_TIMEOUT_SEC}s). Dumping diagnostics..." >&2
           kubectl -n {{ .NAMESPACE }} describe job/{{ .JOB_NAME }} || true
           if [ -n "$POD" ]; then
             kubectl -n {{ .NAMESPACE }} describe pod "$POD" || true
@@ -726,6 +764,8 @@ tasks:
           kubectl -n {{ .NAMESPACE }} get events --sort-by=.lastTimestamp | tail -n 100 || true
           exit 1
         fi
+
+        # No live logs streamer to stop
 
   # ------------------------------------------------------------
   # SSH Keys management (use GH keys or generate new ones)
