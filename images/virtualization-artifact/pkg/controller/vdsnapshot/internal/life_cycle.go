@@ -383,7 +383,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					vdSnapshot.Status.Consistent = ptr.To(true)
 					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 				}
-			case isFrozen && vdSnapshot.Spec.RequiredConsistency:
+			case isFrozen:
 				if vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
 					vdSnapshot.Status.Consistent = ptr.To(true)
 					return reconcile.Result{RequeueAfter: 2 * time.Second}, nil

@@ -30,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("LifeCycle handler", func() {
@@ -163,6 +162,7 @@ var _ = Describe("LifeCycle handler", func() {
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
+			_, err = h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
@@ -290,6 +290,7 @@ var _ = Describe("LifeCycle handler", func() {
 			h := NewLifeCycleHandler(snapshotter)
 
 			_, err := h.Handle(testContext(), vdSnapshot)
+			_, err = h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseReady))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
@@ -298,11 +299,14 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Message).To(BeEmpty())
 		})
 
-		DescribeTable("Check unfreeze if failed", func(vm *v1alpha2.VirtualMachine, expectUnfreezing bool) {
+		DescribeTable("Check unfreeze if failed", func(vm *v1alpha2.VirtualMachine, isFrozen, canUnfreeze, expectUnfreezing bool) {
 			unfreezeCalled := false
 
 			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
-				return true, nil
+				return isFrozen, nil
+			}
+			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
+				return canUnfreeze, nil
 			}
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
@@ -327,21 +331,9 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
 			Expect(unfreezeCalled).To(Equal(expectUnfreezing))
 		},
-			Entry("Has VM with frozen filesystem",
-				&v1alpha2.VirtualMachine{
-					Status: v1alpha2.VirtualMachineStatus{
-						Conditions: []metav1.Condition{
-							{
-								Type:   vmcondition.TypeFilesystemFrozen.String(),
-								Status: metav1.ConditionTrue,
-							},
-						},
-					},
-				},
-				true,
-			),
-			Entry("Has VM with unfrozen filesystem", &v1alpha2.VirtualMachine{}, false),
-			Entry("Has no VM", nil, false),
+			Entry("Has VM with frozen filesystem", &v1alpha2.VirtualMachine{}, true, true, true),
+			Entry("Has VM with unfrozen filesystem", &v1alpha2.VirtualMachine{}, false, false, false),
+			Entry("Has no VM", nil, false, false, false),
 		)
 	})
 })
