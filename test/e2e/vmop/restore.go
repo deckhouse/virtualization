@@ -52,16 +52,16 @@ import (
 )
 
 const (
-	minimalViURL       = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	minimalCviURL      = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
-	initialValue       = "initial-value"
-	changedValue       = "changed-value"
-	testAnnotationName = "e2e-annotation-for-check-restoring-vm"
-	testLabelName      = "e2e-label-for-check-restoring-vm"
-	initialCPUCores    = 1
-	initialMemorySize  = "256Mi"
-	changedCPUCores    = 2
-	changedMemorySize  = "512Mi"
+	minimalViURL                    = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
+	minimalCviURL                   = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
+	initialValueBeforeMachineChange = "initial-value-before-machine-change"
+	changedValueAfterMachineChange  = "changed-value-after-machine-change"
+	testAnnotationName              = "e2e-annotation-for-check-restoring-vm"
+	testLabelName                   = "e2e-label-for-check-restoring-vm"
+	initialCPUCores                 = 1
+	initialMemorySize               = "256Mi"
+	changedCPUCores                 = 2
+	changedMemorySize               = "512Mi"
 )
 
 var _ = Describe("VirtualMachineOperationRestore", func() {
@@ -95,7 +95,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout, t.VMSnapshot)
 		})
 		By("Changing VM", func() {
-			t.WriteDataToVMBDA(changedValue)
+			t.WriteDataToVMBDA(changedValueAfterMachineChange)
 
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
@@ -104,8 +104,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			// need to verify that VM will be rebooted
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
-			t.VM.Annotations[testAnnotationName] = changedValue
-			t.VM.Labels[testLabelName] = changedValue
+			t.VM.Annotations[testAnnotationName] = changedValueAfterMachineChange
+			t.VM.Labels[testLabelName] = changedValueAfterMachineChange
 			t.VM.Spec.CPU.Cores = changedCPUCores
 			t.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
 			err = f.Clients.GenericClient().Update(context.Background(), t.VM)
@@ -121,11 +121,11 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			t.Mount(t.GetVMBDADevicePath())
 		})
 		By("Check that VM is in changed state", func() {
-			Expect(t.GetDataFromVMBDA()).To(Equal(changedValue))
+			Expect(t.GetDataFromVMBDA()).To(Equal(changedValueAfterMachineChange))
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValue))
-			Expect(t.VM.Labels[testLabelName]).To(Equal(changedValue))
+			Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValueAfterMachineChange))
+			Expect(t.VM.Labels[testLabelName]).To(Equal(changedValueAfterMachineChange))
 			Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
@@ -163,15 +163,15 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				Expect(restoreCompletedCondition.Reason).To(Equal(vmopcondition.ReasonDryRunOperationCompleted.String()))
 				Expect(restoreCompletedCondition.Message).To(ContainSubstring("The virtual machine can be restored from the snapshot."))
 
-				Expect(t.GetDataFromVMBDA()).To(Equal(changedValue))
-				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValue))
-				Expect(t.VM.Labels[testLabelName]).To(Equal(changedValue))
+				Expect(t.GetDataFromVMBDA()).To(Equal(changedValueAfterMachineChange))
+				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValueAfterMachineChange))
+				Expect(t.VM.Labels[testLabelName]).To(Equal(changedValueAfterMachineChange))
 				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 			} else {
 				Expect(t.GetDataFromVMBDA()).To(Equal(t.GeneratedValue))
-				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(initialValue))
-				Expect(t.VM.Labels[testLabelName]).To(Equal(initialValue))
+				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(initialValueBeforeMachineChange))
+				Expect(t.VM.Labels[testLabelName]).To(Equal(initialValueBeforeMachineChange))
 				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
 				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
 			}
@@ -236,8 +236,8 @@ func (t *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOP
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vmbuilder.WithAnnotation(testAnnotationName, initialValue),
-		vmbuilder.WithLabel(testLabelName, initialValue),
+		vmbuilder.WithAnnotation(testAnnotationName, initialValueBeforeMachineChange),
+		vmbuilder.WithLabel(testLabelName, initialValueBeforeMachineChange),
 		vmbuilder.WithCPU(initialCPUCores, ptr.To("5%")),
 		vmbuilder.WithMemory(resource.MustParse(initialMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
