@@ -282,3 +282,37 @@ tasks:
       }'
       kubectl -n d8-virtualization port-forward deploy/virt-api 2345:2345
       EOF
+
+  dlv:virtualization-dra-plugin:build:
+    desc: "Build image virtualization-dra-plugin with dlv"
+    cmds:
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virtualization-dra-plugin/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+
+  dlv:virtualization-dra-plugin:build-push:
+    desc: "Build and Push image virtualization-dra-plugin with dlv"
+    cmds:
+      - task: dlv:virtualization-dra-plugin:build
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:virtualization-dra-plugin:print
+
+  dlv:virtualization-dra-plugin:print:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch ds virtualization-dra --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [ {
+                "name": "virtualization-dra",
+                "image": "${IMAGE}",
+                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
+              }]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virtualization-dra 2345:2345
+      EOF
