@@ -135,6 +135,19 @@ func RebootVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMach
 	return err
 }
 
+func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	vmop := vmopbuilder.New(
+		vmopbuilder.WithGenerateName("vmop-e2e-reboot-"),
+		vmopbuilder.WithNamespace(vm.Namespace),
+		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
+		vmopbuilder.WithVirtualMachine(vm.Name),
+	)
+	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
+	Expect(err).NotTo(HaveOccurred())
+}
+
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
 	Eventually(func() error {
 		vm := &v1alpha2.VirtualMachine{}
