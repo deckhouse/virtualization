@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 )
 
@@ -51,6 +50,7 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
+		&VirtualMachine{},
 		&VirtualMachineConsole{},
 		&VirtualMachineVNC{},
 		&VirtualMachinePortForward{},
@@ -59,8 +59,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineFreeze{},
 		&VirtualMachineUnfreeze{},
 		&VirtualMachineCancelEvacuation{},
-		&v1alpha2.VirtualMachine{},
-		&v1alpha2.VirtualMachineList{},
 	)
 	return nil
 }

@@ -22,6 +22,13 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+type VirtualMachine struct {
+	metav1.TypeMeta
+	metav1.ObjectMeta
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 type VirtualMachineConsole struct {
 	metav1.TypeMeta
 }

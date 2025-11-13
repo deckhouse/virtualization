@@ -20,6 +20,9 @@ import (
 	"os"
 
 	"github.com/fatih/color"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/exec"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 
 	"github.com/deckhouse/virtualization/src/cli/pkg/command"
 )
