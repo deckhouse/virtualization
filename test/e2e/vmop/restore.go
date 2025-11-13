@@ -84,8 +84,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 
 			vmbdaPath := t.GetVMBDADevicePath()
-			t.CreateVMBDAFilesystem(vmbdaPath)
-			t.MountVMBDA(vmbdaPath)
+			t.CreateFilesystem(vmbdaPath)
+			t.Mount(vmbdaPath)
 			t.GeneratedValue = strconv.Itoa(time.Now().UTC().Second())
 			t.WriteDataToVMBDA(t.GeneratedValue)
 
@@ -118,10 +118,12 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-			t.MountVMBDA(t.GetVMBDADevicePath())
+			t.Mount(t.GetVMBDADevicePath())
 		})
 		By("Check that VM is in changed state", func() {
 			Expect(t.GetDataFromVMBDA()).To(Equal(changedValue))
+			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValue))
 			Expect(t.VM.Labels[testLabelName]).To(Equal(changedValue))
 			Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
@@ -137,6 +139,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
 			if restoreMode != v1alpha2.VMOPRestoreModeDryRun {
+				// after restore, the VM is in the Stopped state
+				// if runPolicy == ManualPolicy, the VM should be started
 				if runPolicy == v1alpha2.ManualPolicy {
 					util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 					util.StartVirtualMachine(f, t.VM)
@@ -144,7 +148,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-				t.MountVMBDA(t.GetVMBDADevicePath())
+				t.Mount(t.GetVMBDADevicePath()) // after restart need remount VMBDA disk device
 			}
 		})
 		By("Check VM after restore", func() {
@@ -195,36 +199,36 @@ func NewRestoreTest(f *framework.Framework) *restoreModeTest {
 	}
 }
 
-func (r *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
-	r.CVI = cvibuilder.New(
-		cvibuilder.WithName(fmt.Sprintf("%s-cvi", r.Framework.Namespace().Name)),
+func (t *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
+	t.CVI = cvibuilder.New(
+		cvibuilder.WithName(fmt.Sprintf("%s-cvi", t.Framework.Namespace().Name)),
 		cvibuilder.WithDataSourceHTTP(minimalCviURL, nil, nil),
 	)
 
-	r.VI = vibuilder.New(
+	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
-		vibuilder.WithNamespace(r.Framework.Namespace().Name),
+		vibuilder.WithNamespace(t.Framework.Namespace().Name),
 		vibuilder.WithDataSourceHTTP(minimalViURL, nil, nil),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
-	r.VDRoot = vdbuilder.New(
+	t.VDRoot = vdbuilder.New(
 		vdbuilder.WithName("vd-root"),
-		vdbuilder.WithNamespace(r.Framework.Namespace().Name),
+		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: object.ImageURLUbuntu,
 		}),
 	)
 
-	r.VDBlank = vdbuilder.New(
+	t.VDBlank = vdbuilder.New(
 		vdbuilder.WithName("vd-blank"),
-		vdbuilder.WithNamespace(r.Framework.Namespace().Name),
+		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("51Mi"))),
 	)
 
-	r.VM = vmbuilder.New(
+	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
-		vmbuilder.WithNamespace(r.Framework.Namespace().Name),
+		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithAnnotation(testAnnotationName, initialValue),
 		vmbuilder.WithLabel(testLabelName, initialValue),
 		vmbuilder.WithCPU(initialCPUCores, ptr.To("5%")),
@@ -235,120 +239,120 @@ func (r *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOP
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.DiskDevice,
-				Name: r.VDRoot.Name,
+				Name: t.VDRoot.Name,
 			},
 		),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ClusterImageDevice,
-				Name: r.CVI.Name,
+				Name: t.CVI.Name,
 			},
 		),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ImageDevice,
-				Name: r.VI.Name,
+				Name: t.VI.Name,
 			},
 		),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 		vmbuilder.WithRunPolicy(runPolicy),
 	)
 
-	r.VMBDA = vmbdabuilder.New(
+	t.VMBDA = vmbdabuilder.New(
 		vmbdabuilder.WithName("vmbda"),
-		vmbdabuilder.WithNamespace(r.VDBlank.Namespace),
-		vmbdabuilder.WithVirtualMachineName(r.VM.Name),
-		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, r.VDBlank.Name),
+		vmbdabuilder.WithNamespace(t.VDBlank.Namespace),
+		vmbdabuilder.WithVirtualMachineName(t.VM.Name),
+		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, t.VDBlank.Name),
 	)
 
-	r.VMSnapshot = vmsnapshotbuilder.New(
+	t.VMSnapshot = vmsnapshotbuilder.New(
 		vmsnapshotbuilder.WithName("vmsnapshot"),
-		vmsnapshotbuilder.WithNamespace(r.Framework.Namespace().Name),
-		vmsnapshotbuilder.WithVirtualMachineName(r.VM.Name),
+		vmsnapshotbuilder.WithNamespace(t.Framework.Namespace().Name),
+		vmsnapshotbuilder.WithVirtualMachineName(t.VM.Name),
 		vmsnapshotbuilder.WithRequiredConsistency(true),
 		vmsnapshotbuilder.WithKeepIPAddress(v1alpha2.KeepIPAddressAlways),
 	)
 
-	r.VMOPRestore = vmopbuilder.New(
+	t.VMOPRestore = vmopbuilder.New(
 		vmopbuilder.WithName("restore-strict"),
-		vmopbuilder.WithNamespace(r.Framework.Namespace().Name),
+		vmopbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeRestore),
-		vmopbuilder.WithVirtualMachine(r.VM.Name),
+		vmopbuilder.WithVirtualMachine(t.VM.Name),
 		vmopbuilder.WithVMOPRestoreMode(restoreMode),
-		vmopbuilder.WithVirtualMachineSnapshotName(r.VMSnapshot.Name),
+		vmopbuilder.WithVirtualMachineSnapshotName(t.VMSnapshot.Name),
 	)
 }
 
-func (r *restoreModeTest) GetVMBDADevicePath() string {
+func (t *restoreModeTest) GetVMBDADevicePath() string {
 	GinkgoHelper()
 
-	serial, ok := r.getVMBDADiskSerialNumber(r.VDBlank.Name)
+	serial, ok := t.getVMBDADiskSerialNumber(t.VDBlank.Name)
 	Expect(ok).To(BeTrue(), "failed to get VMBDA disk serial number")
 
-	devicePath, ok, err := r.getDeviceBySerial(serial)
+	devicePath, ok, err := t.getDeviceBySerial(serial)
 	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
 	Expect(ok).To(BeTrue(), "failed to get device by serial")
 	return devicePath
 }
 
-func (r *restoreModeTest) CreateVMBDAFilesystem(devicePath string) {
+func (t *restoreModeTest) CreateFilesystem(devicePath string) {
 	GinkgoHelper()
 
-	_, err := r.Framework.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo mkfs.ext4 %s", devicePath))
+	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mkfs.ext4 %s", devicePath))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) MountVMBDA(devicePath string) {
+func (t *restoreModeTest) Mount(devicePath string) {
 	GinkgoHelper()
 
-	_, err := r.Framework.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
+	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) WriteDataToVMBDA(value string) {
+func (t *restoreModeTest) WriteDataToVMBDA(value string) {
 	GinkgoHelper()
 
-	_, err := r.Framework.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
+	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (r *restoreModeTest) GetDataFromVMBDA() string {
+func (t *restoreModeTest) GetDataFromVMBDA() string {
 	GinkgoHelper()
 
-	cmdOut, err := r.Framework.SSHCommand(r.VM.Name, r.VM.Namespace, "sudo cat /mnt/value")
+	cmdOut, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, "sudo cat /mnt/value")
 	Expect(err).NotTo(HaveOccurred())
 	return strings.TrimSpace(cmdOut)
 }
 
-func (r *restoreModeTest) RemoveDisks() {
+func (t *restoreModeTest) RemoveDisks() {
 	GinkgoHelper()
 
-	err := util.StopVirtualMachineFromOS(r.Framework, r.VM)
+	err := util.StopVirtualMachineFromOS(t.Framework, t.VM)
 	Expect(err).NotTo(HaveOccurred())
-	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, r.VM)
+	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 
-	err = r.Framework.Delete(context.Background(), r.VDRoot, r.VDBlank)
+	err = t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank)
 	Expect(err).NotTo(HaveOccurred())
 
 	Eventually(func(g Gomega) {
 		var vdRootLocal v1alpha2.VirtualDisk
-		err = r.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-			Namespace: r.VDRoot.Namespace,
-			Name:      r.VDRoot.Name,
+		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: t.VDRoot.Namespace,
+			Name:      t.VDRoot.Name,
 		}, &vdRootLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
 		var vdBlankLocal v1alpha2.VirtualDisk
-		err = r.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-			Namespace: r.VDBlank.Namespace,
-			Name:      r.VDBlank.Name,
+		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: t.VDBlank.Namespace,
+			Name:      t.VDBlank.Name,
 		}, &vdBlankLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 	}, framework.LongTimeout, time.Second).Should(Succeed())
 }
 
-func (r *restoreModeTest) getDeviceBySerial(serial string) (string, bool, error) {
-	cmdOut, err := r.Framework.SSHCommand(r.VM.Name, r.VM.Namespace, fmt.Sprintf("sudo lsblk -o PATH,SERIAL | grep %s | awk \"{print \\$1, \\$2}\"", serial))
+func (t *restoreModeTest) getDeviceBySerial(serial string) (string, bool, error) {
+	cmdOut, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo lsblk -o PATH,SERIAL | grep %s | awk \"{print \\$1, \\$2}\"", serial))
 	if err != nil {
 		return "", false, err
 	}
@@ -370,12 +374,12 @@ func (r *restoreModeTest) getDeviceBySerial(serial string) (string, bool, error)
 	return "", false, nil
 }
 
-func (r *restoreModeTest) getVMBDADiskSerialNumber(vdName string) (string, bool) {
-	unstructuredVMI, err := r.Framework.Clients.DynamicClient().Resource(schema.GroupVersionResource{
+func (t *restoreModeTest) getVMBDADiskSerialNumber(vdName string) (string, bool) {
+	unstructuredVMI, err := t.Framework.Clients.DynamicClient().Resource(schema.GroupVersionResource{
 		Group:    "internal.virtualization.deckhouse.io",
 		Version:  "v1",
 		Resource: "internalvirtualizationvirtualmachineinstances",
-	}).Namespace(r.VM.Namespace).Get(context.Background(), r.VM.Name, metav1.GetOptions{})
+	}).Namespace(t.VM.Namespace).Get(context.Background(), t.VM.Name, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	var kvvmi virtv1.VirtualMachineInstance
