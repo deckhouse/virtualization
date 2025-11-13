@@ -204,15 +204,14 @@ func performAutoCleanup() error {
 	// Delete manifests for absent images.
 	if len(absentImages) == 0 {
 		fmt.Println("No images eligible for cleanup.")
-		return nil
+	} else {
+		err = registry.RemoveImages(absentImages)
+		if err != nil {
+			return fmt.Errorf("remove manifests: %w", err)
+		}
 	}
 
-	err = registry.RemoveImages(absentImages)
-	if err != nil {
-		return fmt.Errorf("remove manifests: %w", err)
-	}
-
-	// Run 'registry garbage-collect' to remove blobs.
+	// Run 'registry garbage-collect' to remove unused blobs.
 	gcContext, _ := context.WithTimeoutCause(context.Background(), GCTimeout, fmt.Errorf("garbage collect command is terminated, it runs more than %s", GCTimeout.String()))
 	stdout, err := registry.ExecGarbageCollect(gcContext)
 	errMsg := ""
