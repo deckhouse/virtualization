@@ -68,6 +68,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
 	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
+			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
+			if ok {
+				return
+			}
+
 			vm := obj.(*v1alpha2.VirtualMachine)
 			key := fmt.Sprintf("virtualmachines/%s/%s", vm.Namespace, vm.Name)
 			ttlCache.Add(key, vm)
@@ -82,6 +87,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
 	_, err = vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
+			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
+			if ok {
+				return
+			}
+
 			vd := obj.(*v1alpha2.VirtualDisk)
 			key := fmt.Sprintf("pods/%s/%s", vd.Namespace, vd.Name)
 			ttlCache.Add(key, vd)
@@ -96,6 +106,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
 	_, err = podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
+			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
+			if ok {
+				return
+			}
+
 			pod := obj.(*corev1.Pod)
 			key := fmt.Sprintf("pods/%s/%s", pod.Namespace, pod.Name)
 			ttlCache.Add(key, pod)
@@ -110,6 +125,11 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 	internalVMIInformer := GetInternalVMIInformer(dynamicInformerFactory).Informer()
 	_, err = internalVMIInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
+			_, ok := obj.(kubecache.DeletedFinalStateUnknown)
+			if ok {
+				return
+			}
+
 			unstructuredObj, ok := obj.(*unstructured.Unstructured)
 			if !ok {
 				return
