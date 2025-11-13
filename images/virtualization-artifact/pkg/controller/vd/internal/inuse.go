@@ -23,15 +23,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	commonvm "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -182,7 +181,7 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *v1alpha
 		case v1alpha2.MachinePending:
 			usageMap[vm.GetName()] = true
 		case v1alpha2.MachineStopped:
-			vmIsActive, err := h.isVMActive(ctx, vm)
+			vmIsActive, err := commonvm.IsVMActive(ctx, h.client, vm)
 			if err != nil {
 				return nil, err
 			}
@@ -194,33 +193,6 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *v1alpha
 	}
 
 	return usageMap, nil
-}
-
-func (h InUseHandler) isVMActive(ctx context.Context, vm v1alpha2.VirtualMachine) (bool, error) {
-	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachine{})
-	if err != nil {
-		return false, fmt.Errorf("error getting kvvms: %w", err)
-	}
-	if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
-		return true, nil
-	}
-
-	podList := corev1.PodList{}
-	err = h.client.List(ctx, &podList, &client.ListOptions{
-		Namespace:     vm.GetNamespace(),
-		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
-	})
-	if err != nil {
-		return false, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
-	}
-
-	for _, pod := range podList.Items {
-		if pod.Status.Phase == corev1.PodRunning {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *v1alpha2.VirtualDisk, usageMap map[string]bool) {

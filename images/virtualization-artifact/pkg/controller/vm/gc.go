@@ -38,15 +38,11 @@ func SetupGC(
 ) error {
 	mgrClient := mgr.GetClient()
 	vmimGCMgr := newVMIMGCManager(mgrClient, gcSettings.TTL.Duration, 10)
-	source, err := gc.NewCronSource(gcSettings.Schedule, vmimGCMgr, log.With("resource", "vmi-migration"))
-	if err != nil {
-		return err
-	}
 
 	return gc.SetupGcController(gcVMMigrationControllerName,
 		mgr,
-		log,
-		source,
+		log.With("resource", "vmi-migration"),
+		gcSettings.Schedule,
 		vmimGCMgr,
 	)
 }
@@ -64,6 +60,8 @@ func newVMIMGCManager(client client.Client, ttl time.Duration, max int) *vmimGCM
 		max:    max,
 	}
 }
+
+var _ gc.ReconcileGCManager = &vmimGCManager{}
 
 type vmimGCManager struct {
 	client client.Client

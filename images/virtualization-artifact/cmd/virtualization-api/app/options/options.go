@@ -95,7 +95,7 @@ func NewOptions() *Options {
 	}
 }
 
-func (o Options) ServerConfig() (*server.Config, error) {
+func (o *Options) ServerConfig() (*server.Config, error) {
 	apiserver, err := o.ApiserverConfig()
 	if err != nil {
 		return nil, err
@@ -130,7 +130,7 @@ func (o Options) ServerConfig() (*server.Config, error) {
 	return conf, nil
 }
 
-func (o Options) ApiserverConfig() (*genericapiserver.Config, error) {
+func (o *Options) ApiserverConfig() (*genericapiserver.Config, error) {
 	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, []net.IP{net.ParseIP("127.0.0.1")}); err != nil {
 		return nil, fmt.Errorf("error creating self-signed certificates: %w", err)
 	}
@@ -165,7 +165,7 @@ func (o Options) ApiserverConfig() (*genericapiserver.Config, error) {
 	return serverConfig, nil
 }
 
-func (o Options) RestConfig() (*rest.Config, error) {
+func (o *Options) RestConfig() (*rest.Config, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		return nil, err

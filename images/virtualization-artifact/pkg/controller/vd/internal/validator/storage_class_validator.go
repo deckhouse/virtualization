@@ -85,6 +85,7 @@ func (v *StorageClassValidator) ValidateUpdate(ctx context.Context, oldVD, newVD
 				)
 			}
 		}
+		return nil, nil
 	}
 
 	if err := v.validateTargetStorageClassForVolumeMigration(ctx, newVD, oldVD); err != nil {

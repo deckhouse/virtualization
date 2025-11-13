@@ -69,6 +69,19 @@ func WithDisks(disks ...*v1alpha2.VirtualDisk) Option {
 	}
 }
 
+func WithImages(images ...*v1alpha2.VirtualImage) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		blockDeviceRefs := make([]v1alpha2.BlockDeviceSpecRef, 0, len(images))
+		for _, image := range images {
+			blockDeviceRefs = append(blockDeviceRefs, v1alpha2.BlockDeviceSpecRef{
+				Kind: v1alpha2.VirtualImageKind,
+				Name: image.Name,
+			})
+		}
+		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, blockDeviceRefs...)
+	}
+}
+
 func WithBlockDeviceRefs(refs ...v1alpha2.BlockDeviceSpecRef) Option {
 	return func(vm *v1alpha2.VirtualMachine) {
 		vm.Spec.BlockDeviceRefs = append(vm.Spec.BlockDeviceRefs, refs...)
