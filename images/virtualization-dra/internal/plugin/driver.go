@@ -70,7 +70,6 @@ func (d *Driver) Start(ctx context.Context) error {
 		kubeletplugin.RegistrarDirectoryPath(virtualizationRegistrarDirPath()),
 		kubeletplugin.RegistrarSocketFilename(virtualizationRegistrarSocketFilename),
 		kubeletplugin.PluginDataDirectoryPath(virtualizationPluginDirPath()),
-		kubeletplugin.PluginSocket(virtualizationPluginSocketFilename),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to start kubelet plugin: %w", err)

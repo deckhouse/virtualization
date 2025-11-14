@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	KubeletPluginsDir  = kubeletplugin.KubeletPluginsDir
-	KubeletRegistryDir = kubeletplugin.KubeletRegistryDir
+	kubeletPluginsDir  = kubeletplugin.KubeletPluginsDir
+	kubeletRegistryDir = kubeletplugin.KubeletRegistryDir
 )
 
 const (
@@ -35,7 +35,7 @@ const (
 )
 
 func virtualizationPluginDirPath() string {
-	return path.Join(KubeletPluginsDir, driverName)
+	return path.Join(kubeletPluginsDir, driverName)
 }
 
 func virtualizationPluginSocketPath() string {
@@ -43,24 +43,24 @@ func virtualizationPluginSocketPath() string {
 }
 
 func virtualizationRegistrarDirPath() string {
-	return KubeletRegistryDir
+	return kubeletRegistryDir
 }
 
 func virtualizationRegistrarSocketPath() string {
 	return path.Join(virtualizationRegistrarDirPath(), virtualizationRegistrarSocketFilename)
 }
 
-func InitPluginDirs(kubeletPluginDir, kubeletRegistryDir string) error {
-	if kubeletPluginDir != "" {
-		KubeletPluginsDir = kubeletPluginDir
+func InitPluginDirs(setKubeletPluginDir, setKubeletRegistryDir string) error {
+	if setKubeletPluginDir != "" {
+		kubeletPluginsDir = setKubeletPluginDir
 
 		pluginDir := virtualizationPluginDirPath()
 		if err := os.MkdirAll(pluginDir, 0700); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", pluginDir, err)
 		}
 	}
-	if kubeletRegistryDir != "" {
-		KubeletRegistryDir = kubeletRegistryDir
+	if setKubeletRegistryDir != "" {
+		kubeletRegistryDir = setKubeletRegistryDir
 
 		registryDir := virtualizationRegistrarDirPath()
 		if err := os.MkdirAll(registryDir, 0700); err != nil {
