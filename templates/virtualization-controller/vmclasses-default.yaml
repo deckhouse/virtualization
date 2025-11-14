@@ -4,7 +4,7 @@ metadata:
   name: generic
   annotations:
     "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "100"
+    "helm.sh/hook-weight": "200"
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 spec:
   nodeSelector:
