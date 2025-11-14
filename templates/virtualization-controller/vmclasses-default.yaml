@@ -2,6 +2,9 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: generic
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "100"
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-controller")) | nindent 2 }}
 spec:
   nodeSelector:
