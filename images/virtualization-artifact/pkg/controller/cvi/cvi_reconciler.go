@@ -145,7 +145,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			return objs, nil
 		})
 
-		cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, lister, r.log.With("source", "image-monitor"))
+		cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, lister, r.log)
 		if err != nil {
 			return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
 		}
