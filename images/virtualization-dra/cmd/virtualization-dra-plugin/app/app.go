@@ -74,7 +74,7 @@ func newDraOptions() *draOptions {
 		CDIRoot:                      withDefault("CDI_ROOT", "/etc/cdi"),
 		KubeletRegisterDirectoryPath: os.Getenv("KUBELET_REGISTER_DIRECTORY_PATH"),
 		KubeletPluginsDirectoryPath:  os.Getenv("KUBELET_PLUGINS_DIRECTORY_PATH"),
-		DevicesPath:                  withDefault("DEVICES_PATH", "/dev"),
+		DevicesPath:                  withDefault("DEVICES_PATH", "/var/devices"),
 		HealthzPort:                  51515,
 		USBResyncPeriod:              usb.DefaultResyncPeriod,
 		Logging:                      &logger.Options{},

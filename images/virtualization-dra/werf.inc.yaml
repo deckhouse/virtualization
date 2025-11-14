@@ -44,3 +44,4 @@ shell:
     mkdir -p /dra-requirements/etc/cdi
     mkdir -p /dra-requirements/var/lib/kubelet/plugins_registry
     mkdir -p /dra-requirements/var/lib/kubelet/plugins
+    mkdir -p /dra-requirements/var/devices

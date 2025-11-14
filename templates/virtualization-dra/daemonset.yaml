@@ -107,7 +107,7 @@ spec:
             - name: cdi
               mountPath: /etc/cdi
             - name: devices
-              mountPath: /dev
+              mountPath: /var/devices
       volumes:
         - name: plugins-registry
           hostPath:
