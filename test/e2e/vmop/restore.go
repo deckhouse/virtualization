@@ -112,6 +112,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			if t.VM.Spec.Disruptions.RestartApprovalMode == v1alpha2.Manual {
+				// TODO: switch to restart via vmop
 				util.RebootVirtualMachineBySSH(f, t.VM)
 			}
 
