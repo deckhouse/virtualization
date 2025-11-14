@@ -175,11 +175,20 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func (o *draOptions) initPluginDirs() {
+func (o *draOptions) initPluginDirs() error {
 	if o.KubeletRegisterDirectoryPath != "" {
 		plugin.KubeletRegistryDir = o.KubeletRegisterDirectoryPath
 	}
 	if o.KubeletPluginsDirectoryPath != "" {
 		plugin.KubeletPluginsDir = o.KubeletPluginsDirectoryPath
 	}
+
+	if err := os.MkdirAll(plugin.KubeletPluginsDir, 0700); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", plugin.KubeletPluginsDir, err)
+	}
+	if err := os.MkdirAll(plugin.KubeletPluginsDir, 0700); err != nil {
+		return fmt.Errorf("failed to create directory %s: %w", plugin.KubeletPluginsDir, err)
+	}
+
+	return nil
 }
