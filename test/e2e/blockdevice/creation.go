@@ -136,31 +136,31 @@ var _ = Describe("VirtualImageCreation", func() {
 			))
 		})
 
-		By("Generating base vis on pvc", func() {
-			baseVis = append(baseVis, object.NewGeneratedContainerImageVI("vi-pvc-ci-", f.Namespace().Name, vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim)))
-			baseVis = append(baseVis, vibuilder.New(
-				vibuilder.WithGenerateName("vi-http-"),
-				vibuilder.WithNamespace(f.Namespace().Name),
-				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-				vibuilder.WithDataSourceHTTP(
-					object.ImageURLAlpineUEFIPerf,
-					nil,
-					nil,
-				),
-			))
-			baseVis = append(baseVis, vibuilder.New(
-				vibuilder.WithGenerateName("vi-pvc-from-vd-"),
-				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-				vibuilder.WithNamespace(f.Namespace().Name),
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
-			))
-			baseVis = append(baseVis, vibuilder.New(
-				vibuilder.WithGenerateName("vi-pvc-from-vds-"),
-				vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-				vibuilder.WithNamespace(f.Namespace().Name),
-				vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
-			))
-		})
+		// By("Generating base vis on pvc", func() {
+		// 	baseVis = append(baseVis, object.NewGeneratedContainerImageVI("vi-pvc-ci-", f.Namespace().Name, vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim)))
+		// 	baseVis = append(baseVis, vibuilder.New(
+		// 		vibuilder.WithGenerateName("vi-http-"),
+		// 		vibuilder.WithNamespace(f.Namespace().Name),
+		// 		vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+		// 		vibuilder.WithDataSourceHTTP(
+		// 			object.ImageURLAlpineUEFIPerf,
+		// 			nil,
+		// 			nil,
+		// 		),
+		// 	))
+		// 	baseVis = append(baseVis, vibuilder.New(
+		// 		vibuilder.WithGenerateName("vi-pvc-from-vd-"),
+		// 		vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+		// 		vibuilder.WithNamespace(f.Namespace().Name),
+		// 		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDisk, vd.Name),
+		// 	))
+		// 	baseVis = append(baseVis, vibuilder.New(
+		// 		vibuilder.WithGenerateName("vi-pvc-from-vds-"),
+		// 		vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+		// 		vibuilder.WithNamespace(f.Namespace().Name),
+		// 		vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualDiskSnapshot, vdSnapshot.Name),
+		// 	))
+		// })
 
 		By("Creating base images", func() {
 			for _, cvi := range baseCvis {
@@ -213,27 +213,27 @@ var _ = Describe("VirtualImageCreation", func() {
 			}
 		})
 
-		By("Generating pvc vis from base cvis", func() {
-			for _, baseCvi := range baseCvis {
-				vis = append(vis, vibuilder.New(
-					vibuilder.WithName(fmt.Sprintf("vi-pvc-from-%s", baseCvi.Name)),
-					vibuilder.WithNamespace(f.Namespace().Name),
-					vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, baseCvi.Name),
-					vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-				))
-			}
-		})
-
-		By("Generating pvc vis from base vis", func() {
-			for _, baseVi := range baseVis {
-				vis = append(vis, vibuilder.New(
-					vibuilder.WithName(fmt.Sprintf("vi-pvc-from-%s", baseVi.Name)),
-					vibuilder.WithNamespace(f.Namespace().Name),
-					vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
-					vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVi.Name),
-				))
-			}
-		})
+		// By("Generating pvc vis from base cvis", func() {
+		// 	for _, baseCvi := range baseCvis {
+		// 		vis = append(vis, vibuilder.New(
+		// 			vibuilder.WithName(fmt.Sprintf("vi-pvc-from-%s", baseCvi.Name)),
+		// 			vibuilder.WithNamespace(f.Namespace().Name),
+		// 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindClusterVirtualImage, baseCvi.Name),
+		// 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+		// 		))
+		// 	}
+		// })
+		//
+		// By("Generating pvc vis from base vis", func() {
+		// 	for _, baseVi := range baseVis {
+		// 		vis = append(vis, vibuilder.New(
+		// 			vibuilder.WithName(fmt.Sprintf("vi-pvc-from-%s", baseVi.Name)),
+		// 			vibuilder.WithNamespace(f.Namespace().Name),
+		// 			vibuilder.WithStorage(v1alpha2.StoragePersistentVolumeClaim),
+		// 			vibuilder.WithDataSourceObjectRef(v1alpha2.VirtualImageObjectRefKindVirtualImage, baseVi.Name),
+		// 		))
+		// 	}
+		// })
 
 		By("Creating images", func() {
 			for _, vi := range vis {

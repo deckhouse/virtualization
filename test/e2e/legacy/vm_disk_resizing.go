@@ -48,7 +48,7 @@ var _ = Describe("VirtualDiskResizing", Ordered, func() {
 		// TODO: The test is being disabled because the new functionality for volume migration has introduced
 		// an issue that results in the disappearance of the serial inside kvvmi.
 		// This leads to errors during disk resizing. Remove Skip after fixing the issue.
-		Skip("This test case is not working everytime. Should be fixed.")
+		// Skip("This test case is not working everytime. Should be fixed.")
 
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml")
 		var err error
