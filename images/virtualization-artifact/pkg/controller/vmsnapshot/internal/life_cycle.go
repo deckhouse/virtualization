@@ -60,7 +60,7 @@ func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, snapshotter S
 	}
 }
 
-func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (result reconcile.Result, handlerErr error) {
+func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
 
 	cb := conditions.NewConditionBuilder(vmscondition.VirtualMachineSnapshotReadyType)
@@ -404,8 +404,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, nil
 		}
 		if k8serrors.IsConflict(err) {
-			result = reconcile.Result{RequeueAfter: 5 * time.Second}
-			handlerErr = err
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, err
 		}
 		return reconcile.Result{}, err
 	}
@@ -555,7 +554,7 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*v1alp
 }
 
 func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmsnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
-	if vmsnapshot.Status.Consistent != nil && *vmsnapshot.Status.Consistent == true {
+	if vmsnapshot.Status.Consistent != nil && *vmsnapshot.Status.Consistent {
 		return false, nil
 	}
 
