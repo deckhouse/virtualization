@@ -218,7 +218,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					if k8serrors.IsConflict(err) {
 						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 					}
-					setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vdscondition.FileSystemFreezing).
+						Message(service.CapitalizeFirstLetter(err.Error() + "."))
 					return reconcile.Result{}, err
 				}
 
@@ -398,6 +401,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					if k8serrors.IsConflict(err) {
 						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 					}
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vdscondition.FileSystemUnfreezing).
+						Message(service.CapitalizeFirstLetter(err.Error() + "."))
 					return reconcile.Result{}, err
 				}
 			default:
