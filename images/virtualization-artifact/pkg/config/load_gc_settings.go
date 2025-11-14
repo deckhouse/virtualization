@@ -29,13 +29,11 @@ const (
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
 	GcVMIMigrationTTLVar      = "GC_VMI_MIGRATION_TTL"
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
-	GcImageMonitorScheduleVar = "GC_IMAGE_MONITOR_SCHEDULE"
 )
 
 type GCSettings struct {
 	VMOP         BaseGcSettings
 	VMIMigration BaseGcSettings
-	ImageMonitor BaseGcSettings
 }
 
 type BaseGcSettings struct {
@@ -56,12 +54,6 @@ func LoadGcSettings() (GCSettings, error) {
 		return gcSettings, err
 	}
 	gcSettings.VMIMigration = base
-
-	base, err = GetImageMonitorSettingsFromEnv(GcImageMonitorScheduleVar)
-	if err != nil {
-		return gcSettings, err
-	}
-	gcSettings.ImageMonitor = base
 
 	return gcSettings, nil
 }
@@ -88,20 +80,5 @@ func NewDefaultBaseGcSettings() BaseGcSettings {
 	return BaseGcSettings{
 		TTL:      metav1.Duration{Duration: 24 * time.Hour * 7},
 		Schedule: "0 0 * * *",
-	}
-}
-
-func GetImageMonitorSettingsFromEnv(envSchedule string) (BaseGcSettings, error) {
-	base := NewDefaultImageMonitorSettings()
-	if v, ok := os.LookupEnv(envSchedule); ok {
-		base.Schedule = v
-	}
-	return base, nil
-}
-
-func NewDefaultImageMonitorSettings() BaseGcSettings {
-	return BaseGcSettings{
-		TTL:      metav1.Duration{Duration: 0},
-		Schedule: "0 * * * *",
 	}
 }

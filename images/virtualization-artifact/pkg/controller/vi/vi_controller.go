@@ -61,7 +61,6 @@ func NewController(
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualImageStorageClassSettings,
-	imageMonitorSchedule string,
 ) (controller.Controller, error) {
 	stat := service.NewStatService(log)
 	protection := service.NewProtectionService(mgr.GetClient(), v1alpha2.FinalizerVIProtection)
@@ -80,7 +79,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		imageMonitorSchedule,
+		dvcr.ImageMonitorSchedule,
 		log,
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),

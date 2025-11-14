@@ -27,6 +27,7 @@ import (
 
 const (
 	DefaultStorageClass = ""
+	ReadyDVCRImage      = "ready-dvcr"
 )
 
 const (
@@ -42,6 +43,9 @@ const (
 
 	IndexFieldVDByStorageClass = "vd.spec.PersistentVolumeClaim.StorageClass"
 	IndexFieldVIByStorageClass = "vi.spec.PersistentVolumeClaim.StorageClass"
+
+	IndexFieldVIByPhaseAndStorage = "vi.status.phase+spec.storage"
+	IndexFieldCVIByPhase          = "cvi.status.phase"
 
 	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
 	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
@@ -75,7 +79,9 @@ var IndexGetters = []IndexGetter{
 	IndexVDByStorageClass,
 	IndexVIByVDSnapshot,
 	IndexVIByStorageClass,
+	IndexVIByPhaseAndStorage,
 	IndexCVIByVDSnapshot,
+	IndexCVIByPhase,
 	IndexVMIPByAddress,
 	IndexVMBDAByVM,
 	IndexVMMACByVM,

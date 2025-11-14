@@ -20,9 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -62,7 +60,7 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualI
 		return reconcile.Result{}, nil
 	}
 
-	exists, err := h.checkImageExists(ctx, registryURL)
+	exists, err := dvcr.NewImageChecker(h.client, h.dvcrSettings).CheckImageExists(ctx, registryURL)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check image existence in DVCR: %w", err)
 	}
@@ -80,37 +78,4 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualI
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (h *ImagePresenceHandler) checkImageExists(ctx context.Context, registryURL string) (bool, error) {
-	username, password, err := h.getAuthCredentials(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	insecure := h.dvcrSettings.InsecureTLS == "true"
-	checker := dvcr.NewImageChecker(username, password, insecure)
-
-	return checker.CheckImageExists(ctx, registryURL)
-}
-
-func (h *ImagePresenceHandler) getAuthCredentials(ctx context.Context) (string, string, error) {
-	if h.dvcrSettings.AuthSecret == "" {
-		return "", "", nil
-	}
-
-	secret := &corev1.Secret{}
-	err := h.client.Get(ctx, types.NamespacedName{
-		Name:      h.dvcrSettings.AuthSecret,
-		Namespace: h.dvcrSettings.AuthSecretNamespace,
-	}, secret)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get auth secret %s/%s: %w",
-			h.dvcrSettings.AuthSecretNamespace, h.dvcrSettings.AuthSecret, err)
-	}
-
-	username := string(secret.Data["username"])
-	password := string(secret.Data["password"])
-
-	return username, password, nil
 }

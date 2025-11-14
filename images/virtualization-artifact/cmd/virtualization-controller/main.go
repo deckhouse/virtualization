@@ -314,7 +314,7 @@ func main() {
 	}
 
 	cviLogger := logger.NewControllerLogger(cvi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace, gcSettings.ImageMonitor.Schedule); err != nil {
+	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -326,7 +326,7 @@ func main() {
 	}
 
 	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings, gcSettings.ImageMonitor.Schedule); err != nil {
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
