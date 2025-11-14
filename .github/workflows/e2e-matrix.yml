@@ -27,10 +27,6 @@ on:
     - cron: "30 2 * * *"
   workflow_dispatch:
     inputs:
-      profiles:
-        description: "Storage profiles (comma-separated): sds, cephrbd"
-        required: false
-        default: "sds,cephrbd"
       timeout:
         description: "Ginkgo timeout (e.g. 2h, 4h)"
         required: false
@@ -43,45 +39,71 @@ env:
   E2E_K8S_URL: https://api.e2e.virtlab.flant.com
 
 jobs:
-  setup:
-    name: Setup Profiles
+  # ============================================
+  # 1. SETUP - Environment preparation
+  # ============================================
+  setup-nested-envs:
+    name: Setup Nested Envs
     runs-on: ubuntu-latest
+    concurrency:
+      group: setup-nested-envs-${{ github.ref }}
+      cancel-in-progress: true
+    env:
+      PROFILE: sds-replicated-volume
     outputs:
-      profiles: ${{ steps.profiles.outputs.profiles }}
+      run_id: ${{ steps.prep.outputs.run_id }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load storage profiles
-        id: profiles
+      - name: Load storage profile
+        id: load
         run: |
-          # Single profile: sds with storage class sds-replicated-volume
-          echo 'profiles=["sds"]' >> "$GITHUB_OUTPUT"
+          cd ci/dvp-e2e
+          # Map sds-replicated-volume to sds profile from profiles.json
+          PROFILE=$(jq -r '.[0].name' profiles.json)
+          echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
+          echo "Will test profile: $PROFILE (mapped from sds-replicated-volume)"
 
-      - name: Print matrix
+      - name: Prepare run context
+        id: prep
         run: |
-          echo "Will test profiles: ${{ steps.profiles.outputs.profiles }}"
+          RUN_ID="nightly-nested-e2e-sds-$(date +%H%M%S)"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          mkdir -p ./tmp/run-context
+          echo "profile: ${PROFILE}" > ./tmp/run-context/config.yaml
+          echo "run_id: ${RUN_ID}" >> ./tmp/run-context/config.yaml
+          echo "timestamp: $(date -Iseconds)" >> ./tmp/run-context/config.yaml
 
+      - name: Upload run context
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-context-${{ steps.prep.outputs.run_id }}
+          path: ./tmp/run-context
+
+  # ============================================
+  # 2. PREPARE - Cluster preparation
+  # ============================================
   prepare:
-    name: Matrix Setup (${{ matrix.profile }})
-    needs: [setup]
+    name: Prepare Cluster
+    needs: [setup-nested-envs]
     runs-on: ubuntu-latest
     timeout-minutes: 300
     concurrency:
-      group: prepare-${{ github.ref }}-${{ matrix.profile }}
+      group: prepare-${{ github.ref }}-sds-replicated-volume
       cancel-in-progress: true
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
-
     env:
+      PROFILE: sds-replicated-volume
       GO_VERSION: "1.24.6"
       TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
-      STORAGE_CLASS: sds-replicated-volume
+      LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
+      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
 
     outputs:
       run_id: ${{ steps.prep.outputs.run_id }}
-      storage_class: ${{ env.STORAGE_CLASS }}
+      storage_class: ${{ steps.profile-config.outputs.storage_class }}
+      image_storage_class: ${{ steps.profile-config.outputs.image_storage_class }}
+      snapshot_storage_class: ${{ steps.profile-config.outputs.snapshot_storage_class }}
+      attach_disk_size: ${{ steps.profile-config.outputs.attach_disk_size }}
 
     steps:
       - uses: actions/checkout@v4
@@ -102,7 +124,7 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: "latest"
 
       - name: Install Deckhouse CLI
         env:
@@ -123,13 +145,20 @@ jobs:
           curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
+      - name: Restore run context
+        uses: actions/download-artifact@v4
+        with:
+          name: run-context-${{ needs.setup-nested-envs.outputs.run_id }}
+          path: .
+
       - name: Prepare environment
         id: prep
         run: |
-          RUN_ID="nightly-nested-e2e-${{ matrix.profile }}-$(date +%H%M)"
+          RUN_ID="${{ needs.setup-nested-envs.outputs.run_id }}"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
+          # Map sds-replicated-volume to sds for profile config
+          echo "PROFILE=sds" >> "$GITHUB_ENV"
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
@@ -169,12 +198,154 @@ jobs:
             RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
           echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
 
-      - name: Configure storage profile
+      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+        run: |
+          prod_user="${{ secrets.PROD_READ_REGISTRY_USER }}"
+          prod_pass="${{ secrets.PROD_READ_REGISTRY_PASSWORD }}"
+          dev_user="${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}"
+          dev_pass="${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}"
+          echo "::add-mask::$prod_user"
+          echo "::add-mask::$prod_pass"
+          echo "::add-mask::$dev_user"
+          echo "::add-mask::$dev_pass"
+          prod_auth_b64=$(printf '%s:%s' "$prod_user" "$prod_pass" | base64 | tr -d '\n')
+          dev_auth_b64=$(printf '%s:%s' "$dev_user" "$dev_pass" | base64 | tr -d '\n')
+          docker_cfg=$(printf '{"auths":{"registry.deckhouse.io":{"auth":"%s"},"dev-registry.deckhouse.io":{"auth":"%s"}}}' "$prod_auth_b64" "$dev_auth_b64")
+          docker_cfg_b64=$(printf '%s' "$docker_cfg" | base64 | tr -d '\n')
+          echo "::add-mask::$docker_cfg_b64"
+          {
+            echo "REGISTRY_DOCKER_CFG=$docker_cfg_b64"
+            echo "DECKHOUSE_REGISTRY_USER=$prod_user"
+            echo "DECKHOUSE_REGISTRY_PASSWORD=$prod_pass"
+          } >> "$GITHUB_ENV"
+
+      - name: Inject REGISTRY_DOCKER_CFG into values.yaml
         working-directory: ci/dvp-e2e
         run: |
-          # Set storage profile to sds with storage class sds-replicated-volume
+          yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+
+      - name: Docker login to Deckhouse registry
+        uses: docker/login-action@v3
+        with:
+          registry: registry.deckhouse.io
+          username: ${{ env.DECKHOUSE_REGISTRY_USER }}
+          password: ${{ env.DECKHOUSE_REGISTRY_PASSWORD }}
+
+      - name: Docker login to dev-registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
+          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
+
+      - name: Configure storage profile
+        working-directory: ci/dvp-e2e
+        id: profile-config
+        env:
+          PROFILE: sds
+        run: |
+          # Get storage class configuration from profiles.json
+          PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
+
+          # Parse the output more carefully
+          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
+          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
+          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
+
+          echo "Profile: ${PROFILE}"
+          echo "Storage Class: ${STORAGE_CLASS}"
+          echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
+          echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
+          echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
+
+          # Export variables safely
+          echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
+          echo "storage_class=$STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "image_storage_class=$IMAGE_STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "snapshot_storage_class=$SNAPSHOT_STORAGE_CLASS" >> $GITHUB_OUTPUT
+          echo "attach_disk_size=$ATTACH_DISK_SIZE" >> $GITHUB_OUTPUT
+          # Pass storage profile into run values for Helm templates
           PROFILE='sds' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
-          echo "Configured storage profile: sds with storage class: ${STORAGE_CLASS}"
+          # Effective disk SC used for worker data disks (prefer image SC when set)
+          EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
+          echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
+
+      - name: Install infra (namespace/RBAC/ingress)
+        working-directory: ci/dvp-e2e
+        run: |
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task render-infra \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="id_ed"
+          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task infra-deploy \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="id_ed"
+
+      - name: Bootstrap nested cluster (via jump-host)
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "🚀 dhctl bootstrap (profile: sds-replicated-volume -> sds)"
+          task dhctl-bootstrap \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            SSH_FILE_NAME="id_ed" \
+            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+
+      - name: Attach data disks to worker VMs using hotplug
+        working-directory: ci/dvp-e2e
+        run: |
+          task infra:attach-storage-disks-hotplug \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            PARENT_KUBECONFIG="${KUBECONFIG}" \
+            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
+            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
+            DISK_COUNT="2"
+
+      - name: Build nested kubeconfig
+        working-directory: ci/dvp-e2e
+        run: |
+          task nested:kubeconfig \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="id_ed" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            PARENT_KUBECONFIG="${KUBECONFIG}"
+
+      - name: Configure storage classes
+        working-directory: ci/dvp-e2e
+        run: |
+          echo "💾 Configuring storage classes for profile: sds-replicated-volume -> sds"
+          task nested:storage:configure \
+            STORAGE_PROFILE="sds" \
+            TARGET_STORAGE_CLASS="${{ steps.profile-config.outputs.storage_class }}" \
+            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
+            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
+            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
+            SSH_FILE_NAME="id_ed" \
+            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
+            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
+            NAMESPACE="${{ env.RUN_ID }}" \
+            DOMAIN="" \
+            DEFAULT_USER="ubuntu" \
+            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
+
+      # Ingress smoke disabled: not required for storage config
+
+      # Ceph CSI smoke check removed per request
 
       - name: Upload run context
         if: always()
@@ -185,35 +356,11 @@ jobs:
             ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
             ci/dvp-e2e/tmp/shared
           if-no-files-found: warn
-
-  run-e2e:
-    name: E2E (${{ matrix.profile }}) [skeleton]
-    needs: [setup, prepare]
-    runs-on: ubuntu-latest
-    concurrency:
-      group: e2e-${{ github.ref }}-${{ matrix.profile }}
-      cancel-in-progress: true
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
-    steps:
-      - name: Echo run
-        run: |
-          echo "E2E stage for profile=${{ matrix.profile }} (skeleton - placeholder)"
-  report:
-    name: Report [skeleton]
-    needs: [setup, run-e2e]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Echo report
-        run: |
-          echo "Report stage (skeleton). Collecting results from matrix..."
+          overwrite: true
 
   cleanup:
-    name: Cleanup Resources
-    needs: report
+    name: Cleanup [skeleton]
+    needs: [setup-nested-envs, prepare]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -225,7 +372,7 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: "latest"
 
       - name: Build parent kubeconfig from secret (cleanup)
         shell: bash
@@ -257,25 +404,9 @@ jobs:
       - name: Cleanup test namespaces
         run: |
           set -euo pipefail
-          PREFIX="nightly-nested-e2e-"
-          echo "🧹 Cleaning up namespaces matching prefix '${PREFIX}'"
-          mapfile -t CANDIDATES < <(kubectl get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep "^${PREFIX}" || true)
-          OURS=()
-          for ns in "${CANDIDATES[@]:-}"; do
-            [ -z "$ns" ] && continue
-            if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
-              OURS+=("$ns")
-            fi
-          done
-          if [ "${#OURS[@]}" -eq 0 ]; then
-            echo "[INFO] No namespaces to delete."
-          else
-            echo "[INFO] Deleting namespaces:"
-            printf ' - %s\n' "${OURS[@]}"
-            for ns in "${OURS[@]}"; do
-              kubectl delete ns "$ns" --wait=false || true
-            done
-          fi
+          echo "🧹 Cleaning up namespaces matching 'nightly-nested-e2e-*'"
+          kubectl get ns -o name | grep "namespace/nightly-nested-e2e-" | cut -d/ -f2 | \
+            xargs -r kubectl delete ns --wait=false || echo "[INFO] No namespaces to delete"
 
       - name: Report cleanup results
         if: always()
