@@ -1,9 +1,8 @@
-├── [drwxr-xr-x     6]  etc
-│   ├── [drwxr-xr-x    14]  libvirt
+├── [drwxr-xr-x     5]  etc
+│   ├── [drwxr-xr-x    13]  libvirt
 │   │   ├── [-rw-r--r--   547]  libvirt.conf
 │   │   ├── [-rw-r--r--   17K]  libvirtd.conf
 │   │   ├── [-rw-r--r--  1.0K]  network.conf
-│   │   ├── [drwxr-xr-x     2]  nwfilter
 │   │   ├── [drwxr-xr-x     4]  qemu
 │   │   │   ├── [drwxr-xr-x     2]  autostart
 │   │   │   └── [drwxr-xr-x     4]  networks
@@ -18,15 +17,8 @@
 │   │   ├── [-rw-r--r--   12K]  virtnodedevd.conf
 │   │   ├── [-rw-r--r--   12K]  virtnwfilterd.conf
 │   │   └── [-rw-r--r--   17K]  virtproxyd.conf
-│   ├── [drwxr-xr-x     6]  logrotate.d
-│   │   ├── [-rw-r--r--   165]  libvirtd
-│   │   ├── [-rw-r--r--   149]  libvirtd.libxl
-│   │   ├── [-rw-r--r--   147]  libvirtd.lxc
-│   │   └── [-rw-r--r--   540]  libvirtd.qemu
 │   ├── [drwxr-xr-x     3]  sasl2
 │   │   └── [-rw-r--r--  1.7K]  libvirt.conf
-│   └── [drwxr-xr-x     3]  ssh
-│       └── [drwxr-xr-x     2]  ssh_config.d
 └── [drwxr-xr-x    10]  usr
     ├── [drwxr-xr-x     9]  bin
     │   ├── [-rwxr-xr-x   26K]  virt-host-validate
@@ -259,129 +251,74 @@
     │   ├── [-rwxr-xr-x  706K]  virtqemud
     │   ├── [-rwxr-xr-x  706K]  virtsecretd
     │   └── [-rwxr-xr-x  706K]  virtstoraged
-    └── [drwxr-xr-x     6]  share
-        ├── [drwxr-xr-x     3]  doc
-        │   └── [drwxr-xr-x     3]  libvirt
-        │       └── [drwxr-xr-x     7]  examples
-        │           ├── [drwxr-xr-x     5]  c
-        │           │   ├── [drwxr-xr-x     9]  admin
-        │           │   │   ├── [-rw-r--r--  2.0K]  client_close.c
-        │           │   │   ├── [-rw-r--r--  4.8K]  client_info.c
-        │           │   │   ├── [-rw-r--r--  1.8K]  client_limits.c
-        │           │   │   ├── [-rw-r--r--  3.3K]  list_clients.c
-        │           │   │   ├── [-rw-r--r--  1.3K]  list_servers.c
-        │           │   │   ├── [-rw-r--r--  2.8K]  logging.c
-        │           │   │   └── [-rw-r--r--  2.0K]  threadpool_params.c
-        │           │   ├── [drwxr-xr-x     7]  domain
-        │           │   │   ├── [-rw-r--r--  2.4K]  dommigrate.c
-        │           │   │   ├── [-rw-r--r--   11K]  domtop.c
-        │           │   │   ├── [-rw-r--r--  1.6K]  info1.c
-        │           │   │   ├── [-rw-r--r--  2.0K]  rename.c
-        │           │   │   └── [-rw-r--r--  7.3K]  suspend.c
-        │           │   └── [drwxr-xr-x     5]  misc
-        │           │       ├── [-rw-r--r--   43K]  event-test.c
-        │           │       ├── [-rw-r--r--  4.4K]  hellolibvirt.c
-        │           │       └── [-rw-r--r--  6.6K]  openauth.c
-        │           ├── [drwxr-xr-x     3]  polkit
-        │           │   └── [-rw-r--r--  3.8K]  libvirt-acl.rules
-        │           ├── [drwxr-xr-x     3]  sh
-        │           │   └── [-rw-r--r--  3.4K]  virt-lxc-convert
-        │           ├── [drwxr-xr-x     7]  systemtap
-        │           │   ├── [-rw-r--r--  1.8K]  amd-sev-es-vmsa.stp
-        │           │   ├── [-rw-r--r--  3.2K]  events.stp
-        │           │   ├── [-rw-r--r--  2.6K]  lock-debug.stp
-        │           │   ├── [-rw-r--r--  3.2K]  qemu-monitor.stp
-        │           │   └── [-rw-r--r--  5.6K]  rpc-monitor.stp
-        │           └── [drwxr-xr-x     4]  xml
-        │               ├── [drwxr-xr-x    12]  storage
-        │               │   ├── [-rw-r--r--   113]  pool-dir.xml
-        │               │   ├── [-rw-r--r--   344]  pool-fs.xml
-        │               │   ├── [-rw-r--r--   158]  pool-logical.xml
-        │               │   ├── [-rw-r--r--   373]  pool-netfs.xml
-        │               │   ├── [-rw-r--r--   165]  vol-cow.xml
-        │               │   ├── [-rw-r--r--   167]  vol-qcow.xml
-        │               │   ├── [-rw-r--r--   169]  vol-qcow2.xml
-        │               │   ├── [-rw-r--r--   178]  vol-raw.xml
-        │               │   ├── [-rw-r--r--   168]  vol-sparse.xml
-        │               │   └── [-rw-r--r--   168]  vol-vmdk.xml
-        │               └── [drwxr-xr-x    11]  test
-        │                   ├── [-rw-r--r--   426]  testdev.xml
-        │                   ├── [-rw-r--r--   828]  testdomfc4.xml
-        │                   ├── [-rw-r--r--  1.3K]  testdomfv0.xml
-        │                   ├── [-rw-r--r--   292]  testnetdef.xml
-        │                   ├── [-rw-r--r--   265]  testnetpriv.xml
-        │                   ├── [-rw-r--r--   801]  testnode.xml
-        │                   ├── [-rw-r--r--  5.8K]  testnodeinline.xml
-        │                   ├── [-rw-r--r--   378]  testpool.xml
-        │                   └── [-rw-r--r--   122]  testvol.xml
-        ├── [drwxr-xr-x     4]  libvirt
-        │   ├── [drwxr-xr-x    67]  cpu_map
-        │   │   ├── [-rw-r--r--  4.4K]  index.xml
-        │   │   ├── [-rw-r--r--   190]  x86_486.xml
-        │   │   ├── [-rw-r--r--  5.5K]  x86_Broadwell-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.5K]  x86_Broadwell-noTSX-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.4K]  x86_Broadwell-noTSX.xml
-        │   │   ├── [-rw-r--r--  5.5K]  x86_Broadwell.xml
-        │   │   ├── [-rw-r--r--  5.9K]  x86_Cascadelake-Server-noTSX.xml
-        │   │   ├── [-rw-r--r--  5.9K]  x86_Cascadelake-Server.xml
-        │   │   ├── [-rw-r--r--  2.2K]  x86_Conroe.xml
-        │   │   ├── [-rw-r--r--  6.2K]  x86_Cooperlake.xml
-        │   │   ├── [-rw-r--r--  1.9K]  x86_Dhyana.xml
-        │   │   ├── [-rw-r--r--  3.3K]  x86_EPYC-Genoa.xml
-        │   │   ├── [-rw-r--r--  2.0K]  x86_EPYC-IBPB.xml
-        │   │   ├── [-rw-r--r--  2.5K]  x86_EPYC-Milan.xml
-        │   │   ├── [-rw-r--r--  2.3K]  x86_EPYC-Rome.xml
-        │   │   ├── [-rw-r--r--  2.0K]  x86_EPYC.xml
-        │   │   ├── [-rw-r--r--  6.4K]  x86_GraniteRapids.xml
-        │   │   ├── [-rw-r--r--  5.3K]  x86_Haswell-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.3K]  x86_Haswell-noTSX-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.2K]  x86_Haswell-noTSX.xml
-        │   │   ├── [-rw-r--r--  5.3K]  x86_Haswell.xml
-        │   │   ├── [-rw-r--r--  2.3K]  x86_Icelake-Client-noTSX.xml
-        │   │   ├── [-rw-r--r--  2.3K]  x86_Icelake-Client.xml
-        │   │   ├── [-rw-r--r--  6.3K]  x86_Icelake-Server-noTSX.xml
-        │   │   ├── [-rw-r--r--  6.1K]  x86_Icelake-Server.xml
-        │   │   ├── [-rw-r--r--  4.7K]  x86_IvyBridge-IBRS.xml
-        │   │   ├── [-rw-r--r--  4.7K]  x86_IvyBridge.xml
-        │   │   ├── [-rw-r--r--  4.2K]  x86_Nehalem-IBRS.xml
-        │   │   ├── [-rw-r--r--  4.1K]  x86_Nehalem.xml
-        │   │   ├── [-rw-r--r--   861]  x86_Opteron_G1.xml
-        │   │   ├── [-rw-r--r--   973]  x86_Opteron_G2.xml
-        │   │   ├── [-rw-r--r--  1.1K]  x86_Opteron_G3.xml
-        │   │   ├── [-rw-r--r--  1.4K]  x86_Opteron_G4.xml
-        │   │   ├── [-rw-r--r--  1.5K]  x86_Opteron_G5.xml
-        │   │   ├── [-rw-r--r--  2.4K]  x86_Penryn.xml
-        │   │   ├── [-rw-r--r--  4.4K]  x86_SandyBridge-IBRS.xml
-        │   │   ├── [-rw-r--r--  4.3K]  x86_SandyBridge.xml
-        │   │   ├── [-rw-r--r--  7.0K]  x86_SapphireRapids.xml
-        │   │   ├── [-rw-r--r--  5.7K]  x86_SierraForest.xml
-        │   │   ├── [-rw-r--r--  5.7K]  x86_Skylake-Client-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.7K]  x86_Skylake-Client-noTSX-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.7K]  x86_Skylake-Client.xml
-        │   │   ├── [-rw-r--r--  5.8K]  x86_Skylake-Server-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.8K]  x86_Skylake-Server-noTSX-IBRS.xml
-        │   │   ├── [-rw-r--r--  5.7K]  x86_Skylake-Server.xml
-        │   │   ├── [-rw-r--r--  5.7K]  x86_Snowridge.xml
-        │   │   ├── [-rw-r--r--  4.1K]  x86_Westmere-IBRS.xml
-        │   │   ├── [-rw-r--r--  4.2K]  x86_Westmere.xml
-        │   │   ├── [-rw-r--r--   754]  x86_athlon.xml
-        │   │   ├── [-rw-r--r--  2.1K]  x86_core2duo.xml
-        │   │   ├── [-rw-r--r--  1.6K]  x86_coreduo.xml
-        │   │   ├── [-rw-r--r--   784]  x86_cpu64-rhel5.xml
-        │   │   ├── [-rw-r--r--   841]  x86_cpu64-rhel6.xml
-        │   │   ├── [-rw-r--r--   37K]  x86_features.xml
-        │   │   ├── [-rw-r--r--  1.5K]  x86_kvm32.xml
-        │   │   ├── [-rw-r--r--  1.8K]  x86_kvm64.xml
-        │   │   ├── [-rw-r--r--   803]  x86_n270.xml
-        │   │   ├── [-rw-r--r--   349]  x86_pentium.xml
-        │   │   ├── [-rw-r--r--   589]  x86_pentium2.xml
-        │   │   ├── [-rw-r--r--   615]  x86_pentium3.xml
-        │   │   ├── [-rw-r--r--   564]  x86_pentiumpro.xml
-        │   │   ├── [-rw-r--r--   977]  x86_phenom.xml
-        │   │   ├── [-rw-r--r--   586]  x86_qemu32.xml
-        │   │   ├── [-rw-r--r--  1.0K]  x86_qemu64.xml
-        │   │   └── [-rw-r--r--   154]  x86_vendors.xml
-        │   └── [drwxr-xr-x     2]  schemas
+    └── [drwxr-xr-x     5]  share
+        ├── [drwxr-xr-x     3]  libvirt
+        │   └── [drwxr-xr-x    67]  cpu_map
+        │       ├── [-rw-r--r--  4.4K]  index.xml
+        │       ├── [-rw-r--r--   190]  x86_486.xml
+        │       ├── [-rw-r--r--  5.5K]  x86_Broadwell-IBRS.xml
+        │       ├── [-rw-r--r--  5.5K]  x86_Broadwell-noTSX-IBRS.xml
+        │       ├── [-rw-r--r--  5.4K]  x86_Broadwell-noTSX.xml
+        │       ├── [-rw-r--r--  5.5K]  x86_Broadwell.xml
+        │       ├── [-rw-r--r--  5.9K]  x86_Cascadelake-Server-noTSX.xml
+        │       ├── [-rw-r--r--  5.9K]  x86_Cascadelake-Server.xml
+        │       ├── [-rw-r--r--  2.2K]  x86_Conroe.xml
+        │       ├── [-rw-r--r--  6.2K]  x86_Cooperlake.xml
+        │       ├── [-rw-r--r--  1.9K]  x86_Dhyana.xml
+        │       ├── [-rw-r--r--  3.3K]  x86_EPYC-Genoa.xml
+        │       ├── [-rw-r--r--  2.0K]  x86_EPYC-IBPB.xml
+        │       ├── [-rw-r--r--  2.5K]  x86_EPYC-Milan.xml
+        │       ├── [-rw-r--r--  2.3K]  x86_EPYC-Rome.xml
+        │       ├── [-rw-r--r--  2.0K]  x86_EPYC.xml
+        │       ├── [-rw-r--r--  6.4K]  x86_GraniteRapids.xml
+        │       ├── [-rw-r--r--  5.3K]  x86_Haswell-IBRS.xml
+        │       ├── [-rw-r--r--  5.3K]  x86_Haswell-noTSX-IBRS.xml
+        │       ├── [-rw-r--r--  5.2K]  x86_Haswell-noTSX.xml
+        │       ├── [-rw-r--r--  5.3K]  x86_Haswell.xml
+        │       ├── [-rw-r--r--  2.3K]  x86_Icelake-Client-noTSX.xml
+        │       ├── [-rw-r--r--  2.3K]  x86_Icelake-Client.xml
+        │       ├── [-rw-r--r--  6.3K]  x86_Icelake-Server-noTSX.xml
+        │       ├── [-rw-r--r--  6.1K]  x86_Icelake-Server.xml
+        │       ├── [-rw-r--r--  4.7K]  x86_IvyBridge-IBRS.xml
+        │       ├── [-rw-r--r--  4.7K]  x86_IvyBridge.xml
+        │       ├── [-rw-r--r--  4.2K]  x86_Nehalem-IBRS.xml
+        │       ├── [-rw-r--r--  4.1K]  x86_Nehalem.xml
+        │       ├── [-rw-r--r--   861]  x86_Opteron_G1.xml
+        │       ├── [-rw-r--r--   973]  x86_Opteron_G2.xml
+        │       ├── [-rw-r--r--  1.1K]  x86_Opteron_G3.xml
+        │       ├── [-rw-r--r--  1.4K]  x86_Opteron_G4.xml
+        │       ├── [-rw-r--r--  1.5K]  x86_Opteron_G5.xml
+        │       ├── [-rw-r--r--  2.4K]  x86_Penryn.xml
+        │       ├── [-rw-r--r--  4.4K]  x86_SandyBridge-IBRS.xml
+        │       ├── [-rw-r--r--  4.3K]  x86_SandyBridge.xml
+        │       ├── [-rw-r--r--  7.0K]  x86_SapphireRapids.xml
+        │       ├── [-rw-r--r--  5.7K]  x86_SierraForest.xml
+        │       ├── [-rw-r--r--  5.7K]  x86_Skylake-Client-IBRS.xml
+        │       ├── [-rw-r--r--  5.7K]  x86_Skylake-Client-noTSX-IBRS.xml
+        │       ├── [-rw-r--r--  5.7K]  x86_Skylake-Client.xml
+        │       ├── [-rw-r--r--  5.8K]  x86_Skylake-Server-IBRS.xml
+        │       ├── [-rw-r--r--  5.8K]  x86_Skylake-Server-noTSX-IBRS.xml
+        │       ├── [-rw-r--r--  5.7K]  x86_Skylake-Server.xml
+        │       ├── [-rw-r--r--  5.7K]  x86_Snowridge.xml
+        │       ├── [-rw-r--r--  4.1K]  x86_Westmere-IBRS.xml
+        │       ├── [-rw-r--r--  4.2K]  x86_Westmere.xml
+        │       ├── [-rw-r--r--   754]  x86_athlon.xml
+        │       ├── [-rw-r--r--  2.1K]  x86_core2duo.xml
+        │       ├── [-rw-r--r--  1.6K]  x86_coreduo.xml
+        │       ├── [-rw-r--r--   784]  x86_cpu64-rhel5.xml
+        │       ├── [-rw-r--r--   841]  x86_cpu64-rhel6.xml
+        │       ├── [-rw-r--r--   37K]  x86_features.xml
+        │       ├── [-rw-r--r--  1.5K]  x86_kvm32.xml
+        │       ├── [-rw-r--r--  1.8K]  x86_kvm64.xml
+        │       ├── [-rw-r--r--   803]  x86_n270.xml
+        │       ├── [-rw-r--r--   349]  x86_pentium.xml
+        │       ├── [-rw-r--r--   589]  x86_pentium2.xml
+        │       ├── [-rw-r--r--   615]  x86_pentium3.xml
+        │       ├── [-rw-r--r--   564]  x86_pentiumpro.xml
+        │       ├── [-rw-r--r--   977]  x86_phenom.xml
+        │       ├── [-rw-r--r--   586]  x86_qemu32.xml
+        │       ├── [-rw-r--r--  1.0K]  x86_qemu64.xml
+        │       └── [-rw-r--r--   154]  x86_vendors.xml
         ├── [drwxr-xr-x     4]  polkit-1
         │   ├── [drwxr-xr-x     4]  actions
         │   │   ├── [-rw-r--r--   34K]  org.libvirt.api.policy
@@ -392,4 +329,4 @@
             └── [drwxr-xr-x     3]  tapset
                 └── [-rw-r--r--   41K]  libvirt_functions.stp
 
-151 directories, 243 files
+133 directories, 198 files

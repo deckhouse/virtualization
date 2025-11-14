@@ -257,7 +257,7 @@ shell:
     rm -rf $OUTDIR/usr/lib/systemd/
     rm -rf $OUTDIR/usr/bin/virt-qemu-qmp-proxy
     rm -rf $OUTDIR/usr/share/bash-completion/
-    rm -rf $OUTDIR/etc/ssh/ssh_config.d
+    rm -rf $OUTDIR/etc/ssh/
     rm -rf $OUTDIR/usr/share/doc
 
     find $OUTDIR -type f -executable | while read -r execfile; do
