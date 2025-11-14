@@ -52,6 +52,8 @@ type Interface interface {
 	VirtualMachineRestores() VirtualMachineRestoreInformer
 	// VirtualMachineSnapshots returns a VirtualMachineSnapshotInformer.
 	VirtualMachineSnapshots() VirtualMachineSnapshotInformer
+	// VirtualMachineSnapshotOperations returns a VirtualMachineSnapshotOperationInformer.
+	VirtualMachineSnapshotOperations() VirtualMachineSnapshotOperationInformer
 }
 
 type version struct {
@@ -133,4 +135,9 @@ func (v *version) VirtualMachineRestores() VirtualMachineRestoreInformer {
 // VirtualMachineSnapshots returns a VirtualMachineSnapshotInformer.
 func (v *version) VirtualMachineSnapshots() VirtualMachineSnapshotInformer {
 	return &virtualMachineSnapshotInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualMachineSnapshotOperations returns a VirtualMachineSnapshotOperationInformer.
+func (v *version) VirtualMachineSnapshotOperations() VirtualMachineSnapshotOperationInformer {
+	return &virtualMachineSnapshotOperationInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

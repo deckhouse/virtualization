@@ -107,7 +107,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return &reconcile.Result{}, nil
@@ -119,7 +119,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
