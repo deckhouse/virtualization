@@ -46,32 +46,8 @@ storageClasses:
   workers:
     root: ceph-pool-r2-csi-rbd-immediate
 
-# Infrastructure components
-infra:
-  nfs:
-    storageClass: nfs-4-1-wffc
-  dvcr:
-    storageClass: ceph-pool-r2-csi-rbd-immediate
-
-# Virtual disks configuration
-virtualDisks:
-  os:
-    storageClass: ceph-pool-r2-csi-rbd-immediate
-  data:
-    storageClass: nfs-4-1-wffc
-
-# Security settings
-security:
-  admissionPolicyEngine:
-    enabled: true
-  networkPolicies:
-    enabled: true
-
-# Feature flags
+# Feature flags (only those used by templates)
 features:
   virtualization: true
-  monitoring: true
-  logging: true
-  ingress: true
   nfs:
     enabled: false

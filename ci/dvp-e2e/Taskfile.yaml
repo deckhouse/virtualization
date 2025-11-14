@@ -232,8 +232,6 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        # Enable shell tracing when DEBUG_HOTPLUG is set
-        [ -n "${DEBUG_HOTPLUG:-}" ] && set -x || true
         echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs using hotplug in namespace {{ .NAMESPACE }}"
 
         # Wait for worker VMs
@@ -368,45 +366,18 @@ tasks:
               fi
               sleep 5
 
-              # Minimal periodic debug snapshot approximately every 60 seconds
-              if [ $((i % 12)) -eq 0 ]; then
-                echo "[DEBUG] VMBDA $vd summary:"
-                kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json \
-                  | jq -r '{phase: .status.phase, conditions: (.status.conditions // []) | map({type, status, reason, message})}' || true
-                echo "[DEBUG] VM $vm block devices (summary):"
-                kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
-                  | jq -r '{phase: .status.phase, blockDeviceRefs: (.status.blockDeviceRefs // []) | map({name, virtualMachineBlockDeviceAttachmentName, attached, hotplugged})}' || true
-              fi
-            done
+              done
 
             if [ "$phase" != "Attached" ] && [ "${success_by_vm:-0}" -ne 1 ]; then
               echo "[ERROR] Disk $vd failed to attach to VM $vm within timeout" >&2
-              echo "[DEBUG] Final VMBDA summary:"
-              kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o json \
-                | jq -r '{phase: .status.phase, conditions: (.status.conditions // []) | map({type, status, reason, message})}' || true
-              echo "[DEBUG] VM $vm block devices (summary):"
-              kubectl -n {{ .NAMESPACE }} get vm "$vm" -o json \
-                | jq -r '{phase: .status.phase, blockDeviceRefs: (.status.blockDeviceRefs // []) | map({name, virtualMachineBlockDeviceAttachmentName, attached, hotplugged})}' || true
+              # final debug snapshots removed
               exit 1
             fi
           done
 
           echo "[INFRA] VM $vm configured with hotplug disks"
 
-          # Optional on-node lsblk debug snapshot (requires d8 and SSH key). Always sudo for block devices visibility.
-          if command -v d8 >/dev/null 2>&1; then
-            echo "[DEBUG] Collecting lsblk from VM $vm..."
-            if ! d8 v ssh --username='{{ .DEFAULT_USER }}' \
-                  --identity-file='{{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}' \
-                  --local-ssh=true \
-                  --local-ssh-opts='-o StrictHostKeyChecking=no' \
-                  --local-ssh-opts='-o UserKnownHostsFile=/dev/null' \
-                  "${vm}.{{ .NAMESPACE }}" -c "sudo lsblk -o NAME,KNAME,TYPE,SIZE,MODEL,TRAN,FSTYPE,MOUNTPOINT -p"; then
-              echo "[WARN] lsblk collection failed for $vm (SSH)" >&2
-            fi
-          else
-            echo "[WARN] 'd8' CLI not found, skipping lsblk collection for $vm" >&2
-          fi
+          
         done
 
         echo "[INFRA] All worker VMs configured with storage disks via hotplug"
@@ -711,26 +682,7 @@ tasks:
           task dhctl-bootstrap VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' SSH_FILE_NAME='id_ed'
         } 2>&1 | tee '{{ .LOG_FILE }}'
 
-  local:tests:
-    desc: Local flow — prepare nested kubeconfig and run E2E (logs saved)
-    vars:
-      RUN_ID: '{{ .RUN_ID | default (printf "local-%s" (now | date "20060102-150405")) }}'
-      RUN_NAMESPACE: '{{ .RUN_NAMESPACE | default (printf "dvp-e2e-local-%s" .RUN_ID) }}'
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
-      LOG_FILE: '{{ .LOG_FILE | default (printf "%s/%s" .TMP_DIR "tests.log") }}'
-      E2E_DIR: '{{ .E2E_DIR | default (env "E2E_DIR") | default "../../tests/e2e" }}'
-      NESTED_SC: '{{ .NESTED_SC | default "ceph-pool-r2-csi-rbd-immediate" }}'
-    cmds:
-      - mkdir -p {{ .TMP_DIR }}
-      - |
-        set -euo pipefail
-        {
-          task nested:kubeconfig NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}'
-          task nested:storage:sds NESTED_KUBECONFIG='{{ .TMP_DIR }}/nested-{{ .RUN_NAMESPACE }}/kubeconfig' SDS_SC_NAME='{{ .NESTED_SC }}'
-          task nested:ensure-sc NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}' SC_NAME='{{ .NESTED_SC }}'
-          task nested:ensure-vmclass-default NESTED_KUBECONFIG='{{ .TMP_DIR }}/nested-{{ .RUN_NAMESPACE }}/kubeconfig'
-          task nested:e2e NAMESPACE='{{ .RUN_NAMESPACE }}' TMP_DIR='{{ .TMP_DIR }}' E2E_DIR='{{ .E2E_DIR }}'
-        } 2>&1 | tee '{{ .LOG_FILE }}'
+  
 
   # ------------------------------------------------------------
   # Nested cluster helpers (SC + kubeconfig)
@@ -850,33 +802,6 @@ tasks:
           echo "[INFO] Waiting for vmclass/generic to appear (attempt $i)..."
           sleep 10
         done
-
-  nested:storage:configure:
-    desc: Configure SDS storage profile inside nested cluster
-    vars:
-      STORAGE_PROFILE: '{{ .STORAGE_PROFILE | default "sds" }}'
-      NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
-      TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
-      STORAGE_PROFILE_NORMALIZED:
-        sh: |
-          case '{{ .STORAGE_PROFILE }}' in
-            sds|sds-local|sds_local|sds-replicated|sds_replicated) echo sds ;;
-            *) echo '{{ .STORAGE_PROFILE }}' ;;
-          esac
-    cmds:
-      - cmd: 'echo "[STORAGE] normalized profile = {{ .STORAGE_PROFILE_NORMALIZED }}"'
-      - |
-        set -euo pipefail
-        if [ '{{ .STORAGE_PROFILE_NORMALIZED }}' != "sds" ]; then
-          echo "[ERR] Only SDS storage profile is supported. Got: {{ .STORAGE_PROFILE_NORMALIZED }}" >&2
-          exit 1
-        fi
-      - |
-        echo "[SDS] Configuring SDS storage..."
-      - |
-        task nested:storage:sds \
-          NESTED_KUBECONFIG='{{ .NESTED_KUBECONFIG }}' \
-          SDS_SC_NAME='{{ .TARGET_STORAGE_CLASS }}'
 
   nested:storage:sds:
     desc: Configure SDS storage profile in nested cluster

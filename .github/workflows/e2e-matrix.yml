@@ -166,28 +166,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.kube"
-          cat > "$HOME/.kube/config" <<EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              server: ${E2E_K8S_URL}
-              insecure-skip-tls-verify: true
-            name: parent
-          contexts:
-          - context:
-              cluster: parent
-              user: sa
-            name: parent
-          current-context: parent
-          users:
-          - name: sa
-            user:
-              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
-          chmod 600 "$HOME/.kube/config"
-          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+          chmod +x ci/dvp-e2e/scripts/build_parent_kubeconfig.sh
+          KCFG="$HOME/.kube/config"
+          ci/dvp-e2e/scripts/build_parent_kubeconfig.sh -o "$KCFG" -a "${E2E_K8S_URL}" -t "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
 
       - name: Prepare run values.yaml
         working-directory: ci/dvp-e2e
@@ -222,7 +204,9 @@ jobs:
       - name: Inject REGISTRY_DOCKER_CFG into values.yaml
         working-directory: ci/dvp-e2e
         run: |
-          yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+          chmod +x scripts/inject_registry_cfg.sh
+          VALS="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+          REGISTRY_DOCKER_CFG="${REGISTRY_DOCKER_CFG}" scripts/inject_registry_cfg.sh -f "$VALS" -v "$REGISTRY_DOCKER_CFG"
 
       - name: Docker login to Deckhouse registry
         uses: docker/login-action@v3
@@ -323,29 +307,14 @@ jobs:
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
             PARENT_KUBECONFIG="${KUBECONFIG}"
 
-      - name: Configure storage classes
+      - name: Configure SDS in nested cluster
         working-directory: ci/dvp-e2e
         run: |
-          echo "💾 Configuring storage classes for profile: sds-replicated-volume -> sds"
-          task nested:storage:configure \
-            STORAGE_PROFILE="sds" \
-            TARGET_STORAGE_CLASS="${{ steps.profile-config.outputs.storage_class }}" \
+          echo "💾 Configuring SDS storage (sds-node-configurator + sds-replicated-volume)"
+          task nested:storage:sds \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
-            GENERATED_VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/generated-values.yaml" \
-            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
-            SSH_FILE_NAME="id_ed" \
-            PASSWORD_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password.txt" \
-            PASSWORD_HASH_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/password-hash.txt" \
-            NAMESPACE="${{ env.RUN_ID }}" \
-            DOMAIN="" \
-            DEFAULT_USER="ubuntu" \
-            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
-            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig"
-
-      # Ingress smoke disabled: not required for storage config
-
-      # Ceph CSI smoke check removed per request
+            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
+            SDS_SC_NAME="${{ steps.profile-config.outputs.storage_class }}"
 
       - name: Upload run context
         if: always()
@@ -378,35 +347,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$HOME/.kube"
-          cat > "$HOME/.kube/config" <<EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              server: ${E2E_K8S_URL}
-              insecure-skip-tls-verify: true
-            name: parent
-          contexts:
-          - context:
-              cluster: parent
-              user: sa
-            name: parent
-          current-context: parent
-          users:
-          - name: sa
-            user:
-              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
-          chmod 600 "$HOME/.kube/config"
-          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+          chmod +x ci/dvp-e2e/scripts/build_parent_kubeconfig.sh
+          KCFG="$HOME/.kube/config"
+          ci/dvp-e2e/scripts/build_parent_kubeconfig.sh -o "$KCFG" -a "${E2E_K8S_URL}" -t "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
 
       - name: Cleanup test namespaces
+        env:
+          CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
         run: |
           set -euo pipefail
-          echo "🧹 Cleaning up namespaces matching 'nightly-nested-e2e-*'"
-          kubectl get ns -o name | grep "namespace/nightly-nested-e2e-" | cut -d/ -f2 | \
-            xargs -r kubectl delete ns --wait=false || echo "[INFO] No namespaces to delete"
+          echo "🧹 Cleaning namespaces with prefix '${CLEANUP_PREFIX}'"
+          ns_list=$(kubectl get ns -o json | jq -r --arg p "$CLEANUP_PREFIX" '.items[].metadata.name | select(startswith($p))')
+          if [ -z "$ns_list" ]; then
+            echo "[INFO] No namespaces to delete"; exit 0
+          fi
+          for ns in $ns_list; do
+            echo "[CLEANUP] Deleting namespace $ns ..."
+            kubectl delete ns "$ns" --wait=false || true
+          done
+          echo "[CLEANUP] Waiting for namespaces to be deleted..."
+          for ns in $ns_list; do
+            kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
+          done
 
       - name: Report cleanup results
         if: always()

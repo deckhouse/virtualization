@@ -1,18 +1,3 @@
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: dvp-over-dvp-80
-  namespace: {{ .Values.namespace }}
-spec:
-  ports:
-  - port: 80
-    targetPort: 80
-    protocol: TCP
-    name: http
-  selector:
-    dvp.deckhouse.io/node-group: master
----
 apiVersion: v1
 kind: Service
 metadata:
@@ -50,25 +35,3 @@ spec:
             port:
               number: 443
   {{- end }}
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: wildcard-http
-  namespace: {{ .Values.namespace }}
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: "*.{{ .Values.namespace }}.{{ .Values.domain }}"
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: dvp-over-dvp-80
-            port:
-              number: 80
