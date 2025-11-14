@@ -122,18 +122,18 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// Unprotect import time supplements to delete them later.
-		err = ds.importerService.Unprotect(ctx, pod)
+		err = ds.importerService.Unprotect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, supgen, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -195,7 +195,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 
-		err = ds.importerService.Protect(ctx, pod)
+		err = ds.importerService.Protect(ctx, pod, supgen)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -328,7 +328,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk)
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
-		err = ds.diskService.Protect(ctx, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
