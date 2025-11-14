@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
@@ -40,6 +41,9 @@ type VirtualDiskTestArgs struct {
 
 	shouldBeDeleted bool
 	shouldBeCreated bool
+
+	statusStorageClassName string
+	specStorageClassName   string
 }
 
 var _ = Describe("VirtualDiskRestorer", func() {
@@ -128,6 +132,16 @@ var _ = Describe("VirtualDiskRestorer", func() {
 				}
 			}
 
+			if args.specStorageClassName != "" {
+				disk.Spec.PersistentVolumeClaim = v1alpha2.VirtualDiskPersistentVolumeClaim{
+					StorageClass: ptr.To(args.specStorageClassName),
+				}
+			}
+
+			if args.statusStorageClassName != "" {
+				disk.Status.StorageClassName = args.statusStorageClassName
+			}
+
 			if args.diskExists {
 				objects = append(objects, &disk)
 			}
@@ -152,6 +166,16 @@ var _ = Describe("VirtualDiskRestorer", func() {
 				Expect(err).To(HaveOccurred())
 			} else {
 				Expect(err).ToNot(HaveOccurred())
+			}
+
+			if args.statusStorageClassName != "" {
+				Expect(handler.vd.Spec.PersistentVolumeClaim.StorageClass).ToNot(BeNil())
+				Expect(*handler.vd.Spec.PersistentVolumeClaim.StorageClass).To(Equal(args.statusStorageClassName))
+			}
+
+			if args.specStorageClassName != "" {
+				Expect(handler.vd.Spec.PersistentVolumeClaim.StorageClass).ToNot(BeNil())
+				Expect(*handler.vd.Spec.PersistentVolumeClaim.StorageClass).To(Equal(args.specStorageClassName))
 			}
 
 			Expect(diskDeleted).To(Equal(args.shouldBeDeleted))
@@ -186,6 +210,30 @@ var _ = Describe("VirtualDiskRestorer", func() {
 
 			shouldBeDeleted: false,
 			shouldBeCreated: true,
+		}),
+		Entry("disk doesn't exist; took storage class from status", VirtualDiskTestArgs{
+			diskExists:       false,
+			diskUsedByDiffVM: false,
+
+			failValidation: false,
+			failProcess:    false,
+
+			shouldBeDeleted: false,
+			shouldBeCreated: true,
+
+			statusStorageClassName: "test-storage-class",
+		}),
+		Entry("disk doesn't exist; took storage class from spec", VirtualDiskTestArgs{
+			diskExists:       false,
+			diskUsedByDiffVM: false,
+
+			failValidation: false,
+			failProcess:    false,
+
+			shouldBeDeleted: false,
+			shouldBeCreated: true,
+
+			specStorageClassName: "test-storage-class",
 		}),
 		Entry("disk deletion completed; ready to create", VirtualDiskTestArgs{
 			diskExists:       false,
