@@ -20,29 +20,25 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type volumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
-}
 type StorageClassValidator struct {
 	client     client.Client
 	scService  *intsvc.VirtualDiskStorageClassService
-	modeGetter volumeAndAccessModesGetter
+	modeGetter volumemode.VolumeAndAccessModesGetter
 }
 
-func NewMigrationStorageClassValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService, modeGetter volumeAndAccessModesGetter) *StorageClassValidator {
+func NewMigrationStorageClassValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService, modeGetter volumemode.VolumeAndAccessModesGetter) *StorageClassValidator {
 	return &StorageClassValidator{
 		client:     client,
 		scService:  scService,

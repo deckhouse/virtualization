@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	gt "github.com/deckhouse/virtualization/test/e2e/internal/git"
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
 
 var clients = Clients{}
@@ -48,6 +49,7 @@ type Clients struct {
 	d8virtualization d8.D8Virtualization
 	client           client.Client
 	dynamic          dynamic.Interface
+	rewriteClient    rewrite.Client
 
 	git gt.Git
 }
@@ -66,6 +68,10 @@ func (c Clients) GenericClient() client.Client {
 
 func (c Clients) DynamicClient() dynamic.Interface {
 	return c.dynamic
+}
+
+func (c Clients) RewriteClient() rewrite.Client {
+	return c.rewriteClient
 }
 
 func (c Clients) Kubectl() kubectl.Kubectl {
@@ -99,6 +105,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	clients.rewriteClient = rewrite.NewRewriteClient(clients.dynamic)
 	clients.kubectl, err = kubectl.NewKubectl(kubectl.KubectlConf(conf.ClusterTransport))
 	if err != nil {
 		panic(err)

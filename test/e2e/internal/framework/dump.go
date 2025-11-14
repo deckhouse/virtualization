@@ -89,6 +89,7 @@ func (f *Framework) saveTestCaseResources(testCaseFullText, dumpPath string) {
 	})
 	if result.Error() != nil {
 		GinkgoWriter.Printf("Get resources error:\n%s\n%w\n%s\n", result.GetCmd(), result.Error(), result.StdErr())
+		return
 	}
 
 	// Stdout may present even if error is occurred.
@@ -104,10 +105,12 @@ func (f *Framework) savePodAdditionalInfo(testCaseFullText, dumpPath string) {
 	pods, err := f.Clients.kubeClient.CoreV1().Pods(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
+		return
 	}
 
 	if len(pods.Items) == 0 {
 		GinkgoWriter.Println("The list of pods is empty; nothing to dump.")
+		return
 	}
 
 	for _, pod := range pods.Items {
@@ -121,6 +124,7 @@ func (f *Framework) saveIntvirtvmDescriptions(testCaseFullText, dumpPath string)
 	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe intvirtvm --namespace %s", f.Namespace().Name), ShortTimeout)
 	if describeCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachine:\nError: %s\n", describeCmd.StdErr())
+		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__intvirtvm_describe", dumpPath, testCaseFullText)
@@ -134,12 +138,14 @@ func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText str
 	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(namespace).GetLogs(name, &corev1.PodLogOptions{}).Stream(context.Background())
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %w\n", name, err)
+		return
 	}
 	defer podLogs.Close()
 
 	logs, err := io.ReadAll(podLogs)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nError: %w\n", name, err)
+		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__logs.json", filePath, testCaseFullText, name)
@@ -153,6 +159,7 @@ func (f *Framework) writePodDescription(name, namespace, filePath, testCaseFullT
 	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe pod %s --namespace %s", name, namespace), ShortTimeout)
 	if describeCmd.Error() != nil {
 		GinkgoWriter.Printf("Failed to describe pod:\nPodName: %s\nError: %s\n", name, describeCmd.StdErr())
+		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__describe", filePath, testCaseFullText, name)
@@ -168,6 +175,7 @@ func (f *Framework) writeVirtualMachineGuestInfo(pod corev1.Pod, filePath, testC
 			vlctlGuestInfoCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("exec --stdin=true --tty=true %s --namespace %s -- vlctl guest info", pod.Name, pod.Namespace), ShortTimeout)
 			if vlctlGuestInfoCmd.Error() != nil {
 				GinkgoWriter.Printf("Failed to get pod guest info:\nPodName: %s\nError: %s\n", pod.Name, vlctlGuestInfoCmd.StdErr())
+				return
 			}
 
 			fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__vlctl_guest_info", filePath, testCaseFullText, pod.Name)
