@@ -1,0 +1,33 @@
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: LVMVolumeGroup
+metadata:
+  name: data
+spec:
+  # Local VG; explicit local section is required for type=Local
+  type: Local
+  local:
+    actualVGNameOnTheNode: data
+  blockDeviceSelector:
+    devicePaths:
+      - /dev/sdd
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: ReplicatedStoragePool
+metadata:
+  name: data
+spec:
+  # Pool type must be LVM or LVMThin
+  type: LVM
+  lvmVolumeGroups:
+    - name: data
+---
+apiVersion: storage.deckhouse.io/v1alpha1
+kind: ReplicatedStorageClass
+metadata:
+  name: linstor-thin-r2
+spec:
+  storagePool: data
+  reclaimPolicy: Delete
+  topology: Ignored
+  volumeAccess: Local
