@@ -134,7 +134,8 @@ func (o *draOptions) Validate() error {
 }
 
 func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
-	if err := o.initPluginDirs(); err != nil {
+	err := plugin.InitPluginDirs(o.KubeletPluginsDirectoryPath, o.KubeletRegisterDirectoryPath)
+	if err != nil {
 		return err
 	}
 
@@ -173,24 +174,6 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	driver.Wait()
 	driver.Shutdown()
 	healthCheck.Stop()
-
-	return nil
-}
-
-func (o *draOptions) initPluginDirs() error {
-	if o.KubeletRegisterDirectoryPath != "" {
-		plugin.KubeletRegistryDir = o.KubeletRegisterDirectoryPath
-	}
-	if o.KubeletPluginsDirectoryPath != "" {
-		plugin.KubeletPluginsDir = o.KubeletPluginsDirectoryPath
-	}
-
-	if err := os.MkdirAll(plugin.KubeletPluginsDir, 0700); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", plugin.KubeletPluginsDir, err)
-	}
-	if err := os.MkdirAll(plugin.KubeletPluginsDir, 0700); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", plugin.KubeletPluginsDir, err)
-	}
 
 	return nil
 }

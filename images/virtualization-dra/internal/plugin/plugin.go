@@ -17,6 +17,8 @@ limitations under the License.
 package plugin
 
 import (
+	"fmt"
+	"os"
 	"path"
 
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
@@ -46,4 +48,25 @@ func virtualizationRegistrarDirPath() string {
 
 func virtualizationRegistrarSocketPath() string {
 	return path.Join(virtualizationRegistrarDirPath(), virtualizationRegistrarSocketFilename)
+}
+
+func InitPluginDirs(kubeletPluginDir, kubeletRegistryDir string) error {
+	if kubeletPluginDir != "" {
+		KubeletPluginsDir = kubeletPluginDir
+
+		pluginDir := virtualizationPluginDirPath()
+		if err := os.MkdirAll(pluginDir, 0700); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", pluginDir, err)
+		}
+	}
+	if kubeletRegistryDir != "" {
+		KubeletRegistryDir = kubeletRegistryDir
+
+		registryDir := virtualizationRegistrarDirPath()
+		if err := os.MkdirAll(registryDir, 0700); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", registryDir, err)
+		}
+	}
+
+	return nil
 }
