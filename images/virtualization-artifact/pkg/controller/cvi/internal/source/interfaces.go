@@ -70,3 +70,8 @@ type Stat interface {
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
 	CheckPod(pod *corev1.Pod) error
 }
+
+type DVCRMaintenance interface {
+	GetMaintenanceSecret(ctx context.Context) (*corev1.Secret, error)
+	IsMaintenanceInitiatedOrInProgress(secret *corev1.Secret) bool
+}

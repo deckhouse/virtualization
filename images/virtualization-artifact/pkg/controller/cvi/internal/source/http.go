@@ -46,6 +46,7 @@ type HTTPDataSource struct {
 	statService         Stat
 	importerService     Importer
 	dvcrSettings        *dvcr.Settings
+	dvcrService         DVCRMaintenance
 	controllerNamespace string
 	recorder            eventrecord.EventRecorderLogger
 }
@@ -55,12 +56,14 @@ func NewHTTPDataSource(
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
+	dvcrService DVCRMaintenance,
 	controllerNamespace string,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:         statService,
 		importerService:     importerService,
 		dvcrSettings:        dvcrSettings,
+		dvcrService:         dvcrService,
 		controllerNamespace: controllerNamespace,
 		recorder:            recorder,
 	}
