@@ -30,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -360,19 +361,21 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.VdSnapshots,
-				AdditionalResources: []AdditionalResource{
-					{
-						Resource: kc.ResourceVDSnapshot,
-						Labels:   hasNoConsumerLabel,
+			if config.IsCleanUpNeeded() {
+				DeleteTestCaseResources(ns, ResourcesToDelete{
+					KustomizationDir: conf.TestData.VdSnapshots,
+					AdditionalResources: []AdditionalResource{
+						{
+							Resource: kc.ResourceVDSnapshot,
+							Labels:   hasNoConsumerLabel,
+						},
+						{
+							Resource: kc.ResourceVDSnapshot,
+							Labels:   attachedVirtualDiskLabel,
+						},
 					},
-					{
-						Resource: kc.ResourceVDSnapshot,
-						Labels:   attachedVirtualDiskLabel,
-					},
-				},
-			})
+				})
+			}
 		})
 	})
 })

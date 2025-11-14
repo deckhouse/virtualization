@@ -63,6 +63,8 @@ const (
 	VolumeSnapshotLost VirtualDiskSnapshotReadyReason = "Lost"
 	// FileSystemFreezing signifies that the `VirtualDiskSnapshot` resource is in the process of freezing the filesystem of the virtual machine associated with the source virtual disk.
 	FileSystemFreezing VirtualDiskSnapshotReadyReason = "FileSystemFreezing"
+	// FileSystemUnfreezing signifies that the `VirtualDiskSnapshot` resource is in the process of unfreezing the filesystem of the virtual machine associated with the source virtual disk.
+	FileSystemUnfreezing VirtualDiskSnapshotReadyReason = "FileSystemUnfreezing"
 	// Snapshotting signifies that the `VirtualDiskSnapshot` resource is in the process of taking a snapshot of the virtual disk.
 	Snapshotting VirtualDiskSnapshotReadyReason = "Snapshotting"
 	// VirtualDiskSnapshotReady signifies that the snapshot process is complete and the `VirtualDiskSnapshot` is ready for use.
