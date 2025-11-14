@@ -158,6 +158,9 @@ var _ = Describe("LifeCycle handler", func() {
 				}
 				return vs, nil
 			}
+			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
+				return false, nil
+			}
 
 			h := NewLifeCycleHandler(snapshotter)
 
