@@ -154,6 +154,9 @@ var _ = Describe("LifeCycle handler", func() {
 			GetKubeVirtVirtualMachineInstanceFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 				return kvvmi, nil
 			},
+			SyncFSFreezeRequestFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
+				return nil
+			},
 		}
 
 		var err error
