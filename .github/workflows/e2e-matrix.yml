@@ -18,6 +18,8 @@ on:
   push:
     branches:
       - chore/ci/e2e-matrix-skeleton
+      - ci-e2e-nested-sds
+      - wip/restore-jump-host
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
