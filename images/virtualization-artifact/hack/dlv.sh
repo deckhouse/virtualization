@@ -75,12 +75,14 @@ kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -
     "spec": {
         "template": {
             "spec": {
-                "containers": [{
-                       "name": "${deployment}",
+                "containers": [
+                    {
+                        "name": "${deployment}",
                         "image": "${IMAGE}",
-                        "ports": [{"containerPort": 2345, "name": "dlv"}]
+                        "ports": [{"containerPort": 2345, "name": "dlv"}],
                         "readinessProbe": null,
-                        "livenessProbe": null
+                        "livenessProbe": null,
+                        "command": null,
                         "args": []
                     },
                     {
@@ -93,7 +95,7 @@ kubectl -n d8-virtualization patch deployment ${deployment} --type='strategic' -
                         "readinessProbe": null,
                         "livenessProbe": null
                     }
-                }]
+                ]
             }
         }
     }
