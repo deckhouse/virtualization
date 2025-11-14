@@ -36,11 +36,6 @@ import (
 )
 
 var _ = Describe("VirtualMachineMigration", func() {
-	const (
-		externalHost = "https://flant.ru"
-		httpStatusOk = "200"
-	)
-
 	var (
 		vdRootBIOS  *v1alpha2.VirtualDisk
 		vdBlankBIOS *v1alpha2.VirtualDisk
