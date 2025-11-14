@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -29,6 +30,7 @@ func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
 	if err := app.NewVirtualizationDraPluginCommand().ExecuteContext(ctx); err != nil {
+		slog.Error("failed to execute command", slog.Any("err", err))
 		os.Exit(1)
 	}
 }
