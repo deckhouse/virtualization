@@ -176,8 +176,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			return reconcile.Result{}, nil
 		}
 		if k8serrors.IsConflict(err) {
-			result = reconcile.Result{RequeueAfter: 5 * time.Second}
-			handlerErr = err
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, err
 		}
 		return reconcile.Result{}, err
 	}
