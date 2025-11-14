@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/defaulter"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 func TestDefaulters(t *testing.T) {
@@ -50,21 +51,21 @@ var _ = Describe("Set default class in virtualMachineClasName", func() {
 		classDefaulter = defaulter.NewVirtualMachineClassNameDefaulter(fakeClient, vmClassService)
 	}
 
-	newVMClass := func(name string) *v1alpha2.VirtualMachineClass {
-		return &v1alpha2.VirtualMachineClass{
+	newVMClass := func(name string) *v1alpha3.VirtualMachineClass {
+		return &v1alpha3.VirtualMachineClass{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       v1alpha2.VirtualMachineClassKind,
-				APIVersion: v1alpha2.SchemeGroupVersion.String(),
+				Kind:       v1alpha3.VirtualMachineClassKind,
+				APIVersion: v1alpha3.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec:   v1alpha2.VirtualMachineClassSpec{},
-			Status: v1alpha2.VirtualMachineClassStatus{},
+			Spec:   v1alpha3.VirtualMachineClassSpec{},
+			Status: v1alpha3.VirtualMachineClassStatus{},
 		}
 	}
 
-	newDefaultVMClass := func(name string) *v1alpha2.VirtualMachineClass {
+	newDefaultVMClass := func(name string) *v1alpha3.VirtualMachineClass {
 		vmClass := newVMClass(name)
 		vmClass.Annotations = map[string]string{
 			annotations.AnnVirtualMachineClassDefault: "true",

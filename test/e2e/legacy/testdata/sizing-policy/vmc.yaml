@@ -1,4 +1,4 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
+apiVersion: virtualization.deckhouse.io/v1alpha3
 kind: VirtualMachineClass
 metadata:
   name: sizing-policy-discovery
@@ -18,11 +18,11 @@ spec:
           - worker
   sizingPolicies:
     - coreFractions:
-        - 5
-        - 10
-        - 20
-        - 50
-        - 100
+        - "5%"
+        - "10%"
+        - "20%"
+        - "50%"
+        - "100%"
       cores:
         max: 4
         min: 1
@@ -33,9 +33,9 @@ spec:
         min: 1Gi
         step: 512Mi
     - coreFractions:
-        - 20
-        - 50
-        - 100
+        - "20%"
+        - "50%"
+        - "100%"
       cores:
         max: 8
         min: 5
@@ -46,8 +46,8 @@ spec:
         min: 5Gi
         step: 1Gi
     - coreFractions:
-        - 50
-        - 100
+        - "50%"
+        - "100%"
       cores:
         max: 16
         min: 9
@@ -59,7 +59,7 @@ spec:
         min: 9Gi
         step: 1Gi
     - coreFractions:
-        - 100
+        - "100%"
       cores:
         max: 1024
         min: 17

@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 const (
@@ -58,7 +59,6 @@ func NewController(
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
 		CacheSyncTimeout: 10 * time.Minute,
-		UsePriorityQueue: ptr.To(true),
 	})
 	if err != nil {
 		return nil, err
@@ -68,9 +68,18 @@ func NewController(
 		return nil, err
 	}
 
+	validator := NewValidator(mgr.GetClient(), log, recorder, vmClassService)
+
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineClass{}).
-		WithValidator(NewValidator(mgr.GetClient(), log, recorder, vmClassService)).
+		WithValidator(validator).
+		Complete(); err != nil {
+		return nil, err
+	}
+
+	if err = builder.WebhookManagedBy(mgr).
+		For(&v1alpha3.VirtualMachineClass{}).
+		WithValidator(validator).
 		Complete(); err != nil {
 		return nil, err
 	}

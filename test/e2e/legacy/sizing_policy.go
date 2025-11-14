@@ -19,7 +19,6 @@ package legacy
 import (
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
@@ -177,7 +177,7 @@ var _ = Describe("SizingPolicy", Ordered, func() {
 			})
 
 			It("creates new `VirtualMachineClass`", func() {
-				vmClass := v1alpha2.VirtualMachineClass{}
+				vmClass := v1alpha3.VirtualMachineClass{}
 				err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				vmClass.Name = vmClassDiscoveryCopy
@@ -214,7 +214,7 @@ var _ = Describe("SizingPolicy", Ordered, func() {
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			vmClass := v1alpha2.VirtualMachineClass{}
+			vmClass := v1alpha3.VirtualMachineClass{}
 			err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -238,8 +238,8 @@ var _ = Describe("SizingPolicy", Ordered, func() {
 	})
 })
 
-func ValidateVirtualMachineByClass(virtualMachineClass *v1alpha2.VirtualMachineClass, virtualMachine *v1alpha2.VirtualMachine) {
-	var sizingPolicy v1alpha2.SizingPolicy
+func ValidateVirtualMachineByClass(virtualMachineClass *v1alpha3.VirtualMachineClass, virtualMachine *v1alpha2.VirtualMachine) {
+	var sizingPolicy v1alpha3.SizingPolicy
 	for _, p := range virtualMachineClass.Spec.SizingPolicies {
 		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
 			sizingPolicy = *p.DeepCopy()
@@ -252,9 +252,7 @@ func ValidateVirtualMachineByClass(virtualMachineClass *v1alpha2.VirtualMachineC
 	checkMemory := checkMinMemory && checkMaxMemory
 	Expect(checkMemory).To(BeTrue(), fmt.Errorf("memory size outside of possible interval '%v - %v': %v", sizingPolicy.Memory.Min, sizingPolicy.Memory.Max, virtualMachine.Spec.Memory.Size))
 
-	coreFraction, err := strconv.Atoi(strings.ReplaceAll(virtualMachine.Spec.CPU.CoreFraction, "%", ""))
-	Expect(err).NotTo(HaveOccurred(), "cannot convert CoreFraction value to integer: %s", err)
-	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, v1alpha2.CoreFractionValue(coreFraction))
+	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, v1alpha3.CoreFractionValue(virtualMachine.Spec.CPU.CoreFraction))
 	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))
 }
 

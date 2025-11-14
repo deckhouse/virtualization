@@ -48,7 +48,7 @@ nameReference:
       - path: spec/virtualMachineName
         kind: VirtualMachineBlockDeviceAttachment
   - kind: VirtualMachineClass
-    version: v1alpha2
+    version: v1alpha3
     fieldSpecs:
       - path: spec/virtualMachineClassName
         kind: VirtualMachine
