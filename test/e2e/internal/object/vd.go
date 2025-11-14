@@ -23,52 +23,64 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewGeneratedVDFromCVI(prefix, namespace string, cvi *v1alpha2.ClusterVirtualImage) *v1alpha2.VirtualDisk {
-	return vd.New(
+func NewGeneratedVDFromCVI(prefix, namespace string, cvi *v1alpha2.ClusterVirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
+	baseOpts := []vd.Option{
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceObjectRefFromCVI(cvi),
-	)
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vd.New(baseOpts...)
 }
 
-func NewVDFromCVI(name, namespace string, cvi *v1alpha2.ClusterVirtualImage) *v1alpha2.VirtualDisk {
-	return vd.New(
+func NewVDFromCVI(name, namespace string, cvi *v1alpha2.ClusterVirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
+	baseOpts := []vd.Option{
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceObjectRefFromCVI(cvi),
-	)
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vd.New(baseOpts...)
 }
 
-func NewGeneratedVDFromVI(prefix, namespace string, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
-	return vd.New(
+func NewGeneratedVDFromVI(prefix, namespace string, vi *v1alpha2.VirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
+	baseOpts := []vd.Option{
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceObjectRefFromVI(vi),
-	)
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vd.New(baseOpts...)
 }
 
-func NewVDFromVI(name, namespace string, vi *v1alpha2.VirtualImage) *v1alpha2.VirtualDisk {
-	return vd.New(
+func NewVDFromVI(name, namespace string, vi *v1alpha2.VirtualImage, opts ...vd.Option) *v1alpha2.VirtualDisk {
+	baseOpts := []vd.Option{
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceObjectRefFromVI(vi),
-	)
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vd.New(baseOpts...)
 }
 
-func NewBlankVD(name, namespace string, storageClass *string, size *resource.Quantity) *v1alpha2.VirtualDisk {
-	return vd.New(
+func NewBlankVD(name, namespace string, storageClass *string, size *resource.Quantity, opts ...vd.Option) *v1alpha2.VirtualDisk {
+	baseOpts := []vd.Option{
 		vd.WithName(name),
 		vd.WithNamespace(namespace),
 		vd.WithPersistentVolumeClaim(storageClass, size),
-	)
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vd.New(baseOpts...)
 }
 
-func NewGeneratedHTTPVDUbuntu(prefix, namespace string) *v1alpha2.VirtualDisk {
-	return vd.New(
+func NewGeneratedHTTPVDUbuntu(prefix, namespace string, opts ...vd.Option) *v1alpha2.VirtualDisk {
+	baseOpts := []vd.Option{
 		vd.WithGenerateName(prefix),
 		vd.WithNamespace(namespace),
 		vd.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: ImageURLUbuntu,
 		}),
-	)
+	}
+	baseOpts = append(baseOpts, opts...)
+	return vd.New(baseOpts...)
 }
