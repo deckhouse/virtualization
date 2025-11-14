@@ -162,3 +162,7 @@ spec:
   workload:
     nodeSelector:
       kubernetes.io/os: linux
+    tolerations:
+      - key: dedicated.deckhouse.io
+        operator: Equal
+        value: system
