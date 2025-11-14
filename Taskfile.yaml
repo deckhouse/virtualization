@@ -253,7 +253,7 @@ tasks:
       IMAGE: "{{ .DLV_IMAGE }}"
     cmd: |
       cat <<EOF
-      kubectl -n d8-virtualization patch deploy virtualization-dra --type='strategic' -p '{
+      kubectl -n d8-virtualization patch ds virtualization-dra --type='strategic' -p '{
         "spec": {
           "template": {
             "spec": {

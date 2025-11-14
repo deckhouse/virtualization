@@ -176,10 +176,10 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 }
 
 func (o *draOptions) initPluginDirs() {
-	if o.KubeletRegisterDirectoryPath == "" {
+	if o.KubeletRegisterDirectoryPath != "" {
 		plugin.KubeletRegistryDir = o.KubeletRegisterDirectoryPath
 	}
-	if o.KubeletPluginsDirectoryPath == "" {
+	if o.KubeletPluginsDirectoryPath != "" {
 		plugin.KubeletPluginsDir = o.KubeletPluginsDirectoryPath
 	}
 }
