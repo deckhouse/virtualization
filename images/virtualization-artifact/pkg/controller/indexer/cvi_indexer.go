@@ -46,3 +46,18 @@ func IndexCVIByVDSnapshot() (obj client.Object, field string, extractValue clien
 		return []string{key.String()}
 	}
 }
+
+func IndexCVIByPhase() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.ClusterVirtualImage{}, IndexFieldCVIByPhase, func(object client.Object) []string {
+		cvi, ok := object.(*v1alpha2.ClusterVirtualImage)
+		if !ok || cvi == nil {
+			return nil
+		}
+
+		if cvi.Status.Phase == v1alpha2.ImageReady {
+			return []string{ReadyDVCRImage}
+		}
+
+		return nil
+	}
+}

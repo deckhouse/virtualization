@@ -74,8 +74,11 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		dvcr.ImageMonitorSchedule,
+		log,
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
+		internal.NewImagePresenceHandler(mgr.GetClient(), dvcr),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
