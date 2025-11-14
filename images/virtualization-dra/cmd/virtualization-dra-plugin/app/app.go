@@ -134,7 +134,9 @@ func (o *draOptions) Validate() error {
 }
 
 func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
-	o.initPluginDirs()
+	if err := o.initPluginDirs(); err != nil {
+		return err
+	}
 
 	cfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
 	if err != nil {
