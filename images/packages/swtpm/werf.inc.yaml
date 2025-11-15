@@ -35,7 +35,7 @@ altPackages:
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
 - libgnutls-openssl-devel
 - libfuse-devel
-- libseccomp-devel libseccomp
+- libseccomp
 - perl-podlators
 packages:
 - libgmp libtpms openssl libjson-glib
@@ -43,6 +43,7 @@ packages:
 - glib2 util-linux
 - gnutls
 - libunistring
+- libseccomp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

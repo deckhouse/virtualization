@@ -1,10 +1,13 @@
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
-packages:
+altPackages:
 - gcc
 - git pkg-config cmake
-- hardlink binutils glibc-kernheaders
+- binutils
 - make bison python3
+- tree
+packages:
+- util-linux
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -28,16 +31,27 @@ import:
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  stageDependencies:
+    install:
+      - '**/*'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --revision {{ $version }} /src
+    cd /src
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    
 
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
@@ -53,7 +67,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.altPackages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -64,18 +78,40 @@ shell:
     mkdir /build
     cd /build
 
+    # this is a workaround for the glibc build system
+    # to have most of the files in the lib64 directory,
+    # we need to set the libdir and slibdir to /usr/lib64
+    cat > configparms << EOF
+    libdir=/usr/lib64
+    slibdir=/usr/lib64
+    rootsbindir=/usr/sbin
+    EOF
+
     ../src/configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
+      --sbindir=/usr/sbin \
       --disable-crypt \
       --disable-profile \
       --enable-bind-now \
       --enable-obsolete-rpc \
       --enable-stack-protector=strong \
-      --enable-fortify-source=3 \
+      --enable-fortify-source=3
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
+    # remove systemd dir
+    rm -rf $OUTDIR/usr/lib
+    mv $OUTDIR/lib64/* $OUTDIR/usr/lib64/
+    rm -rf $OUTDIR/lib64
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+
+    tree -hp $OUTDIR
 
 {{- end }}

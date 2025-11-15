@@ -2,11 +2,12 @@
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
 altPackages:
-- gcc glibc-pthread glibc-devel glibc-devel-static
+- gcc
 - git golang make binutils
 packages:
 - libnbd
 - libxml2
+- glibc
 {{- end -}}
 
 {{ $builderDeps := include "$nameDeps" . | fromYaml }}
@@ -80,8 +81,16 @@ binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
+# do not include following packages, it will be replaced by one from q
+# - glibc selinux
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
+- libseccomp zlib zstd
+- libffi libgmp gnutls nettle libidn2
+- p11-kit libtasn1 libfuse3
+- gcc ubdsrv liburing
+- libaio libaudit libcap-ng numactl
+- linux-pam libunistring glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
