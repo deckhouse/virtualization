@@ -382,58 +382,6 @@ tasks:
 
         echo "[INFRA] All worker VMs configured with storage disks via hotplug"
 
-  infra:attach-worker-disks:
-    desc: Attach additional data disks to worker VMs (for SDS)
-    vars:
-      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-      VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-      NAMESPACE:
-        sh: yq eval '.namespace' {{ .VALUES_FILE }}
-      DISK_SIZE: '{{ .DISK_SIZE | default "10Gi" }}'
-      STORAGE_CLASS: '{{ .STORAGE_CLASS | default "linstor-thin-r2" }}'
-      DISK_COUNT: '{{ .DISK_COUNT | default "2" }}'
-    env:
-      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
-    cmds:
-      - |
-        set -euo pipefail
-        echo "[INFRA] Attaching {{ .DISK_COUNT }} storage disks to worker VMs in namespace {{ .NAMESPACE }}"
-        workers=()
-        while IFS= read -r line; do
-          [ -n "$line" ] && workers+=("$line")
-        done < <(kubectl -n {{ .NAMESPACE }} get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep worker || true)
-        if [ ${#workers[@]} -eq 0 ]; then
-          echo "[INFRA] No worker VMs found"; exit 0
-        fi
-        for vm in "${workers[@]}"; do
-          [ -z "$vm" ] && continue
-          for disk_num in $(seq 1 {{ .DISK_COUNT }}); do
-            vd="storage-disk-${disk_num}-$vm"
-            cat > /tmp/vd-$vd.yaml <<EOF
-        apiVersion: virtualization.deckhouse.io/v1alpha2
-        kind: VirtualDisk
-        metadata:
-          name: $vd
-          namespace: {{ .NAMESPACE }}
-        spec:
-          persistentVolumeClaim:
-            storageClassName: {{ .STORAGE_CLASS }}
-            size: {{ .DISK_SIZE }}
-        EOF
-            kubectl -n {{ .NAMESPACE }} get vd "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/vd-$vd.yaml
-            cat > /tmp/attach-$vd.yaml <<EOF
-        apiVersion: virtualization.deckhouse.io/v1alpha2
-        kind: VirtualMachineBlockDeviceAttachment
-        metadata:
-          name: $vd
-          namespace: {{ .NAMESPACE }}
-        spec:
-          virtualMachineName: $vm
-          blockDeviceRef:
-            kind: VirtualDisk
-            name: $vd
-        EOF
-            kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" >/dev/null 2>&1 || kubectl -n {{ .NAMESPACE }} apply -f /tmp/attach-$vd.yaml
 
             echo "[INFRA] Waiting for hotplug attachment of $vd..."
             for i in $(seq 1 30); do
