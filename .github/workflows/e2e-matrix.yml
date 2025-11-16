@@ -36,6 +36,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-matrix-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 env:
   E2E_K8S_URL: https://api.e2e.virtlab.flant.com
 
@@ -47,7 +51,7 @@ jobs:
     name: Setup Nested Envs
     runs-on: ubuntu-latest
     concurrency:
-      group: setup-nested-envs-${{ github.ref }}
+      group: setup-nested-envs-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true
     env:
       PROFILE: sds-replicated-volume
@@ -90,14 +94,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     concurrency:
-      group: prepare-${{ github.ref }}-sds-replicated-volume
+      group: prepare-${{ github.head_ref || github.ref_name }}-sds-replicated-volume
       cancel-in-progress: true
     env:
       PROFILE: sds-replicated-volume
       GO_VERSION: "1.24.6"
       TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
-      LOOP_WEBHOOK: ${{ secrets.LOOP_WEBHOOK_URL || secrets.LOOP_WEBHOOK }}
-      LOOP_CHANNEL: ${{ secrets.LOOP_CHANNEL || 'test-virtualization-loop-alerts' }} # TODO: replace with channel secret after successful run
 
     outputs:
       run_id: ${{ steps.prep.outputs.run_id }}
@@ -200,10 +202,10 @@ jobs:
           REGISTRY_DOCKER_CFG="${REGISTRY_DOCKER_CFG}" scripts/inject_registry_cfg.sh -f "$VALS" -v "$REGISTRY_DOCKER_CFG"
 
       - name: Docker login from DEV_REGISTRY_DOCKER_CFG (optional)
-        if: ${{ secrets.DEV_REGISTRY_DOCKER_CFG != '' }}
+        if: ${{ env.REGISTRY_DOCKER_CFG != '' }}
         run: |
           set -euo pipefail
-          cfg=$(printf '%s' '${{ secrets.DEV_REGISTRY_DOCKER_CFG }}' | base64 -d)
+          cfg=$(printf '%s' "$REGISTRY_DOCKER_CFG" | base64 -d)
           reg_list=$(printf '%s' "$cfg" | jq -r '.auths | keys[]')
           for reg in $reg_list; do
             auth=$(printf '%s' "$cfg" | jq -r --arg r "$reg" '.auths[$r].auth // ""')
