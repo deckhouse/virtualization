@@ -17,7 +17,6 @@ instances:
 # Deckhouse configuration
 deckhouse:
   tag: main
-  kubernetesVersion: Automatic
 
 # Virtualization configuration
 virtualization:

@@ -2,7 +2,6 @@ domain: e2e.virtlab.flant.com
 clusterConfigurationPrefix: e2e
 deckhouse:
   tag: main
-  kubernetesVersion: Automatic
 virtualization:
   tag: main
 features:

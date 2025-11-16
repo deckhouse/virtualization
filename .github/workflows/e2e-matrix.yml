@@ -330,9 +330,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
@@ -371,4 +368,4 @@ jobs:
         run: |
           echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
           echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
-          echo "🧹 Attempted to clean up namespaces matching 'nightly-nested-e2e-*'" >> $GITHUB_STEP_SUMMARY
+          echo "🧹 Attempted to clean up namespaces with prefix '${CLEANUP_PREFIX}'" >> $GITHUB_STEP_SUMMARY
