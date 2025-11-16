@@ -18,6 +18,7 @@ on:
   push:
     branches:
       - chore/ci/e2e-matrix-skeleton
+      - ci-e2e-nested-sds
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
@@ -180,47 +181,39 @@ jobs:
             RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
           echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
 
-      - name: Configure registry auth (REGISTRY_DOCKER_CFG)
+      - name: Configure registry auth (DEV_REGISTRY_DOCKER_CFG)
         run: |
-          prod_user="${{ secrets.PROD_READ_REGISTRY_USER }}"
-          prod_pass="${{ secrets.PROD_READ_REGISTRY_PASSWORD }}"
-          dev_user="${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}"
-          dev_pass="${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}"
-          echo "::add-mask::$prod_user"
-          echo "::add-mask::$prod_pass"
-          echo "::add-mask::$dev_user"
-          echo "::add-mask::$dev_pass"
-          prod_auth_b64=$(printf '%s:%s' "$prod_user" "$prod_pass" | base64 | tr -d '\n')
-          dev_auth_b64=$(printf '%s:%s' "$dev_user" "$dev_pass" | base64 | tr -d '\n')
-          docker_cfg=$(printf '{"auths":{"registry.deckhouse.io":{"auth":"%s"},"dev-registry.deckhouse.io":{"auth":"%s"}}}' "$prod_auth_b64" "$dev_auth_b64")
-          docker_cfg_b64=$(printf '%s' "$docker_cfg" | base64 | tr -d '\n')
-          echo "::add-mask::$docker_cfg_b64"
-          {
-            echo "REGISTRY_DOCKER_CFG=$docker_cfg_b64"
-            echo "DECKHOUSE_REGISTRY_USER=$prod_user"
-            echo "DECKHOUSE_REGISTRY_PASSWORD=$prod_pass"
-          } >> "$GITHUB_ENV"
+          dev_cfg_b64='${{ secrets.DEV_REGISTRY_DOCKER_CFG }}'
+          if [ -n "$dev_cfg_b64" ]; then
+            echo "::add-mask::$dev_cfg_b64"
+            echo "REGISTRY_DOCKER_CFG=$dev_cfg_b64" >> "$GITHUB_ENV"
+          else
+            echo "[WARN] DEV_REGISTRY_DOCKER_CFG is empty; proceeding without registry cfg"
+          fi
 
       - name: Inject REGISTRY_DOCKER_CFG into values.yaml
+        if: ${{ env.REGISTRY_DOCKER_CFG != '' }}
         working-directory: ci/dvp-e2e
         run: |
           chmod +x scripts/inject_registry_cfg.sh
           VALS="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
           REGISTRY_DOCKER_CFG="${REGISTRY_DOCKER_CFG}" scripts/inject_registry_cfg.sh -f "$VALS" -v "$REGISTRY_DOCKER_CFG"
 
-      - name: Docker login to Deckhouse registry
-        uses: docker/login-action@v3
-        with:
-          registry: registry.deckhouse.io
-          username: ${{ env.DECKHOUSE_REGISTRY_USER }}
-          password: ${{ env.DECKHOUSE_REGISTRY_PASSWORD }}
-
-      - name: Docker login to dev-registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.DEV_REGISTRY }}
-          username: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_LOGIN }}
-          password: ${{ secrets.BOOTSTRAP_DEV_REGISTRY_PASSWORD }}
+      - name: Docker login from DEV_REGISTRY_DOCKER_CFG (optional)
+        if: ${{ secrets.DEV_REGISTRY_DOCKER_CFG != '' }}
+        run: |
+          set -euo pipefail
+          cfg=$(printf '%s' '${{ secrets.DEV_REGISTRY_DOCKER_CFG }}' | base64 -d)
+          reg_list=$(printf '%s' "$cfg" | jq -r '.auths | keys[]')
+          for reg in $reg_list; do
+            auth=$(printf '%s' "$cfg" | jq -r --arg r "$reg" '.auths[$r].auth // ""')
+            [ -z "$auth" ] && continue
+            creds=$(printf '%s' "$auth" | base64 -d)
+            user=${creds%%:*}
+            pass=${creds#*:}
+            echo "Logging into $reg"
+            echo "$pass" | docker login "$reg" -u "$user" --password-stdin
+          done
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e

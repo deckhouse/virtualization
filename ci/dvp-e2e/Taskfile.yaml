@@ -682,8 +682,6 @@ tasks:
           task dhctl-bootstrap VALUES_FILE='{{ .VALUES_FILE }}' TMP_DIR='{{ .TMP_DIR }}' SSH_FILE_NAME='id_ed'
         } 2>&1 | tee '{{ .LOG_FILE }}'
 
-  
-
   # ------------------------------------------------------------
   # Nested cluster helpers (SC + kubeconfig)
   # ------------------------------------------------------------
