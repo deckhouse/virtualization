@@ -298,11 +298,12 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		//  can be changed during the restoration process.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasChanges, err := h.detectKvvmSpecChanges(ctx, s)
+		hasKVVMChanges, err := h.detectKvvmSpecChanges(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
-		if hasChanges {
+		// if the class name has changed, this change must be reflected in the vm.last-applied-spec annotation
+		if hasKVVMChanges || h.isVirtualMachineClassNameChanged(allChanges) {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
@@ -697,6 +698,17 @@ func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChang
 			if !equality.Semantic.DeepEqual(c.CurrentValue, c.DesiredValue) {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+// isVirtualMachineClassNameChanged returns true if VirtualMachine class name has changed.
+func (h *SyncKvvmHandler) isVirtualMachineClassNameChanged(allChanges vmchange.SpecChanges) bool {
+	for _, c := range allChanges.GetAll() {
+		if c.Path == "virtualMachineClassName" {
+			return true
 		}
 	}
 
