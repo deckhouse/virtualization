@@ -396,7 +396,7 @@ jobs:
         run: |
           task d8v-cli:build
 
-      - name: d8v show help
+      - name: Workability check
         run: |
           task d8v-cli:install
           export PATH=$PATH:~/.local/bin
