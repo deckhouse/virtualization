@@ -36,13 +36,13 @@ masterNodeGroup:
       virtualMachineClassName: "{{ .Values.namespace }}-cpu"
     rootDisk:
       size: 50Gi
-      storageClass: {{ .Values.storageClasses.controlPlane.root }}
+      storageClass: {{ .Values.storageClass }}
       image:
         kind: VirtualImage
         name: image
     etcdDisk:
       size: 15Gi
-      storageClass: {{ .Values.storageClasses.controlPlane.etcd }}
+      storageClass: {{ .Values.storageClass }}
 provider:
   kubeconfigDataBase64: {{ .Values.kubeconfigDataBase64 }}
   namespace: {{ .Values.namespace }}

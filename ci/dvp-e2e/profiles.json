@@ -1,9 +1,10 @@
 [
   {
-    "name": "sds",
+    "name": "sds-replicated-volume",
     "storage_class": "linstor-thin-r2",
     "image_storage_class": "linstor-thin-r1-immediate",
     "snapshot_storage_class": "linstor-thin-r2",
+    "parent_storage_class": "linstor-thin-r1-immediate",
     "worker_data_disk_size": "10Gi",
     "description": "SDS storage with LINSTOR thin provisioning"
   }

@@ -15,7 +15,7 @@ spec:
     bootloader: {{ $.Values.image.bootloader }}
   rootDisk:
     size: 50Gi
-    storageClass: {{ $.Values.storageClasses.workers.root }}
+    storageClass: {{ $.Values.storageClass }}
     image:
       kind: VirtualImage
       name: image

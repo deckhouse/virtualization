@@ -37,13 +37,8 @@ ingressHosts:
   - console
   - virtualization
 
-# Storage classes configuration (for parent cluster)
-storageClasses:
-  controlPlane:
-    root: ceph-pool-r2-csi-rbd-immediate
-    etcd: ceph-pool-r2-csi-rbd-immediate
-  workers:
-    root: ceph-pool-r2-csi-rbd-immediate
+# Storage class for parent cluster VMs (overridden by workflow from profile)
+storageClass: ceph-pool-r2-csi-rbd-immediate
 
 # Feature flags (only those used by templates)
 features:

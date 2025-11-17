@@ -301,10 +301,10 @@ tasks:
             fi
 
             pvc_name=""
-            for j in $(seq 1 30); do
+            for j in $(seq 1 50); do
               pvc_name=$(kubectl -n {{ .NAMESPACE }} get vd "$vd" -o jsonpath='{.status.target.persistentVolumeClaimName}' 2>/dev/null || true)
               [ -n "$pvc_name" ] && break
-              echo "[INFRA] Waiting for PVC name for VD $vd; retry $j/30"; sleep 3
+              echo "[INFRA] Waiting for PVC name for VD $vd; retry $j/50"; sleep 3
             done
             if [ -n "$pvc_name" ]; then
               echo "[INFRA] Waiting PVC $pvc_name to reach phase=Bound..."
@@ -347,7 +347,7 @@ tasks:
 
             echo "[INFRA] Waiting for hotplug attachment of $vd..."
             success_by_vm=0
-            for i in $(seq 1 30); do
+            for i in $(seq 1 50); do
               phase=$(kubectl -n {{ .NAMESPACE }} get virtualmachineblockdeviceattachment "$vd" -o jsonpath='{.status.phase}' 2>/dev/null || true)
               if [ "$phase" = "Attached" ]; then
                 echo "[INFRA] Disk $vd successfully attached to VM $vm"; break
@@ -360,9 +360,9 @@ tasks:
           break
         fi
 
-              # Print status approximately every 30 seconds (poll interval is 5s)
-              if [ $((i % 6)) -eq 0 ]; then
-                echo "[INFRA] Disk $vd phase=$phase; retry $i/30"
+              # Print status approximately every 50 seconds (poll interval is 5s)
+              if [ $((i % 10)) -eq 0 ]; then
+                echo "[INFRA] Disk $vd phase=$phase; retry $i/50"
               fi
               sleep 5
 
@@ -468,10 +468,6 @@ tasks:
         if [ -n "{{ .TARGET_STORAGE_CLASS | default "" }}" ]; then
           export _SC='{{ .TARGET_STORAGE_CLASS }}'
           yq eval --inplace '.storageClass = env(_SC)' {{ .GENERATED_VALUES_FILE }}
-          yq eval --inplace '.storageClasses.controlPlane.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
-          yq eval --inplace '.storageClasses.controlPlane.etcd = env(_SC)' {{ .GENERATED_VALUES_FILE }}
-          yq eval --inplace '.storageClasses.workers.root = env(_SC)' {{ .GENERATED_VALUES_FILE }}
-          yq eval --inplace '.storageClasses.workers.data = env(_SC)' {{ .GENERATED_VALUES_FILE }}
         fi
       - |
         export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
@@ -715,12 +711,12 @@ tasks:
       - |
         set -euo pipefail
         echo "[SDS] Waiting for API server to be ready..."
-        for i in $(seq 1 30); do
+        for i in $(seq 1 50); do
           if KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl get nodes >/dev/null 2>&1; then
             echo "[SDS] API server is ready!"
             break
           fi
-          echo "[SDS] API server not ready yet, retry $i/30"; sleep 10
+          echo "[SDS] API server not ready yet, retry $i/50"; sleep 10
         done
       - |
         set -euo pipefail

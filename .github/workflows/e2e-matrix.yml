@@ -18,7 +18,6 @@ on:
   push:
     branches:
       - chore/ci/e2e-matrix-skeleton
-      - ci-e2e-nested-sds
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
@@ -160,8 +159,7 @@ jobs:
           RUN_ID="${{ needs.setup-nested-envs.outputs.run_id }}"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          # Map sds-replicated-volume to sds for profile config
-          echo "PROFILE=sds" >> "$GITHUB_ENV"
+          echo "PROFILE=sds-replicated-volume" >> "$GITHUB_ENV"
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
@@ -218,7 +216,7 @@ jobs:
         working-directory: ci/dvp-e2e
         id: profile-config
         env:
-          PROFILE: sds
+          PROFILE: sds-replicated-volume
         run: |
           # Get storage class configuration from profiles.json
           PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
@@ -227,25 +225,28 @@ jobs:
           STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
           IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
           SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
+          PARENT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^PARENT_STORAGE_CLASS=" | cut -d'=' -f2)
           ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
 
           echo "Profile: ${PROFILE}"
           echo "Storage Class: ${STORAGE_CLASS}"
           echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
           echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
+          echo "Parent Storage Class: ${PARENT_STORAGE_CLASS}"
           echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
 
-          # Export variables safely
+          # Export variables to GitHub Actions environment and outputs
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
           echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
+          echo "PARENT_STORAGE_CLASS=${PARENT_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
           echo "storage_class=$STORAGE_CLASS" >> $GITHUB_OUTPUT
           echo "image_storage_class=$IMAGE_STORAGE_CLASS" >> $GITHUB_OUTPUT
           echo "snapshot_storage_class=$SNAPSHOT_STORAGE_CLASS" >> $GITHUB_OUTPUT
           echo "attach_disk_size=$ATTACH_DISK_SIZE" >> $GITHUB_OUTPUT
           # Pass storage profile into run values for Helm templates
-          PROFILE='sds' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
+          yq eval --inplace ".storageProfile = \"${PROFILE}\"" "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
           # Effective disk SC used for worker data disks (prefer image SC when set)
           EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
           echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
@@ -267,13 +268,13 @@ jobs:
       - name: Bootstrap nested cluster (via jump-host)
         working-directory: ci/dvp-e2e
         run: |
-          echo "🚀 dhctl bootstrap (profile: sds-replicated-volume -> sds)"
+          echo "🚀 dhctl bootstrap (profile: sds-replicated-volume)"
           task dhctl-bootstrap \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
             SSH_FILE_NAME="id_ed" \
-            TARGET_STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate"
+            TARGET_STORAGE_CLASS="${{ env.PARENT_STORAGE_CLASS }}"
 
       - name: Attach data disks to worker VMs using hotplug
         working-directory: ci/dvp-e2e
