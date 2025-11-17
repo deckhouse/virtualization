@@ -362,19 +362,25 @@ rules:
   - internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationkubevirts
-  - internalvirtualizationkubevirts/status
   verbs:
   - get
   - list
   - watch
-  - update
-  - patch
 - apiGroups:
   - snapshot.internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationvirtualmachinesnapshots
   - internalvirtualizationvirtualmachinerestores
   - internalvirtualizationvirtualmachinesnapshotcontents
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - internalvirtualizationdatasources
+  - internalvirtualizationdatavolumes
   verbs:
   - get
   - list
@@ -548,29 +554,15 @@ rules:
 - apiGroups:
   - snapshot.internal.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationvirtualmachinerestores
-  - internalvirtualizationvirtualmachinesnapshotcontents
-  - internalvirtualizationvirtualmachinesnapshots
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - create
-  - update
-  - patch
+  - '*'
 - apiGroups:
   - export.internal.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationvirtualmachineexports
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - create
-  - update
-  - patch
+  - '*'
 - apiGroups:
   - pool.internal.virtualization.deckhouse.io
   resources:
@@ -589,43 +581,9 @@ rules:
 - apiGroups:
   - internal.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationcdiconfigs
-  - internalvirtualizationcdis
-  - internalvirtualizationdataimportcrons
-  - internalvirtualizationdatasources
-  - internalvirtualizationdatavolumes
-  - internalvirtualizationobjecttransfers
-  - internalvirtualizationstorageprofiles
-  - internalvirtualizationvolumeclonesources
-  - internalvirtualizationvolumeimportsources
-  - internalvirtualizationvolumeuploadsources
-  - internalvirtualizationvirtualmachineclones
-  - internalvirtualizationvirtualmachineexports
-  - internalvirtualizationopenstackvolumepopulators
-  - internalvirtualizationovirtvolumepopulators
-  - internalvirtualizationvirtualmachineclusterinstancetypes
-  - internalvirtualizationvirtualmachineclusterpreferences
-  - internalvirtualizationvirtualmachineinstancetypes
-  - internalvirtualizationvirtualmachinepreferences
-  - internalvirtualizationkubevirts
-  - internalvirtualizationvirtualmachineinstancemigrations
-  - internalvirtualizationvirtualmachineinstancepresets
-  - internalvirtualizationvirtualmachineinstancereplicasets
-  - internalvirtualizationvirtualmachineinstances
-  - internalvirtualizationvirtualmachines
-  - internalvirtualizationmigrationpolicies
-  - internalvirtualizationvirtualmachinepools
-  - internalvirtualizationvirtualmachinerestores
-  - internalvirtualizationvirtualmachinesnapshotcontents
-  - internalvirtualizationvirtualmachinesnapshots
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - create
-  - update
-  - patch
+  - '*'
 - apiGroups:
   - subresources.virtualization.deckhouse.io
   resources:
@@ -646,26 +604,9 @@ rules:
 - apiGroups:
   - cdi.internal.virtualization.deckhouse.io
   resources:
-  - internalvirtualizationcdiconfigs
-  - internalvirtualizationcdis
-  - internalvirtualizationdataimportcrons
-  - internalvirtualizationdatasources
-  - internalvirtualizationdatavolumes
-  - internalvirtualizationobjecttransfers
-  - internalvirtualizationstorageprofiles
-  - internalvirtualizationvolumeclonesources
-  - internalvirtualizationvolumeimportsources
-  - internalvirtualizationvolumeuploadsources
-  - internalvirtualizationopenstackvolumepopulators
-  - internalvirtualizationovirtvolumepopulators
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - delete
-  - create
-  - update
-  - patch
+  - '*'
 - apiGroups:
   - k8s.cni.cncf.io
   resources:
