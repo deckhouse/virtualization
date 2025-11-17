@@ -86,6 +86,19 @@ rules:
   - virtualmachineinstances/userlist
   - virtualmachineinstances/sev/fetchcertchain
   - virtualmachineinstances/sev/querylaunchmeasurement
+  - virtualmachineinstances/freeze
+  - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/addvolume
+  - virtualmachines/removevolume
+  - virtualmachines/evacuatecancel
   verbs:
   - get
   - create
