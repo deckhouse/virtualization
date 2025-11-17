@@ -92,6 +92,8 @@ rules:
   - virtualmachineinstances/removevolume
   verbs:
   - get
+  - patch
+  - update
   - create
 - apiGroups:
   - subresources.kubevirt.io
@@ -101,6 +103,8 @@ rules:
   - virtualmachines/evacuatecancel
   verbs:
   - get
+  - patch
+  - update
   - create
 - apiGroups:
   - subresources.virtualization.deckhouse.io
@@ -116,6 +120,8 @@ rules:
   - virtualmachines/vnc
   verbs:
   - get
+  - patch
+  - update
   - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
