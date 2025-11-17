@@ -23,20 +23,20 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dvcr_deployment_condition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
+	dvcrdeploymentcondition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
-func NewMaintenanceCondition(reason dvcr_deployment_condition.MaintenanceReason, msgf string, args ...any) appsv1.DeploymentCondition {
+func NewMaintenanceCondition(reason dvcrdeploymentcondition.MaintenanceReason, msgf string, args ...any) appsv1.DeploymentCondition {
 	status := "Unknown"
 	switch reason {
-	case dvcr_deployment_condition.LastResult:
+	case dvcrdeploymentcondition.Done:
 		status = "False"
-	case dvcr_deployment_condition.InProgress:
+	case dvcrdeploymentcondition.InProgress:
 		status = "True"
 	}
 
 	return appsv1.DeploymentCondition{
-		Type:           dvcr_deployment_condition.MaintenanceType,
+		Type:           dvcrdeploymentcondition.MaintenanceType,
 		Status:         corev1.ConditionStatus(status),
 		LastUpdateTime: metav1.Now(),
 		Reason:         string(reason),
@@ -45,47 +45,28 @@ func NewMaintenanceCondition(reason dvcr_deployment_condition.MaintenanceReason,
 }
 
 // UpdateMaintenanceCondition replaces or removes Maintenance condition from deployment status.
-// Return true if status was changed.
-func UpdateMaintenanceCondition(deploy *appsv1.Deployment, reason dvcr_deployment_condition.MaintenanceReason, msgf string, args ...any) {
+func UpdateMaintenanceCondition(deploy *appsv1.Deployment, reason dvcrdeploymentcondition.MaintenanceReason, msgf string, args ...any) {
 	if deploy == nil {
 		return
 	}
 
 	condition := NewMaintenanceCondition(reason, msgf, args...)
 
-	// Condition is nil, so remove maintenance condition.
-	if len(deploy.Status.Conditions) > 0 {
-		filteredConditions := make([]appsv1.DeploymentCondition, 0)
-		for _, cond := range deploy.Status.Conditions {
-			if cond.Type == dvcr_deployment_condition.MaintenanceType {
-				if cond.Reason != condition.Reason || cond.Message != condition.Message {
-					condition.LastTransitionTime = metav1.Now()
-				}
-				cond = condition
-			}
-			// Copy non-maintenance conditions.
-			filteredConditions = append(filteredConditions, cond)
-		}
-		deploy.Status.Conditions = filteredConditions
-	}
-
-	// Deploy has no conditions, create new slice.
-	deploy.Status.Conditions = []appsv1.DeploymentCondition{condition}
-}
-
-// DeleteMaintenanceCondition removes Maintenance condition from deployment status.
-func DeleteMaintenanceCondition(deploy *appsv1.Deployment) {
-	if deploy == nil || len(deploy.Status.Conditions) == 0 {
-		return
-	}
-
-	// Filter conditions to remove maintenance condition.
-	filteredConditions := make([]appsv1.DeploymentCondition, 0)
+	// Add or update existing condition.
+	filteredConditions := make([]appsv1.DeploymentCondition, 0, len(deploy.Status.Conditions))
+	existing := false
 	for _, cond := range deploy.Status.Conditions {
-		if cond.Type != dvcr_deployment_condition.MaintenanceType {
-			// Copy only non-maintenance conditions.
-			filteredConditions = append(filteredConditions, cond)
+		if cond.Type == dvcrdeploymentcondition.MaintenanceType {
+			if cond.Reason != condition.Reason || cond.Message != condition.Message {
+				condition.LastTransitionTime = metav1.Now()
+			}
+			cond = condition
+			existing = true
 		}
+		filteredConditions = append(filteredConditions, cond)
+	}
+	if !existing {
+		filteredConditions = append(filteredConditions, condition)
 	}
 	deploy.Status.Conditions = filteredConditions
 }

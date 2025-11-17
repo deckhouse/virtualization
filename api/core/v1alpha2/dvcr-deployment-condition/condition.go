@@ -21,8 +21,6 @@ import appsv1 "k8s.io/api/apps/v1"
 const (
 	// MaintenanceType indicates whether the deployment/dvcr is in maintenance mode.
 	MaintenanceType appsv1.DeploymentConditionType = "Maintenance"
-
-	// LastMaintenanceResultType Type = "LastMaintenanceResult"
 )
 
 type (
@@ -38,6 +36,6 @@ const (
 	// InProgress indicates that the maintenance is in progress: wait for provisioners, or deployment is modified to run garbage collection.  (status true)
 	InProgress MaintenanceReason = "GarbageCollectionInProgress"
 
-	// LastResult indicates that the maintenance is done and result is in the message. (status false)
-	LastResult MaintenanceReason = "LastResult"
+	// Done indicates that the maintenance is done and result is in the message. (status false)
+	Done MaintenanceReason = "GarbageCollectionDone"
 )

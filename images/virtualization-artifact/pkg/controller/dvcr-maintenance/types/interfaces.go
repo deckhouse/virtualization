@@ -29,9 +29,6 @@ type DVCRService interface {
 	InitiateMaintenanceMode(ctx context.Context) error
 	SwitchToMaintenanceMode(ctx context.Context) error
 
-	// IsMaintenanceSecretExist(secret *corev1.Secret) bool
-
-	IsMaintenanceInitiatedNotStarted(secret *corev1.Secret) bool
 	IsMaintenanceStarted(secret *corev1.Secret) bool
 	IsMaintenanceDone(secret *corev1.Secret) bool
 }

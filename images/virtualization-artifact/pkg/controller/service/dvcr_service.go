@@ -41,7 +41,6 @@ func NewDVCRService(client client.Client) *DVCRService {
 
 const (
 	moduleNamespace           = "d8-virtualization"
-	dvcrDeploymentName        = "dvcr"
 	maintenanceModeSecretName = "dvcr-maintenance"
 )
 
@@ -63,18 +62,6 @@ func (d *DVCRService) CreateMaintenanceModeSecret(ctx context.Context) error {
 func (d *DVCRService) IsMaintenanceSecretExist(ctx context.Context) (bool, error) {
 	secret, err := d.GetMaintenanceSecret(ctx)
 	return secret != nil, err
-}
-
-// IsMaintenanceInitiatedNotStarted returns true if secret exists but
-// cleanup is not done yet.
-// Use it to postpone switch deployment to maintenance until all write operations are finished.
-func (d *DVCRService) IsMaintenanceInitiatedNotStarted(secret *corev1.Secret) bool {
-	if secret == nil {
-		return false
-	}
-	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode]
-	_, done := secret.GetAnnotations()[annotations.AnnDVCRGarbageCollectionDone]
-	return !switched && !done
 }
 
 // IsMaintenanceStarted returns true if switch to maintenance mode is on.
