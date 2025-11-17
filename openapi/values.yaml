@@ -138,3 +138,7 @@ properties:
         properties:
           error:
             type: string
+      moduleState:
+        type: object
+        default: {}
+        additionalProperties: true
