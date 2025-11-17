@@ -43,5 +43,3 @@ storageClass: ceph-pool-r2-csi-rbd-immediate
 # Feature flags (only those used by templates)
 features:
   virtualization: true
-  nfs:
-    enabled: false
