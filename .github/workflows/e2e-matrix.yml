@@ -26,11 +26,6 @@ on:
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
-    inputs:
-      timeout:
-        description: "Ginkgo timeout (e.g. 2h, 4h)"
-        required: false
-        default: "4h"
 
 permissions:
   contents: read
@@ -52,10 +47,9 @@ jobs:
     concurrency:
       group: setup-nested-envs-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true
-    env:
-      PROFILE: sds-replicated-volume
     outputs:
       run_id: ${{ steps.prep.outputs.run_id }}
+      profile: ${{ steps.load.outputs.profile }}
     steps:
       - uses: actions/checkout@v4
 
@@ -72,17 +66,14 @@ jobs:
         id: prep
         run: |
           RUN_ID="nightly-nested-e2e-sds-$(date +%H%M%S)"
+          PROFILE="${{ steps.load.outputs.profile }}"
           echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           mkdir -p ./tmp/run-context
-          echo "profile: ${PROFILE}" > ./tmp/run-context/config.yaml
-          echo "run_id: ${RUN_ID}" >> ./tmp/run-context/config.yaml
-          echo "timestamp: $(date -Iseconds)" >> ./tmp/run-context/config.yaml
-
-      - name: Upload run context
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-context-${{ steps.prep.outputs.run_id }}
-          path: ./tmp/run-context
+          {
+            echo "profile: ${PROFILE}"
+            echo "run_id: ${RUN_ID}"
+            echo "timestamp: $(date -Iseconds)"
+          } > ./tmp/run-context/config.yaml
 
   # ============================================
   # 2. PREPARE - Cluster preparation
@@ -93,24 +84,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     concurrency:
-      group: prepare-${{ github.head_ref || github.ref_name }}-sds-replicated-volume
+      group: prepare-${{ github.head_ref || github.ref_name }}-${{ needs.setup-nested-envs.outputs.profile }}
       cancel-in-progress: true
     env:
-      PROFILE: sds-replicated-volume
-      GO_VERSION: "1.24.6"
+      PROFILE: ${{ needs.setup-nested-envs.outputs.profile }}
       TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
-
-    outputs:
-      run_id: ${{ steps.prep.outputs.run_id }}
-      storage_class: ${{ steps.profile-config.outputs.storage_class }}
-      image_storage_class: ${{ steps.profile-config.outputs.image_storage_class }}
-      snapshot_storage_class: ${{ steps.profile-config.outputs.snapshot_storage_class }}
-      attach_disk_size: ${{ steps.profile-config.outputs.attach_disk_size }}
+      REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -128,18 +110,15 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install Deckhouse CLI
-        env:
-          D8_VERSION: v0.13.2
-        run: |
-          set -euo pipefail
-          echo "Installing d8 ${D8_VERSION}..."
-          curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
-          tar -xzf d8.tgz linux-amd64/bin/d8
-          mv linux-amd64/bin/d8 /usr/local/bin/d8
-          chmod +x /usr/local/bin/d8
-          rm -rf d8.tgz linux-amd64
-          d8 --version
+      - name: Setup d8
+        uses: werf/trdl/actions/setup-app@v0.12.2
+        with:
+          repo: d8
+          url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
+          root-version: 1
+          root-sha512: 343bd5f0d8811254e5f0b6fe292372a7b7eda08d276ff255229200f84e58a8151ab2729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
+          group: 0
+          channel: stable
 
       - name: Install yq
         run: |
@@ -147,19 +126,11 @@ jobs:
           curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
-      - name: Restore run context
-        uses: actions/download-artifact@v4
-        with:
-          name: run-context-${{ needs.setup-nested-envs.outputs.run_id }}
-          path: .
-
       - name: Prepare environment
         id: prep
         run: |
           RUN_ID="${{ needs.setup-nested-envs.outputs.run_id }}"
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
           echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          echo "PROFILE=sds-replicated-volume" >> "$GITHUB_ENV"
           echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
@@ -177,56 +148,29 @@ jobs:
             RUN_ID="${{ env.RUN_ID }}" \
             RUN_NAMESPACE="${{ env.RUN_ID }}" \
             RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
-          echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
 
-      - name: Configure registry auth (DEV_REGISTRY_DOCKER_CFG)
+      - name: Configure registry auth for installer pull
         run: |
-          dev_cfg_b64='${{ secrets.DEV_REGISTRY_DOCKER_CFG }}'
-          if [ -n "$dev_cfg_b64" ]; then
-            echo "::add-mask::$dev_cfg_b64"
-            echo "REGISTRY_DOCKER_CFG=$dev_cfg_b64" >> "$GITHUB_ENV"
-          else
-            echo "[WARN] DEV_REGISTRY_DOCKER_CFG is empty; proceeding without registry cfg"
-          fi
-
-      - name: Inject REGISTRY_DOCKER_CFG into values.yaml
-        if: ${{ env.REGISTRY_DOCKER_CFG != '' }}
-        working-directory: ci/dvp-e2e
-        run: |
-          VALS="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
-          task values:inject-registry VALUES_FILE="$VALS" REGISTRY_DOCKER_CFG="${REGISTRY_DOCKER_CFG}"
-
-      - name: Docker login from DEV_REGISTRY_DOCKER_CFG (optional)
-        if: ${{ env.REGISTRY_DOCKER_CFG != '' }}
-        run: |
-          set -euo pipefail
-          cfg=$(printf '%s' "$REGISTRY_DOCKER_CFG" | base64 -d)
-          reg_list=$(printf '%s' "$cfg" | jq -r '.auths | keys[]')
-          for reg in $reg_list; do
-            auth=$(printf '%s' "$cfg" | jq -r --arg r "$reg" '.auths[$r].auth // ""')
-            [ -z "$auth" ] && continue
-            creds=$(printf '%s' "$auth" | base64 -d)
-            user=${creds%%:*}
-            pass=${creds#*:}
-            echo "Logging into $reg"
-            echo "$pass" | docker login "$reg" -u "$user" --password-stdin
-          done
+          mkdir -p ~/.docker
+          printf '%s' "$REGISTRY_DOCKER_CFG" | base64 -d > ~/.docker/config.json
 
       - name: Configure storage profile
         working-directory: ci/dvp-e2e
         id: profile-config
-        env:
-          PROFILE: sds-replicated-volume
         run: |
-          # Get storage class configuration from profiles.json
-          PROFILE_CONFIG=$(./scripts/get_profile_config.sh "${PROFILE}")
+          PROFILE_JSON=$(jq -c --arg profile "$PROFILE" '.[] | select(.name == $profile)' profiles.json)
+          if [ -z "$PROFILE_JSON" ]; then
+            echo "Profile '$PROFILE' not found in profiles.json" >&2
+            echo "Available profiles:" >&2
+            jq -r '.[] | "  - \(.name)"' profiles.json >&2
+            exit 1
+          fi
 
-          # Parse the output more carefully
-          STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^STORAGE_CLASS=" | cut -d'=' -f2)
-          IMAGE_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^IMAGE_STORAGE_CLASS=" | cut -d'=' -f2)
-          SNAPSHOT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^SNAPSHOT_STORAGE_CLASS=" | cut -d'=' -f2)
-          PARENT_STORAGE_CLASS=$(echo "$PROFILE_CONFIG" | grep "^PARENT_STORAGE_CLASS=" | cut -d'=' -f2)
-          ATTACH_DISK_SIZE=$(echo "$PROFILE_CONFIG" | grep "^ATTACH_DISK_SIZE=" | cut -d'=' -f2)
+          STORAGE_CLASS=$(jq -r '.storage_class // ""' <<<"$PROFILE_JSON")
+          IMAGE_STORAGE_CLASS=$(jq -r '.image_storage_class // ""' <<<"$PROFILE_JSON")
+          SNAPSHOT_STORAGE_CLASS=$(jq -r '.snapshot_storage_class // ""' <<<"$PROFILE_JSON")
+          PARENT_STORAGE_CLASS=$(jq -r '.parent_storage_class // ""' <<<"$PROFILE_JSON")
+          ATTACH_DISK_SIZE=$(jq -r '.worker_data_disk_size // "10Gi"' <<<"$PROFILE_JSON")
 
           echo "Profile: ${PROFILE}"
           echo "Storage Class: ${STORAGE_CLASS}"
@@ -235,124 +179,57 @@ jobs:
           echo "Parent Storage Class: ${PARENT_STORAGE_CLASS}"
           echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
 
-          # Export variables to GitHub Actions environment and outputs
+          # Export variables to GitHub Actions environment
           echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
-          echo "IMAGE_STORAGE_CLASS=${IMAGE_STORAGE_CLASS}" >> $GITHUB_ENV
-          echo "SNAPSHOT_STORAGE_CLASS=${SNAPSHOT_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "PARENT_STORAGE_CLASS=${PARENT_STORAGE_CLASS}" >> $GITHUB_ENV
           echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
-          echo "storage_class=$STORAGE_CLASS" >> $GITHUB_OUTPUT
-          echo "image_storage_class=$IMAGE_STORAGE_CLASS" >> $GITHUB_OUTPUT
-          echo "snapshot_storage_class=$SNAPSHOT_STORAGE_CLASS" >> $GITHUB_OUTPUT
-          echo "attach_disk_size=$ATTACH_DISK_SIZE" >> $GITHUB_OUTPUT
           # Pass storage profile into run values for Helm templates
           yq eval --inplace ".storageProfile = \"${PROFILE}\"" "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
           # Effective disk SC used for worker data disks (prefer image SC when set)
           EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
           echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
 
-      - name: Install infra (namespace/RBAC/ingress)
+      - name: Install nested environment
         working-directory: ci/dvp-e2e
         run: |
-          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task render-infra \
+          task install:nested:env \
             TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
             VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
             PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="id_ed"
-          USE_GH_SSH_KEYS=true SSH_FILE_NAME=id_ed task infra-deploy \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="id_ed"
-
-      - name: Bootstrap nested cluster (via jump-host)
-        working-directory: ci/dvp-e2e
-        run: |
-          echo "🚀 dhctl bootstrap (profile: sds-replicated-volume)"
-          task dhctl-bootstrap \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}" \
-            SSH_FILE_NAME="id_ed" \
-            TARGET_STORAGE_CLASS="${{ env.PARENT_STORAGE_CLASS }}"
-
-      - name: Attach data disks to worker VMs using hotplug
-        working-directory: ci/dvp-e2e
-        run: |
-          task infra:attach-storage-disks-hotplug \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}" \
-            DISK_SIZE="${ATTACH_DISK_SIZE:-10Gi}" \
-            STORAGE_CLASS="ceph-pool-r2-csi-rbd-immediate" \
-            DISK_COUNT="2"
-
-      - name: Build nested kubeconfig
-        working-directory: ci/dvp-e2e
-        run: |
-          task nested:kubeconfig \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
+            TARGET_STORAGE_CLASS="${{ env.PARENT_STORAGE_CLASS }}" \
+            ATTACH_DISK_SIZE="${{ env.ATTACH_DISK_SIZE }}" \
+            EFFECTIVE_DISK_SC="${{ env.EFFECTIVE_DISK_SC }}" \
             NAMESPACE="${{ env.RUN_ID }}" \
-            SSH_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/ssh" \
-            SSH_FILE_NAME="id_ed" \
-            NESTED_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested" \
             NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
-            PARENT_KUBECONFIG="${KUBECONFIG}"
-
-      - name: Configure SDS in nested cluster
-        working-directory: ci/dvp-e2e
-        run: |
-          echo "💾 Configuring SDS storage (sds-node-configurator + sds-replicated-volume)"
-          task nested:storage:sds \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
-            SDS_SC_NAME="${{ steps.profile-config.outputs.storage_class }}"
-
-      - name: Upload run context
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-context-${{ env.RUN_ID }}
-          path: |
-            ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
-            ci/dvp-e2e/tmp/shared
-          if-no-files-found: warn
-          overwrite: true
+            SDS_SC_NAME="${{ env.STORAGE_CLASS }}"
 
   cleanup:
     name: Cleanup [skeleton]
     needs: [setup-nested-envs, prepare]
     if: always()
     runs-on: ubuntu-latest
+    env:
+      CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: "latest"
 
-      - name: Build parent kubeconfig from secret (cleanup)
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Build parent kubeconfig from secret
         working-directory: ci/dvp-e2e
         run: |
           KCFG="$HOME/.kube/config"
           task parent:kubeconfig OUTPUT="$KCFG" API_URL="${E2E_K8S_URL}" SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"
           echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
-        env:
-          CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
         run: |
           task cleanup:namespaces PREFIX="${CLEANUP_PREFIX}" PARENT_KUBECONFIG="${KUBECONFIG}"
 

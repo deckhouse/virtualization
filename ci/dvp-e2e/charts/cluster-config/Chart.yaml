@@ -14,5 +14,3 @@ sources:
   - https://github.com/deckhouse/deckhouse
 maintainers:
   - name: Deckhouse Team
-    email: team@deckhouse.io
-dependencies: []
