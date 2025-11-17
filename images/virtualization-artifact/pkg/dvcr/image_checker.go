@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -89,7 +89,6 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 	}
 
 	// Fetch authentication credentials from Secret if configured
-	var username, password string
 	if c.dvcrSettings.AuthSecret != "" {
 		secret := &corev1.Secret{}
 		err := c.client.Get(ctx, types.NamespacedName{
@@ -101,15 +100,13 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 				c.dvcrSettings.AuthSecretNamespace, c.dvcrSettings.AuthSecret, err)
 		}
 
-		username = string(secret.Data["username"])
-		password = string(secret.Data["password"])
-	}
+		keychain, err := k8schain.NewFromPullSecrets(ctx, []corev1.Secret{*secret})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create keychain from secret %s/%s: %w",
+				c.dvcrSettings.AuthSecretNamespace, c.dvcrSettings.AuthSecret, err)
+		}
 
-	if username != "" || password != "" {
-		opts = append(opts, remote.WithAuth(&authn.Basic{
-			Username: username,
-			Password: password,
-		}))
+		opts = append(opts, remote.WithAuthFromKeychain(keychain))
 	}
 
 	// Fetch CA certificate from Secret if configured
