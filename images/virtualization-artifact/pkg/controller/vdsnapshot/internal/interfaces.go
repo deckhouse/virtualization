@@ -34,7 +34,7 @@ type VirtualDiskReadySnapshotter interface {
 
 type LifeCycleSnapshotter interface {
 	Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
-	IsFrozen(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	IsFrozen(kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 	CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 	CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 	Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
@@ -44,5 +44,5 @@ type LifeCycleSnapshotter interface {
 	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
 	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
 	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
-	GetKubeVirtVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
+	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 }

@@ -188,8 +188,8 @@ const (
 	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
 	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 
-	// AnnVMFilesystemFrozenRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
-	AnnVMFilesystemFrozenRequest = AnnAPIGroup + "/virtual-machine-filesystem-request"
+	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
+	AnnVMFilesystemRequest = AnnAPIGroup + "/virtual-machine-filesystem-request"
 )
 
 // AddAnnotation adds an annotation to an object

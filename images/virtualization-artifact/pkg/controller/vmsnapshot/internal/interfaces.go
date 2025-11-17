@@ -40,9 +40,9 @@ type Snapshotter interface {
 	CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error)
 	Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 	Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
-	IsFrozen(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	IsFrozen(kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 	CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
-	GetKubeVirtVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
+	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 }

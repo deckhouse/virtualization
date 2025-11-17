@@ -101,8 +101,8 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 }
 
 func (w KVVMIWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
-	oldRequest, oldOk := e.ObjectOld.Annotations[annotations.AnnVMFilesystemFrozenRequest]
-	newRequest, newOk := e.ObjectNew.Annotations[annotations.AnnVMFilesystemFrozenRequest]
+	oldRequest, oldOk := e.ObjectOld.Annotations[annotations.AnnVMFilesystemRequest]
+	newRequest, newOk := e.ObjectNew.Annotations[annotations.AnnVMFilesystemRequest]
 
 	if oldOk && newOk {
 		return oldRequest != newRequest

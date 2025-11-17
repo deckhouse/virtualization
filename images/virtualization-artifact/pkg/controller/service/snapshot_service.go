@@ -43,7 +43,7 @@ const (
 
 var (
 	ErrUntrustedFilesystemFrozenCondition = errors.New("the filesystem status cannot be processed correctly")
-	ErrUnexpectedFilesystemFrozenRequest  = errors.New("found unexpected filesystem frozen request in the virtual machine annotations")
+	ErrUnexpectedFilesystemRequest        = errors.New("found unexpected filesystem request in the virtual machine instance annotations")
 )
 
 type SnapshotService struct {
@@ -63,13 +63,13 @@ func NewSnapshotService(virtClient kubeclient.Client, client Client, protection 
 // IsFrozen checks if a freeze or unfreeze request has been performed
 // and returns the "true" fsFreezeStatus if the internal virtual machine instance is "frozen",
 // and "false" otherwise.
-func (s *SnapshotService) IsFrozen(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+func (s *SnapshotService) IsFrozen(kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	if kvvmi == nil {
 		return false, nil
 	}
 
-	if _, ok := kvvmi.Annotations[annotations.AnnVMFilesystemFrozenRequest]; ok {
-		return false, fmt.Errorf("failed to check %s/%s fsFreezeStatus: %w", kvvmi.Namespace, kvvmi.Name, ErrUntrustedFilesystemFrozenCondition)
+	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
+		return false, fmt.Errorf("failed to check %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, ErrUntrustedFilesystemFrozenCondition)
 	}
 
 	return kvvmi.Status.FSFreezeStatus == FSFrozen, nil
@@ -80,7 +80,7 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 		return false, nil
 	}
 
-	isFrozen, err := s.IsFrozen(ctx, kvvmi)
+	isFrozen, err := s.IsFrozen(kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -98,8 +98,8 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 }
 
 func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
-	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemFrozenRequest]; ok {
-		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemFrozenRequest, request)
+	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
+		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
 	}
 
 	err := s.annotateWithFSFreezeRequest(ctx, RequestFSFreeze, kvvmi)
@@ -120,7 +120,7 @@ func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context
 		return false, nil
 	}
 
-	isFrozen, err := s.IsFrozen(ctx, kvvmi)
+	isFrozen, err := s.IsFrozen(kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -177,7 +177,7 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Cont
 		return false, nil
 	}
 
-	isFrozen, err := s.IsFrozen(ctx, kvvmi)
+	isFrozen, err := s.IsFrozen(kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -229,8 +229,8 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Cont
 }
 
 func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
-	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemFrozenRequest]; ok {
-		return fmt.Errorf("failed to unfreeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemFrozenRequest, request)
+	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
+		return fmt.Errorf("failed to unfreeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
 	}
 
 	err := s.annotateWithFSFreezeRequest(ctx, RequestFSUnfreeze, kvvmi)
@@ -307,7 +307,7 @@ func (s *SnapshotService) CreateVirtualDiskSnapshot(ctx context.Context, vdSnaps
 	return vdSnapshot, nil
 }
 
-func (s *SnapshotService) GetKubeVirtVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+func (s *SnapshotService) GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 	if vm == nil {
 		return nil, nil
 	}
@@ -316,13 +316,13 @@ func (s *SnapshotService) GetKubeVirtVirtualMachineInstance(ctx context.Context,
 
 func (s *SnapshotService) annotateWithFSFreezeRequest(ctx context.Context, requestType string, kvvmi *virtv1.VirtualMachineInstance) error {
 	if kvvmi == nil {
-		return nil
+		return fmt.Errorf("failed to annotate virtual machine instance; virtual machine instance cannot be nil")
 	}
 
 	if kvvmi.Annotations == nil {
 		kvvmi.Annotations = make(map[string]string)
 	}
-	kvvmi.Annotations[annotations.AnnVMFilesystemFrozenRequest] = requestType
+	kvvmi.Annotations[annotations.AnnVMFilesystemRequest] = requestType
 
 	err := s.client.Update(ctx, kvvmi)
 	if err != nil {
@@ -333,11 +333,15 @@ func (s *SnapshotService) annotateWithFSFreezeRequest(ctx context.Context, reque
 }
 
 func (s *SnapshotService) removeAnnFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
-	if kvvmi == nil || kvvmi.Annotations == nil {
+	if kvvmi == nil {
+		return fmt.Errorf("failed to annotate virtual machine instance; virtual machine instance cannot be nil")
+	}
+
+	if kvvmi.Annotations == nil {
 		return nil
 	}
 
-	delete(kvvmi.Annotations, annotations.AnnVMFilesystemFrozenRequest)
+	delete(kvvmi.Annotations, annotations.AnnVMFilesystemRequest)
 
 	err := s.client.Update(ctx, kvvmi)
 	if err != nil {
@@ -352,24 +356,25 @@ func (s *SnapshotService) SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1
 		return nil
 	}
 
-	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemFrozenRequest]; ok {
-		switch {
-		case request == RequestFSFreeze && kvvmi.Status.FSFreezeStatus == FSFrozen:
-			err := s.removeAnnFSFreezeRequest(ctx, kvvmi)
-			if err != nil {
-				return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: %w", kvvmi.Namespace, kvvmi.Name, err)
-			}
-			return nil
-		case request == RequestFSUnfreeze && kvvmi.Status.FSFreezeStatus != FSFrozen:
-			err := s.removeAnnFSFreezeRequest(ctx, kvvmi)
-			if err != nil {
-				return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: %w", kvvmi.Namespace, kvvmi.Name, err)
-			}
-			return nil
-		default:
-			return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: %w", kvvmi.Namespace, kvvmi.Name, ErrUntrustedFilesystemFrozenCondition)
-		}
+	request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]
+	if !ok {
+		return nil
 	}
 
-	return nil
+	switch {
+	case request == RequestFSFreeze && kvvmi.Status.FSFreezeStatus == FSFrozen:
+		err := s.removeAnnFSFreezeRequest(ctx, kvvmi)
+		if err != nil {
+			return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, err)
+		}
+		return nil
+	case request == RequestFSUnfreeze && kvvmi.Status.FSFreezeStatus != FSFrozen:
+		err := s.removeAnnFSFreezeRequest(ctx, kvvmi)
+		if err != nil {
+			return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("failed to sync kvvmi %s/%s fsFreezeStatus: request: %s: %w", kvvmi.Namespace, kvvmi.Name, request, ErrUntrustedFilesystemFrozenCondition)
+	}
 }

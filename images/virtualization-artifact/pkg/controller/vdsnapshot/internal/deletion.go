@@ -64,7 +64,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 			}
 		}
 
-		kvvmi, err := h.snapshotter.GetKubeVirtVirtualMachineInstance(ctx, vm)
+		kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

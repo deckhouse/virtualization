@@ -76,20 +76,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	kvvmi, err := h.snapshotter.GetKubeVirtVirtualMachineInstance(ctx, vm)
+	kvvmi, err := h.snapshotter.GetVirtualMachineInstance(ctx, vm)
 	if err != nil {
 		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
 	err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
-	if err != nil {
-		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-			return reconcile.Result{}, nil
-		}
-		if k8serrors.IsConflict(err) {
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, err
-		}
+	switch {
+	case err == nil:
+		// OK.
+	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+		return reconcile.Result{}, nil
+	case k8serrors.IsConflict(err):
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+	default:
 		return reconcile.Result{}, err
 	}
 
@@ -216,7 +217,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		return reconcile.Result{}, err
 	}
 
-	needToFreeze, err := h.needToFreeze(ctx, vm, kvvmi, vmSnapshot)
+	needToFreeze, err := h.needToFreeze(vm, kvvmi, vmSnapshot)
 	if err != nil {
 		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 			return reconcile.Result{}, nil
@@ -399,13 +400,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 
 	// 9. Synchronize FSFreezeRequest with KVVMI status.
 	err = h.snapshotter.SyncFSFreezeRequest(ctx, kvvmi)
-	if err != nil {
-		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-			return reconcile.Result{}, nil
-		}
-		if k8serrors.IsConflict(err) {
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, err
-		}
+	switch {
+	case err == nil:
+		// OK.
+	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+		return reconcile.Result{}, nil
+	case k8serrors.IsConflict(err):
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+	default:
 		return reconcile.Result{}, err
 	}
 
@@ -553,7 +555,7 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*v1alp
 	return true
 }
 
-func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmsnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
+func (h LifeCycleHandler) needToFreeze(vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmsnapshot *v1alpha2.VirtualMachineSnapshot) (bool, error) {
 	if vmsnapshot.Status.Consistent != nil && *vmsnapshot.Status.Consistent {
 		return false, nil
 	}
@@ -566,7 +568,7 @@ func (h LifeCycleHandler) needToFreeze(ctx context.Context, vm *v1alpha2.Virtual
 		return false, nil
 	}
 
-	isFrozen, err := h.snapshotter.IsFrozen(ctx, kvvmi)
+	isFrozen, err := h.snapshotter.IsFrozen(kvvmi)
 	if err != nil {
 		return false, err
 	}
@@ -602,7 +604,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 		return false, nil
 	}
 
-	isFrozen, err := h.snapshotter.IsFrozen(ctx, kvvmi)
+	isFrozen, err := h.snapshotter.IsFrozen(kvvmi)
 	if err != nil {
 		return false, err
 	}

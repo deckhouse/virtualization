@@ -133,7 +133,7 @@ var _ = Describe("LifeCycle handler", func() {
 			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
 			},
-			IsFrozenFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			IsFrozenFunc: func(*virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			},
 			CanUnfreezeWithVirtualMachineSnapshotFunc: func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
@@ -151,7 +151,7 @@ var _ = Describe("LifeCycle handler", func() {
 			GetVirtualDiskSnapshotFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualDiskSnapshot, error) {
 				return vdSnapshot, nil
 			},
-			GetKubeVirtVirtualMachineInstanceFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+			GetVirtualMachineInstanceFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 				return kvvmi, nil
 			},
 			SyncFSFreezeRequestFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
@@ -263,7 +263,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The virtual machine is potentially inconsistent", func() {
-			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.IsFrozenFunc = func(_ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			}
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
@@ -282,7 +282,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The virtual machine has frozen", func() {
-			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.IsFrozenFunc = func(_ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			}
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {

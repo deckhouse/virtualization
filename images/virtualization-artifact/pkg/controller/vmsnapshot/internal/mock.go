@@ -111,9 +111,6 @@ var _ Snapshotter = &SnapshotterMock{}
 //			FreezeFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 //				panic("mock out the Freeze method")
 //			},
-//			GetKubeVirtVirtualMachineInstanceFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
-//				panic("mock out the GetKubeVirtVirtualMachineInstance method")
-//			},
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, name string, namespace string) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
@@ -129,7 +126,10 @@ var _ Snapshotter = &SnapshotterMock{}
 //			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
 //				panic("mock out the GetVirtualMachine method")
 //			},
-//			IsFrozenFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+//			GetVirtualMachineInstanceFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+//				panic("mock out the GetVirtualMachineInstance method")
+//			},
+//			IsFrozenFunc: func(kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 //				panic("mock out the IsFrozen method")
 //			},
 //			SyncFSFreezeRequestFunc: func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
@@ -157,9 +157,6 @@ type SnapshotterMock struct {
 	// FreezeFunc mocks the Freeze method.
 	FreezeFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 
-	// GetKubeVirtVirtualMachineInstanceFunc mocks the GetKubeVirtVirtualMachineInstance method.
-	GetKubeVirtVirtualMachineInstanceFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
-
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
 	GetPersistentVolumeClaimFunc func(ctx context.Context, name string, namespace string) (*corev1.PersistentVolumeClaim, error)
 
@@ -175,8 +172,11 @@ type SnapshotterMock struct {
 	// GetVirtualMachineFunc mocks the GetVirtualMachine method.
 	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error)
 
+	// GetVirtualMachineInstanceFunc mocks the GetVirtualMachineInstance method.
+	GetVirtualMachineInstanceFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
+
 	// IsFrozenFunc mocks the IsFrozen method.
-	IsFrozenFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	IsFrozenFunc func(kvvmi *virtv1.VirtualMachineInstance) (bool, error)
 
 	// SyncFSFreezeRequestFunc mocks the SyncFSFreezeRequest method.
 	SyncFSFreezeRequestFunc func(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
@@ -217,13 +217,6 @@ type SnapshotterMock struct {
 			Ctx context.Context
 			// Kvvmi is the kvvmi argument value.
 			Kvvmi *virtv1.VirtualMachineInstance
-		}
-		// GetKubeVirtVirtualMachineInstance holds details about calls to the GetKubeVirtVirtualMachineInstance method.
-		GetKubeVirtVirtualMachineInstance []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// VM is the vm argument value.
-			VM *v1alpha2.VirtualMachine
 		}
 		// GetPersistentVolumeClaim holds details about calls to the GetPersistentVolumeClaim method.
 		GetPersistentVolumeClaim []struct {
@@ -270,10 +263,15 @@ type SnapshotterMock struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
-		// IsFrozen holds details about calls to the IsFrozen method.
-		IsFrozen []struct {
+		// GetVirtualMachineInstance holds details about calls to the GetVirtualMachineInstance method.
+		GetVirtualMachineInstance []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// VM is the vm argument value.
+			VM *v1alpha2.VirtualMachine
+		}
+		// IsFrozen holds details about calls to the IsFrozen method.
+		IsFrozen []struct {
 			// Kvvmi is the kvvmi argument value.
 			Kvvmi *virtv1.VirtualMachineInstance
 		}
@@ -296,12 +294,12 @@ type SnapshotterMock struct {
 	lockCanUnfreezeWithVirtualMachineSnapshot sync.RWMutex
 	lockCreateVirtualDiskSnapshot             sync.RWMutex
 	lockFreeze                                sync.RWMutex
-	lockGetKubeVirtVirtualMachineInstance     sync.RWMutex
 	lockGetPersistentVolumeClaim              sync.RWMutex
 	lockGetSecret                             sync.RWMutex
 	lockGetVirtualDisk                        sync.RWMutex
 	lockGetVirtualDiskSnapshot                sync.RWMutex
 	lockGetVirtualMachine                     sync.RWMutex
+	lockGetVirtualMachineInstance             sync.RWMutex
 	lockIsFrozen                              sync.RWMutex
 	lockSyncFSFreezeRequest                   sync.RWMutex
 	lockUnfreeze                              sync.RWMutex
@@ -456,42 +454,6 @@ func (mock *SnapshotterMock) FreezeCalls() []struct {
 	mock.lockFreeze.RLock()
 	calls = mock.calls.Freeze
 	mock.lockFreeze.RUnlock()
-	return calls
-}
-
-// GetKubeVirtVirtualMachineInstance calls GetKubeVirtVirtualMachineInstanceFunc.
-func (mock *SnapshotterMock) GetKubeVirtVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
-	if mock.GetKubeVirtVirtualMachineInstanceFunc == nil {
-		panic("SnapshotterMock.GetKubeVirtVirtualMachineInstanceFunc: method is nil but Snapshotter.GetKubeVirtVirtualMachineInstance was just called")
-	}
-	callInfo := struct {
-		Ctx context.Context
-		VM  *v1alpha2.VirtualMachine
-	}{
-		Ctx: ctx,
-		VM:  vm,
-	}
-	mock.lockGetKubeVirtVirtualMachineInstance.Lock()
-	mock.calls.GetKubeVirtVirtualMachineInstance = append(mock.calls.GetKubeVirtVirtualMachineInstance, callInfo)
-	mock.lockGetKubeVirtVirtualMachineInstance.Unlock()
-	return mock.GetKubeVirtVirtualMachineInstanceFunc(ctx, vm)
-}
-
-// GetKubeVirtVirtualMachineInstanceCalls gets all the calls that were made to GetKubeVirtVirtualMachineInstance.
-// Check the length with:
-//
-//	len(mockedSnapshotter.GetKubeVirtVirtualMachineInstanceCalls())
-func (mock *SnapshotterMock) GetKubeVirtVirtualMachineInstanceCalls() []struct {
-	Ctx context.Context
-	VM  *v1alpha2.VirtualMachine
-} {
-	var calls []struct {
-		Ctx context.Context
-		VM  *v1alpha2.VirtualMachine
-	}
-	mock.lockGetKubeVirtVirtualMachineInstance.RLock()
-	calls = mock.calls.GetKubeVirtVirtualMachineInstance
-	mock.lockGetKubeVirtVirtualMachineInstance.RUnlock()
 	return calls
 }
 
@@ -695,22 +657,56 @@ func (mock *SnapshotterMock) GetVirtualMachineCalls() []struct {
 	return calls
 }
 
+// GetVirtualMachineInstance calls GetVirtualMachineInstanceFunc.
+func (mock *SnapshotterMock) GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+	if mock.GetVirtualMachineInstanceFunc == nil {
+		panic("SnapshotterMock.GetVirtualMachineInstanceFunc: method is nil but Snapshotter.GetVirtualMachineInstance was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		VM  *v1alpha2.VirtualMachine
+	}{
+		Ctx: ctx,
+		VM:  vm,
+	}
+	mock.lockGetVirtualMachineInstance.Lock()
+	mock.calls.GetVirtualMachineInstance = append(mock.calls.GetVirtualMachineInstance, callInfo)
+	mock.lockGetVirtualMachineInstance.Unlock()
+	return mock.GetVirtualMachineInstanceFunc(ctx, vm)
+}
+
+// GetVirtualMachineInstanceCalls gets all the calls that were made to GetVirtualMachineInstance.
+// Check the length with:
+//
+//	len(mockedSnapshotter.GetVirtualMachineInstanceCalls())
+func (mock *SnapshotterMock) GetVirtualMachineInstanceCalls() []struct {
+	Ctx context.Context
+	VM  *v1alpha2.VirtualMachine
+} {
+	var calls []struct {
+		Ctx context.Context
+		VM  *v1alpha2.VirtualMachine
+	}
+	mock.lockGetVirtualMachineInstance.RLock()
+	calls = mock.calls.GetVirtualMachineInstance
+	mock.lockGetVirtualMachineInstance.RUnlock()
+	return calls
+}
+
 // IsFrozen calls IsFrozenFunc.
-func (mock *SnapshotterMock) IsFrozen(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+func (mock *SnapshotterMock) IsFrozen(kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
 	if mock.IsFrozenFunc == nil {
 		panic("SnapshotterMock.IsFrozenFunc: method is nil but Snapshotter.IsFrozen was just called")
 	}
 	callInfo := struct {
-		Ctx   context.Context
 		Kvvmi *virtv1.VirtualMachineInstance
 	}{
-		Ctx:   ctx,
 		Kvvmi: kvvmi,
 	}
 	mock.lockIsFrozen.Lock()
 	mock.calls.IsFrozen = append(mock.calls.IsFrozen, callInfo)
 	mock.lockIsFrozen.Unlock()
-	return mock.IsFrozenFunc(ctx, kvvmi)
+	return mock.IsFrozenFunc(kvvmi)
 }
 
 // IsFrozenCalls gets all the calls that were made to IsFrozen.
@@ -718,11 +714,9 @@ func (mock *SnapshotterMock) IsFrozen(ctx context.Context, kvvmi *virtv1.Virtual
 //
 //	len(mockedSnapshotter.IsFrozenCalls())
 func (mock *SnapshotterMock) IsFrozenCalls() []struct {
-	Ctx   context.Context
 	Kvvmi *virtv1.VirtualMachineInstance
 } {
 	var calls []struct {
-		Ctx   context.Context
 		Kvvmi *virtv1.VirtualMachineInstance
 	}
 	mock.lockIsFrozen.RLock()

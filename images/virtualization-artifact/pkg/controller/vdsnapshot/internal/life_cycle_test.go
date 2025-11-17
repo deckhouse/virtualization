@@ -89,10 +89,10 @@ var _ = Describe("LifeCycle handler", func() {
 			GetVolumeSnapshotFunc: func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
 				return nil, nil
 			},
-			IsFrozenFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			IsFrozenFunc: func(_ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			},
-			GetKubeVirtVirtualMachineInstanceFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+			GetVirtualMachineInstanceFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 				return nil, nil
 			},
 			SyncFSFreezeRequestFunc: func(_ context.Context, _ *virtv1.VirtualMachineInstance) error {
@@ -201,10 +201,10 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return vm, nil
 			}
-			snapshotter.GetKubeVirtVirtualMachineInstanceFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+			snapshotter.GetVirtualMachineInstanceFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 				return kvvmi, nil
 			}
-			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.IsFrozenFunc = func(_ *virtv1.VirtualMachineInstance) (bool, error) {
 				return false, nil
 			}
 			snapshotter.CanFreezeFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
@@ -282,7 +282,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("Unfreeze virtual machine", func() {
-			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.IsFrozenFunc = func(_ *virtv1.VirtualMachineInstance) (bool, error) {
 				return true, nil
 			}
 			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
@@ -307,7 +307,7 @@ var _ = Describe("LifeCycle handler", func() {
 		DescribeTable("Check unfreeze if failed", func(vm *v1alpha2.VirtualMachine, isFrozen, canUnfreeze, expectUnfreezing bool) {
 			unfreezeCalled := false
 
-			snapshotter.IsFrozenFunc = func(_ context.Context, _ *virtv1.VirtualMachineInstance) (bool, error) {
+			snapshotter.IsFrozenFunc = func(_ *virtv1.VirtualMachineInstance) (bool, error) {
 				return isFrozen, nil
 			}
 			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *v1alpha2.VirtualMachine, _ *virtv1.VirtualMachineInstance) (bool, error) {
