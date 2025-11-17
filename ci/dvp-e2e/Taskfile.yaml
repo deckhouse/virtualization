@@ -925,6 +925,36 @@ tasks:
         KUBECONFIG={{ .NESTED_KUBECONFIG }} kubectl patch mc global --type='json' -p="$PATCH"
 
   # ------------------------------------------------------------
+  # Cleanup helpers
+  # ------------------------------------------------------------
+  cleanup:namespaces:
+    desc: Delete namespaces by prefix and wait for deletion
+    vars:
+      PREFIX: '{{ .PREFIX | default (env "CLEANUP_PREFIX") | default "nightly-nested-e2e-" }}'
+      PARENT_KUBECONFIG_PATH: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ ! -s "{{ .PARENT_KUBECONFIG_PATH }}" ]; then
+          echo "[ERR] parent kubeconfig not found (KUBECONFIG)" >&2
+          exit 1
+        fi
+        export KUBECONFIG='{{ .PARENT_KUBECONFIG_PATH }}'
+        echo "[CLEANUP] Prefix='{{ .PREFIX }}'"
+        ns_list=$(kubectl get ns -o json | jq -r --arg p '{{ .PREFIX }}' '.items[].metadata.name | select(startswith($p))')
+        if [ -z "${ns_list}" ]; then
+          echo "[INFO] No namespaces to delete"; exit 0
+        fi
+        for ns in $ns_list; do
+          echo "[CLEANUP] Deleting namespace $ns ..."
+          kubectl delete ns "$ns" --wait=false || true
+        done
+        echo "[CLEANUP] Waiting for namespaces to be deleted..."
+        for ns in $ns_list; do
+          kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
+        done
+
+  # ------------------------------------------------------------
   # Run E2E
   # ------------------------------------------------------------
   nested:e2e:

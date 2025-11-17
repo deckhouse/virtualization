@@ -1,4 +1,4 @@
-# Cluster configuration values for E2E testing
+# Cluster configuration for setting up nested clusters for running nightly E2E tests
 
 # Instance configuration
 instances:

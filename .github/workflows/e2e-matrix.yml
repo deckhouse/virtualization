@@ -344,24 +344,15 @@ jobs:
           ci/dvp-e2e/scripts/build_parent_kubeconfig.sh -o "$KCFG" -a "${E2E_K8S_URL}" -t "${{ secrets.E2E_NESTED_SA_SECRET }}"
           echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
 
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
       - name: Cleanup test namespaces
+        working-directory: ci/dvp-e2e
         env:
           CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
         run: |
-          set -euo pipefail
-          echo "🧹 Cleaning namespaces with prefix '${CLEANUP_PREFIX}'"
-          ns_list=$(kubectl get ns -o json | jq -r --arg p "$CLEANUP_PREFIX" '.items[].metadata.name | select(startswith($p))')
-          if [ -z "$ns_list" ]; then
-            echo "[INFO] No namespaces to delete"; exit 0
-          fi
-          for ns in $ns_list; do
-            echo "[CLEANUP] Deleting namespace $ns ..."
-            kubectl delete ns "$ns" --wait=false || true
-          done
-          echo "[CLEANUP] Waiting for namespaces to be deleted..."
-          for ns in $ns_list; do
-            kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
-          done
+          task cleanup:namespaces PREFIX="${CLEANUP_PREFIX}" PARENT_KUBECONFIG="${KUBECONFIG}"
 
       - name: Report cleanup results
         if: always()
