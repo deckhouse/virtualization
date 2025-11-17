@@ -50,7 +50,7 @@ const (
 )
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
-	imageMonitorSchedule := "0 * * * *"
+	imageMonitorSchedule := "*/5 * * * *"
 	if v, ok := os.LookupEnv(DVCRImageMonitorScheduleVar); ok {
 		imageMonitorSchedule = v
 	}
