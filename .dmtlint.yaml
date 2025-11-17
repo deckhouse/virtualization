@@ -13,11 +13,13 @@ linters-settings:
         - "spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.contentType"
   rbac:
     exclude-rules:
-      # We exclude RBAC rules for virt-operator because it creates ClusterRoles and ClusterRoleBindings with wildcards.
-      # If we remove wildcard, virt-operator will be unable to create them, as it does not have wildcard permissions itself.
+      # We exclude RBAC rules for virt-operator & cdi-operator because they create ClusterRoles and ClusterRoleBindings with wildcards.
+      # If we remove wildcard, virt-operator & cdi-operator will be unable to create them, as they do not have wildcard permissions themselves.
       wildcards:
         - kind: ClusterRole
           name: d8:virtualization:kubevirt-operator
+        - kind: ClusterRole
+          name: d8:containerized-data-importer:cdi-operator
 
       # We exclude RBAC rules for CDI and Kubevirt resources because they are used by upstream deployments.
       # Changing these rules will require patching upstream code.
