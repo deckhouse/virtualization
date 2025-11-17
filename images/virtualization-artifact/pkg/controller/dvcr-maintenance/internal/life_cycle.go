@@ -45,10 +45,14 @@ func NewLifeCycleHandler(client client.Client, dvcrService dvcrtypes.DVCRService
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, deploy *appsv1.Deployment) (reconcile.Result, error) {
+	if deploy == nil || deploy.GetDeletionTimestamp() != nil {
+		return reconcile.Result{}, nil
+	}
+
 	if req.Namespace == dvcrtypes.CronSourceNamespace && req.Name == dvcrtypes.CronSourceRunGC {
 		dvcrcondition.UpdateMaintenanceCondition(deploy,
 			dvcr_deployment_condition.InProgress,
-			"garbage collection initiated",
+			"Garbage collection initiated.",
 		)
 		return reconcile.Result{}, h.dvcrService.InitiateMaintenanceMode(ctx)
 	}
@@ -75,7 +79,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 
 		if h.dvcrService.IsMaintenanceDone(secret) {
 			dvcrcondition.UpdateMaintenanceCondition(deploy,
-				dvcr_deployment_condition.LastResult,
+				dvcr_deployment_condition.Done,
 				"%s", string(secret.Data["result"]),
 			)
 			return reconcile.Result{}, h.dvcrService.DeleteMaintenanceSecret(ctx)
@@ -84,7 +88,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		if h.dvcrService.IsMaintenanceStarted(secret) {
 			dvcrcondition.UpdateMaintenanceCondition(deploy,
 				dvcr_deployment_condition.InProgress,
-				"wait for garbage collection to finish",
+				"Wait for garbage collection to finish.",
 			)
 			// Wait for done annotation.
 			return reconcile.Result{}, nil
@@ -99,7 +103,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		if remainInProvisioning > 0 {
 			dvcrcondition.UpdateMaintenanceCondition(deploy,
 				dvcr_deployment_condition.InProgress,
-				"wait for cvi/vi/vd finish provisioning: %d resources remain", remainInProvisioning,
+				"Wait for cvi/vi/vd finish provisioning: %d resources remain.", remainInProvisioning,
 			)
 			return reconcile.Result{RequeueAfter: time.Second * 20}, nil
 		}
@@ -110,7 +114,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		}
 		dvcrcondition.UpdateMaintenanceCondition(deploy,
 			dvcr_deployment_condition.InProgress,
-			"wait for garbage collection to finish",
+			"Wait for garbage collection to finish.",
 		)
 		return reconcile.Result{}, nil
 	}
