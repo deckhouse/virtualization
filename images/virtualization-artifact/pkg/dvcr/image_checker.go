@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
+	"github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -90,20 +90,12 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 
 	// Fetch authentication credentials from Secret if configured
 	if c.dvcrSettings.AuthSecret != "" {
-		secret := &corev1.Secret{}
-		err := c.client.Get(ctx, types.NamespacedName{
-			Name:      c.dvcrSettings.AuthSecret,
-			Namespace: c.dvcrSettings.AuthSecretNamespace,
-		}, secret)
+		keychain, err := kubernetes.NewInCluster(ctx, kubernetes.Options{
+			Namespace:        c.dvcrSettings.AuthSecretNamespace,
+			ImagePullSecrets: []string{c.dvcrSettings.AuthSecret},
+		})
 		if err != nil {
-			return nil, fmt.Errorf("failed to get auth secret %s/%s: %w",
-				c.dvcrSettings.AuthSecretNamespace, c.dvcrSettings.AuthSecret, err)
-		}
-
-		keychain, err := k8schain.NewFromPullSecrets(ctx, []corev1.Secret{*secret})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create keychain from secret %s/%s: %w",
-				c.dvcrSettings.AuthSecretNamespace, c.dvcrSettings.AuthSecret, err)
+			return nil, fmt.Errorf("failed to create keychain: %w", err)
 		}
 
 		opts = append(opts, remote.WithAuthFromKeychain(keychain))
