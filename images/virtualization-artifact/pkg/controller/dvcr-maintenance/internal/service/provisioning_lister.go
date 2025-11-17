@@ -40,27 +40,28 @@ func NewProvisioningLister(client client.Client) *ProvisioningLister {
 }
 
 func (p *ProvisioningLister) ListAllInProvisioning(ctx context.Context) ([]client.Object, error) {
-	result := make([]client.Object, 0)
-
 	clusterImages, err := p.ListClusterVirtualImagesInProvisioning(ctx)
 	if err != nil {
 		return nil, err
-	}
-	for i := range clusterImages {
-		result = append(result, &clusterImages[i])
 	}
 
 	images, err := p.ListVirtualImagesInProvisioning(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for i := range images {
-		result = append(result, &images[i])
-	}
 
 	disks, err := p.ListVirtualDisksInProvisioning(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	result := make([]client.Object, 0, len(clusterImages)+len(images)+len(disks))
+
+	for i := range clusterImages {
+		result = append(result, &clusterImages[i])
+	}
+	for i := range images {
+		result = append(result, &images[i])
 	}
 	for i := range disks {
 		result = append(result, &disks[i])
@@ -76,18 +77,13 @@ func (p *ProvisioningLister) ListClusterVirtualImagesInProvisioning(ctx context.
 		return nil, fmt.Errorf("list all ClusterVirtualImages: %w", err)
 	}
 
-	provisioning := make([]v1alpha2.ClusterVirtualImage, 0)
-
+	var provisioning []v1alpha2.ClusterVirtualImage
 	for _, cvi := range cviList.Items {
-		cond, ok := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-		if !ok {
-			continue
-		}
-		if cond.Status == "False" && cond.Reason == cvicondition.Provisioning.String() {
+		cond, exists := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+		if exists && cond.Status == "False" && cond.Reason == cvicondition.Provisioning.String() {
 			provisioning = append(provisioning, cvi)
 		}
 	}
-
 	return provisioning, nil
 }
 
@@ -98,18 +94,13 @@ func (p *ProvisioningLister) ListVirtualImagesInProvisioning(ctx context.Context
 		return nil, fmt.Errorf("list all VirtualImages: %w", err)
 	}
 
-	provisioning := make([]v1alpha2.VirtualImage, 0)
-
+	var provisioning []v1alpha2.VirtualImage
 	for _, vi := range viList.Items {
-		cond, ok := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-		if !ok {
-			continue
-		}
-		if cond.Status == "False" && cond.Reason == vicondition.Provisioning.String() {
+		cond, exists := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+		if exists && cond.Status == "False" && cond.Reason == vicondition.Provisioning.String() {
 			provisioning = append(provisioning, vi)
 		}
 	}
-
 	return provisioning, nil
 }
 
@@ -120,22 +111,17 @@ func (p *ProvisioningLister) ListVirtualDisksInProvisioning(ctx context.Context)
 		return nil, fmt.Errorf("list all VirtualDiks: %w", err)
 	}
 
-	provisioning := make([]v1alpha2.VirtualDisk, 0)
-
+	var provisioning []v1alpha2.VirtualDisk
 	for _, vd := range vdList.Items {
 		// Ignore disks without "import to dvcr first" stage.
 		if !vdHasDVCRStage(&vd) {
 			continue
 		}
-		cond, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-		if !ok {
-			continue
-		}
-		if cond.Status == "False" && cond.Reason == vdcondition.Provisioning.String() {
+		cond, exists := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+		if exists && cond.Status == "False" && cond.Reason == vdcondition.Provisioning.String() {
 			provisioning = append(provisioning, vd)
 		}
 	}
-
 	return provisioning, nil
 }
 
