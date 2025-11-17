@@ -166,12 +166,10 @@ jobs:
           mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
 
       - name: Build parent kubeconfig from secret
-        shell: bash
+        working-directory: ci/dvp-e2e
         run: |
-          set -euo pipefail
-          chmod +x ci/dvp-e2e/scripts/build_parent_kubeconfig.sh
           KCFG="$HOME/.kube/config"
-          ci/dvp-e2e/scripts/build_parent_kubeconfig.sh -o "$KCFG" -a "${E2E_K8S_URL}" -t "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          task parent:kubeconfig OUTPUT="$KCFG" API_URL="${E2E_K8S_URL}" SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"
           echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
 
       - name: Prepare run values.yaml
@@ -197,9 +195,8 @@ jobs:
         if: ${{ env.REGISTRY_DOCKER_CFG != '' }}
         working-directory: ci/dvp-e2e
         run: |
-          chmod +x scripts/inject_registry_cfg.sh
           VALS="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
-          REGISTRY_DOCKER_CFG="${REGISTRY_DOCKER_CFG}" scripts/inject_registry_cfg.sh -f "$VALS" -v "$REGISTRY_DOCKER_CFG"
+          task values:inject-registry VALUES_FILE="$VALS" REGISTRY_DOCKER_CFG="${REGISTRY_DOCKER_CFG}"
 
       - name: Docker login from DEV_REGISTRY_DOCKER_CFG (optional)
         if: ${{ env.REGISTRY_DOCKER_CFG != '' }}
@@ -336,12 +333,10 @@ jobs:
           version: "latest"
 
       - name: Build parent kubeconfig from secret (cleanup)
-        shell: bash
+        working-directory: ci/dvp-e2e
         run: |
-          set -euo pipefail
-          chmod +x ci/dvp-e2e/scripts/build_parent_kubeconfig.sh
           KCFG="$HOME/.kube/config"
-          ci/dvp-e2e/scripts/build_parent_kubeconfig.sh -o "$KCFG" -a "${E2E_K8S_URL}" -t "${{ secrets.E2E_NESTED_SA_SECRET }}"
+          task parent:kubeconfig OUTPUT="$KCFG" API_URL="${E2E_K8S_URL}" SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"
           echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
 
       - name: Install Task

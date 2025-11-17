@@ -955,6 +955,36 @@ tasks:
         done
 
   # ------------------------------------------------------------
+  # CI helpers: kubeconfig + registry
+  # ------------------------------------------------------------
+  parent:kubeconfig:
+    desc: Build parent kubeconfig from URL + SA token
+    vars:
+      OUTPUT: '{{ .OUTPUT | default (env "KUBECONFIG") | default "$HOME/.kube/config" }}'
+      API_URL: '{{ .API_URL | default (env "E2E_K8S_URL") | default "" }}'
+      SA_TOKEN: '{{ .SA_TOKEN | default (env "E2E_SA_TOKEN") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ -z "{{ .API_URL }}" ] || [ -z "{{ .SA_TOKEN }}" ]; then
+          echo "[ERR] API_URL/SA_TOKEN is empty" >&2; exit 1; fi
+        chmod +x ./scripts/build_parent_kubeconfig.sh
+        ./scripts/build_parent_kubeconfig.sh -o "{{ .OUTPUT }}" -a "{{ .API_URL }}" -t "{{ .SA_TOKEN }}"
+
+  values:inject-registry:
+    desc: Inject REGISTRY_DOCKER_CFG into values.yaml
+    vars:
+      VALUES_FILE: '{{ .VALUES_FILE | default "" }}'
+      REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ -z "{{ .VALUES_FILE }}" ] || [ -z "{{ .REGISTRY_DOCKER_CFG }}" ]; then
+          echo "[ERR] VALUES_FILE/REGISTRY_DOCKER_CFG is empty" >&2; exit 1; fi
+        chmod +x ./scripts/inject_registry_cfg.sh
+        REGISTRY_DOCKER_CFG='{{ .REGISTRY_DOCKER_CFG }}' ./scripts/inject_registry_cfg.sh -f "{{ .VALUES_FILE }}" -v "{{ .REGISTRY_DOCKER_CFG }}"
+
+  # ------------------------------------------------------------
   # Run E2E
   # ------------------------------------------------------------
   nested:e2e:
