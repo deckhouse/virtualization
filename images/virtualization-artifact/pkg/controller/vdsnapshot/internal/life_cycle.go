@@ -216,7 +216,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 					return reconcile.Result{}, err
 				}
 
-				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress // TODO: add it to freeze/unfreeze block if required
+				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdscondition.FileSystemFreezing).
@@ -352,16 +352,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	default:
 		log.Debug("The volume snapshot is ready to use")
 
-		if h.isConsistent(vdSnapshot) {
-			err := h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
-			if err != nil {
-				if k8serrors.IsConflict(err) {
-					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-				}
-				return reconcile.Result{}, err
-			}
-		}
-
 		if vdSnapshot.Status.Consistent == nil {
 			if vm == nil || vm.Status.Phase == v1alpha2.MachineStopped || isFSFrozen {
 				vdSnapshot.Status.Consistent = ptr.To(true)
@@ -487,16 +477,4 @@ func (h LifeCycleHandler) unfreezeFilesystem(ctx context.Context, vdSnapshotName
 	}
 
 	return nil
-}
-
-func (h LifeCycleHandler) isConsistent(vdSnapshot *v1alpha2.VirtualDiskSnapshot) bool {
-	if vdSnapshot.Status.Consistent == nil {
-		return false
-	}
-
-	if !*vdSnapshot.Status.Consistent {
-		return false
-	}
-
-	return true
 }
