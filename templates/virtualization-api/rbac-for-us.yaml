@@ -58,7 +58,6 @@ rules:
   - virtualization.deckhouse.io
   resources:
   - virtualmachines
-  - virtualmachineblockdeviceattachments
   verbs:
   - get
   - list
