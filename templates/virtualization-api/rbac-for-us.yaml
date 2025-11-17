@@ -16,15 +16,94 @@ metadata:
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
 rules:
 - apiGroups:
-    - '*'
+  - ""
   resources:
-    - '*'
+  - persistentvolumeclaims
+  - serviceaccounts
+  - configmaps
   verbs:
-    - '*'
-- nonResourceURLs:
-    - '*'
+  - get
+  - list
+  - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
   verbs:
-    - '*'
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - delete
+- apiGroups:
+  - virtualization.deckhouse.io
+  resources:
+  - virtualmachines
+  - virtualmachineblockdeviceattachments
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines
+  - virtualmachineinstances
+  verbs:
+  - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/console
+  - virtualmachineinstances/vnc
+  - virtualmachineinstances/vnc/screenshot
+  - virtualmachineinstances/portforward
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/userlist
+  - virtualmachineinstances/sev/fetchcertchain
+  - virtualmachineinstances/sev/querylaunchmeasurement
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - subresources.virtualization.deckhouse.io
+  resources:
+  - virtualmachines
+  - virtualmachines/addvolume
+  - virtualmachines/cancelevacuation
+  - virtualmachines/console
+  - virtualmachines/freeze
+  - virtualmachines/portforward
+  - virtualmachines/removevolume
+  - virtualmachines/unfreeze
+  - virtualmachines/vnc
+  verbs:
+  - get
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
