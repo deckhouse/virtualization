@@ -24,7 +24,7 @@ import (
 )
 
 func WaitForTermination() {
-	exitCh := make(chan os.Signal, 5)
+	exitCh := make(chan os.Signal, 1)
 	signal.Notify(exitCh, syscall.SIGINT, syscall.SIGTERM)
 
 	for {

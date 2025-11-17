@@ -164,8 +164,12 @@ func ListVirtualImagesForNamespace(namespace string) ([]Image, error) {
 	images := make([]Image, 0)
 	for _, imageEntry := range imagesEntries {
 		if imageEntry.Name() == "_manifests" {
-			// Workaround for a bug: some transient images for CVI are uploaded into vi/<cvi-name> repositories.
-			// There are no images in "namespace" directory: "namespace" directory is an image itself.
+			// Workaround for a bug: transient images for CVI with objectRef snapshot
+			// are uploaded into vi/<cvi-name> directories instead of cvi/<cvi-name>.
+			// There are no virtual images in directory passed as a "namespace" argument in this case:
+			// "namespace" directory is a manifest for ClusterVirtualImage.
+			// We add ClusterVirtualImage with name from "namespace" argument,
+			// no further iteration is required.
 			return []Image{{
 				Type: v1alpha2.ClusterVirtualImageKind,
 				Name: namespace,
