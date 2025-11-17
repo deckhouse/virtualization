@@ -362,10 +362,13 @@ rules:
   - internal.virtualization.deckhouse.io
   resources:
   - internalvirtualizationkubevirts
+  - internalvirtualizationkubevirts/status
   verbs:
   - get
   - list
   - watch
+  - update
+  - patch
 - apiGroups:
   - snapshot.internal.virtualization.deckhouse.io
   resources:
