@@ -168,29 +168,7 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
-  - expand-vm-spec
-  - virtualmachineinstances/vnc
-  - virtualmachineinstances/console
-  - virtualmachineinstances/portforward
-  - virtualmachineinstances/pause
-  - virtualmachineinstances/unpause
-  - virtualmachineinstances/freeze
-  - virtualmachineinstances/unfreeze
-  - virtualmachineinstances/softreboot
-  - virtualmachines/start
-  - virtualmachines/stop
-  - virtualmachines/restart
-  - virtualmachines/migrate
-  - virtualmachines/expand-spec
-  - virtualmachineinstances/guestosinfo
-  - virtualmachineinstances/userlist
-  - virtualmachineinstances/filesystemlist
-  - virtualmachineinstances/addvolume
-  - virtualmachineinstances/removevolume
-  - virtualmachineinstances/sev/fetchcertchain
-  - virtualmachineinstances/sev/querylaunchmeasurement
-  - virtualmachineinstances/sev/setupsession
-  - virtualmachineinstances/sev/injectlaunchsecret
+  - '*'
   verbs:
   - get
   - patch
