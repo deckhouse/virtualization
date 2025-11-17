@@ -97,6 +97,9 @@ func (s *SnapshotService) CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMa
 	return false, nil
 }
 
+// TODO: The Freeze method should be atomic because there is a chance of encountering
+// a dead-end with the `ErrUntrustedFilesystemFrozenCondition` error in the SyncFSFreezeRequest method
+// when the API returns an error on an freeze request.
 func (s *SnapshotService) Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
 		return fmt.Errorf("failed to freeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)
@@ -228,6 +231,9 @@ func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Cont
 	return true, nil
 }
 
+// TODO: The Unfreeze method should be atomic because there is a chance of encountering
+// a dead-end with the `ErrUntrustedFilesystemFrozenCondition` error in the SyncFSFreezeRequest method
+// when the API returns an error on an unfreeze request.
 func (s *SnapshotService) Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
 	if request, ok := kvvmi.Annotations[annotations.AnnVMFilesystemRequest]; ok {
 		return fmt.Errorf("failed to unfreeze %s/%s virtual machine filesystem: %w: request type: %s", kvvmi.Namespace, kvvmi.Name, ErrUnexpectedFilesystemRequest, request)

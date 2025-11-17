@@ -83,8 +83,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			if k8serrors.IsConflict(err) {
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, err
 			}
-			// Who changes the state? Sync?
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				log.Debug(err.Error())
 				return reconcile.Result{}, nil
 			}
 			if cb.Condition().Message != "" {
@@ -171,6 +171,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	case err == nil:
 		// OK.
 	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+		log.Debug(err.Error())
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
@@ -379,6 +380,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			if k8serrors.IsConflict(err) {
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
+			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.FileSystemUnfreezing).
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
 			return reconcile.Result{}, err
 		}
 
@@ -387,6 +393,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		case err == nil:
 			// OK.
 		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+			log.Debug(err.Error())
 			return reconcile.Result{}, nil
 		case k8serrors.IsConflict(err):
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, err

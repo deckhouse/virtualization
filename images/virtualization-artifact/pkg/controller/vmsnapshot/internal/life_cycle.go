@@ -87,6 +87,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	case err == nil:
 		// OK.
 	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+		log.Debug(err.Error())
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
@@ -104,6 +105,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
+				log.Debug(err.Error())
 				return reconcile.Result{}, nil
 			}
 			if k8serrors.IsConflict(err) {
@@ -219,17 +221,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 
 	needToFreeze, err := h.needToFreeze(vm, kvvmi, vmSnapshot)
 	if err != nil {
-		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-			return reconcile.Result{}, nil
-		}
 		return reconcile.Result{}, err
 	}
 
 	canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
 	if err != nil {
-		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-			return reconcile.Result{}, nil
-		}
 		return reconcile.Result{}, err
 	}
 	isAwaitingConsistency := needToFreeze && !canFreeze && vmSnapshot.Spec.RequiredConsistency
@@ -378,12 +374,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	// 7. Unfreeze VirtualMachine if can.
 	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 	if err != nil {
-		if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-			return reconcile.Result{}, nil
-		}
 		if k8serrors.IsConflict(err) {
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.FileSystemUnfreezing).
@@ -404,6 +398,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	case err == nil:
 		// OK.
 	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+		log.Debug(err.Error())
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
