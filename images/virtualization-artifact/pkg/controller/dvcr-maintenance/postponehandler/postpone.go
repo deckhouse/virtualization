@@ -58,19 +58,24 @@ func New[T client.Object](dvcrService DVCRService, recorder eventrecord.EventRec
 // if dvcr is in the maintenance mode.
 // Applicable for ClusterVirtualImage, VirtualImage, and VirtualDisk.
 func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, error) {
+	conditionsPtr := conditions.NewConditionsAccessor(obj).Conditions()
+
+	readyCondition, readyConditionPresent := conditions.GetCondition(getReadyType(obj), *conditionsPtr)
+
+	// Exit early for already existing resources: no need to postpone provisioning for them.
+	if readyConditionPresent && readyCondition.Reason != ProvisioningPostponedReason.String() {
+		return reconcile.Result{}, nil
+	}
+
 	maintenanceSecret, err := p.dvcrService.GetMaintenanceSecret(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("checking DVCR maintenance mode: %w", err)
 	}
 
-	conditionsPtr := conditions.NewConditionsAccessor(obj).Conditions()
-	// Only newly created resources are marked to postpone.
-
-	readyCondition, exists := conditions.GetCondition(getReadyType(obj), *conditionsPtr)
-	isAlreadyPostponed := exists && readyCondition.Reason == ProvisioningPostponedReason.String()
+	isAlreadyPostponed := readyConditionPresent && readyCondition.Reason == ProvisioningPostponedReason.String()
 	isMaintenance := p.dvcrService.IsMaintenanceInitiatedOrInProgress(maintenanceSecret)
 
-	// Clear PostponeProvisioning reason if maintenance finished.
+	// Clear PostponeProvisioning reason if maintenance was finished.
 	if !isMaintenance {
 		if isAlreadyPostponed {
 			p.recorder.Event(
@@ -84,8 +89,8 @@ func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, erro
 		return reconcile.Result{}, nil
 	}
 
-	// Postpone only newly created resources without Ready condition.
-	if !exists {
+	// Maintenance enabled: postpone resources without Ready condition (newly created).
+	if !readyConditionPresent {
 		p.recorder.Event(
 			obj,
 			corev1.EventTypeNormal,
@@ -99,11 +104,9 @@ func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, erro
 			Reason(ProvisioningPostponedReason).
 			Message("DVCR is in maintenance mode: wait until it finishes before creating provisioner.")
 		conditions.SetCondition(cb, conditions.NewConditionsAccessor(obj).Conditions())
-		return reconcile.Result{RequeueAfter: PostponePeriod}, reconciler.ErrStopHandlerChain
 	}
-
-	// Pass through resources existed before enabling maintenance mode.
-	return reconcile.Result{}, nil
+	// Maintenance enabled and resources are postponed: requeue to check maintenance status later.
+	return reconcile.Result{RequeueAfter: PostponePeriod}, reconciler.ErrStopHandlerChain
 }
 
 func (p *Postpone[T]) Name() string {
