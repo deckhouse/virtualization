@@ -87,9 +87,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 
-			vmbdaPath := t.GetVMBDADevicePath()
-			t.CreateFilesystem(vmbdaPath)
-			t.Mount(vmbdaPath)
+			t.CreateFilesystemOnVMBDADisk()
+			t.MountVMBDADisk()
 			t.GeneratedValue = strconv.Itoa(time.Now().UTC().Second())
 			t.WriteDataToDisk(t.GeneratedValue)
 
@@ -122,7 +121,6 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.LongTimeout)
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-			t.Mount(t.GetVMBDADevicePath())
 		})
 		By("Check that VM is in changed state", func() {
 			Expect(t.GetDataFromDisk()).To(Equal(changedValueOnDisk))
@@ -152,7 +150,6 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 
 				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-				t.Mount(t.GetVMBDADevicePath()) // after restart need remount VMBDA disk device
 			}
 		})
 		By("Check VM after restore", func() {
@@ -311,17 +308,35 @@ func (t *restoreModeTest) GetVMBDADevicePath() string {
 	return devicePath
 }
 
-func (t *restoreModeTest) CreateFilesystem(devicePath string) {
+func (t *restoreModeTest) CreateFilesystemOnVMBDADisk() {
 	GinkgoHelper()
 
-	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mkfs.ext4 %s", devicePath))
+	serial, ok := t.getVMBDADiskSerialNumber(t.VDBlank.Name)
+	Expect(ok).To(BeTrue(), "failed to get VMBDA disk serial number")
+
+	devicePath, ok, err := t.getDeviceBySerial(serial)
+	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+	Expect(ok).To(BeTrue(), "failed to get device by serial")
+
+	_, err = t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mkfs.ext4 %s", devicePath))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (t *restoreModeTest) Mount(devicePath string) {
+func (t *restoreModeTest) MountVMBDADisk() {
 	GinkgoHelper()
 
-	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
+	serial, ok := t.getVMBDADiskSerialNumber(t.VDBlank.Name)
+	Expect(ok).To(BeTrue(), "failed to get VMBDA disk serial number")
+
+	devicePath, ok, err := t.getDeviceBySerial(serial)
+	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+	Expect(ok).To(BeTrue(), "failed to get device by serial")
+
+	_, err = t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
+	Expect(err).NotTo(HaveOccurred())
+
+	cmd := fmt.Sprintf(`ID=$(ls /dev/disk/by-id/ | grep %s | head -n1); echo "/dev/disk/by-id/$ID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
+	_, err = t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, cmd)
 	Expect(err).NotTo(HaveOccurred())
 }
 
