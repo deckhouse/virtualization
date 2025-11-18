@@ -26,12 +26,14 @@ import (
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 )
 
@@ -121,7 +123,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	// Create vmclass/generic and set state in values, as it should be initial module installation.
 	if vmClassGeneric == nil {
 		input.Logger.Info("Install VirtualMachineClass/generic")
-		vmClass := vmClassGenericManifest()
+		vmClass := vmClassGenericManifestV3()
 		input.PatchCollector.Create(vmClass)
 	}
 	// No state in secret, no state in values, but vmclass/generic is present.
@@ -233,6 +235,72 @@ func vmClassGenericManifest() *v1alpha2.VirtualMachineClass {
 					},
 					DedicatedCores: []bool{true, false},
 					CoreFractions:  []v1alpha2.CoreFractionValue{100},
+				},
+			},
+		},
+	}
+}
+
+// vmClassGenericManifestV3 returns a manifest for 'generic' vmclass
+// that should work for VM on every Node in cluster (v1alpha3).
+func vmClassGenericManifestV3() runtime.Object {
+	return &v1alpha3.VirtualMachineClass{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha3.SchemeGroupVersion.String(),
+			Kind:       v1alpha3.VirtualMachineClassKind,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vmClassGenericName,
+			Labels: map[string]string{
+				"app":    "virtualization-controller",
+				"module": settings.ModuleName,
+			},
+		},
+		Spec: v1alpha3.VirtualMachineClassSpec{
+			CPU: v1alpha3.CPU{
+				Type:  v1alpha3.CPUTypeModel,
+				Model: "Nehalem",
+			},
+			NodeSelector: v1alpha3.NodeSelector{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      "node-role.kubernetes.io/control-plane",
+						Operator: corev1.NodeSelectorOpDoesNotExist,
+					},
+				},
+			},
+			SizingPolicies: []v1alpha3.SizingPolicy{
+				{
+					Cores: &v1alpha3.SizingPolicyCores{
+						Min: 1,
+						Max: 4,
+					},
+					DedicatedCores: []bool{false},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"5%", "10%", "20%", "50%", "100%"},
+				},
+				{
+					Cores: &v1alpha3.SizingPolicyCores{
+						Min: 5,
+						Max: 8,
+					},
+					DedicatedCores: []bool{false},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"20%", "50%", "100%"},
+				},
+				{
+					Cores: &v1alpha3.SizingPolicyCores{
+						Min: 9,
+						Max: 16,
+					},
+					DedicatedCores: []bool{true, false},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"50%", "100%"},
+				},
+				{
+					Cores: &v1alpha3.SizingPolicyCores{
+						Min: 17,
+						Max: 1024,
+					},
+					DedicatedCores: []bool{true, false},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"100%"},
 				},
 			},
 		},

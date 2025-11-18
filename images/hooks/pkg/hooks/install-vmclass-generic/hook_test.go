@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 func Test_InstallVMClassGeneric(t *testing.T) {
@@ -195,15 +196,17 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		})
 	}
 
-	expectVMClassGeneric := func(obj interface{}) {
+	expectVMClassGenericV3 := func(obj interface{}) {
 		GinkgoHelper()
-		vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
+		vmClass, ok := obj.(*v1alpha3.VirtualMachineClass)
 		Expect(ok).To(BeTrue())
 		Expect(vmClass.Name).To(Equal("generic"))
 		Expect(vmClass.Labels).To(Equal(map[string]string{
 			"app":    "virtualization-controller",
 			"module": "virtualization",
 		}))
+		Expect(vmClass.Spec.SizingPolicies).To(HaveLen(4))
+		Expect(vmClass.Spec.SizingPolicies[0].CoreFractions).To(Equal([]v1alpha3.CoreFractionValue{"5%", "10%", "20%", "50%", "100%"}))
 	}
 
 	BeforeEach(func() {
@@ -239,12 +242,12 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		})
 
 		When("no state in values and no vmclass", func() {
-			It("should create vmclass/generic and set values", func() {
+			It("should create vmclass/generic v1alpha3 and set values", func() {
 				prepareVMClassSnapshotEmpty()
 				prepareStateValuesEmpty()
 
 				values.SetMock.Return()
-				patchCollector.CreateMock.Set(expectVMClassGeneric)
+				patchCollector.CreateMock.Set(expectVMClassGenericV3)
 
 				Expect(Reconcile(context.Background(), newInput())).To(Succeed())
 				Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1), "should call Create once")
@@ -291,11 +294,11 @@ var _ = Describe("Install VMClass Generic hook", func() {
 			})
 
 			When("no vmclass/generic", func() {
-				It("should create vmclass/generic and set values", func() {
+				It("should create vmclass/generic v1alpha3 and set values", func() {
 					prepareVMClassSnapshotEmpty()
 
 					values.SetMock.Return()
-					patchCollector.CreateMock.Set(expectVMClassGeneric)
+					patchCollector.CreateMock.Set(expectVMClassGenericV3)
 
 					Expect(Reconcile(context.Background(), newInput())).To(Succeed())
 					Expect(patchCollector.CreateMock.Calls()).To(HaveLen(1))
