@@ -21,13 +21,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
 type ServiceSettings struct {
@@ -91,12 +89,4 @@ func (s *Service) makeSpec() *corev1.Service {
 	}
 
 	return service
-}
-
-type ServiceNamer interface {
-	UploaderService() types.NamespacedName
-}
-
-func FindService(ctx context.Context, client client.Client, name ServiceNamer) (*corev1.Service, error) {
-	return object.FetchObject(ctx, name.UploaderService(), client, &corev1.Service{})
 }
