@@ -91,7 +91,7 @@ func (s UploaderService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -131,7 +131,7 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup supplements
 	if err != nil {
 		return false, err
 	}
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.UploaderPod())
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyUploaderPod(), sup)
 	if err != nil {
 		return false, err
 	}
@@ -178,11 +178,11 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup supplements
 	return haveDeleted, nil
 }
 
-func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
+func (s UploaderService) Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
 	var networkPolicy *netv1.NetworkPolicy
 
 	if pod != nil {
-		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
@@ -195,11 +195,11 @@ func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *core
 	return nil
 }
 
-func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
+func (s UploaderService) Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) (err error) {
 	var networkPolicy *netv1.NetworkPolicy
 
 	if pod != nil {
-		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
@@ -213,30 +213,18 @@ func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *co
 }
 
 func (s UploaderService) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
-	pod, err := uploader.FindPod(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return pod, nil
+	pod := &corev1.Pod{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderPod, pod)
 }
 
 func (s UploaderService) GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
-	svc, err := uploader.FindService(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return svc, nil
+	svc := &corev1.Service{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderService, svc)
 }
 
 func (s UploaderService) GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error) {
-	ing, err := uploader.FindIngress(ctx, s.client, sup)
-	if err != nil {
-		return nil, err
-	}
-
-	return ing, nil
+	ing := &netv1.Ingress{}
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementUploaderIngress, ing)
 }
 
 func (s UploaderService) GetExternalURL(ctx context.Context, ing *netv1.Ingress) string {
