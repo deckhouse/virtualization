@@ -52,16 +52,19 @@ import (
 )
 
 const (
-	minimalViURL                    = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	minimalCviURL                   = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
-	initialValueBeforeMachineChange = "initial-value-before-machine-change"
-	changedValueAfterMachineChange  = "changed-value-after-machine-change"
-	testAnnotationName              = "e2e-annotation-for-check-restoring-vm"
-	testLabelName                   = "e2e-label-for-check-restoring-vm"
-	initialCPUCores                 = 1
-	initialMemorySize               = "256Mi"
-	changedCPUCores                 = 2
-	changedMemorySize               = "512Mi"
+	minimalVIURL              = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
+	minimalCVIURL             = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
+	vmAnnotationName          = "vmAnnotationName"
+	vmAnnotationOriginalValue = "vmAnnotationOriginalValue"
+	vmAnnotationChangedValue  = "vmAnnotationChangedValue"
+	vmLabelName               = "vmLabelName"
+	vmLabelOriginalValue      = "vmLabelOriginalValue"
+	vmLabelChangedValue       = "vmLabelChangedValue"
+	changedValueOnDisk        = "changedValueOnDisk"
+	initialCPUCores           = 1
+	initialMemorySize         = "256Mi"
+	changedCPUCores           = 2
+	changedMemorySize         = "512Mi"
 )
 
 var _ = Describe("VirtualMachineOperationRestore", func() {
@@ -69,7 +72,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
-		t := NewRestoreTest(f)
+		t := newRestoreTest(f)
 
 		By("Environment preparation", func() {
 			t.GenerateEnvironmentResources(restoreMode, restartApprovalMode, runPolicy)
@@ -88,14 +91,14 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			t.CreateFilesystem(vmbdaPath)
 			t.Mount(vmbdaPath)
 			t.GeneratedValue = strconv.Itoa(time.Now().UTC().Second())
-			t.WriteDataToVMBDA(t.GeneratedValue)
+			t.WriteDataToDisk(t.GeneratedValue)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
 			util.UntilObjectPhase(string(v1alpha2.VirtualMachineSnapshotPhaseReady), framework.ShortTimeout, t.VMSnapshot)
 		})
 		By("Changing VM", func() {
-			t.WriteDataToVMBDA(changedValueAfterMachineChange)
+			t.WriteDataToDisk(changedValueOnDisk)
 
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
@@ -104,8 +107,8 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			// need to verify that VM will be rebooted
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
-			t.VM.Annotations[testAnnotationName] = changedValueAfterMachineChange
-			t.VM.Labels[testLabelName] = changedValueAfterMachineChange
+			t.VM.Annotations[vmAnnotationName] = vmAnnotationChangedValue
+			t.VM.Labels[vmLabelName] = vmLabelChangedValue
 			t.VM.Spec.CPU.Cores = changedCPUCores
 			t.VM.Spec.Memory.Size = resource.MustParse(changedMemorySize)
 			err = f.Clients.GenericClient().Update(context.Background(), t.VM)
@@ -122,17 +125,17 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			t.Mount(t.GetVMBDADevicePath())
 		})
 		By("Check that VM is in changed state", func() {
-			Expect(t.GetDataFromVMBDA()).To(Equal(changedValueAfterMachineChange))
+			Expect(t.GetDataFromDisk()).To(Equal(changedValueOnDisk))
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValueAfterMachineChange))
-			Expect(t.VM.Labels[testLabelName]).To(Equal(changedValueAfterMachineChange))
+			Expect(t.VM.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
+			Expect(t.VM.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
 			Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
 		By("Resource preparation", func() {
 			if restoreMode == v1alpha2.VMOPRestoreModeStrict {
-				t.RemoveDisks()
+				t.RemoveRecoverableResources()
 			}
 		})
 		By("Restore VM from snapshot", func() {
@@ -164,15 +167,20 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 				Expect(restoreCompletedCondition.Reason).To(Equal(vmopcondition.ReasonDryRunOperationCompleted.String()))
 				Expect(restoreCompletedCondition.Message).To(ContainSubstring("The virtual machine can be restored from the snapshot."))
 
-				Expect(t.GetDataFromVMBDA()).To(Equal(changedValueAfterMachineChange))
-				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(changedValueAfterMachineChange))
-				Expect(t.VM.Labels[testLabelName]).To(Equal(changedValueAfterMachineChange))
+				t.CheckResourceReadyForRestore(v1alpha2.VirtualMachineKind, t.VM.Name)
+				t.CheckResourceReadyForRestore(v1alpha2.VirtualDiskKind, t.VDRoot.Name)
+				t.CheckResourceReadyForRestore(v1alpha2.VirtualDiskKind, t.VDBlank.Name)
+				t.CheckResourceReadyForRestore(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, t.VMBDA.Name)
+
+				Expect(t.GetDataFromDisk()).To(Equal(changedValueOnDisk))
+				Expect(t.VM.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
+				Expect(t.VM.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
 				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 			} else {
-				Expect(t.GetDataFromVMBDA()).To(Equal(t.GeneratedValue))
-				Expect(t.VM.Annotations[testAnnotationName]).To(Equal(initialValueBeforeMachineChange))
-				Expect(t.VM.Labels[testLabelName]).To(Equal(initialValueBeforeMachineChange))
+				Expect(t.GetDataFromDisk()).To(Equal(t.GeneratedValue))
+				Expect(t.VM.Annotations[vmAnnotationName]).To(Equal(vmAnnotationOriginalValue))
+				Expect(t.VM.Labels[vmLabelName]).To(Equal(vmLabelOriginalValue))
 				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
 				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
 			}
@@ -201,7 +209,7 @@ type restoreModeTest struct {
 	Framework                 *framework.Framework
 }
 
-func NewRestoreTest(f *framework.Framework) *restoreModeTest {
+func newRestoreTest(f *framework.Framework) *restoreModeTest {
 	return &restoreModeTest{
 		Framework: f,
 	}
@@ -210,13 +218,13 @@ func NewRestoreTest(f *framework.Framework) *restoreModeTest {
 func (t *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
 	t.CVI = cvibuilder.New(
 		cvibuilder.WithName(fmt.Sprintf("%s-cvi", t.Framework.Namespace().Name)),
-		cvibuilder.WithDataSourceHTTP(minimalCviURL, nil, nil),
+		cvibuilder.WithDataSourceHTTP(minimalCVIURL, nil, nil),
 	)
 
 	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceHTTP(minimalViURL, nil, nil),
+		vibuilder.WithDataSourceHTTP(minimalVIURL, nil, nil),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
@@ -237,8 +245,8 @@ func (t *restoreModeTest) GenerateEnvironmentResources(restoreMode v1alpha2.VMOP
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
-		vmbuilder.WithAnnotation(testAnnotationName, initialValueBeforeMachineChange),
-		vmbuilder.WithLabel(testLabelName, initialValueBeforeMachineChange),
+		vmbuilder.WithAnnotation(vmAnnotationName, vmAnnotationOriginalValue),
+		vmbuilder.WithLabel(vmLabelName, vmLabelOriginalValue),
 		vmbuilder.WithCPU(initialCPUCores, ptr.To("5%")),
 		vmbuilder.WithMemory(resource.MustParse(initialMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
@@ -317,14 +325,14 @@ func (t *restoreModeTest) Mount(devicePath string) {
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (t *restoreModeTest) WriteDataToVMBDA(value string) {
+func (t *restoreModeTest) WriteDataToDisk(value string) {
 	GinkgoHelper()
 
 	_, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo bash -c \"echo %s > /mnt/value\"", value))
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func (t *restoreModeTest) GetDataFromVMBDA() string {
+func (t *restoreModeTest) GetDataFromDisk() string {
 	GinkgoHelper()
 
 	cmdOut, err := t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, "sudo cat /mnt/value")
@@ -332,7 +340,7 @@ func (t *restoreModeTest) GetDataFromVMBDA() string {
 	return strings.TrimSpace(cmdOut)
 }
 
-func (t *restoreModeTest) RemoveDisks() {
+func (t *restoreModeTest) RemoveRecoverableResources() {
 	GinkgoHelper()
 
 	err := util.StopVirtualMachineFromOS(t.Framework, t.VM)
@@ -356,7 +364,33 @@ func (t *restoreModeTest) RemoveDisks() {
 			Name:      t.VDBlank.Name,
 		}, &vdBlankLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
+		// var vmbdaLocal v1alpha2.VirtualMachineBlockDeviceAttachment
+		// err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+		// 	Namespace: t.VMBDA.Namespace,
+		// 	Name:      t.VMBDA.Name,
+		// }, &vmbdaLocal)
+		// g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 	}, framework.LongTimeout, time.Second).Should(Succeed())
+}
+
+func (t *restoreModeTest) CheckResourceReadyForRestore(kind, name string) {
+	GinkgoHelper()
+
+	resourceForRestore := t.getResourceInfoFromVMOP(kind, name)
+	Expect(resourceForRestore).ShouldNot(BeNil())
+	Expect(resourceForRestore.Status).Should(Equal(v1alpha2.VMOPResourceStatusCompleted))
+	Expect(resourceForRestore.Message).Should(ContainSubstring("is valid for restore"))
+}
+
+func (t *restoreModeTest) getResourceInfoFromVMOP(kind, name string) *v1alpha2.VirtualMachineOperationResource {
+	for _, resourceForRestore := range t.VMOPRestore.Status.Resources {
+		if resourceForRestore.Name == name && resourceForRestore.Kind == kind {
+			return &resourceForRestore
+		}
+	}
+
+	return nil
 }
 
 func (t *restoreModeTest) getDeviceBySerial(serial string) (string, bool, error) {
