@@ -21,6 +21,9 @@ includes:
   perf:
     taskfile: ./test/performance
     dir: ./test/performance
+  d8v-cli:
+    taskfile: ./src/cli
+    dir: ./src/cli
 
 vars:
   deckhouse_lib_helm_ver: 1.55.1
@@ -155,11 +158,27 @@ tasks:
         "spec": {
           "template": {
             "spec": {
-              "containers": [ {
-                "name": "virt-controller",
-                "image": "${IMAGE}",
-                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
-              }]
+              "containers": [
+                {
+                  "name": "virt-controller",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null,
+                  "args": []
+                },
+                {
+                  "name": "proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                },
+                {
+                  "name": "kube-rbac-proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                }
+              ]
             }
           }
         }
@@ -189,11 +208,27 @@ tasks:
         "spec": {
           "template": {
             "spec": {
-              "containers": [ {
-                "name": "virt-handler",
-                "image": "${IMAGE}",
-                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
-              }]
+              "containers": [
+                {
+                  "name": "virt-handler",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null,
+                  "args": []
+                },
+                {
+                  "name": "proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                },
+                {
+                  "name": "kube-rbac-proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                }
+              ]
             }
           }
         }
@@ -223,11 +258,27 @@ tasks:
         "spec": {
           "template": {
             "spec": {
-              "containers": [ {
-                "name": "virt-api",
-                "image": "${IMAGE}",
-                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
-              }]
+              "containers": [
+                {
+                  "name": "virt-api",
+                  "image": "${IMAGE}",
+                  "ports": [ { "containerPort": 2345, "name": "dlv" } ],
+                  "readinessProbe": null,
+                  "livenessProbe": null,
+                  "command": null,
+                  "args": []
+                },
+                {
+                  "name": "proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                },
+                {
+                  "name": "kube-rbac-proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                }
+              ]
             }
           }
         }

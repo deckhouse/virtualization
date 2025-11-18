@@ -42,7 +42,7 @@ var _ Importer = &ImporterMock{}
 //			GetPodSettingsWithPVCFunc: func(ownerReference *metav1.OwnerReference, generator supplements.Generator, s1 string, s2 string) *importer.PodSettings {
 //				panic("mock out the GetPodSettingsWithPVC method")
 //			},
-//			ProtectFunc: func(ctx context.Context, pod *corev1.Pod) error {
+//			ProtectFunc: func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
 //				panic("mock out the Protect method")
 //			},
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
@@ -51,7 +51,7 @@ var _ Importer = &ImporterMock{}
 //			StartWithPodSettingFunc: func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error {
 //				panic("mock out the StartWithPodSetting method")
 //			},
-//			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod) error {
+//			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
 //				panic("mock out the Unprotect method")
 //			},
 //		}
@@ -74,7 +74,7 @@ type ImporterMock struct {
 	GetPodSettingsWithPVCFunc func(ownerReference *metav1.OwnerReference, generator supplements.Generator, s1 string, s2 string) *importer.PodSettings
 
 	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, pod *corev1.Pod) error
+	ProtectFunc func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
@@ -83,7 +83,7 @@ type ImporterMock struct {
 	StartWithPodSettingFunc func(contextMoqParam context.Context, settings *importer.Settings, generator supplements.Generator, cABundle *datasource.CABundle, podSettings *importer.PodSettings) error
 
 	// UnprotectFunc mocks the Unprotect method.
-	UnprotectFunc func(ctx context.Context, pod *corev1.Pod) error
+	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -125,6 +125,8 @@ type ImporterMock struct {
 			Ctx context.Context
 			// Pod is the pod argument value.
 			Pod *corev1.Pod
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 		}
 		// Start holds details about calls to the Start method.
 		Start []struct {
@@ -160,6 +162,8 @@ type ImporterMock struct {
 			Ctx context.Context
 			// Pod is the pod argument value.
 			Pod *corev1.Pod
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 		}
 	}
 	lockCleanUp               sync.RWMutex
@@ -325,21 +329,23 @@ func (mock *ImporterMock) GetPodSettingsWithPVCCalls() []struct {
 }
 
 // Protect calls ProtectFunc.
-func (mock *ImporterMock) Protect(ctx context.Context, pod *corev1.Pod) error {
+func (mock *ImporterMock) Protect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
 	if mock.ProtectFunc == nil {
 		panic("ImporterMock.ProtectFunc: method is nil but Importer.Protect was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
 		Pod *corev1.Pod
+		Sup supplements.Generator
 	}{
 		Ctx: ctx,
 		Pod: pod,
+		Sup: sup,
 	}
 	mock.lockProtect.Lock()
 	mock.calls.Protect = append(mock.calls.Protect, callInfo)
 	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, pod)
+	return mock.ProtectFunc(ctx, pod, sup)
 }
 
 // ProtectCalls gets all the calls that were made to Protect.
@@ -349,10 +355,12 @@ func (mock *ImporterMock) Protect(ctx context.Context, pod *corev1.Pod) error {
 func (mock *ImporterMock) ProtectCalls() []struct {
 	Ctx context.Context
 	Pod *corev1.Pod
+	Sup supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
 		Pod *corev1.Pod
+		Sup supplements.Generator
 	}
 	mock.lockProtect.RLock()
 	calls = mock.calls.Protect
@@ -461,21 +469,23 @@ func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
 }
 
 // Unprotect calls UnprotectFunc.
-func (mock *ImporterMock) Unprotect(ctx context.Context, pod *corev1.Pod) error {
+func (mock *ImporterMock) Unprotect(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
 	if mock.UnprotectFunc == nil {
 		panic("ImporterMock.UnprotectFunc: method is nil but Importer.Unprotect was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
 		Pod *corev1.Pod
+		Sup supplements.Generator
 	}{
 		Ctx: ctx,
 		Pod: pod,
+		Sup: sup,
 	}
 	mock.lockUnprotect.Lock()
 	mock.calls.Unprotect = append(mock.calls.Unprotect, callInfo)
 	mock.lockUnprotect.Unlock()
-	return mock.UnprotectFunc(ctx, pod)
+	return mock.UnprotectFunc(ctx, pod, sup)
 }
 
 // UnprotectCalls gets all the calls that were made to Unprotect.
@@ -485,10 +495,12 @@ func (mock *ImporterMock) Unprotect(ctx context.Context, pod *corev1.Pod) error 
 func (mock *ImporterMock) UnprotectCalls() []struct {
 	Ctx context.Context
 	Pod *corev1.Pod
+	Sup supplements.Generator
 } {
 	var calls []struct {
 		Ctx context.Context
 		Pod *corev1.Pod
+		Sup supplements.Generator
 	}
 	mock.lockUnprotect.RLock()
 	calls = mock.calls.Unprotect
@@ -527,13 +539,13 @@ var _ Uploader = &UploaderMock{}
 //			GetServiceFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error) {
 //				panic("mock out the GetService method")
 //			},
-//			ProtectFunc: func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
+//			ProtectFunc: func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
 //				panic("mock out the Protect method")
 //			},
 //			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
-//			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
+//			UnprotectFunc: func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
 //				panic("mock out the Unprotect method")
 //			},
 //		}
@@ -565,13 +577,13 @@ type UploaderMock struct {
 	GetServiceFunc func(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 
 	// ProtectFunc mocks the Protect method.
-	ProtectFunc func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	ProtectFunc func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 
 	// StartFunc mocks the Start method.
 	StartFunc func(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// UnprotectFunc mocks the Unprotect method.
-	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
+	UnprotectFunc func(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -628,6 +640,8 @@ type UploaderMock struct {
 		Protect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 			// Pod is the pod argument value.
 			Pod *corev1.Pod
 			// Svc is the svc argument value.
@@ -654,6 +668,8 @@ type UploaderMock struct {
 		Unprotect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
 			// Pod is the pod argument value.
 			Pod *corev1.Pod
 			// Svc is the svc argument value.
@@ -927,17 +943,19 @@ func (mock *UploaderMock) GetServiceCalls() []struct {
 }
 
 // Protect calls ProtectFunc.
-func (mock *UploaderMock) Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
+func (mock *UploaderMock) Protect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
 	if mock.ProtectFunc == nil {
 		panic("UploaderMock.ProtectFunc: method is nil but Uploader.Protect was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
+		Sup supplements.Generator
 		Pod *corev1.Pod
 		Svc *corev1.Service
 		Ing *netv1.Ingress
 	}{
 		Ctx: ctx,
+		Sup: sup,
 		Pod: pod,
 		Svc: svc,
 		Ing: ing,
@@ -945,7 +963,7 @@ func (mock *UploaderMock) Protect(ctx context.Context, pod *corev1.Pod, svc *cor
 	mock.lockProtect.Lock()
 	mock.calls.Protect = append(mock.calls.Protect, callInfo)
 	mock.lockProtect.Unlock()
-	return mock.ProtectFunc(ctx, pod, svc, ing)
+	return mock.ProtectFunc(ctx, sup, pod, svc, ing)
 }
 
 // ProtectCalls gets all the calls that were made to Protect.
@@ -954,12 +972,14 @@ func (mock *UploaderMock) Protect(ctx context.Context, pod *corev1.Pod, svc *cor
 //	len(mockedUploader.ProtectCalls())
 func (mock *UploaderMock) ProtectCalls() []struct {
 	Ctx context.Context
+	Sup supplements.Generator
 	Pod *corev1.Pod
 	Svc *corev1.Service
 	Ing *netv1.Ingress
 } {
 	var calls []struct {
 		Ctx context.Context
+		Sup supplements.Generator
 		Pod *corev1.Pod
 		Svc *corev1.Service
 		Ing *netv1.Ingress
@@ -1023,17 +1043,19 @@ func (mock *UploaderMock) StartCalls() []struct {
 }
 
 // Unprotect calls UnprotectFunc.
-func (mock *UploaderMock) Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
+func (mock *UploaderMock) Unprotect(ctx context.Context, sup supplements.Generator, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
 	if mock.UnprotectFunc == nil {
 		panic("UploaderMock.UnprotectFunc: method is nil but Uploader.Unprotect was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
+		Sup supplements.Generator
 		Pod *corev1.Pod
 		Svc *corev1.Service
 		Ing *netv1.Ingress
 	}{
 		Ctx: ctx,
+		Sup: sup,
 		Pod: pod,
 		Svc: svc,
 		Ing: ing,
@@ -1041,7 +1063,7 @@ func (mock *UploaderMock) Unprotect(ctx context.Context, pod *corev1.Pod, svc *c
 	mock.lockUnprotect.Lock()
 	mock.calls.Unprotect = append(mock.calls.Unprotect, callInfo)
 	mock.lockUnprotect.Unlock()
-	return mock.UnprotectFunc(ctx, pod, svc, ing)
+	return mock.UnprotectFunc(ctx, sup, pod, svc, ing)
 }
 
 // UnprotectCalls gets all the calls that were made to Unprotect.
@@ -1050,12 +1072,14 @@ func (mock *UploaderMock) Unprotect(ctx context.Context, pod *corev1.Pod, svc *c
 //	len(mockedUploader.UnprotectCalls())
 func (mock *UploaderMock) UnprotectCalls() []struct {
 	Ctx context.Context
+	Sup supplements.Generator
 	Pod *corev1.Pod
 	Svc *corev1.Service
 	Ing *netv1.Ingress
 } {
 	var calls []struct {
 		Ctx context.Context
+		Sup supplements.Generator
 		Pod *corev1.Pod
 		Svc *corev1.Service
 		Ing *netv1.Ingress
@@ -1945,6 +1969,9 @@ var _ Disk = &DiskMock{}
 //			CleanUpSupplementsFunc: func(ctx context.Context, sup supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
+//			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+//				panic("mock out the GetPersistentVolumeClaim method")
+//			},
 //		}
 //
 //		// use mockedDisk in code that requires Disk
@@ -1955,6 +1982,9 @@ type DiskMock struct {
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
 	CleanUpSupplementsFunc func(ctx context.Context, sup supplements.Generator) (bool, error)
 
+	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
+	GetPersistentVolumeClaimFunc func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
@@ -1964,8 +1994,16 @@ type DiskMock struct {
 			// Sup is the sup argument value.
 			Sup supplements.Generator
 		}
+		// GetPersistentVolumeClaim holds details about calls to the GetPersistentVolumeClaim method.
+		GetPersistentVolumeClaim []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup supplements.Generator
+		}
 	}
-	lockCleanUpSupplements sync.RWMutex
+	lockCleanUpSupplements       sync.RWMutex
+	lockGetPersistentVolumeClaim sync.RWMutex
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
@@ -2001,5 +2039,41 @@ func (mock *DiskMock) CleanUpSupplementsCalls() []struct {
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
 	mock.lockCleanUpSupplements.RUnlock()
+	return calls
+}
+
+// GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
+func (mock *DiskMock) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+	if mock.GetPersistentVolumeClaimFunc == nil {
+		panic("DiskMock.GetPersistentVolumeClaimFunc: method is nil but Disk.GetPersistentVolumeClaim was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockGetPersistentVolumeClaim.Lock()
+	mock.calls.GetPersistentVolumeClaim = append(mock.calls.GetPersistentVolumeClaim, callInfo)
+	mock.lockGetPersistentVolumeClaim.Unlock()
+	return mock.GetPersistentVolumeClaimFunc(ctx, sup)
+}
+
+// GetPersistentVolumeClaimCalls gets all the calls that were made to GetPersistentVolumeClaim.
+// Check the length with:
+//
+//	len(mockedDisk.GetPersistentVolumeClaimCalls())
+func (mock *DiskMock) GetPersistentVolumeClaimCalls() []struct {
+	Ctx context.Context
+	Sup supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup supplements.Generator
+	}
+	mock.lockGetPersistentVolumeClaim.RLock()
+	calls = mock.calls.GetPersistentVolumeClaim
+	mock.lockGetPersistentVolumeClaim.RUnlock()
 	return calls
 }

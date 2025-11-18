@@ -209,4 +209,5 @@ type DataVolumeSupplement interface {
 	DataVolume() types.NamespacedName
 	DVCRAuthSecretForDV() types.NamespacedName
 	DVCRCABundleConfigMapForDV() types.NamespacedName
+	NetworkPolicy() types.NamespacedName
 }

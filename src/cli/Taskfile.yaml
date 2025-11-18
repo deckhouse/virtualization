@@ -6,9 +6,11 @@ silent: true
 
 tasks:
   build:
+    desc: "Build d8v cli"
     cmds:
       - go build -o .out/d8v cmd/main.go
   install:
+    desc: "Install d8v cli to ~/.local/bin"
     deps: [build]
     cmds:
       - echo "Check that ~/.local/bin in your PATH"
@@ -17,6 +19,7 @@ tasks:
       - cp .out/d8v ~/.local/bin/d8v
       - task: clean
   clean:
+    desc: "Clean up build artifacts"
     cmds:
       - rm -rf .out
 
