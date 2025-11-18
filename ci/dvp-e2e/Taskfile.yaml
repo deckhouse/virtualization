@@ -86,6 +86,96 @@ tasks:
         yq eval --inplace '.clusterConfigurationPrefix = strenv(PREFIX_INPUT)' {{ .TARGET_VALUES_FILE }}
 
   # ------------------------------------------------------------
+  # CI: Setup nested environment (main entry point)
+  # ------------------------------------------------------------
+  ci:setup-nested-env:
+    desc: Setup complete nested environment for CI (prepare + infra + bootstrap + storage)
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
+      PROFILE: '{{ .PROFILE | default (env "PROFILE") | default "" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default (env "STORAGE_CLASS") | default "" }}'
+      IMAGE_STORAGE_CLASS: '{{ .IMAGE_STORAGE_CLASS | default (env "IMAGE_STORAGE_CLASS") | default "" }}'
+      PARENT_STORAGE_CLASS: '{{ .PARENT_STORAGE_CLASS | default (env "PARENT_STORAGE_CLASS") | default "" }}'
+      ATTACH_DISK_SIZE: '{{ .ATTACH_DISK_SIZE | default (env "ATTACH_DISK_SIZE") | default "10Gi" }}'
+      DATA_DISK_COUNT: '{{ .DATA_DISK_COUNT | default (env "DATA_DISK_COUNT") | default "2" }}'
+      REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
+      API_URL: '{{ .API_URL | default (env "API_URL") | default (env "E2E_K8S_URL") | default "" }}'
+      SA_TOKEN: '{{ .SA_TOKEN | default (env "SA_TOKEN") | default (env "E2E_NESTED_SA_SECRET") | default "" }}'
+      RUN_DIR: '{{ printf "%s/runs/%s" .TMP_ROOT .RUN_ID }}'
+      VALUES_FILE_PATH: '{{ printf "%s/values.yaml" .RUN_DIR }}'
+      PARENT_KUBECONFIG_PATH: '{{ printf "%s/parent.kubeconfig" .RUN_DIR }}'
+      NESTED_KUBECONFIG_PATH: '{{ printf "%s/nested/kubeconfig" .RUN_DIR }}'
+      EFFECTIVE_DISK_SC: "{{ if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else }}{{ .STORAGE_CLASS }}{{ end }}"
+    cmds:
+      - task: ci:prepare-env
+        vars:
+          RUN_ID: "{{ .RUN_ID }}"
+          RUN_DIR: "{{ .RUN_DIR }}"
+          PROFILE: "{{ .PROFILE }}"
+          STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
+          PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
+          API_URL: "{{ .API_URL }}"
+          SA_TOKEN: "{{ .SA_TOKEN }}"
+      - task: install:nested:env
+        vars:
+          TMP_DIR: "{{ .RUN_DIR }}"
+          VALUES_FILE: "{{ .VALUES_FILE_PATH }}"
+          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG_PATH }}"
+          REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
+          TARGET_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          ATTACH_DISK_SIZE: "{{ .ATTACH_DISK_SIZE }}"
+          EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
+          NAMESPACE: "{{ .RUN_ID }}"
+          NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG_PATH }}"
+          SDS_SC_NAME: "{{ .STORAGE_CLASS }}"
+          DATA_DISK_COUNT: "{{ .DATA_DISK_COUNT }}"
+
+  ci:prepare-env:
+    desc: Prepare environment (values, kubeconfig, infra manifests)
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
+      RUN_DIR: '{{ .RUN_DIR | default (printf "%s/runs/%s" .TMP_ROOT .RUN_ID) }}'
+      PROFILE: '{{ .PROFILE | default (env "PROFILE") | default "" }}'
+      STORAGE_CLASS: '{{ .STORAGE_CLASS | default (env "STORAGE_CLASS") | default "" }}'
+      PARENT_STORAGE_CLASS: '{{ .PARENT_STORAGE_CLASS | default (env "PARENT_STORAGE_CLASS") | default "" }}'
+      REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
+      API_URL: '{{ .API_URL | default (env "API_URL") | default (env "E2E_K8S_URL") | default "" }}'
+      SA_TOKEN: '{{ .SA_TOKEN | default (env "SA_TOKEN") | default (env "E2E_NESTED_SA_SECRET") | default "" }}'
+      VALUES_FILE_PATH: '{{ printf "%s/values.yaml" .RUN_DIR }}'
+      PARENT_KUBECONFIG_PATH: '{{ printf "%s/parent.kubeconfig" .RUN_DIR }}'
+    cmds:
+      - |
+        set -euo pipefail
+        if [ -z "{{ .RUN_ID }}" ] || [ -z "{{ .STORAGE_CLASS }}" ] || [ -z "{{ .PARENT_STORAGE_CLASS }}" ]; then
+          echo "[ERR] RUN_ID/STORAGE_CLASS/PARENT_STORAGE_CLASS must be set" >&2
+          exit 1
+        fi
+        mkdir -p "{{ .RUN_DIR }}"
+      - task: run:values:prepare
+        vars:
+          RUN_ID: "{{ .RUN_ID }}"
+          RUN_NAMESPACE: "{{ .RUN_ID }}"
+          RUN_DIR: "{{ .RUN_DIR }}"
+      - |
+        set -euo pipefail
+        VALUES_FILE="{{ .VALUES_FILE_PATH }}"
+        if [ -n "{{ .REGISTRY_DOCKER_CFG }}" ]; then
+          REGISTRY_DOCKER_CFG='{{ .REGISTRY_DOCKER_CFG }}' yq eval --inplace '.deckhouse.registryDockerCfg = strenv(REGISTRY_DOCKER_CFG)' "$VALUES_FILE"
+        fi
+        yq eval --inplace '.storageProfile = "{{ .PROFILE }}"' "$VALUES_FILE"
+      - task: parent:kubeconfig
+        vars:
+          OUTPUT: "{{ .PARENT_KUBECONFIG_PATH }}"
+          API_URL: "{{ .API_URL }}"
+          SA_TOKEN: "{{ .SA_TOKEN }}"
+      - task: render-infra
+        vars:
+          TMP_DIR: "{{ .RUN_DIR }}"
+          VALUES_FILE: "{{ .VALUES_FILE_PATH }}"
+          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG_PATH }}"
+
+  # ------------------------------------------------------------
   # Infra manifests and deployment
   # ------------------------------------------------------------
   render-infra:
@@ -93,7 +183,7 @@ tasks:
     deps:
       - task: ssh:ensure
         vars:
-          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
+          TMP_DIR: "{{ .TMP_DIR }}"
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
@@ -133,9 +223,9 @@ tasks:
     deps:
       - task: render-infra
         vars:
-          TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
-          VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
-          PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default "" }}'
+          TMP_DIR: "{{ .TMP_DIR }}"
+          VALUES_FILE: "{{ .VALUES_FILE }}"
+          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
@@ -190,17 +280,20 @@ tasks:
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
       NAMESPACE:
         sh: yq eval '.namespace' {{ .VALUES_FILE }}
       SERVER:
         sh: |
           # Use external parent cluster API (ingress host) so that both dhctl Job
           # and components inside the nested cluster can reach the parent API.
+          export KUBECONFIG='{{ .PARENT_KUBECONFIG }}'
           HOST=$(kubectl -n d8-user-authn get ingress kubernetes-api -o json | jq -r '.spec.rules[0].host')
           [ -z "$HOST" -o "$HOST" = "null" ] && { echo "[ERR] kubernetes-api ingress host not found" >&2; exit 1; }
           echo "https://$HOST"
       TOKEN:
         sh: |
+          export KUBECONFIG='{{ .PARENT_KUBECONFIG }}'
           for i in $(seq 1 5); do
             TOKEN=$(kubectl -n {{ .NAMESPACE }} create token dkp-sa --duration=10h 2>/dev/null) && break
             echo "[WARN] Failed to issue SA token (attempt $i); retrying in 3s" >&2
@@ -209,7 +302,7 @@ tasks:
           [ -z "${TOKEN:-}" ] && { echo "[ERR] Unable to obtain token for dkp-sa" >&2; exit 1; }
           echo "$TOKEN"
     env:
-      KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+      KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
     silent: true
     cmds:
       - mkdir -p {{ .TMP_DIR }}
@@ -240,11 +333,18 @@ tasks:
     desc: Generate cluster config (helm template)
     silent: true
     deps:
-      - render-kubeconfig
-      - password-gen
+      - task: render-kubeconfig
+        vars:
+          TMP_DIR: "{{ .TMP_DIR }}"
+          VALUES_FILE: "{{ .VALUES_FILE }}"
+          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
+      - task: password-gen
+        vars:
+          TMP_DIR: "{{ .TMP_DIR }}"
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
       GENERATED_VALUES_FILE: '{{ printf "%s/%s" .TMP_DIR "generated-values.yaml" }}'
       PASSWORD_HASH_FILE: '{{ printf "%s/%s" .TMP_DIR "password-hash.txt" }}'
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
@@ -279,11 +379,13 @@ tasks:
         vars:
           TMP_DIR: "{{ .TMP_DIR }}"
           VALUES_FILE: "{{ .VALUES_FILE }}"
+          PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
           TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
           SSH_FILE_NAME: "{{ .SSH_FILE_NAME }}"
     vars:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
+      REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
       SSH_DIR: '{{ .SSH_DIR | default (printf "%s/%s" .TMP_DIR "ssh") }}'
       SSH_PRIV_KEY_FILE: '{{ printf "%s/%s" .SSH_DIR .SSH_FILE_NAME }}'
       NAMESPACE:
@@ -300,6 +402,11 @@ tasks:
     cmds:
       - |
         set -euo pipefail
+        # Configure registry auth for docker pull
+        if [ -n "{{ .REGISTRY_DOCKER_CFG }}" ]; then
+          mkdir -p ~/.docker
+          echo '{{ .REGISTRY_DOCKER_CFG }}' | base64 -d > ~/.docker/config.json
+        fi
         # Pull dhctl image locally (runner authenticated in workflow)
         docker pull --platform=linux/amd64 "{{ .IMAGE }}"
         # Run dhctl bootstrap with SSH bastion (jump-host)
@@ -409,13 +516,20 @@ tasks:
     desc: Delete namespaces by prefix and wait for deletion
     vars:
       PREFIX: '{{ .PREFIX | default (env "CLEANUP_PREFIX") | default "nightly-nested-e2e-" }}'
-      PARENT_KUBECONFIG_PATH: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
+      TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "cleanup") }}'
+      PARENT_KUBECONFIG_PATH: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default (printf "%s/%s" .TMP_ROOT "cleanup/parent.kubeconfig") }}'
+      API_URL: '{{ .API_URL | default (env "API_URL") | default (env "E2E_K8S_URL") | default "" }}'
+      SA_TOKEN: '{{ .SA_TOKEN | default (env "SA_TOKEN") | default (env "E2E_NESTED_SA_SECRET") | default "" }}'
     cmds:
       - |
         set -euo pipefail
         if [ ! -s "{{ .PARENT_KUBECONFIG_PATH }}" ]; then
-          echo "[ERR] parent kubeconfig not found (KUBECONFIG)" >&2
-          exit 1
+          if [ -z "{{ .API_URL }}" ] || [ -z "{{ .SA_TOKEN }}" ]; then
+            echo "[ERR] Unable to build parent kubeconfig: API_URL/SA_TOKEN are empty" >&2
+            exit 1
+          fi
+          mkdir -p "{{ .TMP_DIR }}"
+          task parent:kubeconfig OUTPUT='{{ .PARENT_KUBECONFIG_PATH }}' API_URL='{{ .API_URL }}' SA_TOKEN='{{ .SA_TOKEN }}'
         fi
         export KUBECONFIG='{{ .PARENT_KUBECONFIG_PATH }}'
         echo "[CLEANUP] Prefix='{{ .PREFIX }}'"
@@ -458,6 +572,7 @@ tasks:
       TMP_DIR: '{{ .TMP_DIR | default (printf "%s/%s" .TMP_ROOT "default") }}'
       VALUES_FILE: "{{ .VALUES_FILE | default .VALUES_TEMPLATE_FILE }}"
       PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") }}'
+      REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
       TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
       ATTACH_DISK_SIZE: '{{ .ATTACH_DISK_SIZE | default "10Gi" }}'
       EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
@@ -479,6 +594,7 @@ tasks:
           TMP_DIR: "{{ .TMP_DIR }}"
           VALUES_FILE: "{{ .VALUES_FILE }}"
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
+          REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
           TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
       - echo "💿 Attaching data disks to workers"
       - task: infra:attach-storage-disks-hotplug

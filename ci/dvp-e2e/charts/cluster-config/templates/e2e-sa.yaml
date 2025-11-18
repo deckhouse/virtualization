@@ -17,11 +17,3 @@ subjects:
 - kind: ServiceAccount
   name: e2e-runner
   namespace: kube-system
-
-
-
-
-
-
-
-

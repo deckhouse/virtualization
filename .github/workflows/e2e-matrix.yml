@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (Skeleton)
+name: E2E Storage Matrix
 
 on:
   push:
@@ -30,67 +30,34 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: e2e-matrix-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
-
 env:
   E2E_K8S_URL: https://api.e2e.virtlab.flant.com
 
 jobs:
-  # ============================================
-  # 1. SETUP - Environment preparation
-  # ============================================
-  setup-nested-envs:
-    name: Setup Nested Envs
+  setup:
+    name: Setup (${{ matrix.profile }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - profile: sds-replicated-volume
+            storage_name: sds
+            storage_class: linstor-thin-r2
+            parent_storage_class: linstor-thin-r1-immediate
+            image_storage_class: linstor-thin-r1-immediate
+            attach_disk_size: 10Gi
+            data_disk_count: 2
     concurrency:
-      group: setup-nested-envs-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
-    outputs:
-      run_id: ${{ steps.prep.outputs.run_id }}
-      profile: ${{ steps.load.outputs.profile }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Load storage profile
-        id: load
-        run: |
-          cd ci/dvp-e2e
-          # Map sds-replicated-volume to sds profile from profiles.json
-          PROFILE=$(jq -r '.[0].name' profiles.json)
-          echo "profile=$PROFILE" >> "$GITHUB_OUTPUT"
-          echo "Will test profile: $PROFILE (mapped from sds-replicated-volume)"
-
-      - name: Prepare run context
-        id: prep
-        run: |
-          RUN_ID="nightly-nested-e2e-sds-$(date +%H%M%S)"
-          PROFILE="${{ steps.load.outputs.profile }}"
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          mkdir -p ./tmp/run-context
-          {
-            echo "profile: ${PROFILE}"
-            echo "run_id: ${RUN_ID}"
-            echo "timestamp: $(date -Iseconds)"
-          } > ./tmp/run-context/config.yaml
-
-  # ============================================
-  # 2. PREPARE - Cluster preparation
-  # ============================================
-  prepare:
-    name: Prepare Cluster
-    needs: [setup-nested-envs]
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
-    concurrency:
-      group: prepare-${{ github.head_ref || github.ref_name }}-${{ needs.setup-nested-envs.outputs.profile }}
+      group: setup-${{ github.head_ref || github.ref_name }}-${{ matrix.profile }}
       cancel-in-progress: true
     env:
-      PROFILE: ${{ needs.setup-nested-envs.outputs.profile }}
-      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
-      REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-
+      RUN_ID: nightly-nested-e2e-${{ matrix.storage_name }}-${{ github.run_number }}
+      PROFILE: ${{ matrix.profile }}
+      STORAGE_CLASS: ${{ matrix.storage_class }}
+      PARENT_STORAGE_CLASS: ${{ matrix.parent_storage_class }}
+      IMAGE_STORAGE_CLASS: ${{ matrix.image_storage_class }}
+      ATTACH_DISK_SIZE: ${{ matrix.attach_disk_size }}
+      DATA_DISK_COUNT: ${{ matrix.data_disk_count }}
     steps:
       - uses: actions/checkout@v4
 
@@ -126,116 +93,56 @@ jobs:
           curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
-      - name: Prepare environment
-        id: prep
-        run: |
-          RUN_ID="${{ needs.setup-nested-envs.outputs.run_id }}"
-          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
-          mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
-
-      - name: Build parent kubeconfig from secret
+      - name: Setup nested environment
+        env:
+          RUN_ID: ${{ env.RUN_ID }}
+          PROFILE: ${{ env.PROFILE }}
+          STORAGE_CLASS: ${{ env.STORAGE_CLASS }}
+          PARENT_STORAGE_CLASS: ${{ env.PARENT_STORAGE_CLASS }}
+          IMAGE_STORAGE_CLASS: ${{ env.IMAGE_STORAGE_CLASS }}
+          ATTACH_DISK_SIZE: ${{ env.ATTACH_DISK_SIZE }}
+          DATA_DISK_COUNT: ${{ env.DATA_DISK_COUNT }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          API_URL: ${{ env.E2E_K8S_URL }}
+          SA_TOKEN: ${{ secrets.E2E_NESTED_SA_SECRET }}
         working-directory: ci/dvp-e2e
         run: |
-          KCFG="$HOME/.kube/config"
-          task parent:kubeconfig OUTPUT="$KCFG" API_URL="${E2E_K8S_URL}" SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"
-          echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
-
-      - name: Prepare run values.yaml
-        working-directory: ci/dvp-e2e
-        run: |
-          task run:values:prepare \
-            RUN_ID="${{ env.RUN_ID }}" \
-            RUN_NAMESPACE="${{ env.RUN_ID }}" \
-            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
-
-      - name: Configure registry auth for installer pull
-        run: |
-          mkdir -p ~/.docker
-          printf '%s' "$REGISTRY_DOCKER_CFG" | base64 -d > ~/.docker/config.json
-
-      - name: Configure storage profile
-        working-directory: ci/dvp-e2e
-        id: profile-config
-        run: |
-          PROFILE_JSON=$(jq -c --arg profile "$PROFILE" '.[] | select(.name == $profile)' profiles.json)
-          if [ -z "$PROFILE_JSON" ]; then
-            echo "Profile '$PROFILE' not found in profiles.json" >&2
-            echo "Available profiles:" >&2
-            jq -r '.[] | "  - \(.name)"' profiles.json >&2
-            exit 1
-          fi
-
-          STORAGE_CLASS=$(jq -r '.storage_class // ""' <<<"$PROFILE_JSON")
-          IMAGE_STORAGE_CLASS=$(jq -r '.image_storage_class // ""' <<<"$PROFILE_JSON")
-          SNAPSHOT_STORAGE_CLASS=$(jq -r '.snapshot_storage_class // ""' <<<"$PROFILE_JSON")
-          PARENT_STORAGE_CLASS=$(jq -r '.parent_storage_class // ""' <<<"$PROFILE_JSON")
-          ATTACH_DISK_SIZE=$(jq -r '.worker_data_disk_size // "10Gi"' <<<"$PROFILE_JSON")
-
-          echo "Profile: ${PROFILE}"
-          echo "Storage Class: ${STORAGE_CLASS}"
-          echo "Image Storage Class: ${IMAGE_STORAGE_CLASS}"
-          echo "Snapshot Storage Class: ${SNAPSHOT_STORAGE_CLASS}"
-          echo "Parent Storage Class: ${PARENT_STORAGE_CLASS}"
-          echo "Attach Disk Size: ${ATTACH_DISK_SIZE}"
-
-          # Export variables to GitHub Actions environment
-          echo "STORAGE_CLASS=${STORAGE_CLASS}" >> $GITHUB_ENV
-          echo "PARENT_STORAGE_CLASS=${PARENT_STORAGE_CLASS}" >> $GITHUB_ENV
-          echo "ATTACH_DISK_SIZE=${ATTACH_DISK_SIZE}" >> $GITHUB_ENV
-          # Pass storage profile into run values for Helm templates
-          yq eval --inplace ".storageProfile = \"${PROFILE}\"" "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
-          # Effective disk SC used for worker data disks (prefer image SC when set)
-          EFF_DISK_SC=${IMAGE_STORAGE_CLASS:-$STORAGE_CLASS}
-          echo "EFFECTIVE_DISK_SC=${EFF_DISK_SC}" >> $GITHUB_ENV
-
-      - name: Install nested environment
-        working-directory: ci/dvp-e2e
-        run: |
-          task install:nested:env \
-            TMP_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}" \
-            VALUES_FILE="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" \
-            PARENT_KUBECONFIG="${KUBECONFIG}" \
-            TARGET_STORAGE_CLASS="${{ env.PARENT_STORAGE_CLASS }}" \
-            ATTACH_DISK_SIZE="${{ env.ATTACH_DISK_SIZE }}" \
-            EFFECTIVE_DISK_SC="${{ env.EFFECTIVE_DISK_SC }}" \
-            NAMESPACE="${{ env.RUN_ID }}" \
-            NESTED_KUBECONFIG="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/nested/kubeconfig" \
-            SDS_SC_NAME="${{ env.STORAGE_CLASS }}"
+          task ci:setup-nested-env
 
   cleanup:
-    name: Cleanup [skeleton]
-    needs: [setup-nested-envs, prepare]
+    name: Cleanup (${{ matrix.profile }})
+    needs: setup
     if: always()
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - profile: sds-replicated-volume
+            storage_name: sds
+            storage_class: linstor-thin-r2
+            parent_storage_class: linstor-thin-r1-immediate
+            image_storage_class: linstor-thin-r1-immediate
+            attach_disk_size: 10Gi
+            data_disk_count: 2
     env:
       CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
           version: "latest"
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-
-      - name: Build parent kubeconfig from secret
-        working-directory: ci/dvp-e2e
-        run: |
-          KCFG="$HOME/.kube/config"
-          task parent:kubeconfig OUTPUT="$KCFG" API_URL="${E2E_K8S_URL}" SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"
-          echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
-
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
         run: |
-          task cleanup:namespaces PREFIX="${CLEANUP_PREFIX}" PARENT_KUBECONFIG="${KUBECONFIG}"
-
-      - name: Report cleanup results
-        if: always()
-        run: |
-          echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
-          echo "🧹 Attempted to clean up namespaces with prefix '${CLEANUP_PREFIX}'" >> $GITHUB_STEP_SUMMARY
+          task cleanup:namespaces \
+            PREFIX="${CLEANUP_PREFIX}" \
+            API_URL="${E2E_K8S_URL}" \
+            SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"
