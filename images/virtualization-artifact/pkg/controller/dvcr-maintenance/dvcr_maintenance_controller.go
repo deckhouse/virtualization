@@ -45,6 +45,10 @@ func NewController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 ) (controller.Controller, error) {
+	// TODO: Remove this "if" to re-enable default schedule for cleanup.
+	if dvcrSettings.GCSchedule == "" {
+		return nil, nil
+	}
 	// init services
 	dvcrService := service.NewDVCRService(mgr.GetClient())
 	provisioningLister := internalservice.NewProvisioningLister(mgr.GetClient())
