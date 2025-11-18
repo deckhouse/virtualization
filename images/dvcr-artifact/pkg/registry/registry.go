@@ -32,6 +32,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -330,6 +331,10 @@ func (p DataProcessor) uploadLayersAndImage(
 	klog.Infoln("Uploading layer to registry")
 	if err := remote.WriteLayer(repo, layer, remoteOpts...); err != nil {
 		slog.Error(fmt.Sprintf("error uploading layer: %w", err))
+
+		if errors.Is(err, syscall.ENOSPC) {
+			slog.Error(fmt.Sprintf("ENOSPC uploading layer: %w", err))
+		}
 
 		if importerrs.IsNoSpaceLeftError(err) {
 			return importerrs.NewNoSpaceLeftError(err)
