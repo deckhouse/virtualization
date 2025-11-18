@@ -1,7 +1,7 @@
 - name: kubernetes.virtualization.controller_state
   rules:
     - alert: D8VirtualizationControllerTargetDown
-      expr: max by (job) (up{job="scrapeconfig/d8-monitoring/virtualization-controller"}) == 0
+      expr: max by (job) (up{job="virtualization-controller-metrics"}) == 0
       for: 1m
       labels:
         severity_level: "6"
@@ -19,7 +19,7 @@
           2. Or check the Pod logs: `kubectl -n d8-virtualization logs deploy/virtualization-controller`
 
     - alert: D8VirtualizationControllerTargetAbsent
-      expr: absent(up{job="scrapeconfig/d8-monitoring/virtualization-controller"}) == 1
+      expr: absent(up{job="virtualization-controller-metrics"}) == 1
       labels:
         severity_level: "6"
         tier: cluster

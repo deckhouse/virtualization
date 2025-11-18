@@ -73,6 +73,7 @@ shell:
 ---
 image: bundle
 fromImage: builder/scratch
+cacheVersion: 2025-11-18
 import:
 - image: images-digests
   add: /
