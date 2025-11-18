@@ -21,6 +21,9 @@ includes:
   perf:
     taskfile: ./test/performance
     dir: ./test/performance
+  d8v-cli:
+    taskfile: ./src/cli
+    dir: ./src/cli
 
 vars:
   deckhouse_lib_helm_ver: 1.55.1
