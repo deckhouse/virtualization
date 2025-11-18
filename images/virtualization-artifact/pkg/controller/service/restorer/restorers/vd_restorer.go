@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -44,7 +45,7 @@ func NewVirtualDiskHandler(client client.Client, vdTmpl v1alpha2.VirtualDisk, vm
 		vdTmpl.Annotations = make(map[string]string)
 		vdTmpl.Annotations[annotations.AnnVMOPRestore] = vmRestoreUID
 	}
-	return &VirtualDiskHandler{
+	vdHandler := &VirtualDiskHandler{
 		vd: &v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vdTmpl.Kind,
@@ -62,6 +63,12 @@ func NewVirtualDiskHandler(client client.Client, vdTmpl v1alpha2.VirtualDisk, vm
 		client:     client,
 		restoreUID: vmRestoreUID,
 	}
+
+	if vdTmpl.Spec.PersistentVolumeClaim.StorageClass == nil {
+		vdHandler.vd.Spec.PersistentVolumeClaim.StorageClass = ptr.To(vdTmpl.Status.StorageClassName)
+	}
+
+	return vdHandler
 }
 
 func (v *VirtualDiskHandler) Override(rules []v1alpha2.NameReplacement) {
