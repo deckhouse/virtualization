@@ -259,6 +259,7 @@ shell:
     rm -rf $OUTDIR/usr/share/bash-completion/
     rm -rf $OUTDIR/etc/ssh/
     rm -rf $OUTDIR/usr/share/doc
+    rm -rf $OUTDIR/usr/local/share/locale/
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then

@@ -35,7 +35,6 @@ altPackages:
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
 - libgnutls-openssl-devel
 - libfuse-devel
-- libseccomp
 - perl-podlators
 packages:
 - libgmp libtpms openssl libjson-glib

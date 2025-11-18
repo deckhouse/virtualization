@@ -81,8 +81,6 @@ binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
-# do not include following packages, it will be replaced by one from q
-# - glibc selinux
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
 - libseccomp zlib zstd
