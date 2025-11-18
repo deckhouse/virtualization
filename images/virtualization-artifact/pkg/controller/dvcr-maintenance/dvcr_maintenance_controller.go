@@ -47,7 +47,7 @@ func NewController(
 ) (controller.Controller, error) {
 	// TODO: Remove this "if" to re-enable default schedule for cleanup.
 	if dvcrSettings.GCSchedule == "" {
-		log.Info("Initializing DVCR maintenance controller is disabled: set spec.dvcr.gc.schedule in ModuleConfig to run garbage collector periodically.")
+		log.Info("Initializing DVCR maintenance controller is disabled: set spec.settings.dvcr.gc.schedule in ModuleConfig to run garbage collector periodically.")
 		return nil, nil
 	}
 	// init services
