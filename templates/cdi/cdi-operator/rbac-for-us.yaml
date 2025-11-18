@@ -39,12 +39,11 @@ rules:
     - create
     - update
     - delete
-# every resource in cdi.internal.virtualization.deckhouse.io
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationcdiconfigs
-    - internalvirtualizationcdis
+    - internalvirtualizationcdis/finalizers
     - internalvirtualizationdataimportcrons
     - internalvirtualizationdatasources
     - internalvirtualizationdatavolumes
@@ -55,6 +54,32 @@ rules:
     - internalvirtualizationvolumeuploadsources
     - internalvirtualizationopenstackvolumepopulators
     - internalvirtualizationovirtvolumepopulators
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+- apiGroups:
+    - cdi.internal.virtualization.deckhouse.io
+  resources:
+    - internalvirtualizationcdis
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+  resourceNames:
+    - config
+- apiGroups:
+    - upload.cdi.kubevirt.io
+  resources:
+    - uploadtokenrequests
   verbs:
     - get
     - list
