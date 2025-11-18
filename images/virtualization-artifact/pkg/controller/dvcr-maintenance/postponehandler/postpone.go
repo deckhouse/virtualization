@@ -99,8 +99,11 @@ func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, erro
 			Reason(ProvisioningPostponedReason).
 			Message("DVCR is in maintenance mode: wait until it finishes before creating provisioner.")
 		conditions.SetCondition(cb, conditions.NewConditionsAccessor(obj).Conditions())
+		return reconcile.Result{RequeueAfter: PostponePeriod}, reconciler.ErrStopHandlerChain
 	}
-	return reconcile.Result{RequeueAfter: PostponePeriod}, reconciler.ErrStopHandlerChain
+
+	// Pass through resources existed before enabling maintenance mode.
+	return reconcile.Result{}, nil
 }
 
 func (p *Postpone[T]) Name() string {
