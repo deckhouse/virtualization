@@ -574,7 +574,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"})\n/ \nsum by (name, namespace) (d8_virtualization_virtualmachine_filesystem_capacity_bytes / 100)\n\n",
+          "expr": "avg by (name,namespace) (\n  sum by (name, namespace,pod) (\n    d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\",mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"})\n  / \n  sum by (name, namespace,pod) (d8_virtualization_virtualmachine_filesystem_capacity_bytes / 100)\n)\n",
           "instant": true,
           "legendFormat": "{{mount_point}}",
           "range": false,
@@ -637,7 +637,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "expr": "avg by (name,namespace) (\n  sum by (name, namespace,pod) (\n    d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\",mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"}\n  )\n)\n",
           "instant": true,
           "legendFormat": "Capacity",
           "range": false,
@@ -650,7 +650,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (name, namespace) (\n  d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\"}\n)\n",
+          "expr": "avg by (name,namespace) (\n  sum by (name, namespace) (\n    d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\",mount_point!~\".*(io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"}\n  )\n)",
           "hide": false,
           "instant": true,
           "legendFormat": "Used",
@@ -1619,8 +1619,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1756,8 +1755,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1854,8 +1852,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1997,8 +1994,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2201,8 +2197,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2379,8 +2374,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -2592,8 +2586,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2793,8 +2786,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2947,8 +2939,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               }
@@ -3059,8 +3050,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3190,8 +3180,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3323,8 +3312,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3501,8 +3489,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3604,8 +3591,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3707,8 +3693,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3810,8 +3795,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -3913,8 +3897,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4016,8 +3999,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4737,8 +4719,8 @@
       {
         "current": {
           "selected": false,
-          "text": "vm-001",
-          "value": "vm-001"
+          "text": "node",
+          "value": "node"
         },
         "datasource": {
           "type": "prometheus",
@@ -4799,7 +4781,7 @@
           "type": "prometheus",
           "uid": "${ds_prometheus}"
         },
-        "definition": "label_values(d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\"},mount_point)",
+        "definition": "label_values(d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", mount_point!~\".*(/var/lib/containerd/io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"},mount_point)",
         "hide": 2,
         "includeAll": true,
         "label": "Mountpoint",
@@ -4808,7 +4790,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\"},mount_point)",
+          "query": "label_values(d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", mount_point!~\".*(/var/lib/containerd/io.containerd.snapshotter.v1.erofs|/var/lib/kubelet/pods).*\"},mount_point)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
