@@ -90,12 +90,19 @@ func (c *DefaultImageChecker) remoteOptions(ctx context.Context) ([]remote.Optio
 
 	// Fetch authentication credentials from Secret if configured
 	if c.dvcrSettings.AuthSecret != "" {
-		keychain, err := kubernetes.NewInCluster(ctx, kubernetes.Options{
-			Namespace:        c.dvcrSettings.AuthSecretNamespace,
-			ImagePullSecrets: []string{c.dvcrSettings.AuthSecret},
-		})
+		secret := &corev1.Secret{}
+		err := c.client.Get(ctx, types.NamespacedName{
+			Name:      c.dvcrSettings.AuthSecret,
+			Namespace: c.dvcrSettings.AuthSecretNamespace,
+		}, secret)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create keychain: %w", err)
+			return nil, fmt.Errorf("failed to get auth secret %s/%s: %w",
+				c.dvcrSettings.AuthSecretNamespace, c.dvcrSettings.AuthSecret, err)
+		}
+
+		keychain, err := kubernetes.NewFromPullSecrets(ctx, []corev1.Secret{*secret})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create keychain from secret: %w", err)
 		}
 
 		opts = append(opts, remote.WithAuthFromKeychain(keychain))
