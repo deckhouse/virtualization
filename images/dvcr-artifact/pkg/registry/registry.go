@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -328,6 +329,8 @@ func (p DataProcessor) uploadLayersAndImage(
 
 	klog.Infoln("Uploading layer to registry")
 	if err := remote.WriteLayer(repo, layer, remoteOpts...); err != nil {
+		slog.Error(fmt.Sprintf("error uploading layer: %w", err))
+
 		if importerrs.IsNoSpaceLeftError(err) {
 			return importerrs.NewNoSpaceLeftError(err)
 		}
