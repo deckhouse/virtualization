@@ -2,8 +2,8 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: virtualization-pre-delete-hook
-  namespace: d8-system
+  name: pre-delete-hook
+  namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-pre-delete-hook")) | nindent 2 }}
 imagePullSecrets:
 - name: virtualization-module-registry
@@ -40,5 +40,5 @@ roleRef:
   name: d8:virtualization:virtualization-pre-delete-hook
 subjects:
   - kind: ServiceAccount
-    name: virtualization-pre-delete-hook
-    namespace: d8-system
+    name: pre-delete-hook
+    namespace: d8-{{ .Chart.Name }}
