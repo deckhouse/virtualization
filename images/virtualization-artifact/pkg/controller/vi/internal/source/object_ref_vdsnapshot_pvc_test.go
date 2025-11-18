@@ -45,18 +45,19 @@ import (
 
 var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() {
 	var (
-		ctx        context.Context
-		scheme     *runtime.Scheme
-		vi         *v1alpha2.VirtualImage
-		vs         *vsv1.VolumeSnapshot
-		sc         *storagev1.StorageClass
-		vdSnapshot *v1alpha2.VirtualDiskSnapshot
-		pvc        *corev1.PersistentVolumeClaim
-		settings   *dvcr.Settings
-		recorder   eventrecord.EventRecorderLogger
-		importer   *ImporterMock
-		bounder    *BounderMock
-		stat       *StatMock
+		ctx         context.Context
+		scheme      *runtime.Scheme
+		vi          *v1alpha2.VirtualImage
+		vs          *vsv1.VolumeSnapshot
+		sc          *storagev1.StorageClass
+		vdSnapshot  *v1alpha2.VirtualDiskSnapshot
+		pvc         *corev1.PersistentVolumeClaim
+		settings    *dvcr.Settings
+		recorder    eventrecord.EventRecorderLogger
+		importer    *ImporterMock
+		bounder     *BounderMock
+		stat        *StatMock
+		diskService *DiskMock
 	)
 
 	BeforeEach(func() {
@@ -100,6 +101,15 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			},
 			GetProgressFunc: func(_ types.UID, _ *corev1.Pod, _ string, _ ...service.GetProgressOption) string {
 				return "N%"
+			},
+		}
+		diskService = &DiskMock{
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				// Return the test PVC if it exists
+				if pvc != nil && pvc.Name != "" {
+					return pvc, nil
+				}
+				return nil, nil
 			},
 		}
 		settings = &dvcr.Settings{}
@@ -181,7 +191,11 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 					},
 				}).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, settings, recorder)
+			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -202,7 +216,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -225,7 +239,11 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, nil, recorder)
+			diskService.GetPersistentVolumeClaimFunc = func(_ context.Context, _ supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			}
+
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -241,7 +259,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			vi.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())

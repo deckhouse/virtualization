@@ -112,7 +112,7 @@ func (s DiskService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -199,7 +199,7 @@ func (s DiskService) StartImmediate(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, dataVolumeSupplement, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -299,7 +299,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 	}
 
 	// 2. Delete network policy.
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.DataVolume())
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyDataVolume(), sup)
 	if err != nil {
 		return false, err
 	}
@@ -340,7 +340,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
 }
 
-func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (s DiskService) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	err := s.protection.AddOwnerRef(ctx, owner, pvc)
 	if err != nil {
 		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
@@ -352,7 +352,7 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	}
 
 	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
 		}
@@ -368,14 +368,14 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	return nil
 }
 
-func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error {
+func (s DiskService) Unprotect(ctx context.Context, sup supplements.Generator, dv *cdiv1.DataVolume) error {
 	err := s.protection.RemoveProtection(ctx, dv)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
 	}
 
 	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
 		}
@@ -550,11 +550,11 @@ func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*stora
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
-	return object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, &cdiv1.DataVolume{})
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, &corev1.PersistentVolumeClaim{})
 }
 
 func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {

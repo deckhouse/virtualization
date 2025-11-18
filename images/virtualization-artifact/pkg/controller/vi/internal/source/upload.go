@@ -114,18 +114,18 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, vi, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vi, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// Unprotect upload time supplements to delete them later.
-		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, supgen, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -207,7 +207,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -320,7 +320,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualI
 		vi.Status.Progress = ds.diskService.GetProgress(dv, vi.Status.Progress, service.NewScaleOption(50, 100))
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 
-		err = ds.diskService.Protect(ctx, vi, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen, vi, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -368,7 +368,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 
 		vi.Status.Phase = v1alpha2.ImageReady
 
-		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -448,7 +448,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.Virtual
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

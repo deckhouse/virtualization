@@ -129,18 +129,18 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, nil, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		// Unprotect upload time supplements to delete them later.
-		err = ds.uploaderService.Unprotect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Unprotect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		err = ds.diskService.Unprotect(ctx, dv)
+		err = ds.diskService.Unprotect(ctx, supgen, dv)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -158,7 +158,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 
 		vd.Status.Progress = "0%"
 
-		envSettings := ds.getEnvSettings(vd, supgen)
+		envSettings := ds.getEnvSettings(vd, supgen.Generator)
 
 		var nodePlacement *provisioner.NodePlacement
 		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
@@ -229,7 +229,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 
-		err = ds.uploaderService.Protect(ctx, pod, svc, ing)
+		err = ds.uploaderService.Protect(ctx, supgen, pod, svc, ing)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -278,7 +278,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 			return reconcile.Result{}, err
 		}
 
-		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
+		source := ds.getSource(supgen.Generator, ds.statService.GetDVCRImageName(pod))
 
 		var sc *storagev1.StorageClass
 		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
@@ -358,7 +358,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *v1alpha2.VirtualDisk) (
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
-		err = ds.diskService.Protect(ctx, vd, dv, pvc)
+		err = ds.diskService.Protect(ctx, supgen.Generator, vd, dv, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
