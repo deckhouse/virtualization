@@ -822,7 +822,7 @@ linux-vm-root-2  Ready   2590Mi     7m15s
 
 ### Загрузка диска из командной строки
 
-Чтобы загрузить образ из командной строки, предварительно создайте ресурс, как представлено ниже на примере `VirtualDisk`:
+Чтобы загрузить диск из командной строки, предварительно создайте ресурс, как представлено ниже на примере `VirtualDisk`:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -836,9 +836,9 @@ spec:
 EOF
 ```
 
-После создания, ресурс перейдет в фазу `WaitForUserUpload`, а это значит, что он готов для загрузки образа.
+После создания ресурс перейдет в фазу `WaitForUserUpload`, что означает, что он готов для загрузки диска.
 
-Доступно два варианта загрузки с узла кластера и с произвольного узла за пределами кластера:
+Доступно два варианта загрузки: с узла кластера и с произвольного узла за пределами кластера:
 
 ```bash
 d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
@@ -853,14 +853,13 @@ d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
 }
 ```
 
-
-Выполните загрузку образа с использование следующей команды
+Выполните загрузку диска с использованием следующей команды:
 
 ```bash
 curl https://virtualization.example.com/upload/<secret-url> --progress-bar -T <image.name> | cat
 ```
 
-После завершения загрузки диск должен быть создан и перейти в фазу `Ready`
+После завершения загрузки диск должен быть создан и перейти в фазу `Ready`:
 
 ```bash
 d8 k get vd uploaded-disk
@@ -894,6 +893,10 @@ linux-vm-root   Ready   10Gi       10m
 
 ```bash
 d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+
+# или внесите аналогичные изменения путем редактирования ресурса
+
+d8 k edit vd linux-vm-root
 ```
 
 Проверьте размер после изменения:
@@ -946,6 +949,10 @@ linux-vm-root   Ready   11Gi       12m
 
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+
+# или внесите аналогичные изменения путем редактирования ресурса
+
+d8 k edit vd disk
 ```
 
 После изменения конфигурации диска запустится живая миграция ВМ, в процессе которой диск ВМ будет перемещен на новое хранилище.
@@ -1695,6 +1702,10 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+
+# или внесите аналогичные изменения путем редактирования ресурса
+
+d8 k edit vm linux-vm
 ```
 
 Пример вывода:
@@ -2626,6 +2637,10 @@ linux-vm-7prpx
 
 ```bash
 d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
+
+# или внесите аналогичные изменения путем редактирования ресурса
+
+d8 k edit vmip linux-vm-7prpx
 ```
 
 После удаления виртуальной машины, ресурс `vmip` сохранится и его можно будет переиспользовать снова во вновь созданной виртуальной машине:
@@ -3033,8 +3048,7 @@ Windows:
 
 - Выполнить генерализацию с помощью `sysprep` с параметром `/generalize` или использовать инструменты для очистки уникальных идентификаторов (SID, hostname и т. д.)
 
-
-Пример создания клона  ВМ:
+Пример создания клона ВМ:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
