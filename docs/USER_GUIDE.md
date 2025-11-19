@@ -920,23 +920,26 @@ Method #2:
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
 
-### Changing the disk StorageClass
+### Migrating disks to other storage
 
-In the DVP commercial editions, it is possible to change the StorageClass for existing disks. Currently, this is only supported for running VMs (`Phase` should be `Running`).
+In the DVP commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its storage class (StorageClass).
 
 {{< alert level="warning">}}
-Storage class migration is only available for disks connected statically via `.spec.blockDeviceRefs`.
+Limitations of disk migration between storage:
 
-To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, they must be reattached statically by specifying disks names in `.spec.blockDeviceRefs`.
+- Migration is only available for virtual machines in the `Running` state.
+- Migration is only supported between disks of the same type: `Block` ↔ `Block`, `FileSystem` ↔ `FileSystem`; conversion between different types is not possible.
+- Migration is only supported for disks connected statically via the `.spec.blockDeviceRefs` parameter in the virtual machine specification.
+- If a disk was attached via the `VirtualMachineBlockDeviceAttachments` resource, it must be temporarily reattached directly for migration by specifying the disk name in `.spec.blockDeviceRefs`.
 {{< /alert >}}
 
-Example:
+Example of migrating a disk to the `new-storage-class-name` storage class:
 
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 ```
 
-After the disk configuration is updated, a live migration of the VM is triggered, during which the disk is migrated to the new storage.
+After the disk configuration is updated, a live migration of the VM is triggered, during which the VM disk will be moved to the new storage.
 
 If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
 
