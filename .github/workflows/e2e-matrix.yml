@@ -94,6 +94,16 @@ jobs:
           curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
+      - name: Export setup outputs
+        id: setup-output
+        run: |
+          set -euo pipefail
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "run_artifact=nested-run-${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "profile=${PROFILE}" >> "$GITHUB_OUTPUT"
+          echo "storage_name=${{ matrix.storage_name }}" >> "$GITHUB_OUTPUT"
+          echo "storage_class=${STORAGE_CLASS}" >> "$GITHUB_OUTPUT"
+
       - name: Setup nested environment
         env:
           RUN_ID: ${{ env.RUN_ID }}
@@ -110,16 +120,6 @@ jobs:
         run: |
           task ci:setup-nested-env
 
-      - name: Export setup outputs
-        id: setup-output
-        run: |
-          set -euo pipefail
-          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
-          echo "run_artifact=nested-run-${RUN_ID}" >> "$GITHUB_OUTPUT"
-          echo "profile=${PROFILE}" >> "$GITHUB_OUTPUT"
-          echo "storage_name=${{ matrix.storage_name }}" >> "$GITHUB_OUTPUT"
-          echo "storage_class=${STORAGE_CLASS}" >> "$GITHUB_OUTPUT"
-
       - name: Upload nested artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -127,7 +127,7 @@ jobs:
           name: ${{ steps.setup-output.outputs.run_artifact }}
           path: |
             ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
-          if-no-files-found: error
+          if-no-files-found: ignore
 
   tests:
     name: Run E2E (${{ matrix.profile }} / ${{ matrix.storage_class }})
