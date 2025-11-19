@@ -633,7 +633,6 @@ EOF
 - `ReadWriteMany (RWX)` - множественный доступ к диску. Живая миграция виртуальных машин с такими дисками возможна.
 - `ReadWriteOnce (RWO)` - доступ к диску предоставляется только одному экземпляру виртуальной машины. Живая миграция виртуальных машин с такими дисками поддерживается только для платных редакций DVP. Живая миграция доступна только если все диски подключены статически через `.spec.blockDeviceRefs`. Диски, подключенные динамически через `VirtualMachineBlockDeviceAttachments`, необходимо статически переподключить, указав их в `.spec.blockDeviceRefs`.
 
-
 При создании диска контроллер самостоятельно определит наиболее оптимальные параметры поддерживаемые хранилищем.
 
 > Внимание: Создать диски из iso-образов - нельзя!
@@ -1271,6 +1270,145 @@ status:
         coresPerSocket: 1
 ```
 
+### Сценарии начальной инициализации ВМ
+
+Сценарии начальной инициализации предназначены для первичной конфигурации виртуальной машины при её запуске.
+
+В качестве сценариев начальной инициализации поддерживаются:
+
+- [CloudInit](https://cloudinit.readthedocs.io).
+- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
+
+#### CloudInit
+
+CloudInit — это инструмент для автоматической настройки виртуальных машин при первом запуске. Он позволяет выполнять широкий спектр задач конфигурации без ручного вмешательства.
+
+{{< alert level="warning" >}}
+Конфигурация CloudInit записывается в формате YAML и должна начинаться с заголовка `#cloud-config` в начале блока конфигурации. О других возможных заголовках и их назначении вы можете узнать в официальной документации по cloud-init.
+{{< /alert >}}
+
+Основные возможности CloudInit:
+
+- Cоздание пользователей, установка паролей, добавление SSH-ключей для доступа
+- Автоматическая установка необходимого программного обеспечения при первом запуске
+- Запуск произвольных команд и скриптов для настройки системы
+- Автоматический запуск и включение системных сервисов (например, [`qemu-guest-agent`](#агент-гостевой-ос))
+
+##### Типичные сценарии использования
+
+1. Добавление SSH-ключа для [предустановленного пользователя](#image-resources-table)., который уже может присутствовать в cloud-образе (например, пользователя `ubuntu` в официальных образах Ubuntu). Обратите внимание: имя такого пользователя зависит от образа и уточняйте его в документации к вашему дистрибутиву.
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+2. Создание пользователя с паролем и SSH-ключом:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$saltsalt$..."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+{{< alert level="info" >}}
+Для генерации хеша пароля используйте команду `mkpasswd --method=SHA-512 --rounds=4096`. Подробнее о настройке пользователей см. в разделе [Настройка пользователя для cloud-образов](#настройка-пользователя-для-cloud-образов).
+{{< /alert >}}
+
+3. Установка пакетов и сервисов:
+
+   ```yaml
+   #cloud-config
+   package_update: true
+   packages:
+     - nginx
+     - qemu-guest-agent
+   run_cmd:
+     - systemctl daemon-reload
+     - systemctl enable --now nginx.service
+     - systemctl enable --now qemu-guest-agent.service
+   ```
+
+##### Использование CloudInit
+
+Сценарий CloudInit можно встраивать непосредственно в спецификацию виртуальной машины, но этот сценарий ограничен максимальной длиной в 2048 байт:
+
+```yaml
+spec:
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      package_update: true
+      ...
+```
+
+При более длинных сценариях и/или наличии приватных данных, сценарий начальной инициализации виртуальной машины может быть создан в ресурсе Secret. Пример ресурса Secret со сценарием CloudInit приведен ниже:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-init-example
+data:
+  userData: <base64 data>
+type: provisioning.virtualization.deckhouse.io/cloud-init
+```
+
+Фрагмент конфигурации виртуальной машины при использовании скрипта начальной инициализации CloudInit, хранящегося в ресурсе Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init-example
+```
+
+{{< alert level="info" >}}
+Значение поля `.data.userData` должно быть закодировано в формате Base64. Для кодирования можно использовать команду `base64 -w 0` или `echo -n "content" | base64`.
+{{< /alert >}}
+
+#### Sysprep
+
+Для конфигурирования виртуальных машин под управлением ОС Windows с использованием Sysprep поддерживается только вариант с ресурсом Secret.
+
+Пример ресурса Secret с сценарием Sysprep приведен ниже:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-example
+data:
+  unattend.xml: <base64 data>
+type: provisioning.virtualization.deckhouse.io/sysprep
+```
+
+{{< alert level="info" >}}
+Значение поля `.data.unattend.xml` должно быть закодировано в формате Base64. Для кодирования можно использовать команду `base64 -w 0` или `echo -n "content" | base64`.
+{{< /alert >}}
+
+Фрагмент конфигурации виртуальной машины с использованием скрипта начальной инициализации Sysprep в ресурсе Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
+      name: sysprep-example
+```
+
 ### Агент гостевой ОС
 
 Для повышения эффективности управления ВМ рекомендуется установить QEMU Guest Agent — инструмент, который обеспечивает взаимодействие между гипервизором и операционной системой внутри ВМ.
@@ -1337,45 +1475,6 @@ sudo systemctl enable --now qemu-guest-agent
   run_cmd:
     - systemctl enable --now qemu-guest-agent.service
 ```
-
-### Настройка пользователя для cloud-образов
-
-{{< alert level="warning" >}}
-При использовании cloud-образов (с поддержкой cloud-init) обязательно задайте SSH-ключ или пароль для предустановленного пользователя, либо создайте нового пользователя с заданным паролем или SSH-ключом через cloud-init. В противном случае войти в виртуальную машину будет невозможно!
-{{< /alert >}}
-
-Примеры:
-
-1. Установка пароля для существующего пользователя (например, `ubuntu`, часто присутствует в официальных cloud-образах):
-
-   Во многих [cloud-образах](#image-resources-table) пользователь по умолчанию уже предопределён (например, `ubuntu` в Ubuntu Cloud Images) и его имя не всегда можно переопределить через `cloud-init` с помощью блока `users`. В таких случаях рекомендуется использовать специализированные параметры cloud-init для управления дефолтным пользователем.
-
-   При использовании облачного образа можно добавить публичный SSH-ключ для пользователя по умолчанию с помощью параметра `ssh_authorized_keys` на корневом уровне cloud-init:
-
-   ```yaml
-   #cloud-config
-   ssh_authorized_keys:
-     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ```
-
-2. Создание нового пользователя с паролем и SSH-ключом:
-
-   ```yaml
-   #cloud-config
-   users:
-     - name: cloud
-       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
-       lock_passwd: false
-       sudo: ALL=(ALL) NOPASSWD:ALL
-       shell: /bin/bash
-       ssh-authorized-keys:
-         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ssh_pwauth: True
-   ```
-
-{{< alert level="info" >}}
-Значение поля `passwd` — это захешированный пароль (например, можно получить командой `mkpasswd --method=SHA-512 --rounds=4096`).
-{{< /alert >}}
 
 ### Подключение к виртуальной машине
 
@@ -1632,79 +1731,6 @@ spec:
 - На вкладке «Конфигурация» прокрутите страницу вниз до раздела «Дополнительные параметры».
 - Включите переключатель «Автоприменение изменений».
 - Нажмите на появившуюся кнопку «Сохранить».
-
-### Сценарии начальной инициализации ВМ
-
-Сценарии начальной инициализации предназначены для первичной конфигурации виртуальной машины при её запуске.
-
-В качестве сценариев начальной инициализации поддерживаются:
-
-- [CloudInit](https://cloudinit.readthedocs.io).
-- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
-
-Сценарий CloudInit можно встраивать непосредственно в спецификацию виртуальной машины, но этот сценарий ограничен максимальной длиной в 2048 байт:
-
-```yaml
-spec:
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      package_update: true
-      ...
-```
-
-При более длинных сценариях и/или наличия приватных данных, сценарий начальной инициализации виртуальной машины может быть создан в ресурсе Secret. Пример ресурса Secret со сценарием CloudInit приведен ниже:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloud-init-example
-data:
-  userData: <base64 data>
-type: provisioning.virtualization.deckhouse.io/cloud-init
-```
-
-фрагмент конфигурации виртуальной машины с при использовании скрипта начальной инициализации CloudInit хранящегося в ресурсе Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: UserDataRef
-    userDataRef:
-      kind: Secret
-      name: cloud-init-example
-```
-
-Примечание: Значение поля `.data.userData` должно быть закодировано в формате Base64.
-
-Для конфигурирования виртуальных машин под управлением ОС Windows с использованием Sysprep, поддерживается только вариант с ресурсом Secret.
-
-Пример ресурса Secret с сценарием Sysprep приведен ниже:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-example
-data:
-  unattend.xml: <base64 data>
-type: provisioning.virtualization.deckhouse.io/sysprep
-```
-
-Примечание: Значение поля `.data.unattend.xml` должно быть закодировано в формате Base64.
-
-фрагмент конфигурации виртуальной машины с использованием скрипта начальной инициализации Sysprep в ресурсе Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: SysprepRef
-    sysprepRef:
-      kind: Secret
-      name: sysprep-example
-```
 
 ### Размещение ВМ по узлам
 
@@ -2885,7 +2911,6 @@ status:
 
 Для восстановления ВМ из снимка используется ресурс `VirtualMachineOperation` с типом `restore`:
 
-
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
@@ -2906,6 +2931,7 @@ spec:
 - `BestEffort` — отсутствующие внешние зависимости (`ClusterVirtualImage`, `VirtualImage`) игнорируются и удаляются из конфигурации ВМ.
 
 Восстановление виртуальной машины из снимка возможно только при выполнении всех следующих условий:
+
 - Восстанавливаемая ВМ присутствует в кластере (ресурс `VirtualMachine` существует, а его `.metadata.uid` совпадает с идентификатором, использованным при создании снимка).
 - Восстанавливаемые диски (определяются по имени) либо не подключены к другим ВМ, либо отсутствуют в кластере.
 - Восстанавливаемый IP-адрес либо не занят другой ВМ, либо отсутствует в кластере.
@@ -2925,7 +2951,6 @@ d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 {{< alert level="warning" >}}
 Не рекомендуется отменять операцию восстановления (удалять ресурс `VirtualMachineOperation` в фазе `InProgress`) из снимка, так как это может привести к неконсистентному состоянию восстанавливаемой виртуальной машины.
 {{< /alert >}}
-
 
 ## Создание клона ВМ
 
