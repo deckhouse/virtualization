@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 func Test_InstallVMClassGeneric(t *testing.T) {
@@ -121,7 +121,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		}
 		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
+				vmClassInSnapshot, ok := v.(*v1alpha3.VirtualMachineClass)
 				Expect(ok).To(BeTrue())
 				*vmClassInSnapshot = *vmClass
 				return nil
@@ -133,7 +133,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		vmClass := vmClassGenericManifest().DeepCopy()
 		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
+				vmClassInSnapshot, ok := v.(*v1alpha3.VirtualMachineClass)
 				Expect(ok).To(BeTrue())
 				*vmClassInSnapshot = *vmClass
 				return nil
@@ -149,7 +149,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		vmClass.Annotations = nil
 		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
+				vmClassInSnapshot, ok := v.(*v1alpha3.VirtualMachineClass)
 				Expect(ok).To(BeTrue())
 				*vmClassInSnapshot = *vmClass
 				return nil
@@ -167,7 +167,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		}
 		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
+				vmClassInSnapshot, ok := v.(*v1alpha3.VirtualMachineClass)
 				Expect(ok).To(BeTrue())
 				*vmClassInSnapshot = *vmClass
 				return nil
@@ -187,7 +187,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 		}
 		snapshots.GetMock.When(vmClassGenericSnapshot).Then([]pkg.Snapshot{
 			mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) error {
-				vmClassInSnapshot, ok := v.(*v1alpha2.VirtualMachineClass)
+				vmClassInSnapshot, ok := v.(*v1alpha3.VirtualMachineClass)
 				Expect(ok).To(BeTrue())
 				*vmClassInSnapshot = *vmClass
 				return nil
@@ -197,7 +197,7 @@ var _ = Describe("Install VMClass Generic hook", func() {
 
 	expectVMClassGeneric := func(obj interface{}) {
 		GinkgoHelper()
-		vmClass, ok := obj.(*v1alpha2.VirtualMachineClass)
+		vmClass, ok := obj.(*v1alpha3.VirtualMachineClass)
 		Expect(ok).To(BeTrue())
 		Expect(vmClass.Name).To(Equal("generic"))
 		Expect(vmClass.Labels).To(Equal(map[string]string{
@@ -318,17 +318,17 @@ var _ = Describe("Install VMClass Generic hook", func() {
 				})
 			})
 
-			When("vmclass/generic without keep-resource annotation is present", func() {
+			When("vmclass/generic without keep-resource annotation", func() {
 				It("should not change vmclass/generic and set values", func() {
 					prepareVMClassSnapshotGenericWithoutKeepResource()
 
 					values.SetMock.Return()
 					patchCollector.CreateMock.Optional()
-					patchCollector.PatchWithJSONMock.Return()
+					patchCollector.PatchWithJSONMock.Optional()
 
 					Expect(Reconcile(context.Background(), newInput())).To(Succeed())
 					Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
-					Expect(patchCollector.PatchWithJSONMock.Calls()).To(HaveLen(1))
+					Expect(patchCollector.PatchWithJSONMock.Calls()).To(HaveLen(0))
 					Expect(values.SetMock.Calls()).To(HaveLen(1))
 				})
 			})
