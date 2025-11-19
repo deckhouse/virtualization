@@ -1,0 +1,2 @@
+# Minimal defaults; templates primarily consume values from external run values.
+# This file can stay intentionally small to avoid confusion.

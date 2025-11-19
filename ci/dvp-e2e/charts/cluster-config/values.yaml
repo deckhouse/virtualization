@@ -1,0 +1,45 @@
+# Cluster configuration for setting up nested clusters for running nightly E2E tests
+
+# Instance configuration
+instances:
+  masterNodes:
+    count: 1
+    cores: 8
+    coreFraction: 50%
+    memory: 20Gi
+  additionalNodes:
+    - name: worker
+      count: 3
+      cores: 6
+      coreFraction: 50%
+      memory: 12Gi
+
+# Deckhouse configuration
+deckhouse:
+  tag: main
+
+# Virtualization configuration
+virtualization:
+  tag: main
+
+# Image configuration
+image:
+  url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+  defaultUser: ubuntu
+  bootloader: EFI
+
+# Ingress hosts
+ingressHosts:
+  - api
+  - grafana
+  - dex
+  - prometheus
+  - console
+  - virtualization
+
+# Storage class for parent cluster VMs (overridden by workflow from profile)
+storageClass: ceph-pool-r2-csi-rbd-immediate
+
+# Feature flags (only those used by templates)
+features:
+  virtualization: true

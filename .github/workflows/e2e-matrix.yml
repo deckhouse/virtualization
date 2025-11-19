@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: E2E Matrix Tests (Skeleton)
+name: E2E Storage Matrix
 
 on:
   push:
@@ -26,15 +26,6 @@ on:
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
-    inputs:
-      profiles:
-        description: "Storage profiles (comma-separated): sds, cephrbd"
-        required: false
-        default: "sds,cephrbd"
-      timeout:
-        description: "Ginkgo timeout (e.g. 2h, 4h)"
-        required: false
-        default: "4h"
 
 permissions:
   contents: read
@@ -44,49 +35,31 @@ env:
 
 jobs:
   setup:
-    name: Setup Profiles
+    name: Setup (${{ matrix.profile }})
     runs-on: ubuntu-latest
-    outputs:
-      profiles: ${{ steps.profiles.outputs.profiles }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Load storage profiles
-        id: profiles
-        run: |
-          # Single profile: sds with storage class sds-replicated-volume
-          echo 'profiles=["sds"]' >> "$GITHUB_OUTPUT"
-
-      - name: Print matrix
-        run: |
-          echo "Will test profiles: ${{ steps.profiles.outputs.profiles }}"
-
-  prepare:
-    name: Matrix Setup (${{ matrix.profile }})
-    needs: [setup]
-    runs-on: ubuntu-latest
-    timeout-minutes: 300
-    concurrency:
-      group: prepare-${{ github.ref }}-${{ matrix.profile }}
-      cancel-in-progress: true
     strategy:
-      fail-fast: false
       matrix:
-        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
-
+        include:
+          - profile: sds-replicated-volume
+            storage_name: sds
+            storage_class: linstor-thin-r2
+            parent_storage_class: linstor-thin-r1-immediate
+            image_storage_class: linstor-thin-r1-immediate
+            attach_disk_size: 10Gi
+            data_disk_count: 2
+    concurrency:
+      group: setup-${{ github.head_ref || github.ref_name }}-${{ matrix.profile }}
+      cancel-in-progress: true
     env:
-      GO_VERSION: "1.24.6"
-      TMP_ROOT: ${{ github.workspace }}/ci/dvp-e2e/tmp
-      STORAGE_CLASS: sds-replicated-volume
-
-    outputs:
-      run_id: ${{ steps.prep.outputs.run_id }}
-      storage_class: ${{ env.STORAGE_CLASS }}
-
+      RUN_ID: nightly-nested-e2e-${{ matrix.storage_name }}-${{ github.run_number }}
+      PROFILE: ${{ matrix.profile }}
+      STORAGE_CLASS: ${{ matrix.storage_class }}
+      PARENT_STORAGE_CLASS: ${{ matrix.parent_storage_class }}
+      IMAGE_STORAGE_CLASS: ${{ matrix.image_storage_class }}
+      ATTACH_DISK_SIZE: ${{ matrix.attach_disk_size }}
+      DATA_DISK_COUNT: ${{ matrix.data_disk_count }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Install Task
         uses: arduino/setup-task@v2
@@ -102,20 +75,17 @@ jobs:
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
+          version: "latest"
 
-      - name: Install Deckhouse CLI
-        env:
-          D8_VERSION: v0.13.2
-        run: |
-          set -euo pipefail
-          echo "Installing d8 ${D8_VERSION}..."
-          curl -fsSL -o d8.tgz "https://deckhouse.io/downloads/deckhouse-cli/${D8_VERSION}/d8-${D8_VERSION}-linux-amd64.tar.gz"
-          tar -xzf d8.tgz linux-amd64/bin/d8
-          mv linux-amd64/bin/d8 /usr/local/bin/d8
-          chmod +x /usr/local/bin/d8
-          rm -rf d8.tgz linux-amd64
-          d8 --version
+      - name: Setup d8
+        uses: werf/trdl/actions/setup-app@v0.12.2
+        with:
+          repo: d8
+          url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
+          root-version: 1
+          root-sha512: 343bd5f0d8811254e5f0b6fe292372a7b7eda08d276ff255229200f84e58a8151ab2729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
+          group: 0
+          channel: stable
 
       - name: Install yq
         run: |
@@ -123,163 +93,56 @@ jobs:
           curl -L -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
-      - name: Prepare environment
-        id: prep
-        run: |
-          RUN_ID="nightly-nested-e2e-${{ matrix.profile }}-$(date +%H%M)"
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          echo "PROFILE=${{ matrix.profile }}" >> "$GITHUB_ENV"
-          echo "TMP_ROOT=${{ env.TMP_ROOT }}" >> "$GITHUB_ENV"
-          mkdir -p "${{ env.TMP_ROOT }}/shared" "${{ env.TMP_ROOT }}/matrix-logs"
-
-      - name: Build parent kubeconfig from secret
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.kube"
-          cat > "$HOME/.kube/config" <<EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              server: ${E2E_K8S_URL}
-              insecure-skip-tls-verify: true
-            name: parent
-          contexts:
-          - context:
-              cluster: parent
-              user: sa
-            name: parent
-          current-context: parent
-          users:
-          - name: sa
-            user:
-              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
-          chmod 600 "$HOME/.kube/config"
-          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
-
-      - name: Prepare run values.yaml
+      - name: Setup nested environment
+        env:
+          RUN_ID: ${{ env.RUN_ID }}
+          PROFILE: ${{ env.PROFILE }}
+          STORAGE_CLASS: ${{ env.STORAGE_CLASS }}
+          PARENT_STORAGE_CLASS: ${{ env.PARENT_STORAGE_CLASS }}
+          IMAGE_STORAGE_CLASS: ${{ env.IMAGE_STORAGE_CLASS }}
+          ATTACH_DISK_SIZE: ${{ env.ATTACH_DISK_SIZE }}
+          DATA_DISK_COUNT: ${{ matrix.data_disk_count }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          API_URL: ${{ env.E2E_K8S_URL }}
+          SA_TOKEN: ${{ secrets.E2E_NESTED_SA_SECRET }}
         working-directory: ci/dvp-e2e
         run: |
-          task run:values:prepare \
-            RUN_ID="${{ env.RUN_ID }}" \
-            RUN_NAMESPACE="${{ env.RUN_ID }}" \
-            RUN_DIR="${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}"
-          echo "VALUES_TEMPLATE_FILE=${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml" >> $GITHUB_ENV
-
-      - name: Configure storage profile
-        working-directory: ci/dvp-e2e
-        run: |
-          # Set storage profile to sds with storage class sds-replicated-volume
-          PROFILE='sds' yq eval --inplace '.storageProfile = strenv(PROFILE)' "${{ env.TMP_ROOT }}/runs/${{ env.RUN_ID }}/values.yaml"
-          echo "Configured storage profile: sds with storage class: ${STORAGE_CLASS}"
-
-      - name: Upload run context
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-context-${{ env.RUN_ID }}
-          path: |
-            ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
-            ci/dvp-e2e/tmp/shared
-          if-no-files-found: warn
-
-  run-e2e:
-    name: E2E (${{ matrix.profile }}) [skeleton]
-    needs: [setup, prepare]
-    runs-on: ubuntu-latest
-    concurrency:
-      group: e2e-${{ github.ref }}-${{ matrix.profile }}
-      cancel-in-progress: true
-    strategy:
-      fail-fast: false
-      matrix:
-        profile: ${{ fromJson(needs.setup.outputs.profiles) }}
-    steps:
-      - name: Echo run
-        run: |
-          echo "E2E stage for profile=${{ matrix.profile }} (skeleton - placeholder)"
-  report:
-    name: Report [skeleton]
-    needs: [setup, run-e2e]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Echo report
-        run: |
-          echo "Report stage (skeleton). Collecting results from matrix..."
+          task ci:setup-nested-env
 
   cleanup:
-    name: Cleanup Resources
-    needs: report
+    name: Cleanup (${{ matrix.profile }})
+    needs: setup
     if: always()
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - profile: sds-replicated-volume
+            storage_name: sds
+            storage_class: linstor-thin-r2
+            parent_storage_class: linstor-thin-r1-immediate
+            image_storage_class: linstor-thin-r1-immediate
+            attach_disk_size: 10Gi
+            data_disk_count: 2
+    env:
+      CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Task
         uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: 'latest'
-
-      - name: Build parent kubeconfig from secret (cleanup)
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$HOME/.kube"
-          cat > "$HOME/.kube/config" <<EOF
-          apiVersion: v1
-          kind: Config
-          clusters:
-          - cluster:
-              server: ${E2E_K8S_URL}
-              insecure-skip-tls-verify: true
-            name: parent
-          contexts:
-          - context:
-              cluster: parent
-              user: sa
-            name: parent
-          current-context: parent
-          users:
-          - name: sa
-            user:
-              token: "${{ secrets.E2E_NESTED_SA_SECRET }}"
-          EOF
-          chmod 600 "$HOME/.kube/config"
-          echo "KUBECONFIG=$HOME/.kube/config" >> "$GITHUB_ENV"
+          version: "latest"
 
       - name: Cleanup test namespaces
+        working-directory: ci/dvp-e2e
         run: |
-          set -euo pipefail
-          PREFIX="nightly-nested-e2e-"
-          echo "🧹 Cleaning up namespaces matching prefix '${PREFIX}'"
-          mapfile -t CANDIDATES < <(kubectl get ns -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | grep "^${PREFIX}" || true)
-          OURS=()
-          for ns in "${CANDIDATES[@]:-}"; do
-            [ -z "$ns" ] && continue
-            if kubectl -n "$ns" get deploy jump-host >/dev/null 2>&1; then
-              OURS+=("$ns")
-            fi
-          done
-          if [ "${#OURS[@]}" -eq 0 ]; then
-            echo "[INFO] No namespaces to delete."
-          else
-            echo "[INFO] Deleting namespaces:"
-            printf ' - %s\n' "${OURS[@]}"
-            for ns in "${OURS[@]}"; do
-              kubectl delete ns "$ns" --wait=false || true
-            done
-          fi
-
-      - name: Report cleanup results
-        if: always()
-        run: |
-          echo "### Cleanup Results" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Cleanup job completed" >> $GITHUB_STEP_SUMMARY
-          echo "🧹 Attempted to clean up namespaces matching 'nightly-nested-e2e-*'" >> $GITHUB_STEP_SUMMARY
+          task cleanup:namespaces \
+            PREFIX="${CLEANUP_PREFIX}" \
+            API_URL="${E2E_K8S_URL}" \
+            SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"

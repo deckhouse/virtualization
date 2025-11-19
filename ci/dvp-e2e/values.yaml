@@ -1,0 +1,31 @@
+domain: e2e.virtlab.flant.com
+clusterConfigurationPrefix: e2e
+deckhouse:
+  tag: main
+virtualization:
+  tag: main
+features:
+  virtualization: true
+image:
+  url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+  defaultUser: ubuntu
+  bootloader: EFI
+ingressHosts:
+  - api
+  - grafana
+  - dex
+  - prometheus
+  - console
+  - virtualization
+instances:
+  masterNodes:
+    count: 1
+    cores: 8
+    coreFraction: 50%
+    memory: 20Gi
+  additionalNodes:
+    - name: worker
+      count: 3
+      cores: 6
+      coreFraction: 50%
+      memory: 12Gi
