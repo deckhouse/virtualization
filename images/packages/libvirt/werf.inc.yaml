@@ -1,16 +1,25 @@
 ---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+
+---
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Firmware $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
   includePaths:
-  - install-libvirt.sh
   - patches
   excludePaths:
     - patches/README.md
@@ -38,6 +47,11 @@ shell:
         submodule update --init --recursive --depth=1
     fi
 
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -56,28 +70,25 @@ altPackages:
 - parted
 - qemu-img open-iscsi
 - xml-utils xsltproc
-- systemd-container polkit
+- polkit
 - python3 python3-devel
 - python3-module-pytest python3-module-docutils
 - python3-tools python3-module-pip
 - python3-module-black
 - mdevctl tshark
 - dmsetup pm-utils
+- tree
 altLibraries:
-- libudev-devel
 - libpciaccess-devel
 - libyajl-devel sanlock-devel
-- libpcap-devel libnl-devel
+- libpcap-devel
 - libparted-devel
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libsystemd-devel
 - systemtap-sdt-devel
-- glibc-utils
 - wireshark-devel
 - libclocale
-- libslirp-devel
 - libyajl-devel
 packages:
 - dmidecode lvm2 libattr libbsd libmd util-linux
@@ -92,24 +103,18 @@ packages:
 - libtasn1 libtirpc
 - glib2 acl libunistring libxml2
 - gnutls
+- systemd libnl3 libslirp
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.10" }}
 import:
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src/{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/patches
-  to: /patches
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
-  add: /src/install-libvirt.sh
-  to: /install-libvirt.sh
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
@@ -147,11 +152,6 @@ shell:
     export PYTHON="/usr/bin/python3"
 
     cd /{{ $gitRepoName }}-{{ $version }}
-
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
 
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
       -Dinit_script=systemd \
@@ -205,7 +205,65 @@ shell:
 
   setup:
   - |
-    /install-libvirt.sh --version-num "{{ $version }}" \
-                        -s /{{ $gitRepoName }}-{{ $version }} \
-                        -d /BINS \
-                        -b build
+    OUTDIR=/out
+    cd /{{ $gitRepoName }}-{{ $version }}
+    DESTDIR=$OUTDIR ninja -C build install
+
+    rm -rf $OUTDIR/var
+    rm -rf $OUTDIR/usr/share/systemtap/tapset/libvirt_probes.stp
+    rm -rf $OUTDIR/usr/share/systemtap/tapset/libvirt_qemu_probes.stp
+    rm -rf $OUTDIR/usr/lib64/libvirt/lock-driver/sanlock.so
+    find $OUTDIR/usr/lib64/libvirt/storage-backend/ -type f -not -name 'libvirt_storage_backend_fs.so' -delete
+    rm -rf $OUTDIR/usr/lib64/libvirt/storage-file/libvirt_storage_file_gluster.so
+    rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_lxc.so
+    rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_ch.so
+    rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_vbox.so
+    rm -rf $OUTDIR/usr/sbin/virtlxcd
+    rm -rf $OUTDIR/usr/sbin/virtchd
+    rm -rf $OUTDIR/usr/sbin/virtvboxd
+    rm -rf $OUTDIR/usr/libexec/libvirt_sanlock_helper
+    rm -rf $OUTDIR/usr/libexec/libvirt_parthelper
+    rm -rf $OUTDIR/usr/libexec/libvirt_lxc
+    rm -rf $OUTDIR/usr/share/augeas/lenses/tests/
+    rm -rf $OUTDIR/usr/bin/virt-login-shell
+    rm -rf $OUTDIR/usr/libexec/virt-login-shell-helper
+    rm -rf $OUTDIR/usr/bin/virsh
+    rm -rf $OUTDIR/usr/bin/virt-admin
+    rm -rf $OUTDIR/usr/lib64/wireshark/plugins/4.4/epan/libvirt.so
+    rm -rf $OUTDIR/usr/share/libvirt/cpu_map/arm_*
+    rm -rf $OUTDIR/usr/share/libvirt/cpu_map/ppc64_*
+    rm -rf $OUTDIR/usr/share/libvirt/schemas/
+    rm -rf $OUTDIR/etc/logrotate.d/
+    rm -rf $OUTDIR/usr/lib/firewalld/
+    rm -rf $OUTDIR/etc/libvirt/nwfilter/
+    rm -rf $OUTDIR/usr/lib/sysusers.d/libvirt-qemu.sysusers.conf
+    rm -rf $OUTDIR/usr/lib/sysctl.d/postcopy-migration.sysctl
+    rm -rf $OUTDIR/usr/share/libvirt/test-screenshot.png
+    rm -rf $OUTDIR/etc/libvirt/libvirt-admin.conf
+    rm -rf $OUTDIR/etc/libvirt/qemu-lockd.conf
+    rm -rf $OUTDIR/etc/libvirt/qemu-sanlock.conf
+    rm -rf $OUTDIR/etc/libvirt/virtlockd.conf
+    rm -rf $OUTDIR/etc/libvirt/lxc.conf
+    rm -rf $OUTDIR/etc/libvirt/qemu.conf
+    rm -rf $OUTDIR/usr/share/augeas/
+    rm -rf $OUTDIR/etc/libvirt/virtnetworkd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtsecretd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtstoraged.conf
+    rm -rf $OUTDIR/etc/libvirt/virtlxcd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtchd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtqemud.conf
+    rm -rf $OUTDIR/etc/libvirt/virtvboxd.conf
+    rm -rf $OUTDIR/usr/sbin/virt-sanlock-cleanup
+    rm -rf $OUTDIR/usr/lib/systemd/
+    rm -rf $OUTDIR/usr/bin/virt-qemu-qmp-proxy
+    rm -rf $OUTDIR/usr/share/bash-completion/
+    rm -rf $OUTDIR/etc/ssh/
+    rm -rf $OUTDIR/usr/share/doc
+    rm -rf $OUTDIR/usr/local/share/locale/
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR
