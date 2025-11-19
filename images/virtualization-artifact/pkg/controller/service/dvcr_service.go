@@ -158,22 +158,24 @@ func (d *DVCRService) GetGarbageCollectionResult(secret *corev1.Secret) string {
 	return string(secret.Data["result"])
 }
 
+type GarbageCollectionResult struct {
+	Result  string `json:"result"`
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
 func (d *DVCRService) ParseGarbageCollectionResult(secret *corev1.Secret) (reason dvcrdeploymentcondition.GarbageCollectionReason, message string, err error) {
-	var gcResult struct {
-		result  string
-		error   string
-		message string
-	}
+	var gcResult GarbageCollectionResult
 	err = json.Unmarshal(secret.Data["result"], &gcResult)
 	if err != nil {
 		return "", "", fmt.Errorf("parse garbage collection result '%s': %w", string(secret.Data["result"]), err)
 	}
 
-	switch gcResult.result {
+	switch gcResult.Result {
 	case "success":
-		return dvcrdeploymentcondition.Done, gcResult.message, nil
+		return dvcrdeploymentcondition.Done, gcResult.Message, nil
 	case "fail":
-		return dvcrdeploymentcondition.Error, gcResult.error, nil
+		return dvcrdeploymentcondition.Error, gcResult.Error, nil
 	}
 
 	// Unexpected format. It should not happen, but we need to show something if it happens.
