@@ -244,6 +244,7 @@ There are different types of images:
 
 Examples of resources for obtaining virtual machine images:
 
+<a id="image-resources-table"></a>
 | Distribution                                                                      | Default user.             |
 | --------------------------------------------------------------------------------- | ------------------------- |
 | [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
@@ -1332,7 +1333,7 @@ Examples:
 
 1. Setting a password for an existing user (for example, `ubuntu` is often present in official cloud images):
 
-   In many cloud images, the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
+   In many [cloud images](#image-resources-table), the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
 
    In a cloud image, you can add a public SSH key for the default user using the `ssh_authorized_keys` parameter at the root level of cloud-init:
 
