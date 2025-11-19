@@ -1256,6 +1256,147 @@ status:
         coresPerSocket: 1
 ```
 
+
+
+### Initialization scripts
+
+Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
+
+The initial initialization scripts supported are:
+
+- [CloudInit](https://cloudinit.readthedocs.io).
+- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
+
+#### CloudInit
+
+CloudInit is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
+
+{{< alert level="warning" >}}
+CloudInit configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the official cloud-init documentation.
+{{< /alert >}}
+
+Main capabilities of CloudInit:
+
+- Creating users, setting passwords, adding SSH keys for access
+- Automatically installing necessary software on first boot
+- Running arbitrary commands and scripts for system configuration
+- Automatically starting and enabling system services (for example, [`qemu-guest-agent`](#guest-os-agent))
+
+##### Typical usage scenarios
+
+1. Adding an SSH key for a [pre-installed user](#image-resources-table) that may already be present in the cloud image (for example, the `ubuntu` user in official Ubuntu images). Note: the name of such a user depends on the image, so check the documentation for your distribution.
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+2. Creating a user with a password and SSH key:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$saltsalt$..."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+{{< alert level="info" >}}
+To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
+{{< /alert >}}
+
+3. **Installing packages and services:**
+
+   ```yaml
+   #cloud-config
+   package_update: true
+   packages:
+     - nginx
+     - qemu-guest-agent
+   run_cmd:
+     - systemctl daemon-reload
+     - systemctl enable --now nginx.service
+     - systemctl enable --now qemu-guest-agent.service
+   ```
+
+##### Using CloudInit
+
+The CloudInit script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
+
+```yaml
+spec:
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      package_update: true
+      ...
+```
+
+For longer scenarios and/or the presence of private data, the script for initial initialization of the virtual machine can be created in a Secret resource. An example of a Secret with a CloudInit script is shown below:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-init-example
+data:
+  userData: <base64 data>
+type: provisioning.virtualization.deckhouse.io/cloud-init
+```
+
+A fragment of the virtual machine configuration when using the CloudInit initialization script stored in a Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init-example
+```
+
+{{< alert level="info" >}}
+The value of the `.data.userData` field must be Base64 encoded. To encode, you can use the command `base64 -w 0` or `echo -n "content" | base64`.
+{{< /alert >}}
+
+#### Sysprep
+
+To configure virtual machines running Windows OS using Sysprep, only the Secret variant is supported.
+
+An example of a Secret with a Sysprep script is shown below:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-example
+data:
+  unattend.xml: <base64 data>
+type: provisioning.virtualization.deckhouse.io/sysprep
+```
+
+{{< alert level="info" >}}
+The value of the `.data.unattend.xml` field must be Base64 encoded. To encode, you can use the command `base64 -w 0` or `echo -n "content" | base64`.
+{{< /alert >}}
+
+A fragment of the virtual machine configuration using the Sysprep initialization script in a Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
+      name: sysprep-example
+```
+
 ### Guest OS agent
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
@@ -1322,45 +1463,6 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
   run_cmd:
     - systemctl enable --now qemu-guest-agent.service
 ```
-
-### User Configuration for Cloud Images
-
-{{< alert level="warning" >}}
-When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
-{{< /alert >}}
-
-Examples:
-
-1. Setting a password for an existing user (for example, `ubuntu` is often present in official cloud images):
-
-   In many [cloud images](#image-resources-table), the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
-
-   In a cloud image, you can add a public SSH key for the default user using the `ssh_authorized_keys` parameter at the root level of cloud-init:
-
-   ```yaml
-   #cloud-config
-   ssh_authorized_keys:
-     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ```
-
-2. Creating a new user with a password and SSH key:
-
-   ```yaml
-   #cloud-config
-   users:
-     - name: cloud
-       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
-       lock_passwd: false
-       sudo: ALL=(ALL) NOPASSWD:ALL
-       shell: /bin/bash
-       ssh-authorized-keys:
-         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ssh_pwauth: True
-   ```
-
-{{< alert level="info" >}}
-The value of the `passwd` field is a hashed password (for example, you can generate it using `mkpasswd --method=SHA-512 --rounds=4096`).
-{{< /alert >}}
 
 ### Connecting to a virtual machine
 
@@ -1616,79 +1718,6 @@ How to perform the operation in the web interface:
 - On the "Configuration" tab, scroll down to the "Additional Settings" section.
 - Enable the "Auto-apply changes" switch.
 - Click on the "Save" button that appears.
-
-### Initialization scripts
-
-Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
-
-The initial initial initialization scripts supported are:
-
-- [CloudInit](https://cloudinit.readthedocs.io)
-- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
-
-The CloudInit script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
-
-```yaml
-spec:
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      package_update: true
-      ...
-```
-
-For longer scenarios and/or the presence of private data, the script for initial initial initialization of the virtual machine can be created in Secret. An example of Secret with a CloudInit script is shown below:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloud-init-example
-data:
-  userData: <base64 data>
-type: provisioning.virtualization.deckhouse.io/cloud-init
-```
-
-A fragment of the virtual machine configuration using the CloudInit initialization script stored in Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: UserDataRef
-    userDataRef:
-      kind: Secret
-      name: cloud-init-example
-```
-
-Note: The value of the `.data.userData` field must be Base64 encoded.
-
-To configure Windows virtual machines using Sysprep, only the Secret variant is supported.
-
-An example of Secret with Sysprep script is shown below:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-example
-data:
-  unattend.xml: <base64 data>
-type: provisioning.virtualization.deckhouse.io/sysprep
-```
-
-Note: The value of the `.data.unattend.xml` field must be Base64 encoded.
-
-fragment of virtual machine configuration using Sysprep initialization script in Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: SysprepRef
-    sysprepRef:
-      kind: Secret
-      name: sysprep-example
-```
 
 ### Placement of VMs by nodes
 
