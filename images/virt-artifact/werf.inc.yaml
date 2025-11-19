@@ -70,6 +70,7 @@ shell:
 
   {{- include "alt packages clean" . | nindent 2 }}
 
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}" # <--- для пересборки
   install:
   - |
     # Install packages
@@ -91,7 +92,7 @@ shell:
     done
 
   setup:
-    - echo kek2
+    - echo "$date"
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
