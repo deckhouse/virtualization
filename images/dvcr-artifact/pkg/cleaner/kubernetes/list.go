@@ -144,25 +144,25 @@ func (c *Client) ListVirtualDisksAll(ctx context.Context) ([]ImageInfo, error) {
 }
 
 const (
-	maintenanceSecretNS   = "d8-virtualization"
-	maintenanceSecretName = "dvcr-maintenance"
+	garbageCollectionSecretNS   = "d8-virtualization"
+	garbageCollectionSecretName = "dvcr-garbage-collection"
 )
 
-func (c *Client) GetMaintenanceSecret(ctx context.Context) (*corev1.Secret, error) {
-	secret, err := c.kubeClient.CoreV1().Secrets(maintenanceSecretNS).Get(ctx, maintenanceSecretName, metav1.GetOptions{})
+func (c *Client) GetGarbageCollectionSecret(ctx context.Context) (*corev1.Secret, error) {
+	secret, err := c.kubeClient.CoreV1().Secrets(garbageCollectionSecretNS).Get(ctx, garbageCollectionSecretName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("get maintenance secret: %w", err)
+		return nil, fmt.Errorf("get garbage collection secret: %w", err)
 	}
 
 	return secret, nil
 }
 
-func (c *Client) UpdateMaintenanceSecret(ctx context.Context, secret *corev1.Secret) error {
-	_, err := c.kubeClient.CoreV1().Secrets(maintenanceSecretNS).
+func (c *Client) UpdateGarbageCollectionSecret(ctx context.Context, secret *corev1.Secret) error {
+	_, err := c.kubeClient.CoreV1().Secrets(garbageCollectionSecretNS).
 		Update(ctx, secret, metav1.UpdateOptions{})
 
 	if err != nil {
-		return fmt.Errorf("annotate maintenance secret: %w", err)
+		return fmt.Errorf("annotate garbage colleciton secret: %w", err)
 	}
 
 	return nil

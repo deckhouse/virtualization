@@ -78,13 +78,13 @@ var gcRunCmd = &cobra.Command{
 }
 
 var (
-	MaintenanceSecretName string
-	GCTimeout             time.Duration
-	GCTimeoutDefault      = time.Minute * 10
+	GarbageCollectionSecretName string
+	GCTimeout                   time.Duration
+	GCTimeoutDefault            = time.Minute * 10
 )
 
 var autoCleanupCmd = &cobra.Command{
-	Use:           "auto-cleanup [--maintenance-secret-name secret] [--gc-timeout duration]",
+	Use:           "auto-cleanup [--garbage-collection-secret-name secret] [--garbage-collection-timeout duration]",
 	Short:         "`auto-cleanup` deletes all stale images that have no corresponding resource in the cluster and then runs garbage-collect to remove underlying blobs (Note: not to be run with kubectl exec until you 100% sure what are you doing)",
 	Args:          cobra.OnlyValidArgs,
 	RunE:          autoCleanupHandler,
@@ -106,8 +106,8 @@ func init() {
 
 	// Add 'run' command.
 	GcCmd.AddCommand(autoCleanupCmd)
-	autoCleanupCmd.Flags().StringVar(&MaintenanceSecretName, "maintenance-secret-name", "", "update secret with result and annotation after the cleanup")
-	autoCleanupCmd.Flags().DurationVar(&GCTimeout, "gc-timeout", GCTimeoutDefault, "max time for running garbage collection command")
+	autoCleanupCmd.Flags().StringVar(&GarbageCollectionSecretName, "garbage-collection-secret-name", "", "update secret with result and annotation after the cleanup")
+	autoCleanupCmd.Flags().DurationVar(&GCTimeout, "garbage-collection-timeout", GCTimeoutDefault, "max time for running garbage collection command")
 	// Add 'check' command.
 	GcCmd.AddCommand(checkCmd)
 }
@@ -173,12 +173,12 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 	}
 
 	// Terminate without waiting if no secret name was provided.
-	if MaintenanceSecretName == "" {
+	if GarbageCollectionSecretName == "" {
 		return errs.ErrorOrNil()
 	}
 
-	// Update maintenance secret and wait for termination signal.
-	secretErr := annotateMaintenanceSecretOnCleanupDone(context.Background(), result)
+	// Update garbage collection secret and wait for termination signal.
+	secretErr := annotateGarbageCollectionSecretOnCleanupDone(context.Background(), result)
 	if secretErr != nil {
 		errs = multierror.Append(errs, secretErr)
 	}
@@ -353,11 +353,11 @@ func compareRegistryAndClusterImages(images []registry.Image, kubeImages []kuber
 }
 
 const (
-	garbageCollectionDoneAnno = "virtualization.deckhouse.io/dvcr-garbage-collection-done"
-	switchToMaintenanceAnno   = "virtualization.deckhouse.io/dvcr-deployment-switch-to-maintenance-mode"
+	garbageCollectionDoneAnno         = "virtualization.deckhouse.io/dvcr-garbage-collection-done"
+	switchToGarbageCollectionModeAnno = "virtualization.deckhouse.io/dvcr-deployment-switch-to-garbage-collection-mode"
 )
 
-func annotateMaintenanceSecretOnCleanupDone(ctx context.Context, result map[string]string) error {
+func annotateGarbageCollectionSecretOnCleanupDone(ctx context.Context, result map[string]string) error {
 	resultBytes, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("marshal result to json: %w", err)
@@ -369,7 +369,7 @@ func annotateMaintenanceSecretOnCleanupDone(ctx context.Context, result map[stri
 		return fmt.Errorf("initialize Kubernetes client: %w", err)
 	}
 
-	secret, err := virtClient.GetMaintenanceSecret(ctx)
+	secret, err := virtClient.GetGarbageCollectionSecret(ctx)
 	if err != nil {
 		return err
 	}
@@ -378,14 +378,14 @@ func annotateMaintenanceSecretOnCleanupDone(ctx context.Context, result map[stri
 		secret.Annotations = make(map[string]string)
 	}
 	secret.Annotations[garbageCollectionDoneAnno] = ""
-	delete(secret.Annotations, switchToMaintenanceAnno)
+	delete(secret.Annotations, switchToGarbageCollectionModeAnno)
 
 	if secret.Data == nil {
 		secret.Data = make(map[string][]byte)
 	}
 	secret.Data["result"] = resultBytes
 
-	err = virtClient.UpdateMaintenanceSecret(ctx, secret)
+	err = virtClient.UpdateGarbageCollectionSecret(ctx, secret)
 	if err != nil {
 		return fmt.Errorf("update secret on cleanup done: %w", err)
 	}
