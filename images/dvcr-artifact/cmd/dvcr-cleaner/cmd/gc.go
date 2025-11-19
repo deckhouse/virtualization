@@ -130,6 +130,8 @@ func Confirm() (bool, error) {
 }
 
 func autoCleanupHandler(cmd *cobra.Command, args []string) error {
+	started := time.Now().UTC()
+
 	fsInfoBeforeCleanup, err := registry.StorageStats()
 	if err != nil {
 		return fmt.Errorf("get repositories filesystem info before cleanup: %w", err)
@@ -142,8 +144,10 @@ func autoCleanupHandler(cmd *cobra.Command, args []string) error {
 		errs = multierror.Append(errs, cleanupErr)
 	}
 
-	result := map[string]string{
-		"result": "success",
+	result := map[string]any{
+		"result":     "success",
+		"startedAt":  started,
+		"finishedAt": time.Now().UTC(),
 	}
 	if cleanupErr != nil {
 		result["result"] = "fail"
@@ -357,7 +361,7 @@ const (
 	switchToGarbageCollectionModeAnno = "virtualization.deckhouse.io/dvcr-deployment-switch-to-garbage-collection-mode"
 )
 
-func annotateGarbageCollectionSecretOnCleanupDone(ctx context.Context, result map[string]string) error {
+func annotateGarbageCollectionSecretOnCleanupDone(ctx context.Context, result map[string]any) error {
 	resultBytes, err := json.Marshal(result)
 	if err != nil {
 		return fmt.Errorf("marshal result to json: %w", err)
