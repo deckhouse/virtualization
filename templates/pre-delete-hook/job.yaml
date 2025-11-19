@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: virtualization-pre-delete-hook
+  name: pre-delete-hook
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-pre-delete-hook")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app" "pre-delete-hook")) | nindent 2 }}
   annotations:
     "helm.sh/hook": pre-delete
     "helm.sh/hook-weight": "-5"
@@ -11,13 +11,13 @@ metadata:
 spec:
   template:
     metadata:
-      name: virtualization-pre-delete-hook
-      {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-pre-delete-hook")) | nindent 6 }}
+      name: pre-delete-hook
+      {{- include "helm_lib_module_labels" (list . (dict "app" "pre-delete-hook")) | nindent 6 }}
     spec:
       restartPolicy: Never
       serviceAccountName: pre-delete-hook
       containers:
-      - name: virtualization-pre-delete-hook
+      - name: pre-delete-hook
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 8 }}
         image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
         env:
