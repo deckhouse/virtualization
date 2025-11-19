@@ -26,17 +26,18 @@ import (
 	dvcrdeploymentcondition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
-func NewMaintenanceCondition(reason dvcrdeploymentcondition.MaintenanceReason, msgf string, args ...any) appsv1.DeploymentCondition {
+func NewGarbageCollectionCondition(reason dvcrdeploymentcondition.GarbageCollectionReason, msgf string, args ...any) appsv1.DeploymentCondition {
 	status := "Unknown"
 	switch reason {
-	case dvcrdeploymentcondition.Done:
+	case dvcrdeploymentcondition.Done,
+		dvcrdeploymentcondition.Error:
 		status = "False"
 	case dvcrdeploymentcondition.InProgress:
 		status = "True"
 	}
 
 	return appsv1.DeploymentCondition{
-		Type:           dvcrdeploymentcondition.MaintenanceType,
+		Type:           dvcrdeploymentcondition.GarbageCollectionType,
 		Status:         corev1.ConditionStatus(status),
 		LastUpdateTime: metav1.Now(),
 		Reason:         string(reason),
@@ -44,19 +45,19 @@ func NewMaintenanceCondition(reason dvcrdeploymentcondition.MaintenanceReason, m
 	}
 }
 
-// UpdateMaintenanceCondition replaces or removes Maintenance condition from deployment status.
-func UpdateMaintenanceCondition(deploy *appsv1.Deployment, reason dvcrdeploymentcondition.MaintenanceReason, msgf string, args ...any) {
+// UpdateGarbageCollectionCondition replaces or removes GarbageCollection condition from deployment status.
+func UpdateGarbageCollectionCondition(deploy *appsv1.Deployment, reason dvcrdeploymentcondition.GarbageCollectionReason, fmtStr string, args ...any) {
 	if deploy == nil {
 		return
 	}
 
-	condition := NewMaintenanceCondition(reason, msgf, args...)
+	condition := NewGarbageCollectionCondition(reason, fmtStr, args...)
 
 	// Add or update existing condition.
 	filteredConditions := make([]appsv1.DeploymentCondition, 0, len(deploy.Status.Conditions))
 	existing := false
 	for _, cond := range deploy.Status.Conditions {
-		if cond.Type == dvcrdeploymentcondition.MaintenanceType {
+		if cond.Type == dvcrdeploymentcondition.GarbageCollectionType {
 			if cond.Reason != condition.Reason || cond.Message != condition.Message {
 				condition.LastTransitionTime = metav1.Now()
 			}

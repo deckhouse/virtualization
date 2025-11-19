@@ -19,23 +19,26 @@ package dvcr_deployment_condition
 import appsv1 "k8s.io/api/apps/v1"
 
 const (
-	// MaintenanceType indicates whether the deployment/dvcr is in maintenance mode.
-	MaintenanceType appsv1.DeploymentConditionType = "Maintenance"
+	// GarbageCollectionType indicates whether the deployment/dvcr is in garbage collection mode.
+	GarbageCollectionType appsv1.DeploymentConditionType = "GarbageCollection"
 )
 
 type (
-	// MaintenanceReason represents the various reasons for the DVCRMaintenance condition type.
-	MaintenanceReason string
+	// GarbageCollectionReason represents the various reasons for the GarbageCollection condition type.
+	GarbageCollectionReason string
 )
 
-func (s MaintenanceReason) String() string {
+func (s GarbageCollectionReason) String() string {
 	return string(s)
 }
 
 const (
-	// InProgress indicates that the maintenance is in progress: wait for provisioners, or deployment is modified to run garbage collection.  (status true)
-	InProgress MaintenanceReason = "GarbageCollectionInProgress"
+	// InProgress indicates that the garbage collection is in progress. (status "True")
+	InProgress GarbageCollectionReason = "GarbageCollectionInProgress"
 
-	// Done indicates that the maintenance is done and result is in the message. (status false)
-	Done MaintenanceReason = "GarbageCollectionDone"
+	// Done indicates that the garbage collection is done and result is in the message. (status "False")
+	Done GarbageCollectionReason = "Done"
+
+	// Error indicates that the garbage collection was unsuccessful and error is in the message. (status "False")
+	Error GarbageCollectionReason = "Error"
 )

@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dvcrcondition "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/condition"
-	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
+	dvcrcondition "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/condition"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/types"
 	dvcr_deployment_condition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
@@ -50,14 +50,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 	}
 
 	if req.Namespace == dvcrtypes.CronSourceNamespace && req.Name == dvcrtypes.CronSourceRunGC {
-		dvcrcondition.UpdateMaintenanceCondition(deploy,
+		dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 			dvcr_deployment_condition.InProgress,
 			"Garbage collection initiated.",
 		)
-		return reconcile.Result{}, h.dvcrService.InitiateMaintenanceMode(ctx)
+		return reconcile.Result{}, h.dvcrService.InitiateGarbageCollectionMode(ctx)
 	}
 
-	if req.Name == dvcrtypes.DVCRMaintenanceSecretName {
+	if req.Name == dvcrtypes.DVCRGarbageCollectionSecretName {
 		// Secret has 3 states:
 		// - created, without annotations (InitiatedNotStarted)
 		//   - wait for all provisioners to finish, add switch annotation.
@@ -68,25 +68,25 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		// - done annotation is present. (Done)
 		//   - cleanup is done, copy result to deployment condition.
 		//   - delete secret.
-		secret, err := h.dvcrService.GetMaintenanceSecret(ctx)
+		secret, err := h.dvcrService.GetGarbageCollectionSecret(ctx)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("fetch maintenance secret: %w", err)
+			return reconcile.Result{}, fmt.Errorf("fetch garbage collection secret: %w", err)
 		}
 		if secret == nil || secret.GetDeletionTimestamp() != nil {
 			// Secret is gone, no action required.
 			return reconcile.Result{}, nil
 		}
 
-		if h.dvcrService.IsMaintenanceDone(secret) {
-			dvcrcondition.UpdateMaintenanceCondition(deploy,
+		if h.dvcrService.IsGarbageCollectionDone(secret) {
+			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcr_deployment_condition.Done,
 				"%s", string(secret.Data["result"]),
 			)
-			return reconcile.Result{}, h.dvcrService.DeleteMaintenanceSecret(ctx)
+			return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
 		}
 
-		if h.dvcrService.IsMaintenanceStarted(secret) {
-			dvcrcondition.UpdateMaintenanceCondition(deploy,
+		if h.dvcrService.IsGarbageCollectionStarted(secret) {
+			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcr_deployment_condition.InProgress,
 				"Wait for garbage collection to finish.",
 			)
@@ -101,18 +101,18 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		}
 		remainInProvisioning := len(resourcesInProvisioning)
 		if remainInProvisioning > 0 {
-			dvcrcondition.UpdateMaintenanceCondition(deploy,
+			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcr_deployment_condition.InProgress,
 				"Wait for cvi/vi/vd finish provisioning: %d resources remain.", remainInProvisioning,
 			)
 			return reconcile.Result{RequeueAfter: time.Second * 20}, nil
 		}
 		// All provisioners are finished, switch to garbage collection.
-		err = h.dvcrService.SwitchToMaintenanceMode(ctx)
+		err = h.dvcrService.SwitchToGarbageCollectionMode(ctx)
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("switch to maintenance mode: %w", err)
+			return reconcile.Result{}, fmt.Errorf("switch to garbage collection mode: %w", err)
 		}
-		dvcrcondition.UpdateMaintenanceCondition(deploy,
+		dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 			dvcr_deployment_condition.InProgress,
 			"Wait for garbage collection to finish.",
 		)

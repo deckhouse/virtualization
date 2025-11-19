@@ -4,8 +4,8 @@ true
 {{- end }}
 {{- end }}
 
-{{- define "dvcr.isMaintenance" -}}
-{{- .Values.virtualization.internal | dig "dvcr" "maintenanceModeEnabled" "false" | default "false" -}}
+{{- define "dvcr.isGarbageCollection" -}}
+{{- .Values.virtualization.internal | dig "dvcr" "garbageCollectionModeEnabled" "false" | default "false" -}}
 {{- end }}
 
 {{- define "dvcr.envs" -}}
@@ -52,7 +52,7 @@ true
 {{- end }}
 {{- end }}
 
-{{- define "dvcr.envs.maintenance" -}}
+{{- define "dvcr.envs.garbageCollection" -}}
 {{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
 - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
   value: "/var/lib/registry"
@@ -79,7 +79,7 @@ true
 
 {{- end -}}
 
-{{- define "dvcr.volumeMounts.maintenance" -}}
+{{- define "dvcr.volumeMounts.garbageCollection" -}}
 - name: "dvcr-config"
   mountPath: "/etc/docker/registry"
 {{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
@@ -114,7 +114,7 @@ true
 
 
 {{- define "dvcr.helm_lib_deployment_strategy_and_replicas_for_ha" -}}
-{{- if eq (include "dvcr.isMaintenance" . ) "true" }}
+{{- if eq (include "dvcr.isGarbageCollection" . ) "true" }}
 replicas: 1
 strategy:
   type: Recreate

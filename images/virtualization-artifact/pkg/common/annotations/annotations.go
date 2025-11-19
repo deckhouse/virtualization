@@ -188,8 +188,8 @@ const (
 	// AnnVMOPSnapshotName is an annotation on vmop that represents name a snapshot created for VMOP.
 	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 
-	// AnnDVCRDeploymentSwitchToMaintenanceMode is an annotation on maintenance secret that indicates deployment/dcvr may be switched to maintenance mode.
-	AnnDVCRDeploymentSwitchToMaintenanceMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-maintenance-mode"
+	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on maintenance secret that indicates deployment/dcvr may be switched to maintenance mode.
+	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection"
 	// AnnDVCRGarbageCollectionDone is an annotation on maintenance secret that indicates the garbage collection process is done.
 	AnnDVCRGarbageCollectionDone = AnnAPIGroupV + "/dvcr-garbage-collection-done"
 )

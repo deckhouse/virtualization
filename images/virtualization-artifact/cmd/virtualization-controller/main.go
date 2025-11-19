@@ -41,7 +41,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
-	dvcrmaintenance "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance"
+	dvcrgarbagecollection "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
@@ -443,8 +443,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	dvcrMaintenanceLogger := logger.NewControllerLogger(dvcrmaintenance.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = dvcrmaintenance.NewController(ctx, mgr, dvcrMaintenanceLogger, dvcrSettings); err != nil {
+	dvcrGarbageCollectionLogger := logger.NewControllerLogger(dvcrgarbagecollection.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = dvcrgarbagecollection.NewController(ctx, mgr, dvcrGarbageCollectionLogger, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

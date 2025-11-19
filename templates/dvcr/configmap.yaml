@@ -14,7 +14,7 @@ data:
     storage:
       cache:
         blobdescriptor: inmemory
-{{- if eq (include "dvcr.isMaintenance" . ) "true" }}
+{{- if eq (include "dvcr.isGarbageCollection" . ) "true" }}
       maintenance:
         readonly:
           enabled: true

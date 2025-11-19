@@ -39,9 +39,7 @@ properties:
             type: string
           serviceIP:
             type: string
-          maintenanceModeEnabled:
-            type: string
-          maintenanceMode:
+          garbageCollectionModeEnabled:
             type: string
             default: ""
       controller:

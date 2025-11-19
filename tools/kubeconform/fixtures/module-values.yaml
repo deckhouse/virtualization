@@ -376,7 +376,7 @@ virtualization:
       passwordRW: DVCR-PASSWD-STRING
       salt: DVCR-SALT-STRING
       serviceIP: 10.222.229.246
-      maintenanceMode: "true"
+      garbageCollectionModeEnabled: "true"
     rootCA:
       ca: ""
       crt: ROOT-CA-CRT

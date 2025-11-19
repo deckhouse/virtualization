@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dvcrmaintenance
+package dvcrgarbagecollection
 
 import (
 	"context"
@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal"
-	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal/service"
-	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/internal"
+	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/internal/service"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/types"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	ControllerName = "dvcr-maintenance-controller"
+	ControllerName = "dvcr-garbage-collection-controller"
 )
 
 func NewController(
@@ -84,7 +84,7 @@ func NewController(
 		return nil, fmt.Errorf("failed to setup dvcr-cleanup cron watcher: %w", err)
 	}
 
-	log.Info("Initialized DVCR maintenance controller")
+	log.Info("Initialized DVCR garbage collection controller")
 
 	return dvcrController, nil
 }
