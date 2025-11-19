@@ -2,6 +2,8 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: "{{ .Values.namespace }}-cpu"
+  labels:
+    e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
 spec:
   cpu:
     type: Discovery

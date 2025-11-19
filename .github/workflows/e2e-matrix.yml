@@ -79,14 +79,7 @@ jobs:
           version: "latest"
 
       - name: Setup d8
-        uses: werf/trdl/actions/setup-app@v0.12.2
-        with:
-          repo: d8
-          url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
-          root-version: 1
-          root-sha512: 343bd5f0d8811254e5f0b6fe292372a7b7eda08d276ff255229200f84e58a8151ab2729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
-          group: 0
-          channel: stable
+        uses: ./.github/actions/install-d8
 
       - name: Install yq
         run: |
@@ -147,7 +140,7 @@ jobs:
     env:
       GO_VERSION: "1.24.6"
       TIMEOUT: 4h
-      RUN_ID: nightly-nested-e2e-${{ matrix.storage_name }}-${{ github.run_number }}
+      RUN_ID: ${{ needs.setup.outputs.run_id }}
     steps:
       - uses: actions/checkout@v4
 
@@ -167,20 +160,13 @@ jobs:
         with:
           version: "latest"
 
-      - name: Setup d8 CLI
-        uses: werf/trdl/actions/setup-app@v0.12.2
-        with:
-          repo: d8
-          url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
-          root-version: 1
-          root-sha512: 343bd5f0d8811254e5f0b6fe2923729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
-          group: 0
-          channel: stable
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
 
       - name: Install ginkgo
         working-directory: test/e2e
         run: |
-          go install tool
+          go install github.com/onsi/ginkgo/v2/ginkgo@latest
 
       - name: Download dependencies
         working-directory: test/e2e
@@ -191,7 +177,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nested-run-${{ env.RUN_ID }}
-          path: ci/dvp-e2e/tmp/runs
+          path: .
 
       - name: Configure kubeconfig env
         run: |
@@ -202,20 +188,6 @@ jobs:
             exit 1
           fi
           echo "KUBECONFIG=$NESTED_KUBECONFIG" >> "$GITHUB_ENV"
-
-      - name: Wait for nested API server
-        run: |
-          set -euo pipefail
-          for i in $(seq 1 30); do
-            if kubectl --request-timeout=15s get nodes >/dev/null 2>&1; then
-              echo "[INFO] Nested cluster is reachable"
-              exit 0
-            fi
-            echo "[INFO] Waiting for nested API... ($i/30)"
-            sleep 10
-          done
-          echo "[ERR] Nested API server did not become ready in time" >&2
-          exit 1
 
       - name: Run E2E tests
         working-directory: test/e2e

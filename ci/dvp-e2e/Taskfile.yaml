@@ -127,6 +127,7 @@ tasks:
           ATTACH_DISK_SIZE: "{{ .ATTACH_DISK_SIZE }}"
           EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
           NAMESPACE: "{{ .RUN_ID }}"
+          NESTED_DIR: "{{ .RUN_DIR }}/nested"
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG_PATH }}"
           SDS_SC_NAME: "{{ .STORAGE_CLASS }}"
           DATA_DISK_COUNT: "{{ .DATA_DISK_COUNT }}"
@@ -481,10 +482,7 @@ tasks:
         set -euo pipefail
         NESTED_DIR="{{ .NESTED_DIR }}"
         NESTED_KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
-        if ! mkdir -p "${NESTED_DIR}"; then
-          echo "[ERR] Failed to create nested directory: ${NESTED_DIR}" >&2
-          exit 1
-        fi
+        mkdir -p "${NESTED_DIR}" "$(dirname "${NESTED_KUBECONFIG}")"
       - chmod +x scripts/build_nested_kubeconfig.sh
       - |
         scripts/build_nested_kubeconfig.sh \
@@ -535,16 +533,21 @@ tasks:
         echo "[CLEANUP] Prefix='{{ .PREFIX }}'"
         ns_list=$(kubectl get ns -o json | jq -r --arg p '{{ .PREFIX }}' '.items[].metadata.name | select(startswith($p))')
         if [ -z "${ns_list}" ]; then
-          echo "[INFO] No namespaces to delete"; exit 0
+          echo "[INFO] No namespaces to delete"
+        else
+          for ns in $ns_list; do
+            echo "[CLEANUP] Deleting namespace $ns ..."
+            kubectl delete ns "$ns" --wait=false || true
+          done
+          echo "[CLEANUP] Waiting for namespaces to be deleted..."
+          for ns in $ns_list; do
+            kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
+          done
         fi
-        for ns in $ns_list; do
-          echo "[CLEANUP] Deleting namespace $ns ..."
-          kubectl delete ns "$ns" --wait=false || true
-        done
-        echo "[CLEANUP] Waiting for namespaces to be deleted..."
-        for ns in $ns_list; do
-          kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
-        done
+        # Cleanup cluster-scoped resources for this run-id (if any)
+        echo "[CLEANUP] Deleting cluster-scoped resources labeled with run-id='{{ .PREFIX }}'"
+        kubectl delete virtualmachineclass -l e2e.deckhouse.io/run-id='{{ .PREFIX }}' --ignore-not-found || true
+        kubectl delete clusterrolebinding -l e2e.deckhouse.io/run-id='{{ .PREFIX }}' --ignore-not-found || true
 
   # ------------------------------------------------------------
   # CI helpers: kubeconfig + registry
