@@ -21,22 +21,15 @@ import "k8s.io/apimachinery/pkg/types"
 const (
 	ModuleNamespace = "d8-virtualization"
 
-	DVCRDeploymentName        = "dvcr"
-	DVCRMaintenanceSecretName = "dvcr-maintenance"
-	CronSourceNamespace       = "__cron_source__"
-	CronSourceRunGC           = "run-gc"
+	DVCRDeploymentName              = "dvcr"
+	DVCRGarbageCollectionSecretName = "dvcr-garbage-collection"
+	CronSourceNamespace             = "__cron_source__"
+	CronSourceRunGC                 = "run-gc"
 )
 
 func DVCRDeploymentKey() types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: ModuleNamespace,
 		Name:      DVCRDeploymentName,
-	}
-}
-
-func DVCRMaintenanceSecretKey() types.NamespacedName {
-	return types.NamespacedName{
-		Namespace: ModuleNamespace,
-		Name:      DVCRMaintenanceSecretName,
 	}
 }

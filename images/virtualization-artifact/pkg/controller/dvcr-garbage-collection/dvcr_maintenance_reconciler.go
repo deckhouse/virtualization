@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dvcrmaintenance
+package dvcrgarbagecollection
 
 import (
 	"context"
@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/internal/watcher"
-	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/internal/watcher"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/types"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 )
 
@@ -58,7 +58,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	// DVCR maintenance is needless if Deploy/dvcr is absent.
+	// DVCR garbage collection is needless if Deploy/dvcr is absent.
 	if deploy.IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -76,7 +76,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
-		watcher.NewDVCRMaintenanceSecretWatcher(mgr.GetClient()),
+		watcher.NewDVCRGarbageCollectionSecretWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

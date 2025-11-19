@@ -24,13 +24,13 @@ import (
 )
 
 type DVCRService interface {
-	GetMaintenanceSecret(ctx context.Context) (*corev1.Secret, error)
-	DeleteMaintenanceSecret(ctx context.Context) error
-	InitiateMaintenanceMode(ctx context.Context) error
-	SwitchToMaintenanceMode(ctx context.Context) error
+	GetGarbageCollectionSecret(ctx context.Context) (*corev1.Secret, error)
+	DeleteGarbageCollectionSecret(ctx context.Context) error
+	InitiateGarbageCollectionMode(ctx context.Context) error
+	SwitchToGarbageCollectionMode(ctx context.Context) error
 
-	IsMaintenanceStarted(secret *corev1.Secret) bool
-	IsMaintenanceDone(secret *corev1.Secret) bool
+	IsGarbageCollectionStarted(secret *corev1.Secret) bool
+	IsGarbageCollectionDone(secret *corev1.Secret) bool
 }
 
 type ProvisioningLister interface {

@@ -40,11 +40,11 @@ func NewDVCRService(client client.Client) *DVCRService {
 }
 
 const (
-	moduleNamespace           = "d8-virtualization"
-	maintenanceModeSecretName = "dvcr-maintenance"
+	moduleNamespace                 = "d8-virtualization"
+	garbageCollectionModeSecretName = "dvcr-garbage-collection"
 )
 
-func (d *DVCRService) CreateMaintenanceModeSecret(ctx context.Context) error {
+func (d *DVCRService) CreateGarbageCollectionSecret(ctx context.Context) error {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -52,31 +52,31 @@ func (d *DVCRService) CreateMaintenanceModeSecret(ctx context.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: moduleNamespace,
-			Name:      maintenanceModeSecretName,
+			Name:      garbageCollectionModeSecretName,
 		},
 	}
 	return d.client.Create(ctx, secret)
 }
 
-// IsMaintenanceSecretExist returns true if maintenance secret exists.
-func (d *DVCRService) IsMaintenanceSecretExist(ctx context.Context) (bool, error) {
-	secret, err := d.GetMaintenanceSecret(ctx)
+// IsGarbageCollectionSecretExist returns true if garbage collection secret exists.
+func (d *DVCRService) IsGarbageCollectionSecretExist(ctx context.Context) (bool, error) {
+	secret, err := d.GetGarbageCollectionSecret(ctx)
 	return secret != nil, err
 }
 
-// IsMaintenanceStarted returns true if switch to maintenance mode is on.
+// IsGarbageCollectionStarted returns true if switch to garbage collection mode is on.
 // Use it to determine "wait" state.
-func (d *DVCRService) IsMaintenanceStarted(secret *corev1.Secret) bool {
+func (d *DVCRService) IsGarbageCollectionStarted(secret *corev1.Secret) bool {
 	if secret == nil {
 		return false
 	}
-	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode]
+	_, switched := secret.GetAnnotations()[annotations.AnnDVCRDeploymentSwitchToGarbageCollectionMode]
 	return switched
 }
 
-// IsMaintenanceInitiatedOrInProgress returns true if secret exists but
-// cleanup is not done yet. (Use it to postpone rw operations with registry).
-func (d *DVCRService) IsMaintenanceInitiatedOrInProgress(secret *corev1.Secret) bool {
+// IsGarbageCollectionInitiatedOrInProgress returns true if secret exists but
+// garbage collection is not done yet. (Use it to postpone rw operations with registry).
+func (d *DVCRService) IsGarbageCollectionInitiatedOrInProgress(secret *corev1.Secret) bool {
 	if secret == nil {
 		return false
 	}
@@ -84,9 +84,9 @@ func (d *DVCRService) IsMaintenanceInitiatedOrInProgress(secret *corev1.Secret) 
 	return !done
 }
 
-// IsMaintenanceDone returns true if secret exists and annotated with
+// IsGarbageCollectionDone returns true if secret exists and annotated with
 // "done" annotation.
-func (d *DVCRService) IsMaintenanceDone(secret *corev1.Secret) bool {
+func (d *DVCRService) IsGarbageCollectionDone(secret *corev1.Secret) bool {
 	if secret == nil {
 		return false
 	}
@@ -94,13 +94,13 @@ func (d *DVCRService) IsMaintenanceDone(secret *corev1.Secret) bool {
 	return done
 }
 
-func (d *DVCRService) InitiateMaintenanceMode(ctx context.Context) error {
-	secret, err := d.GetMaintenanceSecret(ctx)
+func (d *DVCRService) InitiateGarbageCollectionMode(ctx context.Context) error {
+	secret, err := d.GetGarbageCollectionSecret(ctx)
 	if err != nil {
-		return fmt.Errorf("get maintenance secret: %w", err)
+		return fmt.Errorf("get garbage collection secret: %w", err)
 	}
 	if secret == nil {
-		return d.CreateMaintenanceModeSecret(ctx)
+		return d.CreateGarbageCollectionSecret(ctx)
 	}
 
 	// Update existing secret to initial state: remove annotations and data.
@@ -109,26 +109,26 @@ func (d *DVCRService) InitiateMaintenanceMode(ctx context.Context) error {
 	return d.client.Update(ctx, secret)
 }
 
-func (d *DVCRService) SwitchToMaintenanceMode(ctx context.Context) error {
-	secret, err := d.GetMaintenanceSecret(ctx)
+func (d *DVCRService) SwitchToGarbageCollectionMode(ctx context.Context) error {
+	secret, err := d.GetGarbageCollectionSecret(ctx)
 	if secret == nil {
-		return fmt.Errorf("get maintenance secret to update: %w", err)
+		return fmt.Errorf("get garbage collection secret to update: %w", err)
 	}
 
 	objAnnotations := secret.GetAnnotations()
 	if objAnnotations == nil {
 		objAnnotations = make(map[string]string)
 	}
-	objAnnotations[annotations.AnnDVCRDeploymentSwitchToMaintenanceMode] = ""
+	objAnnotations[annotations.AnnDVCRDeploymentSwitchToGarbageCollectionMode] = ""
 	secret.SetAnnotations(objAnnotations)
 	return d.client.Update(ctx, secret)
 }
 
-func (d *DVCRService) GetMaintenanceSecret(ctx context.Context) (*corev1.Secret, error) {
+func (d *DVCRService) GetGarbageCollectionSecret(ctx context.Context) (*corev1.Secret, error) {
 	var secret corev1.Secret
 	secretKey := types.NamespacedName{
 		Namespace: moduleNamespace,
-		Name:      maintenanceModeSecretName,
+		Name:      garbageCollectionModeSecretName,
 	}
 	err := d.client.Get(ctx, secretKey, &secret)
 	if err != nil {
@@ -141,10 +141,10 @@ func (d *DVCRService) GetMaintenanceSecret(ctx context.Context) (*corev1.Secret,
 	return &secret, nil
 }
 
-func (d *DVCRService) DeleteMaintenanceSecret(ctx context.Context) error {
+func (d *DVCRService) DeleteGarbageCollectionSecret(ctx context.Context) error {
 	secret := &corev1.Secret{}
 	secret.SetNamespace(moduleNamespace)
-	secret.SetName(maintenanceModeSecretName)
+	secret.SetName(garbageCollectionModeSecretName)
 	err := d.client.Delete(ctx, secret)
 	return client.IgnoreNotFound(err)
 }

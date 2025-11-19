@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dvcr_maintenance
+package dvcr_garbage_collection
 
 import (
 	"context"
@@ -29,15 +29,15 @@ import (
 )
 
 /**
-This hook watches over Secret/dvcr-maintenance in d8-virtualization namespace.
+This hook watches over Secret/dvcr-garbage-collection in d8-virtualization namespace.
 
-If secret is present, hook sets value that switches DVCR Deployment in the maintenance mode.
+If secret is present, hook sets value that switches DVCR Deployment in the garbage collection mode.
 
 When the secret is gone, value is unset.
 */
 
 const (
-	SecretSnapshotName = "dvcr-maintenance-secret"
+	SecretSnapshotName = "dvcr-garbage-collection-secret"
 	SecretJQFilter     = `{
 		"metadata": {
 			"name": .metadata.name,
@@ -45,21 +45,16 @@ const (
 		},
 	}`
 
-	secretName          = "dvcr-maintenance"
-	dvcrMaintenancePath = "virtualization.internal.dvcr.maintenanceModeEnabled"
+	secretName                    = "dvcr-garbage-collection"
+	dvcrGarbageCollectionModePath = "virtualization.internal.dvcr.garbageCollectionModeEnabled"
 
-	dvcrDeploymentSwitchToMaintenanceModeAnno = "virtualization.deckhouse.io/dvcr-deployment-switch-to-maintenance-mode"
+	dvcrDeploymentSwitchToGarbageCollectionModeAnno = "virtualization.deckhouse.io/dvcr-deployment-switch-to-garbage-collection-mode"
 )
 
-type CASecret struct {
-	Crt []byte `json:"crt"`
-	Key []byte `json:"key"`
-}
+var _ = registry.RegisterFunc(configDVCRGarbageCollection, handlerDVCRGarbageCollection)
 
-var _ = registry.RegisterFunc(configDVCRMaintenance, handlerDVCRMaintenance)
-
-var configDVCRMaintenance = &pkg.HookConfig{
-	OnBeforeHelm: &pkg.OrderedConfig{Order: 1},
+var configDVCRGarbageCollection = &pkg.HookConfig{
+	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       SecretSnapshotName,
@@ -84,22 +79,22 @@ var configDVCRMaintenance = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
-func handlerDVCRMaintenance(_ context.Context, input *pkg.HookInput) error {
+func handlerDVCRGarbageCollection(_ context.Context, input *pkg.HookInput) error {
 	secretSnaps := input.Snapshots.Get(SecretSnapshotName)
 	secrets, err := parseSecretSnapshot(secretSnaps)
 	if err != nil {
 		return err
 	}
 
-	input.Values.Set(dvcrMaintenancePath, isMaintenanceEnabled(secrets))
+	input.Values.Set(dvcrGarbageCollectionModePath, isGarbageCollectionEnabled(secrets))
 	return nil
 }
 
-func isMaintenanceEnabled(secrets []partialSecret) string {
+func isGarbageCollectionEnabled(secrets []partialSecret) string {
 	if len(secrets) == 0 {
 		return "false"
 	}
-	if _, ok := secrets[0].Metadata.Annotations[dvcrDeploymentSwitchToMaintenanceModeAnno]; ok {
+	if _, ok := secrets[0].Metadata.Annotations[dvcrDeploymentSwitchToGarbageCollectionModeAnno]; ok {
 		return "true"
 	}
 

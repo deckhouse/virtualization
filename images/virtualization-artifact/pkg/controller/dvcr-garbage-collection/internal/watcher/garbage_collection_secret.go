@@ -28,21 +28,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/types"
+	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/types"
 )
 
-type DVCRMaintenanceSecretWatcher struct {
+type DVCRGarbageCollectionSecretWatcher struct {
 	client client.Client
 }
 
-func NewDVCRMaintenanceSecretWatcher(client client.Client) *DVCRMaintenanceSecretWatcher {
-	return &DVCRMaintenanceSecretWatcher{
+func NewDVCRGarbageCollectionSecretWatcher(client client.Client) *DVCRGarbageCollectionSecretWatcher {
+	return &DVCRGarbageCollectionSecretWatcher{
 		client: client,
 	}
 }
 
 // Watch adds watching for Deployment/dvcr changes and for cron events.
-func (w *DVCRMaintenanceSecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+func (w *DVCRGarbageCollectionSecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
@@ -50,11 +50,11 @@ func (w *DVCRMaintenanceSecretWatcher) Watch(mgr manager.Manager, ctr controller
 			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{},
 			predicate.TypedFuncs[*corev1.Secret]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
-					// Handle only dvcr-maintenance secret.
+					// Handle only garbage collection secret.
 					if e.ObjectOld.Namespace != dvcrtypes.ModuleNamespace {
 						return false
 					}
-					if e.ObjectOld.Name != dvcrtypes.DVCRMaintenanceSecretName {
+					if e.ObjectOld.Name != dvcrtypes.DVCRGarbageCollectionSecretName {
 						return false
 					}
 					return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
