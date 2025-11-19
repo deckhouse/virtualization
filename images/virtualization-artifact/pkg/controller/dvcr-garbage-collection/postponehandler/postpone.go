@@ -36,8 +36,8 @@ import (
 )
 
 type DVCRService interface {
-	GetMaintenanceSecret(ctx context.Context) (*corev1.Secret, error)
-	IsMaintenanceInitiatedOrInProgress(*corev1.Secret) bool
+	GetGarbageCollectionSecret(ctx context.Context) (*corev1.Secret, error)
+	IsGarbageCollectionInitiatedOrInProgress(*corev1.Secret) bool
 }
 
 var PostponePeriod = time.Second * 15
@@ -55,7 +55,7 @@ func New[T client.Object](dvcrService DVCRService, recorder eventrecord.EventRec
 }
 
 // Handle sets Ready condition to Provisioning for newly created resources
-// if dvcr is in the maintenance mode.
+// if dvcr is in the garbage collection mode.
 // Applicable for ClusterVirtualImage, VirtualImage, and VirtualDisk.
 func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, error) {
 	conditionsPtr := conditions.NewConditionsAccessor(obj).Conditions()
@@ -67,50 +67,50 @@ func (p *Postpone[T]) Handle(ctx context.Context, obj T) (reconcile.Result, erro
 		return reconcile.Result{}, nil
 	}
 
-	maintenanceSecret, err := p.dvcrService.GetMaintenanceSecret(ctx)
+	garbageCollectionSecret, err := p.dvcrService.GetGarbageCollectionSecret(ctx)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("checking DVCR maintenance mode: %w", err)
+		return reconcile.Result{}, fmt.Errorf("checking DVCR garbage collection mode: %w", err)
 	}
 
 	isAlreadyPostponed := readyConditionPresent && readyCondition.Reason == ProvisioningPostponedReason.String()
-	isMaintenance := p.dvcrService.IsMaintenanceInitiatedOrInProgress(maintenanceSecret)
+	isGarbageCollectionMode := p.dvcrService.IsGarbageCollectionInitiatedOrInProgress(garbageCollectionSecret)
 
-	// Clear PostponeProvisioning reason if maintenance was finished.
-	if !isMaintenance {
+	// Clear PostponeProvisioning reason if garbage collection was finished.
+	if !isGarbageCollectionMode {
 		if isAlreadyPostponed {
 			p.recorder.Event(
 				obj,
 				corev1.EventTypeNormal,
-				v1alpha2.ReasonImageOperationContinueAfterDVCRMaintenance,
-				"Continue image operation after finishing DVCR maintenance mode.",
+				v1alpha2.ReasonImageOperationContinueAfterDVCRGarbageCollection,
+				"Continue image operation after finishing DVCR garbage collection mode.",
 			)
 			conditions.RemoveCondition(getReadyType(obj), conditionsPtr)
 		}
 		return reconcile.Result{}, nil
 	}
 
-	// Maintenance enabled: postpone resources without Ready condition (newly created).
+	// Garbage collection enabled: postpone resources without Ready condition (newly created).
 	if !readyConditionPresent {
 		p.recorder.Event(
 			obj,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonImageOperationPostponedDueToDVCRMaintenance,
-			"Postpone image operation until the end of DVCR maintenance mode.",
+			v1alpha2.ReasonImageOperationPostponedDueToDVCRGarbageCollection,
+			"Postpone image operation until the end of DVCR garbage collection mode.",
 		)
 
 		// Set Provisioning to False.
 		cb := conditions.NewConditionBuilder(getReadyType(obj)).Generation(obj.GetGeneration())
 		cb.Status(metav1.ConditionFalse).
 			Reason(ProvisioningPostponedReason).
-			Message("DVCR is in maintenance mode: wait until it finishes before creating provisioner.")
+			Message("DVCR is in garbage collection mode: wait until it finishes before creating provisioner.")
 		conditions.SetCondition(cb, conditions.NewConditionsAccessor(obj).Conditions())
 	}
-	// Maintenance enabled and resources are postponed: requeue to check maintenance status later.
+	// arbage collection enabled and resources are postponed: requeue to check garbage collection status later.
 	return reconcile.Result{RequeueAfter: PostponePeriod}, reconciler.ErrStopHandlerChain
 }
 
 func (p *Postpone[T]) Name() string {
-	return "postpone-on-dvcr-maintenance-handler"
+	return "postpone-on-dvcr-garbage-collection-handler"
 }
 
 func getReadyType(obj client.Object) conditions.Stringer {

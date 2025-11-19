@@ -29,7 +29,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-maintenance/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
