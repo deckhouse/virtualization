@@ -25,9 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	dvcrcondition "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/condition"
 	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/types"
-	dvcr_deployment_condition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
+	dvcrdeploymentcondition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
 type LifeCycleHandler struct {
@@ -51,7 +52,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 
 	if req.Namespace == dvcrtypes.CronSourceNamespace && req.Name == dvcrtypes.CronSourceRunGC {
 		dvcrcondition.UpdateGarbageCollectionCondition(deploy,
-			dvcr_deployment_condition.InProgress,
+			dvcrdeploymentcondition.InProgress,
 			"Garbage collection initiated.",
 		)
 		return reconcile.Result{}, h.dvcrService.InitiateGarbageCollectionMode(ctx)
@@ -78,16 +79,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		}
 
 		if h.dvcrService.IsGarbageCollectionDone(secret) {
-			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
-				dvcr_deployment_condition.Done,
-				"%s", string(secret.Data["result"]),
-			)
+			// Extract error or success message from the result.
+			reason, msg, err := h.dvcrService.ParseGarbageCollectionResult(secret)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			dvcrcondition.UpdateGarbageCollectionCondition(deploy, reason, "%s", msg)
+			// Put full result JSON into annotation on deployment.
+			annotations.AddAnnotation(deploy, annotations.AnnDVCRGarbageCollectionResult, h.dvcrService.GetGarbageCollectionResult(secret))
+			// It is now possible to delete a secret.
 			return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
 		}
 
 		if h.dvcrService.IsGarbageCollectionStarted(secret) {
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
-				dvcr_deployment_condition.InProgress,
+				dvcrdeploymentcondition.InProgress,
 				"Wait for garbage collection to finish.",
 			)
 			// Wait for done annotation.
@@ -102,7 +108,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		remainInProvisioning := len(resourcesInProvisioning)
 		if remainInProvisioning > 0 {
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
-				dvcr_deployment_condition.InProgress,
+				dvcrdeploymentcondition.InProgress,
 				"Wait for cvi/vi/vd finish provisioning: %d resources remain.", remainInProvisioning,
 			)
 			return reconcile.Result{RequeueAfter: time.Second * 20}, nil
@@ -113,7 +119,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 			return reconcile.Result{}, fmt.Errorf("switch to garbage collection mode: %w", err)
 		}
 		dvcrcondition.UpdateGarbageCollectionCondition(deploy,
-			dvcr_deployment_condition.InProgress,
+			dvcrdeploymentcondition.InProgress,
 			"Wait for garbage collection to finish.",
 		)
 		return reconcile.Result{}, nil
