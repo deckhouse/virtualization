@@ -3033,6 +3033,9 @@ Windows:
 
 - Выполнить генерализацию с помощью `sysprep` с параметром `/generalize` или использовать инструменты для очистки уникальных идентификаторов (SID, hostname и т. д.)
 
+
+Пример создания клона  ВМ:
+
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
