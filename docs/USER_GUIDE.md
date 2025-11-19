@@ -1362,9 +1362,7 @@ Main capabilities of CloudInit:
    ssh_pwauth: True
    ```
 
-{{< alert level="info" >}}
 To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
-{{< /alert >}}
 
 3. **Installing packages and services:**
 
