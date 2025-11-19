@@ -57,12 +57,7 @@ func runDomainCommand(opts BaseOptions) error {
 		return fmt.Errorf("domain does not exist")
 	}
 
-	spec, exist := domain["spec"]
-	if !exist {
-		return fmt.Errorf("domain does not exist")
-	}
-
-	return marshalAndPrintOutput(&opts, spec)
+	return marshalAndPrintOutput(&opts, domain.Spec)
 }
 
 func NewDomainStatsCommand() *cobra.Command {
@@ -89,12 +84,11 @@ func runDomainStatsCommand(opts BaseOptions) error {
 	}
 	defer client.Close()
 
-	stats, exist, err := client.GetDomainStats()
+	stats, exists, err := client.GetDomainStats()
 	if err != nil {
 		return fmt.Errorf("failed to get domain stats: %w", err)
 	}
-
-	if !exist {
+	if !exists {
 		return fmt.Errorf("domain stats does not exist")
 	}
 

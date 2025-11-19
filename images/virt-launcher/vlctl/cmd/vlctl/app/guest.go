@@ -168,27 +168,7 @@ func runGuestPingCommand(opts BaseOptions, timeout int32) error {
 		return fmt.Errorf("domain does not exist")
 	}
 
-	spec, exist := domain["spec"]
-	if !exist {
-		return fmt.Errorf("domain does not exist")
-	}
-
-	specMap, ok := spec.(map[string]interface{})
-	if !ok {
-		return fmt.Errorf("invalid spec format")
-	}
-
-	name, exist := specMap["name"]
-	if !exist {
-		return fmt.Errorf("missing name in spec")
-	}
-
-	domainName, ok := name.(string)
-	if !ok {
-		return fmt.Errorf("invalid name format")
-	}
-
-	err = client.GuestPing(domainName, timeout)
+	err = client.GuestPing(domain.Spec.Name, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to ping: %w", err)
 	}

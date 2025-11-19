@@ -1,17 +1,20 @@
 /*
+Copyright The KubeVirt Authors.
 Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-     http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+Initially copied from https://github.com/kubevirt/kubevirt/blob/v1.6.2/pkg/virt-handler/cmd-client/client.go
 */
 
 package client
@@ -34,6 +37,7 @@ import (
 	"google.golang.org/grpc/status"
 	v1 "kubevirt.io/api/core/v1"
 
+	"vlctl/pkg/api"
 	cmdproto "vlctl/pkg/api/generated/cmd/proto"
 	infoproto "vlctl/pkg/api/generated/info/proto"
 )
@@ -47,8 +51,8 @@ const (
 )
 
 type LauncherClient interface {
-	GetDomain() (map[string]interface{}, bool, error)
-	GetDomainStats() (map[string]interface{}, bool, error)
+	GetDomain() (*api.Domain, bool, error)
+	GetDomainStats() (*api.DomainStats, bool, error)
 	GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error)
 	GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error)
 	GetFilesystems() (v1.VirtualMachineInstanceFileSystemList, error)
@@ -116,8 +120,9 @@ type VirtLauncherClient struct {
 	conn     *grpc.ClientConn
 }
 
-func (v VirtLauncherClient) GetDomain() (map[string]interface{}, bool, error) {
-	var domain map[string]interface{}
+func (v VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
+	domain := &api.Domain{}
+	exists := false
 
 	request := &cmdproto.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
@@ -130,19 +135,21 @@ func (v VirtLauncherClient) GetDomain() (map[string]interface{}, bool, error) {
 	}
 
 	if err = handleError(err, "GetDomain", response); err != nil || domainResponse == nil {
-		return domain, false, err
+		return nil, false, err
 	}
 
 	if domainResponse.Domain != "" {
 		if err := json.Unmarshal([]byte(domainResponse.Domain), &domain); err != nil {
-			return domain, false, err
+			return nil, false, err
 		}
+		exists = true
 	}
-	return domain, true, nil
+	return domain, exists, nil
 }
 
-func (v VirtLauncherClient) GetDomainStats() (map[string]interface{}, bool, error) {
-	var stats map[string]interface{}
+func (v VirtLauncherClient) GetDomainStats() (*api.DomainStats, bool, error) {
+	stats := &api.DomainStats{}
+	exists := false
 
 	request := &cmdproto.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
@@ -155,15 +162,16 @@ func (v VirtLauncherClient) GetDomainStats() (map[string]interface{}, bool, erro
 	}
 
 	if err = handleError(err, "GetDomainStats", response); err != nil || domainStatsResponse == nil {
-		return stats, false, err
+		return nil, false, err
 	}
 
 	if domainStatsResponse.DomainStats != "" {
-		if err := json.Unmarshal([]byte(domainStatsResponse.DomainStats), &stats); err != nil {
-			return stats, false, err
+		if err := json.Unmarshal([]byte(domainStatsResponse.DomainStats), stats); err != nil {
+			return nil, false, err
 		}
+		exists = true
 	}
-	return stats, true, nil
+	return stats, exists, nil
 }
 
 func (v VirtLauncherClient) GetGuestInfo() (*v1.VirtualMachineInstanceGuestAgentInfo, error) {
