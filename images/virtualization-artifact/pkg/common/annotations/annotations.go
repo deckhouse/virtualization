@@ -189,7 +189,7 @@ const (
 	AnnVMOPSnapshotName = AnnAPIGroupV + "/vmop-snapshot-name"
 
 	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
-	AnnVMFilesystemRequest = AnnAPIGroup + "/virtual-machine-filesystem-request"
+	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
 )
 
 // AddAnnotation adds an annotation to an object

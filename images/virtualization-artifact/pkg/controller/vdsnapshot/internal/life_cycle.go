@@ -78,28 +78,26 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	case "":
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
 	case v1alpha2.VirtualDiskSnapshotPhaseFailed:
-		err := h.unfreezeFilesystemIfFailed(ctx, vdSnapshot)
-		if err != nil {
-			if k8serrors.IsConflict(err) {
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, err
-			}
-			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
-				log.Debug(err.Error())
-				return reconcile.Result{}, nil
-			}
-			if cb.Condition().Message != "" {
-				cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
-			} else {
-				cb.Message(err.Error())
-			}
-		}
-
 		readyCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(conditions.CommonReason(readyCondition.Reason)).
 			Message(readyCondition.Message)
-		return reconcile.Result{}, nil
+
+		err = h.unfreezeFilesystemIfFailed(ctx, vdSnapshot)
+		switch {
+		case err == nil:
+			return reconcile.Result{}, nil
+		case k8serrors.IsConflict(err):
+			log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
+			log.Debug(err.Error())
+			return reconcile.Result{}, nil
+		default:
+			cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
+			return reconcile.Result{}, fmt.Errorf("failed to unfreeze filesystem: %w", err)
+		}
 	case v1alpha2.VirtualDiskSnapshotPhaseReady:
 		if vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
@@ -174,15 +172,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		log.Debug(err.Error())
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
 	}
 
 	isFSFrozen, err := h.snapshotter.IsFrozen(kvvmi)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to check filesystem status: %w", err)
 	}
 
 	switch {
@@ -207,6 +206,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 				err = h.snapshotter.Freeze(ctx, kvvmi)
 				if err != nil {
 					if k8serrors.IsConflict(err) {
+						log.Debug(fmt.Sprintf("failed to freeze filesystem; resource update conflict error: %s", err))
 						return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 					}
 					cb.
@@ -368,6 +368,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		err = h.unfreezeFilesystem(ctx, vdSnapshot.Name, vm, kvvmi)
 		if err != nil {
 			if k8serrors.IsConflict(err) {
+				log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseInProgress
@@ -386,9 +387,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			log.Debug(err.Error())
 			return reconcile.Result{}, nil
 		case k8serrors.IsConflict(err):
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+			log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		default:
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
 		}
 
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseReady

@@ -88,6 +88,13 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 }
 
 func (w KVVMIWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
+	oldFSFrozen := e.ObjectOld.Status.FSFreezeStatus
+	newFSFrozen := e.ObjectNew.Status.FSFreezeStatus
+
+	if oldFSFrozen != newFSFrozen {
+		return true
+	}
+
 	oldRequest, oldOk := e.ObjectOld.Annotations[annotations.AnnVMFilesystemRequest]
 	newRequest, newOk := e.ObjectNew.Annotations[annotations.AnnVMFilesystemRequest]
 

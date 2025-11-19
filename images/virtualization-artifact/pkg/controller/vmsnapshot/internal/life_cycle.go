@@ -90,9 +90,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		log.Debug(err.Error())
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
 	}
 
 	if vmSnapshot.DeletionTimestamp != nil {
@@ -375,6 +376,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm, kvvmi)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
+			log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
@@ -401,9 +403,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		log.Debug(err.Error())
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
-		return reconcile.Result{RequeueAfter: 5 * time.Second}, err
+		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
 	}
 
 	// 10. Move to Ready phase.
