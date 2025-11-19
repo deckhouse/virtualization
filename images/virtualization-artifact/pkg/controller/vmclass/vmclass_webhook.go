@@ -29,11 +29,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 type VirtualMachineClassValidator interface {
-	ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachineClass) (admission.Warnings, error)
-	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachineClass) (admission.Warnings, error)
+	ValidateCreate(ctx context.Context, vm *v1alpha3.VirtualMachineClass) (admission.Warnings, error)
+	ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha3.VirtualMachineClass) (admission.Warnings, error)
 }
 
 type Validator struct {
@@ -53,9 +54,18 @@ func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.Ev
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmclass, ok := obj.(*v1alpha2.VirtualMachineClass)
-	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
+	var vmclass *v1alpha3.VirtualMachineClass
+
+	switch o := obj.(type) {
+	case *v1alpha3.VirtualMachineClass:
+		vmclass = o
+	case *v1alpha2.VirtualMachineClass:
+		vmclass = &v1alpha3.VirtualMachineClass{}
+		if err := o.ConvertTo(vmclass); err != nil {
+			return nil, fmt.Errorf("failed to convert v1alpha2 to v1alpha3: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("expected a VirtualMachineClass but got a %T", obj)
 	}
 
 	var warnings admission.Warnings
@@ -72,13 +82,29 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVMClass, ok := oldObj.(*v1alpha2.VirtualMachineClass)
-	if !ok {
+	var oldVMClass, newVMClass *v1alpha3.VirtualMachineClass
+
+	switch o := oldObj.(type) {
+	case *v1alpha3.VirtualMachineClass:
+		oldVMClass = o
+	case *v1alpha2.VirtualMachineClass:
+		oldVMClass = &v1alpha3.VirtualMachineClass{}
+		if err := o.ConvertTo(oldVMClass); err != nil {
+			return nil, fmt.Errorf("failed to convert old v1alpha2 to v1alpha3: %w", err)
+		}
+	default:
 		return nil, fmt.Errorf("expected an old VirtualMachineClass but got a %T", oldObj)
 	}
 
-	newVMClass, ok := newObj.(*v1alpha2.VirtualMachineClass)
-	if !ok {
+	switch n := newObj.(type) {
+	case *v1alpha3.VirtualMachineClass:
+		newVMClass = n
+	case *v1alpha2.VirtualMachineClass:
+		newVMClass = &v1alpha3.VirtualMachineClass{}
+		if err := n.ConvertTo(newVMClass); err != nil {
+			return nil, fmt.Errorf("failed to convert new v1alpha2 to v1alpha3: %w", err)
+		}
+	default:
 		return nil, fmt.Errorf("expected a new VirtualMachineClass but got a %T", newObj)
 	}
 

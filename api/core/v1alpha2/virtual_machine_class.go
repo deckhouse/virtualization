@@ -39,6 +39,7 @@ const (
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="IsDefault",type="string",JSONPath=".metadata.annotations.virtualmachineclass\\.virtualization\\.deckhouse\\.io\\/is-default-class",description="Default class for virtual machines without specified class."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
+// +kubebuilder:deprecatedversion:warning="v1alpha2.VirtualMachineClass is deprecated; use v1alpha3.VirtualMachineClass"
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
