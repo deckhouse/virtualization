@@ -1319,18 +1319,18 @@ Initialization scripts are intended for the initial configuration of a virtual m
 
 The initial initialization scripts supported are:
 
-- [CloudInit](https://cloudinit.readthedocs.io).
+- [Cloud-Init](https://cloudinit.readthedocs.io).
 - [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
 
-#### CloudInit
+#### Cloud-Init
 
-CloudInit is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
+Cloud-Init is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
 
 {{< alert level="warning" >}}
-CloudInit configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the official cloud-init documentation.
+Cloud-Init configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the official cloud-init documentation.
 {{< /alert >}}
 
-Main capabilities of CloudInit:
+Main capabilities of Cloud-Init:
 
 - Creating users, setting passwords, adding SSH keys for access
 - Automatically installing necessary software on first boot
@@ -1364,7 +1364,7 @@ Main capabilities of CloudInit:
 
 To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
 
-3. **Installing packages and services:**
+3. Installing packages and services:
 
    ```yaml
    #cloud-config
@@ -1378,9 +1378,9 @@ To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds
      - systemctl enable --now qemu-guest-agent.service
    ```
 
-##### Using CloudInit
+##### Using Cloud-Init
 
-The CloudInit script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
+The Cloud-Init script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
 
 ```yaml
 spec:
@@ -1392,7 +1392,7 @@ spec:
       ...
 ```
 
-For longer scenarios and/or the presence of private data, the script for initial initialization of the virtual machine can be created in a Secret resource. An example of a Secret with a CloudInit script is shown below:
+For longer scenarios and/or the presence of private data, the script for initial initialization of the virtual machine can be created in a Secret resource. An example of a Secret with a Cloud-Init script is shown below:
 
 ```yaml
 apiVersion: v1
@@ -1404,7 +1404,7 @@ data:
 type: provisioning.virtualization.deckhouse.io/cloud-init
 ```
 
-A fragment of the virtual machine configuration when using the CloudInit initialization script stored in a Secret:
+A fragment of the virtual machine configuration when using the Cloud-Init initialization script stored in a Secret:
 
 ```yaml
 spec:
