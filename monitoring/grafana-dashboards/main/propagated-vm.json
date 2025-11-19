@@ -1619,7 +1619,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1755,7 +1756,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1852,7 +1854,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1994,7 +1997,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -2052,7 +2056,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 37
+            "y": 23
           },
           "id": 69,
           "options": {
@@ -2197,7 +2201,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -2229,7 +2234,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 37
+            "y": 23
           },
           "id": 51,
           "options": {
@@ -2309,7 +2314,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum without (pod) (\n  max(kube_controller_pod{namespace=\"$namespace\", controller=~\"InternalVirtualizationVirtualMachineInstance/${name}\", pod=~\"virt-launcher-${name}.*\"}) by(pod)\n  * on (pod)\n  sum by (pod) (\n    (\n      sum by(namespace, pod, container) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod=~\"virt-launcher-${name}.*\"}[$__rate_interval]))\n      -\n      sum by(namespace, pod, container) (avg_over_time(kube_pod_container_resource_requests{resource=\"cpu\",unit=\"core\", namespace=\"$namespace\", pod=~\"virt-launcher-${name}.*\", container!=\"POD\"}[$__rate_interval]))\n    )\n    or\n    sum by(namespace, pod, container) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", pod=~\"virt-launcher-${name}.*\"}[$__rate_interval]))\n  )\n) > 0",
+              "expr": "sum by (label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (\n  sum by (namespace, pod) (\n    max by (namespace, pod) (\n      kube_controller_pod{}\n    ) \n    * \n    on (pod,namespace) sum by (namespace, pod) (\n      (\n        sum by (namespace, pod, container) (\n          rate(container_cpu_usage_seconds_total{}[$__rate_interval])\n        )\n        -\n        sum by (namespace, pod, container) (\n          avg_over_time(kube_pod_container_resource_requests{resource=\"cpu\",unit=\"core\",container!=\"POD\"}[$__rate_interval])\n        )\n      )\n    )\n  ) * on (namespace, pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (kube_pod_labels{namespace=\"$namespace\",label_vm_kubevirt_internal_virtualization_deckhouse_io_name=\"$name\"}) > 0\n)",
               "hide": false,
               "instant": false,
               "legendFormat": "Demand cores ",
@@ -2374,7 +2379,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -2432,7 +2438,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 45
+            "y": 31
           },
           "id": 72,
           "options": {
@@ -4662,7 +4668,7 @@
       "type": "row"
     }
   ],
-  "refresh": "10s",
+  "refresh": "auto",
   "schemaVersion": 39,
   "tags": [
     "main"
