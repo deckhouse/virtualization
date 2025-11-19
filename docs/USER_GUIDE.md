@@ -2999,6 +2999,8 @@ Windows:
 
 - Run `sysprep` with the `/generalize` parameter or use tools to clear unique identifiers (SID, hostname, etc.)
 
+Example of creating a VM clone:
+
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
