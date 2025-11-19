@@ -3,6 +3,7 @@
   {{- if $.DistroPackagesProxy }}
 - sed -i "s|ftp.altlinux.org/pub/distributions/archive|{{ $.DistroPackagesProxy }}/repository/archive-ALT-Linux-APT-Repository|g" /etc/apt/sources.list.d/alt.list
   {{- end }}
+# TODO: remove this when http becomes available
 # change scheme from http to ftp
 - sed -i "s|rpm \[p11\] http://|#rpm [p11] http://|g" /etc/apt/sources.list.d/alt.list
 - sed -i "s|#rpm \[p11\] ftp://|rpm [p11] ftp://|g" /etc/apt/sources.list.d/alt.list
