@@ -16,7 +16,7 @@ shell:
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v1.3.1-virtualization-allow-local-disks-migration /src/kubevirt
 
     rm -rf /src/kubevirt/.git
 
@@ -91,6 +91,7 @@ shell:
     done
 
   setup:
+    - echo kek
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
