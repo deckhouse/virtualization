@@ -54,6 +54,7 @@ func runQemuVersionCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	version, err := client.GetQemuVersion()
 	if err != nil {

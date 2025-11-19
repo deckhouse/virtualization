@@ -60,6 +60,7 @@ func runGuestInfoCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	info, err := client.GetGuestInfo()
 	if err != nil {
@@ -120,6 +121,7 @@ func runGuestFilesystemsCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	filesystems, err := client.GetFilesystems()
 	if err != nil {
@@ -156,6 +158,7 @@ func runGuestPingCommand(opts BaseOptions, timeout int32) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	domain, exist, err := client.GetDomain()
 	if err != nil {
@@ -165,7 +168,27 @@ func runGuestPingCommand(opts BaseOptions, timeout int32) error {
 		return fmt.Errorf("domain does not exist")
 	}
 
-	err = client.GuestPing(domain.Spec.Name, timeout)
+	spec, exist := domain["spec"]
+	if !exist {
+		return fmt.Errorf("domain does not exist")
+	}
+
+	specMap, ok := spec.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid spec format")
+	}
+
+	name, exist := specMap["name"]
+	if !exist {
+		return fmt.Errorf("missing name in spec")
+	}
+
+	domainName, ok := name.(string)
+	if !ok {
+		return fmt.Errorf("invalid name format")
+	}
+
+	err = client.GuestPing(domainName, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to ping: %w", err)
 	}

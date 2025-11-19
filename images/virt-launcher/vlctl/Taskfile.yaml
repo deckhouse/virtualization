@@ -20,7 +20,6 @@ tasks:
     - mkdir -p pkg/api/generated
     - mkdir -p pkg/api/generated/cmd
     - mkdir -p pkg/api/generated/info
-    - mkdir -p pkg/api/generated/notify
     - protoc --go_out=pkg/api/generated/cmd  --go_opt=paths=source_relative --go-grpc_out=pkg/api/generated/cmd --go-grpc_opt=paths=source_relative proto/cmd.proto
     - protoc --go_out=pkg/api/generated/info --go_opt=paths=source_relative --go-grpc_out=pkg/api/generated/info --go-grpc_opt=paths=source_relative proto/info.proto
-    - protoc --go_out=pkg/api/generated/notify  --go_opt=paths=source_relative --go-grpc_out=pkg/api/generated/notify --go-grpc_opt=paths=source_relative proto/notify.proto
+

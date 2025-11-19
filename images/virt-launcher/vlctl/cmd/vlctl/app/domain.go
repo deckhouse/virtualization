@@ -46,6 +46,7 @@ func runDomainCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	domain, exist, err := client.GetDomain()
 	if err != nil {
@@ -56,7 +57,12 @@ func runDomainCommand(opts BaseOptions) error {
 		return fmt.Errorf("domain does not exist")
 	}
 
-	return marshalAndPrintOutput(&opts, domain.Spec)
+	spec, exist := domain["spec"]
+	if !exist {
+		return fmt.Errorf("domain does not exist")
+	}
+
+	return marshalAndPrintOutput(&opts, spec)
 }
 
 func NewDomainStatsCommand() *cobra.Command {
@@ -81,6 +87,7 @@ func runDomainStatsCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	stats, exist, err := client.GetDomainStats()
 	if err != nil {
