@@ -17,12 +17,11 @@ name: E2E Storage Matrix
 on:
   push:
     branches:
-      - chore/ci/e2e-matrix-skeleton
+      - ci-nested-matrix-test-run
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
-      - main
-      - chore/ci/e2e-matrix-skeleton
+      - ci-e2e-nested-sds
   schedule:
     - cron: "30 2 * * *"
   workflow_dispatch:
@@ -58,6 +57,12 @@ jobs:
       IMAGE_STORAGE_CLASS: ${{ matrix.image_storage_class }}
       ATTACH_DISK_SIZE: ${{ matrix.attach_disk_size }}
       DATA_DISK_COUNT: ${{ matrix.data_disk_count }}
+    outputs:
+      run_id: ${{ steps.setup-output.outputs.run_id }}
+      run_artifact: ${{ steps.setup-output.outputs.run_artifact }}
+      profile: ${{ steps.setup-output.outputs.profile }}
+      storage_name: ${{ steps.setup-output.outputs.storage_name }}
+      storage_class: ${{ steps.setup-output.outputs.storage_class }}
     steps:
       - uses: actions/checkout@v4
 
@@ -109,9 +114,125 @@ jobs:
         run: |
           task ci:setup-nested-env
 
+      - name: Export setup outputs
+        id: setup-output
+        run: |
+          set -euo pipefail
+          echo "run_id=${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "run_artifact=nested-run-${RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "profile=${PROFILE}" >> "$GITHUB_OUTPUT"
+          echo "storage_name=${{ matrix.storage_name }}" >> "$GITHUB_OUTPUT"
+          echo "storage_class=${STORAGE_CLASS}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload nested artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.setup-output.outputs.run_artifact }}
+          path: |
+            ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
+          if-no-files-found: error
+
+  tests:
+    name: Run E2E (${{ matrix.profile }} / ${{ matrix.storage_class }})
+    runs-on: ubuntu-latest
+    needs: setup
+    timeout-minutes: 300
+    strategy:
+      matrix:
+        include:
+          - profile: sds-replicated-volume
+            storage_name: sds
+            storage_class: linstor-thin-r2
+            parent_storage_class: linstor-thin-r1-immediate
+            image_storage_class: linstor-thin-r1-immediate
+            attach_disk_size: 10Gi
+            data_disk_count: 2
+    env:
+      GO_VERSION: "1.24.6"
+      TIMEOUT: 4h
+      RUN_ID: nightly-nested-e2e-${{ matrix.storage_name }}-${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "latest"
+
+      - name: Setup d8 CLI
+        uses: werf/trdl/actions/setup-app@v0.12.2
+        with:
+          repo: d8
+          url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
+          root-version: 1
+          root-sha512: 343bd5f0d8811254e5f0b6fe2923729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
+          group: 0
+          channel: stable
+
+      - name: Install ginkgo
+        working-directory: test/e2e
+        run: |
+          go install tool
+
+      - name: Download dependencies
+        working-directory: test/e2e
+        run: |
+          go mod download
+
+      - name: Download nested run artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nested-run-${{ env.RUN_ID }}
+          path: ci/dvp-e2e/tmp/runs
+
+      - name: Configure kubeconfig env
+        run: |
+          set -euo pipefail
+          NESTED_KUBECONFIG="${GITHUB_WORKSPACE}/ci/dvp-e2e/tmp/runs/${RUN_ID}/nested/kubeconfig"
+          if [ ! -s "$NESTED_KUBECONFIG" ]; then
+            echo "[ERR] Nested kubeconfig not found at $NESTED_KUBECONFIG" >&2
+            exit 1
+          fi
+          echo "KUBECONFIG=$NESTED_KUBECONFIG" >> "$GITHUB_ENV"
+
+      - name: Wait for nested API server
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if kubectl --request-timeout=15s get nodes >/dev/null 2>&1; then
+              echo "[INFO] Nested cluster is reachable"
+              exit 0
+            fi
+            echo "[INFO] Waiting for nested API... ($i/30)"
+            sleep 10
+          done
+          echo "[ERR] Nested API server did not become ready in time" >&2
+          exit 1
+
+      - name: Run E2E tests
+        working-directory: test/e2e
+        env:
+          STORAGE_CLASS_NAME: ${{ matrix.storage_class }}
+        run: |
+          task run:ci -v
+
   cleanup:
     name: Cleanup (${{ matrix.profile }})
-    needs: setup
+    needs:
+      - setup
+      - tests
     if: always()
     runs-on: ubuntu-latest
     strategy:
@@ -124,8 +245,6 @@ jobs:
             image_storage_class: linstor-thin-r1-immediate
             attach_disk_size: 10Gi
             data_disk_count: 2
-    env:
-      CLEANUP_PREFIX: ${{ vars.CLEANUP_PREFIX || 'nightly-nested-e2e-' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -142,7 +261,9 @@ jobs:
       - name: Cleanup test namespaces
         working-directory: ci/dvp-e2e
         run: |
+          # Cleanup specific RUN_ID for this matrix leg
+          RUN_ID="nightly-nested-e2e-${{ matrix.storage_name }}-${{ github.run_number }}"
           task cleanup:namespaces \
-            PREFIX="${CLEANUP_PREFIX}" \
+            PREFIX="${RUN_ID}" \
             API_URL="${E2E_K8S_URL}" \
             SA_TOKEN="${{ secrets.E2E_NESTED_SA_SECRET }}"

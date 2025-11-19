@@ -238,7 +238,7 @@ tasks:
     env:
       KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") | default "" }}'
     cmds:
-      - kubectl apply --server-side --force-conflicts --validate=false -f {{ .TMP_DIR }}/infra.yaml || kubectl apply --validate=false -f {{ .TMP_DIR }}/infra.yaml
+      - kubectl apply --server-side --force-conflicts --validate=false --request-timeout=30s -f {{ .TMP_DIR }}/infra.yaml || kubectl apply --validate=false --request-timeout=30s -f {{ .TMP_DIR }}/infra.yaml
       - |
         # Persist SSH keypair in parent cluster namespace for diagnostics tools (nested_diag.sh)
         # Secret contains private and public parts; will be removed with namespace cleanup

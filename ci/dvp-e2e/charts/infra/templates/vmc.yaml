@@ -1,4 +1,4 @@
-apiVersion: virtualization.deckhouse.io/v1alpha2
+apiVersion: virtualization.deckhouse.io/v1alpha3
 kind: VirtualMachineClass
 metadata:
   name: "{{ .Values.namespace }}-cpu"
