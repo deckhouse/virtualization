@@ -82,9 +82,10 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		dvcrSettings.UploaderIngressSettings.TLSSecretNamespace = controllerNamespace
 	}
 
-	if dvcrSettings.GCSchedule == "" {
-		dvcrSettings.GCSchedule = dvcr.DefaultGCSchedule
-	}
+	// TODO: Uncomment to re-enable default schedule for cleanup.
+	// if dvcrSettings.GCSchedule == "" {
+	//	dvcrSettings.GCSchedule = dvcr.DefaultGCSchedule
+	// }
 
 	return dvcrSettings, nil
 }
