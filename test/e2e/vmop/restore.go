@@ -132,7 +132,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
 		By("Resource preparation", func() {
-			if restoreMode == v1alpha2.VMOPRestoreModeStrict {
+			if restoreMode != v1alpha2.VMOPRestoreModeDryRun {
 				t.RemoveRecoverableResources()
 			}
 		})
@@ -335,7 +335,7 @@ func (t *restoreModeTest) MountVMBDADisk() {
 	_, err = t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
 	Expect(err).NotTo(HaveOccurred())
 
-	cmd := fmt.Sprintf(`ID=$(ls /dev/disk/by-id/ | grep %s | head -n1); echo "/dev/disk/by-id/$ID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
+	cmd := fmt.Sprintf(`UUID=$(lsblk -o SERIAL,UUID | grep %s | awk "{print \$2}"); echo "UUID=$UUID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
 	_, err = t.Framework.SSHCommand(t.VM.Name, t.VM.Namespace, cmd)
 	Expect(err).NotTo(HaveOccurred())
 }
