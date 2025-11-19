@@ -13,5 +13,5 @@ spec:
         selectors:
           - cel:
               expression: |-
-                device.attributes["virtualization-dra"].productID == 61696 &&
-                device.attributes["virtualization-dra"].vendorID == 3641
+                device.attributes["virtualization-dra"].productID == "f100" &&
+                device.attributes["virtualization-dra"].vendorID == "0e39"

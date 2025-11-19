@@ -1651,7 +1651,6 @@ spec:
                                 via config drive
                               type: string
                           required:
-                          - deviceName
                           - name
                           type: object
                         type: array
