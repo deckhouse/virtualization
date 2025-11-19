@@ -6,7 +6,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	gopkg.in/yaml.v3 v3.0.1
-	kubevirt.io/kubevirt v1.6.3
+	kubevirt.io/kubevirt v1.7.0-beta.0
 )
 
 require (
@@ -36,13 +36,13 @@ require (
 	k8s.io/apiextensions-apiserver v0.32.5 // indirect
 	k8s.io/apimachinery v0.32.5 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738 // indirect
+	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	kubevirt.io/api v0.0.0-20251111114455-056f161c1372 // indirect
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000 // indirect
-	kubevirt.io/containerized-data-importer-api v1.60.3-0.20241105012228-50fbed985de9 // indirect
+	kubevirt.io/containerized-data-importer-api v1.63.1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
-	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
@@ -79,7 +79,7 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.31.0
 	k8s.io/sample-controller => k8s.io/sample-controller v0.31.0
 
-	kubevirt.io/client-go => kubevirt.io/client-go v1.6.3
+	kubevirt.io/client-go => kubevirt.io/client-go v1.7.0-beta.0
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
 
