@@ -91,7 +91,7 @@ shell:
     done
 
   setup:
-    - echo kek
+    - echo kek2
     - mkdir /kubevirt-binaries
     - mkdir /kubevirt-config-files
     - cd /kubevirt
