@@ -885,6 +885,10 @@ Let's apply the changes:
 
 ```bash
 d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vd linux-vm-root
 ```
 
 Let's check the size after the change:
@@ -937,6 +941,10 @@ Example of migrating a disk to the `new-storage-class-name` storage class:
 
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vd disk
 ```
 
 After the disk configuration is updated, a live migration of the VM is triggered, during which the VM disk will be moved to the new storage.
@@ -1311,8 +1319,6 @@ status:
         coresPerSocket: 1
 ```
 
-
-
 ### Initialization scripts
 
 Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
@@ -1681,6 +1687,10 @@ Apply the following patch to the virtual machine to change the number of cores f
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vm linux-vm
 ```
 
 Example output:
@@ -2597,6 +2607,10 @@ Remove the `.metadata.ownerReferences` blocks from the resource found:
 
 ```bash
 d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vmip linux-vm-7prpx
 ```
 
 After the virtual machine is deleted, the `vmip` resource is preserved and can be reused again in the newly created virtual machine:
