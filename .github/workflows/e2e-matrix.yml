@@ -41,7 +41,7 @@ jobs:
             parent_storage_class: linstor-thin-r1-immediate
             image_storage_class: linstor-thin-r1-immediate
             attach_disk_size: 10Gi
-            data_disk_count: 2
+            data_disk_count: 1
     concurrency:
       group: setup-${{ github.head_ref || github.ref_name }}-${{ matrix.profile }}
       cancel-in-progress: true
@@ -136,7 +136,7 @@ jobs:
             parent_storage_class: linstor-thin-r1-immediate
             image_storage_class: linstor-thin-r1-immediate
             attach_disk_size: 10Gi
-            data_disk_count: 2
+            data_disk_count: 1
     env:
       GO_VERSION: "1.24.6"
       TIMEOUT: 4h
@@ -177,17 +177,23 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nested-run-${{ env.RUN_ID }}
-          path: .
+          path: ci/dvp-e2e/tmp/runs/${{ env.RUN_ID }}
+          merge-multiple: true
 
       - name: Configure kubeconfig env
+        working-directory: ci/dvp-e2e
+        env:
+          RUN_ID: ${{ env.RUN_ID }}
         run: |
-          set -euo pipefail
-          NESTED_KUBECONFIG="${GITHUB_WORKSPACE}/ci/dvp-e2e/tmp/runs/${RUN_ID}/nested/kubeconfig"
-          if [ ! -s "$NESTED_KUBECONFIG" ]; then
-            echo "[ERR] Nested kubeconfig not found at $NESTED_KUBECONFIG" >&2
-            exit 1
-          fi
-          echo "KUBECONFIG=$NESTED_KUBECONFIG" >> "$GITHUB_ENV"
+          task ci:kubeconfig:ensure
+
+      - name: Pause for manual inspection
+        working-directory: ci/dvp-e2e
+        env:
+          RUN_ID: ${{ env.RUN_ID }}
+          MANUAL_WAIT_SECONDS: ${{ vars.MANUAL_WAIT_SECONDS || '7200' }}
+        run: |
+          task ci:manual-wait
 
       - name: Run E2E tests
         working-directory: test/e2e
@@ -212,7 +218,7 @@ jobs:
             parent_storage_class: linstor-thin-r1-immediate
             image_storage_class: linstor-thin-r1-immediate
             attach_disk_size: 10Gi
-            data_disk_count: 2
+            data_disk_count: 1
     steps:
       - uses: actions/checkout@v4
 

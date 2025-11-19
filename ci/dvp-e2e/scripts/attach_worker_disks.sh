@@ -22,7 +22,7 @@ set -euo pipefail
 namespace=""
 storage_class=""
 disk_size="10Gi"
-disk_count="2"
+disk_count="1"
 kubeconfig="${KUBECONFIG:-}"
 
 while getopts ":n:s:z:c:k:" opt; do
@@ -90,7 +90,7 @@ for vm in "${workers[@]}"; do
     vd="storage-disk-${disk_num}-$vm"
     echo "[INFRA] Creating VirtualDisk $vd (${disk_size}, sc=${storage_class})"
     
-    cat > "/tmp/vd-$vd.yaml" <<EOF
+    kubectl -n "${namespace}" get vd "$vd" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
@@ -101,7 +101,6 @@ spec:
     storageClassName: ${storage_class}
     size: ${disk_size}
 EOF
-    kubectl -n "${namespace}" get vd "$vd" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f "/tmp/vd-$vd.yaml"
 
     # Wait for VirtualDisk to be Ready
     echo "[INFRA] Waiting for VirtualDisk $vd to be Ready..."
@@ -123,34 +122,10 @@ EOF
       exit 1
     fi
 
-    # Wait for PVC
-    pvc_name=""
-    for j in $(seq 1 50); do
-      pvc_name=$(kubectl -n "${namespace}" get vd "$vd" -o jsonpath='{.status.target.persistentVolumeClaimName}' 2>/dev/null || true)
-      [ -n "$pvc_name" ] && break
-      echo "[INFRA] Waiting for PVC name for VD $vd; retry $j/50"
-      sleep 3
-    done
-    
-    if [ -n "$pvc_name" ]; then
-      echo "[INFRA] Waiting PVC $pvc_name to reach phase=Bound..."
-      for j in $(seq 1 120); do
-        pvc_phase=$(kubectl -n "${namespace}" get pvc "$pvc_name" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-        if [ "$pvc_phase" = "Bound" ]; then
-          break
-        fi
-        [ $((j % 10)) -eq 0 ] && echo "[INFRA] PVC $pvc_name phase=$pvc_phase; retry $j/120"
-        sleep 2
-      done
-      if [ "$pvc_phase" != "Bound" ]; then
-        echo "[WARN] PVC $pvc_name not Bound after waiting"
-      fi
-    fi
-
     # Create hotplug attachment
     att="att-$vd"
     echo "[INFRA] Creating VirtualMachineBlockDeviceAttachment $att for VM $vm"
-    cat > "/tmp/att-$att.yaml" <<EOF
+    kubectl -n "${namespace}" get vmbda "$att" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
@@ -162,7 +137,6 @@ spec:
     kind: VirtualDisk
     name: $vd
 EOF
-    kubectl -n "${namespace}" get vmbda "$att" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f "/tmp/att-$att.yaml"
 
     # Wait for attachment
     echo "[INFRA] Waiting for VMBDA $att to be Attached..."

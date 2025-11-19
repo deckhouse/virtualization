@@ -623,3 +623,71 @@ tasks:
           TMP_DIR: "{{ .TMP_DIR }}"
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
           SDS_SC_NAME: "{{ .SDS_SC_NAME }}"
+  ci:kubeconfig:ensure:
+    desc: Ensure nested kubeconfig exists at the expected path
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
+      WORKSPACE:
+        sh: git rev-parse --show-toplevel 2>/dev/null || pwd
+    cmds:
+      - |
+        set -euo pipefail
+        RUN_ID="{{ .RUN_ID }}"
+        if [ -z "$RUN_ID" ]; then
+          echo "[ERR] RUN_ID must be provided to locate nested kubeconfig" >&2
+          exit 1
+        fi
+        WORKSPACE="${GITHUB_WORKSPACE:-{{ .WORKSPACE }}}"
+        TARGET_PATH="$WORKSPACE/ci/dvp-e2e/tmp/runs/$RUN_ID/nested/kubeconfig"
+        if [ ! -s "$TARGET_PATH" ]; then
+          echo "[ERR] Nested kubeconfig not found at $TARGET_PATH" >&2
+          exit 1
+        fi
+        echo "[INFO] Using nested kubeconfig at $TARGET_PATH"
+        [ -n "${GITHUB_ENV:-}" ] && echo "KUBECONFIG=$TARGET_PATH" >> "$GITHUB_ENV"
+  ci:manual-wait:
+    desc: Pause execution to allow manual SSH inspection of nested cluster
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
+      WORKSPACE:
+        sh: git rev-parse --show-toplevel 2>/dev/null || pwd
+      WAIT_SECONDS: '{{ .WAIT_SECONDS | default (env "MANUAL_WAIT_SECONDS") | default "18000" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        RUN_ID="{{ .RUN_ID }}"
+        WAIT="{{ .WAIT_SECONDS }}"
+        if [ -z "$RUN_ID" ]; then
+          echo "[ERR] RUN_ID must be set for ci:manual-wait" >&2
+          exit 1
+        fi
+        if ! [[ "$WAIT" =~ ^[0-9]+$ ]]; then
+          echo "[ERR] WAIT_SECONDS must be numeric (got '$WAIT')" >&2
+          exit 1
+        fi
+        if [ "$WAIT" -le 0 ]; then
+          echo "[INFO] Manual wait skipped (WAIT_SECONDS=$WAIT)"
+          exit 0
+        fi
+        WORKSPACE='{{ .WORKSPACE }}'
+        PARENT_KUBECONFIG="$WORKSPACE/ci/dvp-e2e/tmp/runs/$RUN_ID/parent.kubeconfig"
+        echo "[INFO] Pausing for $WAIT seconds before running tests."
+        echo "[INFO] Use parent kubeconfig for SSH tunneling:"
+        echo "       export KUBECONFIG=$PARENT_KUBECONFIG"
+        echo "       d8 v ssh --namespace $RUN_ID --username ubuntu <vm-name>"
+        echo "[INFO] Press Ctrl+C in the workflow run to cancel wait early."
+        START_TS=$(date +%s)
+        END=$((START_TS + WAIT))
+        LAST_NOTE=$START_TS
+        while true; do
+          NOW=$(date +%s)
+          [ "$NOW" -ge "$END" ] && break
+          REM=$((END - NOW))
+          printf '[INFO] Manual wait: %d seconds remaining...\n' "$REM"
+          if [ $((NOW - LAST_NOTE)) -ge 300 ]; then
+            echo "[INFO] Cluster should be ready for manual SSH troubleshooting."
+            LAST_NOTE=$NOW
+          fi
+          sleep 60 || true
+        done
+        echo "[INFO] Manual wait finished; proceeding to tests."
