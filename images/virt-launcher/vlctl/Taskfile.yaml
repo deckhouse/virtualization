@@ -13,3 +13,12 @@ tasks:
     cmds:
       - mkdir -p bin
       - go build -o bin/vlctl cmd/vlctl/main.go
+
+  gen-proto:
+    desc: Generate Go code from proto files
+    cmds:
+      - mkdir -p pkg/api/generated
+      - mkdir -p pkg/api/generated/cmd
+      - mkdir -p pkg/api/generated/info
+      - protoc --go_out=pkg/api/generated/cmd  --go_opt=paths=source_relative --go-grpc_out=pkg/api/generated/cmd --go-grpc_opt=paths=source_relative proto/cmd.proto
+      - protoc --go_out=pkg/api/generated/info --go_opt=paths=source_relative --go-grpc_out=pkg/api/generated/info --go-grpc_opt=paths=source_relative proto/info.proto
