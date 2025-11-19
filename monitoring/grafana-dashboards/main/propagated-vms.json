@@ -142,9 +142,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1) * vector(0)\n\n",
+          "expr": "avg by (namespace,phase) (\n    count by (namespace,phase,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}) * vector(0)\n\n",
           "instant": true,
-          "legendFormat": "__auto",
+          "legendFormat": "{{phase}}",
           "range": false,
           "refId": "A"
         },
@@ -301,9 +301,9 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
+          "expr": "avg by (namespace,phase) (\n    count by (namespace,pod,phase) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "instant": true,
-          "legendFormat": "__auto",
+          "legendFormat": "{{phase}}",
           "range": false,
           "refId": "A"
         }
@@ -1683,619 +1683,621 @@
         "y": 19
       },
       "id": 55,
-      "panels": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Timeline of virtual machine status changes for tracking their lifecycle\n\n**VM Phases:**\n* `Pending` - VM awaits resources (e.g., disks, IP addresses) after creation or restart\n* `Starting` - VM attempts to start on a cluster node with resources ready\n* `Running` - VM is operational, running on a node\n* `Stopping` - VM is being stopped or rebooted\n* `Stopped` - VM is inactive, using no computational resources\n* `Terminating` - VM is being deleted, releasing resources\n* `Migrating` - VM is live-migrated to another node, requiring non-local disks\n* `Degraded` - VM is in a degraded state\n* `Pause` - VM is paused",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "fillOpacity": 70,
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineWidth": 0,
+                "spanNulls": false
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "1": {
+                      "color": "semi-dark-red",
+                      "index": 0,
+                      "text": "Degraded"
+                    },
+                    "2": {
+                      "color": "orange",
+                      "index": 1,
+                      "text": "Migrating"
+                    },
+                    "3": {
+                      "color": "yellow",
+                      "index": 2,
+                      "text": "Pause"
+                    },
+                    "4": {
+                      "color": "#00ffff",
+                      "index": 3,
+                      "text": "Pending"
+                    },
+                    "5": {
+                      "color": "green",
+                      "index": 4,
+                      "text": "Running"
+                    },
+                    "6": {
+                      "color": "blue",
+                      "index": 5,
+                      "text": "Starting"
+                    },
+                    "7": {
+                      "color": "#808080",
+                      "index": 6,
+                      "text": "Stopped"
+                    },
+                    "8": {
+                      "color": "purple",
+                      "index": 7,
+                      "text": "Stopping"
+                    },
+                    "9": {
+                      "color": "dark-red",
+                      "index": 8,
+                      "text": "Terminating"
+                    }
+                  },
+                  "type": "value"
+                },
+                {
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "color": "transparent",
+                      "index": 9,
+                      "text": "Unknown"
+                    }
+                  },
+                  "type": "special"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "string"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 24,
+            "x": 0,
+            "y": 20
+          },
+          "id": 57,
+          "options": {
+            "alignValue": "left",
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "mergeValues": false,
+            "rowHeight": 0.9,
+            "showValue": "never",
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "avg by (name,namespace) (\n  sum by (name,namespace,pod) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
+              "instant": false,
+              "legendFormat": "{{ name }}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "VM status timeline",
+          "type": "state-timeline"
+        }
+      ],
       "title": "VM status details",
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "Timeline of virtual machine status changes for tracking their lifecycle\n\n**VM Phases:**\n* `Pending` - VM awaits resources (e.g., disks, IP addresses) after creation or restart\n* `Starting` - VM attempts to start on a cluster node with resources ready\n* `Running` - VM is operational, running on a node\n* `Stopping` - VM is being stopped or rebooted\n* `Stopped` - VM is inactive, using no computational resources\n* `Terminating` - VM is being deleted, releasing resources\n* `Migrating` - VM is live-migrated to another node, requiring non-local disks\n* `Degraded` - VM is in a degraded state\n* `Pause` - VM is paused",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "fillOpacity": 70,
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineWidth": 0,
-            "spanNulls": false
-          },
-          "mappings": [
-            {
-              "options": {
-                "1": {
-                  "color": "semi-dark-red",
-                  "index": 0,
-                  "text": "Degraded"
-                },
-                "2": {
-                  "color": "orange",
-                  "index": 1,
-                  "text": "Migrating"
-                },
-                "3": {
-                  "color": "yellow",
-                  "index": 2,
-                  "text": "Pause"
-                },
-                "4": {
-                  "color": "#00ffff",
-                  "index": 3,
-                  "text": "Pending"
-                },
-                "5": {
-                  "color": "green",
-                  "index": 4,
-                  "text": "Running"
-                },
-                "6": {
-                  "color": "blue",
-                  "index": 5,
-                  "text": "Starting"
-                },
-                "7": {
-                  "color": "#808080",
-                  "index": 6,
-                  "text": "Stopped"
-                },
-                "8": {
-                  "color": "purple",
-                  "index": 7,
-                  "text": "Stopping"
-                },
-                "9": {
-                  "color": "dark-red",
-                  "index": 8,
-                  "text": "Terminating"
-                }
-              },
-              "type": "value"
-            },
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "color": "transparent",
-                  "index": 9,
-                  "text": "Unknown"
-                }
-              },
-              "type": "special"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "string"
-        },
-        "overrides": []
-      },
+      "collapsed": true,
       "gridPos": {
-        "h": 11,
+        "h": 1,
         "w": 24,
         "x": 0,
         "y": 20
       },
-      "id": 57,
-      "options": {
-        "alignValue": "left",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "mergeValues": false,
-        "rowHeight": 0.9,
-        "showValue": "never",
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
+      "id": 21,
+      "panels": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${ds_prometheus}"
           },
-          "editorMode": "code",
-          "expr": "avg by (name,namespace) (\n  sum by (name,namespace,pod) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
-          "instant": false,
-          "legendFormat": "{{ name }}",
-          "range": true,
-          "refId": "A"
+          "description": "Chart showing changes in total CPU cores over time",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 30,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 2,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/(Current|Guaranteed|Steal).*/"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/(Current|Guaranteed).*/"
+                },
+                "properties": [
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        10,
+                        10
+                      ],
+                      "fill": "dash"
+                    }
+                  },
+                  {
+                    "id": "custom.showPoints",
+                    "value": "never"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Quota"
+                },
+                "properties": [
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 2
+                  },
+                  {
+                    "id": "custom.lineStyle",
+                    "value": {
+                      "dash": [
+                        0,
+                        10
+                      ],
+                      "fill": "dot"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "OS Usage / vm-002 ",
+                      "OS Usage / vm-001 ",
+                      "Guaranteed cores"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "id": 69,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max",
+                "mean"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (name) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "OS Usage / {{ name }} ",
+              "range": true,
+              "refId": "OSUsage"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000\n",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Hypervisor overhead",
+              "range": true,
+              "refId": "HyperVisorOverhead"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        (\n            d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n            * \n            d8_virtualization_virtualmachine_cpu_core_fraction\n        ) / 100\n    )\n) ",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Guaranteed cores",
+              "range": true,
+              "refId": "GuaranteedCores"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n    )\n)\n\n",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Current cores",
+              "range": true,
+              "refId": "CurrentCores"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_steal_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Steal cores",
+              "range": true,
+              "refId": "StealCores"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "kube_resourcequota{namespace=~\"$namespace\", resource=\"requests.cpu\", type=\"hard\"}",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Quota",
+              "range": true,
+              "refId": "ResourceQuota"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Total",
+              "range": true,
+              "refId": "OSUsageTotal"
+            }
+          ],
+          "title": "CPU Cores total",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${ds_prometheus}"
+          },
+          "description": "Chart showing under-requested CPU cores over time for vm",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "fixedColor": "red",
+                "mode": "shades"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 30,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "stepBefore",
+                "lineStyle": {
+                  "fill": "solid"
+                },
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "normal"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 2,
+              "fieldMinMax": false,
+              "mappings": [],
+              "min": 0,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "none"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total"
+                },
+                "properties": [
+                  {
+                    "id": "custom.stacking",
+                    "value": {
+                      "group": "A",
+                      "mode": "none"
+                    }
+                  },
+                  {
+                    "id": "custom.lineWidth",
+                    "value": 0
+                  },
+                  {
+                    "id": "custom.fillOpacity",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 29
+          },
+          "id": 109,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull",
+                "max",
+                "mean"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true,
+              "sortBy": "Last *",
+              "sortDesc": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum by (label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (\n  sum by (namespace, pod) (\n    max by (namespace, pod) (\n      kube_controller_pod{}\n    ) \n    * \n    on (pod,namespace) sum by (namespace, pod) (\n      (\n        sum by (namespace, pod, container) (\n          rate(container_cpu_usage_seconds_total{}[$__rate_interval])\n        )\n        -\n        sum by (namespace, pod, container) (\n          avg_over_time(kube_pod_container_resource_requests{resource=\"cpu\",unit=\"core\",container!=\"POD\"}[$__rate_interval])\n        )\n      )\n    )\n  ) * on (namespace, pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (kube_pod_labels{namespace=\"$namespace\",label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"}) > 0\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "{{label_vm_kubevirt_internal_virtualization_deckhouse_io_name }}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${ds_prometheus}"
+              },
+              "editorMode": "code",
+              "expr": "sum (\n  sum by (namespace, pod) (\n    max by (namespace, pod) (\n      kube_controller_pod{}\n    ) \n    * \n    on (pod,namespace) sum by (namespace, pod) (\n      (\n        sum by (namespace, pod, container) (\n          rate(container_cpu_usage_seconds_total{}[$__rate_interval])\n        )\n        -\n        sum by (namespace, pod, container) (\n          avg_over_time(kube_pod_container_resource_requests{resource=\"cpu\",unit=\"core\",container!=\"POD\"}[$__rate_interval])\n        )\n      )\n    )\n  ) * on (namespace, pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (kube_pod_labels{namespace=\"$namespace\",label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"}) > 0\n)",
+              "hide": false,
+              "instant": false,
+              "legendFormat": "Total",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Under-requested CPU Cores by VM",
+          "type": "timeseries"
         }
       ],
-      "title": "VM status timeline",
-      "type": "state-timeline"
-    },
-    {
-      "collapsed": true,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 31
-      },
-      "id": 21,
-      "panels": [],
       "title": "CPU details",
       "type": "row"
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "Chart showing changes in total CPU cores over time",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 30,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "stepBefore",
-            "lineStyle": {
-              "fill": "solid"
-            },
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "decimals": 2,
-          "fieldMinMax": false,
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/(Current|Guaranteed|Steal).*/"
-            },
-            "properties": [
-              {
-                "id": "custom.stacking",
-                "value": {
-                  "group": "A",
-                  "mode": "none"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 2
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/(Current|Guaranteed).*/"
-            },
-            "properties": [
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "dash": [
-                    10,
-                    10
-                  ],
-                  "fill": "dash"
-                }
-              },
-              {
-                "id": "custom.showPoints",
-                "value": "never"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Quota"
-            },
-            "properties": [
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              },
-              {
-                "id": "custom.stacking",
-                "value": {
-                  "group": "A",
-                  "mode": "none"
-                }
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 2
-              },
-              {
-                "id": "custom.lineStyle",
-                "value": {
-                  "dash": [
-                    0,
-                    10
-                  ],
-                  "fill": "dot"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total"
-            },
-            "properties": [
-              {
-                "id": "custom.stacking",
-                "value": {
-                  "group": "A",
-                  "mode": "none"
-                }
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              }
-            ]
-          },
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "OS Usage / vm-002 ",
-                  "OS Usage / vm-001 ",
-                  "Guaranteed cores"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 32
-      },
-      "id": 69,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "sortBy": "Last *",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (name) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "OS Usage / {{ name }} ",
-          "range": true,
-          "refId": "OSUsage"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000\n",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Hypervisor overhead",
-          "range": true,
-          "refId": "HyperVisorOverhead"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        (\n            d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n            * \n            d8_virtualization_virtualmachine_cpu_core_fraction\n        ) / 100\n    )\n) ",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Guaranteed cores",
-          "range": true,
-          "refId": "GuaranteedCores"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n    )\n)\n\n",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Current cores",
-          "range": true,
-          "refId": "CurrentCores"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_steal_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Steal cores",
-          "range": true,
-          "refId": "StealCores"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "kube_resourcequota{namespace=~\"$namespace\", resource=\"requests.cpu\", type=\"hard\"}",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Quota",
-          "range": true,
-          "refId": "ResourceQuota"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Total",
-          "range": true,
-          "refId": "OSUsageTotal"
-        }
-      ],
-      "title": "CPU Cores total",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${ds_prometheus}"
-      },
-      "description": "Chart showing under-requested CPU cores over time for vm",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "red",
-            "mode": "shades"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 30,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "stepBefore",
-            "lineStyle": {
-              "fill": "solid"
-            },
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "normal"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "decimals": 2,
-          "fieldMinMax": false,
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total"
-            },
-            "properties": [
-              {
-                "id": "custom.stacking",
-                "value": {
-                  "group": "A",
-                  "mode": "none"
-                }
-              },
-              {
-                "id": "custom.lineWidth",
-                "value": 0
-              },
-              {
-                "id": "custom.fillOpacity",
-                "value": 0
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 40
-      },
-      "id": 109,
-      "options": {
-        "legend": {
-          "calcs": [
-            "lastNotNull",
-            "max",
-            "mean"
-          ],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "sortBy": "Last *",
-          "sortDesc": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (\n  sum by (namespace, pod) (\n    max by (namespace, pod) (\n      kube_controller_pod{}\n    ) \n    * \n    on (pod,namespace) sum by (namespace, pod) (\n      (\n        sum by (namespace, pod, container) (\n          rate(container_cpu_usage_seconds_total{}[$__rate_interval])\n        )\n        -\n        sum by (namespace, pod, container) (\n          avg_over_time(kube_pod_container_resource_requests{resource=\"cpu\",unit=\"core\",container!=\"POD\"}[$__rate_interval])\n        )\n      )\n    )\n  ) * on (namespace, pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (kube_pod_labels{namespace=\"$namespace\",label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"}) > 0\n)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "{{label_vm_kubevirt_internal_virtualization_deckhouse_io_name }}",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${ds_prometheus}"
-          },
-          "editorMode": "code",
-          "expr": "sum (\n  sum by (namespace, pod) (\n    max by (namespace, pod) (\n      kube_controller_pod{}\n    ) \n    * \n    on (pod,namespace) sum by (namespace, pod) (\n      (\n        sum by (namespace, pod, container) (\n          rate(container_cpu_usage_seconds_total{}[$__rate_interval])\n        )\n        -\n        sum by (namespace, pod, container) (\n          avg_over_time(kube_pod_container_resource_requests{resource=\"cpu\",unit=\"core\",container!=\"POD\"}[$__rate_interval])\n        )\n      )\n    )\n  ) * on (namespace, pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) (kube_pod_labels{namespace=\"$namespace\",label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"}) > 0\n)",
-          "hide": false,
-          "instant": false,
-          "legendFormat": "Total",
-          "range": true,
-          "refId": "B"
-        }
-      ],
-      "title": "Under-requested CPU Cores by VM",
-      "type": "timeseries"
-    },
-    {
       "collapsed": true,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 21
       },
       "id": 28,
       "panels": [
@@ -2585,7 +2587,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 22
       },
       "id": 60,
       "panels": [
@@ -3418,7 +3420,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 50
+        "y": 23
       },
       "id": 5,
       "panels": [
@@ -4044,7 +4046,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 24
       },
       "id": 6,
       "panels": [
@@ -4770,6 +4772,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machines",
   "uid": "aenrewb6nk0sgf",
-  "version": 5,
+  "version": 6,
   "weekStart": ""
 }
