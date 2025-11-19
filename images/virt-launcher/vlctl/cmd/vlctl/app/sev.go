@@ -44,6 +44,7 @@ func runSevCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	info, err := client.GetSEVInfo()
 	if err != nil {
