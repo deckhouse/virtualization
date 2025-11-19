@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	dvcrdeploymentcondition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
 type DVCRService struct {
@@ -147,4 +149,33 @@ func (d *DVCRService) DeleteGarbageCollectionSecret(ctx context.Context) error {
 	secret.SetName(garbageCollectionModeSecretName)
 	err := d.client.Delete(ctx, secret)
 	return client.IgnoreNotFound(err)
+}
+
+func (d *DVCRService) GetGarbageCollectionResult(secret *corev1.Secret) string {
+	if secret == nil {
+		return ""
+	}
+	return string(secret.Data["result"])
+}
+
+func (d *DVCRService) ParseGarbageCollectionResult(secret *corev1.Secret) (reason dvcrdeploymentcondition.GarbageCollectionReason, message string, err error) {
+	var gcResult struct {
+		result  string
+		error   string
+		message string
+	}
+	err = json.Unmarshal(secret.Data["result"], &gcResult)
+	if err != nil {
+		return "", "", fmt.Errorf("parse garbage collection result '%s': %w", string(secret.Data["result"]), err)
+	}
+
+	switch gcResult.result {
+	case "success":
+		return dvcrdeploymentcondition.Done, gcResult.message, nil
+	case "fail":
+		return dvcrdeploymentcondition.Error, gcResult.error, nil
+	}
+
+	// Unexpected format. It should not happen, but we need to show something if it happens.
+	return dvcrdeploymentcondition.Done, string(secret.Data["result"]), nil
 }

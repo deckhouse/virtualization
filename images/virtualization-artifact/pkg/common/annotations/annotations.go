@@ -195,6 +195,9 @@ const (
 	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection"
 	// AnnDVCRGarbageCollectionDone is an annotation on maintenance secret that indicates the garbage collection process is done.
 	AnnDVCRGarbageCollectionDone = AnnAPIGroupV + "/dvcr-garbage-collection-done"
+
+	// AnnDVCRGarbageCollectionResult is an annotation on deployment dvcr with last garbage collection result JSON.
+	AnnDVCRGarbageCollectionResult = AnnAPIGroupV + "/dvcr-garbage-collection-result"
 )
 
 // AddAnnotation adds an annotation to an object

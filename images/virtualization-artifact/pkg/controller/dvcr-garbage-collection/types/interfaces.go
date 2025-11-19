@@ -21,6 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	dvcrdeploymentcondition "github.com/deckhouse/virtualization/api/core/v1alpha2/dvcr-deployment-condition"
 )
 
 type DVCRService interface {
@@ -31,6 +33,9 @@ type DVCRService interface {
 
 	IsGarbageCollectionStarted(secret *corev1.Secret) bool
 	IsGarbageCollectionDone(secret *corev1.Secret) bool
+
+	GetGarbageCollectionResult(secret *corev1.Secret) string
+	ParseGarbageCollectionResult(secret *corev1.Secret) (reason dvcrdeploymentcondition.GarbageCollectionReason, message string, err error)
 }
 
 type ProvisioningLister interface {
