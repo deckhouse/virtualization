@@ -2920,6 +2920,9 @@ d8 k get vmop <vmop-name> -o json | jq “.status.resources”
 It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+When restoring a VM from a snapshot, the disks associated with it are also restored from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
+{{< /alert >}}
 
 ## Creating a VM clone
 
@@ -2994,6 +2997,10 @@ Information about conflicts that arose during cloning can be viewed in the resou
 ```bash
 d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 ```
+
+{{< alert level="info" >}}
+During the cloning process, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After the cloning process is complete, the temporary snapshots are automatically deleted — they will not be visible in the resource list. However, the specification of cloned disks will still contain a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is normal behavior and does not indicate a problem: such references are valid because by the time the clone starts, all necessary data has already been transferred to the new disks.
+{{< /alert >}}
 
 ## Data export
 
