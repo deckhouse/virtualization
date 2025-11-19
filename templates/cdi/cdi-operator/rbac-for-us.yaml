@@ -43,6 +43,7 @@ rules:
     - cdi.internal.virtualization.deckhouse.io
   resources:
     - internalvirtualizationcdiconfigs
+    - internalvirtualizationcdis
     - internalvirtualizationcdis/finalizers
     - internalvirtualizationdataimportcrons
     - internalvirtualizationdatasources
@@ -62,20 +63,6 @@ rules:
     - update
     - patch
     - delete
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationcdis
-  verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-    - patch
-    - delete
-  resourceNames:
-    - config
 - apiGroups:
     - upload.cdi.kubevirt.io
   resources:
