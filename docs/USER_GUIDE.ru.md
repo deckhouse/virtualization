@@ -2962,6 +2962,19 @@ d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 Рекомендуется задавать параметр `.spec.runPolicy: AlwaysOff` в конфигурации клонируемой ВМ, чтобы предотвратить автоматический запуск клона ВМ. Это связано с тем, что клон наследует поведение родительской ВМ.
 {{< /alert >}}
 
+Перед клонированием необходимо подготовить гостевую ОС, чтобы избежать конфликтов уникальных идентификаторов и сетевых настроек.
+
+Linux:
+
+- Очистить `machine-id`: `sudo truncate -s 0 /etc/machine-id` (для systemd) или удалить `/var/lib/dbus/machine-id`
+- Удалить SSH ключи хоста: `sudo rm -f /etc/ssh/ssh_host_*`
+- Очистить конфигурации сетевых интерфейсов (если используются статические настройки)
+- Очистить кэш cloud-init (если используется): `sudo cloud-init clean`
+
+Windows:
+
+- Выполнить генерализацию с помощью `sysprep` с параметром `/generalize` или использовать инструменты для очистки уникальных идентификаторов (SID, hostname и т. д.)
+
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation

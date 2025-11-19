@@ -2930,6 +2930,19 @@ Before cloning, the source VM must be [powered off](#vm-start-and-state-manageme
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
 
+Before cloning, you need to prepare the guest OS to avoid conflicts with unique identifiers and network settings.
+
+Linux:
+
+- Clear `machine-id`: `sudo truncate -s 0 /etc/machine-id` (for systemd) or remove `/var/lib/dbus/machine-id`
+- Remove SSH host keys: `sudo rm -f /etc/ssh/ssh_host_*`
+- Clear network interface configurations (if static settings are used)
+- Clear cloud-init cache (if used): `sudo cloud-init clean`
+
+Windows:
+
+- Run `sysprep` with the `/generalize` parameter or use tools to clear unique identifiers (SID, hostname, etc.)
+
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
