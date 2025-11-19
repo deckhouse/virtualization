@@ -820,6 +820,59 @@ linux-vm-root-2  Ready   2590Mi     7m15s
 - Нажмите кнопку «Создать».
 - Статус диска отображается слева вверху, под именем диска.
 
+### Загрузка диска из командной строки
+
+Чтобы загрузить образ из командной строки, предварительно создайте ресурс, как представлено ниже на примере `VirtualDisk`:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: uploaded-disk
+spec:
+  dataSource:
+    type: Upload
+EOF
+```
+
+После создания, ресурс перейдет в фазу `WaitForUserUpload`, а это значит, что он готов для загрузки образа.
+
+Доступно два варианта загрузки с узла кластера и с произвольного узла за пределами кластера:
+
+```bash
+d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
+
+Пример вывода:
+
+```json
+{
+  "external": "https://virtualization.example.com/upload/<secret-url>",
+  "inCluster": "http://10.222.165.239/upload"
+}
+```
+
+
+Выполните загрузку образа с использование следующей команды
+
+```bash
+curl https://virtualization.example.com/upload/<secret-url> --progress-bar -T <image.name> | cat
+```
+
+После завершения загрузки диск должен быть создан и перейти в фазу `Ready`
+
+```bash
+d8 k get vd uploaded-disk
+```
+
+Пример вывода:
+
+```txt
+NAMESPACE   NAME                  PHASE   CAPACITY    AGE
+default     uploaded-disk         Ready   3Gi         7d23h
+```
+
 ### Изменение размера диска
 
 Размер дисков можно увеличивать, даже если они уже подключены к работающей виртуальной машине. Для этого отредактируйте поле `spec.persistentVolumeClaim.size`:
@@ -3052,4 +3105,8 @@ d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
 d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
-Для экспорта ресурсов за пределы кластера необходимо также использовать флаг `--publish`.
+Если вы выполняете экспорт данных не с узла кластера (например, с вашей локальной машины), используйте флаг `--publish`.
+
+{{< alert level="info" >}}
+Чтобы импортировать скачанный диск обратно в кластер, загрузите его как [образ](#загрузка-образа-из-командной-строки) или как [диск](#загрузка-диска-из-командной-строки).
+{{< /alert >}}

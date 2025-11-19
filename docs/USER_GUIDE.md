@@ -812,6 +812,58 @@ How to create a disk from an image in the web interface (this step can be skippe
 - Click the "Create" button.
 - The disk status is displayed at the top left, under the disk name.
 
+### Upload a disk from the command line
+
+To upload a disk from the command line, first create the following resource as shown below with the `VirtualDisk` example:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: uploaded-disk
+spec:
+  dataSource:
+    type: Upload
+EOF
+```
+
+Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for disk upload.
+
+There are two options available for uploading from a cluster node and from an arbitrary node outside the cluster:
+
+```bash
+d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
+
+Example output:
+
+```json
+{
+  "external": "https://virtualization.example.com/upload/<secret-url>",
+  "inCluster": "http://10.222.165.239/upload"
+}
+```
+
+Upload the disk using the following command:
+
+```bash
+curl https://virtualization.example.com/upload/<secret-url> --progress-bar -T <image.name> | cat
+```
+
+After the upload is complete, the disk should be created and enter the `Ready` phase:
+
+```bash
+d8 k get vd uploaded-disk
+```
+
+Example output:
+
+```txt
+NAMESPACE   NAME                  PHASE   CAPACITY    AGE
+default     uploaded-disk         Ready   3Gi         7d23h
+```
+
 ### Change disk size
 
 You can increase the size of disks even if they are already attached to a running virtual machine. To do this, edit the `spec.persistentVolumeClaim.size` field:
@@ -3018,4 +3070,8 @@ Example: export a disk snapshot (run on a cluster node):
 d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
-To export resources outside the cluster, you must also use the `--publish` flag.
+If you are exporting data from a machine other than a cluster node (for example, from your local machine), use the `--publish` flag.
+
+{{< alert level="info" >}}
+To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
+{{< /alert >}}
