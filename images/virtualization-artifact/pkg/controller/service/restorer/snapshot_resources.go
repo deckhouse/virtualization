@@ -136,7 +136,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(r.client, *provisioner, r.uuid))
 	}
 
-	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, string(r.vmSnapshot.UID), r.mode))
+	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, r.uuid, r.mode))
 
 	return nil
 }
@@ -221,6 +221,11 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMach
 		switch r.kind {
 		case v1alpha2.VMOPTypeRestore:
 			err := ov.ProcessRestore(ctx)
+			if err != nil {
+				fmt.Printf("////////// err: %s //////////\n", err.Error())
+			} else {
+				fmt.Printf("////////// err is nil //////////\n")
+			}
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):

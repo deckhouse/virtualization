@@ -322,20 +322,13 @@ func (v *VirtualMachineHandler) deleteCurrentVirtualMachineBlockDeviceAttachment
 		return fmt.Errorf("failed to list the `VirtualMachineBlockDeviceAttachment`: %w", err)
 	}
 
-	// Create a set of block device names that should exist based on the VM from snapshot
-	expectedBlockDevices := make(map[string]struct{})
-	for _, ref := range v.vm.Spec.BlockDeviceRefs {
-		expectedBlockDevices[ref.Name] = struct{}{}
-	}
-
 	vmbdasToDelete := make([]*v1alpha2.VirtualMachineBlockDeviceAttachment, 0, len(vmbdas.Items))
 	for _, vmbda := range vmbdas.Items {
 		if vmbda.Spec.VirtualMachineName != v.vm.Name {
 			continue
 		}
 
-		// Delete VMBDA if it's not in the expected block devices from the snapshot
-		if _, ok := expectedBlockDevices[vmbda.Spec.BlockDeviceRef.Name]; !ok {
+		if value, ok := vmbda.Annotations[annotations.AnnVMOPRestore]; !ok || value != v.restoreUID {
 			vmbdasToDelete = append(vmbdasToDelete, &vmbda)
 		}
 	}
