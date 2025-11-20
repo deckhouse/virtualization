@@ -318,17 +318,17 @@ var _ = Describe("Install VMClass Generic hook", func() {
 				})
 			})
 
-			When("vmclass/generic without keep-resource annotation is present", func() {
+			When("vmclass/generic without keep-resource annotation", func() {
 				It("should not change vmclass/generic and set values", func() {
 					prepareVMClassSnapshotGenericWithoutKeepResource()
 
 					values.SetMock.Return()
 					patchCollector.CreateMock.Optional()
-					patchCollector.PatchWithJSONMock.Return()
+					patchCollector.PatchWithJSONMock.Optional()
 
 					Expect(Reconcile(context.Background(), newInput())).To(Succeed())
 					Expect(patchCollector.CreateMock.Calls()).To(HaveLen(0))
-					Expect(patchCollector.PatchWithJSONMock.Calls()).To(HaveLen(1))
+					Expect(patchCollector.PatchWithJSONMock.Calls()).To(HaveLen(0))
 					Expect(values.SetMock.Calls()).To(HaveLen(1))
 				})
 			})
