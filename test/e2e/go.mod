@@ -7,8 +7,8 @@ tool github.com/onsi/ginkgo/v2/ginkgo
 require (
 	github.com/deckhouse/virtualization-controller v0.0.0-00010101000000-000000000000
 	github.com/deckhouse/virtualization/api v0.0.0-20240923080356-bb5809dba578
-	github.com/onsi/ginkgo/v2 v2.22.0
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/gomega v1.37.0
 	golang.org/x/net v0.40.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.34.2
