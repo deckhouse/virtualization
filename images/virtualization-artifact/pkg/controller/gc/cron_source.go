@@ -51,10 +51,9 @@ var _ source.Source = &CronSource{}
 const sourceName = "CronSource"
 
 func NewCronSource(scheduleSpec string, objLister ObjectLister, log *log.Logger) (*CronSource, error) {
-	specParser := cron.NewParser(cron.Second | cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
-	schedule, err := specParser.Parse(scheduleSpec)
+	schedule, err := cron.ParseStandard(scheduleSpec)
 	if err != nil {
-		return nil, fmt.Errorf("parse schedule: %w", err)
+		return nil, fmt.Errorf("parsing standard spec %q: %w", scheduleSpec, err)
 	}
 
 	return &CronSource{
