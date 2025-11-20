@@ -3631,6 +3631,20 @@ spec:
                                   description: PCIAddress is the PCIe bus address
                                     of the allocated device
                                   type: string
+                                usbAddress:
+                                  description: USBAddress is the USB bus address
+                                    of the allocated device
+                                  properties:
+                                    bus:
+                                      description: Bus is the bus of the allocated device
+                                      type: string
+                                    deviceNumber:
+                                      description: DeviceNumber is the device number of the allocated device
+                                      type: string
+                                  required:
+                                  - bus
+                                  - deviceNumber
+                                  type: object
                               type: object
                             name:
                               description: Name is the name of actual device on the
