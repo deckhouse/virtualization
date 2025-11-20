@@ -3074,6 +3074,8 @@ During the cloning process, temporary snapshots are automatically created for th
 ## Data export
 
 DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 0.20.7 and above).
+For this, the module [storage-volume-data-manager](https://deckhouse.ru/modules/storage-volume-data-manager/stable/) must be enabled.
+The disk must not be in use at the time of export. If it is connected to a VM, the VM must be stopped.
 
 Example: export a disk (run on a cluster node):
 
