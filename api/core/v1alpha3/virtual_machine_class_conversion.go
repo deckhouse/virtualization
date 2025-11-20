@@ -18,6 +18,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
@@ -106,9 +107,10 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 				v2Policy.CoreFractions = make([]v1alpha2.CoreFractionValue, len(v3Policy.CoreFractions))
 				for j, v3Fraction := range v3Policy.CoreFractions {
 					fractionStr := string(v3Fraction)
-					if len(fractionStr) > 0 && fractionStr[len(fractionStr)-1] == '%' {
-						fractionStr = fractionStr[:len(fractionStr)-1]
+					if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(fractionStr) {
+						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("spec.sizingPolicies[%d].coreFractions[%d]: coreFraction must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%), got %q", i, j, fractionStr)
 					}
+					fractionStr = fractionStr[:len(fractionStr)-1]
 					fractionInt, err := strconv.Atoi(fractionStr)
 					if err != nil {
 						return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("failed to parse core fraction: %w", err)

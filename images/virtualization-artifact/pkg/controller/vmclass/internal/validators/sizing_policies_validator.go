@@ -35,10 +35,6 @@ func NewSizingPoliciesValidator(client client.Client) *SizingPoliciesValidator {
 }
 
 func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
-	if err := validateCoreFractions(vmclass); err != nil {
-		return nil, err
-	}
-
 	if !HasValidCores(&vmclass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has sizing policies but none of them specify cores", vmclass.Name)
 	}
@@ -51,10 +47,6 @@ func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *v1a
 }
 
 func (v *SizingPoliciesValidator) ValidateUpdate(_ context.Context, _, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
-	if err := validateCoreFractions(newVMClass); err != nil {
-		return nil, err
-	}
-
 	if HasCPUSizePoliciesCrosses(&newVMClass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has size policy cpu crosses", newVMClass.Name)
 	}
@@ -106,15 +98,4 @@ func HasValidCores(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 		}
 	}
 	return true
-}
-
-func validateCoreFractions(vmclass *v1alpha2.VirtualMachineClass) error {
-	for i, policy := range vmclass.Spec.SizingPolicies {
-		for j, coreFraction := range policy.CoreFractions {
-			if coreFraction < 1 || coreFraction > 100 {
-				return fmt.Errorf("spec.sizingPolicies[%d].coreFractions[%d]: coreFraction must be between 1 and 100, got %d", i, j, coreFraction)
-			}
-		}
-	}
-	return nil
 }

@@ -59,7 +59,6 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			Entry("minimum value 1%", []CoreFractionValue{"1%"}),
 			Entry("maximum value 100%", []CoreFractionValue{"100%"}),
 			Entry("mixed valid values", []CoreFractionValue{"1%", "50%", "100%"}),
-			Entry("value without percent sign", []CoreFractionValue{"50"}),
 		)
 
 		DescribeTable("should fail on invalid CoreFractionValue strings",
@@ -86,13 +85,14 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErrorSubstring))
 			},
-			Entry("value below minimum (0%)", []CoreFractionValue{"0%"}, "must be between 1 and 100, got 0"),
-			Entry("value above maximum (101%)", []CoreFractionValue{"101%"}, "must be between 1 and 100, got 101"),
-			Entry("negative value", []CoreFractionValue{"-5%"}, "must be between 1 and 100, got -5"),
-			Entry("non-numeric value", []CoreFractionValue{"abc%"}, "failed to parse core fraction"),
-			Entry("empty string", []CoreFractionValue{""}, "failed to parse core fraction"),
-			Entry("percent sign in wrong position", []CoreFractionValue{"%50"}, "failed to parse core fraction"),
-			Entry("one invalid in multiple", []CoreFractionValue{"5%", "150%", "100%"}, "must be between 1 and 100, got 150"),
+			Entry("value below minimum (0%)", []CoreFractionValue{"0%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("value above maximum (101%)", []CoreFractionValue{"101%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("negative value", []CoreFractionValue{"-5%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("non-numeric value", []CoreFractionValue{"abc%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("empty string", []CoreFractionValue{""}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("percent sign in wrong position", []CoreFractionValue{"%50"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("value without percent sign", []CoreFractionValue{"50"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("one invalid in multiple", []CoreFractionValue{"5%", "150%", "100%"}, "coreFraction must be a percentage between 1% and 100%"),
 		)
 
 		It("should preserve ObjectMeta", func() {
