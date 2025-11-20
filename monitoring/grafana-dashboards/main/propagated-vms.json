@@ -128,7 +128,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count (d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1)",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1) * vector(0)",
           "hide": false,
           "instant": true,
           "legendFormat": "Total VM count",
@@ -142,7 +142,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (phase) (d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1)",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}==1) * vector(0)\n\n",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -155,7 +155,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count (d8_virtualization_virtualmachine_agent_ready{namespace=~\"$namespace\"}==1) or vector(0)",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualmachine_agent_ready{namespace=~\"$namespace\"}==1\n    ) \n) or absent(d8_virtualization_virtualmachine_agent_ready{namespace=~\"$namespace\"}==1) * vector(0)\n",
           "hide": false,
           "instant": true,
           "legendFormat": "Agent ready",
@@ -287,7 +287,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count (d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1)",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "hide": false,
           "instant": true,
           "legendFormat": "Total disk count",
@@ -301,7 +301,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (phase) (d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1)",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualdisk_status_phase{namespace=~\"$namespace\"}==1\n    )\n)",
           "instant": true,
           "legendFormat": "__auto",
           "range": false,
@@ -581,7 +581,7 @@
           "values": false
         },
         "showPercentChange": false,
-        "textMode": "auto",
+        "textMode": "value_and_name",
         "wideLayout": true
       },
       "pluginVersion": "10.4.19",
@@ -593,7 +593,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (\nd8_virtualization_virtualimage_status_phase{namespace=~\"$namespace\"}==1\n) or vector(0)\n",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualimage_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualimage_status_phase{namespace=~\"$namespace\"}==1) * vector(0)",
           "hide": false,
           "instant": true,
           "legendFormat": "VirtualImages",
@@ -607,7 +607,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (\nd8_virtualization_virtualdisksnapshot_status_phase{namespace=~\"$namespace\"}==1\n) or vector(0)\n",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualdisksnapshot_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualdisksnapshot_status_phase{namespace=~\"$namespace\"}==1) * vector(0)",
           "hide": false,
           "instant": true,
           "legendFormat": "VirtualDiskSnapshots",
@@ -621,7 +621,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (\nd8_virtualization_virtualmachinesnapshot_status_phase{namespace=~\"$namespace\"}==1\n) or vector(0)\n",
+          "expr": "avg by (namespace) (\n    count by (namespace,pod) (\n        d8_virtualization_virtualmachinesnapshot_status_phase{namespace=~\"$namespace\"}==1\n    )\n) or absent(d8_virtualization_virtualmachinesnapshot_status_phase{namespace=~\"$namespace\"}==1) * vector(0)",
           "hide": false,
           "instant": true,
           "legendFormat": "VirtualMachineSnapshots",
@@ -733,7 +733,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum (\nkube_resourcequota{namespace=~\"$namespace\", resource=\"requests.storage\", type=\"hard\"}\n) \n",
+          "expr": "sum (\nkube_resourcequota{namespace=~\"$namespace\", resource=\"requests.storage\", type=\"hard\"}\n) or vector(0)\n",
           "hide": false,
           "instant": true,
           "legendFormat": "Storage",
@@ -1398,7 +1398,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "max by (namespace, name, phase) (d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"})==1",
+          "expr": "avg by (namespace, name, phase) (d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"})==1",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1413,7 +1413,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "max by (namespace, name, phase) (d8_virtualization_virtualmachine_agent_ready{namespace=~\"$namespace\"})",
+          "expr": "avg by (namespace, name, phase) (d8_virtualization_virtualmachine_agent_ready{namespace=~\"$namespace\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1445,7 +1445,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "sum by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})",
+          "expr": "avg by (namespace, name) (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1611,7 +1611,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (namespace, name) (\n    label_replace(\n        d8_virtualization_virtualdisk_status_in_use{namespace=~\"$namespace\"}, \n        \"name\", \n        \"$1\", \n        \"virtualmachine\", \n        \"(.+)\"\n    )\n) * on(namespace, name) group_left() (\n    d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1\n)",
+          "expr": "avg by (namespace, name) (\n    count by (namespace, name,pod) (\n        label_replace(\n            d8_virtualization_virtualdisk_status_in_use{namespace=~\"$namespace\"}, \n            \"name\", \n            \"$1\", \n            \"virtualmachine\", \n            \"(.+)\"\n        )\n    ) * on(namespace, name,pod) group_left() (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1628,7 +1628,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "count by (namespace, name) (\n    label_replace(\n        d8_virtualization_virtualmachinesnapshot_info{namespace=~\"$namespace\"}, \n        \"name\", \n        \"$1\", \n        \"virtualmachine\", \n        \"(.+)\"\n    )\n) * on(namespace, name) group_left() (\n    d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1\n)",
+          "expr": "avg by (namespace, name) (\n    count by (namespace, name, pod) (\n        label_replace(\n            d8_virtualization_virtualmachinesnapshot_info{namespace=~\"$namespace\"}, \n            \"name\", \n            \"$1\", \n            \"virtualmachine\", \n            \"(.+)\"\n        )\n    ) * on(namespace, name,pod) group_left() (\n        d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1\n    )\n)",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1773,8 +1773,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1811,7 +1810,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (name,namespace) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n    (\n      label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n      label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n      label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n      label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n      label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n      label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n      label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n      label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n      label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n    ))",
+              "expr": "avg by (name,namespace) (\n  sum by (name,namespace,pod) ((d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"} == 1) * on(phase) group_left()\n      (\n        label_replace(vector(1), \"phase\", \"Degraded\", \"\", \"\") or\n        label_replace(vector(2), \"phase\", \"Migrating\", \"\", \"\") or\n        label_replace(vector(3), \"phase\", \"Pause\", \"\", \"\") or\n        label_replace(vector(4), \"phase\", \"Pending\", \"\", \"\") or\n        label_replace(vector(5), \"phase\", \"Running\", \"\", \"\") or\n        label_replace(vector(6), \"phase\", \"Starting\", \"\", \"\") or\n        label_replace(vector(7), \"phase\", \"Stopped\", \"\", \"\") or\n        label_replace(vector(8), \"phase\", \"Stopping\", \"\", \"\") or\n        label_replace(vector(9), \"phase\", \"Terminating\", \"\", \"\")\n      ))\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
@@ -2053,7 +2052,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum ((d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} * d8_virtualization_virtualmachine_cpu_core_fraction) / 100)\n",
+              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        (\n            d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"} \n            * \n            d8_virtualization_virtualmachine_cpu_core_fraction\n        ) / 100\n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "Guaranteed cores",
@@ -2066,7 +2065,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"})\n",
+              "expr": "avg by (namespace) (\n    sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_cpu_cores{namespace=~\"$namespace\"}\n    )\n)\n\n",
               "hide": false,
               "instant": false,
               "legendFormat": "Current cores",
@@ -2180,7 +2179,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2330,7 +2330,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (d8_virtualization_virtualmachine_memory_size_bytes{namespace=~\"$namespace\"})",
+              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_memory_size_bytes{namespace=~\"$namespace\"}\n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "Configured memory",
@@ -2382,7 +2382,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"})\n",
+              "expr": "avg by (namespace) (\n  sum by (namespace,pod) (\n        d8_virtualization_virtualmachine_configuration_memory_runtime_overhead_bytes{namespace=~\"$namespace\"}\n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "Hypervisor Memory Overhead",
@@ -2632,7 +2632,7 @@
             "h": 12,
             "w": 12,
             "x": 0,
-            "y": 34
+            "y": 23
           },
           "id": 104,
           "maxPerRow": 6,
@@ -2649,8 +2649,8 @@
             "showHeader": true,
             "sortBy": [
               {
-                "desc": true,
-                "displayName": "Phase"
+                "desc": false,
+                "displayName": "VirtualDisk"
               }
             ]
           },
@@ -2846,6 +2846,30 @@
                     }
                   }
                 ]
+              },
+              {
+                "__systemRef": "hideSeriesFrom",
+                "matcher": {
+                  "id": "byNames",
+                  "options": {
+                    "mode": "exclude",
+                    "names": [
+                      "Quota"
+                    ],
+                    "prefix": "All except:",
+                    "readOnly": true
+                  }
+                },
+                "properties": [
+                  {
+                    "id": "custom.hideFrom",
+                    "value": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": true
+                    }
+                  }
+                ]
               }
             ]
           },
@@ -2853,7 +2877,7 @@
             "h": 12,
             "w": 12,
             "x": 12,
-            "y": 34
+            "y": 23
           },
           "id": 100,
           "options": {
@@ -2866,8 +2890,8 @@
               "displayMode": "table",
               "placement": "right",
               "showLegend": true,
-              "sortBy": "Last",
-              "sortDesc": true
+              "sortBy": "Name",
+              "sortDesc": false
             },
             "tooltip": {
               "mode": "multi",
@@ -2881,7 +2905,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}",
+              "expr": "avg by (name,namespace) (\n  sum by (name,namespace,pod) (\n        d8_virtualization_virtualdisk_capacity_bytes{namespace=~\"$namespace\"}\n    )\n) ",
               "hide": false,
               "instant": false,
               "legendFormat": "{{ name }}",
@@ -3011,7 +3035,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 46
+            "y": 35
           },
           "id": 44,
           "maxPerRow": 2,
@@ -3177,7 +3201,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 46
+            "y": 35
           },
           "id": 90,
           "maxPerRow": 2,
@@ -3281,7 +3305,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3297,7 +3322,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 23
+            "y": 24
           },
           "id": 7,
           "options": {
@@ -3383,7 +3408,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3399,7 +3425,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 23
+            "y": 24
           },
           "id": 8,
           "options": {
@@ -3485,7 +3511,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3501,7 +3528,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 31
+            "y": 32
           },
           "id": 12,
           "options": {
@@ -3587,7 +3614,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3603,7 +3631,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 31
+            "y": 32
           },
           "id": 9,
           "options": {
@@ -3689,7 +3717,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3705,7 +3734,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 39
+            "y": 40
           },
           "id": 10,
           "options": {
@@ -3791,7 +3820,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3807,7 +3837,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 39
+            "y": 40
           },
           "id": 11,
           "options": {
@@ -3908,7 +3938,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4060,7 +4091,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4199,7 +4231,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4338,7 +4371,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -4546,8 +4580,8 @@
       {
         "current": {
           "selected": false,
-          "text": "virtlab-pt-0",
-          "value": "virtlab-pt-0"
+          "text": "node",
+          "value": "node"
         },
         "datasource": {
           "type": "prometheus",
@@ -4581,6 +4615,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machines",
   "uid": "aenrewb6nk0sgf",
-  "version": 1,
+  "version": 5,
   "weekStart": ""
 }

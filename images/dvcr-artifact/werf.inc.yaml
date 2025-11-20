@@ -2,18 +2,19 @@
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
 altPackages:
-- gcc glibc-pthread glibc-devel glibc-devel-static
+- gcc
 - git golang make binutils
 packages:
 - libnbd
 - libxml2
+- glibc
 {{- end -}}
 
 {{ $builderDeps := include "$nameDeps" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.10" }}
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
@@ -82,6 +83,12 @@ binaries:
 - /usr/lib64/libnbd.s*
 packages:
 - bzip2 file nbdkit libnbd xz libxml2
+- libseccomp zlib zstd
+- libffi libgmp gnutls nettle libidn2
+- p11-kit libtasn1 libfuse3
+- gcc ubdsrv liburing
+- libaio libaudit libcap-ng numactl
+- linux-pam libunistring glib2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

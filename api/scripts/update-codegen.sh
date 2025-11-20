@@ -55,7 +55,7 @@ function generate::subresources {
         --output-file "zz_generated.openapi.go"                                                   \
         --go-header-file "${SCRIPT_DIR}/boilerplate.go.txt"                                       \
         -r /dev/null                                                                              \
-        "${THIS_PKG}/subresources/v1alpha2" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/version"
+        "${THIS_PKG}/subresources/v1alpha2" "${THIS_PKG}/core/v1alpha3" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/version"
 }
 
 function generate::core {
@@ -75,7 +75,7 @@ function generate::crds {
     OUTPUT_BASE=$(mktemp -d)
     trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
 
-    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/..." output:crd:dir="${OUTPUT_BASE}"
+    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/...;${API_ROOT}/core/v1alpha3/..." output:crd:dir="${OUTPUT_BASE}"
 
     # shellcheck disable=SC2044
     for file in $(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml"); do

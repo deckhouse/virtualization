@@ -26,11 +26,11 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git gcc gcc-c++ make cmake pkg-config zlib-devel
-- openssl-devel libgcrypt-devel libkrb5-devel
-- zstd
+- git gcc gcc-c++ make cmake pkg-config
 - python3
 - tree
+packages:
+- krb5 openssl libgcrypt zstd zlib
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -43,6 +43,7 @@ import:
   add: /src
   to: /src
   before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -54,7 +55,15 @@ shell:
 
   install:
   - |
+    # Install packages
     OUTDIR=/out
+
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
     cd /src
 

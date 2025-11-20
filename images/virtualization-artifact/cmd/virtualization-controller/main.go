@@ -61,12 +61,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
+	"github.com/deckhouse/virtualization-controller/pkg/crd"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 const (
@@ -222,6 +224,7 @@ func main() {
 		clientgoscheme.AddToScheme,
 		extv1.AddToScheme,
 		v1alpha2.AddToScheme,
+		v1alpha3.AddToScheme,
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
@@ -296,17 +299,22 @@ func main() {
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
 
-	onlyMigrationClient, err := client.New(cfg, client.Options{Scheme: scheme})
+	preManagerClient, err := client.New(cfg, client.Options{Scheme: scheme})
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	mCtrl, err := migration.NewController(onlyMigrationClient, log)
+	mCtrl, err := migration.NewController(preManagerClient, log)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 	mCtrl.Run(ctx)
+
+	if err = crd.EnsureVMClassConversionWebhook(ctx, preManagerClient, controllerNamespace); err != nil {
+		log.Error("Failed to ensure VirtualMachineClass CRD conversion webhook", logger.SlogErr(err))
+		os.Exit(1)
+	}
 
 	if err = indexer.IndexALL(ctx, mgr); err != nil {
 		log.Error(err.Error())

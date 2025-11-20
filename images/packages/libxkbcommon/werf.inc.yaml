@@ -19,8 +19,7 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+  - git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
 

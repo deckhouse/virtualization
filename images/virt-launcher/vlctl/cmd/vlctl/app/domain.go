@@ -46,6 +46,7 @@ func runDomainCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	domain, exist, err := client.GetDomain()
 	if err != nil {
@@ -81,13 +82,13 @@ func runDomainStatsCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
-	stats, exist, err := client.GetDomainStats()
+	stats, exists, err := client.GetDomainStats()
 	if err != nil {
 		return fmt.Errorf("failed to get domain stats: %w", err)
 	}
-
-	if !exist {
+	if !exists {
 		return fmt.Errorf("domain stats does not exist")
 	}
 

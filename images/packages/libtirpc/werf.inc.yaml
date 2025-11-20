@@ -29,8 +29,9 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc make autoconf automake libtool pkgconfig
-- libkrb5-devel
 - tree
+packages:
+- krb5 e2fsprogs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -55,6 +56,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
 
     cd /src
