@@ -186,7 +186,6 @@ properties:
         properties:
           schedule:
             type: string
-            default: "0 2 * * *"
             description: |
               Schedule to run garbage collection procedure that remove stale images for `ClusterVirtualImage`, `VirtualImage`, `VirtualDisk` resources deleted from the cluster.
 
