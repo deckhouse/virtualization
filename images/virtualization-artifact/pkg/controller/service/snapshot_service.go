@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	ErrUntrustedFilesystemFrozenCondition = errors.New("the filesystem status cannot be processed correctly")
+	ErrUntrustedFilesystemFrozenCondition = errors.New("the filesystem status is not synced")
 	ErrUnexpectedFilesystemRequest        = errors.New("found unexpected filesystem request in the virtual machine instance annotations")
 )
 
