@@ -370,7 +370,7 @@ jobs:
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
           svace_analyze_ssh_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
-          push_retry_attempts: 3
+          push_retry_attempts: 0
 
   test_build_d8v_cli:
     name: Test build d8v cli
