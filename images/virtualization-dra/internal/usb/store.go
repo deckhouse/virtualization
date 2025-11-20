@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"path"
 	"strings"
 	"sync"
 	"time"
@@ -218,6 +217,8 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceapi.Device) (*cdiapi.ContainerEdits, error) {
 	var (
 		devicePath string
+		deviceNum  string
+		bus        string
 		major      int64
 		minor      int64
 	)
@@ -227,6 +228,22 @@ func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceap
 			devicePath = *val
 		} else {
 			return nil, fmt.Errorf("devicePath attribute is not exist")
+		}
+	}
+
+	if attr, ok := device.Attributes["deviceNumber"]; ok {
+		if val := attr.StringValue; val != nil {
+			deviceNum = *val
+		} else {
+			return nil, fmt.Errorf("deviceNum attribute is not exist")
+		}
+	}
+
+	if attr, ok := device.Attributes["bus"]; ok {
+		if val := attr.StringValue; val != nil {
+			bus = *val
+		} else {
+			return nil, fmt.Errorf("bus attribute is not exist")
 		}
 	}
 
@@ -246,8 +263,6 @@ func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceap
 		}
 	}
 
-	containerPath := path.Join("/dev", device.Name)
-
 	claimUIDUpper := strings.ToUpper(claimUID)
 	deviceNameUpper := strings.ToUpper(device.Name)
 
@@ -257,17 +272,17 @@ func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceap
 				fmt.Sprintf("DRA_USB_CLAIM_UID_%s=%s", claimUIDUpper, claimUID),
 				fmt.Sprintf("DRA_USB_DEVICE_NAME_%s=%s", deviceNameUpper, device.Name),
 				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE=%s", claimUIDUpper, device.Name),
-				fmt.Sprintf("DRA_USB_%s=%s", deviceNameUpper, containerPath),      // dra env
-				fmt.Sprintf("USB_RESOURCE_%s=%s", deviceNameUpper, containerPath), // kubevirt env
+				fmt.Sprintf("DRA_USB_DEVICE_PATH_%s=%s", deviceNameUpper, devicePath), // dra env
+				fmt.Sprintf("USB_RESOURCE_%s=%s:%s", deviceNameUpper, bus, deviceNum), // kubevirt env
 			},
 			DeviceNodes: []*cdispec.DeviceNode{
 				{
-					Path:        containerPath,
+					Path:        devicePath,
 					HostPath:    devicePath,
 					Type:        "c",
 					Major:       major,
 					Minor:       minor,
-					Permissions: "rw",
+					Permissions: "mrw",
 					UID:         ptr.To(uint32(107)), // qemu user. TODO: make this configurable
 					GID:         ptr.To(uint32(107)), // qemu group. TODO: make this configurable
 				},
