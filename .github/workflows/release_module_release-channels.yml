@@ -56,6 +56,9 @@ on:
         type: boolean
         default: true
         description: "Set to true if build is required"
+defaults:
+  run:
+    shell: bash
 
 jobs:
   print-vars:
@@ -335,3 +338,30 @@ jobs:
       - name: Cleanup Docker config
         run: |
           rm -rf $DOCKER_CONFIG
+  
+  check-release-channel:
+    name: Check release channel
+    runs-on: ubuntu-latest
+    env:
+      GO_VERSION: "1.24.6"
+    needs: 
+      - job-EE
+      - job-SE-Plus
+      - job-FE
+      - job-CE
+    if: ${{ always() }}
+    steps:
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get specified tag
+        run: git fetch --tags
+
+      - name: Checkout specified tag
+        run: git checkout tags/${{ github.event.inputs.tag }}
