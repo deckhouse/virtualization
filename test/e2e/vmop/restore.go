@@ -68,7 +68,7 @@ const (
 )
 
 var _ = Describe("VirtualMachineOperationRestore", func() {
-	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
+	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.VMOPRestoreMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
@@ -132,7 +132,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
 		By("Resource preparation", func() {
-			if restoreMode != v1alpha2.VMOPRestoreModeDryRun {
+			if removeRecoverableResources {
 				t.RemoveRecoverableResources()
 			}
 		})
@@ -183,11 +183,13 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			}
 		})
 	},
-		Entry("DryRun restore mode with VM manual restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeDryRun, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually),
-		Entry("BestEffort restore mode with VM manual restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually),
-		Entry("Strict restore mode with VM manual restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeStrict, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually),
-		Entry("BestEffort restore mode with VM automatic restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.AlwaysOnUnlessStoppedManually),
-		Entry("BestEffort restore mode with VM automatic restart approval mode, manual run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.ManualPolicy),
+		Entry("DryRun restore mode with VM manual restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeDryRun, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually, false),
+		Entry("BestEffort restore mode with VM manual restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually, false),
+		Entry("Strict restore mode with VM manual restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeStrict, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually, false),
+		Entry("BestEffort restore mode with VM manual restart approval mode, always on unless stopped manually run policy with resource deletion", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually, true),
+		Entry("Strict restore mode with VM manual restart approval mode, always on unless stopped manually run policy with resource deletion", v1alpha2.VMOPRestoreModeStrict, v1alpha2.Manual, v1alpha2.AlwaysOnUnlessStoppedManually, true),
+		Entry("BestEffort restore mode with VM automatic restart approval mode, always on unless stopped manually run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.AlwaysOnUnlessStoppedManually, false),
+		Entry("BestEffort restore mode with VM automatic restart approval mode, manual run policy", v1alpha2.VMOPRestoreModeBestEffort, v1alpha2.Automatic, v1alpha2.ManualPolicy, false),
 	)
 })
 
@@ -362,7 +364,7 @@ func (t *restoreModeTest) RemoveRecoverableResources() {
 	Expect(err).NotTo(HaveOccurred())
 	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 
-	err = t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank)
+	err = t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank, t.VMBDA)
 	Expect(err).NotTo(HaveOccurred())
 
 	Eventually(func(g Gomega) {
@@ -380,12 +382,12 @@ func (t *restoreModeTest) RemoveRecoverableResources() {
 		}, &vdBlankLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 
-		// var vmbdaLocal v1alpha2.VirtualMachineBlockDeviceAttachment
-		// err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
-		// 	Namespace: t.VMBDA.Namespace,
-		// 	Name:      t.VMBDA.Name,
-		// }, &vmbdaLocal)
-		// g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+		var vmbdaLocal v1alpha2.VirtualMachineBlockDeviceAttachment
+		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: t.VMBDA.Namespace,
+			Name:      t.VMBDA.Name,
+		}, &vmbdaLocal)
+		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 	}, framework.LongTimeout, time.Second).Should(Succeed())
 }
 
