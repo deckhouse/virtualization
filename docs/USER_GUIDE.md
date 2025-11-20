@@ -6,7 +6,7 @@ weight: 50
 
 ## Introduction
 
-This guide is intended for users of Deckhouse Virtualization Platform (DVP) and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
+This guide is intended for users of the Deckhouse virtualization module and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
 
 ## Quick start on creating a VM
 
@@ -606,7 +606,7 @@ EOF
 
 ## Disks
 
-Disks in virtual machines are necessary for writing and storing data, ensuring that applications and operating systems can fully function. DVP provides the storage for these disks.
+Disks in virtual machines are necessary for writing and storing data, ensuring that operating systems and applications can function. Various types of storage can be used for these purposes.
 
 Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
@@ -623,7 +623,7 @@ VolumeBindingMode property:
 AccessMode:
 
 - `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
+- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -650,7 +650,7 @@ nfs-4-1-wffc                         nfs.csi.k8s.io                        Delet
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-How to find out the available storage options in the DVP web interface:
+How to find out the available storage options in the web interface:
 
 - Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
@@ -926,7 +926,7 @@ Method #2:
 
 ### Migrating disks to other storage
 
-In the DVP commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its storage class (StorageClass).
+In commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its storage class (StorageClass).
 
 {{< alert level="warning">}}
 Limitations of disk migration between storage:
