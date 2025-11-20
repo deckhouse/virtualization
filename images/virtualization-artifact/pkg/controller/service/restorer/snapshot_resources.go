@@ -221,6 +221,11 @@ func (r *SnapshotResources) Process(ctx context.Context) ([]v1alpha2.VirtualMach
 		switch r.kind {
 		case v1alpha2.VMOPTypeRestore:
 			err := ov.ProcessRestore(ctx)
+			if err != nil {
+				fmt.Printf("////////// err: %s //////////\n", err.Error())
+			} else {
+				fmt.Printf("////////// err is nil //////////\n")
+			}
 			switch {
 			case err == nil:
 			case shouldIgnoreError(r.mode, err):
