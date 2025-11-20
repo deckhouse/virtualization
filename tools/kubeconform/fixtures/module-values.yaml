@@ -394,6 +394,7 @@ virtualization:
         - 10.0.10.0/24
         - 10.0.20.0/24
         - 10.0.30.0/24
+    moduleState: {}
     virtConfig:
       phase: Deployed
       parallelMigrationsPerCluster: 2

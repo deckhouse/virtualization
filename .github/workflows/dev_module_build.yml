@@ -371,6 +371,39 @@ jobs:
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
           svace_analyze_ssh_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
+  test_build_d8v_cli:
+    name: Test build d8v cli
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    needs: set_vars
+    steps:
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Test build d8v cli
+        run: |
+          task d8v-cli:build
+
+      - name: Workability check
+        run: |
+          task d8v-cli:install
+          export PATH=$PATH:~/.local/bin
+          echo ""
+          echo "Print help"
+          d8v --help
+
   pull_request_info:
     name: Get PR info
     if: ${{ github.event_name == 'pull_request' }}

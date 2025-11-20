@@ -6,7 +6,7 @@ require (
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
 	gopkg.in/yaml.v3 v3.0.1
-	kubevirt.io/kubevirt v1.6.2
+	kubevirt.io/kubevirt v1.6.1
 )
 
 require (
@@ -79,7 +79,7 @@ replace (
 	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.31.0
 	k8s.io/sample-controller => k8s.io/sample-controller v0.31.0
 
-	kubevirt.io/client-go => kubevirt.io/client-go v1.6.2
+	kubevirt.io/client-go => kubevirt.io/client-go v1.6.1
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )
 

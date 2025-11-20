@@ -651,7 +651,7 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("vd-%s-", vd.UID),
+			GenerateName: fmt.Sprintf("d8v-vd-%s-", vd.UID),
 			Namespace:    vd.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeControllerOwnerReference(vd),
