@@ -192,7 +192,7 @@ const (
 	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
 
 	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on maintenance secret that indicates deployment/dcvr may be switched to maintenance mode.
-	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection"
+	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection-mode"
 	// AnnDVCRGarbageCollectionDone is an annotation on maintenance secret that indicates the garbage collection process is done.
 	AnnDVCRGarbageCollectionDone = AnnAPIGroupV + "/dvcr-garbage-collection-done"
 
