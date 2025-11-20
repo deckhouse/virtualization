@@ -136,7 +136,7 @@ func (r *SnapshotResources) Prepare(ctx context.Context) error {
 		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(r.client, *provisioner, r.uuid))
 	}
 
-	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, string(r.vmSnapshot.UID), r.mode))
+	r.objectHandlers = append(r.objectHandlers, restorer.NewVirtualMachineHandler(r.client, *vm, r.uuid, r.mode))
 
 	return nil
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -156,20 +155,6 @@ func (v *VMBlockDeviceAttachmentHandler) ProcessRestore(ctx context.Context) err
 	if vmbdaObj != nil {
 		if value, ok := vmbdaObj.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
 			return nil
-		}
-
-		if vmbdaObj.Annotations == nil {
-			vmbdaObj.Annotations = make(map[string]string)
-		}
-		vmbdaObj.Annotations[annotations.AnnVMOPRestore] = v.restoreUID
-
-		// Phase 1: Set annotation to trigger find right VMOP for reconciliation
-		err := v.client.Update(ctx, vmbdaObj)
-		if err != nil {
-			if apierrors.IsConflict(err) {
-				return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %w", common.ErrUpdating)
-			}
-			return fmt.Errorf("failed to update the `VirtualMachineBlockDeviceAttachment`: %w", err)
 		}
 
 		// Phase 2: Initiate deletion and wait for completion
