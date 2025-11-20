@@ -1,7 +1,7 @@
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24.9" }}
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /app/images/vm-route-forge
@@ -49,7 +49,7 @@ import:
   to: /app/vm-route-forge
   after: install
 {{- if eq $.DEBUG_COMPONENT "delve/vm-route-forge" }}
-- image: debuger
+- image: debugger
   add: /app/dlv
   to: /app/dlv
   after: install
