@@ -88,12 +88,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		// OK.
 	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
 		log.Debug(err.Error())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.Snapshotting).
+			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.Snapshotting).
+			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
-		return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
+		err = fmt.Errorf("failed to sync filesystem status: %w", err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
+		return reconcile.Result{}, err
 	}
 
 	if vmSnapshot.DeletionTimestamp != nil {
@@ -107,9 +117,18 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		if err != nil {
 			if errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition) {
 				log.Debug(err.Error())
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmscondition.Snapshotting).
+					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 				return reconcile.Result{}, nil
 			}
 			if k8serrors.IsConflict(err) {
+				log.Debug(fmt.Sprintf("failed to freeze filesystem; resource update conflict error: %s", err))
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmscondition.Snapshotting).
+					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
@@ -227,6 +246,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 
 	canFreeze, err := h.snapshotter.CanFreeze(ctx, kvvmi)
 	if err != nil {
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 	isAwaitingConsistency := needToFreeze && !canFreeze && vmSnapshot.Spec.RequiredConsistency
@@ -283,6 +303,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		hasFrozen, err = h.freezeVirtualMachine(ctx, kvvmi, vmSnapshot)
 		if err != nil {
 			if k8serrors.IsConflict(err) {
+				log.Debug(fmt.Sprintf("failed to freeze filesystem; resource update conflict error: %s", err))
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmscondition.Snapshotting).
+					Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
@@ -377,6 +402,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			log.Debug(fmt.Sprintf("failed to unfreeze filesystem; resource update conflict error: %s", err))
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmscondition.Snapshotting).
+				Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseInProgress
@@ -401,12 +430,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 		// OK.
 	case errors.Is(err, service.ErrUntrustedFilesystemFrozenCondition):
 		log.Debug(err.Error())
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.Snapshotting).
+			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 		return reconcile.Result{}, nil
 	case k8serrors.IsConflict(err):
 		log.Debug(fmt.Sprintf("failed to sync filesystem status; resource update conflict error: %s", err))
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.Snapshotting).
+			Message(service.CapitalizeFirstLetter("Waiting for the filesystem of the virtual machine to be synced."))
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	default:
-		return reconcile.Result{}, fmt.Errorf("failed to sync filesystem status: %w", err)
+		err = fmt.Errorf("failed to sync filesystem status: %w", err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
+		return reconcile.Result{}, err
 	}
 
 	// 10. Move to Ready phase.
