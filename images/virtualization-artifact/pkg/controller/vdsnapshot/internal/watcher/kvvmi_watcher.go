@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -67,7 +68,9 @@ func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.Virtual
 			continue
 		}
 
-		volumeByName[v.Name] = struct{}{}
+		if originalName, ok := strings.CutPrefix(v.Name, "vd-"); ok {
+			volumeByName[originalName] = struct{}{}
+		}
 	}
 
 	if len(volumeByName) == 0 {
