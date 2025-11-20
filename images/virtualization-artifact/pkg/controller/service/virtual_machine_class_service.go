@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineClassService struct {
@@ -35,33 +35,30 @@ func NewVirtualMachineClassService(client client.Client) *VirtualMachineClassSer
 	}
 }
 
-func (v *VirtualMachineClassService) IsDefault(vmClass *v1alpha3.VirtualMachineClass) bool {
+func (v *VirtualMachineClassService) IsDefault(vmClass *v1alpha2.VirtualMachineClass) bool {
 	if vmClass == nil {
 		return false
 	}
 	return vmClass.Annotations[annotations.AnnVirtualMachineClassDefault] == "true"
 }
 
-func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha3.VirtualMachineClass) error {
+func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2.VirtualMachineClass) error {
 	if vmClass == nil {
 		return nil
 	}
 	annoValue, ok := vmClass.Annotations[annotations.AnnVirtualMachineClassDefault]
 	if ok && annoValue != "true" {
-		// Message from validating webhook will be like this:
-		// Error from server (Forbidden): admission webhook "vmclass.virtualization-controller.validate.d8-virtualization" denied the request:
-		// only 'true' value allowed for annotation that specifies a default class (virtualmachineclass.virtualization.deckhouse.io/is-default-class)
 		return fmt.Errorf("only 'true' value allowed for annotation that specifies a default class (%s)", annotations.AnnVirtualMachineClassDefault)
 	}
 	return nil
 }
 
-func (v *VirtualMachineClassService) GetDefault(classes *v1alpha3.VirtualMachineClassList) (*v1alpha3.VirtualMachineClass, error) {
+func (v *VirtualMachineClassService) GetDefault(classes *v1alpha2.VirtualMachineClassList) (*v1alpha2.VirtualMachineClass, error) {
 	if classes == nil {
 		return nil, nil
 	}
 
-	var defaultClass *v1alpha3.VirtualMachineClass
+	var defaultClass *v1alpha2.VirtualMachineClass
 	for i := range classes.Items {
 		if !v.IsDefault(&classes.Items[i]) {
 			continue
