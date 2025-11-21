@@ -651,7 +651,7 @@ tasks:
       RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
       WORKSPACE:
         sh: git rev-parse --show-toplevel 2>/dev/null || pwd
-      WAIT_SECONDS: '{{ .WAIT_SECONDS | default (env "MANUAL_WAIT_SECONDS") | default "18000" }}'
+      WAIT_SECONDS: '{{ .WAIT_SECONDS | default (env "MANUAL_WAIT_SECONDS") | default "36000" }}'
     cmds:
       - |
         set -euo pipefail
