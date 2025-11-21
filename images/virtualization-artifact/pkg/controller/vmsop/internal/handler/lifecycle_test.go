@@ -261,13 +261,13 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 		},
 		Entry("VMSOP should exit early for failed operation", vmsopLifecycleArgs{
-			shouldFail:    false,
-			expectedPhase: "",
+			shouldFail:          false,
+			expectedPhase:       "",
 			shouldAlreadyFailed: true,
 		}),
 		Entry("VMSOP should exit early for completed operation", vmsopLifecycleArgs{
-			shouldFail:    false,
-			expectedPhase: "",
+			shouldFail:             false,
+			expectedPhase:          "",
 			shouldAlreadyCompleted: true,
 		}),
 		Entry("VMSOP should execute without errors", vmsopLifecycleArgs{
