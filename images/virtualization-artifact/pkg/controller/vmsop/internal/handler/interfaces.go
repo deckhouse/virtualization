@@ -19,7 +19,7 @@ package handler
 import (
 	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -27,7 +27,5 @@ import (
 //go:generate go tool moq -rm -out mock.go . CreateOpeartioner
 
 type CreateOpeartioner interface {
-	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error)
-	IsInProgress(*v1alpha2.VirtualMachineSnapshotOperation) bool
-	IsFinished(*v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
+	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation, *v1alpha2.VirtualMachineSnapshot, *corev1.Secret) error
 }

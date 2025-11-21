@@ -27,7 +27,7 @@ const (
 	TypeCompleted Type = "Completed"
 
 	// TypeCreateVirtualMachineCompleted is a type for condition that indicates success of clone.
-	TypeCreateVirtualMachineCompleted Type = "CreateVirtualMachineCompleted"
+	// TypeCreateVirtualMachineCompleted Type = "CreateVirtualMachineCompleted"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -47,6 +47,9 @@ const (
 	// ReasonNotReadyToBeExecuted is a ReasonCompleted indicating that the operation is not ready to be executed.
 	ReasonNotReadyToBeExecuted ReasonCompleted = "NotReadyToBeExecuted"
 
+	// ReasonVirtuamMachineSnapshotNotFound is a ReasonFailed indicating that the specified virtual machine snapshot is absent.
+	ReasonVirtuamMachineSnapshotNotFound ReasonCompleted = "VirtualMachineSnapshotNotFound"
+
 	// ReasonCreateVirtualMachineInProgress is a ReasonCompleted indicating that the clone operation is in progress.
 	ReasonCreateVirtualMachineInProgress ReasonCompleted = "CreateVirtualMachineInProgress"
 
@@ -58,19 +61,19 @@ const (
 )
 
 // ReasonCreateVirtualMachineCompleted represents specific reasons for the 'CreateVirtualMachineCompleted' condition type.
-type ReasonCreateVirtualMachineCompleted string
-
-func (r ReasonCreateVirtualMachineCompleted) String() string {
-	return string(r)
-}
-
-const (
-	// ReasonCreateVirtualMachineOperationInProgress is a ReasonCreateVirtualMachineCompleted indicating that the clone operation is in progress.
-	ReasonCreateVirtualMachineOperationInProgress ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineInProgress"
-
-	// ReasonCreateVirtualMachineOperationCompleted is a ReasonCreateVirtualMachineCompleted indicating that the clone operation has completed successfully.
-	ReasonCreateVirtualMachineOperationCompleted ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineCompleted"
-
-	// ReasonCreateVirtualMachineOperationFailed is a ReasonCreateVirtualMachineCompleted indicating that clone operation has failed.
-	ReasonCreateVirtualMachineOperationFailed ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineFailed"
-)
+// type ReasonCreateVirtualMachineCompleted string
+//
+// func (r ReasonCreateVirtualMachineCompleted) String() string {
+// 	return string(r)
+// }
+//
+// const (
+// 	// ReasonCreateVirtualMachineOperationInProgress is a ReasonCreateVirtualMachineCompleted indicating that the clone operation is in progress.
+// 	ReasonCreateVirtualMachineOperationInProgress ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineInProgress"
+//
+// 	// ReasonCreateVirtualMachineOperationCompleted is a ReasonCreateVirtualMachineCompleted indicating that the clone operation has completed successfully.
+// 	ReasonCreateVirtualMachineOperationCompleted ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineCompleted"
+//
+// 	// ReasonCreateVirtualMachineOperationFailed is a ReasonCreateVirtualMachineCompleted indicating that clone operation has failed.
+// 	ReasonCreateVirtualMachineOperationFailed ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineFailed"
+// )

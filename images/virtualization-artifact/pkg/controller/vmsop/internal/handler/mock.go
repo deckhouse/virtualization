@@ -6,7 +6,7 @@ package handler
 import (
 	"context"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	corev1 "k8s.io/api/core/v1"
 	"sync"
 )
 
@@ -20,7 +20,7 @@ var _ CreateOpeartioner = &CreateOpeartionerMock{}
 //
 //		// make and configure a mocked CreateOpeartioner
 //		mockedCreateOpeartioner := &CreateOpeartionerMock{
-//			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
+//			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 //				panic("mock out the Execute method")
 //			},
 //			IsFinishedFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
@@ -37,7 +37,7 @@ var _ CreateOpeartioner = &CreateOpeartionerMock{}
 //	}
 type CreateOpeartionerMock struct {
 	// ExecuteFunc mocks the Execute method.
-	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error)
+	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error
 
 	// IsFinishedFunc mocks the IsFinished method.
 	IsFinishedFunc func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
@@ -53,6 +53,10 @@ type CreateOpeartionerMock struct {
 			ContextMoqParam context.Context
 			// VirtualMachineSnapshotOperation is the virtualMachineSnapshotOperation argument value.
 			VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
+			// VirtualMachineSnapshot is the virtualMachineSnapshot argument value.
+			VirtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot
+			// Secret is the secret argument value.
+			Secret *corev1.Secret
 		}
 		// IsFinished holds details about calls to the IsFinished method.
 		IsFinished []struct {
@@ -71,21 +75,25 @@ type CreateOpeartionerMock struct {
 }
 
 // Execute calls ExecuteFunc.
-func (mock *CreateOpeartionerMock) Execute(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
+func (mock *CreateOpeartionerMock) Execute(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 	if mock.ExecuteFunc == nil {
 		panic("CreateOpeartionerMock.ExecuteFunc: method is nil but CreateOpeartioner.Execute was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam                 context.Context
 		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
+		VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
+		Secret                          *corev1.Secret
 	}{
 		ContextMoqParam:                 contextMoqParam,
 		VirtualMachineSnapshotOperation: virtualMachineSnapshotOperation,
+		VirtualMachineSnapshot:          virtualMachineSnapshot,
+		Secret:                          secret,
 	}
 	mock.lockExecute.Lock()
 	mock.calls.Execute = append(mock.calls.Execute, callInfo)
 	mock.lockExecute.Unlock()
-	return mock.ExecuteFunc(contextMoqParam, virtualMachineSnapshotOperation)
+	return mock.ExecuteFunc(contextMoqParam, virtualMachineSnapshotOperation, virtualMachineSnapshot, secret)
 }
 
 // ExecuteCalls gets all the calls that were made to Execute.
@@ -95,10 +103,14 @@ func (mock *CreateOpeartionerMock) Execute(contextMoqParam context.Context, virt
 func (mock *CreateOpeartionerMock) ExecuteCalls() []struct {
 	ContextMoqParam                 context.Context
 	VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
+	VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
+	Secret                          *corev1.Secret
 } {
 	var calls []struct {
 		ContextMoqParam                 context.Context
 		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
+		VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
+		Secret                          *corev1.Secret
 	}
 	mock.lockExecute.RLock()
 	calls = mock.calls.Execute

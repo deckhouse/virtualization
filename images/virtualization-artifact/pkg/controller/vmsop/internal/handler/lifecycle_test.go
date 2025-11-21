@@ -23,10 +23,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	vmsnapshotbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsnapshot"
 	vmsopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmsop"
@@ -69,8 +69,8 @@ var _ = Describe("LifecycleHandler", func() {
 	BeforeEach(func() {
 		ctx = testutil.ContextBackgroundWithNoOpLogger()
 		createOperation = &CreateOpeartionerMock{
-			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
-				return reconcile.Result{}, nil
+			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+				return nil
 			},
 			IsInProgressFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
 				return false
@@ -128,7 +128,6 @@ var _ = Describe("LifecycleHandler", func() {
 		h := NewLifecycleHandler(fakeClient, createOperation, recorderMock)
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
-		// Expect(err.Error()).To(ContainSubstring("VMSOP cannot be executed now. Previously created operation should finish first."))
 	})
 
 	DescribeTable("Checking VMSOP lifecycle handler",
@@ -136,8 +135,8 @@ var _ = Describe("LifecycleHandler", func() {
 			var shouldCompleteAfterExec bool
 
 			if args.executeErr != nil {
-				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
-					return reconcile.Result{}, args.executeErr
+				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+					return args.executeErr
 				}
 			}
 
@@ -148,10 +147,10 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 
 			if args.shouldCompleteAfterExec {
-				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
+				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 					shouldCompleteAfterExec = true
 
-					return reconcile.Result{}, nil
+					return nil
 				}
 
 				createOperation.IsFinishedFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
