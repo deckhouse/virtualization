@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"scaper/internal/helper"
+
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -95,15 +97,6 @@ func getCompareVersions(url, channel, version string) (error, bool) {
 	return nil, true
 }
 
-func getSemVer(version string) string {
-	if strings.HasPrefix(version, "v") {
-		version = strings.TrimPrefix(version, "v")
-		return version
-	} else {
-		return version
-	}
-}
-
 func getWebVersions(urlList []string, channel, version string) (error, bool) {
 	var (
 		match bool
@@ -154,14 +147,14 @@ func main() {
 	flag.Parse()
 
 	channel := flag.Lookup("channel").Value.String()
-	version := getSemVer(flag.Lookup("version").Value.String())
+	version := helper.GetSemVer(flag.Lookup("version").Value.String())
 
 	if channel == "" || version == "" {
 		flag.Usage()
 		return
 	}
 
-	channel = strings.ReplaceAll(strings.ToLower(channel), " ", "-")
+	channel = helper.GetChannel(channel)
 
 	urlList := []string{feURL, eeURL, ceURL, sePlus}
 
@@ -182,5 +175,10 @@ func main() {
 	}
 	if !match {
 		log.Fatal("Version is not valid")
+	}
+
+	err = helper.DhSiteVers("https://deckhouse.ru/modules/virtualization/stable/", channel)
+	if err != nil {
+		fmt.Println(err)
 	}
 }
