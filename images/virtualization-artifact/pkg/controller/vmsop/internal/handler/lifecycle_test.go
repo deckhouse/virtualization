@@ -208,17 +208,17 @@ var _ = Describe("LifecycleHandler", func() {
 		}),
 		Entry("VMSOP should fail with no snapshot", vmsopLifecycleArgs{
 			shouldNilVMS:  true,
-			shouldFail:    true,
+			shouldFail:    false,
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
 		}),
 		Entry("VMSOP should fail with failed snapshot", vmsopLifecycleArgs{
-			shouldFail:    true,
+			shouldFail:    false,
 			failedVMS:     true,
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
 		}),
 		Entry("VMSOP should fail execute", vmsopLifecycleArgs{
 			executeErr:    fmt.Errorf(""),
-			shouldFail:    true,
+			shouldFail:    false,
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
 		}),
 		Entry("VMSOP should complete after execute", vmsopLifecycleArgs{
@@ -230,7 +230,7 @@ var _ = Describe("LifecycleHandler", func() {
 			completeMessage:         "failure",
 			executeErr:              fmt.Errorf(""),
 			expectedPhase:           v1alpha2.VMSOPPhaseFailed,
-			shouldFail:              true,
+			shouldFail:              false,
 		}),
 	)
 })

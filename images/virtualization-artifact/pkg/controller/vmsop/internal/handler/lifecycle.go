@@ -18,7 +18,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -85,7 +84,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 			&vmsop.Status.Conditions,
 		)
 
-		return reconcile.Result{}, fmt.Errorf("get VirtualMachineSnapshot for VMSOP: %w", err)
+		return reconcile.Result{}, nil
 	}
 
 	// 3. Operation already in progress. Check if the operation is completed.
@@ -117,7 +116,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 			cb.Reason(vmsopcondition.ReasonNotReadyToBeExecuted).Status(metav1.ConditionFalse).Message("VMSOP cannot be executed. Snapshot is not ready."),
 			&vmsop.Status.Conditions,
 		)
-		return reconcile.Result{}, fmt.Errorf("snapshot is not ready")
+		return reconcile.Result{}, nil
 	}
 
 	// 6. The Operation is valid, and can be executed.
@@ -148,7 +147,7 @@ func (h LifecycleHandler) execute(ctx context.Context, cb *conditions.ConditionB
 			vmsop.Status.Phase = v1alpha2.VMSOPPhaseFailed
 			h.recorder.Event(vmsop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMSOPFailed, failMsg)
 			conditions.SetCondition(cb.Reason(vmsopcondition.ReasonOperationFailed).Message(failMsg).Status(metav1.ConditionFalse), &vmsop.Status.Conditions)
-			return rec, errors.New(failMsg)
+			return rec, nil
 		} else {
 			vmsop.Status.Phase = v1alpha2.VMSOPPhaseCompleted
 			h.recorder.Event(vmsop, corev1.EventTypeNormal, v1alpha2.ReasonVMOPSucceeded, "VirtualMachineSnapshotOperation completed")
@@ -156,7 +155,7 @@ func (h LifecycleHandler) execute(ctx context.Context, cb *conditions.ConditionB
 		}
 	}
 
-	return rec, err
+	return rec, nil
 }
 
 func (h LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (bool, error) {
