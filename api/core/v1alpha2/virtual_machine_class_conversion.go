@@ -78,18 +78,24 @@ func convertSpecV3ToV2(v3Spec v1alpha3.VirtualMachineClassSpec) (VirtualMachineC
 			}
 
 			if v3Policy.Memory != nil {
-				v2Policy.Memory = &SizingPolicyMemory{
-					MemoryMinMax: MemoryMinMax{
-						Min: v3Policy.Memory.Min,
-						Max: v3Policy.Memory.Max,
-					},
-					Step: v3Policy.Memory.Step,
-					PerCore: SizingPolicyMemoryPerCore{
-						MemoryMinMax: MemoryMinMax{
-							Min: v3Policy.Memory.PerCore.Min,
-							Max: v3Policy.Memory.PerCore.Max,
-						},
-					},
+				v2Policy.Memory = &SizingPolicyMemory{}
+				if v3Policy.Memory.Min != nil {
+					v2Policy.Memory.Min = *v3Policy.Memory.Min
+				}
+				if v3Policy.Memory.Max != nil {
+					v2Policy.Memory.Max = *v3Policy.Memory.Max
+				}
+				if v3Policy.Memory.Step != nil {
+					v2Policy.Memory.Step = *v3Policy.Memory.Step
+				}
+				if v3Policy.Memory.PerCore != nil {
+					v2Policy.Memory.PerCore = SizingPolicyMemoryPerCore{}
+					if v3Policy.Memory.PerCore.Min != nil {
+						v2Policy.Memory.PerCore.Min = *v3Policy.Memory.PerCore.Min
+					}
+					if v3Policy.Memory.PerCore.Max != nil {
+						v2Policy.Memory.PerCore.Max = *v3Policy.Memory.PerCore.Max
+					}
 				}
 			}
 
@@ -154,18 +160,24 @@ func convertSpecV2ToV3(v2Spec VirtualMachineClassSpec) v1alpha3.VirtualMachineCl
 			}
 
 			if v2Policy.Memory != nil {
-				v3Policy.Memory = &v1alpha3.SizingPolicyMemory{
-					MemoryMinMax: v1alpha3.MemoryMinMax{
-						Min: v2Policy.Memory.Min,
-						Max: v2Policy.Memory.Max,
-					},
-					Step: v2Policy.Memory.Step,
-					PerCore: v1alpha3.SizingPolicyMemoryPerCore{
-						MemoryMinMax: v1alpha3.MemoryMinMax{
-							Min: v2Policy.Memory.PerCore.Min,
-							Max: v2Policy.Memory.PerCore.Max,
-						},
-					},
+				v3Policy.Memory = &v1alpha3.SizingPolicyMemory{}
+				if !v2Policy.Memory.Min.IsZero() {
+					v3Policy.Memory.Min = &v2Policy.Memory.Min
+				}
+				if !v2Policy.Memory.Max.IsZero() {
+					v3Policy.Memory.Max = &v2Policy.Memory.Max
+				}
+				if !v2Policy.Memory.Step.IsZero() {
+					v3Policy.Memory.Step = &v2Policy.Memory.Step
+				}
+				if !v2Policy.Memory.PerCore.Min.IsZero() || !v2Policy.Memory.PerCore.Max.IsZero() {
+					v3Policy.Memory.PerCore = &v1alpha3.SizingPolicyMemoryPerCore{}
+					if !v2Policy.Memory.PerCore.Min.IsZero() {
+						v3Policy.Memory.PerCore.Min = &v2Policy.Memory.PerCore.Min
+					}
+					if !v2Policy.Memory.PerCore.Max.IsZero() {
+						v3Policy.Memory.PerCore.Max = &v2Policy.Memory.PerCore.Max
+					}
 				}
 			}
 
