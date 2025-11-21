@@ -25,18 +25,18 @@ var (
 	sePlus = baseURL + "/se-plus"
 )
 
-type Version struct {
+type ChannelVersion struct {
 	Edition string
 	Number  string
 	Channel string
 }
 
-type Versions struct {
+type ModuleInfo struct {
 	Module   string
-	Versions []Version
+	Versions []ChannelVersion
 }
 
-func (v Versions) String() string {
+func (v ModuleInfo) String() string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Module: %s\n", v.Module))
 	for _, version := range v.Versions {
@@ -110,9 +110,9 @@ func getWebVersions(urlList []string, channel, version string) (error, bool) {
 		err   error
 	)
 
-	versions := Versions{
+	versions := ModuleInfo{
 		Module:   moduleName,
-		Versions: []Version{},
+		Versions: []ChannelVersion{},
 	}
 
 	for _, url := range urlList {
@@ -125,7 +125,7 @@ func getWebVersions(urlList []string, channel, version string) (error, bool) {
 			log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
 			continue
 		} else {
-			versions.Versions = append(versions.Versions, Version{
+			versions.Versions = append(versions.Versions, ChannelVersion{
 				Edition: strings.Split(url, "/")[3],
 				Channel: channel,
 				Number:  version,
@@ -160,6 +160,8 @@ func main() {
 		flag.Usage()
 		return
 	}
+
+	channel = strings.ReplaceAll(strings.ToLower(channel), " ", "-")
 
 	urlList := []string{feURL, eeURL, ceURL, sePlus}
 
