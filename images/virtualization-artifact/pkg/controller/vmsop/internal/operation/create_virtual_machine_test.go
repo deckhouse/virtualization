@@ -166,7 +166,7 @@ var _ = Describe("CreateVirtualMachineOperation", func() {
 		It("should return not complete when condition is missing", func() {
 			op := CreateVirtualMachineOperation{}
 
-			complete, msg := op.IsComplete(vmsop)
+			complete, msg := op.IsFinished(vmsop)
 			Expect(complete).To(BeFalse())
 			Expect(msg).To(BeEmpty())
 		})
@@ -182,7 +182,7 @@ var _ = Describe("CreateVirtualMachineOperation", func() {
 
 			op := CreateVirtualMachineOperation{}
 
-			complete, msg := op.IsComplete(vmsop)
+			complete, msg := op.IsFinished(vmsop)
 			Expect(complete).To(BeTrue())
 			Expect(msg).To(Equal("failure message"))
 		})
@@ -196,7 +196,7 @@ var _ = Describe("CreateVirtualMachineOperation", func() {
 
 			op := CreateVirtualMachineOperation{}
 
-			complete, msg := op.IsComplete(vmsop)
+			complete, msg := op.IsFinished(vmsop)
 			Expect(complete).To(BeTrue())
 			Expect(msg).To(BeEmpty())
 		})

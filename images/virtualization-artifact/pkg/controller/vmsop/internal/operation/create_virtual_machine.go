@@ -148,7 +148,7 @@ func (o CreateVirtualMachineOperation) IsInProgress(vmsop *v1alpha2.VirtualMachi
 	return false
 }
 
-func (o CreateVirtualMachineOperation) IsComplete(vmsop *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
+func (o CreateVirtualMachineOperation) IsFinished(vmsop *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
 	createVMCondition, ok := conditions.GetCondition(vmsopcondition.TypeCreateVirtualMachineCompleted, vmsop.Status.Conditions)
 	if !ok {
 		return false, ""

@@ -23,8 +23,8 @@ var _ CreateOpeartioner = &CreateOpeartionerMock{}
 //			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
 //				panic("mock out the Execute method")
 //			},
-//			IsCompleteFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-//				panic("mock out the IsComplete method")
+//			IsFinishedFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
+//				panic("mock out the IsFinished method")
 //			},
 //			IsInProgressFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
 //				panic("mock out the IsInProgress method")
@@ -39,8 +39,8 @@ type CreateOpeartionerMock struct {
 	// ExecuteFunc mocks the Execute method.
 	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error)
 
-	// IsCompleteFunc mocks the IsComplete method.
-	IsCompleteFunc func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
+	// IsFinishedFunc mocks the IsFinished method.
+	IsFinishedFunc func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
 
 	// IsInProgressFunc mocks the IsInProgress method.
 	IsInProgressFunc func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool
@@ -54,8 +54,8 @@ type CreateOpeartionerMock struct {
 			// VirtualMachineSnapshotOperation is the virtualMachineSnapshotOperation argument value.
 			VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 		}
-		// IsComplete holds details about calls to the IsComplete method.
-		IsComplete []struct {
+		// IsFinished holds details about calls to the IsFinished method.
+		IsFinished []struct {
 			// VirtualMachineSnapshotOperation is the virtualMachineSnapshotOperation argument value.
 			VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 		}
@@ -66,7 +66,7 @@ type CreateOpeartionerMock struct {
 		}
 	}
 	lockExecute      sync.RWMutex
-	lockIsComplete   sync.RWMutex
+	lockIsFinished   sync.RWMutex
 	lockIsInProgress sync.RWMutex
 }
 
@@ -106,35 +106,35 @@ func (mock *CreateOpeartionerMock) ExecuteCalls() []struct {
 	return calls
 }
 
-// IsComplete calls IsCompleteFunc.
-func (mock *CreateOpeartionerMock) IsComplete(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-	if mock.IsCompleteFunc == nil {
-		panic("CreateOpeartionerMock.IsCompleteFunc: method is nil but CreateOpeartioner.IsComplete was just called")
+// IsFinished calls IsFinishedFunc.
+func (mock *CreateOpeartionerMock) IsFinished(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
+	if mock.IsFinishedFunc == nil {
+		panic("CreateOpeartionerMock.IsFinishedFunc: method is nil but CreateOpeartioner.IsFinished was just called")
 	}
 	callInfo := struct {
 		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 	}{
 		VirtualMachineSnapshotOperation: virtualMachineSnapshotOperation,
 	}
-	mock.lockIsComplete.Lock()
-	mock.calls.IsComplete = append(mock.calls.IsComplete, callInfo)
-	mock.lockIsComplete.Unlock()
-	return mock.IsCompleteFunc(virtualMachineSnapshotOperation)
+	mock.lockIsFinished.Lock()
+	mock.calls.IsFinished = append(mock.calls.IsFinished, callInfo)
+	mock.lockIsFinished.Unlock()
+	return mock.IsFinishedFunc(virtualMachineSnapshotOperation)
 }
 
-// IsCompleteCalls gets all the calls that were made to IsComplete.
+// IsFinishedCalls gets all the calls that were made to IsFinished.
 // Check the length with:
 //
-//	len(mockedCreateOpeartioner.IsCompleteCalls())
-func (mock *CreateOpeartionerMock) IsCompleteCalls() []struct {
+//	len(mockedCreateOpeartioner.IsFinishedCalls())
+func (mock *CreateOpeartionerMock) IsFinishedCalls() []struct {
 	VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 } {
 	var calls []struct {
 		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 	}
-	mock.lockIsComplete.RLock()
-	calls = mock.calls.IsComplete
-	mock.lockIsComplete.RUnlock()
+	mock.lockIsFinished.RLock()
+	calls = mock.calls.IsFinished
+	mock.lockIsFinished.RUnlock()
 	return calls
 }
 

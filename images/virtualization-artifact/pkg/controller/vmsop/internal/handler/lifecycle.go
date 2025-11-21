@@ -62,7 +62,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 	}
 
 	// Ignore if VMSOP is in final state.
-	if complete, _ := h.createOp.IsComplete(vmsop); complete {
+	if complete, _ := h.createOp.IsFinished(vmsop); complete {
 		vmsop.Status.Phase = v1alpha2.VMSOPPhaseCompleted
 		return reconcile.Result{}, nil
 	}
@@ -141,8 +141,8 @@ func (h LifecycleHandler) execute(ctx context.Context, cb *conditions.ConditionB
 		conditions.SetCondition(cb.Reason(vmsopcondition.ReasonCreateVirtualMachineInProgress).Message("Wait for operation to complete.").Status(metav1.ConditionFalse), &vmsop.Status.Conditions)
 	}
 
-	isComplete, failMsg := createOp.IsComplete(vmsop)
-	if isComplete {
+	isFinished, failMsg := createOp.IsFinished(vmsop)
+	if isFinished {
 		if failMsg != "" {
 			vmsop.Status.Phase = v1alpha2.VMSOPPhaseFailed
 			h.recorder.Event(vmsop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMSOPFailed, failMsg)
@@ -162,7 +162,7 @@ func (h LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v1
 	var vmsopList v1alpha2.VirtualMachineSnapshotOperationList
 	err := h.client.List(ctx, &vmsopList, client.InNamespace(vmsop.GetNamespace()))
 	if err != nil {
-		return true, err
+		return false, err
 	}
 
 	for _, other := range vmsopList.Items {

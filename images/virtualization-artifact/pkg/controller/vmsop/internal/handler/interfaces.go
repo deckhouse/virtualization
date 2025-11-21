@@ -29,5 +29,5 @@ import (
 type CreateOpeartioner interface {
 	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error)
 	IsInProgress(*v1alpha2.VirtualMachineSnapshotOperation) bool
-	IsComplete(*v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
+	IsFinished(*v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
 }
