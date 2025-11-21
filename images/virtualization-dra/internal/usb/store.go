@@ -19,7 +19,6 @@ package usb
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"strings"
 	"sync"
