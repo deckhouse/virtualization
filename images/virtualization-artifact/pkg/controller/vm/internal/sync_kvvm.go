@@ -299,7 +299,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		//  can be changed during the restoration process.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasKVVMChanges, err := h.detectKvvmSpecChanges(ctx, s)
+		hasKVVMChanges, err := h.detectVmSpecChanges(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
@@ -556,8 +556,8 @@ func (h *SyncKvvmHandler) isVMStopped(
 	return isVMStopped(kvvm) && (!isKVVMICreated(kvvm) || podStopped)
 }
 
-// detectKvvmSpecChanges returns true and no error if specification has changes.
-func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+// detectVmSpecChanges returns true and no error if specification has changes.
+func (h *SyncKvvmHandler) detectVmSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
 	currentKvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return false, err
@@ -577,12 +577,8 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	newLastAppliedSpecAnnotation := newKvvm.Annotations[annotations.AnnVMLastAppliedSpec] // must exist
-
-	annoChanged := currentLastAppliedSpecAnnotation != newLastAppliedSpecAnnotation
-	specChanged := !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec)
-
-	return annoChanged || specChanged, nil
+	// after generating by MakeKVVMFromVMSpec, the annotation must exist
+	return currentLastAppliedSpecAnnotation != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.
