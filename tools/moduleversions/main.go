@@ -13,13 +13,16 @@ import (
 	"golang.org/x/text/language"
 )
 
-var (
+const (
 	moduleName = "virtualization"
 	baseURL    = "https://releases.deckhouse.io"
-	feURL      = baseURL + "/fe"
-	eeURL      = baseURL + "/ee"
-	ceURL      = baseURL + "/ce"
-	sePlus     = baseURL + "/se-plus"
+)
+
+var (
+	feURL  = baseURL + "/fe"
+	eeURL  = baseURL + "/ee"
+	ceURL  = baseURL + "/ce"
+	sePlus = baseURL + "/se-plus"
 )
 
 type Version struct {
@@ -101,8 +104,49 @@ func getSemVer(version string) string {
 	}
 }
 
+func getWebVersions(urlList []string, channel, version string) (error, bool) {
+	var (
+		match bool
+		err   error
+	)
+
+	versions := Versions{
+		Module:   moduleName,
+		Versions: []Version{},
+	}
+
+	for _, url := range urlList {
+		if err, match = getCompareVersions(url, channel, version); err != nil {
+			log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
+			continue
+		}
+
+		if !match {
+			log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
+			continue
+		} else {
+			versions.Versions = append(versions.Versions, Version{
+				Edition: strings.Split(url, "/")[3],
+				Channel: channel,
+				Number:  version,
+			})
+		}
+	}
+
+	if match {
+		fmt.Println("Version is valid")
+		fmt.Println(versions)
+		return nil, true
+	}
+	return nil, false
+}
+
 func main() {
-	var count int
+	var (
+		match bool
+		count int
+		err   error
+	)
 
 	flag.String("channel", "", "alpha, beta, early-access, stable, rock-solid")
 	flag.String("version", "", "version like 1.1.2 or v1.2")
@@ -117,40 +161,24 @@ func main() {
 		return
 	}
 
-	versions := Versions{
-		Module:   moduleName,
-		Versions: []Version{},
-	}
 	urlList := []string{feURL, eeURL, ceURL, sePlus}
-	var (
-		err   error
-		match bool
-	)
 
 	for i := 0; i < count; i++ {
-		for _, url := range urlList {
-			if err, match = getCompareVersions(url, channel, version); err != nil {
-				log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
-				continue
-			}
-			if !match {
-				log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
-				continue
-			}
-
-			if match {
-				versions.Versions = append(versions.Versions, Version{
-					Edition: strings.Split(url, "/")[3],
-					Channel: channel,
-					Number:  version,
-				})
-				fmt.Println("Version is valid")
-				fmt.Println(versions)
-				break
-			}
-
+		err, match = getWebVersions(urlList, channel, version)
+		if err != nil {
+			log.Println(err)
+			continue
 		}
+		if match {
+			fmt.Println("Version is valid")
+			break
+		}
+
 		fmt.Println("Wait 10 seconds before next try")
 		time.Sleep(10 * time.Second)
+		break
+	}
+	if !match {
+		log.Fatal("Version is not valid")
 	}
 }
