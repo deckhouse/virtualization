@@ -92,6 +92,11 @@ properties:
                   bucket:
                     description: |
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
+      autoCleanupSchedule:
+        description: |
+          Расписание запуска процедуры авто-очистки, которая удалит образы для ресурсов `ClusterVirtualImage`, `VirtualImage`, `VirtualDisk`, которые были удалены из кластера.
+
+          По умолчанию авто-очистка запускается каждый день в 2 часа ночи. ("0 2 * * *").
   virtualImages:
     type: object
     description: |
