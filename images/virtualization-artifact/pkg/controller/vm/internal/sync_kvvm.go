@@ -563,22 +563,12 @@ func (h *SyncKvvmHandler) detectVmSpecChanges(ctx context.Context, s state.Virtu
 		return false, err
 	}
 
-	if currentKvvm.Annotations == nil {
-		return true, nil // need to add LastAppliedSpec annotation
-	}
-
-	currentLastAppliedSpecAnnotation, ok := currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec]
-	if !ok {
-		return true, nil // need to add this annotation if not exists
-	}
-
 	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
 		return false, err
 	}
 
-	// after generating by MakeKVVMFromVMSpec, the annotation must exist
-	return currentLastAppliedSpecAnnotation != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
+	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.
