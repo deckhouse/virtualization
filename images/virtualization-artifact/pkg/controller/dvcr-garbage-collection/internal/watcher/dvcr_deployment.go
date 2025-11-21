@@ -50,7 +50,7 @@ func (w *DVCRDeploymentWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 			&appsv1.Deployment{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, deploy *appsv1.Deployment) []reconcile.Request {
 				if deploy.GetNamespace() == dvcrtypes.ModuleNamespace && deploy.GetName() == dvcrtypes.DVCRDeploymentName {
-					return []reconcile.Request{{client.ObjectKeyFromObject(deploy)}}
+					return []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(deploy)}}
 				}
 				return nil
 			}),

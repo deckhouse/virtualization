@@ -51,7 +51,7 @@ func (w *DVCRGarbageCollectionSecretWatcher) Watch(mgr manager.Manager, ctr cont
 			&corev1.Secret{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, secret *corev1.Secret) []reconcile.Request {
 				if secret.GetNamespace() == dvcrtypes.ModuleNamespace && secret.GetName() == dvcrtypes.DVCRGarbageCollectionSecretName {
-					return []reconcile.Request{{client.ObjectKeyFromObject(secret)}}
+					return []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(secret)}}
 				}
 				return nil
 			}),
