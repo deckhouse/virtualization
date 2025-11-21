@@ -127,7 +127,7 @@ func getWebVersions(urlList []string, channel, version string) (error, bool) {
 	}
 
 	if match {
-		fmt.Println("Version is valid")
+		fmt.Println("Version is valid in editions for site" + baseURL)
 		fmt.Println(versions)
 		return nil, true
 	}
@@ -165,7 +165,7 @@ func main() {
 			continue
 		}
 		if match {
-			fmt.Println("Version is valid")
+			fmt.Println("Version is valid on " + channel)
 			break
 		}
 
@@ -179,6 +179,6 @@ func main() {
 
 	err = helper.DhSiteVers("https://deckhouse.ru/modules/virtualization/stable/", channel)
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
 }
