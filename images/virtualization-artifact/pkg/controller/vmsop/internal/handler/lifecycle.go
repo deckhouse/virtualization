@@ -63,7 +63,6 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 
 	// Ignore if VMSOP is in final state.
 	if complete, _ := h.createOp.IsFinished(vmsop); complete {
-		vmsop.Status.Phase = v1alpha2.VMSOPPhaseCompleted
 		return reconcile.Result{}, nil
 	}
 
