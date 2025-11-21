@@ -19,4 +19,4 @@ spec:
       emptyDir: {}
   resourceClaims:
     - name: usb-device
-      resourceClaimTemplateName: usb-product-61696-vendor-3641
+      resourceClaimTemplateName: usb-product-f100-vendor-0e39-template
