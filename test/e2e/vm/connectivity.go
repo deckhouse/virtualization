@@ -271,6 +271,7 @@ func (t *VMConnectivityTest) CheckCloudInitCompleted(timeout time.Duration) {
 		cmdStdOutA, err := t.Framework.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cmdStdOutA).To(ContainSubstring(t.VMa.Name))
+
 		cmdStdOutB, err := t.Framework.SSHCommand(t.VMb.Name, t.VMb.Namespace, cmd)
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(cmdStdOutB).To(ContainSubstring(t.VMb.Name))
