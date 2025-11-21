@@ -97,6 +97,7 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 			resA := t.GetResponseViaPodWithCurl(t.CurlPod.Name, t.CurlPod.Namespace, t.ServiceA)
 			Expect(resA.Error()).NotTo(HaveOccurred())
 			Expect(resA.StdOut()).To(ContainSubstring(t.VMa.Name))
+
 			resB := t.GetResponseViaPodWithCurl(t.CurlPod.Name, t.CurlPod.Namespace, t.ServiceB)
 			Expect(resB.Error()).NotTo(HaveOccurred())
 			Expect(resB.StdOut()).To(ContainSubstring(t.VMb.Name))
