@@ -283,7 +283,6 @@ func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceap
 					Type:        "c",
 					Major:       major,
 					Minor:       minor,
-					FileMode:    ptr.To(fs.ModeCharDevice),
 					Permissions: "mrw",
 					UID:         ptr.To(uint32(107)), // qemu user. TODO: make this configurable
 					GID:         ptr.To(uint32(107)), // qemu group. TODO: make this configurable
