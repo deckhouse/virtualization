@@ -41,11 +41,40 @@ rules:
     - delete
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
+  resources:
+    - internalvirtualizationcdiconfigs
+    - internalvirtualizationcdis
+    - internalvirtualizationcdis/finalizers
+    - internalvirtualizationdataimportcrons
+    - internalvirtualizationdatasources
+    - internalvirtualizationdatavolumes
+    - internalvirtualizationobjecttransfers
+    - internalvirtualizationstorageprofiles
+    - internalvirtualizationvolumeclonesources
+    - internalvirtualizationvolumeimportsources
+    - internalvirtualizationvolumeuploadsources
+    - internalvirtualizationopenstackvolumepopulators
+    - internalvirtualizationovirtvolumepopulators
+  verbs:
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
+- apiGroups:
     - upload.cdi.kubevirt.io
   resources:
-    - '*'
+    - uploadtokenrequests
   verbs:
-    - '*'
+    - get
+    - list
+    - watch
+    - create
+    - update
+    - patch
+    - delete
 - apiGroups:
     - admissionregistration.k8s.io
   resources:
@@ -144,57 +173,6 @@ rules:
     - list
     - watch
 - apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationdatavolumes
-  verbs:
-    - list
-    - get
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationdatasources
-  verbs:
-    - get
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationvolumeclonesources
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationstorageprofiles
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationcdis
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationcdiconfigs
-  verbs:
-    - get
-    - list
-    - watch
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationcdis/finalizers
-  verbs:
-    - update
-- apiGroups:
     - ""
   resources:
     - events
@@ -272,12 +250,6 @@ rules:
     - clusterversions
   verbs:
     - get
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - '*'
-  verbs:
-    - '*'
 - apiGroups:
     - storage.deckhouse.io
   resources:
@@ -357,14 +329,6 @@ rules:
     - persistentvolumeclaims
   verbs:
     - get
-- apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationdataimportcrons
-  verbs:
-    - get
-    - list
-    - update
 - apiGroups:
     - ""
   resources:
