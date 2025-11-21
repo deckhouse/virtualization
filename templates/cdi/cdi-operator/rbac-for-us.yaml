@@ -222,12 +222,6 @@ rules:
   verbs:
     - get
 - apiGroups:
-    - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - '*'
-  verbs:
-    - '*'
-- apiGroups:
     - storage.deckhouse.io
   resources:
     - replicatedstorageclasses
