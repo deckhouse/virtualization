@@ -44,13 +44,13 @@ func convertToAPIDevice(usbDevice Device) *resourceapi.Device {
 				StringValue: ptr.To(usbDevice.Bus.String()),
 			},
 			"resource.kubernetes.io/usbAddressBus": {
-				StringValue: ptr.To(usbDevice.Bus.String()),
+				IntValue: ptr.To(int64(usbDevice.Bus)),
 			},
 			"deviceNumber": {
 				StringValue: ptr.To(usbDevice.DeviceNumber.String()),
 			},
 			"resource.kubernetes.io/usbAddressDeviceNumber": {
-				StringValue: ptr.To(usbDevice.DeviceNumber.String()),
+				IntValue: ptr.To(int64(usbDevice.DeviceNumber)),
 			},
 			"major": {
 				IntValue: ptr.To(int64(usbDevice.Major)),
