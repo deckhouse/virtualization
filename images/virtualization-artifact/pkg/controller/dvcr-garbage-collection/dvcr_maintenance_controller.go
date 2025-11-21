@@ -73,8 +73,8 @@ func NewController(
 		return nil, err
 	}
 
-	// Not an elegant solution, but it is easier to add cron watches here, than in internal/watcher package.
-	// Cron source to initiate garbage collection from the user specified schedule.
+	// Add cron source watch to initiate garbage collection using the user specified schedule.
+	// Note: it is easier to add cron watch here, than in internal/watcher package.
 	cronSourceGC, err := gc.NewCronSource(dvcrSettings.GCSchedule, gc.NewSingleObjectLister(dvcrtypes.CronSourceNamespace, dvcrtypes.CronSourceRunGC), log)
 	if err != nil {
 		return nil, fmt.Errorf("setup DVCR cleanup cron source: %w", err)

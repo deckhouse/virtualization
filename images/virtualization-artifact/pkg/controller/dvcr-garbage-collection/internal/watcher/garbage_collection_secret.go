@@ -17,6 +17,7 @@ limitations under the License.
 package watcher
 
 import (
+	"context"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	dvcrtypes "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/types"
@@ -41,29 +43,23 @@ func NewDVCRGarbageCollectionSecretWatcher(client client.Client) *DVCRGarbageCol
 	}
 }
 
-// Watch adds watching for Deployment/dvcr changes and for cron events.
+// Watch adds watching for changes in annotations on Secret/dvcr-garbage-collection.
 func (w *DVCRGarbageCollectionSecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
+	return ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
 			&corev1.Secret{},
-			&handler.TypedEnqueueRequestForObject[*corev1.Secret]{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, secret *corev1.Secret) []reconcile.Request {
+				if secret.GetNamespace() == dvcrtypes.ModuleNamespace && secret.GetName() == dvcrtypes.DVCRGarbageCollectionSecretName {
+					return []reconcile.Request{{client.ObjectKeyFromObject(secret)}}
+				}
+				return nil
+			}),
 			predicate.TypedFuncs[*corev1.Secret]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
-					// Handle only garbage collection secret.
-					if e.ObjectOld.Namespace != dvcrtypes.ModuleNamespace {
-						return false
-					}
-					if e.ObjectOld.Name != dvcrtypes.DVCRGarbageCollectionSecretName {
-						return false
-					}
 					return !reflect.DeepEqual(e.ObjectNew.GetAnnotations(), e.ObjectOld.GetAnnotations())
 				},
 			},
 		),
-	); err != nil {
-		return err
-	}
-
-	return nil
+	)
 }

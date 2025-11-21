@@ -69,7 +69,6 @@ var lsCviCmd = &cobra.Command{
 		cobra.OnlyValidArgs,
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// return ListImage(v1alpha2.ClusterVirtualImageKind, cmd, args)
 		imgsDir := fmt.Sprintf("%s/cvi", RepoDir)
 		err := ListImage(v1alpha2.ClusterVirtualImageKind, imgsDir, cmd, args)
 		if err != nil {
@@ -88,7 +87,6 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 	}
 
 	if len(args) != 0 {
-
 		var (
 			fileInfo os.FileInfo
 			err      error
@@ -116,7 +114,6 @@ func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error
 		default:
 			return fmt.Errorf("unknown image type: %s", imgType)
 		}
-
 		w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
 		fmt.Fprintln(w, "Name\t")
 		fmt.Fprintf(w, "%s\t\n", fileInfo.Name())

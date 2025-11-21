@@ -29,10 +29,9 @@ func FSBytes(dir string) (FSInfo, error) {
 		return FSInfo{}, err
 	}
 
+	// Most of Statfs_t fields are number of blocks, and block size is Bsize.
 	return FSInfo{
-		//
-		Total: stat.Blocks * uint64(stat.Bsize),
-		// Available blocks * size per block = available space in bytes.
+		Total:     stat.Blocks * uint64(stat.Bsize),
 		Available: stat.Bavail * uint64(stat.Bsize),
 	}, nil
 }

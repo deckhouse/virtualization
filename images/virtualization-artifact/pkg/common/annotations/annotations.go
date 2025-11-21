@@ -191,9 +191,9 @@ const (
 	// AnnVMFilesystemRequest is an annotation on a virtual machine that indicates a request to freeze or unfreeze the filesystem has been sent.
 	AnnVMFilesystemRequest = AnnAPIGroupV + "/virtual-machine-filesystem-request"
 
-	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on maintenance secret that indicates deployment/dcvr may be switched to maintenance mode.
+	// AnnDVCRDeploymentSwitchToGarbageCollectionMode is an annotation on secret/dvcr-garbage-collection to indicate that deployment/dcvr should be switched to garbage-collection mode.
 	AnnDVCRDeploymentSwitchToGarbageCollectionMode = AnnAPIGroupV + "/dvcr-deployment-switch-to-garbage-collection-mode"
-	// AnnDVCRGarbageCollectionDone is an annotation on maintenance secret that indicates the garbage collection process is done.
+	// AnnDVCRGarbageCollectionDone is an annotation on secret/dvcr-garbage-collection to indicate the garbage collection process is done.
 	AnnDVCRGarbageCollectionDone = AnnAPIGroupV + "/dvcr-garbage-collection-done"
 
 	// AnnDVCRGarbageCollectionResult is an annotation on deployment dvcr with last garbage collection result JSON.

@@ -42,19 +42,15 @@ func NewDVCRDeploymentWatcher(client client.Client) *DVCRDeploymentWatcher {
 	}
 }
 
-// Watch adds watching for Deployment/dvcr changes and for cron events.
+// Watch adds watching for Deployment/dvcr changes.
 func (w *DVCRDeploymentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
+	return ctr.Watch(
 		source.Kind(
 			mgr.GetCache(),
 			&appsv1.Deployment{},
 			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, deploy *appsv1.Deployment) []reconcile.Request {
 				if deploy.GetNamespace() == dvcrtypes.ModuleNamespace && deploy.GetName() == dvcrtypes.DVCRDeploymentName {
-					return []reconcile.Request{
-						{
-							NamespacedName: client.ObjectKeyFromObject(deploy),
-						},
-					}
+					return []reconcile.Request{{client.ObjectKeyFromObject(deploy)}}
 				}
 				return nil
 			}),
@@ -64,9 +60,5 @@ func (w *DVCRDeploymentWatcher) Watch(mgr manager.Manager, ctr controller.Contro
 				},
 			},
 		),
-	); err != nil {
-		return err
-	}
-
-	return nil
+	)
 }

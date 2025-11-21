@@ -96,7 +96,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 				dvcrdeploymentcondition.InProgress,
 				"Wait for garbage collection to finish.",
 			)
-			// Wait for done annotation.
+			// Wait for done annotation appears on secret.
 			return reconcile.Result{}, nil
 		}
 
