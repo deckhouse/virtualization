@@ -77,6 +77,10 @@ jobs:
     runs-on: [self-hosted, large]
     if: github.event.inputs.ce == 'true'
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - run: echo "CE"
       - name: SET VAR
         id: set_vars
@@ -115,6 +119,10 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -127,6 +135,10 @@ jobs:
     runs-on: [self-hosted, large]
     if: github.event.inputs.ee == 'true'
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - run: echo "EE"
       - name: SET VAR
         id: set_vars
@@ -171,6 +183,10 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -183,6 +199,10 @@ jobs:
     needs: job-EE
     runs-on: [self-hosted, large]
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - run: echo "SE Plus"
       - name: SET VAR
         id: set_vars
@@ -221,6 +241,10 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -233,6 +257,10 @@ jobs:
     needs: job-EE
     runs-on: [self-hosted, large]
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - run: echo "FE"
       - name: SET VAR
         id: set_vars
@@ -274,6 +302,10 @@ jobs:
           source_repo: ${{secrets.SOURCE_REPO_GIT}}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
 
       - uses: deckhouse/modules-actions/deploy@v2
         with:
