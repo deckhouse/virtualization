@@ -89,7 +89,7 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, v1alpha2.VMOPRestoreModeStrict, restorerSecret, vmSnapshot, string(vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, v1alpha2.VMOPTypeClone, vmop.Spec.Clone.Mode, restorerSecret, vmSnapshot, string(vmop.UID))
 
 	err = snapshotResources.Prepare(ctx)
 	if err != nil {
@@ -107,19 +107,19 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonCloneOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return &reconcile.Result{}, nil
 	}
 
-	if vmop.Spec.Clone.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Clone.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonCloneOperationCompleted).Message("The virtual machine can be cloned from the snapshot.")
 		return &reconcile.Result{}, nil
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
@@ -142,15 +142,13 @@ func (s ProcessCloneStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachin
 		}
 
 		if vd.Status.Phase == v1alpha2.DiskFailed {
-			conditions.SetCondition(
-				s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message("Snapshot is failed."),
-				&vmop.Status.Conditions,
-			)
+			err = fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
+			conditions.SetCondition(s.cb.Status(metav1.ConditionFalse).Reason(vmopcondition.ReasonSnapshotFailed).Message(service.CapitalizeFirstLetter(err.Error())), &vmop.Status.Conditions)
 			common.SetPhaseCloneConditionToFailed(s.cb, &vmop.Status.Phase, err)
 			return &reconcile.Result{}, fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
 		}
 
-		if vd.Status.Phase != v1alpha2.DiskReady {
+		if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
 			return &reconcile.Result{}, nil
 		}
 	}
