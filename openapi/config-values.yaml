@@ -21,6 +21,7 @@ properties:
       - ["10.10.10.0/24", "10.10.20.0/24"]
     items:
       type: string
+    minItems: 1
   ingressClass:
     type: string
     pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
