@@ -95,7 +95,7 @@ var _ = Describe("CreateVirtualMachineOperation", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vmsop, vms)
 			Expect(err).NotTo(HaveOccurred())
 
-			op := NewCreateVirtualMachineOperation(fakeClient, nil)
+			op := NewCreateVirtualMachineOperation(fakeClient)
 
 			_, execErr := op.Execute(ctx, vmsop)
 			Expect(execErr).To(HaveOccurred())
@@ -110,7 +110,7 @@ var _ = Describe("CreateVirtualMachineOperation", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vmsop)
 			Expect(err).NotTo(HaveOccurred())
 
-			op := NewCreateVirtualMachineOperation(fakeClient, nil)
+			op := NewCreateVirtualMachineOperation(fakeClient)
 
 			_, execErr := op.Execute(ctx, vmsop)
 			Expect(execErr).To(HaveOccurred())
@@ -121,7 +121,7 @@ var _ = Describe("CreateVirtualMachineOperation", func() {
 			fakeClient, err := testutil.NewFakeClientWithObjects(vmsop, vms)
 			Expect(err).NotTo(HaveOccurred())
 
-			op := NewCreateVirtualMachineOperation(fakeClient, nil)
+			op := NewCreateVirtualMachineOperation(fakeClient)
 
 			_, execErr := op.Execute(ctx, vmsop)
 			Expect(execErr).To(HaveOccurred())

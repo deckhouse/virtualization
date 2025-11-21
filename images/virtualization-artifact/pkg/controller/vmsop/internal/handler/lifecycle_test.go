@@ -68,11 +68,6 @@ var _ = Describe("LifecycleHandler", func() {
 
 	BeforeEach(func() {
 		ctx = testutil.ContextBackgroundWithNoOpLogger()
-		recorderMock = &eventrecord.EventRecorderLoggerMock{
-			EventFunc:       func(_ client.Object, _, _, _ string) {},
-			EventfFunc:      func(_ client.Object, _, _, _ string, _ ...any) {},
-			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger { return recorderMock },
-		}
 		createOperation = &CreateOpeartionerMock{
 			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
 				return reconcile.Result{}, nil
@@ -80,7 +75,7 @@ var _ = Describe("LifecycleHandler", func() {
 			IsInProgressFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
 				return false
 			},
-			IsCompleteFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
+			IsFinishedFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
 				return false, ""
 			},
 		}
@@ -147,7 +142,7 @@ var _ = Describe("LifecycleHandler", func() {
 			}
 
 			if args.shouldComplete {
-				createOperation.IsCompleteFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
+				createOperation.IsFinishedFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
 					return true, args.completeMessage
 				}
 			}
@@ -159,7 +154,7 @@ var _ = Describe("LifecycleHandler", func() {
 					return reconcile.Result{}, nil
 				}
 
-				createOperation.IsCompleteFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
+				createOperation.IsFinishedFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
 					return shouldCompleteAfterExec, args.completeMessage
 				}
 			}

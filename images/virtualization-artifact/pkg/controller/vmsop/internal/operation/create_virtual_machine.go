@@ -30,21 +30,18 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmsopcondition"
 )
 
-func NewCreateVirtualMachineOperation(client client.Client, eventRecorder eventrecord.EventRecorderLogger) *CreateVirtualMachineOperation {
+func NewCreateVirtualMachineOperation(client client.Client) *CreateVirtualMachineOperation {
 	return &CreateVirtualMachineOperation{
-		client:   client,
-		recorder: eventRecorder,
+		client: client,
 	}
 }
 
 type CreateVirtualMachineOperation struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	client client.Client
 }
 
 func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {

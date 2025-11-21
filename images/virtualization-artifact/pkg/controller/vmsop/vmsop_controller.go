@@ -45,7 +45,7 @@ func SetupController(
 	l := log.With(logger.SlogController(ControllerName))
 	client := mgr.GetClient()
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	createOp := operation.NewCreateVirtualMachineOperation(client, recorder)
+	createOp := operation.NewCreateVirtualMachineOperation(client)
 	reconciler := NewReconciler(client,
 		handler.NewLifecycleHandler(client, createOp, recorder),
 		handler.NewDeletionHandler(client),
