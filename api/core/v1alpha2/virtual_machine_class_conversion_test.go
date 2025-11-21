@@ -244,14 +244,14 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 						{
 							Memory: &v1alpha3.SizingPolicyMemory{
 								MemoryMinMax: v1alpha3.MemoryMinMax{
-									Min: minMem,
-									Max: maxMem,
+									Min: &minMem,
+									Max: &maxMem,
 								},
-								Step: stepMem,
-								PerCore: v1alpha3.SizingPolicyMemoryPerCore{
+								Step: &stepMem,
+								PerCore: &v1alpha3.SizingPolicyMemoryPerCore{
 									MemoryMinMax: v1alpha3.MemoryMinMax{
-										Min: minPerCoreMem,
-										Max: maxPerCoreMem,
+										Min: &minPerCoreMem,
+										Max: &maxPerCoreMem,
 									},
 								},
 							},
