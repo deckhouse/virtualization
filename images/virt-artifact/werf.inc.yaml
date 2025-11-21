@@ -9,6 +9,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: "0002" # TODO: remove this
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -83,9 +84,9 @@ shell:
     cd /kubevirt
 
     go mod download
-    go mod vendor
+    go work vendor
 
-    for p in patches/*.patch ; do
+    for p in $(test -d patches && ls -1 patches/*.patch 2>/dev/null) ; do
       echo -n "Apply ${p} ... "
       git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
