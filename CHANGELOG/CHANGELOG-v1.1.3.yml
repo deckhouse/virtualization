@@ -1,0 +1,13 @@
+module:
+  features:
+    - summary: >-
+        The virtual machine overview dashboards ('Namespace / Virtual Machine' and 'Namespace /
+        Virtual Machines') have been improved, in addition to the cluster level, they are now also
+        available at the project level.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1603
+  fixes:
+    - summary: >-
+        Fixed CVE-2025-64324, CVE-2025-64435, CVE-2025-64436, CVE-2025-58183, CVE-2025-58186,
+        CVE-2025-58187, CVE-2025-58188, CVE-2025-52565, CVE-2025-52881, CVE-2025-31133.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1701
+
