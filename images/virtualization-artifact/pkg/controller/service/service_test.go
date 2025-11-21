@@ -17,13 +17,21 @@ limitations under the License.
 package service
 
 import (
+	"context"
+	"log/slog"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
 func TestServices(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Services")
+}
+
+func testContext() context.Context {
+	return logger.ToContext(context.Background(), slog.Default())
 }
