@@ -34,25 +34,13 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmsopcondition"
 )
 
 const (
 	name      = "vmsop"
 	namespace = "vmsop"
 )
-
-type vmsopLifecycleArgs struct {
-	completeMessage         string
-	executeErr              error
-	expectedCopletedCond    bool
-	expectedPhase           v1alpha2.VMSOPPhase
-	failedVMS               bool
-	shouldCompleteAfterExec bool
-	shouldComplete          bool
-	shouldFail              bool
-	shouldInProgress        bool
-	shouldNilVMS            bool
-}
 
 var _ = Describe("LifecycleHandler", func() {
 	var (
@@ -62,21 +50,21 @@ var _ = Describe("LifecycleHandler", func() {
 		recorderMock    *eventrecord.EventRecorderLoggerMock
 		createOperation *CreateOpeartionerMock
 
-		vmsop *v1alpha2.VirtualMachineSnapshotOperation
-		vms   *v1alpha2.VirtualMachineSnapshot
+		vmsop  *v1alpha2.VirtualMachineSnapshotOperation
+		vms    *v1alpha2.VirtualMachineSnapshot
+		secret *corev1.Secret
 	)
 
 	BeforeEach(func() {
 		ctx = testutil.ContextBackgroundWithNoOpLogger()
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:       func(_ client.Object, _, _, _ string) {},
+			EventfFunc:      func(_ client.Object, _, _, _ string, _ ...any) {},
+			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger { return recorderMock },
+		}
 		createOperation = &CreateOpeartionerMock{
 			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 				return nil
-			},
-			IsInProgressFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
-				return false
-			},
-			IsFinishedFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-				return false, ""
 			},
 		}
 
@@ -95,11 +83,28 @@ var _ = Describe("LifecycleHandler", func() {
 			vmsnapshotbuilder.WithVirtualMachineSnapshotSecretName("secret"),
 			vmsnapshotbuilder.WithVirtualMachineSnapshotPhase(v1alpha2.VirtualMachineSnapshotPhaseReady),
 		)
+
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "secret",
+				Namespace: namespace,
+			},
+			Data: map[string][]byte{
+				"username": []byte("username"),
+				"password": []byte("password"),
+				"endpoint": []byte("endpoint"),
+			},
+		}
 	})
 
 	AfterEach(func() {
 		fakeClient = nil
 		srv = nil
+	})
+
+	It("should return handler name", func() {
+		h := NewLifecycleHandler(fakeClient, createOperation, recorderMock)
+		Expect(h.Name()).To(Equal(lifecycleHandlerName))
 	})
 
 	It("should set terminating phase when object is being deleted", func() {
@@ -113,66 +118,131 @@ var _ = Describe("LifecycleHandler", func() {
 		Expect(srv.Changed().Status.Phase).To(Equal(v1alpha2.VMSOPPhaseTerminating))
 	})
 
-	It("should fail if has operation in progress", func() {
-		vms.UID = "snapshot"
-		vms.CreationTimestamp = metav1.NewTime(time.Now())
+	type vmsopWithSecondLifecycleArgs struct {
+		expectedPhase           v1alpha2.VMSOPPhase
+		shouldFail              bool
+		shouldOtherSnapshotName string
+		shouldOtherBeOlder      bool
+		shouldOtherBeFailed     bool
+		shouldOtherBeCompleted  bool
+	}
+	DescribeTable("Checking VMSOP lifecycle handler with 2 VMSOP",
+		func(args vmsopWithSecondLifecycleArgs) {
+			vms.UID = "snapshot"
+			vms.CreationTimestamp = metav1.NewTime(time.Now())
 
-		vmsop2 := vmsop.DeepCopy()
-		vmsop2.UID = "vmsop-2"
-		vmsop2.Name = "vmsop-2"
-		vmsop2.Status.Phase = v1alpha2.VMSOPPhaseInProgress
-		vmsop2.CreationTimestamp = metav1.NewTime(vmsop2.CreationTimestamp.Add(-time.Hour))
+			vmsop2 := vmsop.DeepCopy()
+			vmsop2.UID = "vmsop-2"
+			vmsop2.Name = "vmsop-2"
+			vmsop2.Status.Phase = v1alpha2.VMSOPPhaseInProgress
 
-		fakeClient, srv = setupEnvironment(vmsop, vms, vmsop2)
+			if args.shouldOtherSnapshotName != "" {
+				vmsop2.Spec.VirtualMachineSnapshotName = args.shouldOtherSnapshotName
+			}
 
-		h := NewLifecycleHandler(fakeClient, createOperation, recorderMock)
-		_, err := h.Handle(ctx, srv.Changed())
-		Expect(err).NotTo(HaveOccurred())
-	})
+			if args.shouldOtherBeOlder {
+				vmsop2.CreationTimestamp = metav1.NewTime(vmsop2.CreationTimestamp.Add(-time.Hour))
+			}
 
+			if args.shouldOtherBeFailed {
+				vmsop2.Status.Phase = v1alpha2.VMSOPPhaseFailed
+			}
+
+			if args.shouldOtherBeCompleted {
+				vmsop2.Status.Phase = v1alpha2.VMSOPPhaseCompleted
+			}
+
+			fakeClient, srv = setupEnvironment(vmsop, vms, secret, vmsop2)
+
+			h := NewLifecycleHandler(fakeClient, createOperation, recorderMock)
+			_, err := h.Handle(ctx, srv.Changed())
+			Expect(err).NotTo(HaveOccurred())
+		},
+		Entry("VMSOP should fail if has operation in progress", vmsopWithSecondLifecycleArgs{
+			shouldFail:         true,
+			expectedPhase:      v1alpha2.VMSOPPhaseFailed,
+			shouldOtherBeOlder: true,
+		}),
+		Entry("VMSOP shouldn't fail if has operation for different snapshot", vmsopWithSecondLifecycleArgs{
+			shouldFail:              false,
+			expectedPhase:           v1alpha2.VMSOPPhaseCompleted,
+			shouldOtherSnapshotName: "snapshot0",
+		}),
+		Entry("VMSOP shouldn't fail if has other operation with failed phase", vmsopWithSecondLifecycleArgs{
+			shouldFail:          false,
+			expectedPhase:       v1alpha2.VMSOPPhaseCompleted,
+			shouldOtherBeFailed: true,
+		}),
+		Entry("VMSOP shouldn't fail if has other operation with completedfailed phase", vmsopWithSecondLifecycleArgs{
+			shouldFail:             false,
+			expectedPhase:          v1alpha2.VMSOPPhaseCompleted,
+			shouldOtherBeCompleted: true,
+		}),
+	)
+
+	type vmsopLifecycleArgs struct {
+		executeErr              error
+		expectedPhase           v1alpha2.VMSOPPhase
+		failedVMS               bool
+		shouldCompleteAfterExec bool
+		shouldFail              bool
+		shouldNilVMS            bool
+		shoildNilVMSSecret      bool
+		shouldAlreadyFailed     bool
+		shouldAlreadyCompleted  bool
+	}
 	DescribeTable("Checking VMSOP lifecycle handler",
 		func(args vmsopLifecycleArgs) {
-			var shouldCompleteAfterExec bool
-
 			if args.executeErr != nil {
 				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 					return args.executeErr
 				}
 			}
 
-			if args.shouldComplete {
-				createOperation.IsFinishedFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-					return true, args.completeMessage
-				}
-			}
-
 			if args.shouldCompleteAfterExec {
 				createOperation.ExecuteFunc = func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
-					shouldCompleteAfterExec = true
-
 					return nil
 				}
-
-				createOperation.IsFinishedFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-					return shouldCompleteAfterExec, args.completeMessage
-				}
-			}
-
-			if args.shouldInProgress {
-				createOperation.IsInProgressFunc = func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
-					return true
-				}
-			}
-
-			if args.shouldNilVMS {
-				vms = nil
 			}
 
 			if args.failedVMS {
 				vms.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 			}
 
+			if args.shoildNilVMSSecret {
+				secret = nil
+			}
+
+			if args.shouldAlreadyFailed {
+				vmsop.Status.Phase = v1alpha2.VMSOPPhaseFailed
+				vmsop.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(vmsopcondition.TypeCompleted),
+						Status:             metav1.ConditionFalse,
+						Reason:             string(vmsopcondition.ReasonOperationFailed),
+						Message:            "operation failed",
+						LastTransitionTime: metav1.Now(),
+					},
+				}
+			}
+
+			if args.shouldAlreadyCompleted {
+				vmsop.Status.Phase = v1alpha2.VMSOPPhaseCompleted
+				vmsop.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(vmsopcondition.TypeCompleted),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(vmsopcondition.ReasonOperationCompleted),
+						Message:            "operation completed",
+						LastTransitionTime: metav1.Now(),
+					},
+				}
+			}
+
 			fakeClient, srv = setupEnvironment(vmsop)
+			if !args.shoildNilVMSSecret {
+				Expect(fakeClient.Create(ctx, secret)).To(Succeed())
+			}
 			if !args.shouldNilVMS {
 				Expect(fakeClient.Create(ctx, vms)).To(Succeed())
 			}
@@ -190,22 +260,30 @@ var _ = Describe("LifecycleHandler", func() {
 				Expect(status.Phase).To(Equal(args.expectedPhase))
 			}
 		},
-		Entry("VMSOP should execute without errors", vmsopLifecycleArgs{expectedPhase: v1alpha2.VMSOPPhaseInProgress}),
-		Entry("VMSOP should be in completed", vmsopLifecycleArgs{
-			shouldComplete:       true,
-			expectedCopletedCond: true,
-			expectedPhase:        v1alpha2.VMSOPPhaseCompleted,
+		Entry("VMSOP should exit early for failed operation", vmsopLifecycleArgs{
+			shouldFail:    false,
+			expectedPhase: "",
+			shouldAlreadyFailed: true,
 		}),
-		Entry("VMSOP should be in progress", vmsopLifecycleArgs{
-			shouldInProgress: true,
-			expectedPhase:    v1alpha2.VMSOPPhaseInProgress,
+		Entry("VMSOP should exit early for completed operation", vmsopLifecycleArgs{
+			shouldFail:    false,
+			expectedPhase: "",
+			shouldAlreadyCompleted: true,
+		}),
+		Entry("VMSOP should execute without errors", vmsopLifecycleArgs{
+			expectedPhase: v1alpha2.VMSOPPhaseCompleted,
 		}),
 		Entry("VMSOP should fail with no snapshot", vmsopLifecycleArgs{
-			shouldNilVMS:  true,
 			shouldFail:    false,
+			shouldNilVMS:  true,
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
 		}),
 		Entry("VMSOP should fail with failed snapshot", vmsopLifecycleArgs{
+			shouldFail:         false,
+			shoildNilVMSSecret: true,
+			expectedPhase:      v1alpha2.VMSOPPhaseFailed,
+		}),
+		Entry("VMSOP should fail with nil snapshot secret", vmsopLifecycleArgs{
 			shouldFail:    false,
 			failedVMS:     true,
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
@@ -214,17 +292,6 @@ var _ = Describe("LifecycleHandler", func() {
 			executeErr:    fmt.Errorf(""),
 			shouldFail:    false,
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
-		}),
-		Entry("VMSOP should complete after execute", vmsopLifecycleArgs{
-			shouldCompleteAfterExec: true,
-			expectedPhase:           v1alpha2.VMSOPPhaseCompleted,
-		}),
-		Entry("VMSOP should complete after execute with failure", vmsopLifecycleArgs{
-			shouldCompleteAfterExec: true,
-			completeMessage:         "failure",
-			executeErr:              fmt.Errorf(""),
-			expectedPhase:           v1alpha2.VMSOPPhaseFailed,
-			shouldFail:              false,
 		}),
 	)
 })

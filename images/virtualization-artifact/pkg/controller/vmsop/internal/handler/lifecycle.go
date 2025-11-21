@@ -79,7 +79,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 	}
 
 	if vms.Status.Phase != v1alpha2.VirtualMachineSnapshotPhaseReady {
-		h.recorder.Event(vmsop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMSOPFailed, "virtual machine snapshot is not ready")
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, "virtual machine snapshot is not ready")
 		return reconcile.Result{}, nil
 	}
 
@@ -117,7 +117,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 		h.setCompletedCondition(cb, vmsop, vmsopcondition.ReasonOperationCompleted, msg)
 	}
 
-	return reconcile.Result{}, err
+	return reconcile.Result{}, nil
 }
 
 func (h LifecycleHandler) Name() string {

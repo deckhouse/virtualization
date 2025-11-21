@@ -23,12 +23,6 @@ var _ CreateOpeartioner = &CreateOpeartionerMock{}
 //			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 //				panic("mock out the Execute method")
 //			},
-//			IsFinishedFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-//				panic("mock out the IsFinished method")
-//			},
-//			IsInProgressFunc: func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
-//				panic("mock out the IsInProgress method")
-//			},
 //		}
 //
 //		// use mockedCreateOpeartioner in code that requires CreateOpeartioner
@@ -38,12 +32,6 @@ var _ CreateOpeartioner = &CreateOpeartionerMock{}
 type CreateOpeartionerMock struct {
 	// ExecuteFunc mocks the Execute method.
 	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error
-
-	// IsFinishedFunc mocks the IsFinished method.
-	IsFinishedFunc func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string)
-
-	// IsInProgressFunc mocks the IsInProgress method.
-	IsInProgressFunc func(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -58,20 +46,8 @@ type CreateOpeartionerMock struct {
 			// Secret is the secret argument value.
 			Secret *corev1.Secret
 		}
-		// IsFinished holds details about calls to the IsFinished method.
-		IsFinished []struct {
-			// VirtualMachineSnapshotOperation is the virtualMachineSnapshotOperation argument value.
-			VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-		}
-		// IsInProgress holds details about calls to the IsInProgress method.
-		IsInProgress []struct {
-			// VirtualMachineSnapshotOperation is the virtualMachineSnapshotOperation argument value.
-			VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-		}
 	}
-	lockExecute      sync.RWMutex
-	lockIsFinished   sync.RWMutex
-	lockIsInProgress sync.RWMutex
+	lockExecute sync.RWMutex
 }
 
 // Execute calls ExecuteFunc.
@@ -115,69 +91,5 @@ func (mock *CreateOpeartionerMock) ExecuteCalls() []struct {
 	mock.lockExecute.RLock()
 	calls = mock.calls.Execute
 	mock.lockExecute.RUnlock()
-	return calls
-}
-
-// IsFinished calls IsFinishedFunc.
-func (mock *CreateOpeartionerMock) IsFinished(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) (bool, string) {
-	if mock.IsFinishedFunc == nil {
-		panic("CreateOpeartionerMock.IsFinishedFunc: method is nil but CreateOpeartioner.IsFinished was just called")
-	}
-	callInfo := struct {
-		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-	}{
-		VirtualMachineSnapshotOperation: virtualMachineSnapshotOperation,
-	}
-	mock.lockIsFinished.Lock()
-	mock.calls.IsFinished = append(mock.calls.IsFinished, callInfo)
-	mock.lockIsFinished.Unlock()
-	return mock.IsFinishedFunc(virtualMachineSnapshotOperation)
-}
-
-// IsFinishedCalls gets all the calls that were made to IsFinished.
-// Check the length with:
-//
-//	len(mockedCreateOpeartioner.IsFinishedCalls())
-func (mock *CreateOpeartionerMock) IsFinishedCalls() []struct {
-	VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-} {
-	var calls []struct {
-		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-	}
-	mock.lockIsFinished.RLock()
-	calls = mock.calls.IsFinished
-	mock.lockIsFinished.RUnlock()
-	return calls
-}
-
-// IsInProgress calls IsInProgressFunc.
-func (mock *CreateOpeartionerMock) IsInProgress(virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation) bool {
-	if mock.IsInProgressFunc == nil {
-		panic("CreateOpeartionerMock.IsInProgressFunc: method is nil but CreateOpeartioner.IsInProgress was just called")
-	}
-	callInfo := struct {
-		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-	}{
-		VirtualMachineSnapshotOperation: virtualMachineSnapshotOperation,
-	}
-	mock.lockIsInProgress.Lock()
-	mock.calls.IsInProgress = append(mock.calls.IsInProgress, callInfo)
-	mock.lockIsInProgress.Unlock()
-	return mock.IsInProgressFunc(virtualMachineSnapshotOperation)
-}
-
-// IsInProgressCalls gets all the calls that were made to IsInProgress.
-// Check the length with:
-//
-//	len(mockedCreateOpeartioner.IsInProgressCalls())
-func (mock *CreateOpeartionerMock) IsInProgressCalls() []struct {
-	VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-} {
-	var calls []struct {
-		VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
-	}
-	mock.lockIsInProgress.RLock()
-	calls = mock.calls.IsInProgress
-	mock.lockIsInProgress.RUnlock()
 	return calls
 }
