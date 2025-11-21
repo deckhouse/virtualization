@@ -54,7 +54,6 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
 		watcher.NewVMSOPWatcher(),
-		watcher.NewVDWatcher(),
 	} {
 		if err := w.Watch(mgr, ctr); err != nil {
 			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)

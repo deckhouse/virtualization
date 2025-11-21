@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -133,33 +132,6 @@ func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alp
 	if err != nil {
 		cb.Status(metav1.ConditionFalse).Reason(vmsopcondition.ReasonCreateVirtualMachineOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, err
-	}
-
-	for _, status := range vmsop.Status.Resources {
-		if status.Kind != v1alpha2.VirtualDiskKind {
-			continue
-		}
-
-		var vd v1alpha2.VirtualDisk
-		vdKey := types.NamespacedName{Namespace: vmsop.Namespace, Name: status.Name}
-		err := o.client.Get(ctx, vdKey, &vd)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to get the `VirtualDisk`: %w", err)
-		}
-
-		if vd.Annotations[annotations.AnnVMOPRestore] != string(vmsop.UID) {
-			return reconcile.Result{}, nil
-		}
-
-		if vd.Status.Phase == v1alpha2.DiskFailed {
-			err = fmt.Errorf("virtual disk %q is in failed phase", vdKey.Name)
-			cb.Status(metav1.ConditionFalse).Reason(vmsopcondition.ReasonCreateVirtualMachineOperationFailed).Message(service.CapitalizeFirstLetter(err.Error()))
-			return reconcile.Result{}, err
-		}
-
-		if vd.Status.Phase != v1alpha2.DiskReady && vd.Status.Phase != v1alpha2.DiskWaitForFirstConsumer {
-			return reconcile.Result{}, nil
-		}
 	}
 
 	cb.Status(metav1.ConditionTrue).Reason(vmsopcondition.ReasonCreateVirtualMachineOperationCompleted).Message("The virtual machine has been cloned successfully.")
