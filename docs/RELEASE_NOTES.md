@@ -3,6 +3,16 @@ title: "Release Notes"
 weight: 70
 ---
 
+# v1.1.3
+
+## Security
+
+- [module] Fixed CVE-2025-64324, CVE-2025-64435, CVE-2025-64436, CVE-2025-58183, CVE-2025-58186, CVE-2025-58187, CVE-2025-58188, CVE-2025-52565, CVE-2025-52881, CVE-2025-31133.
+
+## Other
+
+- [observability] The virtual machine overview dashboards (`Namespace / Virtual Machine` and `Namespace / Virtual Machines`) have been improved: in addition to the cluster level, they are now also available at the project level.
+
 # v1.1.2
 
 ## Fixes
@@ -15,7 +25,7 @@ weight: 70
 
 ## Fixes
 
-[core] Fixed an issue in the containerd v2 where storage providing a PVC with the FileSystem type was incorrectly attached via `VirtualMachineBlockDeviceAttachment`.
+- [core] Fixed an issue in the containerd v2 where storage providing a PVC with the FileSystem type was incorrectly attached via `VirtualMachineBlockDeviceAttachment`.
 - [core] Added error reporting in the status of disks and images when the data source (URL) is unavailable.
 - [vi] When creating virtual images from virtual disk snapshots, the `spec.persistentVolumeClaim.storageClassName` parameter is now respected. Previously, it could be ignored.
 - [vm] Fixed the `NetworkReady` condition output: it no longer shows the `Unknown` state and appears only when needed.
