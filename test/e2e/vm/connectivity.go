@@ -41,11 +41,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const (
-	curlPodName       = "curl-helper"
-	nginxActiveStatus = "active"
-)
-
 var _ = Describe("VirtualMachineConnectivity", func() {
 	var (
 		f *framework.Framework
@@ -70,26 +65,7 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VMb), framework.MiddleTimeout)
 			util.UntilObjectPhase(string(corev1.PodRunning), framework.ShortTimeout, t.CurlPod)
 
-			// Check that cloud-init generated index.html file contains hostname of the VM for checking that cloud-init is completed
-			Eventually(func(g Gomega) {
-				cmd := "cat /var/www/html/index.html"
-				cmdOutA, err := f.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(cmdOutA).To(ContainSubstring(t.VMa.Name))
-				cmdOutB, err := f.SSHCommand(t.VMb.Name, t.VMb.Namespace, cmd)
-				g.Expect(err).NotTo(HaveOccurred())
-				g.Expect(cmdOutB).To(ContainSubstring(t.VMb.Name))
-			}).WithTimeout(framework.LongTimeout).WithPolling(5 * time.Second).Should(Succeed())
-		})
-
-		By("Check ssh connection to VMs", func() {
-			cmd := "hostname"
-			cmdOutA, err := f.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(cmdOutA)).To(Equal(t.VMa.Name))
-			cmdOutB, err := f.SSHCommand(t.VMb.Name, t.VMb.Namespace, cmd)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(cmdOutB)).To(Equal(t.VMb.Name))
+			t.CheckCloudInitCompleted(framework.LongTimeout)
 		})
 
 		By("Check Cilium agents are properly configured for the VMs", func() {
@@ -100,19 +76,21 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 		})
 
 		By("Check VMs can reach external network", func() {
-			util.CheckExternalConnectivity(f, t.VMa.Name, externalHost, httpStatusOk)
-			util.CheckExternalConnectivity(f, t.VMb.Name, externalHost, httpStatusOk)
+			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HttpStatusOk)
+			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalHost, network.HttpStatusOk)
 		})
 
 		By("Check nginx status on VMs", func() {
 			cmd := "systemctl is-active nginx.service"
 			expectedOut := "active"
-			cmdOutA, err := f.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
+
+			cmdStdOutA, err := f.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(cmdOutA)).To(Equal(expectedOut))
-			cmdOutB, err := f.SSHCommand(t.VMb.Name, t.VMb.Namespace, cmd)
+			Expect(strings.TrimSpace(cmdStdOutA)).To(Equal(expectedOut))
+
+			cmdStdOutB, err := f.SSHCommand(t.VMb.Name, t.VMb.Namespace, cmd)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(strings.TrimSpace(cmdOutB)).To(Equal(expectedOut))
+			Expect(strings.TrimSpace(cmdStdOutB)).To(Equal(expectedOut))
 		})
 
 		By("Check response from service on VMs", func() {
@@ -268,7 +246,7 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 
 	t.CurlPod = &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      curlPodName,
+			Name:      "curl-helper",
 			Namespace: t.Framework.Namespace().Name,
 		},
 		Spec: corev1.PodSpec{
@@ -282,6 +260,20 @@ func (t *VMConnectivityTest) GenerateEnvironmentResources() {
 			},
 		},
 	}
+}
+
+func (t *VMConnectivityTest) CheckCloudInitCompleted(timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		cmd := "cat /var/www/html/index.html"
+		cmdStdOutA, err := t.Framework.SSHCommand(t.VMa.Name, t.VMa.Namespace, cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(cmdStdOutA).To(ContainSubstring(t.VMa.Name))
+		cmdStdOutB, err := t.Framework.SSHCommand(t.VMb.Name, t.VMb.Namespace, cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(cmdStdOutB).To(ContainSubstring(t.VMb.Name))
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
 func (t *VMConnectivityTest) GetResponseViaPodWithCurl(podName, namespace string, service *corev1.Service) *executor.CMDResult {
