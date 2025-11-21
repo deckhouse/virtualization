@@ -18,7 +18,6 @@ package operation
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,10 +37,6 @@ type CreateVirtualMachineOperation struct {
 }
 
 func (o CreateVirtualMachineOperation) Execute(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation, vms *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
-	if vmsop.Spec.CreateVirtualMachine == nil {
-		return fmt.Errorf("clone specification is mandatory to start creating virtual machine")
-	}
-
 	snapshotResources := restorer.NewSnapshotResources(o.client, v1alpha2.VMOPTypeClone, vmsop.Spec.CreateVirtualMachine.Mode, secret, vms, string(vmsop.UID))
 
 	err := snapshotResources.Prepare(ctx)

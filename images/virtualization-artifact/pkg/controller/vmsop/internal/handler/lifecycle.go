@@ -63,6 +63,11 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
+	if vmsop.Spec.CreateVirtualMachine == nil {
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonOperationFailed, "clone specification is mandatory to start creating virtual machine")
+		return reconcile.Result{}, nil
+	}
+
 	vmsop.Status.Phase = v1alpha2.VMSOPPhasePending
 	h.recorder.Event(vmsop, corev1.EventTypeNormal, v1alpha2.ReasonVMSOPStarted, "VirtualMachineSnapshotOperation started")
 	conditions.SetCondition(cb.Reason(conditions.ReasonUnknown).Status(metav1.ConditionUnknown).Message(""), &vmsop.Status.Conditions)
