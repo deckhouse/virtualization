@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -32,42 +33,40 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-type VirtualMachineWatcher struct {
+type KVVMIWatcher struct {
 	client client.Client
 }
 
-func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
-	return &VirtualMachineWatcher{
+func NewKVVMIWatcher(client client.Client) *KVVMIWatcher {
+	return &KVVMIWatcher{
 		client: client,
 	}
 }
 
-func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+func (w KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
-			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
-				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool { return false },
+			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
 				UpdateFunc: w.filterUpdateEvents,
 			},
 		),
 	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+		return fmt.Errorf("error setting watch on KVVMI: %w", err)
 	}
 	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2.VirtualMachine) (requests []reconcile.Request) {
+func (w KVVMIWatcher) enqueueRequests(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (requests []reconcile.Request) {
 	var vmSnapshots v1alpha2.VirtualMachineSnapshotList
 	err := w.client.List(ctx, &vmSnapshots, &client.ListOptions{
-		Namespace:     vm.GetNamespace(),
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMSnapshotByVM, vm.GetName()),
+		Namespace:     kvvmi.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMSnapshotByVM, kvvmi.GetName()),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual machine snapshots: %s", err))
@@ -75,7 +74,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.GetName() {
+		if vmSnapshot.Spec.VirtualMachineName == kvvmi.GetName() {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      vmSnapshot.Name,
@@ -88,16 +87,20 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *v1alpha2
 	return
 }
 
-func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
-	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, e.ObjectOld.Status.Conditions)
-	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, e.ObjectNew.Status.Conditions)
+func (w KVVMIWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
+	oldFSFrozen := e.ObjectOld.Status.FSFreezeStatus
+	newFSFrozen := e.ObjectNew.Status.FSFreezeStatus
 
-	if oldAgentReady != newAgentReady {
+	if oldFSFrozen != newFSFrozen {
 		return true
 	}
 
-	oldSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectOld.Status.Conditions)
-	newSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectNew.Status.Conditions)
+	oldRequest, oldOk := e.ObjectOld.Annotations[annotations.AnnVMFilesystemRequest]
+	newRequest, newOk := e.ObjectNew.Annotations[annotations.AnnVMFilesystemRequest]
 
-	return oldSnapshotting.Status != newSnapshotting.Status
+	if oldOk && newOk {
+		return oldRequest != newRequest
+	}
+
+	return oldOk != newOk
 }
