@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	HttpStatusOk = "200"
+	HTTPStatusOk = "200"
 	ExternalHost = "https://flant.ru"
 )
 

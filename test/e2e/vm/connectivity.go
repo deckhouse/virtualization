@@ -76,8 +76,8 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 		})
 
 		By("Check VMs can reach external network", func() {
-			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HttpStatusOk)
-			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalHost, network.HttpStatusOk)
+			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, t.VMb.Name, network.ExternalHost, network.HTTPStatusOk)
 		})
 
 		By("Check nginx status on VMs", func() {

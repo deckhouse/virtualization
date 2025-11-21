@@ -136,8 +136,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Check VM can reach external network", func() {
-			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HttpStatusOk)
-			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalHost, network.HttpStatusOk)
+			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalHost, network.HTTPStatusOk)
 		})
 	})
 })
