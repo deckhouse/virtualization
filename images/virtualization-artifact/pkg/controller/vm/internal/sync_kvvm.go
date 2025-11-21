@@ -563,11 +563,11 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	if currentKvvm.ObjectMeta.Annotations == nil {
+	if currentKvvm.Annotations == nil {
 		return true, nil // need to add LastAppliedSpec annotation
 	}
 
-	currentLastAppliedSpecAnnotation, ok := currentKvvm.ObjectMeta.Annotations[annotations.AnnVMLastAppliedSpec]
+	currentLastAppliedSpecAnnotation, ok := currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec]
 	if !ok {
 		return true, nil // need to add this annotation if not exists
 	}
@@ -577,7 +577,7 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	newLastAppliedSpecAnnotation := newKvvm.ObjectMeta.Annotations[annotations.AnnVMLastAppliedSpec] // must exist
+	newLastAppliedSpecAnnotation := newKvvm.Annotations[annotations.AnnVMLastAppliedSpec] // must exist
 
 	annoChanged := currentLastAppliedSpecAnnotation != newLastAppliedSpecAnnotation
 	specChanged := !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec)
