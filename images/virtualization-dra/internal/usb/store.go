@@ -19,6 +19,7 @@ package usb
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"strings"
 	"sync"
@@ -271,9 +272,9 @@ func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceap
 			Env: []string{
 				fmt.Sprintf("DRA_USB_CLAIM_UID_%s=%s", claimUIDUpper, claimUID),
 				fmt.Sprintf("DRA_USB_DEVICE_NAME_%s=%s", deviceNameUpper, device.Name),
-				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE=%s", claimUIDUpper, device.Name),
-				fmt.Sprintf("DRA_USB_DEVICE_PATH_%s=%s", deviceNameUpper, devicePath), // dra env
-				fmt.Sprintf("USB_RESOURCE_%s=%s:%s", deviceNameUpper, bus, deviceNum), // kubevirt env
+				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE_NAME=%s", claimUIDUpper, device.Name),
+				fmt.Sprintf("DRA_USB_%s_DEVICE_PATH=%s", deviceNameUpper, devicePath),
+				fmt.Sprintf("DRA_USB_%s_BUS_DEVICENUMBER=%s:%s", deviceNameUpper, bus, deviceNum),
 			},
 			DeviceNodes: []*cdispec.DeviceNode{
 				{
@@ -282,6 +283,7 @@ func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceap
 					Type:        "c",
 					Major:       major,
 					Minor:       minor,
+					FileMode:    ptr.To(fs.ModeCharDevice),
 					Permissions: "mrw",
 					UID:         ptr.To(uint32(107)), // qemu user. TODO: make this configurable
 					GID:         ptr.To(uint32(107)), // qemu group. TODO: make this configurable
@@ -352,11 +354,11 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 		key := parts[0]
 		value := parts[1]
 
-		if !strings.HasPrefix(key, "DRA_USB_CLAIM_UID_") || !strings.HasSuffix(key, "_DEVICE") {
+		if !strings.HasPrefix(key, "DRA_USB_CLAIM_UID_") || !strings.HasSuffix(key, "_DEVICE_NAME") {
 			continue
 		}
 		uid := strings.TrimPrefix(key, "DRA_USB_CLAIM_UID_")
-		uid = strings.TrimSuffix(uid, "_DEVICE")
+		uid = strings.TrimSuffix(uid, "_DEVICE_NAME")
 		uid = strings.ToLower(uid)
 		claimUID := types.UID(uid)
 
