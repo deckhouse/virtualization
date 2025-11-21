@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
@@ -302,8 +303,7 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
-		// if the class name has changed, this change must be reflected in the vm.last-applied-spec annotation
-		if hasKVVMChanges || h.isVirtualMachineClassNameChanged(allChanges) {
+		if hasKVVMChanges {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
@@ -563,12 +563,26 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
+	if currentKvvm.ObjectMeta.Annotations == nil {
+		return true, nil // need to add LastAppliedSpec annotation
+	}
+
+	currentLastAppliedSpecAnnotation, ok := currentKvvm.ObjectMeta.Annotations[annotations.AnnVMLastAppliedSpec]
+	if !ok {
+		return true, nil // need to add this annotation if not exists
+	}
+
 	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
 		return false, err
 	}
 
-	return !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
+	newLastAppliedSpecAnnotation := currentKvvm.ObjectMeta.Annotations[annotations.AnnVMLastAppliedSpec] // must exist
+
+	annoChanged := !equality.Semantic.DeepEqual(currentLastAppliedSpecAnnotation, newLastAppliedSpecAnnotation)
+	specChanged := !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec)
+
+	return annoChanged || specChanged, nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.
@@ -698,17 +712,6 @@ func (h *SyncKvvmHandler) isPlacementPolicyChanged(allChanges vmchange.SpecChang
 			if !equality.Semantic.DeepEqual(c.CurrentValue, c.DesiredValue) {
 				return true
 			}
-		}
-	}
-
-	return false
-}
-
-// isVirtualMachineClassNameChanged returns true if VirtualMachine class name has changed.
-func (h *SyncKvvmHandler) isVirtualMachineClassNameChanged(allChanges vmchange.SpecChanges) bool {
-	for _, c := range allChanges.GetAll() {
-		if c.Path == "virtualMachineClassName" {
-			return true
 		}
 	}
 
