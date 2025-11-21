@@ -25,9 +25,6 @@ func (t Type) String() string {
 const (
 	// TypeCompleted is a type for condition that indicates operation is complete.
 	TypeCompleted Type = "Completed"
-
-	// TypeCreateVirtualMachineCompleted is a type for condition that indicates success of clone.
-	TypeCreateVirtualMachineCompleted Type = "CreateVirtualMachineCompleted"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -55,22 +52,4 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
-)
-
-// ReasonCreateVirtualMachineCompleted represents specific reasons for the 'CreateVirtualMachineCompleted' condition type.
-type ReasonCreateVirtualMachineCompleted string
-
-func (r ReasonCreateVirtualMachineCompleted) String() string {
-	return string(r)
-}
-
-const (
-	// ReasonCreateVirtualMachineOperationInProgress is a ReasonCreateVirtualMachineCompleted indicating that the clone operation is in progress.
-	ReasonCreateVirtualMachineOperationInProgress ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineInProgress"
-
-	// ReasonCreateVirtualMachineOperationCompleted is a ReasonCreateVirtualMachineCompleted indicating that the clone operation has completed successfully.
-	ReasonCreateVirtualMachineOperationCompleted ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineCompleted"
-
-	// ReasonCreateVirtualMachineOperationFailed is a ReasonCreateVirtualMachineCompleted indicating that clone operation has failed.
-	ReasonCreateVirtualMachineOperationFailed ReasonCreateVirtualMachineCompleted = "CreateVirtualMachineFailed"
 )
