@@ -54,7 +54,7 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 		t = NewVMConnectivityTest(f)
 	})
 
-	It("verifies that virtual machines are connected to each other", func() {
+	It("checks VM network connectivity", func() {
 		By("Environment preparation", func() {
 			t.GenerateEnvironmentResources()
 			err := f.CreateWithDeferredDeletion(context.Background(), t.VDa, t.VDb, t.VMa, t.VMb, t.ServiceA, t.ServiceB, t.CurlPod)
