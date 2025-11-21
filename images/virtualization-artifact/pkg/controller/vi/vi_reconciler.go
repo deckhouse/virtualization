@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
+	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -30,6 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
@@ -46,14 +51,18 @@ type Handler interface {
 }
 
 type Reconciler struct {
-	handlers []Handler
-	client   client.Client
+	handlers             []Handler
+	client               client.Client
+	imageMonitorSchedule string
+	log                  *log.Logger
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, imageMonitorSchedule string, log *log.Logger, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		client:               client,
+		imageMonitorSchedule: imageMonitorSchedule,
+		log:                  log,
+		handlers:             handlers,
 	}
 }
 
@@ -121,6 +130,31 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		err := w.Watch(mgr, ctr)
 		if err != nil {
 			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
+	}
+
+	if r.imageMonitorSchedule != "" {
+		lister := gc.NewObjectLister(func(ctx context.Context, now time.Time) ([]client.Object, error) {
+			viList := &v1alpha2.VirtualImageList{}
+			fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldVIByPhaseAndStorage, indexer.ReadyDVCRImage)
+			if err := mgr.GetClient().List(ctx, viList, &client.ListOptions{FieldSelector: fieldSelector}); err != nil {
+				return nil, err
+			}
+
+			objs := make([]client.Object, 0, len(viList.Items))
+			for i := range viList.Items {
+				objs = append(objs, &viList.Items[i])
+			}
+			return objs, nil
+		})
+
+		cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, lister, r.log)
+		if err != nil {
+			return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
+		}
+
+		if err := ctr.Watch(cronSource); err != nil {
+			return fmt.Errorf("failed to setup periodic image check: %w", err)
 		}
 	}
 

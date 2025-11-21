@@ -69,10 +69,10 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 		if ready.Status == metav1.ConditionTrue {
 			log.Debug("PVC is lost", ".status.target.pvc", vi.Status.Target.PersistentVolumeClaim)
 
-			vi.Status.Phase = v1alpha2.ImageLost
+			vi.Status.Phase = v1alpha2.ImagePVCLost
 			s.cb.
 				Status(metav1.ConditionFalse).
-				Reason(vicondition.Lost).
+				Reason(vicondition.PVCLost).
 				Message(fmt.Sprintf("PersistentVolumeClaim %q not found.", vi.Status.Target.PersistentVolumeClaim))
 			return &reconcile.Result{}, nil
 		}
@@ -86,10 +86,10 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *v1alpha2.V
 	case corev1.ClaimLost:
 		log.Warn("Image is Lost: underlying PVC is Lost")
 
-		vi.Status.Phase = v1alpha2.ImageLost
+		vi.Status.Phase = v1alpha2.ImagePVCLost
 		s.cb.
 			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Lost).
+			Reason(vicondition.PVCLost).
 			Message(fmt.Sprintf("PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
 
 		return &reconcile.Result{}, nil
