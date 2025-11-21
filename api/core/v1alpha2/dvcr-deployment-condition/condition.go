@@ -34,10 +34,10 @@ func (s GarbageCollectionReason) String() string {
 
 const (
 	// InProgress indicates that the garbage collection is in progress. (status "True")
-	InProgress GarbageCollectionReason = "GarbageCollectionInProgress"
+	InProgress GarbageCollectionReason = "InProgress"
 
-	// Done indicates that the garbage collection is done and result is in the message. (status "False")
-	Done GarbageCollectionReason = "Done"
+	// Completed indicates that the garbage collection is done and result is in the message. (status "False")
+	Completed GarbageCollectionReason = "Completed"
 
 	// Error indicates that the garbage collection was unsuccessful and error is in the message. (status "False")
 	Error GarbageCollectionReason = "Error"

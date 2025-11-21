@@ -29,7 +29,7 @@ import (
 func NewGarbageCollectionCondition(reason dvcrdeploymentcondition.GarbageCollectionReason, msgf string, args ...any) appsv1.DeploymentCondition {
 	status := "Unknown"
 	switch reason {
-	case dvcrdeploymentcondition.Done,
+	case dvcrdeploymentcondition.Completed,
 		dvcrdeploymentcondition.Error:
 		status = "False"
 	case dvcrdeploymentcondition.InProgress:

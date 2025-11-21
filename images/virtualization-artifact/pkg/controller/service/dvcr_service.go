@@ -173,11 +173,11 @@ func (d *DVCRService) ParseGarbageCollectionResult(secret *corev1.Secret) (reaso
 
 	switch gcResult.Result {
 	case "success":
-		return dvcrdeploymentcondition.Done, gcResult.Message, nil
+		return dvcrdeploymentcondition.Completed, gcResult.Message, nil
 	case "fail":
 		return dvcrdeploymentcondition.Error, gcResult.Error, nil
 	}
 
 	// Unexpected format. It should not happen, but we need to show something if it happens.
-	return dvcrdeploymentcondition.Done, string(secret.Data["result"]), nil
+	return dvcrdeploymentcondition.Completed, string(secret.Data["result"]), nil
 }
