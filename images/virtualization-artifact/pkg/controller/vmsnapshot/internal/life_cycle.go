@@ -599,14 +599,8 @@ func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *v1alpha2.Virtual
 	var secret *corev1.Secret
 	var err error
 
-	if vmSnapshot.Status.VirtualMachineSnapshotSecretName != "" {
-		secret, err = h.snapshotter.GetSecret(ctx, vmSnapshot.Status.VirtualMachineSnapshotSecretName, vmSnapshot.Namespace)
-		if err != nil {
-			return err
-		}
-	}
-
-	if secret == nil {
+	secret, err = h.storer.Get(ctx, vmSnapshot)
+	if err != nil {
 		secret, err = h.storer.Store(ctx, vm, vmSnapshot)
 		if err != nil {
 			return err

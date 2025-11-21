@@ -144,6 +144,15 @@ var _ = Describe("LifeCycle handler", func() {
 			},
 		}
 
+		storer = &StorerMock{
+			GetFunc: func(_ context.Context, _ *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
+				return secret, nil
+			},
+			StoreFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine, _ *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
+				return secret, nil
+			},
+		}
+
 		var err error
 		fakeClient, err = testutil.NewFakeClientWithObjects(vd, vm, secret, vmSnapshot, vdSnapshot)
 		Expect(err).NotTo(HaveOccurred())

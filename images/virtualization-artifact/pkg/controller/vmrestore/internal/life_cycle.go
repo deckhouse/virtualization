@@ -125,8 +125,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 		return reconcile.Result{}, err
 	}
 
-	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
-	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, h.client, &corev1.Secret{})
+	restorerSecret, err := h.restorer.Get(ctx, vmSnapshot)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 		return reconcile.Result{}, err

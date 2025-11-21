@@ -24,11 +24,13 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/snapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -43,6 +45,36 @@ func NewSecretRestorer(client client.Client) *SecretRestorer {
 	}
 }
 
+func (r SecretRestorer) Get(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
+	newSecretName := snapshot.GetVMSnapshotSecretName(vmSnapshot.Name, vmSnapshot.UID)
+	secret := &corev1.Secret{}
+	err := r.client.Get(ctx, types.NamespacedName{
+		Name:      newSecretName,
+		Namespace: vmSnapshot.Namespace,
+	}, secret)
+	if err == nil {
+		return secret, nil
+	}
+
+	if !k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get secret with new name %s: %w", newSecretName, err)
+	}
+
+	legacySecretName := snapshot.GetLegacyVMSnapshotSecretName(vmSnapshot.Name)
+	err = r.client.Get(ctx, types.NamespacedName{
+		Name:      legacySecretName,
+		Namespace: vmSnapshot.Namespace,
+	}, secret)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, fmt.Errorf("snapshot secret not found (tried %s and %s)", newSecretName, legacySecretName)
+		}
+		return nil, fmt.Errorf("failed to get secret with legacy name %s: %w", legacySecretName, err)
+	}
+
+	return secret, nil
+}
+
 func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 	secret := corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
@@ -50,7 +82,7 @@ func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, 
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmSnapshot.Name,
+			Name:      snapshot.GetVMSnapshotSecretName(vmSnapshot.Name, vmSnapshot.UID),
 			Namespace: vmSnapshot.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vmSnapshot),

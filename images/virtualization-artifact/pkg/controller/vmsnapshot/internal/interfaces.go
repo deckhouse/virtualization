@@ -27,6 +27,7 @@ import (
 //go:generate go tool moq -rm -out mock.go . Storer Snapshotter
 
 type Storer interface {
+	Get(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 	Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 }
 

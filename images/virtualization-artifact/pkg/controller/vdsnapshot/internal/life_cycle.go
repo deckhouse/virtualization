@@ -24,11 +24,13 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/snapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -65,7 +67,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		conditions.SetCondition(cb, &vdSnapshot.Status.Conditions)
 	}()
 
-	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
+	vs, err := h.getVolumeSnapshotWithFallback(ctx, vdSnapshot)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
@@ -260,7 +262,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: anno,
-				Name:        vdSnapshot.Name,
+				Name:        snapshot.GetVDSnapshotVolumeSnapshotName(vdSnapshot.Name, vdSnapshot.UID),
 				Namespace:   vdSnapshot.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					service.MakeOwnerReference(vdSnapshot),
@@ -411,3 +413,24 @@ func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnap
 
 	return nil
 }
+
+func (h LifeCycleHandler) getVolumeSnapshotWithFallback(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
+	newVSName := snapshot.GetVDSnapshotVolumeSnapshotName(vdSnapshot.Name, vdSnapshot.UID)
+	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, newVSName, vdSnapshot.Namespace)
+	if err == nil {
+		return vs, nil
+	}
+
+	if !k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get volume snapshot with new name %s: %w", newVSName, err)
+	}
+
+	legacyVSName := snapshot.GetLegacyVDSnapshotVolumeSnapshotName(vdSnapshot.Name)
+	vs, err = h.snapshotter.GetVolumeSnapshot(ctx, legacyVSName, vdSnapshot.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	return vs, nil
+}
+
