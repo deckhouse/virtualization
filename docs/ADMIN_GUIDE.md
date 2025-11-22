@@ -62,6 +62,18 @@ The `.spec.settings.dvcr.storage` block configures a persistent volume for stori
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
 
 {{< alert level="warning" >}}
+Migrating images when changing the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter is not supported.
+
+All images stored in DVCR when changing StorageClass will be lost.
+
+To change the DVCR StorageClass, perform the following steps:
+
+- Change the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter
+- Delete the old PVC for DVCR: `d8 k -n d8-virtualization delete pvc -l app=dvcr`
+- Restart DVCR: `d8 k -n d8-virtualization rollout restart deployment dvcr`
+{{< /alert >}}
+
+{{< alert level="warning" >}}
 The storage serving this storage class (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`) must be accessible on the nodes where DVCR is running (system nodes, or worker nodes if there are no system nodes).
 {{< /alert >}}
 
@@ -82,7 +94,7 @@ spec:
 
 The first and the last subnet address are reserved and not available for use.
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
 
 It is forbidden to delete subnets if addresses from them have already been issued to virtual machines.
@@ -134,18 +146,18 @@ Where:
 
 **Security Event Audit**
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 Not available in CE edition.
-{{{< /alert >}}
+{{< /alert >}}
 
-{{{< alert level="warning">}}
+{{< alert level="warning" >}}
 To set up auditing, the following modules must be enabled:
 
 - `log-shipper`,
 - `runtime-audit-engine`.
-{{{< /alert >}}
+{{< /alert >}}
 
-To enable security event auditing, set the module’s `.spec.settings.audit.enabled` parameter to` true`:
+To enable security event auditing, set the module’s `.spec.settings.audit.enabled` parameter to `true`:
 
 ```yaml
 spec:
@@ -422,7 +434,13 @@ How to perform the operation in the web interface:
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
 During installation, a single VirtualMachineClass `generic` resource is automatically created. It represents a universal CPU type based on the older, but widely supported, Nehalem architecture. This enables running VMs on any nodes in the cluster and allows live migration.
+
+The administrator can modify the parameters of the `generic` VirtualMachineClass resource (except for the `.spec.cpu` section) or delete this resource.
+
 {{< alert level="info" >}}
+
+It is not recommended to use the VirtualMachineClass `generic` for running workloads in production environments, since this class corresponds to a processor with the least functionality.
+
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
 
 For a configuration example, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example)
@@ -529,7 +547,7 @@ Next, let's take a closer look at the setting blocks.
 
 The `.spec.cpu` block allows you to specify or configure the vCPU for the VM.
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 Settings in the `.spec.cpu` block cannot be changed after the VirtualMachineClass resource is created.
 {{< /alert >}}
 
@@ -704,7 +722,7 @@ Invalid option (overlapping values):
     max: 8
 ```
 
-{{< alert level = "warning" >}}
+{{< alert level="warning" >}}
 Rule: Each new range must start with a value that immediately follows the max of the previous range.
 {{< /alert >}}
 
@@ -717,7 +735,7 @@ Additional requirements can be specified for each range of cores:
 
 2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage).
 
-{{< alert level = "warning" >}}
+{{< alert level="warning" >}}
 Important: For each range of cores, be sure to specify:
 
 - Either memory (or `memoryPerCore`),
@@ -974,7 +992,7 @@ Live migration of virtual machines between cluster nodes is used for rebalancing
 After the module is enabled, the system automatically monitors the distribution of virtual machines and maintains optimal node utilization. The main features of the module are:
 
 - Load balancing: The system monitors CPU reservation on each node. If more than 80% of CPU resources are reserved on a node, some virtual machines will be automatically migrated to less-loaded nodes. This helps avoid overloads and ensures stable VM operation.
-- Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
+- Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.ple, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
 
 ### ColdStandby
 

@@ -6,7 +6,7 @@ weight: 50
 
 ## Introduction
 
-This guide is intended for users of Deckhouse Virtualization Platform (DVP) and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
+This guide is intended for users of the Deckhouse virtualization module and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
 
 ## Quick start on creating a VM
 
@@ -234,7 +234,7 @@ When connected to a virtual machine, the image is accessed in read-only mode.
 The image creation process includes the following steps:
 
 - The user creates a `VirtualImage` resource.
-- After creation, the image is automatically loaded from the specified source into the storage (DVCR).
+- After creation, the image is automatically downloaded from the source specified in the specification to DVCR or PVC storage, depending on the type.
 - Once the download is complete, the resource becomes available for disk creation.
 
 There are different types of images:
@@ -244,6 +244,7 @@ There are different types of images:
 
 Examples of resources for obtaining virtual machine images:
 
+<a id="image-resources-table"></a>
 | Distribution                                                                      | Default user.             |
 | --------------------------------------------------------------------------------- | ------------------------- |
 | [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
@@ -605,7 +606,7 @@ EOF
 
 ## Disks
 
-Disks in virtual machines are necessary for writing and storing data, ensuring that applications and operating systems can fully function. DVP provides the storage for these disks.
+Disks in virtual machines are necessary for writing and storing data, ensuring that operating systems and applications can function. Various types of storage can be used for these purposes.
 
 Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
@@ -622,7 +623,7 @@ VolumeBindingMode property:
 AccessMode:
 
 - `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
+- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -649,7 +650,7 @@ nfs-4-1-wffc                         nfs.csi.k8s.io                        Delet
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-How to find out the available storage options in the DVP web interface:
+How to find out the available storage options in the web interface:
 
 - Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
@@ -682,6 +683,7 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `WaitForFirstConsumer` - the disk is waiting for the virtual machine that will use it to be created.
 - `WaitForUserUpload` - the disk is waiting for the user to upload an image (type: Upload).
 - `Ready` - the disk has been created and is ready for use.
+- `Migrating` - live migration of a disk
 - `Failed` - an error occurred during the creation process.
 - `PVCLost` - system error, PVC with data has been lost.
 - `Terminating` - the disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
@@ -810,6 +812,58 @@ How to create a disk from an image in the web interface (this step can be skippe
 - Click the "Create" button.
 - The disk status is displayed at the top left, under the disk name.
 
+### Upload a disk from the command line
+
+To upload a disk from the command line, first create the following resource as shown below with the `VirtualDisk` example:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: uploaded-disk
+spec:
+  dataSource:
+    type: Upload
+EOF
+```
+
+Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for disk upload.
+
+There are two options available for uploading from a cluster node and from an arbitrary node outside the cluster:
+
+```bash
+d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
+
+Example output:
+
+```json
+{
+  "external": "https://virtualization.example.com/upload/<secret-url>",
+  "inCluster": "http://10.222.165.239/upload"
+}
+```
+
+Upload the disk using the following command:
+
+```bash
+curl https://virtualization.example.com/upload/<secret-url> --progress-bar -T <image.name> | cat
+```
+
+After the upload is complete, the disk should be created and enter the `Ready` phase:
+
+```bash
+d8 k get vd uploaded-disk
+```
+
+Example output:
+
+```txt
+NAMESPACE   NAME                  PHASE   CAPACITY    AGE
+default     uploaded-disk         Ready   3Gi         7d23h
+```
+
 ### Change disk size
 
 You can increase the size of disks even if they are already attached to a running virtual machine. To do this, edit the `spec.persistentVolumeClaim.size` field:
@@ -831,6 +885,10 @@ Let's apply the changes:
 
 ```bash
 d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vd linux-vm-root
 ```
 
 Let's check the size after the change:
@@ -866,23 +924,30 @@ Method #2:
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
 
-### Changing the disk StorageClass
+### Migrating disks to other storage
 
-In the DVP commercial editions, it is possible to change the StorageClass for existing disks. Currently, this is only supported for running VMs (`Phase` should be `Running`).
+In commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its storage class (StorageClass).
 
 {{< alert level="warning">}}
-Storage class migration is only available for disks connected statically via `.spec.blockDeviceRefs`.
+Limitations of disk migration between storage:
 
-To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, they must be reattached statically by specifying disks names in `.spec.blockDeviceRefs`.
+- Migration is only available for virtual machines in the `Running` state.
+- Migration is only supported between disks of the same type: `Block` ↔ `Block`, `FileSystem` ↔ `FileSystem`; conversion between different types is not possible.
+- Migration is only supported for disks connected statically via the `.spec.blockDeviceRefs` parameter in the virtual machine specification.
+- If a disk was attached via the `VirtualMachineBlockDeviceAttachments` resource, it must be temporarily reattached directly for migration by specifying the disk name in `.spec.blockDeviceRefs`.
 {{< /alert >}}
 
-Example:
+Example of migrating a disk to the `new-storage-class-name` storage class:
 
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vd disk
 ```
 
-After the disk configuration is updated, a live migration of the VM is triggered, during which the disk is migrated to the new storage.
+After the disk configuration is updated, a live migration of the VM is triggered, during which the VM disk will be moved to the new storage.
 
 If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
 
@@ -1254,6 +1319,143 @@ status:
         coresPerSocket: 1
 ```
 
+### Initialization scripts
+
+Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
+
+The initial initialization scripts supported are:
+
+- [Cloud-Init](https://cloudinit.readthedocs.io).
+- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
+
+#### Cloud-Init
+
+Cloud-Init is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
+
+{{< alert level="warning" >}}
+Cloud-Init configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the official cloud-init documentation.
+{{< /alert >}}
+
+Main capabilities of Cloud-Init:
+
+- Creating users, setting passwords, adding SSH keys for access
+- Automatically installing necessary software on first boot
+- Running arbitrary commands and scripts for system configuration
+- Automatically starting and enabling system services (for example, [`qemu-guest-agent`](#guest-os-agent))
+
+##### Typical usage scenarios
+
+1. Adding an SSH key for a [pre-installed user](#image-resources-table) that may already be present in the cloud image (for example, the `ubuntu` user in official Ubuntu images). Note: the name of such a user depends on the image, so check the documentation for your distribution.
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+2. Creating a user with a password and SSH key:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$saltsalt$..."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
+
+3. Installing packages and services:
+
+   ```yaml
+   #cloud-config
+   package_update: true
+   packages:
+     - nginx
+     - qemu-guest-agent
+   run_cmd:
+     - systemctl daemon-reload
+     - systemctl enable --now nginx.service
+     - systemctl enable --now qemu-guest-agent.service
+   ```
+
+##### Using Cloud-Init
+
+The Cloud-Init script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
+
+```yaml
+spec:
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      package_update: true
+      ...
+```
+
+For longer scenarios and/or the presence of private data, the script for initial initialization of the virtual machine can be created in a Secret resource. An example of a Secret with a Cloud-Init script is shown below:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-init-example
+data:
+  userData: <base64 data>
+type: provisioning.virtualization.deckhouse.io/cloud-init
+```
+
+A fragment of the virtual machine configuration when using the Cloud-Init initialization script stored in a Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init-example
+```
+
+{{< alert level="info" >}}
+The value of the `.data.userData` field must be Base64 encoded. To encode, you can use the command `base64 -w 0` or `echo -n "content" | base64`.
+{{< /alert >}}
+
+#### Sysprep
+
+To configure virtual machines running Windows OS using Sysprep, only the Secret variant is supported.
+
+An example of a Secret with a Sysprep script is shown below:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-example
+data:
+  unattend.xml: <base64 data>
+type: provisioning.virtualization.deckhouse.io/sysprep
+```
+
+{{< alert level="info" >}}
+The value of the `.data.unattend.xml` field must be Base64 encoded. To encode, you can use the command `base64 -w 0` or `echo -n "content" | base64`.
+{{< /alert >}}
+
+A fragment of the virtual machine configuration using the Sysprep initialization script in a Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
+      name: sysprep-example
+```
+
 ### Guest OS agent
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
@@ -1320,43 +1522,6 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
   run_cmd:
     - systemctl enable --now qemu-guest-agent.service
 ```
-
-### User Configuration for Cloud Images
-
-When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
-
-Examples:
-
-1. Setting a password for an existing user (for example, `ubuntu` is often present in official cloud images):
-
-   In many cloud images, the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
-
-   In a cloud image, you can add a public SSH key for the default user using the `ssh_authorized_keys` parameter at the root level of cloud-init:
-
-   ```yaml
-   #cloud-config
-   ssh_authorized_keys:
-     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ```
-
-2. Creating a new user with a password and SSH key:
-
-   ```yaml
-   #cloud-config
-   users:
-     - name: cloud
-       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
-       lock_passwd: false
-       sudo: ALL=(ALL) NOPASSWD:ALL
-       shell: /bin/bash
-       ssh-authorized-keys:
-         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ssh_pwauth: True
-   ```
-
-{{< alert level="info" >}}
-The value of the `passwd` field is a hashed password (for example, you can generate it using `mkpasswd --method=SHA-512 --rounds=4096`).
-{{< /alert >}}
 
 ### Connecting to a virtual machine
 
@@ -1522,6 +1687,10 @@ Apply the following patch to the virtual machine to change the number of cores f
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vm linux-vm
 ```
 
 Example output:
@@ -1613,79 +1782,6 @@ How to perform the operation in the web interface:
 - Enable the "Auto-apply changes" switch.
 - Click on the "Save" button that appears.
 
-### Initialization scripts
-
-Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
-
-The initial initial initialization scripts supported are:
-
-- [CloudInit](https://cloudinit.readthedocs.io)
-- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
-
-The CloudInit script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
-
-```yaml
-spec:
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      package_update: true
-      ...
-```
-
-For longer scenarios and/or the presence of private data, the script for initial initial initialization of the virtual machine can be created in Secret. An example of Secret with a CloudInit script is shown below:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloud-init-example
-data:
-  userData: <base64 data>
-type: provisioning.virtualization.deckhouse.io/cloud-init
-```
-
-A fragment of the virtual machine configuration using the CloudInit initialization script stored in Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: UserDataRef
-    userDataRef:
-      kind: Secret
-      name: cloud-init-example
-```
-
-Note: The value of the `.data.userData` field must be Base64 encoded.
-
-To configure Windows virtual machines using Sysprep, only the Secret variant is supported.
-
-An example of Secret with Sysprep script is shown below:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-example
-data:
-  unattend.xml: <base64 data>
-type: provisioning.virtualization.deckhouse.io/sysprep
-```
-
-Note: The value of the `.data.unattend.xml` field must be Base64 encoded.
-
-fragment of virtual machine configuration using Sysprep initialization script in Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: SysprepRef
-    sysprepRef:
-      kind: Secret
-      name: sysprep-example
-```
-
 ### Placement of VMs by nodes
 
 The following methods can be used to manage the placement of virtual machines (placement parameters) across nodes:
@@ -1707,7 +1803,15 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes.
+- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to a VM. An example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint is provided below.
+
+```yaml
+spec:
+  tolerations:
+    - key: "node.deckhouse.io/group"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
 
 {{< alert level="info" >}}
 When changing placement parameters:
@@ -2503,6 +2607,10 @@ Remove the `.metadata.ownerReferences` blocks from the resource found:
 
 ```bash
 d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
+
+# or make similar changes by editing the resource
+
+d8 k edit vmip linux-vm-7prpx
 ```
 
 After the virtual machine is deleted, the `vmip` resource is preserved and can be reused again in the newly created virtual machine:
@@ -2528,23 +2636,21 @@ EOF
 
 ### Additional network interfaces
 
-Virtual machines can be connected not only to the main cluster network interface but also to additional networks provided by the `d8-sdn` module. Such networks include project Networks and ClusterNetworks.
-
-Additional networks are defined in the `.spec.networks` configuration block. If this block is absent (default value), the VM is connected only to the main cluster network.
-
-{{< alert level=“warning” >}}
-Changes to the list of additional networks (adding or removing) take effect only after the VM is rebooted.
+{{< alert level="warning" >}}
+To work with additional networks, the `sdn` module must be activated.
 {{< /alert >}}
 
-{{< alert level=“info” >}}
-To avoid changing the order of network interfaces inside the guest OS, always add new networks to the end of the `.spec.networks` list.
-{{< /alert >}}
+Virtual machines can be connected to additional networks — project (Network) or cluster (ClusterNetwork).
 
-Conditions and limitations:
+To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default value), the VM will use only the main cluster network.
 
-- The `d8-sdn` module is required to work with additional networks.
-- The order of networks in `.spec.networks` determines the sequence in which interfaces are attached to the VM bus.
-- Configuration of network parameters (IP addresses, gateways, DNS, etc.) in additional networks must be performed manually inside the guest OS (for example, via cloud-init).
+Features and important points about working with additional network interfaces:
+
+- The order of listing networks in `.spec.networks` determines the order in which interfaces are connected inside the virtual machine.
+- Adding or removing additional networks takes effect only after the VM is rebooted.
+- To preserve the order of network interfaces inside the guest operating system, it is recommended to add new networks to the end of the `.spec.networks` list (do not change the order of existing ones).
+- Network security policies (NetworkPolicy) do not apply to additional network interfaces.
+- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using cloud-init).
 
 Example of connecting a VM to the project network `user-net`:
 
@@ -2881,6 +2987,9 @@ d8 k get vmop <vmop-name> -o json | jq “.status.resources”
 It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+When restoring a VM from a snapshot, the disks associated with it are also restored from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
+{{< /alert >}}
 
 ## Creating a VM clone
 
@@ -2890,6 +2999,21 @@ VM cloning is performed using the `VirtualMachineOperation` resource with the `c
 Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
+
+Before cloning, you need to prepare the guest OS to avoid conflicts with unique identifiers and network settings.
+
+Linux:
+
+- Clear `machine-id`: `sudo truncate -s 0 /etc/machine-id` (for systemd) or remove `/var/lib/dbus/machine-id`
+- Remove SSH host keys: `sudo rm -f /etc/ssh/ssh_host_*`
+- Clear network interface configurations (if static settings are used)
+- Clear cloud-init cache (if used): `sudo cloud-init clean`
+
+Windows:
+
+- Run `sysprep` with the `/generalize` parameter or use tools to clear unique identifiers (SID, hostname, etc.)
+
+Example of creating a VM clone:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -2943,20 +3067,32 @@ Information about conflicts that arose during cloning can be viewed in the resou
 d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 ```
 
+{{< alert level="info" >}}
+During the cloning process, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After the cloning process is complete, the temporary snapshots are automatically deleted — they will not be visible in the resource list. However, the specification of cloned disks will still contain a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is normal behavior and does not indicate a problem: such references are valid because by the time the clone starts, all necessary data has already been transferred to the new disks.
+{{< /alert >}}
+
 ## Data export
 
-DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 1.17 and above).
+You can export virtual machine disks and disk snapshots using the `d8` utility (version 0.20.7 and above). For this function to work, the module [storage-volume-data-manager](https://deckhouse.ru/modules/storage-volume-data-manager/stable/) must be enabled.
+
+{{< alert level="warning" >}}
+The disk must not be in use at the time of export. If it is connected to a VM, the VM must be stopped.
+{{< /alert >}}
 
 Example: export a disk (run on a cluster node):
 
 ```bash
-d8 download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Example: export a disk snapshot (run on a cluster node):
 
 ```bash
-d8 download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
-To export resources outside the cluster, you must also use the `--publish` flag.
+If you are exporting data from a machine other than a cluster node (for example, from your local machine), use the `--publish` flag.
+
+{{< alert level="info" >}}
+To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
+{{< /alert >}}
