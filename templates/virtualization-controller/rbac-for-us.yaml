@@ -209,6 +209,7 @@ rules:
   - virtualmachines
   - clustervirtualimages
   - virtualmachineoperations
+  - virtualmachinesnapshotoperations
   - virtualmachineclasses
   - virtualdisksnapshots
   - virtualmachinesnapshots
@@ -234,6 +235,7 @@ rules:
   - virtualmachinemacaddressleases/finalizers
   - virtualmachinemacaddresses/finalizers
   - virtualmachineoperations/finalizers
+  - virtualmachinesnapshotoperations/finalizers
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
@@ -248,6 +250,7 @@ rules:
   - virtualmachines/status
   - clustervirtualimages/status
   - virtualmachineoperations/status
+  - virtualmachinesnapshotoperations/status
   - virtualmachineclasses/status
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status

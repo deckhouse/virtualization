@@ -88,27 +88,27 @@ func (s ProcessRestoreStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMach
 	}
 
 	statuses, err := snapshotResources.Validate(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonRestoreOperationCompleted).Message("The virtual machine can be restored from the snapshot.")
 		common.SetPhaseConditionCompleted(s.cb, &vmop.Status.Phase, vmopcondition.ReasonDryRunOperationCompleted, "The virtual machine can be restored from the snapshot")
 		return &reconcile.Result{}, nil
 	}
 
 	statuses, err = snapshotResources.Process(ctx)
-	common.FillResourcesStatuses(vmop, statuses)
+	vmop.Status.Resources = statuses
 	if err != nil {
 		common.SetPhaseConditionToFailed(s.cb, &vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	for _, status := range statuses {
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}

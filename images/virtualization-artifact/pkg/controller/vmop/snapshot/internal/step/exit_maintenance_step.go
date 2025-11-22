@@ -55,7 +55,7 @@ func NewExitMaintenanceStep(
 }
 
 func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return &reconcile.Result{}, nil
 	}
 
@@ -81,7 +81,7 @@ func (s ExitMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMac
 	}
 
 	for _, status := range vmop.Status.Resources {
-		if status.Status == v1alpha2.VMOPResourceStatusInProgress {
+		if status.Status == v1alpha2.SnapshotResourceStatusInProgress {
 			return &reconcile.Result{}, nil
 		}
 	}
