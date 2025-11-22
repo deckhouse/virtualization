@@ -191,7 +191,7 @@ jobs:
         working-directory: ci/dvp-e2e
         env:
           RUN_ID: ${{ env.RUN_ID }}
-          MANUAL_WAIT_SECONDS: ${{ vars.MANUAL_WAIT_SECONDS || '7200' }}
+          MANUAL_WAIT_SECONDS: ${{ vars.MANUAL_WAIT_SECONDS || '36000' }}
         run: |
           task ci:manual-wait
 

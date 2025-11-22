@@ -124,6 +124,7 @@ tasks:
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG_PATH }}"
           REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
           TARGET_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
           ATTACH_DISK_SIZE: "{{ .ATTACH_DISK_SIZE }}"
           EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
           NAMESPACE: "{{ .RUN_ID }}"
@@ -577,6 +578,7 @@ tasks:
       PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") }}'
       REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
       TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
+      PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS | default .TARGET_STORAGE_CLASS }}"
       ATTACH_DISK_SIZE: '{{ .ATTACH_DISK_SIZE | default "10Gi" }}'
       EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
       NAMESPACE: "{{ .NAMESPACE }}"
@@ -606,7 +608,7 @@ tasks:
           VALUES_FILE: "{{ .VALUES_FILE }}"
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
           DISK_SIZE: "{{ .ATTACH_DISK_SIZE }}"
-          STORAGE_CLASS: "{{ .EFFECTIVE_DISK_SC }}"
+          STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
           DISK_COUNT: "{{ .DATA_DISK_COUNT }}"
       - echo "🔐 Building nested kubeconfig"
       - task: nested:kubeconfig
