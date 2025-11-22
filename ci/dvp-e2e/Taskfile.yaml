@@ -96,6 +96,7 @@ tasks:
       STORAGE_CLASS: '{{ .STORAGE_CLASS | default (env "STORAGE_CLASS") | default "" }}'
       IMAGE_STORAGE_CLASS: '{{ .IMAGE_STORAGE_CLASS | default (env "IMAGE_STORAGE_CLASS") | default "" }}'
       PARENT_STORAGE_CLASS: '{{ .PARENT_STORAGE_CLASS | default (env "PARENT_STORAGE_CLASS") | default "" }}'
+      HOTPLUG_STORAGE_CLASS: '{{ .HOTPLUG_STORAGE_CLASS | default (env "HOTPLUG_STORAGE_CLASS") | default "" }}'
       ATTACH_DISK_SIZE: '{{ .ATTACH_DISK_SIZE | default (env "ATTACH_DISK_SIZE") | default "10Gi" }}'
       DATA_DISK_COUNT: '{{ .DATA_DISK_COUNT | default (env "DATA_DISK_COUNT") | default "2" }}'
       REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
@@ -105,7 +106,7 @@ tasks:
       VALUES_FILE_PATH: '{{ printf "%s/values.yaml" .RUN_DIR }}'
       PARENT_KUBECONFIG_PATH: '{{ printf "%s/parent.kubeconfig" .RUN_DIR }}'
       NESTED_KUBECONFIG_PATH: '{{ printf "%s/nested/kubeconfig" .RUN_DIR }}'
-      EFFECTIVE_DISK_SC: "{{ if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else }}{{ .STORAGE_CLASS }}{{ end }}"
+      EFFECTIVE_DISK_SC: "{{ if .HOTPLUG_STORAGE_CLASS }}{{ .HOTPLUG_STORAGE_CLASS }}{{ else if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else }}{{ .STORAGE_CLASS }}{{ end }}"
     cmds:
       - task: ci:prepare-env
         vars:
@@ -114,6 +115,7 @@ tasks:
           PROFILE: "{{ .PROFILE }}"
           STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
           PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          HOTPLUG_STORAGE_CLASS: "{{ .HOTPLUG_STORAGE_CLASS }}"
           REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
           API_URL: "{{ .API_URL }}"
           SA_TOKEN: "{{ .SA_TOKEN }}"
@@ -141,6 +143,7 @@ tasks:
       PROFILE: '{{ .PROFILE | default (env "PROFILE") | default "" }}'
       STORAGE_CLASS: '{{ .STORAGE_CLASS | default (env "STORAGE_CLASS") | default "" }}'
       PARENT_STORAGE_CLASS: '{{ .PARENT_STORAGE_CLASS | default (env "PARENT_STORAGE_CLASS") | default "" }}'
+      HOTPLUG_STORAGE_CLASS: '{{ .HOTPLUG_STORAGE_CLASS | default (env "HOTPLUG_STORAGE_CLASS") | default "" }}'
       REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
       API_URL: '{{ .API_URL | default (env "API_URL") | default (env "E2E_K8S_URL") | default "" }}'
       SA_TOKEN: '{{ .SA_TOKEN | default (env "SA_TOKEN") | default (env "E2E_NESTED_SA_SECRET") | default "" }}'
