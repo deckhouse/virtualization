@@ -611,7 +611,7 @@ tasks:
           VALUES_FILE: "{{ .VALUES_FILE }}"
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG }}"
           DISK_SIZE: "{{ .ATTACH_DISK_SIZE }}"
-          STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          STORAGE_CLASS: "{{ .EFFECTIVE_DISK_SC }}"
           DISK_COUNT: "{{ .DATA_DISK_COUNT }}"
       - echo "🔐 Building nested kubeconfig"
       - task: nested:kubeconfig
