@@ -190,14 +190,6 @@ jobs:
         run: |
           task ci:kubeconfig:ensure
 
-      - name: Pause for manual inspection
-        working-directory: ci/dvp-e2e
-        env:
-          RUN_ID: ${{ env.RUN_ID }}
-          MANUAL_WAIT_SECONDS: ${{ vars.MANUAL_WAIT_SECONDS || '36000' }}
-        run: |
-          task ci:manual-wait
-
       - name: Run E2E tests
         working-directory: test/e2e
         env:

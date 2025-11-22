@@ -50,6 +50,12 @@ fi
 
 echo "[INFRA] Attaching ${disk_count} storage disks to worker VMs using hotplug in namespace ${namespace}"
 
+# Cleanup stale hp-volume pods (older than 10 minutes) to avoid interference
+echo "[INFRA] Cleaning up stale hp-volume pods (older than 10m) before attachment"
+kubectl -n "${namespace}" get pods --no-headers 2>/dev/null \
+  | awk '$1 ~ /^hp-volume-/ && $3 == "Running" && $5 ~ /[0-9]+m/ { split($5,t,"m"); if (t[1] > 10) print $1 }' \
+  | xargs -r kubectl -n "${namespace}" delete pod --force --grace-period=0 2>/dev/null || true
+
 # Wait for worker VMs
 for i in $(seq 1 50); do
   worker_count=$(kubectl -n "${namespace}" get vm -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -c worker || echo "0")
@@ -114,12 +120,35 @@ EOF
       echo "[INFRA] VD $vd phase=$vd_phase; retry $j/50"
       sleep 5
     done
-    
+
     if [ "$vd_phase" != "Ready" ]; then
       echo "[ERROR] VirtualDisk $vd not Ready"
       kubectl -n "${namespace}" get vd "$vd" -o yaml || true
       kubectl -n "${namespace}" get events --sort-by=.lastTimestamp | tail -n 100 || true
       exit 1
+    fi
+
+    # Skip if VM already reports this disk attached/hotplugged
+    if kubectl -n "${namespace}" get vm "$vm" -o json 2>/dev/null \
+      | jq -e --arg disk "$vd" '
+        ([.status.blockDeviceRefs[]?
+          | select(.name == $disk and .attached == true)
+        ] | length) > 0' >/dev/null; then
+      echo "[INFO] VM $vm already has disk $vd attached; skipping VMBDA creation"
+      continue
+    fi
+
+    # Skip if there is an existing non-failed VMBDA for this disk
+    conflict_vmbda=$(kubectl -n "${namespace}" get vmbda -o json 2>/dev/null \
+      | jq -r --arg name "$vd" '
+        .items[]?
+        | select(.spec.blockDeviceRef.kind == "VirtualDisk"
+                 and .spec.blockDeviceRef.name == $name
+                 and (.status.phase != "" and .status.phase != "Failed"))
+        | .metadata.name' | head -n 1)
+    if [ -n "${conflict_vmbda:-}" ]; then
+      echo "[WARN] Found existing VMBDA $conflict_vmbda for disk $vd; skipping"
+      continue
     fi
 
     # Create hotplug attachment
@@ -138,11 +167,14 @@ spec:
     name: $vd
 EOF
 
+    # Give controller time to react on creation
+    sleep 60
+
     # Wait for attachment
     echo "[INFRA] Waiting for VMBDA $att to be Attached..."
     att_phase=""
     success_by_vm=0
-    for i in $(seq 1 50); do
+    for i in $(seq 1 120); do
       att_phase=$(kubectl -n "${namespace}" get vmbda "$att" -o jsonpath='{.status.phase}' 2>/dev/null || true)
       if [ "$att_phase" = "Attached" ]; then
         echo "[INFRA] Disk $vd attached to VM $vm"
@@ -175,6 +207,12 @@ EOF
   done
 
   echo "[INFRA] VM $vm configured with hotplug disks"
+
+  # Throttle between VMs to avoid concurrent hotplug flaps
+  if [ ${#workers[@]} -gt 1 ]; then
+    echo "[INFRA] Waiting 60s before processing next VM..."
+    sleep 60
+  fi
 done
 
 echo "[INFRA] All worker VMs configured with storage disks via hotplug"
