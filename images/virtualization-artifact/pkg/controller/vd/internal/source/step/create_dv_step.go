@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -94,7 +95,7 @@ func (s CreateDataVolumeStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk
 	switch {
 	case err == nil:
 		// OK.
-	case errors.Is(err, service.ErrStorageProfileNotFound):
+	case errors.Is(err, volumemode.ErrStorageProfileNotFound):
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).

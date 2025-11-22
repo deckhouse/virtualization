@@ -22,7 +22,6 @@ import (
 )
 
 var (
-	ErrStorageProfileNotFound             = errors.New("storage profile not found")
 	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
 	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
 	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
