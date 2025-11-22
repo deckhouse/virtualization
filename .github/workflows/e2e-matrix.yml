@@ -102,16 +102,16 @@ jobs:
       - name: Setup nested environment
         env:
           RUN_ID: ${{ env.RUN_ID }}
-      PROFILE: ${{ env.PROFILE }}
-      STORAGE_CLASS: ${{ env.STORAGE_CLASS }}
-      PARENT_STORAGE_CLASS: ${{ env.PARENT_STORAGE_CLASS }}
-      IMAGE_STORAGE_CLASS: ${{ env.IMAGE_STORAGE_CLASS }}
-      HOTPLUG_STORAGE_CLASS: ${{ env.HOTPLUG_STORAGE_CLASS || env.PARENT_STORAGE_CLASS }}
-      ATTACH_DISK_SIZE: ${{ env.ATTACH_DISK_SIZE }}
-      DATA_DISK_COUNT: ${{ matrix.data_disk_count }}
-      REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-      API_URL: ${{ env.E2E_K8S_URL }}
-      SA_TOKEN: ${{ secrets.E2E_NESTED_SA_SECRET }}
+          PROFILE: ${{ env.PROFILE }}
+          STORAGE_CLASS: ${{ env.STORAGE_CLASS }}
+          PARENT_STORAGE_CLASS: ${{ env.PARENT_STORAGE_CLASS }}
+          IMAGE_STORAGE_CLASS: ${{ env.IMAGE_STORAGE_CLASS }}
+          HOTPLUG_STORAGE_CLASS: ${{ env.HOTPLUG_STORAGE_CLASS || env.PARENT_STORAGE_CLASS }}
+          ATTACH_DISK_SIZE: ${{ env.ATTACH_DISK_SIZE }}
+          DATA_DISK_COUNT: ${{ matrix.data_disk_count }}
+          REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          API_URL: ${{ env.E2E_K8S_URL }}
+          SA_TOKEN: ${{ secrets.E2E_NESTED_SA_SECRET }}
         working-directory: ci/dvp-e2e
         run: |
           task ci:setup-nested-env
