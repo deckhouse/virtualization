@@ -94,10 +94,65 @@ func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func StartVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, options ...vmopbuilder.Option) {
+	GinkgoHelper()
+
+	opts := []vmopbuilder.Option{
+		vmopbuilder.WithGenerateName("vmop-e2e-"),
+		vmopbuilder.WithNamespace(vm.Namespace),
+		vmopbuilder.WithType(v1alpha2.VMOPTypeStart),
+		vmopbuilder.WithVirtualMachine(vm.Name),
+	}
+	opts = append(opts, options...)
+	vmop := vmopbuilder.New(opts...)
+
+	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
+	Expect(err).NotTo(HaveOccurred())
+}
+
 func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo init 0")
 	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
 		return nil
 	}
 	return err
+}
+
+func RebootVirtualMachineBySSH(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo reboot")
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	vmop := vmopbuilder.New(
+		vmopbuilder.WithGenerateName("vmop-e2e-reboot-"),
+		vmopbuilder.WithNamespace(vm.Namespace),
+		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
+		vmopbuilder.WithVirtualMachine(vm.Name),
+	)
+	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
+	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
+		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
+		if err != nil {
+			return fmt.Errorf("failed to get virtual machine: %w", err)
+		}
+
+		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+
+		if runningCondition.LastTransitionTime.Time.After(previousRunningTime) {
+			return nil
+		}
+
+		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
+	}, framework.LongTimeout, time.Second).Should(Succeed())
+	UntilVMAgentReady(key, framework.LongTimeout)
 }
