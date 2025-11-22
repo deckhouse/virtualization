@@ -3,6 +3,8 @@ kind: ServiceAccount
 metadata:
   name: dkp-sa
   namespace: {{ .Values.namespace }}
+  labels:
+    e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
 ---
 apiVersion: v1
 kind: Secret
@@ -11,6 +13,8 @@ metadata:
   namespace: {{ .Values.namespace }}
   annotations:
     kubernetes.io/service-account.name: dkp-sa
+  labels:
+    e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
 type: kubernetes.io/service-account-token
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -18,6 +22,8 @@ kind: RoleBinding
 metadata:
   name: dkp-sa-rb
   namespace: {{ .Values.namespace }}
+  labels:
+    e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
 subjects:
   - kind: ServiceAccount
     name: dkp-sa
@@ -31,6 +37,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: dkp-sa-cluster-admin-{{ .Values.namespace }}
+  labels:
+    e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
 subjects:
   - kind: ServiceAccount
     name: dkp-sa

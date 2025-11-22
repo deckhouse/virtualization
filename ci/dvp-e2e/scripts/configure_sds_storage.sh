@@ -123,21 +123,28 @@ if [ -z "$NODES" ]; then
   NODES=$(kubectl get nodes -o json | jq -r '.items[].metadata.name')
 fi
 
+MATCH_EXPR_TYPE=$(yq eval -n '
+  .key = "status.blockdevice.storage.deckhouse.io/type" |
+  .operator = "In" |
+  .values = ["disk"]
+')
+
+MATCH_EXPR_MODEL=$(yq eval -n '
+  .key = "status.blockdevice.storage.deckhouse.io/model" |
+  .operator = "In" |
+  .values = ["QEMU-HARDDISK"]
+')
+
 for node in $NODES; do
   [ -z "$node" ] && continue
-  MATCH_EXPR=$(yq eval -n '
-    .key = "storage.deckhouse.io/device-path" |
-    .operator = "In" |
-    .values = ["/dev/sdb","/dev/vdb","/dev/xvdb","/dev/sdc","/dev/vdc","/dev/xvdc","/dev/sdd","/dev/vdd","/dev/xvdd"]
-  ')
-  NODE="$node" MATCH_EXPR="$MATCH_EXPR" yq eval -n '
+  NODE="$node" MATCH_EXPR_TYPE="$MATCH_EXPR_TYPE" MATCH_EXPR_MODEL="$MATCH_EXPR_MODEL" yq eval -n '
     .apiVersion = "storage.deckhouse.io/v1alpha1" |
     .kind = "LVMVolumeGroup" |
     .metadata.name = "data-" + env(NODE) |
     .spec.type = "Local" |
     .spec.local.nodeName = env(NODE) |
     .spec.actualVGNameOnTheNode = "data" |
-    .spec.blockDeviceSelector.matchExpressions = [ env(MATCH_EXPR) ]
+    .spec.blockDeviceSelector.matchExpressions = [ env(MATCH_EXPR_TYPE), env(MATCH_EXPR_MODEL) ]
   ' | kubectl apply -f -
 done
 

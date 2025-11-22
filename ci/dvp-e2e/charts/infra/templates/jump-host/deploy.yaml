@@ -4,6 +4,8 @@ kind: Deployment
 metadata:
   name: jump-host
   namespace: {{ .Values.namespace }}
+  labels:
+    e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
 spec:
   replicas: 1
   selector:
@@ -13,6 +15,7 @@ spec:
     metadata:
       labels:
         app: jump-host
+        e2e.deckhouse.io/run-id: "{{ .Values.namespace }}"
     spec:
       containers:
         - name: jump-host
