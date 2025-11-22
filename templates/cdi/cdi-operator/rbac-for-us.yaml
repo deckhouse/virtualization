@@ -41,40 +41,11 @@ rules:
     - delete
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
-  resources:
-    - internalvirtualizationcdiconfigs
-    - internalvirtualizationcdis
-    - internalvirtualizationcdis/finalizers
-    - internalvirtualizationdataimportcrons
-    - internalvirtualizationdatasources
-    - internalvirtualizationdatavolumes
-    - internalvirtualizationobjecttransfers
-    - internalvirtualizationstorageprofiles
-    - internalvirtualizationvolumeclonesources
-    - internalvirtualizationvolumeimportsources
-    - internalvirtualizationvolumeuploadsources
-    - internalvirtualizationopenstackvolumepopulators
-    - internalvirtualizationovirtvolumepopulators
-  verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-    - patch
-    - delete
-- apiGroups:
     - upload.cdi.kubevirt.io
   resources:
-    - uploadtokenrequests
+    - '*'
   verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-    - patch
-    - delete
+    - '*'
 - apiGroups:
     - admissionregistration.k8s.io
   resources:
