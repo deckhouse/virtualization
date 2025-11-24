@@ -429,6 +429,48 @@ How to perform the operation in the web interface:
 - Click the "Create" button.
 - Wait until the image changes to `Ready` status.
 
+### Cleanup images storage
+
+Over time, the creation and deletion of ClusterVirtualImage, VirtualImage, and VirtualDisk resources leads to the accumulation
+of outdated images in the intra-cluster storage. Scheduled garbage collection is implemented to keep the storage up to date.
+But this feature is disabled by default. To enable cleaning, you need to specify a schedule in the module settings in the ModuleConfig/virtualization resource:
+
+  ```yaml
+  apiVersion: deckhouse.io/v1alpha1
+  kind: ModuleConfig
+  metadata:
+    name: virtualization
+  spec:
+    # ...
+    settings:
+      dvcr:
+        gc:
+          schedule: "0 20 * * *"
+    # ...
+  ```
+
+While garbage collection is running, the storage is switched to read-only mode, and all resources created at this time will wait for the cleanup to finish.
+
+To check for outdated images in the storage, you can run the following command:
+
+  ```bash
+  d8 k -n d8-virtualization exec deploy/dvcr -- dvcr-cleaner gc check
+  ```
+
+  It prints information about the storage status and a list of outdated images that can be deleted.
+
+  ```console
+  Found 2 cvi, 5 vi, 1 vd manifests in registry
+  Found 1 cvi, 5 vi, 11 vd resources in cluster
+    Total     Used    Avail     Use%
+  36.3GiB  13.1GiB  22.4GiB      39%
+  Images eligible for cleanup:
+  KIND                   NAMESPACE            NAME
+  ClusterVirtualImage                         debian-12
+  VirtualDisk            default              debian-10-root
+  VirtualImage           default              ubuntu-2204
+  ```
+
 ## Virtual machine classes
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
