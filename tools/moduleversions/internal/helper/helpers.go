@@ -26,16 +26,18 @@ import (
 )
 
 const (
-	httpTimeout = 30 * time.Second
-
-	// Channel column indices in the HTML table on releases.deckhouse.io
-	channelAlphaIndex       = 1
-	channelBetaIndex        = 2
-	channelEarlyAccessIndex = 3
-	channelStableIndex      = 4
-	channelRockSolidIndex   = 5
-	expectedCellsCount      = 6
+	httpTimeout        = 30 * time.Second
+	expectedCellsCount = 6
 )
+
+var channelMap = map[string]int{
+	// Channel column indices in the HTML table on releases.deckhouse.io
+	"alpha":        1,
+	"beta":         2,
+	"early-access": 3,
+	"stable":       4,
+	"rock-solid":   5,
+}
 
 // DocumentationSiteInfo contains version information parsed from deckhouse.ru
 type DocumentationSiteInfo struct {
@@ -127,18 +129,11 @@ func VerifyVersionInEdition(editionURL, channel, expectedVersion, moduleName str
 		webVersion string
 	)
 
-	switch channel {
-	case "alpha":
-		index = channelAlphaIndex
-	case "beta":
-		index = channelBetaIndex
-	case "early-access":
-		index = channelEarlyAccessIndex
-	case "stable":
-		index = channelStableIndex
-	case "rock-solid":
-		index = channelRockSolidIndex
-	default:
+	index, ok := channelMap[channel]
+	if !ok {
+		return false, fmt.Errorf("unknown channel: %s", channel)
+	}
+	if index < 0 || index >= expectedCellsCount {
 		return false, fmt.Errorf("unknown channel: %s", channel)
 	}
 
