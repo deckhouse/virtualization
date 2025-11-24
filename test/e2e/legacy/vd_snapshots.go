@@ -48,14 +48,9 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vd-snapshots"}
 		vmAutomaticWithHotplug   = map[string]string{"vm": "automatic-with-hotplug"}
 		ns                       string
-		criticalErr              error
 	)
 
 	BeforeAll(func() {
-		if criticalErr != nil {
-			Skip(fmt.Sprintf("Skip because blinking error: %s", criticalErr.Error()))
-		}
-
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
 		var err error
 		ns, err = kustomize.GetNamespace(kustomization)
@@ -164,7 +159,6 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 				Timeout:   MaxWaitTimeout,
 			})
 
-			// TODO: It is a known issue that disk snapshots are not always created consistently.
 			By("Snapshots should be consistent", func() {
 				vdSnapshots := v1alpha2.VirtualDiskSnapshotList{}
 				err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: ns, Labels: hasNoConsumerLabel})
@@ -289,28 +283,22 @@ var _ = Describe("VirtualDiskSnapshots", Ordered, func() {
 			maps.Copy(labels, attachedVirtualDiskLabel)
 			maps.Copy(labels, testCaseLabel)
 
-			err := InterceptGomegaFailure(func() {
-				Eventually(func() error {
-					vdSnapshots := GetVirtualDiskSnapshots(ns, labels)
-					for _, snapshot := range vdSnapshots.Items {
-						if snapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || snapshot.DeletionTimestamp != nil {
-							continue
-						}
-						return errors.New("still wait for all snapshots either in ready or in deletion state")
+			Eventually(func() error {
+				vdSnapshots := GetVirtualDiskSnapshots(ns, labels)
+				for _, snapshot := range vdSnapshots.Items {
+					if snapshot.Status.Phase == v1alpha2.VirtualDiskSnapshotPhaseReady || snapshot.DeletionTimestamp != nil {
+						continue
 					}
-					return nil
-				}).WithTimeout(
-					LongWaitDuration,
-				).WithPolling(
-					Interval,
-				).Should(Succeed(), "all snapshots should be in ready state after creation")
-			})
-			if err != nil {
-				criticalErr = err
-			}
+					return errors.New("still wait for all snapshots either in ready or in deletion state")
+				}
+				return nil
+			}).WithTimeout(
+				LongWaitDuration,
+			).WithPolling(
+				Interval,
+			).Should(Succeed(), "all snapshots should be in ready state after creation")
 		})
 
-		// TODO: It is a known issue that disk snapshots are not always created consistently.
 		It("checks snapshots of attached VDs", func() {
 			By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
