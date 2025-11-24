@@ -1,6 +1,6 @@
 # Patches
 
-## `001-revert-scsi-disk-serial-truncate.patch`
+## 001-revert-scsi-disk-serial-truncate.patch
 
 This patch reverts the commit that introduced strict length enforcement for the SCSI disk `serial` property.
 

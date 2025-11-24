@@ -1,6 +1,6 @@
 # Patches
 
-## `001-disable-ro-and-admin-servers.patch`
+## 001-disable-ro-and-admin-servers.patch
 
 This patch introduces new flags to enhance the security and control of QEMU services:
 
@@ -16,9 +16,7 @@ When all flags are set, the following sockets will be disabled:
 - `/var/run/libvirt/virtqemud-admin-sock`
 - `/var/run/libvirt/virtqemud-sock-ro`
 
-# Patches
-
-## `002-auth-pid-restriction.patch`
+## 002-auth-pid-restriction.patch
 
 This patch introduces a new security feature for **virtqemud** by utilizing an environment variable to restrict socket connections:
 
@@ -33,3 +31,6 @@ When this environment variable is set, `virtqemud` will **only accept socket con
 - If the environment variable is **not set**, `virtqemud` will function as before, accepting all connections without PID-based restrictions.
 
 This feature enhances security by preventing unauthorized access to the socket and mitigating the risk of privilege escalation attacks. It provides a way to control access to the daemon based on the PID of the connecting process, without the need for additional command-line flags.
+
+## 003-treat-getpeercon-eintval-as-success.patch
+`getpeercon` from libselinux uses `getsockopt()` syscall. Some implementations of `getsockopts()` return `EINVAL` errno for unsupported valopt argument instead of `ENOPROTOOPT` errno. This fix makes libvirt work with such broken implementations.
