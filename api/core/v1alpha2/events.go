@@ -73,6 +73,18 @@ const (
 	// ReasonVMOPInProgress is event reason that the operation is in progress
 	ReasonVMOPInProgress = "VirtualMachineOperationInProgress"
 
+	// ReasonVMSOPStarted is event reason that the operation is started
+	ReasonVMSOPStarted = "VirtualMachineSnaphotOperationStarted"
+
+	// ReasonErrVMSOPFailed is event reason that operation is failed
+	ReasonErrVMSOPFailed = "VirtualMachineSnapshotOperationFailed"
+
+	// ReasonVMSOPSucceeded is event reason that the operation is successfully completed
+	ReasonVMSOPSucceeded = "VirtualMachineSnapshotOperationSucceeded"
+
+	// ReasonVMSOPInProgress is event reason that the operation is in progress
+	ReasonVMSOPInProgress = "VirtualMachineSnapshotOperationInProgress"
+
 	// ReasonVDSpecHasBeenChanged is event reason that spec of virtual disk has been changed.
 	ReasonVDSpecHasBeenChanged = "VirtualDiskSpecHasBeenChanged"
 	// ReasonVISpecHasBeenChanged is event reason that spec of virtual image has been changed.
@@ -103,6 +115,11 @@ const (
 	ReasonDataSourceSyncFailed = "DataSourceImportFailed"
 	// ReasonDataSourceQuotaExceeded is event reason that DataSource sync is failed because quota exceed.
 	ReasonDataSourceQuotaExceeded = "DataSourceQuotaExceed"
+
+	// ReasonImageOperationPostponedDueToDVCRGarbageCollection is event reason that operation is postponed until the end of DVCR garbage collection.
+	ReasonImageOperationPostponedDueToDVCRGarbageCollection = "ImageOperationPostponedDueToDVCRGarbageCollection"
+	// ReasonImageOperationContinueAfterDVCRGarbageCollection is event reason that operation is resumed after DVCR garbage collection is finished.
+	ReasonImageOperationContinueAfterDVCRGarbageCollection = "ImageOperationContinueAfterDVCRGarbageCollection"
 
 	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
 	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1alpha3
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -23,20 +23,20 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("VirtualMachineClass Conversion", func() {
 	Context("ConvertTo v1alpha2", func() {
 		DescribeTable("should convert valid CoreFractionValue strings",
-			func(coreFractions []v1alpha3.CoreFractionValue) {
-				v3Class := &v1alpha3.VirtualMachineClass{
+			func(coreFractions []CoreFractionValue) {
+				v3Class := &VirtualMachineClass{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
-					Spec: v1alpha3.VirtualMachineClassSpec{
-						SizingPolicies: []v1alpha3.SizingPolicy{
+					Spec: VirtualMachineClassSpec{
+						SizingPolicies: []SizingPolicy{
 							{
 								CoreFractions: coreFractions,
-								Cores: &v1alpha3.SizingPolicyCores{
+								Cores: &SizingPolicyCores{
 									Min:  1,
 									Max:  8,
 									Step: 1,
@@ -46,31 +46,30 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 					},
 				}
 
-				v2Class := &VirtualMachineClass{}
-				err := v2Class.ConvertFrom(v3Class)
+				v2Class := &v1alpha2.VirtualMachineClass{}
+				err := v3Class.ConvertTo(v2Class)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(v2Class.Name).To(Equal(v3Class.Name))
 				Expect(v2Class.Spec.SizingPolicies).To(HaveLen(1))
 				Expect(v2Class.Spec.SizingPolicies[0].CoreFractions).To(HaveLen(len(coreFractions)))
 			},
-			Entry("single value", []v1alpha3.CoreFractionValue{"5%"}),
-			Entry("multiple values", []v1alpha3.CoreFractionValue{"5%", "10%", "25%", "50%", "100%"}),
-			Entry("minimum value 1%", []v1alpha3.CoreFractionValue{"1%"}),
-			Entry("maximum value 100%", []v1alpha3.CoreFractionValue{"100%"}),
-			Entry("mixed valid values", []v1alpha3.CoreFractionValue{"1%", "50%", "100%"}),
-			Entry("value without percent sign", []v1alpha3.CoreFractionValue{"50"}),
+			Entry("single value", []CoreFractionValue{"5%"}),
+			Entry("multiple values", []CoreFractionValue{"5%", "10%", "25%", "50%", "100%"}),
+			Entry("minimum value 1%", []CoreFractionValue{"1%"}),
+			Entry("maximum value 100%", []CoreFractionValue{"100%"}),
+			Entry("mixed valid values", []CoreFractionValue{"1%", "50%", "100%"}),
 		)
 
 		DescribeTable("should fail on invalid CoreFractionValue strings",
-			func(coreFractions []v1alpha3.CoreFractionValue, expectedErrorSubstring string) {
-				v3Class := &v1alpha3.VirtualMachineClass{
+			func(coreFractions []CoreFractionValue, expectedErrorSubstring string) {
+				v3Class := &VirtualMachineClass{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
-					Spec: v1alpha3.VirtualMachineClassSpec{
-						SizingPolicies: []v1alpha3.SizingPolicy{
+					Spec: VirtualMachineClassSpec{
+						SizingPolicies: []SizingPolicy{
 							{
 								CoreFractions: coreFractions,
-								Cores: &v1alpha3.SizingPolicyCores{
+								Cores: &SizingPolicyCores{
 									Min:  1,
 									Max:  4,
 									Step: 1,
@@ -80,23 +79,24 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 					},
 				}
 
-				v2Class := &VirtualMachineClass{}
-				err := v2Class.ConvertFrom(v3Class)
+				v2Class := &v1alpha2.VirtualMachineClass{}
+				err := v3Class.ConvertTo(v2Class)
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring(expectedErrorSubstring))
 			},
-			Entry("value below minimum (0%)", []v1alpha3.CoreFractionValue{"0%"}, "must be between 1 and 100, got 0"),
-			Entry("value above maximum (101%)", []v1alpha3.CoreFractionValue{"101%"}, "must be between 1 and 100, got 101"),
-			Entry("negative value", []v1alpha3.CoreFractionValue{"-5%"}, "must be between 1 and 100, got -5"),
-			Entry("non-numeric value", []v1alpha3.CoreFractionValue{"abc%"}, "failed to parse core fraction"),
-			Entry("empty string", []v1alpha3.CoreFractionValue{""}, "failed to parse core fraction"),
-			Entry("percent sign in wrong position", []v1alpha3.CoreFractionValue{"%50"}, "failed to parse core fraction"),
-			Entry("one invalid in multiple", []v1alpha3.CoreFractionValue{"5%", "150%", "100%"}, "must be between 1 and 100, got 150"),
+			Entry("value below minimum (0%)", []CoreFractionValue{"0%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("value above maximum (101%)", []CoreFractionValue{"101%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("negative value", []CoreFractionValue{"-5%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("non-numeric value", []CoreFractionValue{"abc%"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("empty string", []CoreFractionValue{""}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("percent sign in wrong position", []CoreFractionValue{"%50"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("value without percent sign", []CoreFractionValue{"50"}, "coreFraction must be a percentage between 1% and 100%"),
+			Entry("one invalid in multiple", []CoreFractionValue{"5%", "150%", "100%"}, "coreFraction must be a percentage between 1% and 100%"),
 		)
 
 		It("should preserve ObjectMeta", func() {
-			v3Class := &v1alpha3.VirtualMachineClass{
+			v3Class := &VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-class",
 					Namespace: "test-ns",
@@ -104,11 +104,11 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 						"test-label": "test-value",
 					},
 				},
-				Spec: v1alpha3.VirtualMachineClassSpec{},
+				Spec: VirtualMachineClassSpec{},
 			}
 
-			v2Class := &VirtualMachineClass{}
-			err := v2Class.ConvertFrom(v3Class)
+			v2Class := &v1alpha2.VirtualMachineClass{}
+			err := v3Class.ConvertTo(v2Class)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(v2Class.Name).To(Equal("test-class"))
@@ -119,14 +119,14 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 
 	Context("ConvertFrom v1alpha2", func() {
 		DescribeTable("should convert v1alpha2 CoreFractionValue integers to percentage strings",
-			func(v2CoreFractions []CoreFractionValue, expectedV3Values []v1alpha3.CoreFractionValue) {
-				v2Class := &VirtualMachineClass{
+			func(v2CoreFractions []v1alpha2.CoreFractionValue, expectedV3Values []CoreFractionValue) {
+				v2Class := &v1alpha2.VirtualMachineClass{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
-					Spec: VirtualMachineClassSpec{
-						SizingPolicies: []SizingPolicy{
+					Spec: v1alpha2.VirtualMachineClassSpec{
+						SizingPolicies: []v1alpha2.SizingPolicy{
 							{
 								CoreFractions: v2CoreFractions,
-								Cores: &SizingPolicyCores{
+								Cores: &v1alpha2.SizingPolicyCores{
 									Min:  1,
 									Max:  8,
 									Step: 1,
@@ -136,29 +136,29 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 					},
 				}
 
-				v3Class := &v1alpha3.VirtualMachineClass{}
-				err := v2Class.ConvertTo(v3Class)
+				v3Class := &VirtualMachineClass{}
+				err := v3Class.ConvertFrom(v2Class)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(v3Class.Spec.SizingPolicies).To(HaveLen(1))
 				Expect(v3Class.Spec.SizingPolicies[0].CoreFractions).To(Equal(expectedV3Values))
 			},
-			Entry("single value", []CoreFractionValue{5}, []v1alpha3.CoreFractionValue{"5%"}),
-			Entry("multiple values", []CoreFractionValue{5, 10, 25, 50, 100}, []v1alpha3.CoreFractionValue{"5%", "10%", "25%", "50%", "100%"}),
-			Entry("minimum value", []CoreFractionValue{1}, []v1alpha3.CoreFractionValue{"1%"}),
-			Entry("maximum value", []CoreFractionValue{100}, []v1alpha3.CoreFractionValue{"100%"}),
+			Entry("single value", []v1alpha2.CoreFractionValue{5}, []CoreFractionValue{"5%"}),
+			Entry("multiple values", []v1alpha2.CoreFractionValue{5, 10, 25, 50, 100}, []CoreFractionValue{"5%", "10%", "25%", "50%", "100%"}),
+			Entry("minimum value", []v1alpha2.CoreFractionValue{1}, []CoreFractionValue{"1%"}),
+			Entry("maximum value", []v1alpha2.CoreFractionValue{100}, []CoreFractionValue{"100%"}),
 		)
 	})
 
 	Context("Round-trip conversion", func() {
-		DescribeTable("should preserve values through v2 -> v3 -> v2 conversion",
-			func(v2CoreFractions []CoreFractionValue) {
-				originalV2 := &VirtualMachineClass{
+		DescribeTable("should preserve values through v3 -> v2 -> v3 conversion",
+			func(v3CoreFractions []CoreFractionValue) {
+				originalV3 := &VirtualMachineClass{
 					ObjectMeta: metav1.ObjectMeta{Name: "test-class"},
 					Spec: VirtualMachineClassSpec{
 						SizingPolicies: []SizingPolicy{
 							{
-								CoreFractions: v2CoreFractions,
+								CoreFractions: v3CoreFractions,
 								Cores: &SizingPolicyCores{
 									Min:  1,
 									Max:  8,
@@ -169,20 +169,20 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 					},
 				}
 
-				v3Class := &v1alpha3.VirtualMachineClass{}
-				err := originalV2.ConvertTo(v3Class)
+				v2Class := &v1alpha2.VirtualMachineClass{}
+				err := originalV3.ConvertTo(v2Class)
 				Expect(err).NotTo(HaveOccurred())
 
-				roundTripV2 := &VirtualMachineClass{}
-				err = roundTripV2.ConvertFrom(v3Class)
+				roundTripV3 := &VirtualMachineClass{}
+				err = roundTripV3.ConvertFrom(v2Class)
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(roundTripV2.Spec.SizingPolicies).To(HaveLen(1))
-				Expect(roundTripV2.Spec.SizingPolicies[0].CoreFractions).To(Equal(v2CoreFractions))
+				Expect(roundTripV3.Spec.SizingPolicies).To(HaveLen(1))
+				Expect(roundTripV3.Spec.SizingPolicies[0].CoreFractions).To(Equal(v3CoreFractions))
 			},
-			Entry("single value", []CoreFractionValue{5}),
-			Entry("multiple values", []CoreFractionValue{5, 10, 25, 50, 100}),
-			Entry("boundary values", []CoreFractionValue{1, 100}),
+			Entry("single value", []CoreFractionValue{"5%"}),
+			Entry("multiple values", []CoreFractionValue{"5%", "10%", "25%", "50%", "100%"}),
+			Entry("boundary values", []CoreFractionValue{"1%", "100%"}),
 		)
 	})
 
@@ -201,7 +201,7 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 		})
 
 		It("should preserve all fields in ConvertTo", func() {
-			v3Class := &v1alpha3.VirtualMachineClass{
+			v3Class := &VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "full-test-class",
 					Namespace: "test-namespace",
@@ -212,8 +212,8 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 						"test-annotation": "test-value",
 					},
 				},
-				Spec: v1alpha3.VirtualMachineClassSpec{
-					NodeSelector: v1alpha3.NodeSelector{
+				Spec: VirtualMachineClassSpec{
+					NodeSelector: NodeSelector{
 						MatchLabels: map[string]string{
 							"node-role": "worker",
 							"zone":      "us-east-1a",
@@ -234,30 +234,30 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 							Effect:   corev1.TaintEffectNoSchedule,
 						},
 					},
-					CPU: v1alpha3.CPU{
-						Type:      v1alpha3.CPUTypeModel,
+					CPU: CPU{
+						Type:      CPUTypeModel,
 						Model:     "IvyBridge",
 						Features:  nil,
 						Discovery: nil,
 					},
-					SizingPolicies: []v1alpha3.SizingPolicy{
+					SizingPolicies: []SizingPolicy{
 						{
-							Memory: &v1alpha3.SizingPolicyMemory{
-								MemoryMinMax: v1alpha3.MemoryMinMax{
+							Memory: &SizingPolicyMemory{
+								MemoryMinMax: MemoryMinMax{
 									Min: minMem,
 									Max: maxMem,
 								},
 								Step: stepMem,
-								PerCore: v1alpha3.SizingPolicyMemoryPerCore{
-									MemoryMinMax: v1alpha3.MemoryMinMax{
+								PerCore: SizingPolicyMemoryPerCore{
+									MemoryMinMax: MemoryMinMax{
 										Min: minPerCoreMem,
 										Max: maxPerCoreMem,
 									},
 								},
 							},
-							CoreFractions:  []v1alpha3.CoreFractionValue{"5%", "10%", "50%", "100%"},
+							CoreFractions:  []CoreFractionValue{"5%", "10%", "50%", "100%"},
 							DedicatedCores: []bool{false, true},
-							Cores: &v1alpha3.SizingPolicyCores{
+							Cores: &SizingPolicyCores{
 								Min:  1,
 								Max:  16,
 								Step: 2,
@@ -267,8 +267,8 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 				},
 			}
 
-			v2Class := &VirtualMachineClass{}
-			err := v2Class.ConvertFrom(v3Class)
+			v2Class := &v1alpha2.VirtualMachineClass{}
+			err := v3Class.ConvertTo(v2Class)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(v2Class.Name).To(Equal("full-test-class"))
@@ -300,7 +300,7 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			Expect(policy.Memory.PerCore.Min.Equal(minPerCoreMem)).To(BeTrue())
 			Expect(policy.Memory.PerCore.Max.Equal(maxPerCoreMem)).To(BeTrue())
 
-			Expect(policy.CoreFractions).To(Equal([]CoreFractionValue{5, 10, 50, 100}))
+			Expect(policy.CoreFractions).To(Equal([]v1alpha2.CoreFractionValue{5, 10, 50, 100}))
 			Expect(policy.DedicatedCores).To(Equal([]bool{false, true}))
 
 			Expect(policy.Cores).NotTo(BeNil())
@@ -310,7 +310,7 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 		})
 
 		It("should preserve all fields in ConvertFrom", func() {
-			v2Class := &VirtualMachineClass{
+			v2Class := &v1alpha2.VirtualMachineClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "full-test-class",
 					Namespace: "test-namespace",
@@ -318,8 +318,8 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 						"test-label": "test-value",
 					},
 				},
-				Spec: VirtualMachineClassSpec{
-					NodeSelector: NodeSelector{
+				Spec: v1alpha2.VirtualMachineClassSpec{
+					NodeSelector: v1alpha2.NodeSelector{
 						MatchLabels: map[string]string{
 							"node-role": "worker",
 						},
@@ -332,28 +332,28 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 							Effect:   corev1.TaintEffectNoSchedule,
 						},
 					},
-					CPU: CPU{
-						Type:     CPUTypeFeatures,
+					CPU: v1alpha2.CPU{
+						Type:     v1alpha2.CPUTypeFeatures,
 						Features: []string{"mmx", "sse2", "vmx"},
 					},
-					SizingPolicies: []SizingPolicy{
+					SizingPolicies: []v1alpha2.SizingPolicy{
 						{
-							Memory: &SizingPolicyMemory{
-								MemoryMinMax: MemoryMinMax{
+							Memory: &v1alpha2.SizingPolicyMemory{
+								MemoryMinMax: v1alpha2.MemoryMinMax{
 									Min: minMem,
 									Max: maxMem,
 								},
 								Step: stepMem,
-								PerCore: SizingPolicyMemoryPerCore{
-									MemoryMinMax: MemoryMinMax{
+								PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+									MemoryMinMax: v1alpha2.MemoryMinMax{
 										Min: minPerCoreMem,
 										Max: maxPerCoreMem,
 									},
 								},
 							},
-							CoreFractions:  []CoreFractionValue{10, 50, 100},
+							CoreFractions:  []v1alpha2.CoreFractionValue{10, 50, 100},
 							DedicatedCores: []bool{true},
-							Cores: &SizingPolicyCores{
+							Cores: &v1alpha2.SizingPolicyCores{
 								Min:  2,
 								Max:  8,
 								Step: 2,
@@ -363,8 +363,8 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 				},
 			}
 
-			v3Class := &v1alpha3.VirtualMachineClass{}
-			err := v2Class.ConvertTo(v3Class)
+			v3Class := &VirtualMachineClass{}
+			err := v3Class.ConvertFrom(v2Class)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(v3Class.Name).To(Equal("full-test-class"))
@@ -387,7 +387,7 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			Expect(policy.Memory.Max.Equal(maxMem)).To(BeTrue())
 			Expect(policy.Memory.Step.Equal(stepMem)).To(BeTrue())
 
-			Expect(policy.CoreFractions).To(Equal([]v1alpha3.CoreFractionValue{"10%", "50%", "100%"}))
+			Expect(policy.CoreFractions).To(Equal([]CoreFractionValue{"10%", "50%", "100%"}))
 			Expect(policy.DedicatedCores).To(Equal([]bool{true}))
 
 			Expect(policy.Cores).NotTo(BeNil())

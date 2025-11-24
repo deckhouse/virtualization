@@ -128,7 +128,7 @@ func (o RestoreOperation) IsComplete() (bool, string) {
 		return false, ""
 	}
 
-	if o.vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if o.vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return rc.Status == metav1.ConditionTrue, ""
 	}
 

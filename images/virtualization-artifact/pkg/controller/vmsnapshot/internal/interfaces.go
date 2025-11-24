@@ -20,6 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -37,9 +38,11 @@ type Snapshotter interface {
 	GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error)
 	GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDiskSnapshot, error)
 	CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*v1alpha2.VirtualDiskSnapshot, error)
-	Freeze(ctx context.Context, name, namespace string) error
-	Unfreeze(ctx context.Context, name, namespace string) error
-	IsFrozen(vm *v1alpha2.VirtualMachine) bool
-	CanFreeze(vm *v1alpha2.VirtualMachine) bool
-	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error)
+	Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	IsFrozen(kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 }

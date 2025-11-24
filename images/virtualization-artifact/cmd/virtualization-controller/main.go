@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
+	dvcrgarbagecollection "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
@@ -438,6 +439,12 @@ func main() {
 
 	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	dvcrGarbageCollectionLogger := logger.NewControllerLogger(dvcrgarbagecollection.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = dvcrgarbagecollection.NewController(ctx, mgr, dvcrGarbageCollectionLogger, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

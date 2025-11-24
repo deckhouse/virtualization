@@ -3,6 +3,7 @@
 ## Features
 
 
+ - **[module]** The virtual machine overview dashboards ('Namespace / Virtual Machine' and 'Namespace / Virtual Machines') have been improved, in addition to the cluster level, they are now also available at the project level. [#1603](https://github.com/deckhouse/virtualization/pull/1603)
  - **[module]** Added the `D8VirtualizationDVCRInsufficientCapacityRisk` alert, which warns of the risk of insufficient free space in the virtual machine image storage (DVCR). [#1461](https://github.com/deckhouse/virtualization/pull/1461)
  - **[module]** Added the `KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown` alert, which is triggered when the node hosting the virtual machines is about to shut down but VM evacuation is not yet complete. [#1268](https://github.com/deckhouse/virtualization/pull/1268)
  - **[vm]** Added the ability to migrate VMs using disks on local storage. Restrictions:
@@ -21,6 +22,7 @@
 
  - **[core]** Fixed an issue in containerdv2 where storage providing a PVC with the FileSystem type was incorrectly attached via `VirtualMachineBlockDeviceAttachment`. [#1548](https://github.com/deckhouse/virtualization/pull/1548)
  - **[core]** Added error reporting in the status of disks and images when the data source (URL) is unavailable. [#1534](https://github.com/deckhouse/virtualization/pull/1534)
+ - **[module]** Fixed CVE-2025-64324, CVE-2025-64435, CVE-2025-64436, CVE-2025-58183, CVE-2025-58186, CVE-2025-58187, CVE-2025-58188, CVE-2025-52565, CVE-2025-52881, CVE-2025-31133. [#1701](https://github.com/deckhouse/virtualization/pull/1701)
  - **[module]** fix CVE-2025-58058 and CVE-2025-54410 [#1572](https://github.com/deckhouse/virtualization/pull/1572)
  - **[observability]** Fixed the graph on the virtual machine dashboard that displays memory copy statistics during VM migration. [#1474](https://github.com/deckhouse/virtualization/pull/1474)
  - **[vd]** Fixed live disk migration between storage classes using different drivers. Limitations:

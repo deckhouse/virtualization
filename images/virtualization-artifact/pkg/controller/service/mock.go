@@ -5,9 +5,66 @@ package service
 
 import (
 	"context"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
+	admissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	apiserverinternalv1alpha1 "k8s.io/client-go/kubernetes/typed/apiserverinternal/v1alpha1"
+	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	appsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
+	appsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
+	authenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
+	authenticationv1alpha1 "k8s.io/client-go/kubernetes/typed/authentication/v1alpha1"
+	authenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
+	authorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	authorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
+	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
+	"k8s.io/client-go/kubernetes/typed/autoscaling/v2"
+	"k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
+	"k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
+	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
+	certificatesv1 "k8s.io/client-go/kubernetes/typed/certificates/v1"
+	certificatesv1alpha1 "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1"
+	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	coordinationv1alpha2 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha2"
+	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	discoveryv1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
+	discoveryv1beta1 "k8s.io/client-go/kubernetes/typed/discovery/v1beta1"
+	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
+	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
+	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	flowcontrolv1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1"
+	flowcontrolv1beta1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
+	flowcontrolv1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
+	"k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
+	networkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
+	networkingv1alpha1 "k8s.io/client-go/kubernetes/typed/networking/v1alpha1"
+	networkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	nodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
+	nodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
+	nodev1beta1 "k8s.io/client-go/kubernetes/typed/node/v1beta1"
+	policyv1 "k8s.io/client-go/kubernetes/typed/policy/v1"
+	policyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
+	rbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
+	rbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
+	rbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
+	"k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
+	resourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
+	"k8s.io/client-go/kubernetes/typed/resource/v1beta2"
+	schedulingv1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
+	schedulingv1alpha1 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
+	schedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
+	storagev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
+	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
+	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	storagemigrationv1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -678,5 +735,2555 @@ func (mock *ClientMock) UpdateCalls() []struct {
 	mock.lockUpdate.RLock()
 	calls = mock.calls.Update
 	mock.lockUpdate.RUnlock()
+	return calls
+}
+
+// Ensure, that VirtClientMock does implement VirtClient.
+// If this is not the case, regenerate this file with moq.
+var _ VirtClient = &VirtClientMock{}
+
+// VirtClientMock is a mock implementation of VirtClient.
+//
+//	func TestSomethingThatUsesVirtClient(t *testing.T) {
+//
+//		// make and configure a mocked VirtClient
+//		mockedVirtClient := &VirtClientMock{
+//			AdmissionregistrationV1Func: func() admissionregistrationv1.AdmissionregistrationV1Interface {
+//				panic("mock out the AdmissionregistrationV1 method")
+//			},
+//			AdmissionregistrationV1alpha1Func: func() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+//				panic("mock out the AdmissionregistrationV1alpha1 method")
+//			},
+//			AdmissionregistrationV1beta1Func: func() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface {
+//				panic("mock out the AdmissionregistrationV1beta1 method")
+//			},
+//			AppsV1Func: func() appsv1.AppsV1Interface {
+//				panic("mock out the AppsV1 method")
+//			},
+//			AppsV1beta1Func: func() appsv1beta1.AppsV1beta1Interface {
+//				panic("mock out the AppsV1beta1 method")
+//			},
+//			AppsV1beta2Func: func() appsv1beta2.AppsV1beta2Interface {
+//				panic("mock out the AppsV1beta2 method")
+//			},
+//			AuthenticationV1Func: func() authenticationv1.AuthenticationV1Interface {
+//				panic("mock out the AuthenticationV1 method")
+//			},
+//			AuthenticationV1alpha1Func: func() authenticationv1alpha1.AuthenticationV1alpha1Interface {
+//				panic("mock out the AuthenticationV1alpha1 method")
+//			},
+//			AuthenticationV1beta1Func: func() authenticationv1beta1.AuthenticationV1beta1Interface {
+//				panic("mock out the AuthenticationV1beta1 method")
+//			},
+//			AuthorizationV1Func: func() authorizationv1.AuthorizationV1Interface {
+//				panic("mock out the AuthorizationV1 method")
+//			},
+//			AuthorizationV1beta1Func: func() authorizationv1beta1.AuthorizationV1beta1Interface {
+//				panic("mock out the AuthorizationV1beta1 method")
+//			},
+//			AutoscalingV1Func: func() autoscalingv1.AutoscalingV1Interface {
+//				panic("mock out the AutoscalingV1 method")
+//			},
+//			AutoscalingV2Func: func() v2.AutoscalingV2Interface {
+//				panic("mock out the AutoscalingV2 method")
+//			},
+//			AutoscalingV2beta1Func: func() v2beta1.AutoscalingV2beta1Interface {
+//				panic("mock out the AutoscalingV2beta1 method")
+//			},
+//			AutoscalingV2beta2Func: func() v2beta2.AutoscalingV2beta2Interface {
+//				panic("mock out the AutoscalingV2beta2 method")
+//			},
+//			BatchV1Func: func() batchv1.BatchV1Interface {
+//				panic("mock out the BatchV1 method")
+//			},
+//			BatchV1beta1Func: func() batchv1beta1.BatchV1beta1Interface {
+//				panic("mock out the BatchV1beta1 method")
+//			},
+//			CertificatesV1Func: func() certificatesv1.CertificatesV1Interface {
+//				panic("mock out the CertificatesV1 method")
+//			},
+//			CertificatesV1alpha1Func: func() certificatesv1alpha1.CertificatesV1alpha1Interface {
+//				panic("mock out the CertificatesV1alpha1 method")
+//			},
+//			CertificatesV1beta1Func: func() certificatesv1beta1.CertificatesV1beta1Interface {
+//				panic("mock out the CertificatesV1beta1 method")
+//			},
+//			ClusterVirtualImagesFunc: func() corev1alpha2.ClusterVirtualImageInterface {
+//				panic("mock out the ClusterVirtualImages method")
+//			},
+//			CoordinationV1Func: func() coordinationv1.CoordinationV1Interface {
+//				panic("mock out the CoordinationV1 method")
+//			},
+//			CoordinationV1alpha2Func: func() coordinationv1alpha2.CoordinationV1alpha2Interface {
+//				panic("mock out the CoordinationV1alpha2 method")
+//			},
+//			CoordinationV1beta1Func: func() coordinationv1beta1.CoordinationV1beta1Interface {
+//				panic("mock out the CoordinationV1beta1 method")
+//			},
+//			CoreV1Func: func() corev1.CoreV1Interface {
+//				panic("mock out the CoreV1 method")
+//			},
+//			DiscoveryFunc: func() discovery.DiscoveryInterface {
+//				panic("mock out the Discovery method")
+//			},
+//			DiscoveryV1Func: func() discoveryv1.DiscoveryV1Interface {
+//				panic("mock out the DiscoveryV1 method")
+//			},
+//			DiscoveryV1beta1Func: func() discoveryv1beta1.DiscoveryV1beta1Interface {
+//				panic("mock out the DiscoveryV1beta1 method")
+//			},
+//			EventsV1Func: func() eventsv1.EventsV1Interface {
+//				panic("mock out the EventsV1 method")
+//			},
+//			EventsV1beta1Func: func() eventsv1beta1.EventsV1beta1Interface {
+//				panic("mock out the EventsV1beta1 method")
+//			},
+//			ExtensionsV1beta1Func: func() extensionsv1beta1.ExtensionsV1beta1Interface {
+//				panic("mock out the ExtensionsV1beta1 method")
+//			},
+//			FlowcontrolV1Func: func() flowcontrolv1.FlowcontrolV1Interface {
+//				panic("mock out the FlowcontrolV1 method")
+//			},
+//			FlowcontrolV1beta1Func: func() flowcontrolv1beta1.FlowcontrolV1beta1Interface {
+//				panic("mock out the FlowcontrolV1beta1 method")
+//			},
+//			FlowcontrolV1beta2Func: func() flowcontrolv1beta2.FlowcontrolV1beta2Interface {
+//				panic("mock out the FlowcontrolV1beta2 method")
+//			},
+//			FlowcontrolV1beta3Func: func() v1beta3.FlowcontrolV1beta3Interface {
+//				panic("mock out the FlowcontrolV1beta3 method")
+//			},
+//			InternalV1alpha1Func: func() apiserverinternalv1alpha1.InternalV1alpha1Interface {
+//				panic("mock out the InternalV1alpha1 method")
+//			},
+//			NetworkingV1Func: func() networkingv1.NetworkingV1Interface {
+//				panic("mock out the NetworkingV1 method")
+//			},
+//			NetworkingV1alpha1Func: func() networkingv1alpha1.NetworkingV1alpha1Interface {
+//				panic("mock out the NetworkingV1alpha1 method")
+//			},
+//			NetworkingV1beta1Func: func() networkingv1beta1.NetworkingV1beta1Interface {
+//				panic("mock out the NetworkingV1beta1 method")
+//			},
+//			NodeV1Func: func() nodev1.NodeV1Interface {
+//				panic("mock out the NodeV1 method")
+//			},
+//			NodeV1alpha1Func: func() nodev1alpha1.NodeV1alpha1Interface {
+//				panic("mock out the NodeV1alpha1 method")
+//			},
+//			NodeV1beta1Func: func() nodev1beta1.NodeV1beta1Interface {
+//				panic("mock out the NodeV1beta1 method")
+//			},
+//			PolicyV1Func: func() policyv1.PolicyV1Interface {
+//				panic("mock out the PolicyV1 method")
+//			},
+//			PolicyV1beta1Func: func() policyv1beta1.PolicyV1beta1Interface {
+//				panic("mock out the PolicyV1beta1 method")
+//			},
+//			RbacV1Func: func() rbacv1.RbacV1Interface {
+//				panic("mock out the RbacV1 method")
+//			},
+//			RbacV1alpha1Func: func() rbacv1alpha1.RbacV1alpha1Interface {
+//				panic("mock out the RbacV1alpha1 method")
+//			},
+//			RbacV1beta1Func: func() rbacv1beta1.RbacV1beta1Interface {
+//				panic("mock out the RbacV1beta1 method")
+//			},
+//			ResourceV1alpha3Func: func() v1alpha3.ResourceV1alpha3Interface {
+//				panic("mock out the ResourceV1alpha3 method")
+//			},
+//			ResourceV1beta1Func: func() resourcev1beta1.ResourceV1beta1Interface {
+//				panic("mock out the ResourceV1beta1 method")
+//			},
+//			ResourceV1beta2Func: func() v1beta2.ResourceV1beta2Interface {
+//				panic("mock out the ResourceV1beta2 method")
+//			},
+//			SchedulingV1Func: func() schedulingv1.SchedulingV1Interface {
+//				panic("mock out the SchedulingV1 method")
+//			},
+//			SchedulingV1alpha1Func: func() schedulingv1alpha1.SchedulingV1alpha1Interface {
+//				panic("mock out the SchedulingV1alpha1 method")
+//			},
+//			SchedulingV1beta1Func: func() schedulingv1beta1.SchedulingV1beta1Interface {
+//				panic("mock out the SchedulingV1beta1 method")
+//			},
+//			StorageV1Func: func() storagev1.StorageV1Interface {
+//				panic("mock out the StorageV1 method")
+//			},
+//			StorageV1alpha1Func: func() storagev1alpha1.StorageV1alpha1Interface {
+//				panic("mock out the StorageV1alpha1 method")
+//			},
+//			StorageV1beta1Func: func() storagev1beta1.StorageV1beta1Interface {
+//				panic("mock out the StorageV1beta1 method")
+//			},
+//			StoragemigrationV1alpha1Func: func() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
+//				panic("mock out the StoragemigrationV1alpha1 method")
+//			},
+//			VirtualDisksFunc: func(namespace string) corev1alpha2.VirtualDiskInterface {
+//				panic("mock out the VirtualDisks method")
+//			},
+//			VirtualImagesFunc: func(namespace string) corev1alpha2.VirtualImageInterface {
+//				panic("mock out the VirtualImages method")
+//			},
+//			VirtualMachineBlockDeviceAttachmentsFunc: func(namespace string) corev1alpha2.VirtualMachineBlockDeviceAttachmentInterface {
+//				panic("mock out the VirtualMachineBlockDeviceAttachments method")
+//			},
+//			VirtualMachineClassesFunc: func() corev1alpha2.VirtualMachineClassInterface {
+//				panic("mock out the VirtualMachineClasses method")
+//			},
+//			VirtualMachineIPAddressLeasesFunc: func() corev1alpha2.VirtualMachineIPAddressLeaseInterface {
+//				panic("mock out the VirtualMachineIPAddressLeases method")
+//			},
+//			VirtualMachineIPAddressesFunc: func(namespace string) corev1alpha2.VirtualMachineIPAddressInterface {
+//				panic("mock out the VirtualMachineIPAddresses method")
+//			},
+//			VirtualMachineMACAddressLeasesFunc: func() corev1alpha2.VirtualMachineMACAddressLeaseInterface {
+//				panic("mock out the VirtualMachineMACAddressLeases method")
+//			},
+//			VirtualMachineMACAddressesFunc: func(namespace string) corev1alpha2.VirtualMachineMACAddressInterface {
+//				panic("mock out the VirtualMachineMACAddresses method")
+//			},
+//			VirtualMachineOperationsFunc: func(namespace string) corev1alpha2.VirtualMachineOperationInterface {
+//				panic("mock out the VirtualMachineOperations method")
+//			},
+//			VirtualMachinesFunc: func(namespace string) corev1alpha2.VirtualMachineInterface {
+//				panic("mock out the VirtualMachines method")
+//			},
+//		}
+//
+//		// use mockedVirtClient in code that requires VirtClient
+//		// and then make assertions.
+//
+//	}
+type VirtClientMock struct {
+	// AdmissionregistrationV1Func mocks the AdmissionregistrationV1 method.
+	AdmissionregistrationV1Func func() admissionregistrationv1.AdmissionregistrationV1Interface
+
+	// AdmissionregistrationV1alpha1Func mocks the AdmissionregistrationV1alpha1 method.
+	AdmissionregistrationV1alpha1Func func() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface
+
+	// AdmissionregistrationV1beta1Func mocks the AdmissionregistrationV1beta1 method.
+	AdmissionregistrationV1beta1Func func() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface
+
+	// AppsV1Func mocks the AppsV1 method.
+	AppsV1Func func() appsv1.AppsV1Interface
+
+	// AppsV1beta1Func mocks the AppsV1beta1 method.
+	AppsV1beta1Func func() appsv1beta1.AppsV1beta1Interface
+
+	// AppsV1beta2Func mocks the AppsV1beta2 method.
+	AppsV1beta2Func func() appsv1beta2.AppsV1beta2Interface
+
+	// AuthenticationV1Func mocks the AuthenticationV1 method.
+	AuthenticationV1Func func() authenticationv1.AuthenticationV1Interface
+
+	// AuthenticationV1alpha1Func mocks the AuthenticationV1alpha1 method.
+	AuthenticationV1alpha1Func func() authenticationv1alpha1.AuthenticationV1alpha1Interface
+
+	// AuthenticationV1beta1Func mocks the AuthenticationV1beta1 method.
+	AuthenticationV1beta1Func func() authenticationv1beta1.AuthenticationV1beta1Interface
+
+	// AuthorizationV1Func mocks the AuthorizationV1 method.
+	AuthorizationV1Func func() authorizationv1.AuthorizationV1Interface
+
+	// AuthorizationV1beta1Func mocks the AuthorizationV1beta1 method.
+	AuthorizationV1beta1Func func() authorizationv1beta1.AuthorizationV1beta1Interface
+
+	// AutoscalingV1Func mocks the AutoscalingV1 method.
+	AutoscalingV1Func func() autoscalingv1.AutoscalingV1Interface
+
+	// AutoscalingV2Func mocks the AutoscalingV2 method.
+	AutoscalingV2Func func() v2.AutoscalingV2Interface
+
+	// AutoscalingV2beta1Func mocks the AutoscalingV2beta1 method.
+	AutoscalingV2beta1Func func() v2beta1.AutoscalingV2beta1Interface
+
+	// AutoscalingV2beta2Func mocks the AutoscalingV2beta2 method.
+	AutoscalingV2beta2Func func() v2beta2.AutoscalingV2beta2Interface
+
+	// BatchV1Func mocks the BatchV1 method.
+	BatchV1Func func() batchv1.BatchV1Interface
+
+	// BatchV1beta1Func mocks the BatchV1beta1 method.
+	BatchV1beta1Func func() batchv1beta1.BatchV1beta1Interface
+
+	// CertificatesV1Func mocks the CertificatesV1 method.
+	CertificatesV1Func func() certificatesv1.CertificatesV1Interface
+
+	// CertificatesV1alpha1Func mocks the CertificatesV1alpha1 method.
+	CertificatesV1alpha1Func func() certificatesv1alpha1.CertificatesV1alpha1Interface
+
+	// CertificatesV1beta1Func mocks the CertificatesV1beta1 method.
+	CertificatesV1beta1Func func() certificatesv1beta1.CertificatesV1beta1Interface
+
+	// ClusterVirtualImagesFunc mocks the ClusterVirtualImages method.
+	ClusterVirtualImagesFunc func() corev1alpha2.ClusterVirtualImageInterface
+
+	// CoordinationV1Func mocks the CoordinationV1 method.
+	CoordinationV1Func func() coordinationv1.CoordinationV1Interface
+
+	// CoordinationV1alpha2Func mocks the CoordinationV1alpha2 method.
+	CoordinationV1alpha2Func func() coordinationv1alpha2.CoordinationV1alpha2Interface
+
+	// CoordinationV1beta1Func mocks the CoordinationV1beta1 method.
+	CoordinationV1beta1Func func() coordinationv1beta1.CoordinationV1beta1Interface
+
+	// CoreV1Func mocks the CoreV1 method.
+	CoreV1Func func() corev1.CoreV1Interface
+
+	// DiscoveryFunc mocks the Discovery method.
+	DiscoveryFunc func() discovery.DiscoveryInterface
+
+	// DiscoveryV1Func mocks the DiscoveryV1 method.
+	DiscoveryV1Func func() discoveryv1.DiscoveryV1Interface
+
+	// DiscoveryV1beta1Func mocks the DiscoveryV1beta1 method.
+	DiscoveryV1beta1Func func() discoveryv1beta1.DiscoveryV1beta1Interface
+
+	// EventsV1Func mocks the EventsV1 method.
+	EventsV1Func func() eventsv1.EventsV1Interface
+
+	// EventsV1beta1Func mocks the EventsV1beta1 method.
+	EventsV1beta1Func func() eventsv1beta1.EventsV1beta1Interface
+
+	// ExtensionsV1beta1Func mocks the ExtensionsV1beta1 method.
+	ExtensionsV1beta1Func func() extensionsv1beta1.ExtensionsV1beta1Interface
+
+	// FlowcontrolV1Func mocks the FlowcontrolV1 method.
+	FlowcontrolV1Func func() flowcontrolv1.FlowcontrolV1Interface
+
+	// FlowcontrolV1beta1Func mocks the FlowcontrolV1beta1 method.
+	FlowcontrolV1beta1Func func() flowcontrolv1beta1.FlowcontrolV1beta1Interface
+
+	// FlowcontrolV1beta2Func mocks the FlowcontrolV1beta2 method.
+	FlowcontrolV1beta2Func func() flowcontrolv1beta2.FlowcontrolV1beta2Interface
+
+	// FlowcontrolV1beta3Func mocks the FlowcontrolV1beta3 method.
+	FlowcontrolV1beta3Func func() v1beta3.FlowcontrolV1beta3Interface
+
+	// InternalV1alpha1Func mocks the InternalV1alpha1 method.
+	InternalV1alpha1Func func() apiserverinternalv1alpha1.InternalV1alpha1Interface
+
+	// NetworkingV1Func mocks the NetworkingV1 method.
+	NetworkingV1Func func() networkingv1.NetworkingV1Interface
+
+	// NetworkingV1alpha1Func mocks the NetworkingV1alpha1 method.
+	NetworkingV1alpha1Func func() networkingv1alpha1.NetworkingV1alpha1Interface
+
+	// NetworkingV1beta1Func mocks the NetworkingV1beta1 method.
+	NetworkingV1beta1Func func() networkingv1beta1.NetworkingV1beta1Interface
+
+	// NodeV1Func mocks the NodeV1 method.
+	NodeV1Func func() nodev1.NodeV1Interface
+
+	// NodeV1alpha1Func mocks the NodeV1alpha1 method.
+	NodeV1alpha1Func func() nodev1alpha1.NodeV1alpha1Interface
+
+	// NodeV1beta1Func mocks the NodeV1beta1 method.
+	NodeV1beta1Func func() nodev1beta1.NodeV1beta1Interface
+
+	// PolicyV1Func mocks the PolicyV1 method.
+	PolicyV1Func func() policyv1.PolicyV1Interface
+
+	// PolicyV1beta1Func mocks the PolicyV1beta1 method.
+	PolicyV1beta1Func func() policyv1beta1.PolicyV1beta1Interface
+
+	// RbacV1Func mocks the RbacV1 method.
+	RbacV1Func func() rbacv1.RbacV1Interface
+
+	// RbacV1alpha1Func mocks the RbacV1alpha1 method.
+	RbacV1alpha1Func func() rbacv1alpha1.RbacV1alpha1Interface
+
+	// RbacV1beta1Func mocks the RbacV1beta1 method.
+	RbacV1beta1Func func() rbacv1beta1.RbacV1beta1Interface
+
+	// ResourceV1alpha3Func mocks the ResourceV1alpha3 method.
+	ResourceV1alpha3Func func() v1alpha3.ResourceV1alpha3Interface
+
+	// ResourceV1beta1Func mocks the ResourceV1beta1 method.
+	ResourceV1beta1Func func() resourcev1beta1.ResourceV1beta1Interface
+
+	// ResourceV1beta2Func mocks the ResourceV1beta2 method.
+	ResourceV1beta2Func func() v1beta2.ResourceV1beta2Interface
+
+	// SchedulingV1Func mocks the SchedulingV1 method.
+	SchedulingV1Func func() schedulingv1.SchedulingV1Interface
+
+	// SchedulingV1alpha1Func mocks the SchedulingV1alpha1 method.
+	SchedulingV1alpha1Func func() schedulingv1alpha1.SchedulingV1alpha1Interface
+
+	// SchedulingV1beta1Func mocks the SchedulingV1beta1 method.
+	SchedulingV1beta1Func func() schedulingv1beta1.SchedulingV1beta1Interface
+
+	// StorageV1Func mocks the StorageV1 method.
+	StorageV1Func func() storagev1.StorageV1Interface
+
+	// StorageV1alpha1Func mocks the StorageV1alpha1 method.
+	StorageV1alpha1Func func() storagev1alpha1.StorageV1alpha1Interface
+
+	// StorageV1beta1Func mocks the StorageV1beta1 method.
+	StorageV1beta1Func func() storagev1beta1.StorageV1beta1Interface
+
+	// StoragemigrationV1alpha1Func mocks the StoragemigrationV1alpha1 method.
+	StoragemigrationV1alpha1Func func() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface
+
+	// VirtualDisksFunc mocks the VirtualDisks method.
+	VirtualDisksFunc func(namespace string) corev1alpha2.VirtualDiskInterface
+
+	// VirtualImagesFunc mocks the VirtualImages method.
+	VirtualImagesFunc func(namespace string) corev1alpha2.VirtualImageInterface
+
+	// VirtualMachineBlockDeviceAttachmentsFunc mocks the VirtualMachineBlockDeviceAttachments method.
+	VirtualMachineBlockDeviceAttachmentsFunc func(namespace string) corev1alpha2.VirtualMachineBlockDeviceAttachmentInterface
+
+	// VirtualMachineClassesFunc mocks the VirtualMachineClasses method.
+	VirtualMachineClassesFunc func() corev1alpha2.VirtualMachineClassInterface
+
+	// VirtualMachineIPAddressLeasesFunc mocks the VirtualMachineIPAddressLeases method.
+	VirtualMachineIPAddressLeasesFunc func() corev1alpha2.VirtualMachineIPAddressLeaseInterface
+
+	// VirtualMachineIPAddressesFunc mocks the VirtualMachineIPAddresses method.
+	VirtualMachineIPAddressesFunc func(namespace string) corev1alpha2.VirtualMachineIPAddressInterface
+
+	// VirtualMachineMACAddressLeasesFunc mocks the VirtualMachineMACAddressLeases method.
+	VirtualMachineMACAddressLeasesFunc func() corev1alpha2.VirtualMachineMACAddressLeaseInterface
+
+	// VirtualMachineMACAddressesFunc mocks the VirtualMachineMACAddresses method.
+	VirtualMachineMACAddressesFunc func(namespace string) corev1alpha2.VirtualMachineMACAddressInterface
+
+	// VirtualMachineOperationsFunc mocks the VirtualMachineOperations method.
+	VirtualMachineOperationsFunc func(namespace string) corev1alpha2.VirtualMachineOperationInterface
+
+	// VirtualMachinesFunc mocks the VirtualMachines method.
+	VirtualMachinesFunc func(namespace string) corev1alpha2.VirtualMachineInterface
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// AdmissionregistrationV1 holds details about calls to the AdmissionregistrationV1 method.
+		AdmissionregistrationV1 []struct {
+		}
+		// AdmissionregistrationV1alpha1 holds details about calls to the AdmissionregistrationV1alpha1 method.
+		AdmissionregistrationV1alpha1 []struct {
+		}
+		// AdmissionregistrationV1beta1 holds details about calls to the AdmissionregistrationV1beta1 method.
+		AdmissionregistrationV1beta1 []struct {
+		}
+		// AppsV1 holds details about calls to the AppsV1 method.
+		AppsV1 []struct {
+		}
+		// AppsV1beta1 holds details about calls to the AppsV1beta1 method.
+		AppsV1beta1 []struct {
+		}
+		// AppsV1beta2 holds details about calls to the AppsV1beta2 method.
+		AppsV1beta2 []struct {
+		}
+		// AuthenticationV1 holds details about calls to the AuthenticationV1 method.
+		AuthenticationV1 []struct {
+		}
+		// AuthenticationV1alpha1 holds details about calls to the AuthenticationV1alpha1 method.
+		AuthenticationV1alpha1 []struct {
+		}
+		// AuthenticationV1beta1 holds details about calls to the AuthenticationV1beta1 method.
+		AuthenticationV1beta1 []struct {
+		}
+		// AuthorizationV1 holds details about calls to the AuthorizationV1 method.
+		AuthorizationV1 []struct {
+		}
+		// AuthorizationV1beta1 holds details about calls to the AuthorizationV1beta1 method.
+		AuthorizationV1beta1 []struct {
+		}
+		// AutoscalingV1 holds details about calls to the AutoscalingV1 method.
+		AutoscalingV1 []struct {
+		}
+		// AutoscalingV2 holds details about calls to the AutoscalingV2 method.
+		AutoscalingV2 []struct {
+		}
+		// AutoscalingV2beta1 holds details about calls to the AutoscalingV2beta1 method.
+		AutoscalingV2beta1 []struct {
+		}
+		// AutoscalingV2beta2 holds details about calls to the AutoscalingV2beta2 method.
+		AutoscalingV2beta2 []struct {
+		}
+		// BatchV1 holds details about calls to the BatchV1 method.
+		BatchV1 []struct {
+		}
+		// BatchV1beta1 holds details about calls to the BatchV1beta1 method.
+		BatchV1beta1 []struct {
+		}
+		// CertificatesV1 holds details about calls to the CertificatesV1 method.
+		CertificatesV1 []struct {
+		}
+		// CertificatesV1alpha1 holds details about calls to the CertificatesV1alpha1 method.
+		CertificatesV1alpha1 []struct {
+		}
+		// CertificatesV1beta1 holds details about calls to the CertificatesV1beta1 method.
+		CertificatesV1beta1 []struct {
+		}
+		// ClusterVirtualImages holds details about calls to the ClusterVirtualImages method.
+		ClusterVirtualImages []struct {
+		}
+		// CoordinationV1 holds details about calls to the CoordinationV1 method.
+		CoordinationV1 []struct {
+		}
+		// CoordinationV1alpha2 holds details about calls to the CoordinationV1alpha2 method.
+		CoordinationV1alpha2 []struct {
+		}
+		// CoordinationV1beta1 holds details about calls to the CoordinationV1beta1 method.
+		CoordinationV1beta1 []struct {
+		}
+		// CoreV1 holds details about calls to the CoreV1 method.
+		CoreV1 []struct {
+		}
+		// Discovery holds details about calls to the Discovery method.
+		Discovery []struct {
+		}
+		// DiscoveryV1 holds details about calls to the DiscoveryV1 method.
+		DiscoveryV1 []struct {
+		}
+		// DiscoveryV1beta1 holds details about calls to the DiscoveryV1beta1 method.
+		DiscoveryV1beta1 []struct {
+		}
+		// EventsV1 holds details about calls to the EventsV1 method.
+		EventsV1 []struct {
+		}
+		// EventsV1beta1 holds details about calls to the EventsV1beta1 method.
+		EventsV1beta1 []struct {
+		}
+		// ExtensionsV1beta1 holds details about calls to the ExtensionsV1beta1 method.
+		ExtensionsV1beta1 []struct {
+		}
+		// FlowcontrolV1 holds details about calls to the FlowcontrolV1 method.
+		FlowcontrolV1 []struct {
+		}
+		// FlowcontrolV1beta1 holds details about calls to the FlowcontrolV1beta1 method.
+		FlowcontrolV1beta1 []struct {
+		}
+		// FlowcontrolV1beta2 holds details about calls to the FlowcontrolV1beta2 method.
+		FlowcontrolV1beta2 []struct {
+		}
+		// FlowcontrolV1beta3 holds details about calls to the FlowcontrolV1beta3 method.
+		FlowcontrolV1beta3 []struct {
+		}
+		// InternalV1alpha1 holds details about calls to the InternalV1alpha1 method.
+		InternalV1alpha1 []struct {
+		}
+		// NetworkingV1 holds details about calls to the NetworkingV1 method.
+		NetworkingV1 []struct {
+		}
+		// NetworkingV1alpha1 holds details about calls to the NetworkingV1alpha1 method.
+		NetworkingV1alpha1 []struct {
+		}
+		// NetworkingV1beta1 holds details about calls to the NetworkingV1beta1 method.
+		NetworkingV1beta1 []struct {
+		}
+		// NodeV1 holds details about calls to the NodeV1 method.
+		NodeV1 []struct {
+		}
+		// NodeV1alpha1 holds details about calls to the NodeV1alpha1 method.
+		NodeV1alpha1 []struct {
+		}
+		// NodeV1beta1 holds details about calls to the NodeV1beta1 method.
+		NodeV1beta1 []struct {
+		}
+		// PolicyV1 holds details about calls to the PolicyV1 method.
+		PolicyV1 []struct {
+		}
+		// PolicyV1beta1 holds details about calls to the PolicyV1beta1 method.
+		PolicyV1beta1 []struct {
+		}
+		// RbacV1 holds details about calls to the RbacV1 method.
+		RbacV1 []struct {
+		}
+		// RbacV1alpha1 holds details about calls to the RbacV1alpha1 method.
+		RbacV1alpha1 []struct {
+		}
+		// RbacV1beta1 holds details about calls to the RbacV1beta1 method.
+		RbacV1beta1 []struct {
+		}
+		// ResourceV1alpha3 holds details about calls to the ResourceV1alpha3 method.
+		ResourceV1alpha3 []struct {
+		}
+		// ResourceV1beta1 holds details about calls to the ResourceV1beta1 method.
+		ResourceV1beta1 []struct {
+		}
+		// ResourceV1beta2 holds details about calls to the ResourceV1beta2 method.
+		ResourceV1beta2 []struct {
+		}
+		// SchedulingV1 holds details about calls to the SchedulingV1 method.
+		SchedulingV1 []struct {
+		}
+		// SchedulingV1alpha1 holds details about calls to the SchedulingV1alpha1 method.
+		SchedulingV1alpha1 []struct {
+		}
+		// SchedulingV1beta1 holds details about calls to the SchedulingV1beta1 method.
+		SchedulingV1beta1 []struct {
+		}
+		// StorageV1 holds details about calls to the StorageV1 method.
+		StorageV1 []struct {
+		}
+		// StorageV1alpha1 holds details about calls to the StorageV1alpha1 method.
+		StorageV1alpha1 []struct {
+		}
+		// StorageV1beta1 holds details about calls to the StorageV1beta1 method.
+		StorageV1beta1 []struct {
+		}
+		// StoragemigrationV1alpha1 holds details about calls to the StoragemigrationV1alpha1 method.
+		StoragemigrationV1alpha1 []struct {
+		}
+		// VirtualDisks holds details about calls to the VirtualDisks method.
+		VirtualDisks []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualImages holds details about calls to the VirtualImages method.
+		VirtualImages []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineBlockDeviceAttachments holds details about calls to the VirtualMachineBlockDeviceAttachments method.
+		VirtualMachineBlockDeviceAttachments []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineClasses holds details about calls to the VirtualMachineClasses method.
+		VirtualMachineClasses []struct {
+		}
+		// VirtualMachineIPAddressLeases holds details about calls to the VirtualMachineIPAddressLeases method.
+		VirtualMachineIPAddressLeases []struct {
+		}
+		// VirtualMachineIPAddresses holds details about calls to the VirtualMachineIPAddresses method.
+		VirtualMachineIPAddresses []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineMACAddressLeases holds details about calls to the VirtualMachineMACAddressLeases method.
+		VirtualMachineMACAddressLeases []struct {
+		}
+		// VirtualMachineMACAddresses holds details about calls to the VirtualMachineMACAddresses method.
+		VirtualMachineMACAddresses []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineOperations holds details about calls to the VirtualMachineOperations method.
+		VirtualMachineOperations []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachines holds details about calls to the VirtualMachines method.
+		VirtualMachines []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+	}
+	lockAdmissionregistrationV1              sync.RWMutex
+	lockAdmissionregistrationV1alpha1        sync.RWMutex
+	lockAdmissionregistrationV1beta1         sync.RWMutex
+	lockAppsV1                               sync.RWMutex
+	lockAppsV1beta1                          sync.RWMutex
+	lockAppsV1beta2                          sync.RWMutex
+	lockAuthenticationV1                     sync.RWMutex
+	lockAuthenticationV1alpha1               sync.RWMutex
+	lockAuthenticationV1beta1                sync.RWMutex
+	lockAuthorizationV1                      sync.RWMutex
+	lockAuthorizationV1beta1                 sync.RWMutex
+	lockAutoscalingV1                        sync.RWMutex
+	lockAutoscalingV2                        sync.RWMutex
+	lockAutoscalingV2beta1                   sync.RWMutex
+	lockAutoscalingV2beta2                   sync.RWMutex
+	lockBatchV1                              sync.RWMutex
+	lockBatchV1beta1                         sync.RWMutex
+	lockCertificatesV1                       sync.RWMutex
+	lockCertificatesV1alpha1                 sync.RWMutex
+	lockCertificatesV1beta1                  sync.RWMutex
+	lockClusterVirtualImages                 sync.RWMutex
+	lockCoordinationV1                       sync.RWMutex
+	lockCoordinationV1alpha2                 sync.RWMutex
+	lockCoordinationV1beta1                  sync.RWMutex
+	lockCoreV1                               sync.RWMutex
+	lockDiscovery                            sync.RWMutex
+	lockDiscoveryV1                          sync.RWMutex
+	lockDiscoveryV1beta1                     sync.RWMutex
+	lockEventsV1                             sync.RWMutex
+	lockEventsV1beta1                        sync.RWMutex
+	lockExtensionsV1beta1                    sync.RWMutex
+	lockFlowcontrolV1                        sync.RWMutex
+	lockFlowcontrolV1beta1                   sync.RWMutex
+	lockFlowcontrolV1beta2                   sync.RWMutex
+	lockFlowcontrolV1beta3                   sync.RWMutex
+	lockInternalV1alpha1                     sync.RWMutex
+	lockNetworkingV1                         sync.RWMutex
+	lockNetworkingV1alpha1                   sync.RWMutex
+	lockNetworkingV1beta1                    sync.RWMutex
+	lockNodeV1                               sync.RWMutex
+	lockNodeV1alpha1                         sync.RWMutex
+	lockNodeV1beta1                          sync.RWMutex
+	lockPolicyV1                             sync.RWMutex
+	lockPolicyV1beta1                        sync.RWMutex
+	lockRbacV1                               sync.RWMutex
+	lockRbacV1alpha1                         sync.RWMutex
+	lockRbacV1beta1                          sync.RWMutex
+	lockResourceV1alpha3                     sync.RWMutex
+	lockResourceV1beta1                      sync.RWMutex
+	lockResourceV1beta2                      sync.RWMutex
+	lockSchedulingV1                         sync.RWMutex
+	lockSchedulingV1alpha1                   sync.RWMutex
+	lockSchedulingV1beta1                    sync.RWMutex
+	lockStorageV1                            sync.RWMutex
+	lockStorageV1alpha1                      sync.RWMutex
+	lockStorageV1beta1                       sync.RWMutex
+	lockStoragemigrationV1alpha1             sync.RWMutex
+	lockVirtualDisks                         sync.RWMutex
+	lockVirtualImages                        sync.RWMutex
+	lockVirtualMachineBlockDeviceAttachments sync.RWMutex
+	lockVirtualMachineClasses                sync.RWMutex
+	lockVirtualMachineIPAddressLeases        sync.RWMutex
+	lockVirtualMachineIPAddresses            sync.RWMutex
+	lockVirtualMachineMACAddressLeases       sync.RWMutex
+	lockVirtualMachineMACAddresses           sync.RWMutex
+	lockVirtualMachineOperations             sync.RWMutex
+	lockVirtualMachines                      sync.RWMutex
+}
+
+// AdmissionregistrationV1 calls AdmissionregistrationV1Func.
+func (mock *VirtClientMock) AdmissionregistrationV1() admissionregistrationv1.AdmissionregistrationV1Interface {
+	if mock.AdmissionregistrationV1Func == nil {
+		panic("VirtClientMock.AdmissionregistrationV1Func: method is nil but VirtClient.AdmissionregistrationV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAdmissionregistrationV1.Lock()
+	mock.calls.AdmissionregistrationV1 = append(mock.calls.AdmissionregistrationV1, callInfo)
+	mock.lockAdmissionregistrationV1.Unlock()
+	return mock.AdmissionregistrationV1Func()
+}
+
+// AdmissionregistrationV1Calls gets all the calls that were made to AdmissionregistrationV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AdmissionregistrationV1Calls())
+func (mock *VirtClientMock) AdmissionregistrationV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAdmissionregistrationV1.RLock()
+	calls = mock.calls.AdmissionregistrationV1
+	mock.lockAdmissionregistrationV1.RUnlock()
+	return calls
+}
+
+// AdmissionregistrationV1alpha1 calls AdmissionregistrationV1alpha1Func.
+func (mock *VirtClientMock) AdmissionregistrationV1alpha1() admissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+	if mock.AdmissionregistrationV1alpha1Func == nil {
+		panic("VirtClientMock.AdmissionregistrationV1alpha1Func: method is nil but VirtClient.AdmissionregistrationV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAdmissionregistrationV1alpha1.Lock()
+	mock.calls.AdmissionregistrationV1alpha1 = append(mock.calls.AdmissionregistrationV1alpha1, callInfo)
+	mock.lockAdmissionregistrationV1alpha1.Unlock()
+	return mock.AdmissionregistrationV1alpha1Func()
+}
+
+// AdmissionregistrationV1alpha1Calls gets all the calls that were made to AdmissionregistrationV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AdmissionregistrationV1alpha1Calls())
+func (mock *VirtClientMock) AdmissionregistrationV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAdmissionregistrationV1alpha1.RLock()
+	calls = mock.calls.AdmissionregistrationV1alpha1
+	mock.lockAdmissionregistrationV1alpha1.RUnlock()
+	return calls
+}
+
+// AdmissionregistrationV1beta1 calls AdmissionregistrationV1beta1Func.
+func (mock *VirtClientMock) AdmissionregistrationV1beta1() admissionregistrationv1beta1.AdmissionregistrationV1beta1Interface {
+	if mock.AdmissionregistrationV1beta1Func == nil {
+		panic("VirtClientMock.AdmissionregistrationV1beta1Func: method is nil but VirtClient.AdmissionregistrationV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAdmissionregistrationV1beta1.Lock()
+	mock.calls.AdmissionregistrationV1beta1 = append(mock.calls.AdmissionregistrationV1beta1, callInfo)
+	mock.lockAdmissionregistrationV1beta1.Unlock()
+	return mock.AdmissionregistrationV1beta1Func()
+}
+
+// AdmissionregistrationV1beta1Calls gets all the calls that were made to AdmissionregistrationV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AdmissionregistrationV1beta1Calls())
+func (mock *VirtClientMock) AdmissionregistrationV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAdmissionregistrationV1beta1.RLock()
+	calls = mock.calls.AdmissionregistrationV1beta1
+	mock.lockAdmissionregistrationV1beta1.RUnlock()
+	return calls
+}
+
+// AppsV1 calls AppsV1Func.
+func (mock *VirtClientMock) AppsV1() appsv1.AppsV1Interface {
+	if mock.AppsV1Func == nil {
+		panic("VirtClientMock.AppsV1Func: method is nil but VirtClient.AppsV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAppsV1.Lock()
+	mock.calls.AppsV1 = append(mock.calls.AppsV1, callInfo)
+	mock.lockAppsV1.Unlock()
+	return mock.AppsV1Func()
+}
+
+// AppsV1Calls gets all the calls that were made to AppsV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AppsV1Calls())
+func (mock *VirtClientMock) AppsV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAppsV1.RLock()
+	calls = mock.calls.AppsV1
+	mock.lockAppsV1.RUnlock()
+	return calls
+}
+
+// AppsV1beta1 calls AppsV1beta1Func.
+func (mock *VirtClientMock) AppsV1beta1() appsv1beta1.AppsV1beta1Interface {
+	if mock.AppsV1beta1Func == nil {
+		panic("VirtClientMock.AppsV1beta1Func: method is nil but VirtClient.AppsV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAppsV1beta1.Lock()
+	mock.calls.AppsV1beta1 = append(mock.calls.AppsV1beta1, callInfo)
+	mock.lockAppsV1beta1.Unlock()
+	return mock.AppsV1beta1Func()
+}
+
+// AppsV1beta1Calls gets all the calls that were made to AppsV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AppsV1beta1Calls())
+func (mock *VirtClientMock) AppsV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAppsV1beta1.RLock()
+	calls = mock.calls.AppsV1beta1
+	mock.lockAppsV1beta1.RUnlock()
+	return calls
+}
+
+// AppsV1beta2 calls AppsV1beta2Func.
+func (mock *VirtClientMock) AppsV1beta2() appsv1beta2.AppsV1beta2Interface {
+	if mock.AppsV1beta2Func == nil {
+		panic("VirtClientMock.AppsV1beta2Func: method is nil but VirtClient.AppsV1beta2 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAppsV1beta2.Lock()
+	mock.calls.AppsV1beta2 = append(mock.calls.AppsV1beta2, callInfo)
+	mock.lockAppsV1beta2.Unlock()
+	return mock.AppsV1beta2Func()
+}
+
+// AppsV1beta2Calls gets all the calls that were made to AppsV1beta2.
+// Check the length with:
+//
+//	len(mockedVirtClient.AppsV1beta2Calls())
+func (mock *VirtClientMock) AppsV1beta2Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAppsV1beta2.RLock()
+	calls = mock.calls.AppsV1beta2
+	mock.lockAppsV1beta2.RUnlock()
+	return calls
+}
+
+// AuthenticationV1 calls AuthenticationV1Func.
+func (mock *VirtClientMock) AuthenticationV1() authenticationv1.AuthenticationV1Interface {
+	if mock.AuthenticationV1Func == nil {
+		panic("VirtClientMock.AuthenticationV1Func: method is nil but VirtClient.AuthenticationV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAuthenticationV1.Lock()
+	mock.calls.AuthenticationV1 = append(mock.calls.AuthenticationV1, callInfo)
+	mock.lockAuthenticationV1.Unlock()
+	return mock.AuthenticationV1Func()
+}
+
+// AuthenticationV1Calls gets all the calls that were made to AuthenticationV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AuthenticationV1Calls())
+func (mock *VirtClientMock) AuthenticationV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAuthenticationV1.RLock()
+	calls = mock.calls.AuthenticationV1
+	mock.lockAuthenticationV1.RUnlock()
+	return calls
+}
+
+// AuthenticationV1alpha1 calls AuthenticationV1alpha1Func.
+func (mock *VirtClientMock) AuthenticationV1alpha1() authenticationv1alpha1.AuthenticationV1alpha1Interface {
+	if mock.AuthenticationV1alpha1Func == nil {
+		panic("VirtClientMock.AuthenticationV1alpha1Func: method is nil but VirtClient.AuthenticationV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAuthenticationV1alpha1.Lock()
+	mock.calls.AuthenticationV1alpha1 = append(mock.calls.AuthenticationV1alpha1, callInfo)
+	mock.lockAuthenticationV1alpha1.Unlock()
+	return mock.AuthenticationV1alpha1Func()
+}
+
+// AuthenticationV1alpha1Calls gets all the calls that were made to AuthenticationV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AuthenticationV1alpha1Calls())
+func (mock *VirtClientMock) AuthenticationV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAuthenticationV1alpha1.RLock()
+	calls = mock.calls.AuthenticationV1alpha1
+	mock.lockAuthenticationV1alpha1.RUnlock()
+	return calls
+}
+
+// AuthenticationV1beta1 calls AuthenticationV1beta1Func.
+func (mock *VirtClientMock) AuthenticationV1beta1() authenticationv1beta1.AuthenticationV1beta1Interface {
+	if mock.AuthenticationV1beta1Func == nil {
+		panic("VirtClientMock.AuthenticationV1beta1Func: method is nil but VirtClient.AuthenticationV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAuthenticationV1beta1.Lock()
+	mock.calls.AuthenticationV1beta1 = append(mock.calls.AuthenticationV1beta1, callInfo)
+	mock.lockAuthenticationV1beta1.Unlock()
+	return mock.AuthenticationV1beta1Func()
+}
+
+// AuthenticationV1beta1Calls gets all the calls that were made to AuthenticationV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AuthenticationV1beta1Calls())
+func (mock *VirtClientMock) AuthenticationV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAuthenticationV1beta1.RLock()
+	calls = mock.calls.AuthenticationV1beta1
+	mock.lockAuthenticationV1beta1.RUnlock()
+	return calls
+}
+
+// AuthorizationV1 calls AuthorizationV1Func.
+func (mock *VirtClientMock) AuthorizationV1() authorizationv1.AuthorizationV1Interface {
+	if mock.AuthorizationV1Func == nil {
+		panic("VirtClientMock.AuthorizationV1Func: method is nil but VirtClient.AuthorizationV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAuthorizationV1.Lock()
+	mock.calls.AuthorizationV1 = append(mock.calls.AuthorizationV1, callInfo)
+	mock.lockAuthorizationV1.Unlock()
+	return mock.AuthorizationV1Func()
+}
+
+// AuthorizationV1Calls gets all the calls that were made to AuthorizationV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AuthorizationV1Calls())
+func (mock *VirtClientMock) AuthorizationV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAuthorizationV1.RLock()
+	calls = mock.calls.AuthorizationV1
+	mock.lockAuthorizationV1.RUnlock()
+	return calls
+}
+
+// AuthorizationV1beta1 calls AuthorizationV1beta1Func.
+func (mock *VirtClientMock) AuthorizationV1beta1() authorizationv1beta1.AuthorizationV1beta1Interface {
+	if mock.AuthorizationV1beta1Func == nil {
+		panic("VirtClientMock.AuthorizationV1beta1Func: method is nil but VirtClient.AuthorizationV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAuthorizationV1beta1.Lock()
+	mock.calls.AuthorizationV1beta1 = append(mock.calls.AuthorizationV1beta1, callInfo)
+	mock.lockAuthorizationV1beta1.Unlock()
+	return mock.AuthorizationV1beta1Func()
+}
+
+// AuthorizationV1beta1Calls gets all the calls that were made to AuthorizationV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AuthorizationV1beta1Calls())
+func (mock *VirtClientMock) AuthorizationV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAuthorizationV1beta1.RLock()
+	calls = mock.calls.AuthorizationV1beta1
+	mock.lockAuthorizationV1beta1.RUnlock()
+	return calls
+}
+
+// AutoscalingV1 calls AutoscalingV1Func.
+func (mock *VirtClientMock) AutoscalingV1() autoscalingv1.AutoscalingV1Interface {
+	if mock.AutoscalingV1Func == nil {
+		panic("VirtClientMock.AutoscalingV1Func: method is nil but VirtClient.AutoscalingV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAutoscalingV1.Lock()
+	mock.calls.AutoscalingV1 = append(mock.calls.AutoscalingV1, callInfo)
+	mock.lockAutoscalingV1.Unlock()
+	return mock.AutoscalingV1Func()
+}
+
+// AutoscalingV1Calls gets all the calls that were made to AutoscalingV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AutoscalingV1Calls())
+func (mock *VirtClientMock) AutoscalingV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAutoscalingV1.RLock()
+	calls = mock.calls.AutoscalingV1
+	mock.lockAutoscalingV1.RUnlock()
+	return calls
+}
+
+// AutoscalingV2 calls AutoscalingV2Func.
+func (mock *VirtClientMock) AutoscalingV2() v2.AutoscalingV2Interface {
+	if mock.AutoscalingV2Func == nil {
+		panic("VirtClientMock.AutoscalingV2Func: method is nil but VirtClient.AutoscalingV2 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAutoscalingV2.Lock()
+	mock.calls.AutoscalingV2 = append(mock.calls.AutoscalingV2, callInfo)
+	mock.lockAutoscalingV2.Unlock()
+	return mock.AutoscalingV2Func()
+}
+
+// AutoscalingV2Calls gets all the calls that were made to AutoscalingV2.
+// Check the length with:
+//
+//	len(mockedVirtClient.AutoscalingV2Calls())
+func (mock *VirtClientMock) AutoscalingV2Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAutoscalingV2.RLock()
+	calls = mock.calls.AutoscalingV2
+	mock.lockAutoscalingV2.RUnlock()
+	return calls
+}
+
+// AutoscalingV2beta1 calls AutoscalingV2beta1Func.
+func (mock *VirtClientMock) AutoscalingV2beta1() v2beta1.AutoscalingV2beta1Interface {
+	if mock.AutoscalingV2beta1Func == nil {
+		panic("VirtClientMock.AutoscalingV2beta1Func: method is nil but VirtClient.AutoscalingV2beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAutoscalingV2beta1.Lock()
+	mock.calls.AutoscalingV2beta1 = append(mock.calls.AutoscalingV2beta1, callInfo)
+	mock.lockAutoscalingV2beta1.Unlock()
+	return mock.AutoscalingV2beta1Func()
+}
+
+// AutoscalingV2beta1Calls gets all the calls that were made to AutoscalingV2beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.AutoscalingV2beta1Calls())
+func (mock *VirtClientMock) AutoscalingV2beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAutoscalingV2beta1.RLock()
+	calls = mock.calls.AutoscalingV2beta1
+	mock.lockAutoscalingV2beta1.RUnlock()
+	return calls
+}
+
+// AutoscalingV2beta2 calls AutoscalingV2beta2Func.
+func (mock *VirtClientMock) AutoscalingV2beta2() v2beta2.AutoscalingV2beta2Interface {
+	if mock.AutoscalingV2beta2Func == nil {
+		panic("VirtClientMock.AutoscalingV2beta2Func: method is nil but VirtClient.AutoscalingV2beta2 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockAutoscalingV2beta2.Lock()
+	mock.calls.AutoscalingV2beta2 = append(mock.calls.AutoscalingV2beta2, callInfo)
+	mock.lockAutoscalingV2beta2.Unlock()
+	return mock.AutoscalingV2beta2Func()
+}
+
+// AutoscalingV2beta2Calls gets all the calls that were made to AutoscalingV2beta2.
+// Check the length with:
+//
+//	len(mockedVirtClient.AutoscalingV2beta2Calls())
+func (mock *VirtClientMock) AutoscalingV2beta2Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockAutoscalingV2beta2.RLock()
+	calls = mock.calls.AutoscalingV2beta2
+	mock.lockAutoscalingV2beta2.RUnlock()
+	return calls
+}
+
+// BatchV1 calls BatchV1Func.
+func (mock *VirtClientMock) BatchV1() batchv1.BatchV1Interface {
+	if mock.BatchV1Func == nil {
+		panic("VirtClientMock.BatchV1Func: method is nil but VirtClient.BatchV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockBatchV1.Lock()
+	mock.calls.BatchV1 = append(mock.calls.BatchV1, callInfo)
+	mock.lockBatchV1.Unlock()
+	return mock.BatchV1Func()
+}
+
+// BatchV1Calls gets all the calls that were made to BatchV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.BatchV1Calls())
+func (mock *VirtClientMock) BatchV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockBatchV1.RLock()
+	calls = mock.calls.BatchV1
+	mock.lockBatchV1.RUnlock()
+	return calls
+}
+
+// BatchV1beta1 calls BatchV1beta1Func.
+func (mock *VirtClientMock) BatchV1beta1() batchv1beta1.BatchV1beta1Interface {
+	if mock.BatchV1beta1Func == nil {
+		panic("VirtClientMock.BatchV1beta1Func: method is nil but VirtClient.BatchV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockBatchV1beta1.Lock()
+	mock.calls.BatchV1beta1 = append(mock.calls.BatchV1beta1, callInfo)
+	mock.lockBatchV1beta1.Unlock()
+	return mock.BatchV1beta1Func()
+}
+
+// BatchV1beta1Calls gets all the calls that were made to BatchV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.BatchV1beta1Calls())
+func (mock *VirtClientMock) BatchV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockBatchV1beta1.RLock()
+	calls = mock.calls.BatchV1beta1
+	mock.lockBatchV1beta1.RUnlock()
+	return calls
+}
+
+// CertificatesV1 calls CertificatesV1Func.
+func (mock *VirtClientMock) CertificatesV1() certificatesv1.CertificatesV1Interface {
+	if mock.CertificatesV1Func == nil {
+		panic("VirtClientMock.CertificatesV1Func: method is nil but VirtClient.CertificatesV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCertificatesV1.Lock()
+	mock.calls.CertificatesV1 = append(mock.calls.CertificatesV1, callInfo)
+	mock.lockCertificatesV1.Unlock()
+	return mock.CertificatesV1Func()
+}
+
+// CertificatesV1Calls gets all the calls that were made to CertificatesV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.CertificatesV1Calls())
+func (mock *VirtClientMock) CertificatesV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCertificatesV1.RLock()
+	calls = mock.calls.CertificatesV1
+	mock.lockCertificatesV1.RUnlock()
+	return calls
+}
+
+// CertificatesV1alpha1 calls CertificatesV1alpha1Func.
+func (mock *VirtClientMock) CertificatesV1alpha1() certificatesv1alpha1.CertificatesV1alpha1Interface {
+	if mock.CertificatesV1alpha1Func == nil {
+		panic("VirtClientMock.CertificatesV1alpha1Func: method is nil but VirtClient.CertificatesV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCertificatesV1alpha1.Lock()
+	mock.calls.CertificatesV1alpha1 = append(mock.calls.CertificatesV1alpha1, callInfo)
+	mock.lockCertificatesV1alpha1.Unlock()
+	return mock.CertificatesV1alpha1Func()
+}
+
+// CertificatesV1alpha1Calls gets all the calls that were made to CertificatesV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.CertificatesV1alpha1Calls())
+func (mock *VirtClientMock) CertificatesV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCertificatesV1alpha1.RLock()
+	calls = mock.calls.CertificatesV1alpha1
+	mock.lockCertificatesV1alpha1.RUnlock()
+	return calls
+}
+
+// CertificatesV1beta1 calls CertificatesV1beta1Func.
+func (mock *VirtClientMock) CertificatesV1beta1() certificatesv1beta1.CertificatesV1beta1Interface {
+	if mock.CertificatesV1beta1Func == nil {
+		panic("VirtClientMock.CertificatesV1beta1Func: method is nil but VirtClient.CertificatesV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCertificatesV1beta1.Lock()
+	mock.calls.CertificatesV1beta1 = append(mock.calls.CertificatesV1beta1, callInfo)
+	mock.lockCertificatesV1beta1.Unlock()
+	return mock.CertificatesV1beta1Func()
+}
+
+// CertificatesV1beta1Calls gets all the calls that were made to CertificatesV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.CertificatesV1beta1Calls())
+func (mock *VirtClientMock) CertificatesV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCertificatesV1beta1.RLock()
+	calls = mock.calls.CertificatesV1beta1
+	mock.lockCertificatesV1beta1.RUnlock()
+	return calls
+}
+
+// ClusterVirtualImages calls ClusterVirtualImagesFunc.
+func (mock *VirtClientMock) ClusterVirtualImages() corev1alpha2.ClusterVirtualImageInterface {
+	if mock.ClusterVirtualImagesFunc == nil {
+		panic("VirtClientMock.ClusterVirtualImagesFunc: method is nil but VirtClient.ClusterVirtualImages was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockClusterVirtualImages.Lock()
+	mock.calls.ClusterVirtualImages = append(mock.calls.ClusterVirtualImages, callInfo)
+	mock.lockClusterVirtualImages.Unlock()
+	return mock.ClusterVirtualImagesFunc()
+}
+
+// ClusterVirtualImagesCalls gets all the calls that were made to ClusterVirtualImages.
+// Check the length with:
+//
+//	len(mockedVirtClient.ClusterVirtualImagesCalls())
+func (mock *VirtClientMock) ClusterVirtualImagesCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockClusterVirtualImages.RLock()
+	calls = mock.calls.ClusterVirtualImages
+	mock.lockClusterVirtualImages.RUnlock()
+	return calls
+}
+
+// CoordinationV1 calls CoordinationV1Func.
+func (mock *VirtClientMock) CoordinationV1() coordinationv1.CoordinationV1Interface {
+	if mock.CoordinationV1Func == nil {
+		panic("VirtClientMock.CoordinationV1Func: method is nil but VirtClient.CoordinationV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCoordinationV1.Lock()
+	mock.calls.CoordinationV1 = append(mock.calls.CoordinationV1, callInfo)
+	mock.lockCoordinationV1.Unlock()
+	return mock.CoordinationV1Func()
+}
+
+// CoordinationV1Calls gets all the calls that were made to CoordinationV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.CoordinationV1Calls())
+func (mock *VirtClientMock) CoordinationV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCoordinationV1.RLock()
+	calls = mock.calls.CoordinationV1
+	mock.lockCoordinationV1.RUnlock()
+	return calls
+}
+
+// CoordinationV1alpha2 calls CoordinationV1alpha2Func.
+func (mock *VirtClientMock) CoordinationV1alpha2() coordinationv1alpha2.CoordinationV1alpha2Interface {
+	if mock.CoordinationV1alpha2Func == nil {
+		panic("VirtClientMock.CoordinationV1alpha2Func: method is nil but VirtClient.CoordinationV1alpha2 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCoordinationV1alpha2.Lock()
+	mock.calls.CoordinationV1alpha2 = append(mock.calls.CoordinationV1alpha2, callInfo)
+	mock.lockCoordinationV1alpha2.Unlock()
+	return mock.CoordinationV1alpha2Func()
+}
+
+// CoordinationV1alpha2Calls gets all the calls that were made to CoordinationV1alpha2.
+// Check the length with:
+//
+//	len(mockedVirtClient.CoordinationV1alpha2Calls())
+func (mock *VirtClientMock) CoordinationV1alpha2Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCoordinationV1alpha2.RLock()
+	calls = mock.calls.CoordinationV1alpha2
+	mock.lockCoordinationV1alpha2.RUnlock()
+	return calls
+}
+
+// CoordinationV1beta1 calls CoordinationV1beta1Func.
+func (mock *VirtClientMock) CoordinationV1beta1() coordinationv1beta1.CoordinationV1beta1Interface {
+	if mock.CoordinationV1beta1Func == nil {
+		panic("VirtClientMock.CoordinationV1beta1Func: method is nil but VirtClient.CoordinationV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCoordinationV1beta1.Lock()
+	mock.calls.CoordinationV1beta1 = append(mock.calls.CoordinationV1beta1, callInfo)
+	mock.lockCoordinationV1beta1.Unlock()
+	return mock.CoordinationV1beta1Func()
+}
+
+// CoordinationV1beta1Calls gets all the calls that were made to CoordinationV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.CoordinationV1beta1Calls())
+func (mock *VirtClientMock) CoordinationV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCoordinationV1beta1.RLock()
+	calls = mock.calls.CoordinationV1beta1
+	mock.lockCoordinationV1beta1.RUnlock()
+	return calls
+}
+
+// CoreV1 calls CoreV1Func.
+func (mock *VirtClientMock) CoreV1() corev1.CoreV1Interface {
+	if mock.CoreV1Func == nil {
+		panic("VirtClientMock.CoreV1Func: method is nil but VirtClient.CoreV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockCoreV1.Lock()
+	mock.calls.CoreV1 = append(mock.calls.CoreV1, callInfo)
+	mock.lockCoreV1.Unlock()
+	return mock.CoreV1Func()
+}
+
+// CoreV1Calls gets all the calls that were made to CoreV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.CoreV1Calls())
+func (mock *VirtClientMock) CoreV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockCoreV1.RLock()
+	calls = mock.calls.CoreV1
+	mock.lockCoreV1.RUnlock()
+	return calls
+}
+
+// Discovery calls DiscoveryFunc.
+func (mock *VirtClientMock) Discovery() discovery.DiscoveryInterface {
+	if mock.DiscoveryFunc == nil {
+		panic("VirtClientMock.DiscoveryFunc: method is nil but VirtClient.Discovery was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockDiscovery.Lock()
+	mock.calls.Discovery = append(mock.calls.Discovery, callInfo)
+	mock.lockDiscovery.Unlock()
+	return mock.DiscoveryFunc()
+}
+
+// DiscoveryCalls gets all the calls that were made to Discovery.
+// Check the length with:
+//
+//	len(mockedVirtClient.DiscoveryCalls())
+func (mock *VirtClientMock) DiscoveryCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockDiscovery.RLock()
+	calls = mock.calls.Discovery
+	mock.lockDiscovery.RUnlock()
+	return calls
+}
+
+// DiscoveryV1 calls DiscoveryV1Func.
+func (mock *VirtClientMock) DiscoveryV1() discoveryv1.DiscoveryV1Interface {
+	if mock.DiscoveryV1Func == nil {
+		panic("VirtClientMock.DiscoveryV1Func: method is nil but VirtClient.DiscoveryV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockDiscoveryV1.Lock()
+	mock.calls.DiscoveryV1 = append(mock.calls.DiscoveryV1, callInfo)
+	mock.lockDiscoveryV1.Unlock()
+	return mock.DiscoveryV1Func()
+}
+
+// DiscoveryV1Calls gets all the calls that were made to DiscoveryV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.DiscoveryV1Calls())
+func (mock *VirtClientMock) DiscoveryV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockDiscoveryV1.RLock()
+	calls = mock.calls.DiscoveryV1
+	mock.lockDiscoveryV1.RUnlock()
+	return calls
+}
+
+// DiscoveryV1beta1 calls DiscoveryV1beta1Func.
+func (mock *VirtClientMock) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
+	if mock.DiscoveryV1beta1Func == nil {
+		panic("VirtClientMock.DiscoveryV1beta1Func: method is nil but VirtClient.DiscoveryV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockDiscoveryV1beta1.Lock()
+	mock.calls.DiscoveryV1beta1 = append(mock.calls.DiscoveryV1beta1, callInfo)
+	mock.lockDiscoveryV1beta1.Unlock()
+	return mock.DiscoveryV1beta1Func()
+}
+
+// DiscoveryV1beta1Calls gets all the calls that were made to DiscoveryV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.DiscoveryV1beta1Calls())
+func (mock *VirtClientMock) DiscoveryV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockDiscoveryV1beta1.RLock()
+	calls = mock.calls.DiscoveryV1beta1
+	mock.lockDiscoveryV1beta1.RUnlock()
+	return calls
+}
+
+// EventsV1 calls EventsV1Func.
+func (mock *VirtClientMock) EventsV1() eventsv1.EventsV1Interface {
+	if mock.EventsV1Func == nil {
+		panic("VirtClientMock.EventsV1Func: method is nil but VirtClient.EventsV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockEventsV1.Lock()
+	mock.calls.EventsV1 = append(mock.calls.EventsV1, callInfo)
+	mock.lockEventsV1.Unlock()
+	return mock.EventsV1Func()
+}
+
+// EventsV1Calls gets all the calls that were made to EventsV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.EventsV1Calls())
+func (mock *VirtClientMock) EventsV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockEventsV1.RLock()
+	calls = mock.calls.EventsV1
+	mock.lockEventsV1.RUnlock()
+	return calls
+}
+
+// EventsV1beta1 calls EventsV1beta1Func.
+func (mock *VirtClientMock) EventsV1beta1() eventsv1beta1.EventsV1beta1Interface {
+	if mock.EventsV1beta1Func == nil {
+		panic("VirtClientMock.EventsV1beta1Func: method is nil but VirtClient.EventsV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockEventsV1beta1.Lock()
+	mock.calls.EventsV1beta1 = append(mock.calls.EventsV1beta1, callInfo)
+	mock.lockEventsV1beta1.Unlock()
+	return mock.EventsV1beta1Func()
+}
+
+// EventsV1beta1Calls gets all the calls that were made to EventsV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.EventsV1beta1Calls())
+func (mock *VirtClientMock) EventsV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockEventsV1beta1.RLock()
+	calls = mock.calls.EventsV1beta1
+	mock.lockEventsV1beta1.RUnlock()
+	return calls
+}
+
+// ExtensionsV1beta1 calls ExtensionsV1beta1Func.
+func (mock *VirtClientMock) ExtensionsV1beta1() extensionsv1beta1.ExtensionsV1beta1Interface {
+	if mock.ExtensionsV1beta1Func == nil {
+		panic("VirtClientMock.ExtensionsV1beta1Func: method is nil but VirtClient.ExtensionsV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockExtensionsV1beta1.Lock()
+	mock.calls.ExtensionsV1beta1 = append(mock.calls.ExtensionsV1beta1, callInfo)
+	mock.lockExtensionsV1beta1.Unlock()
+	return mock.ExtensionsV1beta1Func()
+}
+
+// ExtensionsV1beta1Calls gets all the calls that were made to ExtensionsV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.ExtensionsV1beta1Calls())
+func (mock *VirtClientMock) ExtensionsV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockExtensionsV1beta1.RLock()
+	calls = mock.calls.ExtensionsV1beta1
+	mock.lockExtensionsV1beta1.RUnlock()
+	return calls
+}
+
+// FlowcontrolV1 calls FlowcontrolV1Func.
+func (mock *VirtClientMock) FlowcontrolV1() flowcontrolv1.FlowcontrolV1Interface {
+	if mock.FlowcontrolV1Func == nil {
+		panic("VirtClientMock.FlowcontrolV1Func: method is nil but VirtClient.FlowcontrolV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockFlowcontrolV1.Lock()
+	mock.calls.FlowcontrolV1 = append(mock.calls.FlowcontrolV1, callInfo)
+	mock.lockFlowcontrolV1.Unlock()
+	return mock.FlowcontrolV1Func()
+}
+
+// FlowcontrolV1Calls gets all the calls that were made to FlowcontrolV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.FlowcontrolV1Calls())
+func (mock *VirtClientMock) FlowcontrolV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockFlowcontrolV1.RLock()
+	calls = mock.calls.FlowcontrolV1
+	mock.lockFlowcontrolV1.RUnlock()
+	return calls
+}
+
+// FlowcontrolV1beta1 calls FlowcontrolV1beta1Func.
+func (mock *VirtClientMock) FlowcontrolV1beta1() flowcontrolv1beta1.FlowcontrolV1beta1Interface {
+	if mock.FlowcontrolV1beta1Func == nil {
+		panic("VirtClientMock.FlowcontrolV1beta1Func: method is nil but VirtClient.FlowcontrolV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockFlowcontrolV1beta1.Lock()
+	mock.calls.FlowcontrolV1beta1 = append(mock.calls.FlowcontrolV1beta1, callInfo)
+	mock.lockFlowcontrolV1beta1.Unlock()
+	return mock.FlowcontrolV1beta1Func()
+}
+
+// FlowcontrolV1beta1Calls gets all the calls that were made to FlowcontrolV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.FlowcontrolV1beta1Calls())
+func (mock *VirtClientMock) FlowcontrolV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockFlowcontrolV1beta1.RLock()
+	calls = mock.calls.FlowcontrolV1beta1
+	mock.lockFlowcontrolV1beta1.RUnlock()
+	return calls
+}
+
+// FlowcontrolV1beta2 calls FlowcontrolV1beta2Func.
+func (mock *VirtClientMock) FlowcontrolV1beta2() flowcontrolv1beta2.FlowcontrolV1beta2Interface {
+	if mock.FlowcontrolV1beta2Func == nil {
+		panic("VirtClientMock.FlowcontrolV1beta2Func: method is nil but VirtClient.FlowcontrolV1beta2 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockFlowcontrolV1beta2.Lock()
+	mock.calls.FlowcontrolV1beta2 = append(mock.calls.FlowcontrolV1beta2, callInfo)
+	mock.lockFlowcontrolV1beta2.Unlock()
+	return mock.FlowcontrolV1beta2Func()
+}
+
+// FlowcontrolV1beta2Calls gets all the calls that were made to FlowcontrolV1beta2.
+// Check the length with:
+//
+//	len(mockedVirtClient.FlowcontrolV1beta2Calls())
+func (mock *VirtClientMock) FlowcontrolV1beta2Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockFlowcontrolV1beta2.RLock()
+	calls = mock.calls.FlowcontrolV1beta2
+	mock.lockFlowcontrolV1beta2.RUnlock()
+	return calls
+}
+
+// FlowcontrolV1beta3 calls FlowcontrolV1beta3Func.
+func (mock *VirtClientMock) FlowcontrolV1beta3() v1beta3.FlowcontrolV1beta3Interface {
+	if mock.FlowcontrolV1beta3Func == nil {
+		panic("VirtClientMock.FlowcontrolV1beta3Func: method is nil but VirtClient.FlowcontrolV1beta3 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockFlowcontrolV1beta3.Lock()
+	mock.calls.FlowcontrolV1beta3 = append(mock.calls.FlowcontrolV1beta3, callInfo)
+	mock.lockFlowcontrolV1beta3.Unlock()
+	return mock.FlowcontrolV1beta3Func()
+}
+
+// FlowcontrolV1beta3Calls gets all the calls that were made to FlowcontrolV1beta3.
+// Check the length with:
+//
+//	len(mockedVirtClient.FlowcontrolV1beta3Calls())
+func (mock *VirtClientMock) FlowcontrolV1beta3Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockFlowcontrolV1beta3.RLock()
+	calls = mock.calls.FlowcontrolV1beta3
+	mock.lockFlowcontrolV1beta3.RUnlock()
+	return calls
+}
+
+// InternalV1alpha1 calls InternalV1alpha1Func.
+func (mock *VirtClientMock) InternalV1alpha1() apiserverinternalv1alpha1.InternalV1alpha1Interface {
+	if mock.InternalV1alpha1Func == nil {
+		panic("VirtClientMock.InternalV1alpha1Func: method is nil but VirtClient.InternalV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockInternalV1alpha1.Lock()
+	mock.calls.InternalV1alpha1 = append(mock.calls.InternalV1alpha1, callInfo)
+	mock.lockInternalV1alpha1.Unlock()
+	return mock.InternalV1alpha1Func()
+}
+
+// InternalV1alpha1Calls gets all the calls that were made to InternalV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.InternalV1alpha1Calls())
+func (mock *VirtClientMock) InternalV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockInternalV1alpha1.RLock()
+	calls = mock.calls.InternalV1alpha1
+	mock.lockInternalV1alpha1.RUnlock()
+	return calls
+}
+
+// NetworkingV1 calls NetworkingV1Func.
+func (mock *VirtClientMock) NetworkingV1() networkingv1.NetworkingV1Interface {
+	if mock.NetworkingV1Func == nil {
+		panic("VirtClientMock.NetworkingV1Func: method is nil but VirtClient.NetworkingV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNetworkingV1.Lock()
+	mock.calls.NetworkingV1 = append(mock.calls.NetworkingV1, callInfo)
+	mock.lockNetworkingV1.Unlock()
+	return mock.NetworkingV1Func()
+}
+
+// NetworkingV1Calls gets all the calls that were made to NetworkingV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.NetworkingV1Calls())
+func (mock *VirtClientMock) NetworkingV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNetworkingV1.RLock()
+	calls = mock.calls.NetworkingV1
+	mock.lockNetworkingV1.RUnlock()
+	return calls
+}
+
+// NetworkingV1alpha1 calls NetworkingV1alpha1Func.
+func (mock *VirtClientMock) NetworkingV1alpha1() networkingv1alpha1.NetworkingV1alpha1Interface {
+	if mock.NetworkingV1alpha1Func == nil {
+		panic("VirtClientMock.NetworkingV1alpha1Func: method is nil but VirtClient.NetworkingV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNetworkingV1alpha1.Lock()
+	mock.calls.NetworkingV1alpha1 = append(mock.calls.NetworkingV1alpha1, callInfo)
+	mock.lockNetworkingV1alpha1.Unlock()
+	return mock.NetworkingV1alpha1Func()
+}
+
+// NetworkingV1alpha1Calls gets all the calls that were made to NetworkingV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.NetworkingV1alpha1Calls())
+func (mock *VirtClientMock) NetworkingV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNetworkingV1alpha1.RLock()
+	calls = mock.calls.NetworkingV1alpha1
+	mock.lockNetworkingV1alpha1.RUnlock()
+	return calls
+}
+
+// NetworkingV1beta1 calls NetworkingV1beta1Func.
+func (mock *VirtClientMock) NetworkingV1beta1() networkingv1beta1.NetworkingV1beta1Interface {
+	if mock.NetworkingV1beta1Func == nil {
+		panic("VirtClientMock.NetworkingV1beta1Func: method is nil but VirtClient.NetworkingV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNetworkingV1beta1.Lock()
+	mock.calls.NetworkingV1beta1 = append(mock.calls.NetworkingV1beta1, callInfo)
+	mock.lockNetworkingV1beta1.Unlock()
+	return mock.NetworkingV1beta1Func()
+}
+
+// NetworkingV1beta1Calls gets all the calls that were made to NetworkingV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.NetworkingV1beta1Calls())
+func (mock *VirtClientMock) NetworkingV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNetworkingV1beta1.RLock()
+	calls = mock.calls.NetworkingV1beta1
+	mock.lockNetworkingV1beta1.RUnlock()
+	return calls
+}
+
+// NodeV1 calls NodeV1Func.
+func (mock *VirtClientMock) NodeV1() nodev1.NodeV1Interface {
+	if mock.NodeV1Func == nil {
+		panic("VirtClientMock.NodeV1Func: method is nil but VirtClient.NodeV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNodeV1.Lock()
+	mock.calls.NodeV1 = append(mock.calls.NodeV1, callInfo)
+	mock.lockNodeV1.Unlock()
+	return mock.NodeV1Func()
+}
+
+// NodeV1Calls gets all the calls that were made to NodeV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.NodeV1Calls())
+func (mock *VirtClientMock) NodeV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNodeV1.RLock()
+	calls = mock.calls.NodeV1
+	mock.lockNodeV1.RUnlock()
+	return calls
+}
+
+// NodeV1alpha1 calls NodeV1alpha1Func.
+func (mock *VirtClientMock) NodeV1alpha1() nodev1alpha1.NodeV1alpha1Interface {
+	if mock.NodeV1alpha1Func == nil {
+		panic("VirtClientMock.NodeV1alpha1Func: method is nil but VirtClient.NodeV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNodeV1alpha1.Lock()
+	mock.calls.NodeV1alpha1 = append(mock.calls.NodeV1alpha1, callInfo)
+	mock.lockNodeV1alpha1.Unlock()
+	return mock.NodeV1alpha1Func()
+}
+
+// NodeV1alpha1Calls gets all the calls that were made to NodeV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.NodeV1alpha1Calls())
+func (mock *VirtClientMock) NodeV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNodeV1alpha1.RLock()
+	calls = mock.calls.NodeV1alpha1
+	mock.lockNodeV1alpha1.RUnlock()
+	return calls
+}
+
+// NodeV1beta1 calls NodeV1beta1Func.
+func (mock *VirtClientMock) NodeV1beta1() nodev1beta1.NodeV1beta1Interface {
+	if mock.NodeV1beta1Func == nil {
+		panic("VirtClientMock.NodeV1beta1Func: method is nil but VirtClient.NodeV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockNodeV1beta1.Lock()
+	mock.calls.NodeV1beta1 = append(mock.calls.NodeV1beta1, callInfo)
+	mock.lockNodeV1beta1.Unlock()
+	return mock.NodeV1beta1Func()
+}
+
+// NodeV1beta1Calls gets all the calls that were made to NodeV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.NodeV1beta1Calls())
+func (mock *VirtClientMock) NodeV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockNodeV1beta1.RLock()
+	calls = mock.calls.NodeV1beta1
+	mock.lockNodeV1beta1.RUnlock()
+	return calls
+}
+
+// PolicyV1 calls PolicyV1Func.
+func (mock *VirtClientMock) PolicyV1() policyv1.PolicyV1Interface {
+	if mock.PolicyV1Func == nil {
+		panic("VirtClientMock.PolicyV1Func: method is nil but VirtClient.PolicyV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockPolicyV1.Lock()
+	mock.calls.PolicyV1 = append(mock.calls.PolicyV1, callInfo)
+	mock.lockPolicyV1.Unlock()
+	return mock.PolicyV1Func()
+}
+
+// PolicyV1Calls gets all the calls that were made to PolicyV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.PolicyV1Calls())
+func (mock *VirtClientMock) PolicyV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockPolicyV1.RLock()
+	calls = mock.calls.PolicyV1
+	mock.lockPolicyV1.RUnlock()
+	return calls
+}
+
+// PolicyV1beta1 calls PolicyV1beta1Func.
+func (mock *VirtClientMock) PolicyV1beta1() policyv1beta1.PolicyV1beta1Interface {
+	if mock.PolicyV1beta1Func == nil {
+		panic("VirtClientMock.PolicyV1beta1Func: method is nil but VirtClient.PolicyV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockPolicyV1beta1.Lock()
+	mock.calls.PolicyV1beta1 = append(mock.calls.PolicyV1beta1, callInfo)
+	mock.lockPolicyV1beta1.Unlock()
+	return mock.PolicyV1beta1Func()
+}
+
+// PolicyV1beta1Calls gets all the calls that were made to PolicyV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.PolicyV1beta1Calls())
+func (mock *VirtClientMock) PolicyV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockPolicyV1beta1.RLock()
+	calls = mock.calls.PolicyV1beta1
+	mock.lockPolicyV1beta1.RUnlock()
+	return calls
+}
+
+// RbacV1 calls RbacV1Func.
+func (mock *VirtClientMock) RbacV1() rbacv1.RbacV1Interface {
+	if mock.RbacV1Func == nil {
+		panic("VirtClientMock.RbacV1Func: method is nil but VirtClient.RbacV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockRbacV1.Lock()
+	mock.calls.RbacV1 = append(mock.calls.RbacV1, callInfo)
+	mock.lockRbacV1.Unlock()
+	return mock.RbacV1Func()
+}
+
+// RbacV1Calls gets all the calls that were made to RbacV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.RbacV1Calls())
+func (mock *VirtClientMock) RbacV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockRbacV1.RLock()
+	calls = mock.calls.RbacV1
+	mock.lockRbacV1.RUnlock()
+	return calls
+}
+
+// RbacV1alpha1 calls RbacV1alpha1Func.
+func (mock *VirtClientMock) RbacV1alpha1() rbacv1alpha1.RbacV1alpha1Interface {
+	if mock.RbacV1alpha1Func == nil {
+		panic("VirtClientMock.RbacV1alpha1Func: method is nil but VirtClient.RbacV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockRbacV1alpha1.Lock()
+	mock.calls.RbacV1alpha1 = append(mock.calls.RbacV1alpha1, callInfo)
+	mock.lockRbacV1alpha1.Unlock()
+	return mock.RbacV1alpha1Func()
+}
+
+// RbacV1alpha1Calls gets all the calls that were made to RbacV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.RbacV1alpha1Calls())
+func (mock *VirtClientMock) RbacV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockRbacV1alpha1.RLock()
+	calls = mock.calls.RbacV1alpha1
+	mock.lockRbacV1alpha1.RUnlock()
+	return calls
+}
+
+// RbacV1beta1 calls RbacV1beta1Func.
+func (mock *VirtClientMock) RbacV1beta1() rbacv1beta1.RbacV1beta1Interface {
+	if mock.RbacV1beta1Func == nil {
+		panic("VirtClientMock.RbacV1beta1Func: method is nil but VirtClient.RbacV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockRbacV1beta1.Lock()
+	mock.calls.RbacV1beta1 = append(mock.calls.RbacV1beta1, callInfo)
+	mock.lockRbacV1beta1.Unlock()
+	return mock.RbacV1beta1Func()
+}
+
+// RbacV1beta1Calls gets all the calls that were made to RbacV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.RbacV1beta1Calls())
+func (mock *VirtClientMock) RbacV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockRbacV1beta1.RLock()
+	calls = mock.calls.RbacV1beta1
+	mock.lockRbacV1beta1.RUnlock()
+	return calls
+}
+
+// ResourceV1alpha3 calls ResourceV1alpha3Func.
+func (mock *VirtClientMock) ResourceV1alpha3() v1alpha3.ResourceV1alpha3Interface {
+	if mock.ResourceV1alpha3Func == nil {
+		panic("VirtClientMock.ResourceV1alpha3Func: method is nil but VirtClient.ResourceV1alpha3 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockResourceV1alpha3.Lock()
+	mock.calls.ResourceV1alpha3 = append(mock.calls.ResourceV1alpha3, callInfo)
+	mock.lockResourceV1alpha3.Unlock()
+	return mock.ResourceV1alpha3Func()
+}
+
+// ResourceV1alpha3Calls gets all the calls that were made to ResourceV1alpha3.
+// Check the length with:
+//
+//	len(mockedVirtClient.ResourceV1alpha3Calls())
+func (mock *VirtClientMock) ResourceV1alpha3Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockResourceV1alpha3.RLock()
+	calls = mock.calls.ResourceV1alpha3
+	mock.lockResourceV1alpha3.RUnlock()
+	return calls
+}
+
+// ResourceV1beta1 calls ResourceV1beta1Func.
+func (mock *VirtClientMock) ResourceV1beta1() resourcev1beta1.ResourceV1beta1Interface {
+	if mock.ResourceV1beta1Func == nil {
+		panic("VirtClientMock.ResourceV1beta1Func: method is nil but VirtClient.ResourceV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockResourceV1beta1.Lock()
+	mock.calls.ResourceV1beta1 = append(mock.calls.ResourceV1beta1, callInfo)
+	mock.lockResourceV1beta1.Unlock()
+	return mock.ResourceV1beta1Func()
+}
+
+// ResourceV1beta1Calls gets all the calls that were made to ResourceV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.ResourceV1beta1Calls())
+func (mock *VirtClientMock) ResourceV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockResourceV1beta1.RLock()
+	calls = mock.calls.ResourceV1beta1
+	mock.lockResourceV1beta1.RUnlock()
+	return calls
+}
+
+// ResourceV1beta2 calls ResourceV1beta2Func.
+func (mock *VirtClientMock) ResourceV1beta2() v1beta2.ResourceV1beta2Interface {
+	if mock.ResourceV1beta2Func == nil {
+		panic("VirtClientMock.ResourceV1beta2Func: method is nil but VirtClient.ResourceV1beta2 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockResourceV1beta2.Lock()
+	mock.calls.ResourceV1beta2 = append(mock.calls.ResourceV1beta2, callInfo)
+	mock.lockResourceV1beta2.Unlock()
+	return mock.ResourceV1beta2Func()
+}
+
+// ResourceV1beta2Calls gets all the calls that were made to ResourceV1beta2.
+// Check the length with:
+//
+//	len(mockedVirtClient.ResourceV1beta2Calls())
+func (mock *VirtClientMock) ResourceV1beta2Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockResourceV1beta2.RLock()
+	calls = mock.calls.ResourceV1beta2
+	mock.lockResourceV1beta2.RUnlock()
+	return calls
+}
+
+// SchedulingV1 calls SchedulingV1Func.
+func (mock *VirtClientMock) SchedulingV1() schedulingv1.SchedulingV1Interface {
+	if mock.SchedulingV1Func == nil {
+		panic("VirtClientMock.SchedulingV1Func: method is nil but VirtClient.SchedulingV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockSchedulingV1.Lock()
+	mock.calls.SchedulingV1 = append(mock.calls.SchedulingV1, callInfo)
+	mock.lockSchedulingV1.Unlock()
+	return mock.SchedulingV1Func()
+}
+
+// SchedulingV1Calls gets all the calls that were made to SchedulingV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.SchedulingV1Calls())
+func (mock *VirtClientMock) SchedulingV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockSchedulingV1.RLock()
+	calls = mock.calls.SchedulingV1
+	mock.lockSchedulingV1.RUnlock()
+	return calls
+}
+
+// SchedulingV1alpha1 calls SchedulingV1alpha1Func.
+func (mock *VirtClientMock) SchedulingV1alpha1() schedulingv1alpha1.SchedulingV1alpha1Interface {
+	if mock.SchedulingV1alpha1Func == nil {
+		panic("VirtClientMock.SchedulingV1alpha1Func: method is nil but VirtClient.SchedulingV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockSchedulingV1alpha1.Lock()
+	mock.calls.SchedulingV1alpha1 = append(mock.calls.SchedulingV1alpha1, callInfo)
+	mock.lockSchedulingV1alpha1.Unlock()
+	return mock.SchedulingV1alpha1Func()
+}
+
+// SchedulingV1alpha1Calls gets all the calls that were made to SchedulingV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.SchedulingV1alpha1Calls())
+func (mock *VirtClientMock) SchedulingV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockSchedulingV1alpha1.RLock()
+	calls = mock.calls.SchedulingV1alpha1
+	mock.lockSchedulingV1alpha1.RUnlock()
+	return calls
+}
+
+// SchedulingV1beta1 calls SchedulingV1beta1Func.
+func (mock *VirtClientMock) SchedulingV1beta1() schedulingv1beta1.SchedulingV1beta1Interface {
+	if mock.SchedulingV1beta1Func == nil {
+		panic("VirtClientMock.SchedulingV1beta1Func: method is nil but VirtClient.SchedulingV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockSchedulingV1beta1.Lock()
+	mock.calls.SchedulingV1beta1 = append(mock.calls.SchedulingV1beta1, callInfo)
+	mock.lockSchedulingV1beta1.Unlock()
+	return mock.SchedulingV1beta1Func()
+}
+
+// SchedulingV1beta1Calls gets all the calls that were made to SchedulingV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.SchedulingV1beta1Calls())
+func (mock *VirtClientMock) SchedulingV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockSchedulingV1beta1.RLock()
+	calls = mock.calls.SchedulingV1beta1
+	mock.lockSchedulingV1beta1.RUnlock()
+	return calls
+}
+
+// StorageV1 calls StorageV1Func.
+func (mock *VirtClientMock) StorageV1() storagev1.StorageV1Interface {
+	if mock.StorageV1Func == nil {
+		panic("VirtClientMock.StorageV1Func: method is nil but VirtClient.StorageV1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockStorageV1.Lock()
+	mock.calls.StorageV1 = append(mock.calls.StorageV1, callInfo)
+	mock.lockStorageV1.Unlock()
+	return mock.StorageV1Func()
+}
+
+// StorageV1Calls gets all the calls that were made to StorageV1.
+// Check the length with:
+//
+//	len(mockedVirtClient.StorageV1Calls())
+func (mock *VirtClientMock) StorageV1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockStorageV1.RLock()
+	calls = mock.calls.StorageV1
+	mock.lockStorageV1.RUnlock()
+	return calls
+}
+
+// StorageV1alpha1 calls StorageV1alpha1Func.
+func (mock *VirtClientMock) StorageV1alpha1() storagev1alpha1.StorageV1alpha1Interface {
+	if mock.StorageV1alpha1Func == nil {
+		panic("VirtClientMock.StorageV1alpha1Func: method is nil but VirtClient.StorageV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockStorageV1alpha1.Lock()
+	mock.calls.StorageV1alpha1 = append(mock.calls.StorageV1alpha1, callInfo)
+	mock.lockStorageV1alpha1.Unlock()
+	return mock.StorageV1alpha1Func()
+}
+
+// StorageV1alpha1Calls gets all the calls that were made to StorageV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.StorageV1alpha1Calls())
+func (mock *VirtClientMock) StorageV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockStorageV1alpha1.RLock()
+	calls = mock.calls.StorageV1alpha1
+	mock.lockStorageV1alpha1.RUnlock()
+	return calls
+}
+
+// StorageV1beta1 calls StorageV1beta1Func.
+func (mock *VirtClientMock) StorageV1beta1() storagev1beta1.StorageV1beta1Interface {
+	if mock.StorageV1beta1Func == nil {
+		panic("VirtClientMock.StorageV1beta1Func: method is nil but VirtClient.StorageV1beta1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockStorageV1beta1.Lock()
+	mock.calls.StorageV1beta1 = append(mock.calls.StorageV1beta1, callInfo)
+	mock.lockStorageV1beta1.Unlock()
+	return mock.StorageV1beta1Func()
+}
+
+// StorageV1beta1Calls gets all the calls that were made to StorageV1beta1.
+// Check the length with:
+//
+//	len(mockedVirtClient.StorageV1beta1Calls())
+func (mock *VirtClientMock) StorageV1beta1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockStorageV1beta1.RLock()
+	calls = mock.calls.StorageV1beta1
+	mock.lockStorageV1beta1.RUnlock()
+	return calls
+}
+
+// StoragemigrationV1alpha1 calls StoragemigrationV1alpha1Func.
+func (mock *VirtClientMock) StoragemigrationV1alpha1() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
+	if mock.StoragemigrationV1alpha1Func == nil {
+		panic("VirtClientMock.StoragemigrationV1alpha1Func: method is nil but VirtClient.StoragemigrationV1alpha1 was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockStoragemigrationV1alpha1.Lock()
+	mock.calls.StoragemigrationV1alpha1 = append(mock.calls.StoragemigrationV1alpha1, callInfo)
+	mock.lockStoragemigrationV1alpha1.Unlock()
+	return mock.StoragemigrationV1alpha1Func()
+}
+
+// StoragemigrationV1alpha1Calls gets all the calls that were made to StoragemigrationV1alpha1.
+// Check the length with:
+//
+//	len(mockedVirtClient.StoragemigrationV1alpha1Calls())
+func (mock *VirtClientMock) StoragemigrationV1alpha1Calls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockStoragemigrationV1alpha1.RLock()
+	calls = mock.calls.StoragemigrationV1alpha1
+	mock.lockStoragemigrationV1alpha1.RUnlock()
+	return calls
+}
+
+// VirtualDisks calls VirtualDisksFunc.
+func (mock *VirtClientMock) VirtualDisks(namespace string) corev1alpha2.VirtualDiskInterface {
+	if mock.VirtualDisksFunc == nil {
+		panic("VirtClientMock.VirtualDisksFunc: method is nil but VirtClient.VirtualDisks was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualDisks.Lock()
+	mock.calls.VirtualDisks = append(mock.calls.VirtualDisks, callInfo)
+	mock.lockVirtualDisks.Unlock()
+	return mock.VirtualDisksFunc(namespace)
+}
+
+// VirtualDisksCalls gets all the calls that were made to VirtualDisks.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualDisksCalls())
+func (mock *VirtClientMock) VirtualDisksCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualDisks.RLock()
+	calls = mock.calls.VirtualDisks
+	mock.lockVirtualDisks.RUnlock()
+	return calls
+}
+
+// VirtualImages calls VirtualImagesFunc.
+func (mock *VirtClientMock) VirtualImages(namespace string) corev1alpha2.VirtualImageInterface {
+	if mock.VirtualImagesFunc == nil {
+		panic("VirtClientMock.VirtualImagesFunc: method is nil but VirtClient.VirtualImages was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualImages.Lock()
+	mock.calls.VirtualImages = append(mock.calls.VirtualImages, callInfo)
+	mock.lockVirtualImages.Unlock()
+	return mock.VirtualImagesFunc(namespace)
+}
+
+// VirtualImagesCalls gets all the calls that were made to VirtualImages.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualImagesCalls())
+func (mock *VirtClientMock) VirtualImagesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualImages.RLock()
+	calls = mock.calls.VirtualImages
+	mock.lockVirtualImages.RUnlock()
+	return calls
+}
+
+// VirtualMachineBlockDeviceAttachments calls VirtualMachineBlockDeviceAttachmentsFunc.
+func (mock *VirtClientMock) VirtualMachineBlockDeviceAttachments(namespace string) corev1alpha2.VirtualMachineBlockDeviceAttachmentInterface {
+	if mock.VirtualMachineBlockDeviceAttachmentsFunc == nil {
+		panic("VirtClientMock.VirtualMachineBlockDeviceAttachmentsFunc: method is nil but VirtClient.VirtualMachineBlockDeviceAttachments was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineBlockDeviceAttachments.Lock()
+	mock.calls.VirtualMachineBlockDeviceAttachments = append(mock.calls.VirtualMachineBlockDeviceAttachments, callInfo)
+	mock.lockVirtualMachineBlockDeviceAttachments.Unlock()
+	return mock.VirtualMachineBlockDeviceAttachmentsFunc(namespace)
+}
+
+// VirtualMachineBlockDeviceAttachmentsCalls gets all the calls that were made to VirtualMachineBlockDeviceAttachments.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineBlockDeviceAttachmentsCalls())
+func (mock *VirtClientMock) VirtualMachineBlockDeviceAttachmentsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineBlockDeviceAttachments.RLock()
+	calls = mock.calls.VirtualMachineBlockDeviceAttachments
+	mock.lockVirtualMachineBlockDeviceAttachments.RUnlock()
+	return calls
+}
+
+// VirtualMachineClasses calls VirtualMachineClassesFunc.
+func (mock *VirtClientMock) VirtualMachineClasses() corev1alpha2.VirtualMachineClassInterface {
+	if mock.VirtualMachineClassesFunc == nil {
+		panic("VirtClientMock.VirtualMachineClassesFunc: method is nil but VirtClient.VirtualMachineClasses was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockVirtualMachineClasses.Lock()
+	mock.calls.VirtualMachineClasses = append(mock.calls.VirtualMachineClasses, callInfo)
+	mock.lockVirtualMachineClasses.Unlock()
+	return mock.VirtualMachineClassesFunc()
+}
+
+// VirtualMachineClassesCalls gets all the calls that were made to VirtualMachineClasses.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineClassesCalls())
+func (mock *VirtClientMock) VirtualMachineClassesCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockVirtualMachineClasses.RLock()
+	calls = mock.calls.VirtualMachineClasses
+	mock.lockVirtualMachineClasses.RUnlock()
+	return calls
+}
+
+// VirtualMachineIPAddressLeases calls VirtualMachineIPAddressLeasesFunc.
+func (mock *VirtClientMock) VirtualMachineIPAddressLeases() corev1alpha2.VirtualMachineIPAddressLeaseInterface {
+	if mock.VirtualMachineIPAddressLeasesFunc == nil {
+		panic("VirtClientMock.VirtualMachineIPAddressLeasesFunc: method is nil but VirtClient.VirtualMachineIPAddressLeases was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockVirtualMachineIPAddressLeases.Lock()
+	mock.calls.VirtualMachineIPAddressLeases = append(mock.calls.VirtualMachineIPAddressLeases, callInfo)
+	mock.lockVirtualMachineIPAddressLeases.Unlock()
+	return mock.VirtualMachineIPAddressLeasesFunc()
+}
+
+// VirtualMachineIPAddressLeasesCalls gets all the calls that were made to VirtualMachineIPAddressLeases.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineIPAddressLeasesCalls())
+func (mock *VirtClientMock) VirtualMachineIPAddressLeasesCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockVirtualMachineIPAddressLeases.RLock()
+	calls = mock.calls.VirtualMachineIPAddressLeases
+	mock.lockVirtualMachineIPAddressLeases.RUnlock()
+	return calls
+}
+
+// VirtualMachineIPAddresses calls VirtualMachineIPAddressesFunc.
+func (mock *VirtClientMock) VirtualMachineIPAddresses(namespace string) corev1alpha2.VirtualMachineIPAddressInterface {
+	if mock.VirtualMachineIPAddressesFunc == nil {
+		panic("VirtClientMock.VirtualMachineIPAddressesFunc: method is nil but VirtClient.VirtualMachineIPAddresses was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineIPAddresses.Lock()
+	mock.calls.VirtualMachineIPAddresses = append(mock.calls.VirtualMachineIPAddresses, callInfo)
+	mock.lockVirtualMachineIPAddresses.Unlock()
+	return mock.VirtualMachineIPAddressesFunc(namespace)
+}
+
+// VirtualMachineIPAddressesCalls gets all the calls that were made to VirtualMachineIPAddresses.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineIPAddressesCalls())
+func (mock *VirtClientMock) VirtualMachineIPAddressesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineIPAddresses.RLock()
+	calls = mock.calls.VirtualMachineIPAddresses
+	mock.lockVirtualMachineIPAddresses.RUnlock()
+	return calls
+}
+
+// VirtualMachineMACAddressLeases calls VirtualMachineMACAddressLeasesFunc.
+func (mock *VirtClientMock) VirtualMachineMACAddressLeases() corev1alpha2.VirtualMachineMACAddressLeaseInterface {
+	if mock.VirtualMachineMACAddressLeasesFunc == nil {
+		panic("VirtClientMock.VirtualMachineMACAddressLeasesFunc: method is nil but VirtClient.VirtualMachineMACAddressLeases was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockVirtualMachineMACAddressLeases.Lock()
+	mock.calls.VirtualMachineMACAddressLeases = append(mock.calls.VirtualMachineMACAddressLeases, callInfo)
+	mock.lockVirtualMachineMACAddressLeases.Unlock()
+	return mock.VirtualMachineMACAddressLeasesFunc()
+}
+
+// VirtualMachineMACAddressLeasesCalls gets all the calls that were made to VirtualMachineMACAddressLeases.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineMACAddressLeasesCalls())
+func (mock *VirtClientMock) VirtualMachineMACAddressLeasesCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockVirtualMachineMACAddressLeases.RLock()
+	calls = mock.calls.VirtualMachineMACAddressLeases
+	mock.lockVirtualMachineMACAddressLeases.RUnlock()
+	return calls
+}
+
+// VirtualMachineMACAddresses calls VirtualMachineMACAddressesFunc.
+func (mock *VirtClientMock) VirtualMachineMACAddresses(namespace string) corev1alpha2.VirtualMachineMACAddressInterface {
+	if mock.VirtualMachineMACAddressesFunc == nil {
+		panic("VirtClientMock.VirtualMachineMACAddressesFunc: method is nil but VirtClient.VirtualMachineMACAddresses was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineMACAddresses.Lock()
+	mock.calls.VirtualMachineMACAddresses = append(mock.calls.VirtualMachineMACAddresses, callInfo)
+	mock.lockVirtualMachineMACAddresses.Unlock()
+	return mock.VirtualMachineMACAddressesFunc(namespace)
+}
+
+// VirtualMachineMACAddressesCalls gets all the calls that were made to VirtualMachineMACAddresses.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineMACAddressesCalls())
+func (mock *VirtClientMock) VirtualMachineMACAddressesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineMACAddresses.RLock()
+	calls = mock.calls.VirtualMachineMACAddresses
+	mock.lockVirtualMachineMACAddresses.RUnlock()
+	return calls
+}
+
+// VirtualMachineOperations calls VirtualMachineOperationsFunc.
+func (mock *VirtClientMock) VirtualMachineOperations(namespace string) corev1alpha2.VirtualMachineOperationInterface {
+	if mock.VirtualMachineOperationsFunc == nil {
+		panic("VirtClientMock.VirtualMachineOperationsFunc: method is nil but VirtClient.VirtualMachineOperations was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineOperations.Lock()
+	mock.calls.VirtualMachineOperations = append(mock.calls.VirtualMachineOperations, callInfo)
+	mock.lockVirtualMachineOperations.Unlock()
+	return mock.VirtualMachineOperationsFunc(namespace)
+}
+
+// VirtualMachineOperationsCalls gets all the calls that were made to VirtualMachineOperations.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineOperationsCalls())
+func (mock *VirtClientMock) VirtualMachineOperationsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineOperations.RLock()
+	calls = mock.calls.VirtualMachineOperations
+	mock.lockVirtualMachineOperations.RUnlock()
+	return calls
+}
+
+// VirtualMachines calls VirtualMachinesFunc.
+func (mock *VirtClientMock) VirtualMachines(namespace string) corev1alpha2.VirtualMachineInterface {
+	if mock.VirtualMachinesFunc == nil {
+		panic("VirtClientMock.VirtualMachinesFunc: method is nil but VirtClient.VirtualMachines was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachines.Lock()
+	mock.calls.VirtualMachines = append(mock.calls.VirtualMachines, callInfo)
+	mock.lockVirtualMachines.Unlock()
+	return mock.VirtualMachinesFunc(namespace)
+}
+
+// VirtualMachinesCalls gets all the calls that were made to VirtualMachines.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachinesCalls())
+func (mock *VirtClientMock) VirtualMachinesCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachines.RLock()
+	calls = mock.calls.VirtualMachines
+	mock.lockVirtualMachines.RUnlock()
 	return calls
 }

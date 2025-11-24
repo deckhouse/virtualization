@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineClassService struct {
@@ -35,14 +35,14 @@ func NewVirtualMachineClassService(client client.Client) *VirtualMachineClassSer
 	}
 }
 
-func (v *VirtualMachineClassService) IsDefault(vmClass *v1alpha3.VirtualMachineClass) bool {
+func (v *VirtualMachineClassService) IsDefault(vmClass *v1alpha2.VirtualMachineClass) bool {
 	if vmClass == nil {
 		return false
 	}
 	return vmClass.Annotations[annotations.AnnVirtualMachineClassDefault] == "true"
 }
 
-func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha3.VirtualMachineClass) error {
+func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2.VirtualMachineClass) error {
 	if vmClass == nil {
 		return nil
 	}
@@ -56,12 +56,12 @@ func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha3
 	return nil
 }
 
-func (v *VirtualMachineClassService) GetDefault(classes *v1alpha3.VirtualMachineClassList) (*v1alpha3.VirtualMachineClass, error) {
+func (v *VirtualMachineClassService) GetDefault(classes *v1alpha2.VirtualMachineClassList) (*v1alpha2.VirtualMachineClass, error) {
 	if classes == nil {
 		return nil, nil
 	}
 
-	var defaultClass *v1alpha3.VirtualMachineClass
+	var defaultClass *v1alpha2.VirtualMachineClass
 	for i := range classes.Items {
 		if !v.IsDefault(&classes.Items[i]) {
 			continue

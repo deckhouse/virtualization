@@ -283,20 +283,11 @@ func addPatchesToCleanupMetadata(input *pkg.HookInput, vmClass *v1alpha2.Virtual
 		}
 	}
 
-	// Ensure "keep resource" annotation on vmclass/generic, so Helm will keep it
-	// in the cluster even that we've deleted its manifest from templates.
-	if _, exists := vmClass.Annotations[helmKeepResourceAnno]; !exists {
-		patches = append(patches, map[string]interface{}{
-			"op":    "add",
-			"path":  fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(helmKeepResourceAnno)),
-			"value": nil,
-		})
-	}
-
 	annoNames := []string{
 		helmReleaseNameAnno,
 		helmReleaseNamespaceAnno,
 	}
+	hasHelmAnnotations := false
 	for _, annoName := range annoNames {
 		if _, exists := vmClass.Annotations[annoName]; exists {
 			patches = append(patches, map[string]interface{}{
@@ -304,7 +295,19 @@ func addPatchesToCleanupMetadata(input *pkg.HookInput, vmClass *v1alpha2.Virtual
 				"path":  fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(annoName)),
 				"value": nil,
 			})
+			hasHelmAnnotations = true
 		}
+	}
+
+	// Ensure "keep resource" annotation on vmclass/generic, so Helm will keep resource
+	// in the cluster even that we've deleted its manifest from templates.
+	_, hasKeepResourceAnno := vmClass.Annotations[helmKeepResourceAnno]
+	if hasHelmAnnotations && !hasKeepResourceAnno {
+		patches = append(patches, map[string]interface{}{
+			"op":    "add",
+			"path":  fmt.Sprintf("/metadata/annotations/%s", jsonPatchEscape(helmKeepResourceAnno)),
+			"value": nil,
+		})
 	}
 
 	if len(patches) == 0 {
