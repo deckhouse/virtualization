@@ -2379,15 +2379,15 @@ To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter 
 
 A completion timeout is set for live migration, which is calculated using the formula:
 
-**Total Completion Timeout = completionTimeoutPerGiB × (Memory Size in GiB + Disk Size in GiB (if Block Migration is used))**
+**Total Completion Timeout = 800 seconds × (Memory Size in GiB + Disk Size in GiB (if Block Migration is used))**
 
-If the migration does not complete within this time, the operation is considered failed and is canceled. The `completionTimeoutPerGiB` parameter is configured in the virtualization module settings.
+If the migration does not complete within this time, the operation is considered failed and is canceled.
 
 Calculation example:
 
-For a virtual machine with 4 GiB of memory and 20 GiB of disk, with `completionTimeoutPerGiB` set to 30 seconds, the timeout will be:
+For a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be:
 
-`30 seconds × (4 GiB + 20 GiB) = 30 × 24 = 720 seconds (12 minutes)`
+`800 seconds × (4 GiB + 20 GiB) = 800 × 24 = 19200 seconds (320 minutes or ~5.3 hours)`
 
 #### Migration types
 
