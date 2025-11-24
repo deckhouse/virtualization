@@ -140,6 +140,9 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		return
 	}
 
+	// Calculate memory portion per CPU core
+	// to compare it later with min and max
+	// limits in the sizing policy.
 	vmPerCore := vm.Spec.Memory.Size.Value() / int64(vm.Spec.CPU.Cores)
 	perCoreMemory := resource.NewQuantity(vmPerCore, resource.BinarySI)
 
