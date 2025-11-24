@@ -106,23 +106,40 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 			return reconcile.Result{}, fmt.Errorf("list resources in provisioning: %w", err)
 		}
 		remainInProvisioning := len(resourcesInProvisioning)
-		if remainInProvisioning > 0 {
+		if remainInProvisioning == 0 {
+			// All provisioners are finished, switch DVCR to garbage collection.
+			err = h.dvcrService.SwitchToGarbageCollectionMode(ctx)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("switch to garbage collection mode: %w", err)
+			}
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcrdeploymentcondition.InProgress,
-				"Wait for cvi/vi/vd finish provisioning: %d resources remain.", remainInProvisioning,
+				"Wait for garbage collection to finish.",
 			)
-			return reconcile.Result{RequeueAfter: time.Second * 20}, nil
+			return reconcile.Result{}, nil
 		}
-		// All provisioners are finished, switch to garbage collection.
-		err = h.dvcrService.SwitchToGarbageCollectionMode(ctx)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("switch to garbage collection mode: %w", err)
+
+		// Cancel garbage collection if wait for provisioners for too long.
+		hasCreationTimestamp := !secret.GetCreationTimestamp().Time.IsZero()
+		waitDuration := time.Since(secret.GetCreationTimestamp().Time)
+		if hasCreationTimestamp && waitDuration > dvcrtypes.WaitProvisionersTimeout {
+			// Wait for provisionerStop garbage collection and report error.
+			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
+				dvcrdeploymentcondition.Error,
+				"Wait for resources provisioners more than %s timeout: %s elapsed, garbage collection canceled",
+				dvcrtypes.WaitProvisionersTimeout.String(),
+				waitDuration.String(),
+			)
+			annotations.AddAnnotation(deploy, annotations.AnnDVCRGarbageCollectionResult, "")
+			return reconcile.Result{}, h.dvcrService.DeleteGarbageCollectionSecret(ctx)
 		}
+
+		// Use requeue to wait for provisioners to finish.
 		dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 			dvcrdeploymentcondition.InProgress,
-			"Wait for garbage collection to finish.",
+			"Wait for cvi/vi/vd finish provisioning: %d resources remain.", remainInProvisioning,
 		)
-		return reconcile.Result{}, nil
+		return reconcile.Result{RequeueAfter: time.Second * 20}, nil
 	}
 
 	return reconcile.Result{}, nil

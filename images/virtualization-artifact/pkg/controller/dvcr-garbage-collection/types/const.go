@@ -16,7 +16,11 @@ limitations under the License.
 
 package types
 
-import "k8s.io/apimachinery/pkg/types"
+import (
+	"time"
+
+	"k8s.io/apimachinery/pkg/types"
+)
 
 const (
 	ModuleNamespace = "d8-virtualization"
@@ -25,6 +29,8 @@ const (
 	DVCRGarbageCollectionSecretName = "dvcr-garbage-collection"
 	CronSourceNamespace             = "__cron_source__"
 	CronSourceRunGC                 = "run-gc"
+
+	WaitProvisionersTimeout = time.Hour * 2
 )
 
 func DVCRDeploymentKey() types.NamespacedName {
