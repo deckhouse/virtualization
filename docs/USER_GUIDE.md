@@ -2738,7 +2738,23 @@ When a network is removed from the VM configuration:
 
 ## Snapshots
 
-Snapshots are designed to save the state of a resource at a particular point in time. Disk snapshots and virtual machine snapshots are currently supported.
+Snapshots allow you to capture the current state of a resource for later recovery or cloning: a disk snapshot saves only the data from the selected disk, while a virtual machine snapshot includes the VM settings and the state of all its disks.
+
+### Consistent snapshots
+
+Snapshots can be consistent or inconsistent, which is determined by the `requiredConsistency` parameter. By default, the `requiredConsistency` parameter is set to `true`, which requires a consistent snapshot.
+
+A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
+- The virtual machine is turned off.
+- `qemu-guest-agent` is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+
+An inconsistent snapshot may not reflect the consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
+- The VM is running, and `qemu-guest-agent` is not installed or running in the guest OS.
+- The VM is running, and `qemu-guest-agent` is not installed in the guest OS, but the snapshot manifest specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
+
+{{< alert level="warning" >}}
+There is a risk of data loss or integrity violation when restoring from such a snapshot.
+{{< /alert >}}
 
 ### Creating disk snapshots
 
@@ -2855,22 +2871,6 @@ A virtual machine snapshot is a saved state of a virtual machine at a specific p
 
 {{< alert level="warning" >}}
 It is recommended to disconnect all images (VirtualImage/ClusterVirtualImage) from the virtual machine before creating its snapshot. Disk images are not saved together with the VM snapshot, and their absence in the cluster during recovery may cause the virtual machine to fail to start and remain in a Pending state while waiting for the images to become available.
-{{< /alert >}}
-
-#### Types of snapshots
-
-Snapshots can be consistent or inconsistent, which is determined by the `requiredConsistency` parameter. By default, the `requiredConsistency` parameter is set to `true`, which requires a consistent snapshot.
-
-A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
-- The virtual machine is turned off.
-- `qemu-guest-agent` is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
-
-An inconsistent snapshot may not reflect the consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
-- The VM is running, and `qemu-guest-agent` is not installed or running in the guest OS.
-- The VM is running, and `qemu-guest-agent` is not installed in the guest OS, but the snapshot manifest specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
-
-{{< alert level="warning" >}}
-There is a risk of data loss or integrity violation when restoring from such a snapshot.
 {{< /alert >}}
 
 #### Creating snapshots
