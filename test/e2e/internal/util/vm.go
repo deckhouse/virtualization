@@ -137,6 +137,6 @@ func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.
 		}
 
 		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
-	}, framework.LongTimeout, time.Second).Should(Succeed())
-	UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, vm)
+	}, timeout/2, time.Second).Should(Succeed())
+	UntilObjectPhase(string(v1alpha2.MachineRunning), timeout/2, vm)
 }
