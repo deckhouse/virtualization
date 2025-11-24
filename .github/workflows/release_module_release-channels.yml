@@ -391,7 +391,7 @@ jobs:
           sleep 300
 
           echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
-          go run ./tools/moduleversions \
-            -channel ${{ github.event.inputs.channel }} \
-            -version ${{ github.event.inputs.tag }} \
-            -count 5
+          CHANNEL=${{ github.event.inputs.channel }} \
+          VERSION=${{ github.event.inputs.tag }} \
+          COUNT=5 \
+          task -d tools/moduleversions go:run

@@ -1,0 +1,19 @@
+version: "3"
+
+tasks:
+  go:tidy:
+    desc: "Go mod tidy"
+    silent: true
+    cmds:
+      - go mod download
+
+  go:run:
+    desc: "Go run"
+    vars:
+      CHANNEL: '{{ .CHANNEL | default "alpha" }}'
+      VERSION: '{{ .VERSION }}'
+      COUNT: '{{ .COUNT | default 5 }}'
+    deps:
+      - task: go:tidy
+    cmds:
+      - go run ./main.go -count {{.COUNT}} -channel {{.CHANNEL}} -version {{.VERSION}}

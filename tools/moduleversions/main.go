@@ -188,7 +188,7 @@ func main() {
 	version := flag.String("version", "", "module version to verify (e.g., 1.1.2 or v1.1.2)")
 	moduleName := flag.String("module", defaultModuleName, "module name to check")
 	baseURL := flag.String("base-url", defaultReleasesBaseURL, "base URL for releases.deckhouse.io")
-	flag.IntVar(&count, "count", 10, "maximum number of retry attempts (default: 10)")
+	flag.IntVar(&count, "count", 1, "maximum number of retry attempts (default: 10)")
 
 	// Custom usage function to provide better error messages
 	flag.Usage = func() {
