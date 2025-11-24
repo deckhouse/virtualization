@@ -56,7 +56,7 @@ func UntilConditionReason(conditionType, expectedReason string, timeout time.Dur
 			g.Expect(err).ShouldNot(HaveOccurred(), "failed to access status.conditions of %s/%s", u.GetNamespace(), u.GetName())
 			g.Expect(found).Should(BeTrue(), "no status.conditions found in %s/%s", u.GetNamespace(), u.GetName())
 
-			var condReason string = "Unknown"
+			condReason := "Unknown"
 			for _, c := range conditions {
 				m, ok := c.(map[string]interface{})
 				if !ok {
