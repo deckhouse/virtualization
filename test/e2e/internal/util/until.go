@@ -40,6 +40,40 @@ func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...clien
 	untilObjectField("status.phase", expectedPhase, timeout, objs...)
 }
 
+// UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
+// The function polls every second until timeout is reached.
+// Example: UntilConditionReason("Ready", "StuffHappened", 30*time.Second, myVM) waits for myVM's "Ready" condition to have reason "StuffHappened".
+func UntilConditionReason(conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		for _, obj := range objs {
+			key := client.ObjectKeyFromObject(obj)
+			u := getTemplateUnstructured(obj).DeepCopy()
+			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			g.Expect(err).ShouldNot(HaveOccurred())
+
+			conditions, found, err := unstructured.NestedSlice(u.Object, "status", "conditions")
+			g.Expect(err).ShouldNot(HaveOccurred(), "failed to access status.conditions of %s/%s", u.GetNamespace(), u.GetName())
+			g.Expect(found).Should(BeTrue(), "no status.conditions found in %s/%s", u.GetNamespace(), u.GetName())
+
+			var condReason string = "Unknown"
+			for _, c := range conditions {
+				m, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if t, ok := m["type"].(string); ok && t == conditionType {
+					if s, ok := m["reason"].(string); ok {
+						condReason = s
+						break
+					}
+				}
+			}
+			g.Expect(condReason).To(Equal(expectedReason), "object %s/%s: condition %s reason is %s, expected %s", u.GetNamespace(), u.GetName(), conditionType, condReason, expectedReason)
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
 // UntilObjectState waits for an object to reach the specified state.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected state string, and timeout duration.

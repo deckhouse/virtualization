@@ -84,7 +84,6 @@ type TestData struct {
 	ComplexTest        string `yaml:"complexTest"`
 	Connectivity       string `yaml:"connectivity"`
 	DiskResizing       string `yaml:"diskResizing"`
-	SizingPolicy       string `yaml:"sizingPolicy"`
 	ImageHotplug       string `yaml:"imageHotplug"`
 	VMConfiguration    string `yaml:"vmConfiguration"`
 	VMLabelAnnotation  string `yaml:"vmLabelAnnotation"`
