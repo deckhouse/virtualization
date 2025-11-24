@@ -32,7 +32,7 @@ import (
 )
 
 type VMBlockDeviceAttachmentTestArgs struct {
-	mode v1alpha2.VMOPRestoreMode
+	mode v1alpha2.SnapshotOperationMode
 
 	vmbdaExists       bool
 	vmbdaUsedByDiffVM bool
@@ -140,7 +140,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			Expect(vmbdaCreated).To(Equal(args.shouldBeCreated))
 		},
 		Entry("vmbda exists; used by different VM", VMBlockDeviceAttachmentTestArgs{
-			mode: v1alpha2.VMOPRestoreModeStrict,
+			mode: v1alpha2.SnapshotOperationModeStrict,
 
 			vmbdaExists:       true,
 			vmbdaUsedByDiffVM: true,
@@ -152,7 +152,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmbda exists; not used by different VM", VMBlockDeviceAttachmentTestArgs{
-			mode: v1alpha2.VMOPRestoreModeStrict,
+			mode: v1alpha2.SnapshotOperationModeStrict,
 
 			vmbdaExists:       true,
 			vmbdaUsedByDiffVM: false,
@@ -164,7 +164,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmbda doesn't exist", VMBlockDeviceAttachmentTestArgs{
-			mode: v1alpha2.VMOPRestoreModeStrict,
+			mode: v1alpha2.SnapshotOperationModeStrict,
 
 			vmbdaExists:       false,
 			vmbdaUsedByDiffVM: false,
@@ -176,7 +176,7 @@ var _ = Describe("VMBlockDeviceAttachmentRestorer", func() {
 			shouldBeCreated: true,
 		}),
 		Entry("vmbda deletion completed; ready to create", VMBlockDeviceAttachmentTestArgs{
-			mode: v1alpha2.VMOPRestoreModeStrict,
+			mode: v1alpha2.SnapshotOperationModeStrict,
 
 			vmbdaExists:       false,
 			vmbdaUsedByDiffVM: false,

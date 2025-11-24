@@ -7,32 +7,32 @@ metadata:
   labels:
     heritage: deckhouse
     module: virtualization
-  name: virtualmachineoperations.virtualization.deckhouse.io
+  name: virtualmachinesnapshotoperations.virtualization.deckhouse.io
 spec:
   group: virtualization.deckhouse.io
   names:
     categories:
       - virtualization
-    kind: VirtualMachineOperation
-    listKind: VirtualMachineOperationList
-    plural: virtualmachineoperations
+    kind: VirtualMachineSnapshotOperation
+    listKind: VirtualMachineSnapshotOperationList
+    plural: virtualmachinesnapshotoperations
     shortNames:
-      - vmop
-    singular: virtualmachineoperation
+      - vmsop
+    singular: virtualmachinesnapshotoperation
   scope: Namespaced
   versions:
     - additionalPrinterColumns:
-        - description: VirtualMachineOperation phase.
+        - description: VirtualMachineSnapshotOperation phase.
           jsonPath: .status.phase
           name: Phase
           type: string
-        - description: VirtualMachineOperation type.
+        - description: VirtualMachineSnapshotOperation type.
           jsonPath: .spec.type
           name: Type
           type: string
-        - description: VirtualMachine name.
-          jsonPath: .spec.virtualMachineName
-          name: VirtualMachine
+        - description: VirtualMachineSnapshot name.
+          jsonPath: .spec.virtualMachineSnapshotName
+          name: VirtualMachineSnapshot
           type: string
         - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
@@ -42,8 +42,8 @@ spec:
       schema:
         openAPIV3Schema:
           description:
-            VirtualMachineOperation enables declarative management of virtual
-            machine state changes.
+            VirtualMachineSnapshotOperation enables declarative management
+            of virtual machine snapshot state changes.
           properties:
             apiVersion:
               description: |-
@@ -64,8 +64,8 @@ spec:
               type: object
             spec:
               properties:
-                clone:
-                  description: Clone defines the clone operation.
+                createVirtualMachine:
+                  description: CreateVirtualMachine defines the clone operation.
                   properties:
                     customization:
                       description: Customization defines customization options for cloning.
@@ -151,82 +151,34 @@ spec:
                         && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix)
                         && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement)
                         && size(self.nameReplacement) > 0)
-                force:
-                  description: |-
-                    Force execution of an operation.
-
-                    * Effect on `Restart` and `Stop`: operation performs immediately.
-                    * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
-                  type: boolean
-                restore:
-                  description: Restore defines the restore operation.
-                  properties:
-                    mode:
-                      description: |-
-                        SnapshotOperationMode defines the kind of the clone operation.
-                        * `DryRun`: DryRun run without any changes. Compatibility shows in status.
-                        * `Strict`: Strict clone as is in the snapshot.
-                        * `BestEffort`: BestEffort process without deleted external missing dependencies.
-                      enum:
-                        - DryRun
-                        - Strict
-                        - BestEffort
-                      type: string
-                    virtualMachineSnapshotName:
-                      description:
-                        VirtualMachineSnapshotName defines the source of
-                        the restore operation.
-                      type: string
-                  required:
-                    - mode
-                    - virtualMachineSnapshotName
-                  type: object
                 type:
                   description: |-
                     Type of the operation to execute on a virtual machine:
-                    * `Start`: Start the virtual machine.
-                    * `Stop`: Stop the virtual machine.
-                    * `Restart`: Restart the virtual machine.
-                    * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
-                    * `Evict`: Migrate the virtual machine to another node where it can be started.
-                    * `Restore`: Restore the virtual machine from a snapshot.
-                    * `Clone`: Clone the virtual machine to a new virtual machine.
+                    * `CreateVirtualMachine`: CreateVirtualMachine the virtual machine to a new virtual machine.
                   enum:
-                    - Restart
-                    - Start
-                    - Stop
-                    - Migrate
-                    - Evict
-                    - Restore
-                    - Clone
+                    - CreateVirtualMachine
                   type: string
-                virtualMachineName:
+                virtualMachineSnapshotName:
                   description:
-                    Name of the virtual machine the operation is performed
-                    for.
+                    Name of the virtual machine snapshot the operation is
+                    performed for.
                   type: string
               required:
                 - type
-                - virtualMachineName
+                - virtualMachineSnapshotName
               type: object
               x-kubernetes-validations:
                 - message: .spec is immutable
                   rule: self == oldSelf
-                - message: The `Start` operation cannot be performed forcibly.
-                  rule: "self.type == 'Start' ? !has(self.force) || !self.force : true"
-                - message: The `Migrate` operation cannot be performed forcibly.
+                - message: CreateVirtualMachineName requires clone field.
                   rule:
-                    "self.type == 'Migrate' ? !has(self.force) || !self.force :
-                    true"
-                - message: Restore requires restore field.
-                  rule: "self.type == 'Restore' ? has(self.restore) : true"
-                - message: Clone requires clone field.
-                  rule: "self.type == 'Clone' ? has(self.clone) : true"
+                    "self.type == 'CreateVirtualMachineName' ? has(self.createVirtualMachine)
+                    : true"
             status:
               properties:
                 conditions:
                   description:
-                    The latest detailed observations of the VirtualMachineOperation
+                    The latest detailed observations of the VirtualMachineSnapshotOperation
                     resource.
                   items:
                     description:

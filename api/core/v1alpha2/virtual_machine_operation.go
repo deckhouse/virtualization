@@ -16,7 +16,9 @@ limitations under the License.
 
 package v1alpha2
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 const (
 	VirtualMachineOperationKind     = "VirtualMachineOperation"
@@ -64,7 +66,7 @@ type VirtualMachineOperationSpec struct {
 
 // VirtualMachineOperationRestoreSpec defines the restore operation.
 type VirtualMachineOperationRestoreSpec struct {
-	Mode VMOPRestoreMode `json:"mode"`
+	Mode SnapshotOperationMode `json:"mode"`
 	// VirtualMachineSnapshotName defines the source of the restore operation.
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 }
@@ -72,7 +74,7 @@ type VirtualMachineOperationRestoreSpec struct {
 // +kubebuilder:validation:XValidation:rule="(has(self.customization) && ((has(self.customization.namePrefix) && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix) && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement) && size(self.nameReplacement) > 0)",message="At least one of customization.namePrefix, customization.nameSuffix, or nameReplacement must be set"
 // VirtualMachineOperationCloneSpec defines the clone operation.
 type VirtualMachineOperationCloneSpec struct {
-	Mode VMOPRestoreMode `json:"mode"`
+	Mode SnapshotOperationMode `json:"mode"`
 	// NameReplacement defines rules for renaming resources during cloning.
 	// +kubebuilder:validation:XValidation:rule="self.all(nr, has(nr.to) && size(nr.to) >= 1 && size(nr.to) <= 59)",message="Each nameReplacement.to must be between 1 and 59 characters"
 	NameReplacement []NameReplacement `json:"nameReplacement,omitempty"`
@@ -92,19 +94,6 @@ type VirtualMachineOperationCloneCustomization struct {
 	NameSuffix string `json:"nameSuffix,omitempty"`
 }
 
-// VMOPRestoreMode defines the kind of the restore operation.
-// * `DryRun`: DryRun run without any changes. Compatibility shows in status.
-// * `Strict`: Strict restore as is in the snapshot.
-// * `BestEffort`: BestEffort restore without deleted external missing dependencies.
-// +kubebuilder:validation:Enum={DryRun,Strict,BestEffort}
-type VMOPRestoreMode string
-
-const (
-	VMOPRestoreModeDryRun     VMOPRestoreMode = "DryRun"
-	VMOPRestoreModeStrict     VMOPRestoreMode = "Strict"
-	VMOPRestoreModeBestEffort VMOPRestoreMode = "BestEffort"
-)
-
 type VirtualMachineOperationStatus struct {
 	Phase VMOPPhase `json:"phase"`
 	// The latest detailed observations of the VirtualMachineOperation resource.
@@ -112,38 +101,13 @@ type VirtualMachineOperationStatus struct {
 	//  Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Resources contains the list of resources that are affected by the snapshot operation.
-	Resources []VirtualMachineOperationResource `json:"resources,omitempty"`
+	Resources []SnapshotResourceStatus `json:"resources,omitempty"`
 }
 
-// VMOPResourceKind defines the kind of the resource affected by the operation.
-// * `VirtualDisk`: VirtualDisk resource.
-// * `VirtualMachine`: VirtualMachine resource.
-// * `VirtualImage`: VirtualImage resource.
-// * `ClusterVirtualImage`: ClusterVirtualImage resource.
-// * `VirtualMachineIPAddress`: VirtualMachineIPAddress resource.
-// * `VirtualMachineIPAddressLease`: VirtualMachineIPAddressLease resource.
-// * `VirtualMachineClass`: VirtualMachineClass resource.
-// * `VirtualMachineOperation`: VirtualMachineOperation resource.
-// +kubebuilder:validation:Enum={VMOPResourceSecret,VMOPResourceNetwork,VMOPResourceVirtualDisk,VMOPResourceVirtualImage,VMOPResourceVirtualMachine,VMOPResourceClusterNetwork,VMOPResourceClusterVirtualImage,VMOPResourceVirtualMachineIPAddress,VMOPResourceVirtualMachineMacAddress,VMOPResourceVirtualMachineBlockDeviceAttachment}
-type VMOPResourceKind string
-
 const (
-	VMOPResourceSecret                              VMOPResourceKind = "Secret"
-	VMOPResourceNetwork                             VMOPResourceKind = "Network"
-	VMOPResourceVirtualDisk                         VMOPResourceKind = "VirtualDisk"
-	VMOPResourceVirtualImage                        VMOPResourceKind = "VirtualImage"
-	VMOPResourceVirtualMachine                      VMOPResourceKind = "VirtualMachine"
-	VMOPResourceClusterNetwork                      VMOPResourceKind = "ClusterNetwork"
-	VMOPResourceClusterVirtualImage                 VMOPResourceKind = "ClusterVirtualImage"
-	VMOPResourceVirtualMachineIPAddress             VMOPResourceKind = "VirtualMachineIPAddress"
-	VMOPResourceVirtualMachineMacAddress            VMOPResourceKind = "VirtualMachineMacAddress"
-	VMOPResourceVirtualMachineBlockDeviceAttachment VMOPResourceKind = "VirtualMachineBlockDeviceAttachment"
-)
-
-const (
-	VMOPResourceStatusInProgress VMOPResourceStatusPhase = "InProgress"
-	VMOPResourceStatusCompleted  VMOPResourceStatusPhase = "Completed"
-	VMOPResourceStatusFailed     VMOPResourceStatusPhase = "Failed"
+	SnapshotResourceStatusInProgress SnapshotResourceStatusPhase = "InProgress"
+	SnapshotResourceStatusCompleted  SnapshotResourceStatusPhase = "Completed"
+	SnapshotResourceStatusFailed     SnapshotResourceStatusPhase = "Failed"
 )
 
 // Current phase of the resource:
@@ -151,10 +115,10 @@ const (
 // * `Completed`: The operation for resource has been completed successfully.
 // * `Failed`: The operation for resource failed. For details, refer to the `Message` field.
 // +kubebuilder:validation:Enum={InProgress,Completed,Failed}
-type VMOPResourceStatusPhase string
+type SnapshotResourceStatusPhase string
 
-// VirtualMachineOperationResource defines the resource affected by the operation.
-type VirtualMachineOperationResource struct {
+// SnapshotResourceStatus defines the resource affected by the operation.
+type SnapshotResourceStatus struct {
 	// API version of the resource.
 	APIVersion string `json:"apiVersion"`
 	// Name of the resource.
@@ -162,7 +126,7 @@ type VirtualMachineOperationResource struct {
 	// Kind of the resource.
 	Kind string `json:"kind"`
 	// Status of the resource.
-	Status VMOPResourceStatusPhase `json:"status"`
+	Status SnapshotResourceStatusPhase `json:"status"`
 	// Message about the resource.
 	Message string `json:"message"`
 }
