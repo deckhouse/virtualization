@@ -3,12 +3,12 @@ index e8fc2d5f7d..472bd8debf 100644
 --- a/src/rpc/virnetsocket.c
 +++ b/src/rpc/virnetsocket.c
 @@ -1556,6 +1556,13 @@ int virNetSocketGetSELinuxContext(virNetSocket *sock,
- 
+
      virObjectLock(sock);
      if (getpeercon(sock->fd, &seccon) < 0) {
 +        // getpeercon from libselinux uses getsockopt() syscall. Some implementations of getsockopts
-+        // returns EINVAL errno for unsupported valopt argument instead of ENOPROTOOPT errno.
-+        // This fix makes libvirt works with such broken implementations.
++        // return EINVAL errno for unsupported valopt argument instead of ENOPROTOOPT errno.
++        // This fix makes libvirt work with such broken implementations.
 +        if (errno == EINVAL) {
 +            ret = 0;
 +            goto cleanup;
