@@ -25,6 +25,7 @@ import (
 	_ "github.com/deckhouse/virtualization/test/e2e/blockdevice"
 	"github.com/deckhouse/virtualization/test/e2e/controller"
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
+	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
 )
 
