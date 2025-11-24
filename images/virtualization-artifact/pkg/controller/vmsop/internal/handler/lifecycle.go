@@ -39,15 +39,15 @@ import (
 const lifecycleHandlerName = "LifecycleHandler"
 
 type LifecycleHandler struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	client     client.Client
+	recorder   eventrecord.EventRecorderLogger
 	opExecutor CreateOperationExecutor
 }
 
 func NewLifecycleHandler(client client.Client, createOp CreateOperationExecutor, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
-		client:   client,
-		recorder: recorder,
+		client:     client,
+		recorder:   recorder,
 		opExecutor: createOp,
 	}
 }
