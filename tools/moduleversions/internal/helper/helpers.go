@@ -27,6 +27,14 @@ import (
 
 const (
 	httpTimeout = 30 * time.Second
+
+	// Channel column indices in the HTML table on releases.deckhouse.io
+	channelAlphaIndex       = 1
+	channelBetaIndex        = 2
+	channelEarlyAccessIndex = 3
+	channelStableIndex      = 4
+	channelRockSolidIndex   = 5
+	expectedCellsCount      = 6
 )
 
 // DocumentationSiteInfo contains version information parsed from deckhouse.ru
@@ -90,4 +98,66 @@ func VerifyVersionOnDocumentationSite(docURL, expectedChannel, expectedVersion s
 
 	fmt.Printf("Found version %s for channel %s on documentation site\n", foundVersion, expectedChannel)
 	return nil
+}
+
+// verifyVersionInEdition checks if the specified version exists for the given channel
+// on the releases.deckhouse.io page for a specific edition
+func VerifyVersionInEdition(editionURL, channel, expectedVersion, moduleName string) (bool, error) {
+	client := &http.Client{
+		Timeout: httpTimeout,
+	}
+
+	resp, err := client.Get(editionURL)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch edition URL %s: %w", editionURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("unexpected status code %d for URL %s", resp.StatusCode, editionURL)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse HTML from %s: %w", editionURL, err)
+	}
+
+	var (
+		index      int
+		webVersion string
+	)
+
+	switch channel {
+	case "alpha":
+		index = channelAlphaIndex
+	case "beta":
+		index = channelBetaIndex
+	case "early-access":
+		index = channelEarlyAccessIndex
+	case "stable":
+		index = channelStableIndex
+	case "rock-solid":
+		index = channelRockSolidIndex
+	default:
+		return false, fmt.Errorf("unknown channel: %s", channel)
+	}
+
+	doc.Find("tr").Each(func(i int, s *goquery.Selection) {
+		if strings.Contains(s.Text(), moduleName) {
+			cells := s.Find("td")
+			if cells.Length() == expectedCellsCount {
+				webVersion = strings.TrimSpace(cells.Eq(index).Text())
+			}
+		}
+	})
+
+	if webVersion == "" {
+		return false, fmt.Errorf("version not found for module %s in channel %s", moduleName, channel)
+	}
+
+	if webVersion != expectedVersion {
+		return false, fmt.Errorf("version mismatch: expected %s, got %s", expectedVersion, webVersion)
+	}
+
+	return true, nil
 }

@@ -20,27 +20,17 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"scaper/internal/helper"
 
-	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
 const (
-	// Channel column indices in the HTML table on releases.deckhouse.io
-	channelAlphaIndex       = 1
-	channelBetaIndex        = 2
-	channelEarlyAccessIndex = 3
-	channelStableIndex      = 4
-	channelRockSolidIndex   = 5
-	expectedCellsCount      = 6
-
 	// HTTP client settings
 	httpTimeout = 30 * time.Second
 	retryDelay  = 60 * time.Second
@@ -76,68 +66,6 @@ func (v ModuleVersionInfo) String() string {
 	return b.String()
 }
 
-// verifyVersionInEdition checks if the specified version exists for the given channel
-// on the releases.deckhouse.io page for a specific edition
-func verifyVersionInEdition(editionURL, channel, expectedVersion, moduleName string) (bool, error) {
-	client := &http.Client{
-		Timeout: httpTimeout,
-	}
-
-	resp, err := client.Get(editionURL)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch edition URL %s: %w", editionURL, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unexpected status code %d for URL %s", resp.StatusCode, editionURL)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return false, fmt.Errorf("failed to parse HTML from %s: %w", editionURL, err)
-	}
-
-	var (
-		index      int
-		webVersion string
-	)
-
-	switch channel {
-	case "alpha":
-		index = channelAlphaIndex
-	case "beta":
-		index = channelBetaIndex
-	case "early-access":
-		index = channelEarlyAccessIndex
-	case "stable":
-		index = channelStableIndex
-	case "rock-solid":
-		index = channelRockSolidIndex
-	default:
-		return false, fmt.Errorf("unknown channel: %s", channel)
-	}
-
-	doc.Find("tr").Each(func(i int, s *goquery.Selection) {
-		if strings.Contains(s.Text(), moduleName) {
-			cells := s.Find("td")
-			if cells.Length() == expectedCellsCount {
-				webVersion = strings.TrimSpace(cells.Eq(index).Text())
-			}
-		}
-	})
-
-	if webVersion == "" {
-		return false, fmt.Errorf("version not found for module %s in channel %s", moduleName, channel)
-	}
-
-	if webVersion != expectedVersion {
-		return false, fmt.Errorf("version mismatch: expected %s, got %s", expectedVersion, webVersion)
-	}
-
-	return true, nil
-}
-
 // verifyVersionAcrossAllEditions checks if the specified version exists for the given channel
 // across all supported editions on releases.deckhouse.io
 func verifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersion, moduleName, baseURL string) (bool, *ModuleVersionInfo, error) {
@@ -157,7 +85,7 @@ func verifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersi
 		}
 		edition := urlParts[len(urlParts)-1]
 
-		match, err := verifyVersionInEdition(editionURL, channel, expectedVersion, moduleName)
+		match, err := helper.VerifyVersionInEdition(editionURL, channel, expectedVersion, moduleName)
 		if err != nil {
 			lastErr = err
 			log.Printf("Error checking %-7s edition on channel %s: %v", edition, cases.Title(language.Und).String(channel), err)
