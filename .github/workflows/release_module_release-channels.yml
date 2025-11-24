@@ -390,25 +390,8 @@ jobs:
           echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
           sleep 300
 
-          echo "Test that version deployed on site"
-          MAX_RETRIES=6
-          RETRY_DELAY=60
-          RETRY_COUNT=0
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if go run ./tools/moduleversions \
-              -channel ${{ github.event.inputs.channel }} \
-              -version ${{ github.event.inputs.tag }}; then
-              echo "Version successfully verified on site"
-              exit 0
-            fi
-            
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-              echo "Version not yet available on site, retrying in ${RETRY_DELAY}s (attempt $RETRY_COUNT/$MAX_RETRIES)..."
-              sleep $RETRY_DELAY
-            fi
-          done
-
-          echo "ERROR: Version was not found on site after $MAX_RETRIES attempts"
-          exit 1
+          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          go run ./tools/moduleversions \
+            -channel ${{ github.event.inputs.channel }} \
+            -version ${{ github.event.inputs.tag }} \
+            -count 5

@@ -43,7 +43,7 @@ const (
 
 	// HTTP client settings
 	httpTimeout = 30 * time.Second
-	retryDelay  = 10 * time.Second
+	retryDelay  = 60 * time.Second
 
 	// Default values
 	defaultModuleName       = "virtualization"
