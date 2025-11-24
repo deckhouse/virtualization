@@ -373,10 +373,10 @@ jobs:
 
       - name: Check release channel
         run: |
-          EDITIONS=("ee" "ce" "se-plus" "fe")
+          EDITIONS=("ee" "fe" "ce" "se-plus")
           PROD_REGISTRY="registry.deckhouse.io/deckhouse"
 
-          for EDITION in $EDITIONS; do
+          for EDITION in ${EDITIONS[@]}; do
             echo "Check version on $EDITION"
             getVersion=$(crane export $PROD_REGISTRY/$EDITION/modules/virtualization/release:${{ github.event.inputs.channel }} - | tar -Oxf - version.json | jq '.version' -r)
             

@@ -1,5 +1,22 @@
 version: "3"
 
+vars:
+  PROD_REGISTRY: registry.deckhouse.io/deckhouse
+  CHANNEL: '{{ .CHANNEL | default "alpha" }}'
+  VERSION: "{{ .VERSION }}"
+  LICENSE: "{{ .LICENSE }}"
+  REGISTRY:
+    sh: |
+      base64 -d <<< "{{.LICENSE}}" | jq '.auths | to_entries | .[] | .key' -r
+  USERNAME:
+    sh: |
+      creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+      echo $creds | base64 -d | cut -d ':' -f1
+  PASSWORD:
+    sh: |
+      creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+      echo $creds | base64 -d | cut -d ':' -f2
+
 tasks:
   go:tidy:
     desc: "Go mod tidy"
@@ -10,10 +27,35 @@ tasks:
   go:run:
     desc: "Go run"
     vars:
-      CHANNEL: '{{ .CHANNEL | default "alpha" }}'
-      VERSION: '{{ .VERSION }}'
-      COUNT: '{{ .COUNT | default 5 }}'
+      COUNT: "{{ .COUNT | default 5 }}"
     deps:
       - task: go:tidy
     cmds:
       - go run ./main.go -count {{.COUNT}} -channel {{.CHANNEL}} -version {{.VERSION}}
+
+  crane:version:
+    desc: "Get version from release image"
+    cmds:
+      - |
+        # Check if already logged in by inspecting Docker config
+        if ! jq -e --arg reg "{{.REGISTRY}}" '.auths | has($reg)' ~/.docker/config.json > /dev/null 2>&1; then
+          echo "Not logged in to {{.REGISTRY}}. Authenticating via crane..."
+          echo "{{.PASSWORD}}" | crane auth login {{.REGISTRY}} -u {{.USERNAME}} --password-stdin
+        else
+          echo "Already authenticated to {{.REGISTRY}}"
+        fi
+      - |
+        # "se-plus" may not be accessable via lic, so skip it
+        EDITIONS=("ee" "fe" "ce")
+        PROD_REGISTRY={{ .PROD_REGISTRY }}
+
+        for EDITION in ${EDITIONS[@]}; do
+          echo "Check version on $EDITION"
+          getVersion=$(crane export $PROD_REGISTRY/$EDITION/modules/virtualization/release:{{ .CHANNEL }} - | tar -Oxf - version.json | jq '.version' -r)
+          
+          if [[ "$getVersion" != "{{ .VERSION }}" ]]; then
+            echo "Version is not valid in $EDITION and channel {{ .CHANNEL }}"
+            echo "Expected version: {{ .VERSION }} but got $getVersion"
+            exit 1
+          fi
+        done
