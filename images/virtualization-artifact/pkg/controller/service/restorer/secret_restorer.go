@@ -44,11 +44,6 @@ func NewSecretRestorer(client client.Client) *SecretRestorer {
 	}
 }
 
-func (r SecretRestorer) Get(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-	supGen := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID)
-	return supplements.FetchSupplement(ctx, r.client, supGen, supplements.SupplementSnapshot, &corev1.Secret{})
-}
-
 func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 	supGen := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID)
 	secretName := supGen.CommonSupplement()

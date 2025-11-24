@@ -86,7 +86,7 @@ var _ = Describe("LifeCycle handler", func() {
 			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return nil, nil
 			},
-			GetVolumeSnapshotFunc: func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+			GetVolumeSnapshotFunc: func(_ context.Context, _ *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
 				return nil, nil
 			},
 		}
@@ -106,7 +106,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The volume snapshot has failed", func() {
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _ *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					Error: &vsv1.VolumeSnapshotError{
 						Message: ptr.To("error"),
@@ -127,7 +127,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The volume snapshot is not ready yet", func() {
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _ *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
 				return vs, nil
 			}
 
@@ -143,7 +143,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The volume snapshot is ready", func() {
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _ *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: ptr.To(true),
 				}
@@ -260,7 +260,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return true
 			}
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _ *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: ptr.To(true),
 				}
@@ -283,7 +283,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.IsFrozenFunc = func(_ *v1alpha2.VirtualMachine) bool {
 				return true
 			}
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _ *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
 				vs.Status = &vsv1.VolumeSnapshotStatus{
 					ReadyToUse: ptr.To(true),
 				}

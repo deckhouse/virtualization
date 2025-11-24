@@ -27,7 +27,6 @@ import (
 //go:generate go tool moq -rm -out mock.go . Restorer
 
 type Restorer interface {
-	Get(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 	RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachine, error)
 	RestoreProvisioner(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 	RestoreVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret) (*v1alpha2.VirtualMachineIPAddress, error)

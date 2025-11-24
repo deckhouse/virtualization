@@ -136,7 +136,7 @@ var _ = Describe("LifeCycle handler", func() {
 			UnfreezeFunc: func(ctx context.Context, _, _ string) error {
 				return nil
 			},
-			GetSecretFunc: func(_ context.Context, _, _ string) (*corev1.Secret, error) {
+			GetSecretFunc: func(_ context.Context, _ *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 				return secret, nil
 			},
 			GetVirtualDiskSnapshotFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualDiskSnapshot, error) {
@@ -145,9 +145,6 @@ var _ = Describe("LifeCycle handler", func() {
 		}
 
 		storer = &StorerMock{
-			GetFunc: func(_ context.Context, _ *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-				return secret, nil
-			},
 			StoreFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine, _ *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 				return secret, nil
 			},

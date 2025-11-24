@@ -20,9 +20,6 @@ var _ Storer = &StorerMock{}
 //
 //		// make and configure a mocked Storer
 //		mockedStorer := &StorerMock{
-//			GetFunc: func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-//				panic("mock out the Get method")
-//			},
 //			StoreFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 //				panic("mock out the Store method")
 //			},
@@ -33,21 +30,11 @@ var _ Storer = &StorerMock{}
 //
 //	}
 type StorerMock struct {
-	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
-
 	// StoreFunc mocks the Store method.
 	StoreFunc func(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// Get holds details about calls to the Get method.
-		Get []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// VmSnapshot is the vmSnapshot argument value.
-			VmSnapshot *v1alpha2.VirtualMachineSnapshot
-		}
 		// Store holds details about calls to the Store method.
 		Store []struct {
 			// Ctx is the ctx argument value.
@@ -58,44 +45,7 @@ type StorerMock struct {
 			VmSnapshot *v1alpha2.VirtualMachineSnapshot
 		}
 	}
-	lockGet   sync.RWMutex
 	lockStore sync.RWMutex
-}
-
-// Get calls GetFunc.
-func (mock *StorerMock) Get(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-	if mock.GetFunc == nil {
-		panic("StorerMock.GetFunc: method is nil but Storer.Get was just called")
-	}
-	callInfo := struct {
-		Ctx        context.Context
-		VmSnapshot *v1alpha2.VirtualMachineSnapshot
-	}{
-		Ctx:        ctx,
-		VmSnapshot: vmSnapshot,
-	}
-	mock.lockGet.Lock()
-	mock.calls.Get = append(mock.calls.Get, callInfo)
-	mock.lockGet.Unlock()
-	return mock.GetFunc(ctx, vmSnapshot)
-}
-
-// GetCalls gets all the calls that were made to Get.
-// Check the length with:
-//
-//	len(mockedStorer.GetCalls())
-func (mock *StorerMock) GetCalls() []struct {
-	Ctx        context.Context
-	VmSnapshot *v1alpha2.VirtualMachineSnapshot
-} {
-	var calls []struct {
-		Ctx        context.Context
-		VmSnapshot *v1alpha2.VirtualMachineSnapshot
-	}
-	mock.lockGet.RLock()
-	calls = mock.calls.Get
-	mock.lockGet.RUnlock()
-	return calls
 }
 
 // Store calls StoreFunc.
@@ -163,7 +113,7 @@ var _ Snapshotter = &SnapshotterMock{}
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, name string, namespace string) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
-//			GetSecretFunc: func(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
+//			GetSecretFunc: func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 //				panic("mock out the GetSecret method")
 //			},
 //			GetVirtualDiskFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error) {
@@ -204,7 +154,7 @@ type SnapshotterMock struct {
 	GetPersistentVolumeClaimFunc func(ctx context.Context, name string, namespace string) (*corev1.PersistentVolumeClaim, error)
 
 	// GetSecretFunc mocks the GetSecret method.
-	GetSecretFunc func(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
+	GetSecretFunc func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
 
 	// GetVirtualDiskFunc mocks the GetVirtualDisk method.
 	GetVirtualDiskFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualDisk, error)
@@ -266,10 +216,8 @@ type SnapshotterMock struct {
 		GetSecret []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Name is the name argument value.
-			Name string
-			// Namespace is the namespace argument value.
-			Namespace string
+			// VmSnapshot is the vmSnapshot argument value.
+			VmSnapshot *v1alpha2.VirtualMachineSnapshot
 		}
 		// GetVirtualDisk holds details about calls to the GetVirtualDisk method.
 		GetVirtualDisk []struct {
@@ -515,23 +463,21 @@ func (mock *SnapshotterMock) GetPersistentVolumeClaimCalls() []struct {
 }
 
 // GetSecret calls GetSecretFunc.
-func (mock *SnapshotterMock) GetSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
+func (mock *SnapshotterMock) GetSecret(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
 	if mock.GetSecretFunc == nil {
 		panic("SnapshotterMock.GetSecretFunc: method is nil but Snapshotter.GetSecret was just called")
 	}
 	callInfo := struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx        context.Context
+		VmSnapshot *v1alpha2.VirtualMachineSnapshot
 	}{
-		Ctx:       ctx,
-		Name:      name,
-		Namespace: namespace,
+		Ctx:        ctx,
+		VmSnapshot: vmSnapshot,
 	}
 	mock.lockGetSecret.Lock()
 	mock.calls.GetSecret = append(mock.calls.GetSecret, callInfo)
 	mock.lockGetSecret.Unlock()
-	return mock.GetSecretFunc(ctx, name, namespace)
+	return mock.GetSecretFunc(ctx, vmSnapshot)
 }
 
 // GetSecretCalls gets all the calls that were made to GetSecret.
@@ -539,14 +485,12 @@ func (mock *SnapshotterMock) GetSecret(ctx context.Context, name string, namespa
 //
 //	len(mockedSnapshotter.GetSecretCalls())
 func (mock *SnapshotterMock) GetSecretCalls() []struct {
-	Ctx       context.Context
-	Name      string
-	Namespace string
+	Ctx        context.Context
+	VmSnapshot *v1alpha2.VirtualMachineSnapshot
 } {
 	var calls []struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx        context.Context
+		VmSnapshot *v1alpha2.VirtualMachineSnapshot
 	}
 	mock.lockGetSecret.RLock()
 	calls = mock.calls.GetSecret

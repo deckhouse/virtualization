@@ -20,9 +20,6 @@ var _ Restorer = &RestorerMock{}
 //
 //		// make and configure a mocked Restorer
 //		mockedRestorer := &RestorerMock{
-//			GetFunc: func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-//				panic("mock out the Get method")
-//			},
 //			RestoreMACAddressOrderFunc: func(ctx context.Context, secret *corev1.Secret) ([]string, error) {
 //				panic("mock out the RestoreMACAddressOrder method")
 //			},
@@ -48,9 +45,6 @@ var _ Restorer = &RestorerMock{}
 //
 //	}
 type RestorerMock struct {
-	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error)
-
 	// RestoreMACAddressOrderFunc mocks the RestoreMACAddressOrder method.
 	RestoreMACAddressOrderFunc func(ctx context.Context, secret *corev1.Secret) ([]string, error)
 
@@ -71,13 +65,6 @@ type RestorerMock struct {
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// Get holds details about calls to the Get method.
-		Get []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// VmSnapshot is the vmSnapshot argument value.
-			VmSnapshot *v1alpha2.VirtualMachineSnapshot
-		}
 		// RestoreMACAddressOrder holds details about calls to the RestoreMACAddressOrder method.
 		RestoreMACAddressOrder []struct {
 			// Ctx is the ctx argument value.
@@ -121,49 +108,12 @@ type RestorerMock struct {
 			Secret *corev1.Secret
 		}
 	}
-	lockGet                                         sync.RWMutex
 	lockRestoreMACAddressOrder                      sync.RWMutex
 	lockRestoreProvisioner                          sync.RWMutex
 	lockRestoreVirtualMachine                       sync.RWMutex
 	lockRestoreVirtualMachineBlockDeviceAttachments sync.RWMutex
 	lockRestoreVirtualMachineIPAddress              sync.RWMutex
 	lockRestoreVirtualMachineMACAddresses           sync.RWMutex
-}
-
-// Get calls GetFunc.
-func (mock *RestorerMock) Get(ctx context.Context, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-	if mock.GetFunc == nil {
-		panic("RestorerMock.GetFunc: method is nil but Restorer.Get was just called")
-	}
-	callInfo := struct {
-		Ctx        context.Context
-		VmSnapshot *v1alpha2.VirtualMachineSnapshot
-	}{
-		Ctx:        ctx,
-		VmSnapshot: vmSnapshot,
-	}
-	mock.lockGet.Lock()
-	mock.calls.Get = append(mock.calls.Get, callInfo)
-	mock.lockGet.Unlock()
-	return mock.GetFunc(ctx, vmSnapshot)
-}
-
-// GetCalls gets all the calls that were made to Get.
-// Check the length with:
-//
-//	len(mockedRestorer.GetCalls())
-func (mock *RestorerMock) GetCalls() []struct {
-	Ctx        context.Context
-	VmSnapshot *v1alpha2.VirtualMachineSnapshot
-} {
-	var calls []struct {
-		Ctx        context.Context
-		VmSnapshot *v1alpha2.VirtualMachineSnapshot
-	}
-	mock.lockGet.RLock()
-	calls = mock.calls.Get
-	mock.lockGet.RUnlock()
-	return calls
 }
 
 // RestoreMACAddressOrder calls RestoreMACAddressOrderFunc.
