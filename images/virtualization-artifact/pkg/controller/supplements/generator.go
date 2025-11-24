@@ -56,6 +56,7 @@ type Generator interface {
 	UploaderTLSSecretForIngress() types.NamespacedName
 	ImagePullSecret() types.NamespacedName
 	NetworkPolicy() types.NamespacedName
+	CommonSupplement() types.NamespacedName
 
 	LegacyBounderPod() types.NamespacedName
 	LegacyImporterPod() types.NamespacedName
@@ -70,6 +71,7 @@ type Generator interface {
 	LegacyDVCRAuthSecretForDV() types.NamespacedName
 	LegacyUploaderTLSSecretForIngress() types.NamespacedName
 	LegacyImagePullSecret() types.NamespacedName
+	LegacySnapshotSupplement() types.NamespacedName
 }
 
 // Generator calculates names for supplemental resources, e.g. ImporterPod, AuthSecret or CABundleConfigMap.
@@ -177,6 +179,12 @@ func (g *generator) NetworkPolicy() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 
+// CommonSupplement generates name for common supplemental resources with d8v-<prefix>-<name>-<uid> format.
+// Used for snapshot-related resources (VMS Secret, VDS VolumeSnapshot).
+func (g *generator) CommonSupplement() types.NamespacedName {
+	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
+}
+
 // PersistentVolumeClaim generates name for underlying PersistentVolumeClaim.
 // PVC is always one for vmd/vmi, so prefix is used.
 func (g *generator) PersistentVolumeClaim() types.NamespacedName {
@@ -269,4 +277,13 @@ func (g *generator) LegacyDataVolume() types.NamespacedName {
 // LegacyPersistentVolumeClaim generates old format name for underlying PersistentVolumeClaim.
 func (g *generator) LegacyPersistentVolumeClaim() types.NamespacedName {
 	return g.LegacyDataVolume()
+}
+
+// LegacySnapshotSupplement generates old format name for snapshot-related resources.
+// Returns just the name without any prefix or UID (legacy naming).
+func (g *generator) LegacySnapshotSupplement() types.NamespacedName {
+	return types.NamespacedName{
+		Name:      g.name,
+		Namespace: g.namespace,
+	}
 }

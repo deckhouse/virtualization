@@ -30,9 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/snapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -259,11 +259,18 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
+		supGen := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID)
+		vsName, err := supplements.GetSupplementName(supGen, supplements.SupplementSnapshotCommon)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
+			return reconcile.Result{}, err
+		}
+
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: anno,
-				Name:        snapshot.GetVDSnapshotVolumeSnapshotName(vdSnapshot.Name, vdSnapshot.UID),
-				Namespace:   vdSnapshot.Namespace,
+				Name:        vsName.Name,
+				Namespace:   vsName.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					service.MakeOwnerReference(vdSnapshot),
 				},
@@ -415,22 +422,31 @@ func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnap
 }
 
 func (h LifeCycleHandler) getVolumeSnapshotWithFallback(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
-	newVSName := snapshot.GetVDSnapshotVolumeSnapshotName(vdSnapshot.Name, vdSnapshot.UID)
-	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, newVSName, vdSnapshot.Namespace)
+	supGen := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID)
+
+	newVSName, err := supplements.GetSupplementName(supGen, supplements.SupplementSnapshotCommon)
+	if err != nil {
+		return nil, err
+	}
+
+	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, newVSName.Name, newVSName.Namespace)
 	if err == nil {
 		return vs, nil
 	}
 
 	if !k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get volume snapshot with new name %s: %w", newVSName, err)
+		return nil, fmt.Errorf("failed to get volume snapshot with new name %s: %w", newVSName.Name, err)
 	}
 
-	legacyVSName := snapshot.GetLegacyVDSnapshotVolumeSnapshotName(vdSnapshot.Name)
-	vs, err = h.snapshotter.GetVolumeSnapshot(ctx, legacyVSName, vdSnapshot.Namespace)
+	legacyVSName, err := supplements.GetLegacySupplementName(supGen, supplements.SupplementSnapshotCommon)
+	if err != nil {
+		return nil, err
+	}
+
+	vs, err = h.snapshotter.GetVolumeSnapshot(ctx, legacyVSName.Name, legacyVSName.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	return vs, nil
 }
-

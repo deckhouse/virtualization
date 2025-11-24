@@ -49,6 +49,9 @@ const (
 	SupplementCABundleConfigMap     SupplementType = "CABundleConfigMap"
 	SupplementImagePullSecret       SupplementType = "ImagePullSecret"
 	SupplementUploaderTLSSecret     SupplementType = "UploaderTLSSecret"
+
+	// Snapshots
+	SupplementSnapshot SupplementType = "Snapshot"
 )
 
 // GetSupplementName returns the name for the requested supplement type
@@ -87,6 +90,10 @@ func GetSupplementName(gen Generator, supplementType SupplementType) (types.Name
 		return gen.ImagePullSecret(), nil
 	case SupplementUploaderTLSSecret:
 		return gen.UploaderTLSSecretForIngress(), nil
+
+	// Snapshots
+	case SupplementSnapshot:
+		return gen.CommonSupplement(), nil
 
 	default:
 		return types.NamespacedName{}, fmt.Errorf("unknown supplement type: %s", supplementType)
@@ -129,6 +136,10 @@ func GetLegacySupplementName(gen Generator, supplementType SupplementType) (type
 		return gen.LegacyImagePullSecret(), nil
 	case SupplementUploaderTLSSecret:
 		return gen.LegacyUploaderTLSSecretForIngress(), nil
+
+	// Snapshots
+	case SupplementSnapshot:
+		return gen.LegacySnapshotSupplement(), nil
 
 	default:
 		return types.NamespacedName{}, fmt.Errorf("unknown supplement type: %s", supplementType)

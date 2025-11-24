@@ -65,7 +65,17 @@ var _ = Describe("Generator", func() {
 			Entry("DataVolume", func(g Generator) types.NamespacedName { return g.DataVolume() }, "vi"),
 			Entry("PersistentVolumeClaim", func(g Generator) types.NamespacedName { return g.PersistentVolumeClaim() }, "vi"),
 			Entry("NetworkPolicy", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, "vi"),
+			Entry("CommonSupplement", func(g Generator) types.NamespacedName { return g.CommonSupplement() }, "vi"),
 		)
+
+		It("should generate legacy snapshot supplement name without prefix or UID", func() {
+			name := "test-snapshot"
+			gen = NewGenerator("vms", name, namespace, uid)
+			result := gen.LegacySnapshotSupplement()
+
+			Expect(result.Name).To(Equal(name))
+			Expect(result.Namespace).To(Equal(namespace))
+		})
 
 		DescribeTable("should truncate long names to respect limits",
 			func(method func(Generator) types.NamespacedName, maxLength int) {
@@ -91,6 +101,7 @@ var _ = Describe("Generator", func() {
 			Entry("DataVolume - 253 limit", func(g Generator) types.NamespacedName { return g.DataVolume() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("PersistentVolumeClaim - 253 limit", func(g Generator) types.NamespacedName { return g.PersistentVolumeClaim() }, kvalidation.DNS1123SubdomainMaxLength),
 			Entry("NetworkPolicy - 253 limit", func(g Generator) types.NamespacedName { return g.NetworkPolicy() }, kvalidation.DNS1123SubdomainMaxLength),
+			Entry("CommonSupplement - 253 limit", func(g Generator) types.NamespacedName { return g.CommonSupplement() }, kvalidation.DNS1123SubdomainMaxLength),
 		)
 	})
 })
