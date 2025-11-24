@@ -52,13 +52,14 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 
 		By("Environment preparation")
 		vm, vd := generateConfigurationResources(f.Namespace().Name, restartApprovalMode)
-		f.CreateWithDeferredDeletion(context.Background(), vm, vd)
+		err := f.CreateWithDeferredDeletion(context.Background(), vm, vd)
+		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Checking initial configuration")
-		err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(vm.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
 		Expect(vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
