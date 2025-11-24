@@ -48,7 +48,7 @@ var _ = Describe("LifecycleHandler", func() {
 		fakeClient      client.WithWatch
 		srv             *reconciler.Resource[*v1alpha2.VirtualMachineSnapshotOperation, v1alpha2.VirtualMachineSnapshotOperationStatus]
 		recorderMock    *eventrecord.EventRecorderLoggerMock
-		createOperation *CreateOpeartionerMock
+		createOperation *CreateOperationExecutorMock
 
 		vmsop  *v1alpha2.VirtualMachineSnapshotOperation
 		vms    *v1alpha2.VirtualMachineSnapshot
@@ -62,7 +62,7 @@ var _ = Describe("LifecycleHandler", func() {
 			EventfFunc:      func(_ client.Object, _, _, _ string, _ ...any) {},
 			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger { return recorderMock },
 		}
-		createOperation = &CreateOpeartionerMock{
+		createOperation = &CreateOperationExecutorMock{
 			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, vmSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 				return nil
 			},

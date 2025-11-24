@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate go tool moq -rm -out mock.go . CreateOpeartioner
+//go:generate go tool moq -rm -out mock.go . CreateOperationExecutor
 
 type CreateOperationExecutor interface {
 	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation, *v1alpha2.VirtualMachineSnapshot, *corev1.Secret) error

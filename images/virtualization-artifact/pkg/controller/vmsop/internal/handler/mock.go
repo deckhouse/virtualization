@@ -10,26 +10,26 @@ import (
 	"sync"
 )
 
-// Ensure, that CreateOpeartionerMock does implement CreateOpeartioner.
+// Ensure, that CreateOperationExecutorMock does implement CreateOperationExecutor.
 // If this is not the case, regenerate this file with moq.
-var _ CreateOperationExecutor = &CreateOpeartionerMock{}
+var _ CreateOperationExecutor = &CreateOperationExecutorMock{}
 
-// CreateOpeartionerMock is a mock implementation of CreateOpeartioner.
+// CreateOperationExecutorMock is a mock implementation of CreateOperationExecutor.
 //
-//	func TestSomethingThatUsesCreateOpeartioner(t *testing.T) {
+//	func TestSomethingThatUsesCreateOperationExecutor(t *testing.T) {
 //
-//		// make and configure a mocked CreateOpeartioner
-//		mockedCreateOpeartioner := &CreateOpeartionerMock{
+//		// make and configure a mocked CreateOperationExecutor
+//		mockedCreateOperationExecutor := &CreateOperationExecutorMock{
 //			ExecuteFunc: func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 //				panic("mock out the Execute method")
 //			},
 //		}
 //
-//		// use mockedCreateOpeartioner in code that requires CreateOpeartioner
+//		// use mockedCreateOperationExecutor in code that requires CreateOperationExecutor
 //		// and then make assertions.
 //
 //	}
-type CreateOpeartionerMock struct {
+type CreateOperationExecutorMock struct {
 	// ExecuteFunc mocks the Execute method.
 	ExecuteFunc func(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error
 
@@ -51,9 +51,9 @@ type CreateOpeartionerMock struct {
 }
 
 // Execute calls ExecuteFunc.
-func (mock *CreateOpeartionerMock) Execute(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
+func (mock *CreateOperationExecutorMock) Execute(contextMoqParam context.Context, virtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation, virtualMachineSnapshot *v1alpha2.VirtualMachineSnapshot, secret *corev1.Secret) error {
 	if mock.ExecuteFunc == nil {
-		panic("CreateOpeartionerMock.ExecuteFunc: method is nil but CreateOpeartioner.Execute was just called")
+		panic("CreateOperationExecutorMock.ExecuteFunc: method is nil but CreateOperationExecutor.Execute was just called")
 	}
 	callInfo := struct {
 		ContextMoqParam                 context.Context
@@ -75,8 +75,8 @@ func (mock *CreateOpeartionerMock) Execute(contextMoqParam context.Context, virt
 // ExecuteCalls gets all the calls that were made to Execute.
 // Check the length with:
 //
-//	len(mockedCreateOpeartioner.ExecuteCalls())
-func (mock *CreateOpeartionerMock) ExecuteCalls() []struct {
+//	len(mockedCreateOperationExecutor.ExecuteCalls())
+func (mock *CreateOperationExecutorMock) ExecuteCalls() []struct {
 	ContextMoqParam                 context.Context
 	VirtualMachineSnapshotOperation *v1alpha2.VirtualMachineSnapshotOperation
 	VirtualMachineSnapshot          *v1alpha2.VirtualMachineSnapshot
