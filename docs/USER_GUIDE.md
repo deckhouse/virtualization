@@ -2375,6 +2375,20 @@ To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter 
 - `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
 - `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
 
+#### Migration timeouts
+
+A completion timeout is set for live migration, which is calculated using the formula:
+
+**Total Completion Timeout = completionTimeoutPerGiB × (Memory Size in GiB + Disk Size in GiB (if Block Migration is used))**
+
+If the migration does not complete within this time, the operation is considered failed and is canceled. The `completionTimeoutPerGiB` parameter is configured in the virtualization module settings.
+
+Calculation example:
+
+For a virtual machine with 4 GiB of memory and 20 GiB of disk, with `completionTimeoutPerGiB` set to 30 seconds, the timeout will be:
+
+`30 seconds × (4 GiB + 20 GiB) = 30 × 24 = 720 seconds (12 minutes)`
+
 #### Migration types
 
 Migration can be performed manually by the user, or automatically by the following system events:
