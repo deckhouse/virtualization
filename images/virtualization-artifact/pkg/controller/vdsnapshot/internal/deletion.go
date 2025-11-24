@@ -43,7 +43,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtua
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if vdSnapshot.DeletionTimestamp != nil {
-		vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
+		vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

@@ -180,7 +180,6 @@ func (g *generator) NetworkPolicy() types.NamespacedName {
 }
 
 // CommonSupplement generates name for common supplemental resources with d8v-<prefix>-<name>-<uid> format.
-// Used for snapshot-related resources (VMS Secret, VDS VolumeSnapshot).
 func (g *generator) CommonSupplement() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
@@ -280,7 +279,6 @@ func (g *generator) LegacyPersistentVolumeClaim() types.NamespacedName {
 }
 
 // LegacySnapshotSupplement generates old format name for snapshot-related resources.
-// Returns just the name without any prefix or UID (legacy naming).
 func (g *generator) LegacySnapshotSupplement() types.NamespacedName {
 	return types.NamespacedName{
 		Name:      g.name,

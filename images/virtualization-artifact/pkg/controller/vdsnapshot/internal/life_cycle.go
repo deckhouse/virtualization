@@ -67,7 +67,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		conditions.SetCondition(cb, &vdSnapshot.Status.Conditions)
 	}()
 
-	vs, err := h.getVolumeSnapshotWithFallback(ctx, vdSnapshot)
+	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
@@ -259,12 +259,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 		}
 
-		supGen := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID)
-		vsName, err := supplements.GetSupplementName(supGen, supplements.SupplementSnapshotCommon)
-		if err != nil {
-			setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
-			return reconcile.Result{}, err
-		}
+		vsName := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID).CommonSupplement()
 
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
@@ -419,34 +414,4 @@ func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnap
 	}
 
 	return nil
-}
-
-func (h LifeCycleHandler) getVolumeSnapshotWithFallback(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
-	supGen := supplements.NewGenerator("vds", vdSnapshot.Name, vdSnapshot.Namespace, vdSnapshot.UID)
-
-	newVSName, err := supplements.GetSupplementName(supGen, supplements.SupplementSnapshotCommon)
-	if err != nil {
-		return nil, err
-	}
-
-	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, newVSName.Name, newVSName.Namespace)
-	if err == nil {
-		return vs, nil
-	}
-
-	if !k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to get volume snapshot with new name %s: %w", newVSName.Name, err)
-	}
-
-	legacyVSName, err := supplements.GetLegacySupplementName(supGen, supplements.SupplementSnapshotCommon)
-	if err != nil {
-		return nil, err
-	}
-
-	vs, err = h.snapshotter.GetVolumeSnapshot(ctx, legacyVSName.Name, legacyVSName.Namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return vs, nil
 }
