@@ -342,13 +342,13 @@ jobs:
       - name: Cleanup Docker config
         run: |
           rm -rf $DOCKER_CONFIG
-  
+
   check-version-on-release-channel:
     name: Check version on release channel
     runs-on: ubuntu-latest
     env:
       GO_VERSION: "1.24.6"
-    needs: 
+    needs:
       - job-EE
       - job-SE-Plus
       - job-FE
@@ -375,7 +375,7 @@ jobs:
         run: |
           EDITIONS=("ee" "ce" "se-plus" "fe")
           PROD_REGISTRY="registry.deckhouse.io/deckhouse"
-          
+
           for EDITION in $EDITIONS; do
             echo "Check version on $EDITION"
             getVersion=$(crane export $PROD_REGISTRY/$EDITION/modules/virtualization/release:${{ github.event.inputs.channel }} - | tar -Oxf - version.json | jq '.version' -r)
@@ -394,7 +394,7 @@ jobs:
           MAX_RETRIES=6
           RETRY_DELAY=60
           RETRY_COUNT=0
-          
+
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
             if go run ./tools/moduleversions \
               -channel ${{ github.event.inputs.channel }} \
@@ -409,6 +409,6 @@ jobs:
               sleep $RETRY_DELAY
             fi
           done
-          
+
           echo "ERROR: Version was not found on site after $MAX_RETRIES attempts"
           exit 1
