@@ -12,7 +12,7 @@ import (
 
 // Ensure, that CreateOpeartionerMock does implement CreateOpeartioner.
 // If this is not the case, regenerate this file with moq.
-var _ CreateOpeartioner = &CreateOpeartionerMock{}
+var _ CreateOperationExecutor = &CreateOpeartionerMock{}
 
 // CreateOpeartionerMock is a mock implementation of CreateOpeartioner.
 //

@@ -279,7 +279,7 @@ var _ = Describe("LifecycleHandler", func() {
 			expectedPhase: v1alpha2.VMSOPPhaseFailed,
 		}),
 		Entry("VMSOP should fail with failed snapshot", vmsopLifecycleArgs{
-			shouldFail:         false,
+			shouldFail:         true,
 			shoildNilVMSSecret: true,
 			expectedPhase:      v1alpha2.VMSOPPhaseFailed,
 		}),

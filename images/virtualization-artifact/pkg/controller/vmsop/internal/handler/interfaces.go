@@ -26,6 +26,6 @@ import (
 
 //go:generate go tool moq -rm -out mock.go . CreateOpeartioner
 
-type CreateOpeartioner interface {
+type CreateOperationExecutor interface {
 	Execute(context.Context, *v1alpha2.VirtualMachineSnapshotOperation, *v1alpha2.VirtualMachineSnapshot, *corev1.Secret) error
 }

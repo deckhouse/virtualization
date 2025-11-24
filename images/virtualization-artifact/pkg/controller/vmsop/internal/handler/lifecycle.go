@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmsopcondition"
@@ -39,18 +41,18 @@ const lifecycleHandlerName = "LifecycleHandler"
 type LifecycleHandler struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	createOp CreateOpeartioner
+	opExecutor CreateOperationExecutor
 }
 
-func NewLifecycleHandler(client client.Client, createOp CreateOpeartioner, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, createOp CreateOperationExecutor, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
 		client:   client,
 		recorder: recorder,
-		createOp: createOp,
+		opExecutor: createOp,
 	}
 }
 
-func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
+func (h *LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmsopcondition.TypeCompleted).Generation(vmsop.GetGeneration())
 
 	if !vmsop.GetDeletionTimestamp().IsZero() {
@@ -96,8 +98,9 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 	}
 
 	if restorerSecret == nil {
-		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonVirtualMachineSnapshotNotFound, "virtual machine snapshot secret is nil")
-		return reconcile.Result{}, nil
+		msg := "fail to fetch the virtual machine snapshot secret: secret is nil"
+		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonNotReadyToBeExecuted, msg)
+		return reconcile.Result{}, errors.New(msg)
 	}
 
 	hasInProgress, err := h.hasOperationsInProgress(ctx, vmsop)
@@ -110,7 +113,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	err = h.createOp.Execute(ctx, vmsop, vms, restorerSecret)
+	err = h.opExecutor.Execute(ctx, vmsop, vms, restorerSecret)
 	if err != nil {
 		h.setFailedCondition(cb, vmsop, vmsopcondition.ReasonOperationFailed, fmt.Errorf("%s is failed: %w", vmsop.Spec.Type, err).Error())
 	} else {
@@ -125,11 +128,11 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmsop *v1alpha2.VirtualMac
 	return reconcile.Result{}, nil
 }
 
-func (h LifecycleHandler) Name() string {
+func (h *LifecycleHandler) Name() string {
 	return lifecycleHandlerName
 }
 
-func (h LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (bool, error) {
+func (h *LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v1alpha2.VirtualMachineSnapshotOperation) (bool, error) {
 	var vmsopList v1alpha2.VirtualMachineSnapshotOperationList
 	err := h.client.List(ctx, &vmsopList, client.InNamespace(vmsop.GetNamespace()))
 	if err != nil {
@@ -156,12 +159,12 @@ func (h LifecycleHandler) hasOperationsInProgress(ctx context.Context, vmsop *v1
 
 func (h *LifecycleHandler) setCompletedCondition(cb *conditions.ConditionBuilder, vmsop *v1alpha2.VirtualMachineSnapshotOperation, reason vmsopcondition.ReasonCompleted, message string) {
 	vmsop.Status.Phase = v1alpha2.VMSOPPhaseCompleted
-	conditions.SetCondition(cb.Reason(reason).Message(message).Status(metav1.ConditionTrue), &vmsop.Status.Conditions)
+	conditions.SetCondition(cb.Reason(reason).Message(service.CapitalizeFirstLetter(message)).Status(metav1.ConditionTrue), &vmsop.Status.Conditions)
 	h.recorder.Event(vmsop, corev1.EventTypeWarning, v1alpha2.ReasonVMOPSucceeded, message)
 }
 
 func (h *LifecycleHandler) setFailedCondition(cb *conditions.ConditionBuilder, vmsop *v1alpha2.VirtualMachineSnapshotOperation, reason vmsopcondition.ReasonCompleted, message string) {
 	vmsop.Status.Phase = v1alpha2.VMSOPPhaseFailed
-	conditions.SetCondition(cb.Reason(reason).Message(message).Status(metav1.ConditionFalse), &vmsop.Status.Conditions)
+	conditions.SetCondition(cb.Reason(reason).Message(service.CapitalizeFirstLetter(message)).Status(metav1.ConditionFalse), &vmsop.Status.Conditions)
 	h.recorder.Event(vmsop, corev1.EventTypeWarning, v1alpha2.ReasonErrVMSOPFailed, message)
 }
