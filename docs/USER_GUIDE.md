@@ -2753,7 +2753,7 @@ An inconsistent snapshot may not reflect the consistent state of the virtual mac
 - The VM is running, and `qemu-guest-agent` is not installed in the guest OS, but the snapshot manifest specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
 
 {{< alert level="warning" >}}
-There is a risk of data loss or integrity violation when restoring from such a snapshot.
+When restoring from such an image, problems with file system integrity may occur, as the data state may be inconsistent.
 {{< /alert >}}
 
 ### Creating disk snapshots
