@@ -14,16 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package registry
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"context"
+	"os/exec"
 )
 
-func TestConversion(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "VirtualMachineClass Conversion Suite")
+func ExecGarbageCollect(ctx context.Context) ([]byte, error) {
+	execCmd := exec.CommandContext(ctx, "registry", "garbage-collect", "/etc/docker/registry/config.yml", "--delete-untagged")
+	return execCmd.Output()
 }

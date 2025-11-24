@@ -214,7 +214,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(fakeClient).ToNot(BeNil())
 
-			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.VMOPRestoreModeStrict)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 			Expect(handler).ToNot(BeNil())
 
 			// Verify that restore annotation was added
@@ -375,7 +375,7 @@ var _ = Describe("VirtualMachineRestorer", func() {
 			fakeClient, err = testutil.NewFakeClientWithInterceptorWithObjects(intercept)
 			Expect(err).ToNot(HaveOccurred())
 
-			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.VMOPRestoreModeStrict)
+			handler = NewVirtualMachineHandler(fakeClient, vm, restoreUID, v1alpha2.SnapshotOperationModeStrict)
 		})
 
 		It("should override VM name", func() {

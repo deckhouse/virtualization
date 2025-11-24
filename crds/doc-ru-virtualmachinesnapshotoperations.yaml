@@ -1,0 +1,114 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            Данный ресурс позволяет декларативно управлять изменением состояний виртуальных машин (ВМ).
+          properties:
+            spec:
+              properties:
+                type:
+                  description: |
+                    Тип операции, выполняемой над снимком виртуальной машины:
+
+                    * `CreateVirtualMachine` — создать виртуальную машину из снимка.
+                virtualMachineSnapshotName:
+                  description: |
+                    Имя снимка виртуальной машины, для которого выполняется операция.
+                createVirtualMachine:
+                  description: |
+                    Определяет параметры операции создания виртуальной машины из снимка.
+                  properties:
+                    mode:
+                      description: |
+                        Режим клонирования:
+
+                        * `DryRun` — запуск без выполнения создания. Конфликты и несоответствия фиксируются в статусе операции.
+                        * `Strict` — строгий режим клонирования «как в исходной ВМ». Отсутствие внешних зависимостей может привести к тому, что клонированная виртуальная машина после создания будет находиться в состоянии `Pending`;
+                        * `BestEffort` — режим клонирования с удалением отсутствующих внешних зависимостей (ClusterVirtualImage, VirtualImage) из спецификации виртуальной машины.
+                    customization:
+                      description: |
+                        Определяет параметры кастомизации для создания виртуальной машины.
+                      properties:
+                        namePrefix:
+                          description: |
+                            Добавляет префикс к именам ресурсов при создании.
+                            Применяется к ресурсам VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment и Secret.
+                        nameSuffix:
+                          description: |
+                            Добавляет суффикс к именам ресурсов при создании.
+                            Применяется к ресурсам VirtualMachine, VirtualDisk, VirtualMachineBlockDeviceAttachment и Secret.
+                    nameReplacement:
+                      description: |
+                        Определяет правила переименования ресурсов при создании виртуальной машины.
+                      items:
+                        description: |
+                          Представляет правило для переопределения имён ресурсов виртуальной машины.
+                        properties:
+                          from:
+                            description: |
+                              Селектор для выбора ресурсов для переименования.
+                            properties:
+                              kind:
+                                description: |
+                                  Тип ресурса для переименования.
+                              name:
+                                description: |
+                                  Текущее имя ресурса для переименования.
+                          to:
+                            description: |
+                              Новое имя ресурса.
+            status:
+              properties:
+                conditions:
+                  description: |
+                    Последнее подтверждённое состояние данного ресурса.
+                  items:
+                    description: |
+                      Подробные сведения об одном аспекте текущего состояния данного API-ресурса.
+                    properties:
+                      lastTransitionTime:
+                        description: Время перехода условия из одного состояния в другое.
+                      message:
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      observedGeneration:
+                        description: |
+                          `.metadata.generation`, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
+                      reason:
+                        description: Краткая причина последнего перехода состояния.
+                      status:
+                        description: |
+                          Статус условия.
+                      type:
+                        description: Тип условия.
+                phase:
+                  description: |
+                    Представляет текущее состояние ресурса:
+
+                    * `Pending` — операция поставлена в очередь на выполнение;
+                    * `InProgress` — операция в процессе выполнения;
+                    * `Completed` — операция прошла успешно;
+                    * `Failed` — операция завершилась неудачно. За подробностями обратитесь к полю `conditions` и событиям;
+                    * `Terminating` — операция удаляется.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.
+                resources:
+                  description: |
+                    Содержит список ресурсов, затронутых операцией создания из снимка.
+                  items:
+                    description: |
+                      Определяет ресурс, затронутый операцией.
+                    properties:
+                      apiVersion:
+                        description: API версия ресурса.
+                      kind:
+                        description: Тип ресурса.
+                      message:
+                        description: Сообщение о ресурсе.
+                      name:
+                        description: Имя ресурса.
+                      status:
+                        description: Статус ресурса.

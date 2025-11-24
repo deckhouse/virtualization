@@ -38,6 +38,10 @@ jobs:
       matrix:
         branch: [main]
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -78,3 +82,7 @@ jobs:
           module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
           source_repo: ${{secrets.SOURCE_REPO_GIT}}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG

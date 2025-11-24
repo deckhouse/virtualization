@@ -36,7 +36,6 @@ const (
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={vmc,vmclass},singular=virtualmachineclass
-// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="IsDefault",type="string",JSONPath=".metadata.annotations.virtualmachineclass\\.virtualization\\.deckhouse\\.io\\/is-default-class",description="Default class for virtual machines without specified class."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."

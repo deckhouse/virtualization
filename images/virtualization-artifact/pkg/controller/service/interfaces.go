@@ -18,8 +18,12 @@ package service
 
 import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 )
 
-//go:generate go tool moq -rm -out mock.go . Client
+//go:generate go tool moq -rm -out mock.go . Client VirtClient
 
 type Client = client.Client
+
+type VirtClient = kubeclient.Client

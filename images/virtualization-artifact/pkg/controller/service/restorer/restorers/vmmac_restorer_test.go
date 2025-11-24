@@ -30,7 +30,7 @@ import (
 )
 
 type VMMACTestArgs struct {
-	mode v1alpha2.VMOPRestoreMode
+	mode v1alpha2.SnapshotOperationMode
 
 	vmmacExists         bool
 	vmmacUsedByDiffVM   bool
@@ -167,7 +167,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			Expect(vmmacCreated).To(Equal(args.shouldBeCreated))
 		},
 		Entry("vmmac exists; vmmac has auto address; vmmac used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         true,
 			hasAddress:          false,
 			vmmacUsedByDiffVM:   true,
@@ -180,7 +180,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmmac exists; vmmac has auto address; vmmac doesn't used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         true,
 			hasAddress:          false,
 			vmmacUsedByDiffVM:   false,
@@ -193,7 +193,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmmac exists; vmmac has address; vmmac used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         true,
 			hasAddress:          true,
 			vmmacUsedByDiffVM:   true,
@@ -206,7 +206,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmmac exists; vmmac has address; address used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         true,
 			hasAddress:          true,
 			vmmacUsedByDiffVM:   false,
@@ -219,7 +219,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmmac exists; vmmac has address; vmmac doesn't used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         true,
 			hasAddress:          true,
 			vmmacUsedByDiffVM:   false,
@@ -233,7 +233,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 		}),
 
 		Entry("vmmac doesn't exist; vmmac has auto address", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         false,
 			hasAddress:          false,
 			vmmacUsedByDiffVM:   false,
@@ -246,7 +246,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: true,
 		}),
 		Entry("vmmac doesn't exist; vmmac has address; address used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         false,
 			hasAddress:          true,
 			vmmacUsedByDiffVM:   false,
@@ -259,7 +259,7 @@ var _ = Describe("VirtualMachineMACAddressRestorer", func() {
 			shouldBeCreated: false,
 		}),
 		Entry("vmmac doesn't exist; vmmac has address; address doesn't used by different VM", VMMACTestArgs{
-			mode:                v1alpha2.VMOPRestoreModeStrict,
+			mode:                v1alpha2.SnapshotOperationModeStrict,
 			vmmacExists:         false,
 			hasAddress:          true,
 			vmmacUsedByDiffVM:   false,

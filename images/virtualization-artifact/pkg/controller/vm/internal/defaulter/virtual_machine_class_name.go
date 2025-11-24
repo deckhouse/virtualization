@@ -24,7 +24,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 )
 
 type VirtualMachineClassNameDefaulter struct {
@@ -46,7 +45,7 @@ func (v *VirtualMachineClassNameDefaulter) Default(ctx context.Context, vm *v1al
 	}
 
 	// Detect and assign default class name.
-	classes := &v1alpha3.VirtualMachineClassList{}
+	classes := &v1alpha2.VirtualMachineClassList{}
 	err := v.client.List(ctx, classes)
 	if err != nil {
 		return fmt.Errorf("failed to list virtual machine classes: %w", err)

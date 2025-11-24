@@ -40,10 +40,10 @@ type VirtualMachineHandler struct {
 	vm         *v1alpha2.VirtualMachine
 	client     client.Client
 	restoreUID string
-	mode       v1alpha2.VMOPRestoreMode
+	mode       v1alpha2.SnapshotOperationMode
 }
 
-func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string, mode v1alpha2.VMOPRestoreMode) *VirtualMachineHandler {
+func NewVirtualMachineHandler(client client.Client, vmTmpl v1alpha2.VirtualMachine, vmopRestoreUID string, mode v1alpha2.SnapshotOperationMode) *VirtualMachineHandler {
 	if vmTmpl.Annotations != nil {
 		vmTmpl.Annotations[annotations.AnnVMOPRestore] = vmopRestoreUID
 	} else {
@@ -267,6 +267,11 @@ func (v *VirtualMachineHandler) validateImageDependencies(ctx context.Context) e
 			continue
 		}
 
+		if v.mode == v1alpha2.SnapshotOperationModeStrict {
+			filteredRefs = append(filteredRefs, ref)
+			continue
+		}
+
 		exists, err := v.imageExists(ctx, ref)
 		if err != nil {
 			return err
@@ -302,10 +307,7 @@ func (v *VirtualMachineHandler) imageExists(ctx context.Context, ref v1alpha2.Bl
 	}
 
 	if fetchedObj == nil {
-		if v.mode == v1alpha2.VMOPRestoreModeBestEffort {
-			return false, nil
-		}
-		return false, fmt.Errorf("%s %q not found", ref.Kind, ref.Name)
+		return false, nil
 	}
 
 	return true, nil

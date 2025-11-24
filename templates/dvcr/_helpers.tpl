@@ -4,6 +4,10 @@ true
 {{- end }}
 {{- end }}
 
+{{- define "dvcr.isGarbageCollection" -}}
+{{- .Values.virtualization.internal | dig "dvcr" "garbageCollectionModeEnabled" "false" | default "false" -}}
+{{- end }}
+
 {{- define "dvcr.envs" -}}
 - name: REGISTRY_HTTP_TLS_CERTIFICATE
   value: /etc/ssl/docker/tls.crt
@@ -48,6 +52,13 @@ true
 {{- end }}
 {{- end }}
 
+{{- define "dvcr.envs.garbageCollection" -}}
+{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+- name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
+  value: "/var/lib/registry"
+{{- end }}
+{{- end }}
+
 
 {{- define "dvcr.volumeMounts" -}}
 - name: "dvcr-config"
@@ -66,6 +77,15 @@ true
   mountPath: /auth
   readOnly: true
 
+{{- end -}}
+
+{{- define "dvcr.volumeMounts.garbageCollection" -}}
+- name: "dvcr-config"
+  mountPath: "/etc/docker/registry"
+{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+- name: data
+  mountPath: /var/lib/registry/
+{{- end }}
 {{- end -}}
 
 
@@ -94,7 +114,11 @@ true
 
 
 {{- define "dvcr.helm_lib_deployment_strategy_and_replicas_for_ha" -}}
-{{- if and (include "helm_lib_ha_enabled" .) (eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "ObjectStorage") }}
+{{- if eq (include "dvcr.isGarbageCollection" . ) "true" }}
+replicas: 1
+strategy:
+  type: Recreate
+{{- else if and (include "helm_lib_ha_enabled" .) (eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "ObjectStorage") }}
 replicas: 2
 strategy:
   type: RollingUpdate
@@ -135,3 +159,5 @@ strategy:
   {{- $context := index . 0 -}}
 {{- printf "dvcr.d8-%s.svc" $context.Chart.Name }}
 {{- end -}}
+
+

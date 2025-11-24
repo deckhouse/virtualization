@@ -36,11 +36,6 @@ import (
 )
 
 var _ = Describe("VirtualMachineMigration", func() {
-	const (
-		externalHost = "https://flant.ru"
-		httpStatusOk = "200"
-	)
-
 	var (
 		vdRootBIOS  *v1alpha2.VirtualDisk
 		vdBlankBIOS *v1alpha2.VirtualDisk
@@ -141,8 +136,8 @@ var _ = Describe("VirtualMachineMigration", func() {
 		})
 
 		By("Check VM can reach external network", func() {
-			util.CheckExternalConnectivity(f, vmBIOS.Name, externalHost, httpStatusOk)
-			util.CheckExternalConnectivity(f, vmUEFI.Name, externalHost, httpStatusOk)
+			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HTTPStatusOk)
+			network.CheckExternalConnectivity(f, vmUEFI.Name, network.ExternalHost, network.HTTPStatusOk)
 		})
 	})
 })
