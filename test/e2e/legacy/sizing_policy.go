@@ -241,16 +241,24 @@ var _ = Describe("SizingPolicy", Ordered, func() {
 func ValidateVirtualMachineByClass(virtualMachineClass *v1alpha3.VirtualMachineClass, virtualMachine *v1alpha2.VirtualMachine) {
 	var sizingPolicy v1alpha3.SizingPolicy
 	for _, p := range virtualMachineClass.Spec.SizingPolicies {
-		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
+		if p.Cores != nil && virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
 			sizingPolicy = *p.DeepCopy()
 			break
 		}
 	}
 
-	checkMinMemory := virtualMachine.Spec.Memory.Size.Value() >= sizingPolicy.Memory.Min.Value()
-	checkMaxMemory := virtualMachine.Spec.Memory.Size.Value() <= sizingPolicy.Memory.Max.Value()
-	checkMemory := checkMinMemory && checkMaxMemory
-	Expect(checkMemory).To(BeTrue(), fmt.Errorf("memory size outside of possible interval '%v - %v': %v", sizingPolicy.Memory.Min, sizingPolicy.Memory.Max, virtualMachine.Spec.Memory.Size))
+	if sizingPolicy.Memory != nil {
+		checkMinMemory := true
+		checkMaxMemory := true
+		if sizingPolicy.Memory.Min != nil {
+			checkMinMemory = virtualMachine.Spec.Memory.Size.Value() >= sizingPolicy.Memory.Min.Value()
+		}
+		if sizingPolicy.Memory.Max != nil {
+			checkMaxMemory = virtualMachine.Spec.Memory.Size.Value() <= sizingPolicy.Memory.Max.Value()
+		}
+		checkMemory := checkMinMemory && checkMaxMemory
+		Expect(checkMemory).To(BeTrue(), fmt.Errorf("memory size outside of possible interval '%v - %v': %v", sizingPolicy.Memory.Min, sizingPolicy.Memory.Max, virtualMachine.Spec.Memory.Size))
+	}
 
 	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, v1alpha3.CoreFractionValue(virtualMachine.Spec.CPU.CoreFraction))
 	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))

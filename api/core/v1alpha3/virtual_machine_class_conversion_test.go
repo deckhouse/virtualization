@@ -244,14 +244,14 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 						{
 							Memory: &SizingPolicyMemory{
 								MemoryMinMax: MemoryMinMax{
-									Min: minMem,
-									Max: maxMem,
+									Min: &minMem,
+									Max: &maxMem,
 								},
-								Step: stepMem,
-								PerCore: SizingPolicyMemoryPerCore{
+								Step: &stepMem,
+								PerCore: &SizingPolicyMemoryPerCore{
 									MemoryMinMax: MemoryMinMax{
-										Min: minPerCoreMem,
-										Max: maxPerCoreMem,
+										Min: &minPerCoreMem,
+										Max: &maxPerCoreMem,
 									},
 								},
 							},
@@ -294,10 +294,16 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			policy := v2Class.Spec.SizingPolicies[0]
 
 			Expect(policy.Memory).NotTo(BeNil())
+			Expect(policy.Memory.Min).NotTo(BeNil())
 			Expect(policy.Memory.Min.Equal(minMem)).To(BeTrue())
+			Expect(policy.Memory.Max).NotTo(BeNil())
 			Expect(policy.Memory.Max.Equal(maxMem)).To(BeTrue())
+			Expect(policy.Memory.Step).NotTo(BeNil())
 			Expect(policy.Memory.Step.Equal(stepMem)).To(BeTrue())
+			Expect(policy.Memory.PerCore).NotTo(BeNil())
+			Expect(policy.Memory.PerCore.Min).NotTo(BeNil())
 			Expect(policy.Memory.PerCore.Min.Equal(minPerCoreMem)).To(BeTrue())
+			Expect(policy.Memory.PerCore.Max).NotTo(BeNil())
 			Expect(policy.Memory.PerCore.Max.Equal(maxPerCoreMem)).To(BeTrue())
 
 			Expect(policy.CoreFractions).To(Equal([]v1alpha2.CoreFractionValue{5, 10, 50, 100}))
@@ -340,14 +346,14 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 						{
 							Memory: &v1alpha2.SizingPolicyMemory{
 								MemoryMinMax: v1alpha2.MemoryMinMax{
-									Min: minMem,
-									Max: maxMem,
+									Min: &minMem,
+									Max: &maxMem,
 								},
-								Step: stepMem,
-								PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+								Step: &stepMem,
+								PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
 									MemoryMinMax: v1alpha2.MemoryMinMax{
-										Min: minPerCoreMem,
-										Max: maxPerCoreMem,
+										Min: &minPerCoreMem,
+										Max: &maxPerCoreMem,
 									},
 								},
 							},
@@ -383,8 +389,11 @@ var _ = Describe("VirtualMachineClass Conversion", func() {
 			policy := v3Class.Spec.SizingPolicies[0]
 
 			Expect(policy.Memory).NotTo(BeNil())
+			Expect(policy.Memory.Min).NotTo(BeNil())
 			Expect(policy.Memory.Min.Equal(minMem)).To(BeTrue())
+			Expect(policy.Memory.Max).NotTo(BeNil())
 			Expect(policy.Memory.Max.Equal(maxMem)).To(BeTrue())
+			Expect(policy.Memory.Step).NotTo(BeNil())
 			Expect(policy.Memory.Step.Equal(stepMem)).To(BeTrue())
 
 			Expect(policy.CoreFractions).To(Equal([]CoreFractionValue{"10%", "50%", "100%"}))

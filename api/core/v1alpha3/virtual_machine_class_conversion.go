@@ -86,12 +86,14 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 						Max: v3Policy.Memory.Max,
 					},
 					Step: v3Policy.Memory.Step,
-					PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+				}
+				if v3Policy.Memory.PerCore != nil {
+					v2Policy.Memory.PerCore = &v1alpha2.SizingPolicyMemoryPerCore{
 						MemoryMinMax: v1alpha2.MemoryMinMax{
 							Min: v3Policy.Memory.PerCore.Min,
 							Max: v3Policy.Memory.PerCore.Max,
 						},
-					},
+					}
 				}
 			}
 
@@ -163,12 +165,14 @@ func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) VirtualMachineCl
 						Max: v2Policy.Memory.Max,
 					},
 					Step: v2Policy.Memory.Step,
-					PerCore: SizingPolicyMemoryPerCore{
+				}
+				if v2Policy.Memory.PerCore != nil {
+					v3Policy.Memory.PerCore = &SizingPolicyMemoryPerCore{
 						MemoryMinMax: MemoryMinMax{
 							Min: v2Policy.Memory.PerCore.Min,
 							Max: v2Policy.Memory.PerCore.Max,
 						},
-					},
+					}
 				}
 			}
 

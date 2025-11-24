@@ -25,6 +25,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 var _ = Describe("SizePolicyService", func() {
 	Context("when VM's class has no valid size policy", func() {
 		// Virtual machine with non-matching CPU parameters
@@ -100,8 +104,8 @@ var _ = Describe("SizePolicyService", func() {
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
 							MemoryMinMax: v1alpha2.MemoryMinMax{
-								Min: resource.MustParse("512Mi"),
-								Max: resource.MustParse("2Gi"),
+								Min: ptr(resource.MustParse("512Mi")),
+								Max: ptr(resource.MustParse("2Gi")),
 							},
 						},
 					},
@@ -135,8 +139,8 @@ var _ = Describe("SizePolicyService", func() {
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
 							MemoryMinMax: v1alpha2.MemoryMinMax{
-								Min: resource.MustParse("1Gi"),
-								Max: resource.MustParse("3Gi"),
+								Min: ptr(resource.MustParse("1Gi")),
+								Max: ptr(resource.MustParse("3Gi")),
 							},
 						},
 					},
@@ -199,10 +203,10 @@ var _ = Describe("SizePolicyService", func() {
 					{
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
-							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+							PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
 								MemoryMinMax: v1alpha2.MemoryMinMax{
-									Min: resource.MustParse("1Gi"),
-									Max: resource.MustParse("3Gi"),
+									Min: ptr(resource.MustParse("1Gi")),
+									Max: ptr(resource.MustParse("3Gi")),
 								},
 							},
 						},
@@ -236,10 +240,10 @@ var _ = Describe("SizePolicyService", func() {
 					{
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
-							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+							PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
 								MemoryMinMax: v1alpha2.MemoryMinMax{
-									Min: resource.MustParse("2Gi"),
-									Max: resource.MustParse("3Gi"),
+									Min: ptr(resource.MustParse("2Gi")),
+									Max: ptr(resource.MustParse("3Gi")),
 								},
 							},
 						},
@@ -333,10 +337,10 @@ var _ = Describe("SizePolicyService", func() {
 					{
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
-							Step: resource.MustParse("1Gi"),
+							Step: ptr(resource.MustParse("1Gi")),
 							MemoryMinMax: v1alpha2.MemoryMinMax{
-								Min: resource.MustParse("1Gi"),
-								Max: resource.MustParse("3Gi"),
+								Min: ptr(resource.MustParse("1Gi")),
+								Max: ptr(resource.MustParse("3Gi")),
 							},
 						},
 					},
@@ -369,10 +373,10 @@ var _ = Describe("SizePolicyService", func() {
 					{
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
-							Step: resource.MustParse("1Gi"),
+							Step: ptr(resource.MustParse("1Gi")),
 							MemoryMinMax: v1alpha2.MemoryMinMax{
-								Min: resource.MustParse("1Gi"),
-								Max: resource.MustParse("3Gi"),
+								Min: ptr(resource.MustParse("1Gi")),
+								Max: ptr(resource.MustParse("3Gi")),
 							},
 						},
 					},
@@ -404,11 +408,11 @@ var _ = Describe("SizePolicyService", func() {
 					{
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
-							Step: resource.MustParse("1Gi"),
-							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+							Step: ptr(resource.MustParse("1Gi")),
+							PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
 								MemoryMinMax: v1alpha2.MemoryMinMax{
-									Min: resource.MustParse("1Gi"),
-									Max: resource.MustParse("3Gi"),
+									Min: ptr(resource.MustParse("1Gi")),
+									Max: ptr(resource.MustParse("3Gi")),
 								},
 							},
 						},
@@ -442,11 +446,11 @@ var _ = Describe("SizePolicyService", func() {
 					{
 						Cores: &v1alpha2.SizingPolicyCores{Min: 1, Max: 4},
 						Memory: &v1alpha2.SizingPolicyMemory{
-							Step: resource.MustParse("1Gi"),
-							PerCore: v1alpha2.SizingPolicyMemoryPerCore{
+							Step: ptr(resource.MustParse("1Gi")),
+							PerCore: &v1alpha2.SizingPolicyMemoryPerCore{
 								MemoryMinMax: v1alpha2.MemoryMinMax{
-									Min: resource.MustParse("1Gi"),
-									Max: resource.MustParse("3Gi"),
+									Min: ptr(resource.MustParse("1Gi")),
+									Max: ptr(resource.MustParse("3Gi")),
 								},
 							},
 						},
