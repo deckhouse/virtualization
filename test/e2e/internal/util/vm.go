@@ -123,8 +123,8 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 }
 
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
-	vm := &v1alpha2.VirtualMachine{}
 	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
 		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
 		if err != nil {
 			return fmt.Errorf("failed to get virtual machine: %w", err)
@@ -132,11 +132,10 @@ func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.
 
 		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
 
-		if runningCondition.LastTransitionTime.Time.After(previousRunningTime) {
+		if runningCondition.LastTransitionTime.Time.After(previousRunningTime) && vm.Status.Phase == v1alpha2.MachineRunning {
 			return nil
 		}
 
 		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
-	}, timeout/2, time.Second).Should(Succeed())
-	UntilObjectPhase(string(v1alpha2.MachineRunning), timeout/2, vm)
+	}, timeout, time.Second).Should(Succeed())
 }
