@@ -45,8 +45,7 @@ func NewSecretRestorer(client client.Client) *SecretRestorer {
 }
 
 func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, vmSnapshot *v1alpha2.VirtualMachineSnapshot) (*corev1.Secret, error) {
-	supGen := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID)
-	secretName := supGen.CommonSupplement()
+	secretName := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID).CommonSupplement()
 
 	secret := corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
