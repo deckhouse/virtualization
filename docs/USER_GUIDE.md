@@ -1523,6 +1523,11 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
     - systemctl enable --now qemu-guest-agent.service
 ```
 
+QEMU Guest Agent does not require additional configuration after installation. However, to ensure application-level snapshot consistency (without stopping services), you can configure hooks scripts that are executed on the guest OS before and after file system freeze and thaw operations. Scripts are placed in the hooks directory of the guest system and must have execute permissions. The directory location depends on the distribution:
+
+- `/etc/qemu-ga/hooks.d/` — for Debian/Ubuntu-based distributions;
+- `/etc/qemu/fsfreeze-hook.d/` — for RHEL/CentOS/Fedora-based distributions.
+
 ### Connecting to a virtual machine
 
 The following methods are available for connecting to the virtual machine:
@@ -2760,14 +2765,9 @@ Snapshots can be consistent or inconsistent, which is determined by the `require
 
 A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
 - The virtual machine is turned off.
-- `qemu-guest-agent` is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+- [`qemu-guest-agent`](#guest-os-agent) is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
 
-QEMU Guest Agent supports scripts that are executed on the guest OS before and after file system freeze and thaw operations. This allows you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency.
-
-Scripts are placed in the hooks directory of the guest system and must have execute permissions. The directory location depends on the distribution:
-
-- `/etc/qemu-ga/hooks.d/` — in most distributions (Debian, Ubuntu, etc.);
-- `/etc/qemu/fsfreeze-hook.d/` — in some distributions (RHEL, CentOS, Fedora, etc.).
+QEMU Guest Agent supports hooks scripts that allow you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency. For more information on configuring hooks scripts, see the [Guest OS agent](#guest-os-agent) section.
 
 An inconsistent snapshot may not reflect the consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
 
