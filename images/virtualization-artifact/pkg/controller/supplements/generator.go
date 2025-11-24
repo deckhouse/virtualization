@@ -71,7 +71,6 @@ type Generator interface {
 	LegacyDVCRAuthSecretForDV() types.NamespacedName
 	LegacyUploaderTLSSecretForIngress() types.NamespacedName
 	LegacyImagePullSecret() types.NamespacedName
-	LegacySnapshotSupplement() types.NamespacedName
 }
 
 // Generator calculates names for supplemental resources, e.g. ImporterPod, AuthSecret or CABundleConfigMap.
@@ -276,12 +275,4 @@ func (g *generator) LegacyDataVolume() types.NamespacedName {
 // LegacyPersistentVolumeClaim generates old format name for underlying PersistentVolumeClaim.
 func (g *generator) LegacyPersistentVolumeClaim() types.NamespacedName {
 	return g.LegacyDataVolume()
-}
-
-// LegacySnapshotSupplement generates old format name for snapshot-related resources.
-func (g *generator) LegacySnapshotSupplement() types.NamespacedName {
-	return types.NamespacedName{
-		Name:      g.name,
-		Namespace: g.namespace,
-	}
 }

@@ -68,15 +68,6 @@ var _ = Describe("Generator", func() {
 			Entry("CommonSupplement", func(g Generator) types.NamespacedName { return g.CommonSupplement() }, "vi"),
 		)
 
-		It("should generate legacy snapshot supplement name without prefix or UID", func() {
-			name := "test-snapshot"
-			gen = NewGenerator("vms", name, namespace, uid)
-			result := gen.LegacySnapshotSupplement()
-
-			Expect(result.Name).To(Equal(name))
-			Expect(result.Namespace).To(Equal(namespace))
-		})
-
 		DescribeTable("should truncate long names to respect limits",
 			func(method func(Generator) types.NamespacedName, maxLength int) {
 				name := strings.Repeat("very-long-resource-name-", 30)
