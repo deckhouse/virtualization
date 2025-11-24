@@ -2379,7 +2379,7 @@ To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter 
 
 A completion timeout is set for live migration, which is calculated using the formula:
 
-**Total Completion Timeout = 800 seconds × (Memory Size in GiB + Disk Size in GiB (if Block Migration is used))**
+`Total Completion Timeout = 800 seconds × (Memory Size in GiB + Disk Size in GiB (if Block Migration is used))`
 
 If the migration does not complete within this time, the operation is considered failed and is canceled.
 
