@@ -120,7 +120,7 @@ var _ LifeCycleSnapshotter = &LifeCycleSnapshotterMock{}
 //			GetVirtualMachineFunc: func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error) {
 //				panic("mock out the GetVirtualMachine method")
 //			},
-//			GetVolumeSnapshotFunc: func(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
+//			GetVolumeSnapshotFunc: func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
 //				panic("mock out the GetVolumeSnapshot method")
 //			},
 //			IsFrozenFunc: func(vm *v1alpha2.VirtualMachine) bool {
@@ -158,7 +158,7 @@ type LifeCycleSnapshotterMock struct {
 	GetVirtualMachineFunc func(ctx context.Context, name string, namespace string) (*v1alpha2.VirtualMachine, error)
 
 	// GetVolumeSnapshotFunc mocks the GetVolumeSnapshot method.
-	GetVolumeSnapshotFunc func(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error)
+	GetVolumeSnapshotFunc func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error)
 
 	// IsFrozenFunc mocks the IsFrozen method.
 	IsFrozenFunc func(vm *v1alpha2.VirtualMachine) bool
@@ -229,8 +229,10 @@ type LifeCycleSnapshotterMock struct {
 		GetVolumeSnapshot []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// VdSnapshot is the vdSnapshot argument value.
-			VdSnapshot *v1alpha2.VirtualDiskSnapshot
+			// Name is the name argument value.
+			Name string
+			// Namespace is the namespace argument value.
+			Namespace string
 		}
 		// IsFrozen holds details about calls to the IsFrozen method.
 		IsFrozen []struct {
@@ -528,21 +530,23 @@ func (mock *LifeCycleSnapshotterMock) GetVirtualMachineCalls() []struct {
 }
 
 // GetVolumeSnapshot calls GetVolumeSnapshotFunc.
-func (mock *LifeCycleSnapshotterMock) GetVolumeSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error) {
+func (mock *LifeCycleSnapshotterMock) GetVolumeSnapshot(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
 	if mock.GetVolumeSnapshotFunc == nil {
 		panic("LifeCycleSnapshotterMock.GetVolumeSnapshotFunc: method is nil but LifeCycleSnapshotter.GetVolumeSnapshot was just called")
 	}
 	callInfo := struct {
-		Ctx        context.Context
-		VdSnapshot *v1alpha2.VirtualDiskSnapshot
+		Ctx       context.Context
+		Name      string
+		Namespace string
 	}{
-		Ctx:        ctx,
-		VdSnapshot: vdSnapshot,
+		Ctx:       ctx,
+		Name:      name,
+		Namespace: namespace,
 	}
 	mock.lockGetVolumeSnapshot.Lock()
 	mock.calls.GetVolumeSnapshot = append(mock.calls.GetVolumeSnapshot, callInfo)
 	mock.lockGetVolumeSnapshot.Unlock()
-	return mock.GetVolumeSnapshotFunc(ctx, vdSnapshot)
+	return mock.GetVolumeSnapshotFunc(ctx, name, namespace)
 }
 
 // GetVolumeSnapshotCalls gets all the calls that were made to GetVolumeSnapshot.
@@ -550,12 +554,14 @@ func (mock *LifeCycleSnapshotterMock) GetVolumeSnapshot(ctx context.Context, vdS
 //
 //	len(mockedLifeCycleSnapshotter.GetVolumeSnapshotCalls())
 func (mock *LifeCycleSnapshotterMock) GetVolumeSnapshotCalls() []struct {
-	Ctx        context.Context
-	VdSnapshot *v1alpha2.VirtualDiskSnapshot
+	Ctx       context.Context
+	Name      string
+	Namespace string
 } {
 	var calls []struct {
-		Ctx        context.Context
-		VdSnapshot *v1alpha2.VirtualDiskSnapshot
+		Ctx       context.Context
+		Name      string
+		Namespace string
 	}
 	mock.lockGetVolumeSnapshot.RLock()
 	calls = mock.calls.GetVolumeSnapshot

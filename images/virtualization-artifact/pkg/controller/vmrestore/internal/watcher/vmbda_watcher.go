@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmrestore "github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -81,8 +81,8 @@ func (w VirtualMachineBlockDeviceAttachmentWatcher) enqueueRequests(ctx context.
 			continue
 		}
 
-		supGen := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID)
-		restorerSecret, err := supplements.FetchSupplement(ctx, w.client, supGen, supplements.SupplementSnapshot, &corev1.Secret{})
+		restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
+		restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, w.client, &corev1.Secret{})
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get virtualMachineSnapshotSecret: %s", err))
 			return

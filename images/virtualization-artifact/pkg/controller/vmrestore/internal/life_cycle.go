@@ -35,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -126,8 +125,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *v1alpha2.Virtua
 		return reconcile.Result{}, err
 	}
 
-	supGen := supplements.NewGenerator("vms", vmSnapshot.Name, vmSnapshot.Namespace, vmSnapshot.UID)
-	restorerSecret, err := supplements.FetchSupplement(ctx, h.client, supGen, supplements.SupplementSnapshot, &corev1.Secret{})
+	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
+	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, h.client, &corev1.Secret{})
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 		return reconcile.Result{}, err

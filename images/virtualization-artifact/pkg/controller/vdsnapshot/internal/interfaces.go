@@ -41,5 +41,5 @@ type LifeCycleSnapshotter interface {
 	GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error)
 	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
 	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
-	GetVolumeSnapshot(ctx context.Context, vdSnapshot *v1alpha2.VirtualDiskSnapshot) (*vsv1.VolumeSnapshot, error)
+	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
 }

@@ -66,7 +66,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		conditions.SetCondition(cb, &vdSnapshot.Status.Conditions)
 	}()
 
-	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot)
+	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Status.VolumeSnapshotName, vdSnapshot.Namespace)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
