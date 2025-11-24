@@ -2443,10 +2443,12 @@ We can see that it is currently running on the `virtlab-pt-1` node.
 To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
 
 ```bash
-d8 v evict -n <namespace> <vm-name>
+d8 v evict -n <namespace> <vm-name> [--force]
 ```
 
 execution of this command leads to the creation of the `VirtualMachineOperations` resource.
+
+The `--force` flag when performing VM migration activates a special mechanism — [AutoConverge](#autoconverge-mechanism). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) if it is necessary to speed up the completion of migration and ensure its successful completion, even when the VM memory transfer is too slow. Use this flag if standard migration cannot complete due to high VM activity.
 
 You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
 
@@ -2479,6 +2481,18 @@ linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   7
 linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
+
+To understand that network bandwidth is insufficient for live VM migration, refer to the "Namespace / Virtual Machine" → "VM Status details" → "Live migration memory metrics" graphs: if the memory transfer rate (**Processed memory rate**) is less than the memory change rate (**Dirty memory rate**), and the remaining memory value (**Remaining memory rate**) does not decrease for a long time, this means that the network has become a bottleneck for migration.
+
+Example of a situation where migration cannot be completed due to insufficient network bandwidth: memory is continuously changed inside the VM using stress-ng.
+
+![](./images/livemigration-example.png)
+
+In such a situation, if the network limits the migration speed, you can either wait for the operation to complete with an error due to timeout, or cancel the current migration operation by deleting the vmop object (`d8 k delete vmop <operation-name>`), and then restart the migration using the `--force` flag to enable the autoconverge mechanism.
+
+Example of performing migration of the same virtual machine using the `--force` parameter: here you can clearly see that the CPU frequency decreases step by step to reduce the memory change rate.
+
+![](./images/livemigration-example-autoconverge.png)
 
 How to perform a live VM migration in the web interface:
 
