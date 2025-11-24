@@ -60,6 +60,10 @@ defaults:
   run:
     shell: bash
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   print-vars:
     runs-on: [self-hosted, large]
@@ -339,8 +343,8 @@ jobs:
         run: |
           rm -rf $DOCKER_CONFIG
   
-  check-release-channel:
-    name: Check release channel
+  check-version-on-release-channel:
+    name: Check version on release channel
     runs-on: ubuntu-latest
     env:
       GO_VERSION: "1.24.6"
@@ -349,7 +353,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - job-CE
-    if: ${{ always() }}
+    if: ${{ always() && needs.job-CE.result != 'failure' && needs.job-EE.result != 'failure' && needs.job-SE-Plus.result != 'failure' && needs.job-FE.result != 'failure' }}
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -383,7 +387,28 @@ jobs:
             fi
           done
 
+          echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+          sleep 300
+
           echo "Test that version deployed on site"
-          go run ./tools/moduleversions \
-            -channel ${{ github.event.inputs.channel }} \
-            -version ${{ github.event.inputs.tag }}
+          MAX_RETRIES=6
+          RETRY_DELAY=60
+          RETRY_COUNT=0
+          
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if go run ./tools/moduleversions \
+              -channel ${{ github.event.inputs.channel }} \
+              -version ${{ github.event.inputs.tag }}; then
+              echo "Version successfully verified on site"
+              exit 0
+            fi
+            
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+              echo "Version not yet available on site, retrying in ${RETRY_DELAY}s (attempt $RETRY_COUNT/$MAX_RETRIES)..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          
+          echo "ERROR: Version was not found on site after $MAX_RETRIES attempts"
+          exit 1

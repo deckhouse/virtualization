@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -16,29 +17,41 @@ import (
 )
 
 const (
-	moduleName = "virtualization"
-	baseURL    = "https://releases.deckhouse.io"
+	// Channel column indices in the HTML table on releases.deckhouse.io
+	channelAlphaIndex       = 1
+	channelBetaIndex        = 2
+	channelEarlyAccessIndex = 3
+	channelStableIndex      = 4
+	channelRockSolidIndex   = 5
+	expectedCellsCount      = 6
+
+	// HTTP client settings
+	httpTimeout = 30 * time.Second
+	retryDelay  = 10 * time.Second
+
+	// Default values
+	defaultModuleName       = "virtualization"
+	defaultReleasesBaseURL  = "https://releases.deckhouse.io"
+	defaultDocumentationURL = "https://deckhouse.ru/modules"
 )
 
-var (
-	feURL  = baseURL + "/fe"
-	eeURL  = baseURL + "/ee"
-	ceURL  = baseURL + "/ce"
-	sePlus = baseURL + "/se-plus"
-)
+// Supported editions to check on releases.deckhouse.io
+var supportedEditions = []string{"fe", "ee", "ce", "se-plus"}
 
+// ChannelVersion represents a version found for a specific edition and channel
 type ChannelVersion struct {
 	Edition string
 	Number  string
 	Channel string
 }
 
-type ModuleInfo struct {
+// ModuleVersionInfo contains information about versions found across editions
+type ModuleVersionInfo struct {
 	Module   string
 	Versions []ChannelVersion
 }
 
-func (v ModuleInfo) String() string {
+func (v ModuleVersionInfo) String() string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Module: %s\n", v.Module))
 	for _, version := range v.Versions {
@@ -47,18 +60,26 @@ func (v ModuleInfo) String() string {
 	return b.String()
 }
 
-func getCompareVersions(url, channel, version string) (error, bool) {
-	resp, err := http.Get(url)
+// verifyVersionInEdition checks if the specified version exists for the given channel
+// on the releases.deckhouse.io page for a specific edition
+func verifyVersionInEdition(editionURL, channel, expectedVersion, moduleName string) (bool, error) {
+	client := &http.Client{
+		Timeout: httpTimeout,
+	}
+
+	resp, err := client.Get(editionURL)
 	if err != nil {
-		log.Println(err)
-		return err, false
+		return false, fmt.Errorf("failed to fetch edition URL %s: %w", editionURL, err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("unexpected status code %d for URL %s", resp.StatusCode, editionURL)
+	}
+
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		log.Println(err)
-		return err, false
+		return false, fmt.Errorf("failed to parse HTML from %s: %w", editionURL, err)
 	}
 
 	var (
@@ -68,117 +89,163 @@ func getCompareVersions(url, channel, version string) (error, bool) {
 
 	switch channel {
 	case "alpha":
-		index = 1
+		index = channelAlphaIndex
 	case "beta":
-		index = 2
+		index = channelBetaIndex
 	case "early-access":
-		index = 3
+		index = channelEarlyAccessIndex
 	case "stable":
-		index = 4
+		index = channelStableIndex
 	case "rock-solid":
-		index = 5
+		index = channelRockSolidIndex
 	default:
-		return nil, false
+		return false, fmt.Errorf("unknown channel: %s", channel)
 	}
 
 	doc.Find("tr").Each(func(i int, s *goquery.Selection) {
 		if strings.Contains(s.Text(), moduleName) {
 			cells := s.Find("td")
-			if cells.Length() == 6 {
+			if cells.Length() == expectedCellsCount {
 				webVersion = strings.TrimSpace(cells.Eq(index).Text())
 			}
 		}
 	})
 
-	if webVersion != version {
-		return fmt.Errorf("version mismatch: %s != %s", webVersion, version), false
+	if webVersion == "" {
+		return false, fmt.Errorf("version not found for module %s in channel %s", moduleName, channel)
 	}
 
-	return nil, true
+	if webVersion != expectedVersion {
+		return false, fmt.Errorf("version mismatch: expected %s, got %s", expectedVersion, webVersion)
+	}
+
+	return true, nil
 }
 
-func getWebVersions(urlList []string, channel, version string) (error, bool) {
-	var (
-		match bool
-		err   error
-	)
-
-	versions := ModuleInfo{
+// verifyVersionAcrossAllEditions checks if the specified version exists for the given channel
+// across all supported editions on releases.deckhouse.io
+func verifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersion, moduleName, baseURL string) (bool, *ModuleVersionInfo, error) {
+	versionInfo := &ModuleVersionInfo{
 		Module:   moduleName,
 		Versions: []ChannelVersion{},
 	}
 
-	for _, url := range urlList {
-		if err, match = getCompareVersions(url, channel, version); err != nil {
-			log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
+	hasMatch := false
+	var lastErr error
+
+	for _, editionURL := range editionURLs {
+		urlParts := strings.Split(editionURL, "/")
+		if len(urlParts) < 4 {
+			log.Printf("Warning: invalid URL format: %s", editionURL)
+			continue
+		}
+		edition := urlParts[len(urlParts)-1]
+
+		match, err := verifyVersionInEdition(editionURL, channel, expectedVersion, moduleName)
+		if err != nil {
+			lastErr = err
+			log.Printf("Error checking %-7s edition on channel %s: %v", edition, cases.Title(language.Und).String(channel), err)
 			continue
 		}
 
-		if !match {
-			log.Printf("Error fetching %-7s on the channel %s: %v", strings.Split(url, "/")[3], cases.Title(language.Und).String(channel), err)
-			continue
-		} else {
-			versions.Versions = append(versions.Versions, ChannelVersion{
-				Edition: strings.Split(url, "/")[3],
+		if match {
+			hasMatch = true
+			versionInfo.Versions = append(versionInfo.Versions, ChannelVersion{
+				Edition: edition,
 				Channel: channel,
-				Number:  version,
+				Number:  expectedVersion,
 			})
 		}
 	}
 
-	if match {
-		fmt.Println("Version is valid in editions for site" + baseURL)
-		fmt.Println(versions)
-		return nil, true
+	if !hasMatch {
+		return false, nil, fmt.Errorf("version %s not found in any edition for channel %s on %s: %w", expectedVersion, channel, baseURL, lastErr)
 	}
-	return nil, false
+
+	return true, versionInfo, nil
 }
 
 func main() {
-	var (
-		match bool
-		count int
-		err   error
-	)
+	var count int
 
-	flag.String("channel", "", "alpha, beta, early-access, stable, rock-solid")
-	flag.String("version", "", "version like 1.1.2 or v1.2")
-	flag.IntVar(&count, "count", 10, "try count, default 10")
+	channel := flag.String("channel", "", "release channel: alpha, beta, early-access, stable, rock-solid")
+	version := flag.String("version", "", "module version to verify (e.g., 1.1.2 or v1.1.2)")
+	moduleName := flag.String("module", defaultModuleName, "module name to check")
+	baseURL := flag.String("base-url", defaultReleasesBaseURL, "base URL for releases.deckhouse.io")
+	flag.IntVar(&count, "count", 10, "maximum number of retry attempts (default: 10)")
+
+	// Custom usage function to provide better error messages
+	flag.Usage = func() {
+		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintf(flag.CommandLine.Output(), "Options:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(flag.CommandLine.Output(), "\nExample:\n")
+		fmt.Fprintf(flag.CommandLine.Output(), "  %s -channel alpha -version v1.1.3\n", os.Args[0])
+	}
+
 	flag.Parse()
 
-	channel := flag.Lookup("channel").Value.String()
-	version := helper.GetSemVer(flag.Lookup("version").Value.String())
-
-	if channel == "" || version == "" {
+	if *channel == "" || *version == "" {
+		if *channel == "" {
+			fmt.Fprintf(flag.CommandLine.Output(), "Error: -channel flag is required\n")
+		}
+		if *version == "" {
+			fmt.Fprintf(flag.CommandLine.Output(), "Error: -version flag is required\n")
+		}
+		fmt.Fprintf(flag.CommandLine.Output(), "\n")
 		flag.Usage()
-		return
+		os.Exit(2)
 	}
 
-	channel = helper.GetChannel(channel)
+	normalizedChannel := helper.GetChannel(*channel)
+	normalizedVersion := helper.GetSemVer(*version)
 
-	urlList := []string{feURL, eeURL, ceURL, sePlus}
+	// Build edition URLs for releases.deckhouse.io
+	editionURLs := make([]string, 0, len(supportedEditions))
+	for _, edition := range supportedEditions {
+		editionURLs = append(editionURLs, *baseURL+"/"+edition)
+	}
 
-	for i := 0; i < count; i++ {
-		err, match = getWebVersions(urlList, channel, version)
+	// Verify version on releases.deckhouse.io across all editions
+	fmt.Printf("Checking version %s on channel %s at %s...\n", normalizedVersion, normalizedChannel, *baseURL)
+
+	var versionInfo *ModuleVersionInfo
+	var err error
+	releasesCheckPassed := false
+
+	for attempt := 1; attempt <= count; attempt++ {
+		releasesCheckPassed, versionInfo, err = verifyVersionAcrossAllEditions(editionURLs, normalizedChannel, normalizedVersion, *moduleName, *baseURL)
 		if err != nil {
-			log.Println(err)
-			continue
+			if attempt < count {
+				log.Printf("Attempt %d/%d failed: %v", attempt, count, err)
+				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
+				time.Sleep(retryDelay)
+				continue
+			}
+			// Last attempt failed
+			log.Fatalf("Version %s validation failed on %s after %d attempts: %v", normalizedVersion, *baseURL, count, err)
 		}
-		if match {
-			fmt.Println("Version is valid on " + channel)
+
+		if releasesCheckPassed {
+			fmt.Printf("Version %s is valid on channel %s\n", normalizedVersion, normalizedChannel)
+			fmt.Println(versionInfo)
 			break
 		}
-
-		fmt.Println("Wait 10 seconds before next try")
-		time.Sleep(10 * time.Second)
-		break
-	}
-	if !match {
-		log.Fatal("Version is not valid")
 	}
 
-	err = helper.DhSiteVers("https://deckhouse.ru/modules/virtualization/stable/", channel)
+	if !releasesCheckPassed {
+		log.Fatalf("Version %s validation failed on %s after %d attempts: %v", normalizedVersion, *baseURL, count, err)
+	}
+
+	// Verify version on deckhouse.ru documentation site
+	documentationURL := fmt.Sprintf("%s/%s/stable/", defaultDocumentationURL, *moduleName)
+	fmt.Printf("\nChecking version %s on channel %s at %s...\n", normalizedVersion, normalizedChannel, documentationURL)
+
+	err = helper.VerifyVersionOnDocumentationSite(documentationURL, normalizedChannel, normalizedVersion)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Version %s validation failed on documentation site %s: %v", normalizedVersion, documentationURL, err)
 	}
+
+	fmt.Printf("Version %s is valid on channel %s at documentation site\n", normalizedVersion, normalizedChannel)
+	fmt.Println("\nAll version checks passed successfully!")
 }

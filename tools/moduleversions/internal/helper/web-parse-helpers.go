@@ -2,7 +2,6 @@ package helper
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -10,32 +9,46 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-type ModuleInfo struct {
+const (
+	httpTimeout = 30 * time.Second
+)
+
+// DocumentationSiteInfo contains version information parsed from deckhouse.ru
+type DocumentationSiteInfo struct {
 	Channels  map[string]string
 	URL       string
 	FetchTime time.Time
 }
 
-func DhSiteVers(url, webChannel string) error {
-	info := &ModuleInfo{
+// VerifyVersionOnDocumentationSite checks if the specified version exists for the given channel
+// on the deckhouse.ru documentation site
+func VerifyVersionOnDocumentationSite(docURL, expectedChannel, expectedVersion string) error {
+	info := &DocumentationSiteInfo{
 		Channels:  map[string]string{},
-		URL:       url,
+		URL:       docURL,
 		FetchTime: time.Now(),
 	}
 
-	resp, err := http.Get(url)
+	client := &http.Client{
+		Timeout: httpTimeout,
+	}
+
+	resp, err := client.Get(docURL)
 	if err != nil {
-		log.Println(err)
-		return err
+		return fmt.Errorf("failed to fetch documentation URL %s: %w", docURL, err)
 	}
 	defer resp.Body.Close()
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		log.Println(err)
-		return err
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code %d for URL %s", resp.StatusCode, docURL)
 	}
 
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to parse HTML from %s: %w", docURL, err)
+	}
+
+	// Parse channel-version pairs from the documentation site
 	doc.Find(".submenu-item").Each(func(i int, s *goquery.Selection) {
 		channel := s.Find(".submenu-item-channel").Text()
 		channel = strings.TrimSpace(channel)
@@ -43,15 +56,22 @@ func DhSiteVers(url, webChannel string) error {
 
 		version := s.Find(".submenu-item-release").Text()
 		version = GetSemVer(version)
-		// version = strings.TrimSpace(version)
 
 		if channel != "" && version != "" {
 			info.Channels[channel] = version
 		}
 	})
 
-	fmt.Println("Infor from ", url)
-	// fmt.Println(info)
-	fmt.Println("Channel: ", webChannel, "version: ", info.Channels[webChannel])
+	// Verify the expected version for the expected channel
+	foundVersion, exists := info.Channels[expectedChannel]
+	if !exists {
+		return fmt.Errorf("channel %s not found on documentation site %s", expectedChannel, docURL)
+	}
+
+	if foundVersion != expectedVersion {
+		return fmt.Errorf("version mismatch on documentation site: expected %s for channel %s, got %s", expectedVersion, expectedChannel, foundVersion)
+	}
+
+	fmt.Printf("Found version %s for channel %s on documentation site\n", foundVersion, expectedChannel)
 	return nil
 }
