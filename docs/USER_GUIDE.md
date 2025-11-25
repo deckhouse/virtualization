@@ -1001,7 +1001,7 @@ spec:
       packages:
         - nginx
         - qemu-guest-agent
-      run_cmd:
+      runcmd:
         - systemctl daemon-reload
         - systemctl enable --now nginx.service
         - systemctl enable --now qemu-guest-agent.service
@@ -1067,7 +1067,7 @@ How to create a virtual machine in the web interface:
   packages:
     - nginx
     - qemu-guest-agent
-  run_cmd:
+  runcmd:
     - systemctl daemon-reload
     - systemctl enable --now nginx.service
     - systemctl enable --now qemu-guest-agent.service
@@ -1519,7 +1519,7 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
   package_update: true
   packages:
     - qemu-guest-agent
-  run_cmd:
+  runcmd:
     - systemctl enable --now qemu-guest-agent.service
 ```
 

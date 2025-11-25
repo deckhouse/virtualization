@@ -1009,7 +1009,7 @@ spec:
       packages:
         - nginx
         - qemu-guest-agent
-      run_cmd:
+      runcmd:
         - systemctl daemon-reload
         - systemctl enable --now nginx.service
         - systemctl enable --now qemu-guest-agent.service
@@ -1075,7 +1075,7 @@ linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
   packages:
     - nginx
     - qemu-guest-agent
-  run_cmd:
+  runcmd:
     - systemctl daemon-reload
     - systemctl enable --now nginx.service
     - systemctl enable --now qemu-guest-agent.service
@@ -1533,7 +1533,7 @@ sudo systemctl enable --now qemu-guest-agent
   package_update: true
   packages:
     - qemu-guest-agent
-  run_cmd:
+  runcmd:
     - systemctl enable --now qemu-guest-agent.service
 ```
 
