@@ -26,10 +26,6 @@ import:
   - virt-handler
   - container-disk
 - image: {{ .ModuleNamePrefix }}virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/virt_launcher.cil
-  to: /virt_launcher.cil
-  after: install
-- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-config-files/.version
   to: /.version
   after: install
