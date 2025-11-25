@@ -2298,7 +2298,7 @@ How to publish a VM service using Ingress in the web interface:
 
 ### Live virtual machine migration
 
-Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in the management of virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
+Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in managing virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
 
 #### How live migration works
 
@@ -2308,86 +2308,170 @@ The live migration process involves several steps:
 
    A new VM is created on the target host in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
 
-2. **Primary Memory Transfer**
+2. **Primary memory transfer**
 
    The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
 
-3. **Change Tracking (Dirty Pages)**
+3. **Change tracking (Dirty Pages)**
 
-    While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages and the hypervisor marks them.
+   While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages, and the hypervisor marks them.
 
-4. **Iterative synchronization**.
+4. **Iterative synchronization**
 
    After the initial transfer, only the modified pages are resent. This process is repeated in several cycles:
+
    - The higher the load on the VM, the more "dirty" pages appear, and the longer the migration takes.
    - With good network bandwidth, the amount of unsynchronized data gradually decreases.
 
-5. **Final synchronization and switching**.
+5. **Final synchronization and switching**
 
-    When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
-    - The remaining memory changes are transferred to the target node.
-    - The state of the CPU, devices, and open connections are synchronized.
-    - The VM is started on the new node and the source copy is deleted.
+   When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
+
+   - The remaining memory changes are transferred to the target node.
+   - The state of the CPU, devices, and open connections are synchronized.
+   - The VM is started on the new node, and the source copy is deleted.
+
+Until the VM switches to the new node (Phase 5), the VM on the source node continues to operate normally and provide service to users.
 
 ![](./images/migration.png)
 
-{{< alert level="warning" >}}
-For successful live migration, all disks attached to the VM must be accessible on the target nodes to which the migration is planned.
+#### Requirements and limitations
 
-If a disk uses storage with local disks, such storage must be available to create a new local volume on the target node.
+For successful live migration, certain requirements must be met. Failure to meet these requirements leads to limitations and problems during migration.
 
-Otherwise, migration will not be possible.
-{{< /alert >}}
+- Disk availability: All disks attached to the VM must be accessible on the target node, otherwise migration will be impossible. For network storage (NFS, Ceph, etc.), this requirement is usually met automatically, as disks are accessible on all cluster nodes. For local storage, the situation is different: the storage must be available to create a new local volume on the target node. If local storage exists only on the source node, migration cannot be performed.
 
+- Network bandwidth: Network speed is critical for live migration. With low bandwidth, the number of memory synchronization iterations increases, VM downtime on the final stage of migration increases, and in the worst case, migration may not complete due to timeout. To manage the migration process, configure the live migration policy [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the virtual machine settings. For network problems, use the AutoConverge mechanism (see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section).
 
-{{< alert level="warning">}}
-Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
+- Kernel versions on nodes: For stable live migration operation, all cluster nodes must use the same Linux kernel version. Differences in kernel versions can lead to incompatibility of interfaces, system calls, and resource handling features, which disrupts the virtual machine migration process.
 
-To manage the migration process, configure the live migration policy using [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the VM settings.
-{{< /alert >}}
+- CPU compatibility: CPU compatibility depends on the CPU type specified in the virtual machine class. When using the `Host` type, migration is only possible between nodes with similar CPU types: migration between nodes with Intel and AMD processors does not work, and also does not work between different CPU generations due to differences in instruction sets. When using the `HostPassthrough` type, the VM can only migrate to a node with exactly the same processor as on the source node. To ensure migration compatibility between nodes with different processors, use the `Discovery`, `Model`, or `Features` types in the virtual machine class.
 
-#### AutoConverge mechanism
+- Migration execution time: A completion timeout is set for live migration, which is calculated using the formula: `Completion timeout = 800 seconds × (Memory size in GiB + Disk size in GiB (if Block Migration is used))`. If migration does not complete within this time, the operation is considered failed and is canceled. For example, for a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be `800 seconds × (4 GiB + 20 GiB) = 19200 seconds (320 minutes or ~5.3 hours)`. With low network speed or high load on the VM, migration may not complete within the allotted time.
 
-If the network struggles to handle data transfer and the number of "dirty" pages keeps growing, the AutoConverge mechanism can be useful. It helps complete migration even with low network bandwidth.
+#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`
 
-The working principles of AutoConverge mechanism:
+Let's look at an example. Before starting the migration, view the current status of the virtual machine:
 
-1. **VM CPU slowdown**.
+```bash
+d8 k get vm
+```
 
-    The hypervisor gradually reduces the CPU frequency of the source VM. This reduces the rate at which new "dirty" pages appear. The higher the load on the VM, the greater the slowdown.
+Example output:
 
-2. **Synchronization acceleration**.
+```txt
+NAME                                   PHASE     NODE           IPADDRESS     AGE
+linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+```
 
-    Once the data transfer rate exceeds the memory change rate, final synchronization is started and the VM switches to the new node.
+We can see that it is currently running on the `virtlab-pt-1` node.
 
-3. **Automatic Termination**
+To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
 
-    Final synchronization is started when the data transfer rate exceeds the memory change rate.
+```bash
+d8 v evict -n <namespace> <vm-name> [--force]
+```
 
-AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network struggles to handle data transfer. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
+Execution of this command leads to the creation of the `VirtualMachineOperations` resource.
+
+The `--force` flag when performing virtual machine migration activates a special mechanism — AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) if it is necessary to speed up the completion of migration and ensure its successful completion, even when the virtual machine memory transfer is too slow. Use this flag if standard migration cannot complete due to high virtual machine activity.
+
+You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
+
+```yaml
+d8 k create -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  generateName: evict-linux-vm-
+spec:
+  # virtual machine name
+  virtualMachineName: linux-vm
+  # operation to evict
+  type: Evict
+  # Allow CPU slowdown by AutoConverge mechanism to guarantee that migration will complete.
+  force: true
+EOF
+```
+
+To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
+
+```bash
+d8 k get vm -w
+```
+
+Example output:
+
+```txt
+NAME                                  PHASE       NODE           IPADDRESS     AGE
+linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+```
+
+How to perform a live VM migration in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" → "Virtual Machines" section.
+- Select the desired virtual machine from the list and click the ellipsis button.
+- Select "Migrate" from the pop-up menu.
+- Confirm or cancel the migration in the pop-up window.
 
 #### Configuring migration policy
 
-To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter in the VM configuration. The following options are available:
+The migration policy determines when to use the AutoConverge mechanism (CPU slowdown) to guarantee migration completion.
 
-- `AlwaysSafe` - Migration is performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximizing VM performance is important but requires high network bandwidth.
-- `PreferSafe` - (used as the default policy) By default, migration runs without AutoConverge, but CPU slowdown can be enabled manually if the migration fails to complete. This is done by using the VirtualMachineOperation resource with `type=Evict` and `force=true`.
-- `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
-- `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
+The AutoConverge mechanism helps complete migration even with low network bandwidth, guaranteeing that the migration will complete successfully. However, it slows down the virtual machine's CPU, which can affect the performance of applications running on the virtual machine.
 
-#### Migration timeouts
+The AutoConverge mechanism works in two stages:
 
-A completion timeout is set for live migration, which is calculated using the formula:
+1. **Virtual machine CPU slowdown**
 
-`Total Completion Timeout = 800 seconds × (Memory Size in GiB + Disk Size in GiB (if Block Migration is used))`
+   The hypervisor gradually reduces the CPU frequency of the source virtual machine. This reduces the rate at which new "dirty" pages appear. The higher the load on the virtual machine, the greater the slowdown.
 
-If the migration does not complete within this time, the operation is considered failed and is canceled.
+2. **Automatic migration completion**
 
-Calculation example:
+   Once the data transfer rate exceeds the memory change rate, final synchronization is started, and the virtual machine switches to the new node.
 
-For a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be:
+To configure the migration policy, use the `.spec.liveMigrationPolicy` parameter in the virtual machine configuration. The following options are available:
 
-`800 seconds × (4 GiB + 20 GiB) = 800 × 24 = 19200 seconds (320 minutes or ~5.3 hours)`
+- `AlwaysSafe` - Migration is always performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximum virtual machine performance is important but requires high network bandwidth.
+- `PreferSafe` - (used as the default policy) Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the VirtualMachineOperation resource with parameters `type=Evict` and `force=true`.
+- `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This guarantees migration completion even with poor network, but may reduce virtual machine performance.
+- `PreferForced` - Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the VirtualMachineOperation resource with parameters `type=Evict` and `force=false`.
+
+#### Migration with insufficient network bandwidth
+
+During live migration of a virtual machine, a situation may arise when network bandwidth is insufficient to transfer data faster than it changes in the virtual machine's memory. In this case, the number of "dirty" pages continues to grow, and the migration may not complete within the timeout.
+
+To solve this problem, the AutoConverge mechanism is used, which is configured through the [migration policy](#configuring-migration-policy).
+
+To understand that network bandwidth is insufficient for live migration of a virtual machine, check the graphs in the "Namespace / Virtual Machine" → "VM Status details" → "Live migration memory metrics" section:
+
+- **Processed memory rate** (memory transfer rate) is less than **Dirty memory rate** (memory change rate)
+- **Remaining memory rate** (remaining memory) does not decrease for a long time
+
+This means that the network has become a bottleneck for migration.
+
+Example of a situation where migration cannot be completed due to insufficient network bandwidth: memory is continuously changed inside the virtual machine using stress-ng.
+
+![](./images/livemigration-example.png)
+
+Example of performing migration of the same virtual machine using the `--force` flag of the `d8 v evict` command (which enables the AutoConverge mechanism): here you can clearly see that the CPU frequency decreases step by step to reduce the memory change rate.
+
+![](./images/livemigration-example-autoconverge.png)
+
+If the network limits the migration speed, you can:
+
+1. Wait for the operation to complete with an error due to timeout.
+2. Cancel the current migration operation by deleting the vmop object:
+
+   ```bash
+   d8 k delete vmop <operation-name>
+   ```
+
+   Then restart the migration using the `--force` flag to enable the AutoConverge mechanism. Using the `--force` flag must comply with the current [virtual machine migration policy](#configuring-migration-policy).
 
 #### Migration types
 
@@ -2417,8 +2501,6 @@ This resource can be in the following states:
 - `Completed` - live migration of the virtual machine has been completed successfully.
 - `Failed` - the live migration of the virtual machine has failed.
 
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
-
 You can view active operations using the command:
 
 ```bash
@@ -2429,7 +2511,7 @@ Example output:
 
 ```txt
 NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
-firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
+firmware-update-fnbk2   Completed   Evict   linux-vm            148m
 ```
 
 You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
@@ -2440,86 +2522,6 @@ How to view active operations in the web interface:
 - Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - Go to the "Events" tab.
-
-#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`
-
-Let's look at an example. Before starting the migration, view the current status of the virtual machine:
-
-
-```bash
-d8 k get vm
-```
-
-Example output:
-
-```txt
-NAME                                   PHASE     NODE           IPADDRESS     AGE
-linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
-```
-
-We can see that it is currently running on the `virtlab-pt-1` node.
-
-To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
-
-```bash
-d8 v evict -n <namespace> <vm-name> [--force]
-```
-
-execution of this command leads to the creation of the `VirtualMachineOperations` resource.
-
-The `--force` flag when performing VM migration activates a special mechanism — [AutoConverge](#autoconverge-mechanism). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) if it is necessary to speed up the completion of migration and ensure its successful completion, even when the VM memory transfer is too slow. Use this flag if standard migration cannot complete due to high VM activity.
-
-You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
-
-```yaml
-d8 k create -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineOperation
-metadata:
-  generateName: evict-linux-vm-
-spec:
-  # virtual machine name
-  virtualMachineName: linux-vm
-  # operation to evict
-  type: Evict
-EOF
-```
-
-To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
-
-```bash
-d8 k get vm -w
-```
-
-Example output:
-
-```txt
-NAME                                   PHASE       NODE           IPADDRESS     AGE
-linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
-```
-
-To understand that network bandwidth is insufficient for live VM migration, refer to the "Namespace / Virtual Machine" → "VM Status details" → "Live migration memory metrics" graphs: if the memory transfer rate (**Processed memory rate**) is less than the memory change rate (**Dirty memory rate**), and the remaining memory value (**Remaining memory rate**) does not decrease for a long time, this means that the network has become a bottleneck for migration.
-
-Example of a situation where migration cannot be completed due to insufficient network bandwidth: memory is continuously changed inside the VM using stress-ng.
-
-![](./images/livemigration-example.png)
-
-In such a situation, if the network limits the migration speed, you can either wait for the operation to complete with an error due to timeout, or cancel the current migration operation by deleting the vmop object (`d8 k delete vmop <operation-name>`), and then restart the migration using the `--force` flag to enable the autoconverge mechanism.
-
-Example of performing migration of the same virtual machine using the `--force` parameter: here you can clearly see that the CPU frequency decreases step by step to reduce the memory change rate.
-
-![](./images/livemigration-example-autoconverge.png)
-
-How to perform a live VM migration in the web interface:
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the desired virtual machine from the list and click the ellipsis button.
-- Select "Migrate" from the pop-up menu.
-- Confirm or cancel the migration in the pop-up window.
 
 #### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
