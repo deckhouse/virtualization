@@ -70,7 +70,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
 		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
 		Expect(t.VM.Status.Resources.CPU.CoreFraction).To(Equal(initialCoreFraction))
-		Expect(t.IsVDInVMStatus(t.VDBlank, t.VM)).To(BeFalse())
+		Expect(t.IsVDAttached(t.VDBlank, t.VM)).To(BeFalse())
 
 		By("Applying changes")
 		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -89,12 +89,14 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		if restartApprovalMode == v1alpha2.Manual {
-			time.Sleep(time.Second) // Avoid race condition with need restart condition calculation
-			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-			Expect(err).NotTo(HaveOccurred())
-			needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
-			Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
-			Expect(t.VM.Status.RestartAwaitingChanges).NotTo(BeNil())
+			// Avoid race condition with need restart condition calculation
+			Eventually(func(g Gomega) {
+				err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+				g.Expect(err).NotTo(HaveOccurred())
+				needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
+				g.Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
+				g.Expect(t.VM.Status.RestartAwaitingChanges).NotTo(BeNil())
+			}).WithTimeout(3 * time.Second).WithPolling(time.Second).Should(Succeed())
 
 			util.RebootVirtualMachineBySSH(f, t.VM)
 		}
@@ -109,7 +111,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		Expect(t.VM.Status.Resources.CPU.CoreFraction).To(Equal(changedCoreFraction))
-		Expect(t.IsVDInVMStatus(t.VDBlank, t.VM)).To(BeTrue())
+		Expect(t.IsVDAttached(t.VDBlank, t.VM)).To(BeTrue())
 	},
 		Entry("when changes are applied manually", v1alpha2.Manual),
 		Entry("when changes are applied automatically", v1alpha2.Automatic),
@@ -163,9 +165,9 @@ func (c *configurationTest) GenerateConfigurationResources(restartApprovalMode v
 	)
 }
 
-func (c *configurationTest) IsVDInVMStatus(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) bool {
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == v1alpha2.DiskDevice && bda.Name == vd.Name {
+func (c *configurationTest) IsVDAttached(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == v1alpha2.DiskDevice && bd.Name == vd.Name && bd.Attached {
 			return true
 		}
 	}
