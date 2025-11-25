@@ -41,9 +41,50 @@ func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...clien
 }
 
 // UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
-// The function polls every second until timeout is reached.
-// Example: UntilConditionReason("Ready", "StuffHappened", 30*time.Second, myVM) waits for myVM's "Ready" condition to have reason "StuffHappened".
 func UntilConditionReason(conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(conditionType, timeout, struct {
+		Reason       string
+		Status       string
+		Message      string
+		CheckReason  bool
+		CheckStatus  bool
+		CheckMessage bool
+	}{
+		Reason:      expectedReason,
+		CheckReason: true,
+	}, objs...)
+}
+
+// UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
+func UntilConditionStatus(conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(conditionType, timeout, struct {
+		Reason       string
+		Status       string
+		Message      string
+		CheckReason  bool
+		CheckStatus  bool
+		CheckMessage bool
+	}{
+		Status:      expectedStatus,
+		CheckStatus: true,
+	}, objs...)
+}
+
+// UntilConditionState generalizes condition field checks ("reason", "status", "message") for the specified conditionType.
+// You can specify which fields to check by setting the corresponding flags to true and providing their expected values.
+func UntilConditionState(
+	conditionType string,
+	timeout time.Duration,
+	checkOptions struct {
+		Reason       string
+		Status       string
+		Message      string
+		CheckReason  bool
+		CheckStatus  bool
+		CheckMessage bool
+	},
+	objs ...client.Object,
+) {
 	GinkgoHelper()
 	Eventually(func(g Gomega) {
 		for _, obj := range objs {
@@ -56,20 +97,51 @@ func UntilConditionReason(conditionType, expectedReason string, timeout time.Dur
 			g.Expect(err).ShouldNot(HaveOccurred(), "failed to access status.conditions of %s/%s", u.GetNamespace(), u.GetName())
 			g.Expect(found).Should(BeTrue(), "no status.conditions found in %s/%s", u.GetNamespace(), u.GetName())
 
-			condReason := "Unknown"
+			var actualReason, actualStatus, actualMessage string
+			condFound := false
+
 			for _, c := range conditions {
 				m, ok := c.(map[string]interface{})
 				if !ok {
 					continue
 				}
 				if t, ok := m["type"].(string); ok && t == conditionType {
+					condFound = true
 					if s, ok := m["reason"].(string); ok {
-						condReason = s
-						break
+						actualReason = s
+					} else {
+						actualReason = "Unknown"
 					}
+					if s, ok := m["status"].(string); ok {
+						actualStatus = s
+					} else {
+						actualStatus = "Unknown"
+					}
+					if s, ok := m["message"].(string); ok {
+						actualMessage = s
+					} else {
+						actualMessage = ""
+					}
+					break
 				}
 			}
-			g.Expect(condReason).To(Equal(expectedReason), "object %s/%s: condition %s reason is %s, expected %s", u.GetNamespace(), u.GetName(), conditionType, condReason, expectedReason)
+			g.Expect(condFound).To(BeTrue(), "object %s/%s: condition %s not found", u.GetNamespace(), u.GetName(), conditionType)
+
+			if checkOptions.CheckReason {
+				g.Expect(actualReason).To(Equal(checkOptions.Reason),
+					"object %s/%s: condition %s reason is %q, expected %q",
+					u.GetNamespace(), u.GetName(), conditionType, actualReason, checkOptions.Reason)
+			}
+			if checkOptions.CheckStatus {
+				g.Expect(actualStatus).To(Equal(checkOptions.Status),
+					"object %s/%s: condition %s status is %q, expected %q",
+					u.GetNamespace(), u.GetName(), conditionType, actualStatus, checkOptions.Status)
+			}
+			if checkOptions.CheckMessage {
+				g.Expect(actualMessage).To(Equal(checkOptions.Message),
+					"object %s/%s: condition %s message is %q, expected %q",
+					u.GetNamespace(), u.GetName(), conditionType, actualMessage, checkOptions.Message)
+			}
 		}
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }

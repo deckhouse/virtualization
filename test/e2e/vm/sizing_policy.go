@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,57 +42,66 @@ import (
 )
 
 var _ = Describe("SizingPolicy", func() {
+	var t *sizingPolicyTest
 	f := framework.NewFramework("sizing-policy")
 
 	BeforeEach(func() {
 		f.Before()
 		DeferCleanup(f.After)
+		t = newSizingPolicyTest(f)
 	})
 
 	It("should start VM normally with existing VMClass", func() {
-		Expect(true).To(BeTrue())
-
 		By("Environment preparation")
 		vmClassName := fmt.Sprintf("%s-vmclass", f.Namespace().Name)
-		vmClass, vd, vm := generateSizingPolicyResources(f.Namespace().Name, vmClassName, vmClassName)
+		t.GenerateSizingPolicyResources(vmClassName, vmClassName)
 
-		err := f.CreateWithDeferredDeletion(context.Background(), vmClass, vd, vm)
+		err := f.CreateWithDeferredDeletion(context.Background(), t.VMClass)
+		Expect(err).NotTo(HaveOccurred())
+		util.UntilObjectPhase(string(v1alpha2.ClassPhaseReady), framework.ShortTimeout, t.VMClass)
+		err = f.CreateWithDeferredDeletion(context.Background(), t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM agent to be ready")
-		util.UntilVMAgentReady(client.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+
+		By("Validating VM by VMClass")
+		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
 	})
 
 	It("should start VM after creating VMClass", func() {
 		By("Environment preparation")
 		vmClassName := fmt.Sprintf("%s-existing-vmclass", f.Namespace().Name)
-		vmClass, vd, vm := generateSizingPolicyResources(f.Namespace().Name, vmClassName, vmClassName)
+		t.GenerateSizingPolicyResources(vmClassName, vmClassName)
 
-		err := f.CreateWithDeferredDeletion(context.Background(), vd, vm)
+		err := f.CreateWithDeferredDeletion(context.Background(), t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
-		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotExists.String(), framework.LongTimeout, vm)
+		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotExists.String(), framework.LongTimeout, t.VM)
 
 		By("Creating VMClass")
-		err = f.CreateWithDeferredDeletion(context.Background(), vmClass)
+		err = f.CreateWithDeferredDeletion(context.Background(), t.VMClass)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
-		util.UntilVMAgentReady(client.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+
+		By("Validating VM by VMClass")
+		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
 	})
 
 	It("should start VM after changing VMClass", func() {
 		By("Environment preparation")
 		vmClassName := fmt.Sprintf("%s-actual-vmclass", f.Namespace().Name)
 		vmClassNameInVM := fmt.Sprintf("%s-fake-vmclass", f.Namespace().Name)
-		vmClass, vd, vm := generateSizingPolicyResources(f.Namespace().Name, vmClassName, vmClassNameInVM)
+		t.GenerateSizingPolicyResources(vmClassName, vmClassNameInVM)
 
-		err := f.CreateWithDeferredDeletion(context.Background(), vmClass, vd, vm)
+		err := f.CreateWithDeferredDeletion(context.Background(), t.VMClass, t.VD, t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for SizingPolicyMatched condition reason to be VirtualMachineClassNotExists")
-		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotExists.String(), framework.LongTimeout, vm)
+		util.UntilConditionReason(vmcondition.TypeSizingPolicyMatched.String(), vmcondition.ReasonVirtualMachineClassNotExists.String(), framework.LongTimeout, t.VM)
 
 		By("Changing VMClass")
 		patch, err := json.Marshal([]map[string]interface{}{{
@@ -100,29 +110,46 @@ var _ = Describe("SizingPolicy", func() {
 			"value": vmClassName,
 		}})
 		Expect(err).NotTo(HaveOccurred())
-		err = f.GenericClient().Patch(context.Background(), vm, client.RawPatch(types.JSONPatchType, patch))
+		err = f.GenericClient().Patch(context.Background(), t.VM, client.RawPatch(types.JSONPatchType, patch))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Waiting for VM to be ready")
-		util.UntilVMAgentReady(client.ObjectKeyFromObject(vm), framework.LongTimeout)
+		util.UntilVMAgentReady(client.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+
+		By("Validating VM by VMClass")
+		t.ValidateVirtualMachineByClass(t.VMClass, t.VM)
 	})
 })
 
-func generateSizingPolicyResources(namespace, vmClassName, vmClassNameInVM string) (vmClass *v1alpha3.VirtualMachineClass, vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) {
-	vd = vdbuilder.New(
+type sizingPolicyTest struct {
+	Framework *framework.Framework
+
+	VM      *v1alpha2.VirtualMachine
+	VD      *v1alpha2.VirtualDisk
+	VMClass *v1alpha3.VirtualMachineClass
+}
+
+func newSizingPolicyTest(f *framework.Framework) *sizingPolicyTest {
+	return &sizingPolicyTest{
+		Framework: f,
+	}
+}
+
+func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNameInVM string) {
+	t.VD = vdbuilder.New(
 		vdbuilder.WithName("vd"),
-		vdbuilder.WithNamespace(namespace),
+		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: object.ImageURLUbuntu,
 		}),
 	)
 
-	vm = vmbuilder.New(
+	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
-		vmbuilder.WithNamespace(namespace),
+		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithBlockDeviceRefs(v1alpha2.BlockDeviceSpecRef{
 			Kind: v1alpha2.VirtualDiskKind,
-			Name: vd.Name,
+			Name: t.VD.Name,
 		}),
 		vmbuilder.WithVirtualMachineClass(vmClassNameInVM),
 		vmbuilder.WithCPU(1, ptr.To("5%")),
@@ -131,7 +158,7 @@ func generateSizingPolicyResources(namespace, vmClassName, vmClassNameInVM strin
 		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
 	)
 
-	vmClass = &v1alpha3.VirtualMachineClass{
+	t.VMClass = &v1alpha3.VirtualMachineClass{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha3.SchemeGroupVersion.String(),
 			Kind:       v1alpha3.VirtualMachineClassKind,
@@ -187,6 +214,22 @@ func generateSizingPolicyResources(namespace, vmClassName, vmClassNameInVM strin
 			},
 		},
 	}
+}
 
-	return
+func (t *sizingPolicyTest) ValidateVirtualMachineByClass(virtualMachineClass *v1alpha3.VirtualMachineClass, virtualMachine *v1alpha2.VirtualMachine) {
+	var sizingPolicy v1alpha3.SizingPolicy
+	for _, p := range virtualMachineClass.Spec.SizingPolicies {
+		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
+			sizingPolicy = *p.DeepCopy()
+			break
+		}
+	}
+
+	checkMinMemory := virtualMachine.Spec.Memory.Size.Value() >= sizingPolicy.Memory.Min.Value()
+	checkMaxMemory := virtualMachine.Spec.Memory.Size.Value() <= sizingPolicy.Memory.Max.Value()
+	checkMemory := checkMinMemory && checkMaxMemory
+	Expect(checkMemory).To(BeTrue(), fmt.Errorf("memory size outside of possible interval '%v - %v': %v", sizingPolicy.Memory.Min, sizingPolicy.Memory.Max, virtualMachine.Spec.Memory.Size))
+
+	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, v1alpha3.CoreFractionValue(virtualMachine.Spec.CPU.CoreFraction))
+	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))
 }
