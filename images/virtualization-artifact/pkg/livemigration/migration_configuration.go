@@ -38,6 +38,7 @@ const (
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultUnsafeMigrationOverride           bool   = false
 	MigrationAllowPostCopy                   bool   = false
+	MigrationAllowWorkloadDisruption         bool   = false
 )
 
 func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt) *virtv1.MigrationConfiguration {
@@ -63,6 +64,7 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	allowPostCopy := MigrationAllowPostCopy
+	allowWorkloadDisruption := MigrationAllowWorkloadDisruption
 
 	return &virtv1.MigrationConfiguration{
 		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
@@ -74,6 +76,7 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 		UnsafeMigrationOverride:           &defaultUnsafeMigrationOverride,
 		AllowAutoConverge:                 &allowAutoConverge,
 		AllowPostCopy:                     &allowPostCopy,
+		AllowWorkloadDisruption:           &allowWorkloadDisruption,
 		DisableTLS:                        nil,
 		Network:                           nil,
 		MatchSELinuxLevelOnMigration:      nil,

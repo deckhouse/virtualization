@@ -83,7 +83,7 @@ shell:
     cd /kubevirt
 
     go mod download
-    go mod vendor
+    go work vendor
 
     for p in patches/*.patch ; do
       echo -n "Apply ${p} ... "
