@@ -1145,7 +1145,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
   The VM is migrated to another node in the cluster (live migration).
   - Features:
-    - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
+    - The `type: Migratable` condition displays information about whether the VM can migrate or not.
   - Possible issues:
     - Incompatibility of processor instructions (when using host or host-passthrough processor types).
     - Difference in kernel versions on hypervisor nodes.
@@ -1523,7 +1523,7 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
     - systemctl enable --now qemu-guest-agent.service
 ```
 
-QEMU Guest Agent does not require additional configuration after installation. However, to ensure application-level snapshot consistency (without stopping services), you can configure hooks scripts that are executed on the guest OS before and after file system freeze and thaw operations. Scripts are placed in the hooks directory of the guest system and must have execute permissions. The directory location depends on the distribution:
+QEMU Guest Agent does not require additional configuration after installation. However, to ensure application-level snapshot consistency (without stopping services), you can add scripts that will be automatically executed in the guest OS before and after filesystem freeze (freeze) and thaw (thaw) operations. The scripts must be executable and placed in a special directory, the path to which depends on the distribution used:
 
 - `/etc/qemu-ga/hooks.d/` — for Debian/Ubuntu-based distributions;
 - `/etc/qemu/fsfreeze-hook.d/` — for RHEL/CentOS/Fedora-based distributions.
