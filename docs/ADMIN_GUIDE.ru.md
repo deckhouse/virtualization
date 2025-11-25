@@ -61,21 +61,30 @@ spec:
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.size` — размер тома (например, `50G`). Для расширения хранилища увеличьте значение параметра;
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` — класс хранения (например, `sds-replicated-thin-r1`).
 
-
 {{< alert level="warning" >}}
 Перенос образов при изменении значения параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` не поддерживается.
 
-Все образы, хранящиеся в DVCR при смене StorageClass, будут утеряны.
-q
-Для изменения StorageClass DVCR выполните следующие действия:
-- Измените значение параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`
-- Удалите старый PVC для DVCR: `d8 k -n d8-virtualization delete pvc -l app=dvcr`
-- Перезапустите DVCR: `d8 k -n d8-virtualization rollout restart deployment dvcr`
+При смене StorageClass DVCR все образы, хранящиеся в DVCR, будут утеряны.
 {{< /alert >}}
 
+Для изменения StorageClass DVCR выполните следующие действия:
+
+1. Измените значение параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`.
+
+1. Удалите старый PVC для DVCR с помощью следующей команды:
+
+   ```shell
+   d8 k -n d8-virtualization delete pvc -l app=dvcr
+   ```
+
+1. Перезапустите DVCR, выполнив следующую команду:
+
+   ```shell
+   d8 k -n d8-virtualization rollout restart deployment dvcr
+   ```
 
 {{< alert level="warning" >}}
-Хранилище, обслуживающее данный класс хранения (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`), должно быть доступно на узлах, где запускается DVCR (system-узлы, либо worker-узлы, при отсутствии system-узлов).
+Хранилище, обслуживающее данный класс хранения `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`, должно быть доступно на узлах, где запускается DVCR (system-узлы, либо worker-узлы, при отсутствии system-узлов).
 {{< /alert >}}
 
 **Сетевые настройки**
@@ -450,7 +459,7 @@ d8 k describe cvi ubuntu-22-04
 
 Рекомендуется после добавления и настройки всех узлов в кластере создать хотя бы один ресурс VirtualMachineClass с типом `Discovery`. Это обеспечит выбор наилучшей доступной конфигурации процессора с учётом всех CPU в вашем кластере, позволит виртуальным машинам максимально эффективно использовать возможности процессоров и обеспечит беспрепятственную миграцию между узлами.
 
-Пример настройки смотрите в разделе [Пример конфигурации vCPU Discovery](#пример-конфигурации-vcpu-discovery)
+Пример настройки смотрите в разделе [Пример конфигурации vCPU Discovery](#пример-конфигурации-vcpu-discovery).
 {{< /alert >}}
 
 Чтобы вывести список ресурсов VirtualMachineClass, выполните следующую команду:

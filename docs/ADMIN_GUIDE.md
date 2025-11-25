@@ -62,19 +62,29 @@ The `.spec.settings.dvcr.storage` block configures a persistent volume for stori
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
 
 {{< alert level="warning" >}}
-Migrating images when changing the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter is not supported.
+Migrating images when changing the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter value is not supported.
 
-All images stored in DVCR when changing StorageClass will be lost.
+When you change the DVCR StorageClass, all images stored in DVCR will be lost.
+{{< /alert >}}
 
 To change the DVCR StorageClass, perform the following steps:
 
-- Change the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter
-- Delete the old PVC for DVCR: `d8 k -n d8-virtualization delete pvc -l app=dvcr`
-- Restart DVCR: `d8 k -n d8-virtualization rollout restart deployment dvcr`
-{{< /alert >}}
+1. Change the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter.
+
+1. Delete the old PVC for DVCR using the following command:
+
+   ```shell
+   d8 k -n d8-virtualization delete pvc -l app=dvcr
+   ```
+
+1. Restart DVCR by running the following command:
+
+   ```shell
+   d8 k -n d8-virtualization rollout restart deployment dvcr
+   ```
 
 {{< alert level="warning" >}}
-The storage serving this storage class (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`) must be accessible on the nodes where DVCR is running (system nodes, or worker nodes if there are no system nodes).
+The storage that serves the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` StorageClass must be accessible from the nodes where DVCR runs (system nodes, or worker nodes if there are no system nodes).
 {{< /alert >}}
 
 **Network settings**
@@ -439,11 +449,11 @@ The administrator can modify the parameters of the `generic` VirtualMachineClass
 
 {{< alert level="info" >}}
 
-It is not recommended to use the VirtualMachineClass `generic` for running workloads in production environments, since this class corresponds to a processor with the least functionality.
+It is not recommended to use the `generic` VirtualMachineClass for running workloads in production environments, since this class corresponds to a CPU with the smallest feature set.
 
-It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
+After all nodes are configured and added to the cluster, it is recommended to create at least one VirtualMachineClass resource of the `Discovery` type. This ensures that the best available CPU configuration compatible with all CPUs in your cluster is selected, allows virtual machines to make full use of CPU capabilities, and enables seamless migration between nodes.
 
-For a configuration example, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example)
+For a configuration example, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example).
 {{< /alert >}}
 
 To list all VirtualMachineClass resources, run the following command:
