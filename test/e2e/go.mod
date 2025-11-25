@@ -16,7 +16,7 @@ require (
 	k8s.io/cli-runtime v0.33.3
 	k8s.io/client-go v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
-	kubevirt.io/api v1.3.1
+	kubevirt.io/api v1.6.2
 	kubevirt.io/containerized-data-importer-api v1.60.3
 	sigs.k8s.io/controller-runtime v0.21.0
 	sigs.k8s.io/yaml v1.4.0
