@@ -568,7 +568,6 @@ func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.Virtu
 		return false, err
 	}
 
-	// s.VirtualMachine().Current().Spec does not contain the previous state of the VM, so we compare annotations.AnnVMLastAppliedSpec
 	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
 }
 
