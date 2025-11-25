@@ -3034,16 +3034,16 @@ When restoring a VM from a snapshot, the disks associated with it are also resto
 
 ## Creating a VM clone
 
-You can create a VM clone in two ways: either from an existing VM or using a previously created snapshot of that VM.
+You can create a VM clone in two ways: from an existing VM or from a previously created snapshot of that VM.
 
 {{< alert level="warning">}}
-The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the network settings of the guest OS after cloning.
+The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the guest OS network settings after cloning.
 {{< /alert >}}
 
 Cloning creates a copy of a VM, so the resources of the new VM must have unique names. To do this, use the `nameReplacements` and/or `customization` parameters:
 
-- `nameReplacements` — allows you to replace the names of existing resources with new ones to avoid conflicts.
-- `customization` — sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+- `nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
+- `customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
 
 Configuration example:
 
@@ -3063,9 +3063,9 @@ As a result, a VM named <prefix><new name><suffix> will be created.
 
 One of three modes can be used for the cloning operation:
 
-- `DryRun` — a test run to check for possible conflicts. The results are displayed in the `status.resources` field of the corresponding operation resource.
-- `Strict` — strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
-- `BestEffort` — mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
+- `DryRun`: Test run to check for possible conflicts. The results are displayed in the `status.resources` field of the corresponding operation resource.
+- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
 
 Information about conflicts that arose during cloning can be viewed in the operation resource status:
 
