@@ -3034,7 +3034,52 @@ When restoring a VM from a snapshot, the disks associated with it are also resto
 
 ## Creating a VM clone
 
-VM cloning is performed using the `VirtualMachineOperation` resource with the `clone` operation type.
+You can create a VM clone in two ways: either from an existing VM or using a previously created snapshot of that VM.
+
+{{< alert level="warning">}}
+The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the network settings of the guest OS after cloning.
+{{< /alert >}}
+
+Cloning creates a copy of a VM, so the resources of the new VM must have unique names. To do this, use the `nameReplacements` and/or `customization` parameters:
+
+- `nameReplacements` — allows you to replace the names of existing resources with new ones to avoid conflicts.
+- `customization` — sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+
+Configuration example:
+
+```yaml
+nameReplacements:
+  - from:
+      kind: <resource type>
+      name: <old name>
+    to:
+      name: <new name>
+customization:
+  namePrefix: <prefix>
+  nameSuffix: <suffix>
+```
+
+As a result, a VM named <prefix><new name><suffix> will be created.
+
+One of three modes can be used for the cloning operation:
+
+- `DryRun` — a test run to check for possible conflicts. The results are displayed in the `status.resources` field of the corresponding operation resource.
+- `Strict` — strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `BestEffort` — mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
+
+Information about conflicts that arose during cloning can be viewed in the operation resource status:
+
+```bash
+# For cloning from an existing VM
+d8 k get vmop <vmop-name> -o json | jq '.status.resources'
+
+# For cloning from a VM snapshot
+d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
+```
+
+## Creating a clone from an existing VM
+
+VM cloning is performed using the `VirtualMachineOperation` resource with the `Clone` operation type.
 
 {{< alert level="warning">}}
 Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
@@ -3070,46 +3115,36 @@ spec:
     customization: {}
 ```
 
-{{< alert level="warning">}}
-The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the network settings of the guest OS after cloning.
-{{< /alert >}}
-
-Cloning creates a copy of an existing VM, so the resources of the new VM must have unique names. To do this, use the `.spec.clone.nameReplacements` and/or `.spec.clone.customisation` parameters.
-
-- `.spec.clone.nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
-- `.spec.clone.customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
-
-Configuration example:
-
-```yaml
-spec:
-  clone:
-    nameReplacements:
-      - from:
-          kind: <resource type>
-          name: <old name>
-      - to:
-          name: <new name>
-    customization:
-      namePrefix: <prefix>
-      nameSuffix: <suffix>
-```
-
-As a result, a VM named <prefix><new name><suffix> will be created.
-
-One of three modes can be used for the cloning operation:
-- `DryRun`: A test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
-- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
-- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
-
-Information about conflicts that arose during cloning can be viewed in the resource status:
-
-```bash
-d8 k get vmop <vmop-name> -o json | jq '.status.resources'
-```
+The `nameReplacements` and `customization` parameters are configured in the `.spec.clone` block (see [general description](#creating-a-vm-clone) above).
 
 {{< alert level="info" >}}
 During cloning, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After cloning is complete, the temporary snapshots are automatically deleted, so they are not visible in the resource list. However, the specification of cloned disks still contains a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is expected behavior and does not indicate a problem: such references remain valid because, by the time the clone starts, all necessary data has already been transferred to the new disks.
+{{< /alert >}}
+
+## Creating a clone from a VM snapshot
+
+Cloning a VM from a snapshot is performed using the `VirtualMachineSnapshotOperation` resource with the `CreateVirtualMachine` operation type.
+
+Example of creating a VM clone from a snapshot:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: <vmsop-name>
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: <name of the VM snapshot from which to clone>
+  createVirtualMachine:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
+```
+
+The `nameReplacements` and `customization` parameters are configured in the `.spec.createVirtualMachine` block (see [general description](#creating-a-vm-clone) above).
+
+{{< alert level="info" >}}
+When cloning a VM from a snapshot, the disks associated with it are also created from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
 {{< /alert >}}
 
 ## Data export
