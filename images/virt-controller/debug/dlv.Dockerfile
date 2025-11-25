@@ -1,10 +1,10 @@
-FROM golang:1.22.7 AS builder
+FROM golang:1.23 AS builder
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-ARG BRANCH="1.3.1-virtualization"
-ENV VERSION="1.3.1"
-ENV GOVERSION="1.22.7"
+ARG BRANCH="v1.6.1-virtualization"
+ENV VERSION="1.6.1"
+ENV GOVERSION="1.23.0"
 
 # Copy the git commits for rebuilding the image if the branch changes
 ADD "https://api.github.com/repos/deckhouse/3p-kubevirt/commits/$BRANCH" /.git-commit-hash.tmp
@@ -14,7 +14,7 @@ WORKDIR /kubevirt
 RUN go mod edit -go=$GOVERSION && \
     go mod download
 
-RUN go mod vendor
+RUN go work vendor
 
 ENV GO111MODULE=on
 ENV GOOS=linux
