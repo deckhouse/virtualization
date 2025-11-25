@@ -469,7 +469,6 @@ KIND                   NAMESPACE            NAME
 ClusterVirtualImage                         debian-12
 VirtualDisk            default              debian-10-root
 VirtualImage           default              ubuntu-2204
-  ```
 
 ## Virtual machine classes
 
