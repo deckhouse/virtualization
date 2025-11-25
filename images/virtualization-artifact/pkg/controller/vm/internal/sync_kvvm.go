@@ -299,11 +299,11 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		//  can be changed during the restoration process.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasKVVMChanges, err := h.detectVMSpecChanges(ctx, s)
+		hasVMChanges, err := h.detectVMSpecChanges(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
-		if hasKVVMChanges {
+		if hasVMChanges {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
@@ -568,6 +568,7 @@ func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.Virtu
 		return false, err
 	}
 
+	// s.VirtualMachine().Current().Spec does not contain the previous state of the VM, so we compare annotations.AnnVMLastAppliedSpec
 	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
 }
 
