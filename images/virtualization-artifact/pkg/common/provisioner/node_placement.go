@@ -85,3 +85,25 @@ func KeepNodePlacementTolerations(nodePlacement *NodePlacement, obj client.Objec
 
 	return nil
 }
+
+var systemNodeToleration = corev1.Toleration{
+	Key:      "dedicated.deckhouse.io",
+	Operator: corev1.TolerationOpEqual,
+	Value:    "system",
+}
+
+func AddTolerationForSystemNodes(placement *NodePlacement) {
+	if placement == nil {
+		return
+	}
+	hasSystem := false
+	for _, toleration := range placement.Tolerations {
+		if toleration.Key == systemNodeToleration.Key && toleration.Value == systemNodeToleration.Value {
+			hasSystem = true
+			break
+		}
+	}
+	if !hasSystem {
+		placement.Tolerations = append(placement.Tolerations, systemNodeToleration)
+	}
+}

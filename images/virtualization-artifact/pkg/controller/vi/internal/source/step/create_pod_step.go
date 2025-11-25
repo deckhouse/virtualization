@@ -43,7 +43,7 @@ import (
 
 type CreatePodStepImporter interface {
 	GetPodSettingsWithPVC(_ *metav1.OwnerReference, _ supplements.Generator, _, _ string) *importer.PodSettings
-	StartWithPodSetting(_ context.Context, _ *importer.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer.PodSettings) error
+	StartWithPodSetting(_ context.Context, _ *importer.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer.PodSettings, _ ...service.Option) error
 }
 
 type CreatePodStepStat interface {
@@ -112,7 +112,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	}
 
 	envSettings := s.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
-	err = s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
+	err = s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 	switch {
 	case err == nil:
 		// OK.
