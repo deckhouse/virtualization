@@ -3,6 +3,7 @@ RUN groupadd --gid 1001 nonroot-user && useradd nonroot-user --uid 1001 --gid 10
 
 FROM basealt AS builder
 
+# TODO add pin repository url
 RUN apt-get update
 
 RUN apt-get install -y \
@@ -17,9 +18,9 @@ RUN apt-get install -y \
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 
-ARG BRANCH="1.3.1-virtualization"
-ENV VERSION="1.3.1"
-ENV GOVERSION="1.22.7"
+ARG BRANCH="1.6.2-virtualization"
+ENV VERSION="1.6.2"
+ENV GOVERSION="1.23.0"
 
 RUN mkdir /kubevirt-config-files && echo "v$VERSION-dirty" > /kubevirt-config-files/.version
 
@@ -31,11 +32,11 @@ WORKDIR /kubevirt
 RUN go mod edit -go=$GOVERSION && \
     go mod download
 
-RUN go mod vendor
+RUN go work vendor
 
-RUN for p in patches/*.patch ; do \
-      echo -n "Apply ${p} ... " \
-      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) \
+RUN for p in patches/*.patch; do \
+        echo -n "Apply ${p} ... " && \
+        git apply --ignore-space-change --ignore-whitespace "${p}" && echo OK || (echo FAIL && exit 1); \
     done
 
 ENV GO111MODULE=on
@@ -52,9 +53,7 @@ FROM basealt
 RUN apt-get update && apt-get install --yes \
         acl \
         procps \
-        nftables \
-        qemu-img==9.1.2-alt1 \
-        xorriso==1.5.6-alt1 && \
+        nftables && \
     apt-get clean && \
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
@@ -63,7 +62,6 @@ RUN echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /etc/passwd && \
     mkdir -p /home/qemu                                        && \
     chown -R 107:107 /home/qemu
 
-COPY --from=builder /kubevirt/cmd/virt-handler/virt_launcher.cil /virt_launcher.cil
 COPY --from=builder /kubevirt-config-files/.version /.version
 COPY --from=builder /kubevirt/cmd/virt-handler/nsswitch.conf /etc/nsswitch.conf
 
