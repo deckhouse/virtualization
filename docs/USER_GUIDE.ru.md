@@ -2429,6 +2429,8 @@ linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   7
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
+Прервать любую живую миграцию пока она находится в фазе `Pending`, `InProgress` можно удалив соответствующий ресурс `VirtualMachineOperations`.
+
 Как выполнить живую миграцию ВМ в веб-интерфейсе:
 
 - Перейдите на вкладку «Проекты» и выберите нужный проект.
@@ -2532,8 +2534,6 @@ d8 k get vmop
 NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
 firmware-update-fnbk2   Completed   Evict   linux-vm            1m
 ```
-
-Прервать любую живую миграцию пока она находится в фазе `Pending`, `InProgress` можно удалив соответствующий ресурс `VirtualMachineOperations`.
 
 Как посмотреть активные операции в веб-интерфейсе:
 

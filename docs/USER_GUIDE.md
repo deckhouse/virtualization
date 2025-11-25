@@ -2349,7 +2349,7 @@ For successful live migration, certain requirements must be met. Failure to meet
 
 - Migration execution time: A completion timeout is set for live migration, which is calculated using the formula: `Completion timeout = 800 seconds × (Memory size in GiB + Disk size in GiB (if Block Migration is used))`. If migration does not complete within this time, the operation is considered failed and is canceled. For example, for a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be `800 seconds × (4 GiB + 20 GiB) = 19200 seconds (320 minutes or ~5.3 hours)`. With low network speed or high load on the VM, migration may not complete within the allotted time.
 
-#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`
+#### How to perform a live VM migration
 
 Let's look at an example. Before starting the migration, view the current status of the virtual machine:
 
@@ -2409,6 +2409,8 @@ linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   7
 linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
+
+You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
 
 How to perform a live VM migration in the web interface:
 
@@ -2513,8 +2515,6 @@ Example output:
 NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
 firmware-update-fnbk2   Completed   Evict   linux-vm            148m
 ```
-
-You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
 
 How to view active operations in the web interface:
 
