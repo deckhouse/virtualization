@@ -2475,9 +2475,9 @@ If the network limits the migration speed, you can:
 
    Then restart the migration using the `--force` flag to enable the AutoConverge mechanism. Using the `--force` flag must comply with the current [virtual machine migration policy](#configuring-migration-policy).
 
-#### Migration types
+#### System-initiated migrations
 
-Migration can be performed manually by the user, or automatically by the following system events:
+Migration can be performed automatically by the following system events:
 
 - Updating the "firmware" of a virtual machine.
 - Redistribution of load in the cluster.
@@ -2515,6 +2515,8 @@ Example output:
 NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
 firmware-update-fnbk2   Completed   Evict   linux-vm            148m
 ```
+
+To cancel the migration, delete the corresponding resource.
 
 How to view active operations in the web interface:
 
