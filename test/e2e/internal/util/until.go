@@ -40,6 +40,112 @@ func UntilObjectPhase(expectedPhase string, timeout time.Duration, objs ...clien
 	untilObjectField("status.phase", expectedPhase, timeout, objs...)
 }
 
+// UntilConditionReason waits for the specified conditionType in status.conditions to have the given reason value for all provided objects.
+func UntilConditionReason(conditionType, expectedReason string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(conditionType, timeout, struct {
+		Reason       string
+		Status       string
+		Message      string
+		CheckReason  bool
+		CheckStatus  bool
+		CheckMessage bool
+	}{
+		Reason:      expectedReason,
+		CheckReason: true,
+	}, objs...)
+}
+
+// UntilConditionStatus waits for the specified conditionType in status.conditions to have the given status value for all provided objects.
+func UntilConditionStatus(conditionType, expectedStatus string, timeout time.Duration, objs ...client.Object) {
+	UntilConditionState(conditionType, timeout, struct {
+		Reason       string
+		Status       string
+		Message      string
+		CheckReason  bool
+		CheckStatus  bool
+		CheckMessage bool
+	}{
+		Status:      expectedStatus,
+		CheckStatus: true,
+	}, objs...)
+}
+
+// UntilConditionState generalizes condition field checks ("reason", "status", "message") for the specified conditionType.
+// You can specify which fields to check by setting the corresponding flags to true and providing their expected values.
+func UntilConditionState(
+	conditionType string,
+	timeout time.Duration,
+	checkOptions struct {
+		Reason       string
+		Status       string
+		Message      string
+		CheckReason  bool
+		CheckStatus  bool
+		CheckMessage bool
+	},
+	objs ...client.Object,
+) {
+	GinkgoHelper()
+	Eventually(func(g Gomega) {
+		for _, obj := range objs {
+			key := client.ObjectKeyFromObject(obj)
+			u := getTemplateUnstructured(obj).DeepCopy()
+			err := framework.GetClients().GenericClient().Get(context.Background(), key, u)
+			g.Expect(err).ShouldNot(HaveOccurred())
+
+			conditions, found, err := unstructured.NestedSlice(u.Object, "status", "conditions")
+			g.Expect(err).ShouldNot(HaveOccurred(), "failed to access status.conditions of %s/%s", u.GetNamespace(), u.GetName())
+			g.Expect(found).Should(BeTrue(), "no status.conditions found in %s/%s", u.GetNamespace(), u.GetName())
+
+			var actualReason, actualStatus, actualMessage string
+			condFound := false
+
+			for _, c := range conditions {
+				m, ok := c.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				if t, ok := m["type"].(string); ok && t == conditionType {
+					condFound = true
+					if s, ok := m["reason"].(string); ok {
+						actualReason = s
+					} else {
+						actualReason = "Unknown"
+					}
+					if s, ok := m["status"].(string); ok {
+						actualStatus = s
+					} else {
+						actualStatus = "Unknown"
+					}
+					if s, ok := m["message"].(string); ok {
+						actualMessage = s
+					} else {
+						actualMessage = ""
+					}
+					break
+				}
+			}
+			g.Expect(condFound).To(BeTrue(), "object %s/%s: condition %s not found", u.GetNamespace(), u.GetName(), conditionType)
+
+			if checkOptions.CheckReason {
+				g.Expect(actualReason).To(Equal(checkOptions.Reason),
+					"object %s/%s: condition %s reason is %q, expected %q",
+					u.GetNamespace(), u.GetName(), conditionType, actualReason, checkOptions.Reason)
+			}
+			if checkOptions.CheckStatus {
+				g.Expect(actualStatus).To(Equal(checkOptions.Status),
+					"object %s/%s: condition %s status is %q, expected %q",
+					u.GetNamespace(), u.GetName(), conditionType, actualStatus, checkOptions.Status)
+			}
+			if checkOptions.CheckMessage {
+				g.Expect(actualMessage).To(Equal(checkOptions.Message),
+					"object %s/%s: condition %s message is %q, expected %q",
+					u.GetNamespace(), u.GetName(), conditionType, actualMessage, checkOptions.Message)
+			}
+		}
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
 // UntilObjectState waits for an object to reach the specified state.
 // It accepts a runtime.Object (which serves as a template with name and namespace),
 // expected state string, and timeout duration.
