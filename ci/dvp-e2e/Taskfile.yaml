@@ -96,6 +96,7 @@ tasks:
       STORAGE_CLASS: '{{ .STORAGE_CLASS | default (env "STORAGE_CLASS") | default "" }}'
       IMAGE_STORAGE_CLASS: '{{ .IMAGE_STORAGE_CLASS | default (env "IMAGE_STORAGE_CLASS") | default "" }}'
       PARENT_STORAGE_CLASS: '{{ .PARENT_STORAGE_CLASS | default (env "PARENT_STORAGE_CLASS") | default "" }}'
+      HOTPLUG_STORAGE_CLASS: '{{ .HOTPLUG_STORAGE_CLASS | default (env "HOTPLUG_STORAGE_CLASS") | default "" }}'
       ATTACH_DISK_SIZE: '{{ .ATTACH_DISK_SIZE | default (env "ATTACH_DISK_SIZE") | default "10Gi" }}'
       DATA_DISK_COUNT: '{{ .DATA_DISK_COUNT | default (env "DATA_DISK_COUNT") | default "2" }}'
       REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
@@ -105,7 +106,7 @@ tasks:
       VALUES_FILE_PATH: '{{ printf "%s/values.yaml" .RUN_DIR }}'
       PARENT_KUBECONFIG_PATH: '{{ printf "%s/parent.kubeconfig" .RUN_DIR }}'
       NESTED_KUBECONFIG_PATH: '{{ printf "%s/nested/kubeconfig" .RUN_DIR }}'
-      EFFECTIVE_DISK_SC: "{{ if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else }}{{ .STORAGE_CLASS }}{{ end }}"
+      EFFECTIVE_DISK_SC: "{{ if .HOTPLUG_STORAGE_CLASS }}{{ .HOTPLUG_STORAGE_CLASS }}{{ else if .IMAGE_STORAGE_CLASS }}{{ .IMAGE_STORAGE_CLASS }}{{ else }}{{ .STORAGE_CLASS }}{{ end }}"
     cmds:
       - task: ci:prepare-env
         vars:
@@ -114,6 +115,7 @@ tasks:
           PROFILE: "{{ .PROFILE }}"
           STORAGE_CLASS: "{{ .STORAGE_CLASS }}"
           PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          HOTPLUG_STORAGE_CLASS: "{{ .HOTPLUG_STORAGE_CLASS }}"
           REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
           API_URL: "{{ .API_URL }}"
           SA_TOKEN: "{{ .SA_TOKEN }}"
@@ -124,9 +126,11 @@ tasks:
           PARENT_KUBECONFIG: "{{ .PARENT_KUBECONFIG_PATH }}"
           REGISTRY_DOCKER_CFG: "{{ .REGISTRY_DOCKER_CFG }}"
           TARGET_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
+          PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS }}"
           ATTACH_DISK_SIZE: "{{ .ATTACH_DISK_SIZE }}"
           EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
           NAMESPACE: "{{ .RUN_ID }}"
+          NESTED_DIR: "{{ .RUN_DIR }}/nested"
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG_PATH }}"
           SDS_SC_NAME: "{{ .STORAGE_CLASS }}"
           DATA_DISK_COUNT: "{{ .DATA_DISK_COUNT }}"
@@ -139,6 +143,7 @@ tasks:
       PROFILE: '{{ .PROFILE | default (env "PROFILE") | default "" }}'
       STORAGE_CLASS: '{{ .STORAGE_CLASS | default (env "STORAGE_CLASS") | default "" }}'
       PARENT_STORAGE_CLASS: '{{ .PARENT_STORAGE_CLASS | default (env "PARENT_STORAGE_CLASS") | default "" }}'
+      HOTPLUG_STORAGE_CLASS: '{{ .HOTPLUG_STORAGE_CLASS | default (env "HOTPLUG_STORAGE_CLASS") | default "" }}'
       REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
       API_URL: '{{ .API_URL | default (env "API_URL") | default (env "E2E_K8S_URL") | default "" }}'
       SA_TOKEN: '{{ .SA_TOKEN | default (env "SA_TOKEN") | default (env "E2E_NESTED_SA_SECRET") | default "" }}'
@@ -481,10 +486,7 @@ tasks:
         set -euo pipefail
         NESTED_DIR="{{ .NESTED_DIR }}"
         NESTED_KUBECONFIG="{{ .NESTED_KUBECONFIG }}"
-        if ! mkdir -p "${NESTED_DIR}"; then
-          echo "[ERR] Failed to create nested directory: ${NESTED_DIR}" >&2
-          exit 1
-        fi
+        mkdir -p "${NESTED_DIR}" "$(dirname "${NESTED_KUBECONFIG}")"
       - chmod +x scripts/build_nested_kubeconfig.sh
       - |
         scripts/build_nested_kubeconfig.sh \
@@ -535,16 +537,21 @@ tasks:
         echo "[CLEANUP] Prefix='{{ .PREFIX }}'"
         ns_list=$(kubectl get ns -o json | jq -r --arg p '{{ .PREFIX }}' '.items[].metadata.name | select(startswith($p))')
         if [ -z "${ns_list}" ]; then
-          echo "[INFO] No namespaces to delete"; exit 0
+          echo "[INFO] No namespaces to delete"
+        else
+          for ns in $ns_list; do
+            echo "[CLEANUP] Deleting namespace $ns ..."
+            kubectl delete ns "$ns" --wait=false || true
+          done
+          echo "[CLEANUP] Waiting for namespaces to be deleted..."
+          for ns in $ns_list; do
+            kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
+          done
         fi
-        for ns in $ns_list; do
-          echo "[CLEANUP] Deleting namespace $ns ..."
-          kubectl delete ns "$ns" --wait=false || true
-        done
-        echo "[CLEANUP] Waiting for namespaces to be deleted..."
-        for ns in $ns_list; do
-          kubectl wait --for=delete ns/"$ns" --timeout=600s || echo "[WARN] Namespace $ns was not fully deleted within timeout"
-        done
+        # Cleanup cluster-scoped resources for this run-id (if any)
+        echo "[CLEANUP] Deleting cluster-scoped resources labeled with run-id='{{ .PREFIX }}'"
+        kubectl delete virtualmachineclass -l e2e.deckhouse.io/run-id='{{ .PREFIX }}' --ignore-not-found || true
+        kubectl delete clusterrolebinding -l e2e.deckhouse.io/run-id='{{ .PREFIX }}' --ignore-not-found || true
 
   # ------------------------------------------------------------
   # CI helpers: kubeconfig + registry
@@ -574,6 +581,7 @@ tasks:
       PARENT_KUBECONFIG: '{{ .PARENT_KUBECONFIG | default (env "KUBECONFIG") }}'
       REGISTRY_DOCKER_CFG: '{{ .REGISTRY_DOCKER_CFG | default (env "REGISTRY_DOCKER_CFG") | default "" }}'
       TARGET_STORAGE_CLASS: "{{ .TARGET_STORAGE_CLASS }}"
+      PARENT_STORAGE_CLASS: "{{ .PARENT_STORAGE_CLASS | default .TARGET_STORAGE_CLASS }}"
       ATTACH_DISK_SIZE: '{{ .ATTACH_DISK_SIZE | default "10Gi" }}'
       EFFECTIVE_DISK_SC: "{{ .EFFECTIVE_DISK_SC }}"
       NAMESPACE: "{{ .NAMESPACE }}"
@@ -620,3 +628,71 @@ tasks:
           TMP_DIR: "{{ .TMP_DIR }}"
           NESTED_KUBECONFIG: "{{ .NESTED_KUBECONFIG }}"
           SDS_SC_NAME: "{{ .SDS_SC_NAME }}"
+  ci:kubeconfig:ensure:
+    desc: Ensure nested kubeconfig exists at the expected path
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
+      WORKSPACE:
+        sh: git rev-parse --show-toplevel 2>/dev/null || pwd
+    cmds:
+      - |
+        set -euo pipefail
+        RUN_ID="{{ .RUN_ID }}"
+        if [ -z "$RUN_ID" ]; then
+          echo "[ERR] RUN_ID must be provided to locate nested kubeconfig" >&2
+          exit 1
+        fi
+        WORKSPACE="${GITHUB_WORKSPACE:-{{ .WORKSPACE }}}"
+        TARGET_PATH="$WORKSPACE/ci/dvp-e2e/tmp/runs/$RUN_ID/nested/kubeconfig"
+        if [ ! -s "$TARGET_PATH" ]; then
+          echo "[ERR] Nested kubeconfig not found at $TARGET_PATH" >&2
+          exit 1
+        fi
+        echo "[INFO] Using nested kubeconfig at $TARGET_PATH"
+        [ -n "${GITHUB_ENV:-}" ] && echo "KUBECONFIG=$TARGET_PATH" >> "$GITHUB_ENV"
+  ci:manual-wait:
+    desc: Pause execution to allow manual SSH inspection of nested cluster
+    vars:
+      RUN_ID: '{{ .RUN_ID | default (env "RUN_ID") | default "" }}'
+      WORKSPACE:
+        sh: git rev-parse --show-toplevel 2>/dev/null || pwd
+      WAIT_SECONDS: '{{ .WAIT_SECONDS | default (env "MANUAL_WAIT_SECONDS") | default "36000" }}'
+    cmds:
+      - |
+        set -euo pipefail
+        RUN_ID="{{ .RUN_ID }}"
+        WAIT="{{ .WAIT_SECONDS }}"
+        if [ -z "$RUN_ID" ]; then
+          echo "[ERR] RUN_ID must be set for ci:manual-wait" >&2
+          exit 1
+        fi
+        if ! [[ "$WAIT" =~ ^[0-9]+$ ]]; then
+          echo "[ERR] WAIT_SECONDS must be numeric (got '$WAIT')" >&2
+          exit 1
+        fi
+        if [ "$WAIT" -le 0 ]; then
+          echo "[INFO] Manual wait skipped (WAIT_SECONDS=$WAIT)"
+          exit 0
+        fi
+        WORKSPACE='{{ .WORKSPACE }}'
+        PARENT_KUBECONFIG="$WORKSPACE/ci/dvp-e2e/tmp/runs/$RUN_ID/parent.kubeconfig"
+        echo "[INFO] Pausing for $WAIT seconds before running tests."
+        echo "[INFO] Use parent kubeconfig for SSH tunneling:"
+        echo "       export KUBECONFIG=$PARENT_KUBECONFIG"
+        echo "       d8 v ssh --namespace $RUN_ID --username ubuntu <vm-name>"
+        echo "[INFO] Press Ctrl+C in the workflow run to cancel wait early."
+        START_TS=$(date +%s)
+        END=$((START_TS + WAIT))
+        LAST_NOTE=$START_TS
+        while true; do
+          NOW=$(date +%s)
+          [ "$NOW" -ge "$END" ] && break
+          REM=$((END - NOW))
+          printf '[INFO] Manual wait: %d seconds remaining...\n' "$REM"
+          if [ $((NOW - LAST_NOTE)) -ge 300 ]; then
+            echo "[INFO] Cluster should be ready for manual SSH troubleshooting."
+            LAST_NOTE=$NOW
+          fi
+          sleep 60 || true
+        done
+        echo "[INFO] Manual wait finished; proceeding to tests."

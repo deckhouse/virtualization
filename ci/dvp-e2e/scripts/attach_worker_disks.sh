@@ -22,7 +22,7 @@ set -euo pipefail
 namespace=""
 storage_class=""
 disk_size="10Gi"
-disk_count="2"
+disk_count="1"
 kubeconfig="${KUBECONFIG:-}"
 
 while getopts ":n:s:z:c:k:" opt; do
@@ -49,6 +49,12 @@ if [ -n "${kubeconfig}" ]; then
 fi
 
 echo "[INFRA] Attaching ${disk_count} storage disks to worker VMs using hotplug in namespace ${namespace}"
+
+# Cleanup stale hp-volume pods (older than 10 minutes) to avoid interference
+echo "[INFRA] Cleaning up stale hp-volume pods (older than 10m) before attachment"
+kubectl -n "${namespace}" get pods --no-headers 2>/dev/null \
+  | awk '$1 ~ /^hp-volume-/ && $3 == "Running" && $5 ~ /[0-9]+m/ { split($5,t,"m"); if (t[1] > 10) print $1 }' \
+  | xargs -r kubectl -n "${namespace}" delete pod --force --grace-period=0 2>/dev/null || true
 
 # Wait for worker VMs
 for i in $(seq 1 50); do
@@ -90,7 +96,7 @@ for vm in "${workers[@]}"; do
     vd="storage-disk-${disk_num}-$vm"
     echo "[INFRA] Creating VirtualDisk $vd (${disk_size}, sc=${storage_class})"
     
-    cat > "/tmp/vd-$vd.yaml" <<EOF
+    kubectl -n "${namespace}" get vd "$vd" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
@@ -101,7 +107,6 @@ spec:
     storageClassName: ${storage_class}
     size: ${disk_size}
 EOF
-    kubectl -n "${namespace}" get vd "$vd" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f "/tmp/vd-$vd.yaml"
 
     # Wait for VirtualDisk to be Ready
     echo "[INFRA] Waiting for VirtualDisk $vd to be Ready..."
@@ -115,7 +120,7 @@ EOF
       echo "[INFRA] VD $vd phase=$vd_phase; retry $j/50"
       sleep 5
     done
-    
+
     if [ "$vd_phase" != "Ready" ]; then
       echo "[ERROR] VirtualDisk $vd not Ready"
       kubectl -n "${namespace}" get vd "$vd" -o yaml || true
@@ -123,34 +128,51 @@ EOF
       exit 1
     fi
 
-    # Wait for PVC
-    pvc_name=""
-    for j in $(seq 1 50); do
-      pvc_name=$(kubectl -n "${namespace}" get vd "$vd" -o jsonpath='{.status.target.persistentVolumeClaimName}' 2>/dev/null || true)
-      [ -n "$pvc_name" ] && break
-      echo "[INFRA] Waiting for PVC name for VD $vd; retry $j/50"
-      sleep 3
-    done
-    
-    if [ -n "$pvc_name" ]; then
-      echo "[INFRA] Waiting PVC $pvc_name to reach phase=Bound..."
-      for j in $(seq 1 120); do
-        pvc_phase=$(kubectl -n "${namespace}" get pvc "$pvc_name" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-        if [ "$pvc_phase" = "Bound" ]; then
-          break
-        fi
-        [ $((j % 10)) -eq 0 ] && echo "[INFRA] PVC $pvc_name phase=$pvc_phase; retry $j/120"
-        sleep 2
-      done
-      if [ "$pvc_phase" != "Bound" ]; then
-        echo "[WARN] PVC $pvc_name not Bound after waiting"
+    # Ensure VirtualDisk is not marked in use before attaching
+    in_use="false"
+    for j in $(seq 1 30); do
+      in_use=$(kubectl -n "${namespace}" get vd "$vd" -o json 2>/dev/null | jq -r '.status.inUse // false' || echo "false")
+      if [ "$in_use" = "false" ]; then
+        break
       fi
+      echo "[INFRA] VD $vd inUse=$in_use; retry $j/30"
+      sleep 5
+    done
+
+    if [ "$in_use" != "false" ]; then
+      echo "[ERROR] VirtualDisk $vd remains InUse; aborting attachment"
+      kubectl -n "${namespace}" get vd "$vd" -o yaml || true
+      kubectl -n "${namespace}" get events --sort-by=.lastTimestamp | tail -n 100 || true
+      exit 1
+    fi
+
+    # Skip if VM already reports this disk attached/hotplugged
+    if kubectl -n "${namespace}" get vm "$vm" -o json 2>/dev/null \
+      | jq -e --arg disk "$vd" '
+        ([.status.blockDeviceRefs[]?
+          | select(.name == $disk and .attached == true)
+        ] | length) > 0' >/dev/null; then
+      echo "[INFO] VM $vm already has disk $vd attached; skipping VMBDA creation"
+      continue
+    fi
+
+    # Skip if there is an existing non-failed VMBDA for this disk
+    conflict_vmbda=$(kubectl -n "${namespace}" get vmbda -o json 2>/dev/null \
+      | jq -r --arg name "$vd" '
+        .items[]?
+        | select(.spec.blockDeviceRef.kind == "VirtualDisk"
+                 and .spec.blockDeviceRef.name == $name
+                 and (.status.phase != "" and .status.phase != "Failed"))
+        | .metadata.name' | head -n 1)
+    if [ -n "${conflict_vmbda:-}" ]; then
+      echo "[WARN] Found existing VMBDA $conflict_vmbda for disk $vd; skipping"
+      continue
     fi
 
     # Create hotplug attachment
     att="att-$vd"
     echo "[INFRA] Creating VirtualMachineBlockDeviceAttachment $att for VM $vm"
-    cat > "/tmp/att-$att.yaml" <<EOF
+    kubectl -n "${namespace}" get vmbda "$att" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
@@ -162,13 +184,15 @@ spec:
     kind: VirtualDisk
     name: $vd
 EOF
-    kubectl -n "${namespace}" get vmbda "$att" >/dev/null 2>&1 || kubectl -n "${namespace}" apply -f "/tmp/att-$att.yaml"
+
+    # Give controller time to react on creation
+    sleep 60
 
     # Wait for attachment
     echo "[INFRA] Waiting for VMBDA $att to be Attached..."
     att_phase=""
     success_by_vm=0
-    for i in $(seq 1 50); do
+    for i in $(seq 1 100); do
       att_phase=$(kubectl -n "${namespace}" get vmbda "$att" -o jsonpath='{.status.phase}' 2>/dev/null || true)
       if [ "$att_phase" = "Attached" ]; then
         echo "[INFRA] Disk $vd attached to VM $vm"
@@ -187,7 +211,7 @@ EOF
         success_by_vm=1
         break
       fi
-      [ $((i % 10)) -eq 0 ] && echo "[INFRA] Disk $vd phase=$att_phase; retry $i/50"
+      [ $((i % 10)) -eq 0 ] && echo "[INFRA] Disk $vd phase=$att_phase; retry $i/100"
       sleep 5
     done
 
@@ -201,6 +225,17 @@ EOF
   done
 
   echo "[INFRA] VM $vm configured with hotplug disks"
+
+  echo "[DEBUG] BlockDeviceRefs for VM $vm"
+  kubectl -n "${namespace}" get vm "$vm" -o json 2>/dev/null | jq '.status.blockDeviceRefs' || true
+  echo "[DEBUG] BlockDevices in cluster (all namespaces)"
+  kubectl get blockdevices.storage.deckhouse.io -A 2>/dev/null || true
+
+  # Throttle between VMs to avoid concurrent hotplug flaps
+  if [ ${#workers[@]} -gt 1 ]; then
+    echo "[INFRA] Waiting 60s before processing next VM..."
+    sleep 60
+  fi
 done
 
 echo "[INFRA] All worker VMs configured with storage disks via hotplug"
