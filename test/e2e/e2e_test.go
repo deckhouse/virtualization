@@ -39,6 +39,6 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
+	DeferCleanup(legacy.NewAfterAllProcessBody)
 	controller.NewAfterAllProcessBody()
-	legacy.NewAfterAllProcessBody()
 })
