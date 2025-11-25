@@ -50,7 +50,7 @@ var _ Importer = &ImporterMock{}
 //			StartFunc: func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
-//			StartWithPodSettingFunc: func(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+//			StartWithPodSettingFunc: func(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings, opts ...service.Option) error {
 //				panic("mock out the StartWithPodSetting method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error {
@@ -85,7 +85,7 @@ type ImporterMock struct {
 	StartFunc func(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// StartWithPodSettingFunc mocks the StartWithPodSetting method.
-	StartWithPodSettingFunc func(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
+	StartWithPodSettingFunc func(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings, opts ...service.Option) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, sup supplements.Generator) error
@@ -171,6 +171,8 @@ type ImporterMock struct {
 			CaBundle *datasource.CABundle
 			// PodSettings is the podSettings argument value.
 			PodSettings *importer.PodSettings
+			// Opts is the opts argument value.
+			Opts []service.Option
 		}
 		// Unprotect holds details about calls to the Unprotect method.
 		Unprotect []struct {
@@ -482,7 +484,7 @@ func (mock *ImporterMock) StartCalls() []struct {
 }
 
 // StartWithPodSetting calls StartWithPodSettingFunc.
-func (mock *ImporterMock) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+func (mock *ImporterMock) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings, opts ...service.Option) error {
 	if mock.StartWithPodSettingFunc == nil {
 		panic("ImporterMock.StartWithPodSettingFunc: method is nil but Importer.StartWithPodSetting was just called")
 	}
@@ -492,17 +494,19 @@ func (mock *ImporterMock) StartWithPodSetting(ctx context.Context, settings *imp
 		Sup         supplements.Generator
 		CaBundle    *datasource.CABundle
 		PodSettings *importer.PodSettings
+		Opts        []service.Option
 	}{
 		Ctx:         ctx,
 		Settings:    settings,
 		Sup:         sup,
 		CaBundle:    caBundle,
 		PodSettings: podSettings,
+		Opts:        opts,
 	}
 	mock.lockStartWithPodSetting.Lock()
 	mock.calls.StartWithPodSetting = append(mock.calls.StartWithPodSetting, callInfo)
 	mock.lockStartWithPodSetting.Unlock()
-	return mock.StartWithPodSettingFunc(ctx, settings, sup, caBundle, podSettings)
+	return mock.StartWithPodSettingFunc(ctx, settings, sup, caBundle, podSettings, opts...)
 }
 
 // StartWithPodSettingCalls gets all the calls that were made to StartWithPodSetting.
@@ -515,6 +519,7 @@ func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
 	Sup         supplements.Generator
 	CaBundle    *datasource.CABundle
 	PodSettings *importer.PodSettings
+	Opts        []service.Option
 } {
 	var calls []struct {
 		Ctx         context.Context
@@ -522,6 +527,7 @@ func (mock *ImporterMock) StartWithPodSettingCalls() []struct {
 		Sup         supplements.Generator
 		CaBundle    *datasource.CABundle
 		PodSettings *importer.PodSettings
+		Opts        []service.Option
 	}
 	mock.lockStartWithPodSetting.RLock()
 	calls = mock.calls.StartWithPodSetting
