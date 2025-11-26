@@ -75,7 +75,7 @@ tasks:
     cmds:
       - kubectl apply -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
-      - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=nfs-server --timeout=300s
+      # - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=nfs-server --timeout=300s
       - |
         export end_time=$(date +%s)
         difference=$((end_time - {{.start_time}}))
@@ -143,15 +143,16 @@ tasks:
       start_time:
         sh: date +%s
       JUMPHOST_EXT_IP:
-        sh: kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
+        sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
       JUMPHOST_NODEPORT:
-        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
+        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq ".spec.ports[] | select(.port==2222) | .nodePort"
     cmds:
       - |
-        docker run --pull=always -it \
+        docker run --pull=always \
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
-        dev-registry.deckhouse.io/sys/deckhouse-oss/install:main \
+        -v "{{ .TMP_DIR }}/dhctl:/tmp/dhctl/" \
+        dev-registry.deckhouse.io/sys/deckhouse-oss/install:{{ .DECKHOUSE_TAG }} \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \
@@ -225,3 +226,19 @@ tasks:
       - task: __ssh-command
         vars:
           CMD: TERM=xterm-256color sudo /usr/local/bin/k9s {{ .CLI_ARGS }}
+
+  configure:cluster:sa:
+    desc: Configure kubeconfig for nested cluster
+    vars:
+      script: gen-sa.sh
+    cmds:
+      - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" ./nested-sa-config/{{ .script }} cloud@master-0:/tmp/
+      - task: __ssh-command
+        vars:
+          CMD: sudo chmod +x /tmp/{{ .script }}
+      - task: __ssh-command
+        vars:
+          CMD: sudo /tmp/{{ .script }}
+      - task: __ssh-command
+        vars:
+          CMD: sudo /opt/deckhouse/bin/kubectl apply -f {{ .config }}

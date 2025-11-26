@@ -14,10 +14,6 @@
 
 name: E2E Matrix Tests (bootstrap)
 
-env:
-  BRANCH: main
-  VIRTUALIZATION_TAG: main
-  DECKHOUSE_TAG: main
 on:
   workflow_dispatch:
   pull_request:
@@ -26,101 +22,187 @@ on:
       - main
       - feat/ci/nightly-e2e-test-nested-env
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
 
 jobs:
-  bootstrap:
-    name: Bootstrap cluster
+  e2e-ceph:
+    name: E2E Pipeline (Ceph)
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: ceph
+      nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+      default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+      branch: main
+      virtualization_tag: main
+      deckhouse_tag: main
+      default_user: ubuntu
+      go_version: "1.24.6"
+      e2e_timeout: "3h"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+
+  e2e-replicated:
+    name: E2E Pipeline (Replicated)
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: replicated
+      nested_storageclass_name: nested-thin-r1
+      default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+      branch: main
+      virtualization_tag: main
+      deckhouse_tag: main
+      default_user: ubuntu
+      go_version: "1.24.6"
+      e2e_timeout: "3h"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+
+
+  report-to-channel:
     runs-on: ubuntu-latest
+    name: End-to-End tests report
+    needs: 
+      - e2e-ceph
+      - e2e-replicated
+    if: ${{ always()}}
     steps:
-      - uses: actions/checkout@v4
-        # with:
-        #   ref: ${{ env.BRANCH }}
-
-      - name: Set outputs
-        id: vars
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-
-      - name: Install htpasswd utility
+      - name: Send results to channel
         run: |
-          sudo apt-get update
-          sudo apt-get install -y apache2-utils
+          # Map storage types to CSI names
+          get_csi_name() {
+            local storage_type=$1
+            case "$storage_type" in
+              "ceph")
+                echo "rbd.csi.ceph.com"
+                ;;
+              "replicated")
+                echo "replicated.csi.storage.deckhouse.io"
+                ;;
+              *)
+                echo "$storage_type"
+                ;;
+            esac
+          }
 
-      - name: Install Task
-        uses: arduino/setup-task@v2
-        with:
-          version: 3.x
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          # Parse summary JSON and add to table
+          parse_summary() {
+            local summary_json=$1
+            local storage_type=$2
+            
+            if [ -z "$summary_json" ] || [ "$summary_json" == "null" ] || [ "$summary_json" == "" ]; then
+              echo "Warning: Empty summary for $storage_type"
+              return
+            fi
 
-      - name: Setup d8
-        uses: ./.github/actions/install-d8
+            # Try to parse as JSON (handle both JSON string and already parsed JSON)
+            if ! echo "$summary_json" | jq empty 2>/dev/null; then
+              echo "Warning: Invalid JSON for $storage_type: $summary_json"
+              return
+            fi
 
-      - name: Generate values.yaml
-        run: |
-          cat <<EOF > test/dvp-over-dvp/values.yaml
-          namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
-          clusterConfigurationPrefix: tst-dhctl
-          sa: dkp-sa
-          deckhouse:
-            tag: ${{ env.DECKHOUSE_TAG }}
-            kubernetesVersion: Automatic
-            registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-          virtualization:
-            tag: ${{ env.VIRTUALIZATION_TAG }}
-          image:
-            url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
-            defaultUser: ubuntu
-            bootloader: BIOS
-          ingressHosts:
-            - api
-            - grafana
-            - dex
-            - prometheus
-            - console
-            - virtualization
-          instances:
-            masterNodes:
-              count: 1
-              cores: 4
-              coreFraction: 50%
-              memory: 14Gi
-            additionalNodes:
-              - name: worker
-                count: 3
-                cores: 4
-                coreFraction: 25%
-                memory: 8Gi
-                nodeType: CloudEphemeral
+            # Parse JSON fields
+            csi_raw=$(echo "$summary_json" | jq -r '.CSI // empty' 2>/dev/null)
+            if [ -z "$csi_raw" ] || [ "$csi_raw" == "null" ] || [ "$csi_raw" == "" ]; then
+              csi=$(get_csi_name "$storage_type")
+            else
+              csi="$csi_raw"
+            fi
+            
+            date=$(echo "$summary_json" | jq -r '.Date // ""' 2>/dev/null)
+            time=$(echo "$summary_json" | jq -r '.StartTime // ""' 2>/dev/null)
+            branch=$(echo "$summary_json" | jq -r '.Branch // ""' 2>/dev/null)
+            status=$(echo "$summary_json" | jq -r '.Status // ":question: UNKNOWN"' 2>/dev/null)
+            passed=$(echo "$summary_json" | jq -r '.Passed // 0' 2>/dev/null)
+            failed=$(echo "$summary_json" | jq -r '.Failed // 0' 2>/dev/null)
+            pending=$(echo "$summary_json" | jq -r '.Pending // 0' 2>/dev/null)
+            skipped=$(echo "$summary_json" | jq -r '.Skipped // 0' 2>/dev/null)
+            link=$(echo "$summary_json" | jq -r '.Link // ""' 2>/dev/null)
+
+            # Set defaults if empty
+            [ -z "$passed" ] && passed=0
+            [ -z "$failed" ] && failed=0
+            [ -z "$pending" ] && pending=0
+            [ -z "$skipped" ] && skipped=0
+            [ -z "$status" ] && status=":question: UNKNOWN"
+
+            # Validate date
+            if [ -n "$date" ] && [ "$date" != "" ]; then
+              current_date=$(date +"%Y-%m-%d")
+              if date -d "$current_date" +%s >/dev/null 2>&1 && date -d "$date" +%s >/dev/null 2>&1; then
+                if [ "$(date -d "$current_date" +%s)" -gt "$(date -d "$date" +%s)" ]; then
+                  status=":x: WRONG REPORT DATE!"
+                fi
+              fi
+            fi
+
+            # Format link - use CSI name as fallback if link is empty
+            if [ -z "$link" ] || [ "$link" == "" ]; then
+              link_text="$csi"
+            else
+              link_text="[:link: $csi]($link)"
+            fi
+
+            # Add row to table
+            markdown_table+="| $link_text | $status | $passed | $failed	| $pending	| $skipped	| $date | $time | $branch |\n"
+          }
+
+          # Initialize markdown table
+          markdown_table=""
+          header="| CSI | Status | Passed | Failed	| Pending	| Skipped	| Date | Time | Branch|\n"
+          separator="|---|---|---|---|---|---|---|---|---|\n"
+          markdown_table+="$header"
+          markdown_table+="$separator"
+
+          # Get current date for header
+          DATE=$(date +"%Y-%m-%d")
+          COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n\n"
+
+          # Parse summaries from job outputs
+          # ceph_summary=${{ toJSON(needs.e2e-ceph.outputs.e2e-summary) }}
+          # replicated_summary=${{ toJSON(needs.e2e-replicated.outputs.e2e-summary) }}
+          # Save to json files
+          cat > /tmp/ceph.json << 'EOF'
+          ${{ needs.e2e-ceph.outputs.e2e-summary }}
           EOF
-      
-      - name: Test
-        run: |
-          echo "before run azure/k8s-set-context@v4"
-      - name: Configure kubectl via azure/k8s-set-context@v4
-        uses: azure/k8s-set-context@v4
-        with:
-          method: service-account
-          k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      
-      - name: Test after azure/k8s-set-context@v4
-        run: |
-          echo "after run azure/k8s-set-context@v4"
-          kubectl get pods
 
-      - name: Bootstrap cluster
-        run: |
-          cd test/dvp-over-dvp
-          task install
+          cat > /tmp/replicated.json << 'EOF'
+          ${{ needs.e2e-replicated.outputs.e2e-summary }}
+          EOF
 
-      - name: Show nodes (test)
-        run: |
-          cd test/dvp-over-dvp
-          task kubectl -- get pods
-      - name: Show nodes (test)
-        if: ${{ always() }}
-        run: |
-          cd test/dvp-over-dvp
-          task infra-undeploy
+          if [ -s /tmp/ceph.json ] && [ "$(cat /tmp/ceph.json)" != '""' ] && [ "$(cat /tmp/ceph.json)" != '{}' ]; then
+            parse_summary "$(cat /tmp/ceph.json)" "ceph"
+          fi
+
+          if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
+            parse_summary "$(cat /tmp/replicated.json)" "replicated"
+          fi
+
+          # Parse each summary
+          # if [ -n "$ceph_summary" ] && [ "$ceph_summary" != "null" ]; then
+          #   parse_summary "$ceph_summary" "ceph"
+          # fi
+
+          # if [ -n "$replicated_summary" ] && [ "$replicated_summary" != "null" ]; then
+          #   parse_summary "$replicated_summary" "replicated"
+          # fi
+
+          COMBINED_SUMMARY+="${markdown_table}\n"
+
+          echo -e "$COMBINED_SUMMARY"
+          
+          # Send to channel if webhook is configured
+          if [ -n "$LOOP_WEBHOOK_URL" ]; then
+            curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${COMBINED_SUMMARY}\"}" "$LOOP_WEBHOOK_URL"
+          fi
+        env:
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
