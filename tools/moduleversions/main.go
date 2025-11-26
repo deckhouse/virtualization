@@ -17,25 +17,21 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 	"time"
 
 	"scaper/internal/helper"
 
+	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
 const (
-	// HTTP client settings
-	httpTimeout = 30 * time.Second
-	retryDelay  = 60 * time.Second
+	retryDelay = 60 * time.Second
 
-	// Default values
 	defaultModuleName       = "virtualization"
 	defaultReleasesBaseURL  = "https://releases.deckhouse.io"
 	defaultDocumentationURL = "https://deckhouse.ru/modules"
@@ -44,14 +40,12 @@ const (
 // Supported editions to check on releases.deckhouse.io
 var supportedEditions = []string{"fe", "ee", "ce", "se-plus"}
 
-// ChannelVersion represents a version found for a specific edition and channel
 type ChannelVersion struct {
 	Edition string
 	Number  string
 	Channel string
 }
 
-// ModuleVersionInfo contains information about versions found across editions
 type ModuleVersionInfo struct {
 	Module   string
 	Versions []ChannelVersion
@@ -109,87 +103,145 @@ func verifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersi
 	return true, versionInfo, nil
 }
 
-func main() {
-	var count int
+type config struct {
+	channel       string
+	version       string
+	moduleName    string
+	count         int
+	checkReleases bool
+	checkDocs     bool
+}
 
-	channel := flag.String("channel", "", "release channel: alpha, beta, early-access, stable, rock-solid")
-	version := flag.String("version", "", "module version to verify (e.g., 1.1.2 or v1.1.2)")
-	moduleName := flag.String("module", defaultModuleName, "module name to check")
-	baseURL := flag.String("base-url", defaultReleasesBaseURL, "base URL for releases.deckhouse.io")
-	flag.IntVar(&count, "count", 1, "maximum number of retry attempts (default: 10)")
+func run(cmd *cobra.Command, args []string) error {
+	cfg := &config{}
 
-	// Custom usage function to provide better error messages
-	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintf(flag.CommandLine.Output(), "Options:\n")
-		flag.PrintDefaults()
-		fmt.Fprintf(flag.CommandLine.Output(), "\nExample:\n")
-		fmt.Fprintf(flag.CommandLine.Output(), "  %s -channel alpha -version v1.1.3\n", os.Args[0])
+	cfg.channel, _ = cmd.Flags().GetString("channel")
+	cfg.version, _ = cmd.Flags().GetString("version")
+	cfg.moduleName, _ = cmd.Flags().GetString("module")
+	cfg.count, _ = cmd.Flags().GetInt("count")
+	cfg.checkReleases, _ = cmd.Flags().GetBool("check-releases")
+	cfg.checkDocs, _ = cmd.Flags().GetBool("check-docs")
+
+	if !cfg.checkReleases && !cfg.checkDocs {
+		cfg.checkReleases = true
+		cfg.checkDocs = true
 	}
 
-	flag.Parse()
+	normalizedChannel := helper.GetChannel(cfg.channel)
+	normalizedVersion := helper.GetSemVer(cfg.version)
 
-	if *channel == "" || *version == "" {
-		if *channel == "" {
-			fmt.Fprintf(flag.CommandLine.Output(), "Error: -channel flag is required\n")
-		}
-		if *version == "" {
-			fmt.Fprintf(flag.CommandLine.Output(), "Error: -version flag is required\n")
-		}
-		fmt.Fprintf(flag.CommandLine.Output(), "\n")
-		flag.Usage()
-		os.Exit(2)
-	}
-
-	normalizedChannel := helper.GetChannel(*channel)
-	normalizedVersion := helper.GetSemVer(*version)
-
-	// Build edition URLs for releases.deckhouse.io
-	editionURLs := make([]string, 0, len(supportedEditions))
-	for _, edition := range supportedEditions {
-		editionURLs = append(editionURLs, *baseURL+"/"+edition)
-	}
+	var hasError bool
 
 	// Verify version on releases.deckhouse.io across all editions
-	fmt.Printf("Checking version %s on channel %s at %s...\n", normalizedVersion, normalizedChannel, *baseURL)
+	if cfg.checkReleases {
+		editionURLs := make([]string, 0, len(supportedEditions))
+		for _, edition := range supportedEditions {
+			editionURLs = append(editionURLs, defaultReleasesBaseURL+"/"+edition)
+		}
 
-	var versionInfo *ModuleVersionInfo
-	var err error
-	releasesCheckPassed := false
+		fmt.Printf("Checking version %s on channel %s at %s...\n", normalizedVersion, normalizedChannel, defaultReleasesBaseURL)
 
-	for attempt := 1; attempt <= count; attempt++ {
-		releasesCheckPassed, versionInfo, err = verifyVersionAcrossAllEditions(editionURLs, normalizedChannel, normalizedVersion, *moduleName, *baseURL)
-		if err != nil {
-			if attempt < count {
-				log.Printf("Attempt %d/%d failed: %v", attempt, count, err)
-				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
-				time.Sleep(retryDelay)
-				continue
+		var versionInfo *ModuleVersionInfo
+		var err error
+		releasesCheckPassed := false
+
+		for attempt := 1; attempt <= cfg.count; attempt++ {
+			releasesCheckPassed, versionInfo, err = verifyVersionAcrossAllEditions(editionURLs, normalizedChannel, normalizedVersion, cfg.moduleName, defaultReleasesBaseURL)
+			if err != nil {
+				if attempt < cfg.count {
+					log.Printf("Attempt %d/%d failed: %v", attempt, cfg.count, err)
+					fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
+					time.Sleep(retryDelay)
+					continue
+				}
+				// Last attempt failed
+				log.Printf("Version %s validation failed on %s after %d attempts: %v", normalizedVersion, defaultReleasesBaseURL, cfg.count, err)
+				hasError = true
+				break
 			}
-			// Last attempt failed
-			log.Fatalf("Version %s validation failed on %s after %d attempts: %v", normalizedVersion, *baseURL, count, err)
+
+			if releasesCheckPassed {
+				fmt.Printf("Version %s is valid on channel %s\n", normalizedVersion, normalizedChannel)
+				fmt.Println(versionInfo)
+				break
+			}
 		}
 
-		if releasesCheckPassed {
-			fmt.Printf("Version %s is valid on channel %s\n", normalizedVersion, normalizedChannel)
-			fmt.Println(versionInfo)
-			break
+		if !releasesCheckPassed && err != nil {
+			log.Printf("Version %s validation failed on %s after %d attempts: %v", normalizedVersion, defaultReleasesBaseURL, cfg.count, err)
+			hasError = true
 		}
-	}
-
-	if !releasesCheckPassed {
-		log.Fatalf("Version %s validation failed on %s after %d attempts: %v", normalizedVersion, *baseURL, count, err)
 	}
 
 	// Verify version on deckhouse.ru documentation site
-	documentationURL := fmt.Sprintf("%s/%s/stable/", defaultDocumentationURL, *moduleName)
-	fmt.Printf("\nChecking version %s on channel %s at %s...\n", normalizedVersion, normalizedChannel, documentationURL)
+	if cfg.checkDocs {
+		documentationURL := fmt.Sprintf("%s/%s/stable/", defaultDocumentationURL, cfg.moduleName)
+		fmt.Printf("\nChecking version %s on channel %s at %s...\n", normalizedVersion, normalizedChannel, documentationURL)
 
-	err = helper.VerifyVersionOnDocumentationSite(documentationURL, normalizedChannel, normalizedVersion)
-	if err != nil {
-		log.Fatalf("Version %s validation failed on documentation site %s: %v", normalizedVersion, documentationURL, err)
+		var err error
+		docsCheckPassed := false
+
+		for attempt := 1; attempt <= cfg.count; attempt++ {
+			err = helper.VerifyVersionOnDocumentationSite(documentationURL, normalizedChannel, normalizedVersion)
+			if err != nil {
+				if attempt < cfg.count {
+					log.Printf("Attempt %d/%d failed: %v", attempt, cfg.count, err)
+					fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
+					time.Sleep(retryDelay)
+					continue
+				}
+				// Last attempt failed
+				log.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", normalizedVersion, documentationURL, cfg.count, err)
+				hasError = true
+				break
+			}
+
+			docsCheckPassed = true
+			fmt.Printf("Version %s is valid on channel %s at documentation site\n", normalizedVersion, normalizedChannel)
+			break
+		}
+
+		if !docsCheckPassed && err != nil {
+			log.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", normalizedVersion, documentationURL, cfg.count, err)
+			hasError = true
+		}
 	}
 
-	fmt.Printf("Version %s is valid on channel %s at documentation site\n", normalizedVersion, normalizedChannel)
+	if hasError {
+		return fmt.Errorf("one or more version checks failed")
+	}
+
 	fmt.Println("\nAll version checks passed successfully!")
+	return nil
+}
+
+func main() {
+	rootCmd := &cobra.Command{
+		Use:   "moduleversions",
+		Short: "Verify module versions across releases.deckhouse.io and deckhouse.ru/modules",
+		Long: `Verify module versions across releases.deckhouse.io and deckhouse.ru/modules.
+
+This tool checks if a specified version exists for a given channel on both
+releases.deckhouse.io (across all editions) and deckhouse.ru/modules documentation site.`,
+		Example: `  moduleversions --channel alpha --version v1.1.3
+  moduleversions --channel stable --version 1.1.2 --check-releases
+  moduleversions --channel beta --version 1.1.1 --check-docs`,
+		RunE:          run,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	rootCmd.Flags().StringP("channel", "c", "", "release channel: alpha, beta, early-access, stable, rock-solid (required)")
+	rootCmd.Flags().StringP("version", "v", "", "module version to verify (e.g., 1.1.2 or v1.1.2) (required)")
+	rootCmd.Flags().StringP("module", "m", defaultModuleName, "module name to check")
+	rootCmd.Flags().Int("count", 1, "maximum number of retry attempts")
+	rootCmd.Flags().Bool("check-releases", false, "check version on releases.deckhouse.io")
+	rootCmd.Flags().Bool("check-docs", false, "check version on deckhouse.ru/modules")
+
+	rootCmd.MarkFlagRequired("channel")
+	rootCmd.MarkFlagRequired("version")
+
+	if err := rootCmd.Execute(); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -4,37 +4,47 @@ vars:
   PROD_REGISTRY: registry.deckhouse.io/deckhouse
   CHANNEL: '{{ .CHANNEL | default "alpha" }}'
   VERSION: "{{ .VERSION }}"
-  LICENSE: "{{ .LICENSE }}"
-  REGISTRY:
-    sh: |
-      base64 -d <<< "{{.LICENSE}}" | jq '.auths | to_entries | .[] | .key' -r
-  USERNAME:
-    sh: |
-      creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
-      echo $creds | base64 -d | cut -d ':' -f1
-  PASSWORD:
-    sh: |
-      creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
-      echo $creds | base64 -d | cut -d ':' -f2
 
 tasks:
-  go:tidy:
+  go:download:
     desc: "Go mod tidy"
     silent: true
     cmds:
       - go mod download
 
-  go:run:
-    desc: "Go run"
+  check:releases:
+    desc: "Check version on release site (https://releases.deckhouse.io/ee/modules/virtualization)"
     vars:
       COUNT: "{{ .COUNT | default 5 }}"
     deps:
-      - task: go:tidy
+      - task: go:download
     cmds:
-      - go run ./main.go -count {{.COUNT}} -channel {{.CHANNEL}} -version {{.VERSION}}
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --count {{.COUNT}} --check-releases
+  
+  check:docs:
+    desc: "Check version on documentation site (https://deckhouse.ru/modules/virtualization/stable/)"
+    vars:
+      COUNT: "{{ .COUNT | default 5 }}"
+    deps:
+      - task: go:download
+    cmds:
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --count {{.COUNT}} --check-docs
 
   crane:version:
     desc: "Get version from release image"
+    vars:
+      LICENSE: "{{ .LICENSE }}"
+      REGISTRY:
+        sh: |
+            base64 -d <<< "{{.LICENSE}}" | jq '.auths | to_entries | .[] | .key' -r
+      USERNAME:
+        sh: |
+            creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+            echo $creds | base64 -d | cut -d ':' -f1
+      PASSWORD:
+        sh: |
+            creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+            echo $creds | base64 -d | cut -d ':' -f2
     cmds:
       - |
         # Check if already logged in by inspecting Docker config

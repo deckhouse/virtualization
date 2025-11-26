@@ -393,14 +393,14 @@ jobs:
       - name: Check version on site ${{ matrix.check }}
         if: ${{ matrix.check == 'releases' }}
         run: |
-          echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
-          sleep 300
+          echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
+          sleep 120
 
           echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
           CHANNEL=${{ github.event.inputs.channel }} \
           VERSION=${{ github.event.inputs.tag }} \
           COUNT=5 \
-          task -d tools/moduleversions go:run
+          task -d tools/moduleversions check:releases
       - name: Check version on site ${{ matrix.check }}
         if: ${{ matrix.check == 'documentation' }}
         run: |
@@ -411,4 +411,4 @@ jobs:
           CHANNEL=${{ github.event.inputs.channel }} \
           VERSION=${{ github.event.inputs.tag }} \
           COUNT=5 \
-          task -d tools/moduleversions go:run
+          task -d tools/moduleversions check:docs
