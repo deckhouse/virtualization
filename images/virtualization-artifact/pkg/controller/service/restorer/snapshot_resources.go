@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	common_vdsnapshot "github.com/deckhouse/virtualization-controller/pkg/common/vdsnapshot"
+	commonvdsnapshot "github.com/deckhouse/virtualization-controller/pkg/common/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -376,7 +376,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 				return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
 			}
 
-			err = common_vdsnapshot.AddOriginalMetadata(&vd, vs)
+			err = commonvdsnapshot.AddOriginalMetadata(&vd, vs)
 			if err != nil {
 				return nil, fmt.Errorf("failed to add original metadata: %w", err)
 			}

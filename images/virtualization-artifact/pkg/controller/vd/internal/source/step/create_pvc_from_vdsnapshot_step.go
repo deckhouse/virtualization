@@ -34,7 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
-	common_vdsnapshot "github.com/deckhouse/virtualization-controller/pkg/common/vdsnapshot"
+	commonvdsnapshot "github.com/deckhouse/virtualization-controller/pkg/common/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -137,7 +137,7 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
 	vdsupplements.SetPVCName(vd, pvc.Name)
 
-	err = common_vdsnapshot.AddOriginalMetadata(vd, vs)
+	err = commonvdsnapshot.AddOriginalMetadata(vd, vs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add original metadata: %w", err)
 	}
