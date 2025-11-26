@@ -42,10 +42,28 @@ func AddOriginalMetadata(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) erro
 			}
 		}
 
+		if vd.Labels == nil {
+			vd.Labels = make(map[string]string)
+		}
+		for key, value := range labelsMap {
+			if _, exists := vd.Labels[key]; !exists {
+				vd.Labels[key] = value
+			}
+		}
+
 		if vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations] != "" {
 			err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]), &annotationsMap)
 			if err != nil {
 				return fmt.Errorf("failed to unmarshal the original annotations: %w", err)
+			}
+		}
+
+		if vd.Annotations == nil {
+			vd.Annotations = make(map[string]string)
+		}
+		for key, value := range labelsMap {
+			if _, exists := vd.Annotations[key]; !exists {
+				vd.Annotations[key] = value
 			}
 		}
 	}

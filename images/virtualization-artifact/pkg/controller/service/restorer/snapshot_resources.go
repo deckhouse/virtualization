@@ -376,11 +376,9 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 				return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
 			}
 
-			if vs != nil && vs.Annotations != nil {
-				err := common_vdsnapshot.AddOriginalMetadata(&vd, vs)
-				if err != nil {
-					return nil, fmt.Errorf("failed to add original metadata: %w", err)
-				}
+			err = common_vdsnapshot.AddOriginalMetadata(&vd, vs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add original metadata: %w", err)
 			}
 		}
 
