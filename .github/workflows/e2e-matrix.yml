@@ -73,10 +73,21 @@ jobs:
           username: ${{ steps.vars.outputs.username }}
           password: ${{ steps.vars.outputs.password }}
 
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+
       - name: Generate values.yaml
         run: |
+          defaultStorageClass=$(kubectl get storageclass -o json \
+            | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
+
           cat <<EOF > test/dvp-over-dvp/values.yaml
           namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          storageClass: ${defaultStorageClass}
           clusterConfigurationPrefix: tst-dhctl
           sa: dkp-sa
           deckhouse:
@@ -110,21 +121,6 @@ jobs:
                 memory: 8Gi
                 nodeType: CloudEphemeral
           EOF
-      
-      - name: Test
-        run: |
-          echo "before run azure/k8s-set-context@v4"
-      - name: Configure kubectl via azure/k8s-set-context@v4
-        uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          context: e2e-cluster-nightly-e2e-virt-sa
-          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-      
-      - name: Test after azure/k8s-set-context@v4
-        run: |
-          echo "after run azure/k8s-set-context@v4"
-          kubectl get pods
 
       - name: Bootstrap cluster
         run: |
