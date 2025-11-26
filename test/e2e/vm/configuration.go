@@ -88,16 +88,9 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		err = f.Clients.GenericClient().Update(context.Background(), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
-		if restartApprovalMode == v1alpha2.Manual {
-			// Avoid race condition with need restart condition calculation
-			Eventually(func(g Gomega) {
-				err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-				g.Expect(err).NotTo(HaveOccurred())
-				needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
-				g.Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
-				g.Expect(t.VM.Status.RestartAwaitingChanges).NotTo(BeNil())
-			}).WithTimeout(3 * time.Second).WithPolling(time.Second).Should(Succeed())
+		t.CheckRestartAwaitingChanges(t.VM)
 
+		if t.VM.Spec.Disruptions.RestartApprovalMode == v1alpha2.Manual {
 			util.RebootVirtualMachineBySSH(f, t.VM)
 		}
 
@@ -172,4 +165,19 @@ func (c *configurationTest) IsVDAttached(vd *v1alpha2.VirtualDisk, vm *v1alpha2.
 		}
 	}
 	return false
+}
+
+func (t *configurationTest) CheckRestartAwaitingChanges(vm *v1alpha2.VirtualMachine) {
+	if vm.Spec.Disruptions.RestartApprovalMode != v1alpha2.Manual {
+		return
+	}
+
+	// Avoid race condition with need restart condition calculation
+	Eventually(func(g Gomega) {
+		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
+		g.Expect(err).NotTo(HaveOccurred())
+		needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
+		g.Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
+		g.Expect(t.VM.Status.RestartAwaitingChanges).NotTo(BeNil())
+	}).WithTimeout(3 * time.Second).WithPolling(time.Second).Should(Succeed())
 }
