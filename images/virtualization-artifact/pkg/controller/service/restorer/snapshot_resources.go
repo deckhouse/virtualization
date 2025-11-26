@@ -18,15 +18,18 @@ package restorer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
@@ -338,14 +341,49 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			return nil, fmt.Errorf("the virtual disk snapshot %q %w", vdSnapshotName, common.ErrVirtualDiskSnapshotNotFound)
 		}
 
+		var (
+			labels         map[string]string
+			annotationsMap map[string]string
+		)
+
+		if vdSnapshot.Status.VolumeSnapshotName != "" {
+			vsKey := types.NamespacedName{
+				Namespace: vdSnapshot.Namespace,
+				Name:      vdSnapshot.Status.VolumeSnapshotName,
+			}
+
+			vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
+			}
+
+			if vs != nil && vs.Annotations != nil {
+				if labelsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]; labelsJSON != "" {
+					var originalLabels map[string]string
+					if err := json.Unmarshal([]byte(labelsJSON), &originalLabels); err == nil {
+						labels = originalLabels
+					}
+				}
+
+				if annotationsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]; annotationsJSON != "" {
+					var originalAnnotations map[string]string
+					if err := json.Unmarshal([]byte(annotationsJSON), &originalAnnotations); err == nil {
+						annotationsMap = originalAnnotations
+					}
+				}
+			}
+		}
+
 		vd := v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       v1alpha2.VirtualDiskKind,
 				APIVersion: v1alpha2.Version,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vdSnapshot.Spec.VirtualDiskName,
-				Namespace: vdSnapshot.Namespace,
+				Name:        vdSnapshot.Spec.VirtualDiskName,
+				Namespace:   vdSnapshot.Namespace,
+				Labels:      labels,
+				Annotations: annotationsMap,
 			},
 			Spec: v1alpha2.VirtualDiskSpec{
 				DataSource: &v1alpha2.VirtualDiskDataSource{
