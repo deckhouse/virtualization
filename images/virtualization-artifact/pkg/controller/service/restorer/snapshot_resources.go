@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvdsnapshot "github.com/deckhouse/virtualization-controller/pkg/common/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -361,6 +363,23 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 					{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
 				},
 			},
+		}
+
+		if vdSnapshot.Status.VolumeSnapshotName != "" {
+			vsKey := types.NamespacedName{
+				Namespace: vdSnapshot.Namespace,
+				Name:      vdSnapshot.Status.VolumeSnapshotName,
+			}
+
+			vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
+			}
+
+			err = commonvdsnapshot.AddOriginalMetadata(&vd, vs)
+			if err != nil {
+				return nil, fmt.Errorf("failed to add original metadata: %w", err)
+			}
 		}
 
 		vds = append(vds, &vd)
