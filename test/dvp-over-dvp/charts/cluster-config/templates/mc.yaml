@@ -15,11 +15,18 @@ kind: ModuleConfig
 metadata:
   name: global
 spec:
-  version: 1
+  version: 2
   settings:
-    defaultClusterStorageClass: nfs
+  {{- if .Values.defaultClusterStorageClass }}
+    defaultClusterStorageClass: {{ .Values.defaultClusterStorageClass }}
+  {{- end }}
     modules:
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.domain }}"
+      https:
+        certManager:
+          clusterIssuerName: selfsigned
+          # clusterIssuerName: letsencrypt-staging
+        mode: CertManager
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -44,6 +51,7 @@ metadata:
   name: user-authz
 spec:
   enabled: true
+  version: 1
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig

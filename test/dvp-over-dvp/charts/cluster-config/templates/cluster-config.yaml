@@ -42,6 +42,28 @@ masterNodeGroup:
     etcdDisk:
       size: 15Gi
       storageClass: {{ .Values.storageClass }}
+nodeGroups:
+{{- range .Values.instances.additionalNodes }}
+  - name: {{ .name }}
+    replicas: {{ .count }}
+    instanceClass:
+      virtualMachine:
+        bootloader: {{ .bootloader }}
+        cpu:
+          cores: {{ .cores }}
+          coreFraction: {{ .coreFraction }}
+        memory:
+          size: {{ .memory }}
+        virtualMachineClassName: "{{ $.Values.namespace }}-cpu"
+      rootDisk:
+        size: 50Gi
+        image:
+          kind: VirtualImage
+          name: image
+      additionalDisks:
+      - size: 50Gi
+        storageClass: {{ $.Values.storageClass }}
+{{- end }}
 provider:
   kubeconfigDataBase64: {{ .Values.kubeconfigDataBase64 }}
   namespace: {{ .Values.namespace }}

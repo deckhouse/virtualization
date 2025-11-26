@@ -14,6 +14,23 @@ spec:
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
 metadata:
+  name: astra-d8-dm-modules.conf
+spec:
+  weight: 98
+  nodeGroups: ["*"]
+  bundles: ["astra", "ubuntu-lts", "debian"]
+  content: |
+    bb-sync-file /etc/modules-load.d/d8-dm-modules.conf - << "EOF"
+    dm_snapshot
+    dm_thin_pool
+    dm_cache
+    EOF
+
+    systemctl restart systemd-modules-load.service
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: NodeGroupConfiguration
+metadata:
   name: install-tools.sh
 spec:
   weight: 98

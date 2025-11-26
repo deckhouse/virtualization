@@ -1,3 +1,4 @@
+{{ if .Values.nfsEnabled }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -19,7 +20,7 @@ spec:
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: NFSStorageClass
 metadata:
-  name: nfs
+  name: {{ .Values.nfsSC }}
 spec:
   connection:
     host: "nfs-server.{{ .Values.namespace }}.svc.cluster.local"
@@ -31,3 +32,4 @@ spec:
     retransmissions: 3
   reclaimPolicy: Delete
   volumeBindingMode: Immediate
+{{ end }} 
