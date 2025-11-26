@@ -139,3 +139,12 @@ func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.
 		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
 	}, timeout, time.Second).Should(Succeed())
 }
+
+func IsVDAttached(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == v1alpha2.DiskDevice && bd.Name == vd.Name && bd.Attached {
+			return true
+		}
+	}
+	return false
+}

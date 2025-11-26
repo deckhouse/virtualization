@@ -57,7 +57,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		f.Before()
 
 		By("Environment preparation")
-		t.GenerateConfigurationResources(restartApprovalMode)
+		t.GenerateResources(restartApprovalMode)
 		err := f.CreateWithDeferredDeletion(context.Background(), t.VM, t.VDRoot, t.VDBlank)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -70,7 +70,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
 		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
 		Expect(t.VM.Status.Resources.CPU.CoreFraction).To(Equal(initialCoreFraction))
-		Expect(t.IsVDAttached(t.VDBlank, t.VM)).To(BeFalse())
+		Expect(util.IsVDAttached(t.VM, t.VDBlank)).To(BeFalse())
 
 		By("Applying changes")
 		err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
@@ -104,7 +104,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
 		Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		Expect(t.VM.Status.Resources.CPU.CoreFraction).To(Equal(changedCoreFraction))
-		Expect(t.IsVDAttached(t.VDBlank, t.VM)).To(BeTrue())
+		Expect(util.IsVDAttached(t.VM, t.VDBlank)).To(BeTrue())
 	},
 		Entry("when changes are applied manually", v1alpha2.Manual),
 		Entry("when changes are applied automatically", v1alpha2.Automatic),
@@ -125,24 +125,24 @@ func NewConfigurationTest(f *framework.Framework) *configurationTest {
 	}
 }
 
-func (c *configurationTest) GenerateConfigurationResources(restartApprovalMode v1alpha2.RestartApprovalMode) {
-	c.VDRoot = vdbuilder.New(
+func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.RestartApprovalMode) {
+	t.VDRoot = vdbuilder.New(
 		vdbuilder.WithName("vd-root"),
-		vdbuilder.WithNamespace(c.Framework.Namespace().Name),
+		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithDataSourceHTTP(&v1alpha2.DataSourceHTTP{
 			URL: object.ImageURLUbuntu,
 		}),
 	)
 
-	c.VDBlank = vdbuilder.New(
+	t.VDBlank = vdbuilder.New(
 		vdbuilder.WithName("vd-blank"),
-		vdbuilder.WithNamespace(c.Framework.Namespace().Name),
+		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vdbuilder.WithSize(ptr.To(resource.MustParse("100Mi"))),
 	)
 
-	c.VM = vmbuilder.New(
+	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
-		vmbuilder.WithNamespace(c.Framework.Namespace().Name),
+		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithCPU(1, ptr.To(initialCoreFraction)),
 		vmbuilder.WithMemory(resource.MustParse(initialMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
@@ -151,20 +151,11 @@ func (c *configurationTest) GenerateConfigurationResources(restartApprovalMode v
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.DiskDevice,
-				Name: c.VDRoot.Name,
+				Name: t.VDRoot.Name,
 			},
 		),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 	)
-}
-
-func (c *configurationTest) IsVDAttached(vd *v1alpha2.VirtualDisk, vm *v1alpha2.VirtualMachine) bool {
-	for _, bd := range vm.Status.BlockDeviceRefs {
-		if bd.Kind == v1alpha2.DiskDevice && bd.Name == vd.Name && bd.Attached {
-			return true
-		}
-	}
-	return false
 }
 
 func (t *configurationTest) CheckRestartAwaitingChanges(vm *v1alpha2.VirtualMachine) {
@@ -172,7 +163,7 @@ func (t *configurationTest) CheckRestartAwaitingChanges(vm *v1alpha2.VirtualMach
 		return
 	}
 
-	// Avoid race condition with need restart condition calculation
+	// Avoid race conditions during the calculation of the "need restart" condition.
 	Eventually(func(g Gomega) {
 		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
 		g.Expect(err).NotTo(HaveOccurred())
