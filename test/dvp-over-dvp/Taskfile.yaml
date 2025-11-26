@@ -83,7 +83,6 @@ tasks:
 
   infra-undeploy:
     desc: Destroy infra (Namespace/RBAC/Jumphost/...)
-    prompt: This command will destroy current infra... Do you want to continue?
     cmds:
       - kubectl delete -f {{ .TMP_DIR }}/infra.yaml || true
       - kubectl wait --for=delete namespace/{{ .NAMESPACE }} --timeout 300s || true
