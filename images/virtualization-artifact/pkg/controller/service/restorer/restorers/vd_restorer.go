@@ -141,6 +141,10 @@ func (v *VirtualDiskHandler) ProcessRestore(ctx context.Context) error {
 	}
 
 	if vdObj != nil {
+		if value, ok := vdObj.Annotations[annotations.AnnVMOPRestore]; ok && value == v.restoreUID {
+			return nil
+		}
+
 		// Phase 1: Initiate deletion and wait for completion
 		if !object.IsTerminating(vdObj) {
 			err := v.client.Delete(ctx, vdObj)
