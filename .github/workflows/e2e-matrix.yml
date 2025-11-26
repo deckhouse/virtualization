@@ -99,7 +99,7 @@ jobs:
         with:
           method: service-account
           k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+          k8s-secret: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
 
       - name: Bootstrap cluster
         run: |
