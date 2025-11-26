@@ -15,7 +15,10 @@ package:
   file: FILE5_45
   gcc: releases/gcc-13.2.0
   glib2: 2.84.2
-  glibc: glibc-2.38
+  # release/2.38/master from upstream glibc
+  # https://sourceware.org/git/?p=glibc.git;a=commit;h=650a0aaaffa9ddb44732fa6156b31c5f30ee596f
+  # https://git.altlinux.org/gears/g/glibc.git?p=glibc.git;a=log;h=bb14266fc6e81ea0239c3974d32c57f3fdefe86d
+  glibc: 650a0aaaffa9ddb44732fa6156b31c5f30ee596f # release/2.38/master
   libgmp: 6.3.0
   gnutls: 3.8.10
   libattr: v2.5.2

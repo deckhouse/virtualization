@@ -168,7 +168,29 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
-  - '*'
+  - expand-vm-spec
+  - virtualmachineinstances/vnc
+  - virtualmachineinstances/console
+  - virtualmachineinstances/portforward
+  - virtualmachineinstances/pause
+  - virtualmachineinstances/unpause
+  - virtualmachineinstances/freeze
+  - virtualmachineinstances/unfreeze
+  - virtualmachineinstances/softreboot
+  - virtualmachines/start
+  - virtualmachines/stop
+  - virtualmachines/restart
+  - virtualmachines/migrate
+  - virtualmachines/expand-spec
+  - virtualmachineinstances/guestosinfo
+  - virtualmachineinstances/userlist
+  - virtualmachineinstances/filesystemlist
+  - virtualmachineinstances/addvolume
+  - virtualmachineinstances/removevolume
+  - virtualmachineinstances/sev/fetchcertchain
+  - virtualmachineinstances/sev/querylaunchmeasurement
+  - virtualmachineinstances/sev/setupsession
+  - virtualmachineinstances/sev/injectlaunchsecret
   verbs:
   - get
   - patch
@@ -187,6 +209,7 @@ rules:
   - virtualmachines
   - clustervirtualimages
   - virtualmachineoperations
+  - virtualmachinesnapshotoperations
   - virtualmachineclasses
   - virtualdisksnapshots
   - virtualmachinesnapshots
@@ -212,6 +235,7 @@ rules:
   - virtualmachinemacaddressleases/finalizers
   - virtualmachinemacaddresses/finalizers
   - virtualmachineoperations/finalizers
+  - virtualmachinesnapshotoperations/finalizers
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
   - virtualmachinesnapshots/finalizers
@@ -226,6 +250,7 @@ rules:
   - virtualmachines/status
   - clustervirtualimages/status
   - virtualmachineoperations/status
+  - virtualmachinesnapshotoperations/status
   - virtualmachineclasses/status
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
@@ -242,6 +267,13 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - deployments/status
+  verbs:
+  - update
+  - patch
+- apiGroups:
   - ""
   resources:
   - resourcequotas
@@ -249,6 +281,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

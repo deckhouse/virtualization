@@ -22,8 +22,9 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/spf13/cobra"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var (

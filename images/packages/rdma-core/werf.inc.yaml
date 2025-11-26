@@ -6,11 +6,13 @@
 {{- define "$name" -}}
 altPackages:
 - gcc git make libtool libnl-devel ninja-build
-- binutils cmake libudev-devel pkgconfig
-- libsystemd-devel pandoc
+- binutils cmake pkgconfig
+- pandoc
 - python3-module-Cython python3-devel python3-module-docutils
-- libpcap-devel libibumad libnl3 libnl-devel
+- libpcap-devel
 - tree
+packages:
+- systemd libnl3 rdma-core
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

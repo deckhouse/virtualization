@@ -44,6 +44,7 @@ func runPingCommand(opts BaseOptions) error {
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
+	defer client.Close()
 
 	err = client.Ping()
 	if err != nil {

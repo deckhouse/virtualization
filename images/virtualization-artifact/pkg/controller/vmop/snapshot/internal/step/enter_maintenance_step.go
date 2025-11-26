@@ -55,7 +55,7 @@ func NewEnterMaintenanceStep(
 }
 
 func (s EnterMaintenanceStep) Take(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) (*reconcile.Result, error) {
-	if vmop.Spec.Restore.Mode == v1alpha2.VMOPRestoreModeDryRun {
+	if vmop.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
 		return nil, nil
 	}
 

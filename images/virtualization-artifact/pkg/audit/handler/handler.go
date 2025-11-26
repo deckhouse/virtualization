@@ -105,17 +105,19 @@ func NewEventHandler(
 
 			if err := eventLogger.Fill(); err != nil {
 				log.Debug("fail to fill event: %w", err)
+				return err
 			}
 
 			if !eventLogger.ShouldLog() {
-				break
+				return nil
 			}
 
 			if err := eventLogger.Log(); err != nil {
 				log.Debug("fail to log event: %w", err)
+				return err
 			}
 
-			break
+			return nil
 		}
 
 		return nil

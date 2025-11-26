@@ -22,6 +22,7 @@ import (
 	fmt "fmt"
 
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	v1alpha3 "github.com/deckhouse/virtualization/api/core/v1alpha3"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 )
@@ -81,6 +82,12 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineRestores().Informer()}, nil
 	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinesnapshots"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineSnapshots().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("virtualmachinesnapshotoperations"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha2().VirtualMachineSnapshotOperations().Informer()}, nil
+
+		// Group=virtualization.deckhouse.io, Version=v1alpha3
+	case v1alpha3.SchemeGroupVersion.WithResource("virtualmachineclasses"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Virtualization().V1alpha3().VirtualMachineClasses().Informer()}, nil
 
 	}
 

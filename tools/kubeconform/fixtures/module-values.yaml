@@ -376,6 +376,7 @@ virtualization:
       passwordRW: DVCR-PASSWD-STRING
       salt: DVCR-SALT-STRING
       serviceIP: 10.222.229.246
+      garbageCollectionModeEnabled: "true"
     rootCA:
       ca: ""
       crt: ROOT-CA-CRT
@@ -394,6 +395,7 @@ virtualization:
         - 10.0.10.0/24
         - 10.0.20.0/24
         - 10.0.30.0/24
+    moduleState: {}
     virtConfig:
       phase: Deployed
       parallelMigrationsPerCluster: 2

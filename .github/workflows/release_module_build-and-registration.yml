@@ -43,6 +43,10 @@ jobs:
     runs-on: [self-hosted, large]
     name: Build and Push CE
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: SET VAR
         id: set_vars
         run: |
@@ -84,10 +88,18 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
   prod_ee_setup_build:
     runs-on: [self-hosted, large]
     name: Build and Push EE
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: SET VAR
         id: set_vars
         run: |
@@ -129,11 +141,19 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
   prod_se_plus_setup_build:
     runs-on: [self-hosted, large]
     needs: prod_ee_setup_build
     name: Build and Push SE Plus
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: SET VAR
         id: set_vars
         run: |
@@ -175,11 +195,19 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
   prod_fe_setup_build:
     runs-on: [self-hosted, large]
     needs: prod_ee_setup_build
     name: Build and Push FE
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: SET VAR
         id: set_vars
         run: |
@@ -220,3 +248,7 @@ jobs:
           source_repo: ${{secrets.SOURCE_REPO_GIT}}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG

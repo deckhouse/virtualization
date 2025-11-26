@@ -43,3 +43,5 @@ type VirtualMachineOperationExpansion interface{}
 type VirtualMachineRestoreExpansion interface{}
 
 type VirtualMachineSnapshotExpansion interface{}
+
+type VirtualMachineSnapshotOperationExpansion interface{}

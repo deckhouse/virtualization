@@ -334,6 +334,10 @@ jobs:
       WERF_VIRTUAL_MERGE: 0
       DEBUG_COMPONENT: ${{needs.set_vars.outputs.debug_component}}
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -343,6 +347,7 @@ jobs:
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
           echo DEBUG_COMPONENT=$DEBUG_COMPONENT
+          echo DOCKER_CONFIG=$DOCKER_CONFIG
 
       - uses: actions/checkout@v4
         with:
@@ -370,6 +375,43 @@ jobs:
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
           svace_analyze_ssh_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
+  test_build_d8v_cli:
+    name: Test build d8v cli
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    needs: set_vars
+    steps:
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Test build d8v cli
+        run: |
+          task d8v-cli:build
+
+      - name: Workability check
+        run: |
+          task d8v-cli:install
+          export PATH=$PATH:~/.local/bin
+          echo ""
+          echo "Print help"
+          d8v --help
 
   pull_request_info:
     name: Get PR info

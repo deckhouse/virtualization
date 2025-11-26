@@ -60,6 +60,10 @@ jobs:
     runs-on: [self-hosted, large]
     name: Deploy dev
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: PRINT VARS
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -68,6 +72,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo RELEASE_CHANNEL=$RELEASE_CHANNEL
           echo MODULE_EDITION=$MODULE_EDITION
+          echo DOCKER_CONFIG=$DOCKER_CONFIG
         shell: bash
       - name: Validation and set MODULES_MODULE_TAG
         id: get-tag
@@ -114,3 +119,7 @@ jobs:
           source_repo: ${{secrets.SOURCE_REPO_GIT}}
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG

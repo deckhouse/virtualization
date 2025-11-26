@@ -28,12 +28,14 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - gcc make git autoconf libtool gettext-tools
-- automake pkgconf glibc-devel systemd-devel
-- texinfo indent glibc-gconv-modules
+- automake pkgconf
+- texinfo indent
 - libabigail-devel cvs
 - tree
 packages:
 - libunistring
+- systemd
+- glibc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

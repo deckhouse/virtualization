@@ -1,7 +1,12 @@
 - name: virtualization.vm.state
   rules:
     - alert: D8VirtualizationVirtualMachineFirmwareOutOfDate
-      expr: d8_virtualization_virtualmachine_firmware_up_to_date == 0
+      expr: |
+        avg by(namespace,name) (
+          count by (namespace,name,pod) (
+            d8_virtualization_virtualmachine_firmware_up_to_date{} == 0
+          )
+        )
       labels:
         severity_level: "8"
         tier: application

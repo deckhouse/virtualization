@@ -81,6 +81,10 @@ jobs:
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
+      - name: Setup Docker config
+        run: |
+          echo "DOCKER_CONFIG=$(mktemp -d)" >> $GITHUB_ENV
+
       - name: Print vars
         run: |
           echo MODULES_REGISTRY=$MODULES_REGISTRY
@@ -89,6 +93,7 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULE_EDITION=$MODULE_EDITION
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+          echo DOCKER_CONFIG=$DOCKER_CONFIG
 
       - uses: actions/checkout@v4
         with:
@@ -114,6 +119,10 @@ jobs:
           svace_enabled: "true"
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
 
   analyze_build:
     name: Analyze build

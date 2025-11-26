@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 	dv1alpha2 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
@@ -114,6 +115,7 @@ func init() {
 	// use dynamic client for get kubevirt types
 	for _, f := range []func(*apiruntime.Scheme) error{
 		v1alpha2.AddToScheme,
+		v1alpha3.AddToScheme,
 		clientgoscheme.AddToScheme,
 		dv1alpha1.AddToScheme,
 		dv1alpha2.AddToScheme,

@@ -27,30 +27,27 @@ shell:
 {{- define "$name" -}}
 altPackages:
 - git
-- curl
 - pkg-config
 - libtool
-- libvirt-libs
-- libvirt-devel
-- libvirt-client
-- libvirt-daemon
-- libvirt
 - gcc
 - gcc-c++
-- glibc-devel-static
-- glibc
 - golang
 packages:
 - libmnl
 - ncurses
+- libcurl
+- libxml2 libnl3 libssh numactl libjson-c5 libbsd glib2
+- libtirpc libmd util-linux
+- pcre2
+- glibc
+- libvirt
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
-fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.10" }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
@@ -84,7 +81,6 @@ shell:
     done
   - |
     export GOPROXY=$(cat /run/secrets/GOPROXY)
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     cd /kubevirt
 
     go mod download

@@ -21,6 +21,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	_ "github.com/deckhouse/virtualization/test/e2e/blockdevice"
 	"github.com/deckhouse/virtualization/test/e2e/controller"
@@ -29,6 +31,7 @@ import (
 )
 
 func TestE2E(t *testing.T) {
+	log.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Tests")
 }
@@ -39,6 +42,6 @@ var _ = SynchronizedBeforeSuite(func() {
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
+	DeferCleanup(legacy.NewAfterAllProcessBody)
 	controller.NewAfterAllProcessBody()
-	legacy.NewAfterAllProcessBody()
 })

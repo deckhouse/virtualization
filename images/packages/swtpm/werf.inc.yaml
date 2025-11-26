@@ -35,7 +35,6 @@ altPackages:
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
 - libgnutls-openssl-devel
 - libfuse-devel
-- libseccomp-devel libseccomp
 - perl-podlators
 packages:
 - libgmp libtpms openssl libjson-glib
@@ -43,13 +42,14 @@ packages:
 - glib2 util-linux
 - gnutls
 - libunistring
+- libseccomp
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.10" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
