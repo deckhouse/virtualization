@@ -20,13 +20,13 @@ The module has no additional restrictions and is compatible with any hardware su
 
 ## Hardware and software requirements
 
-Hardware requirements for the virtualization module match the requirements for the [Deckhouse Kubernetes Platform](https://deckhouse.io/products/kubernetes-platform/gs/), with an additional requirement: CPU virtualization support on the hosts where virtual machines will be launched.
+Hardware requirements for the virtualization module match the requirements for the [Deckhouse Kubernetes Platform](/products/kubernetes-platform/guides/production.html#resource-requirements), with an additional requirement: CPU virtualization support on the hosts where virtual machines will be launched.
 
 ### Additional requirements for virtualization support
 
 On all cluster nodes where virtual machines are planned to be launched, hardware virtualization support must be provided:
 
-- Processor: Support for Intel-VT (VMX) or AMD-V (SVM) instructions;
+- CPU: Support for Intel-VT (VMX) or AMD-V (SVM) instructions.
 - BIOS/UEFI: Hardware virtualization support enabled in the BIOS/UEFI settings.
 
 {{< alert level="warning" >}}
@@ -57,7 +57,7 @@ For Windows family operating systems, the platform supports initialization with 
 
 ## Supported storage systems
 
-Virtual machine disks are created using `PersistentVolume` resources. To manage these resources and allocate disk space in the cluster, one or more supported storage systems must be deployed:
+Virtual machine disks are created using PersistentVolume resources. To manage these resources and allocate disk space in the cluster, one or more supported storage systems must be deployed:
 
 | Storage System            | Disk Location             |
 | ------------------------- | ------------------------- |

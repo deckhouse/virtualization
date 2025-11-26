@@ -623,7 +623,7 @@ VolumeBindingMode property:
 AccessMode:
 
 - `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)`: The disk can be accessed by only a single virtual machine instance. Live migration of virtual machines that use such disks is supported only in commercial editions. Live migration is available only if all disks are attached statically via `.spec.blockDeviceRefs`. Disks attached dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
+- `ReadWriteOnce (RWO)`: The disk can be accessed by only a single virtual machine instance. Live migration of virtual machines that use such disks is supported only in commercial editions. Live migration is available only if all disks are attached statically via `.spec.blockDeviceRefs`. Disks attached dynamically via VirtualMachineBlockDeviceAttachments must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -814,7 +814,7 @@ How to create a disk from an image in the web interface (this step can be skippe
 
 ### Upload a disk from the command line
 
-To upload a disk from the command line, first create the `VirtualDisk` resource as shown in the following example:
+To upload a disk from the command line, first create the VirtualDisk resource as shown in the following example:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -886,7 +886,7 @@ Let's apply the changes:
 ```bash
 d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 
-# or make similar changes by editing the resource
+# Alternatively, apply the changes by editing the resource.
 
 d8 k edit vd linux-vm-root
 ```
@@ -934,7 +934,7 @@ Limitations of disk migration between storage:
 - Migration is only available for virtual machines in the `Running` state.
 - Migration is only supported between disks of the same type: `Block` ↔ `Block`, `FileSystem` ↔ `FileSystem`; conversion between different types is not possible.
 - Migration is only supported for disks attached statically via the `.spec.blockDeviceRefs` parameter in the virtual machine specification.
-- If a disk was attached via the `VirtualMachineBlockDeviceAttachments` resource, it must be temporarily reattached directly for migration by specifying the disk name in `.spec.blockDeviceRefs`.
+- If a disk was attached via the VirtualMachineBlockDeviceAttachments resource, it must be temporarily reattached directly for migration by specifying the disk name in `.spec.blockDeviceRefs`.
 {{< /alert >}}
 
 Example of migrating a disk to the `new-storage-class-name` StorageClass:
@@ -942,7 +942,7 @@ Example of migrating a disk to the `new-storage-class-name` StorageClass:
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 
-# or make similar changes by editing the resource
+# Alternatively, apply the changes by editing the resource.
 
 d8 k edit vd disk
 ```
@@ -1333,7 +1333,7 @@ The following initialization scripts are supported:
 Cloud-Init is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
 
 {{< alert level="warning" >}}
-Cloud-Init configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the official Cloud-Init documentation.
+Cloud-Init configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the [official Cloud-Init documentation](https://cloudinit.readthedocs.io/en/latest/explanation/format.html#headers-and-content-types).
 {{< /alert >}}
 
 The main capabilities of Cloud-Init include:
@@ -1345,7 +1345,7 @@ The main capabilities of Cloud-Init include:
 
 ##### Typical usage scenarios
 
-1. Adding an SSH key for a [pre-installed user](#image-resources-table) that may already be present in the cloud image (for example, the `ubuntu` user in official Ubuntu images). Note: the name of such a user depends on the image, so check the documentation for your distribution.
+1. Adding an SSH key for a [pre-installed user](#image-resources-table) that may already be present in the cloud image (for example, the `ubuntu` user in official Ubuntu images). The name of such a user depends on the image. Check the documentation for your distribution.
 
    ```yaml
    #cloud-config
@@ -1368,7 +1368,7 @@ The main capabilities of Cloud-Init include:
    ssh_pwauth: True
    ```
 
-To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
+   To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
 
 1. Installing packages and services:
 
@@ -1693,7 +1693,7 @@ Apply the following patch to the virtual machine to change the number of cores f
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
 
-# or make similar changes by editing the resource
+# Alternatively, apply the changes by editing the resource.
 
 d8 k edit vm linux-vm
 ```
@@ -2372,11 +2372,11 @@ To migrate a virtual machine from one node to another while taking into account 
 d8 v evict -n <namespace> <vm-name> [--force]
 ```
 
-Running this command creates a `VirtualMachineOperations` resource.
+Running this command creates a VirtualMachineOperations resource.
 
 When used during virtual machine migration, the `--force` flag activates a special mechanism called AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) when it is necessary to speed up the completion of migration and help it complete successfully, even when the virtual machine memory transfer is too slow. Use this flag if a standard migration cannot complete due to high virtual machine activity.
 
-You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
+You can also start the migration by creating a VirtualMachineOperations (`vmop`) resource with the `Evict` type manually:
 
 ```yaml
 d8 k create -f - <<EOF
@@ -2410,7 +2410,7 @@ linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   7
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-You can interrupt any live migration while it is in the `Pending` or `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
+You can interrupt any live migration while it is in the `Pending` or `InProgress` phase by deleting the corresponding VirtualMachineOperations resource.
 
 How to perform a live VM migration in the web interface:
 
@@ -2436,7 +2436,7 @@ The AutoConverge mechanism works in two stages:
 
    Once the data transfer rate exceeds the memory change rate, final synchronization is started, and the virtual machine switches to the new node.
 
-To configure the migration policy, use the `.spec.liveMigrationPolicy` parameter in the virtual machine configuration. The following options are available:
+To configure the migration policy, use the [`.spec.liveMigrationPolicy`](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy) parameter in the virtual machine configuration. The following options are available:
 
 - `AlwaysSafe`: Migration is always performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximum virtual machine performance is important, but it requires high network bandwidth.
 - `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the VirtualMachineOperation resource with parameters `type=Evict` and `force=true`.
@@ -2484,17 +2484,17 @@ Migration can be performed automatically by the following system events:
 - Transferring a node into maintenance mode (Node drain).
 - When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
 
-The trigger for live migration is the appearance of the `VirtualMachineOperations` resource with the `Evict` type.
+The trigger for live migration is the appearance of the VirtualMachineOperations resource with the `Evict` type.
 
-The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
+The table shows the VirtualMachineOperations resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
 
 | Type of system event                 | Resource name prefix   |
 |--------------------------------------|------------------------|
-| Firmware update                      | firmware-update-*      |
-| Load redistribution in the cluster   | evacuation-*           |
-| Node drain                           | evacuation-*           |
-| VM placement settings change         | nodeplacement-update-* |
-| Disk storage migration               | volume-migration-*     |
+| Firmware update                      | `firmware-update-*`      |
+| Load redistribution in the cluster   | `evacuation-*`           |
+| Node drain                           | `evacuation-*`           |
+| VM placement settings change         | `nodeplacement-update-*` |
+| Disk storage migration               | `volume-migration-*`     |
 
 This resource can be in the following states:
 
@@ -2520,10 +2520,10 @@ To cancel the migration, delete the corresponding resource.
 
 How to view active operations in the web interface:
 
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- Go to the "Events" tab.
+1. Go to the "Projects" tab and select the desired project.
+1. Go to the "Virtualization" → "Virtual Machines" section.
+1. Select the required VM from the list and click on its name.
+1. Go to the "Events" tab.
 
 #### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
@@ -2645,7 +2645,7 @@ Remove the `.metadata.ownerReferences` blocks from the resource found:
 ```bash
 d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
 
-# or make similar changes by editing the resource
+# Alternatively, apply the changes by editing the resource.
 
 d8 k edit vmip linux-vm-7prpx
 ```
@@ -3070,16 +3070,16 @@ One of three modes can be used for the cloning operation:
 Information about conflicts that arose during cloning can be viewed in the operation resource status:
 
 ```bash
-# For cloning from an existing VM
+# For cloning from an existing VM.
 d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 
-# For cloning from a VM snapshot
+# For cloning from a VM snapshot.
 d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
 ```
 
 ## Creating a clone from an existing VM
 
-VM cloning is performed using the `VirtualMachineOperation` resource with the `Clone` operation type.
+VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
 
 {{< alert level="warning">}}
 Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
@@ -3090,7 +3090,7 @@ Before cloning, you need to prepare the guest OS to avoid conflicts with unique 
 
 Linux:
 
-- Clear the `machine-id`: `sudo truncate -s 0 /etc/machine-id` (for systemd) or delete the `/var/lib/dbus/machine-id` file.
+- Clear the `machine-id` using `sudo truncate -s 0 /etc/machine-id` (for systemd) or delete the `/var/lib/dbus/machine-id` file.
 - Remove SSH host keys: `sudo rm -f /etc/ssh/ssh_host_*`.
 - Clear network interface configuration (if static settings are used).
 - Clear the Cloud-Init cache (if used): `sudo cloud-init clean`.
@@ -3123,7 +3123,7 @@ During cloning, temporary snapshots are automatically created for the virtual ma
 
 ## Creating a clone from a VM snapshot
 
-Cloning a VM from a snapshot is performed using the `VirtualMachineSnapshotOperation` resource with the `CreateVirtualMachine` operation type.
+Cloning a VM from a snapshot is performed using the VirtualMachineSnapshotOperation resource with the `CreateVirtualMachine` operation type.
 
 Example of creating a VM clone from a snapshot:
 
@@ -3149,7 +3149,7 @@ When cloning a VM from a snapshot, the disks associated with it are also created
 
 ## Data export
 
-You can export virtual machine disks and disk snapshots using the `d8` utility (version 0.20.7 and above). For this function to work, the module [storage-volume-data-manager](/modules/storage-volume-data-manager/) must be enabled.
+You can export virtual machine disks and disk snapshots using the `d8` utility (version 0.20.7 and above). For this function to work, the module [`storage-volume-data-manager`](/modules/storage-volume-data-manager/) must be enabled.
 
 {{< alert level="warning" >}}
 The disk must not be in use at the time of export. If it is attached to a VM, that VM must be stopped first.

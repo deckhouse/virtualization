@@ -69,7 +69,7 @@ When you change the DVCR StorageClass, all images stored in DVCR will be lost.
 
 To change the DVCR StorageClass, perform the following steps:
 
-1. Change the value of the `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` parameter.
+1. Change the value of the [`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`](/modules/virtualization/configuration.html#parameters-dvcr-storage-persistentvolumeclaim-storageclassname) parameter.
 
 1. Delete the old PVC for DVCR using the following command:
 
@@ -441,7 +441,7 @@ How to perform the operation in the web interface:
 
 ### Cleaning up image storage
 
-Over time, the creation and deletion of `ClusterVirtualImage`, `VirtualImage`, and `VirtualDisk` resources leads to the accumulation
+Over time, the creation and deletion of ClusterVirtualImage, VirtualImage, and VirtualDisk resources leads to the accumulation
 of outdated images in the intra-cluster storage. Scheduled garbage collection is implemented to keep the storage up to 
 date, but this feature is disabled by default.
 
@@ -1044,7 +1044,7 @@ Live migration of virtual machines between cluster nodes is used for rebalancing
 After the module is enabled, the system automatically monitors the distribution of virtual machines and maintains optimal node utilization. The main features of the module are:
 
 - Load balancing: The system monitors CPU reservation on each node. If more than 80% of CPU resources are reserved on a node, some virtual machines will be automatically migrated to less-loaded nodes. This helps avoid overloads and ensures stable VM operation.
-- Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.ple, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
+- Correct placement: The system checks whether the current node meets the mandatory requirements of the virtual machine's requests, as well as rules regarding their relative placement. For example, if rules prohibit placing certain VMs on the same node, the module will automatically move them to a suitable server.
 
 ### ColdStandby
 
