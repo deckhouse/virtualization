@@ -1,0 +1,40 @@
+{{ range .Values.instances.additionalNodes }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: DVPInstanceClass
+metadata:
+  name: {{ .name }}
+spec:
+  virtualMachine:
+    virtualMachineClassName: "{{ $.Values.namespace }}-cpu"
+    cpu:
+      cores: {{ .cores }}
+      coreFraction: {{ .coreFraction }}
+    memory:
+      size: {{ .memory }}
+    bootloader: {{ $.Values.image.bootloader }}
+  rootDisk:
+    size: 50Gi
+    storageClass: {{ $.Values.storageClass }}
+    image:
+      kind: VirtualImage
+      name: image
+---
+apiVersion: deckhouse.io/v1
+kind: NodeGroup
+metadata:
+  name: {{ .name }}
+spec:
+{{- if eq .name "system" }}
+  nodeTemplate:
+    labels:
+      node-role.deckhouse.io/system: ""
+{{- end }}
+  nodeType: {{ .nodeType | default "CloudEphemeral" }}
+  cloudInstances:
+    minPerZone: {{ .count }}
+    maxPerZone: {{ .count }}
+    classReference:
+      kind: DVPInstanceClass
+      name: {{ .name }}
+{{ end }}
