@@ -101,9 +101,9 @@ jobs:
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
         with:
-          method: service-account
-          k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
       
       - name: Test after azure/k8s-set-context@v4
         run: |
