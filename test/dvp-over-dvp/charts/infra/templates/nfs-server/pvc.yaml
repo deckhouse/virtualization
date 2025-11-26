@@ -1,3 +1,4 @@
+{{ if .Values.nfsEnabled }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -9,5 +10,6 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 50Gi
+      storage: 10Gi
   storageClassName: {{ .Values.storageClass }}
+{{ end }}

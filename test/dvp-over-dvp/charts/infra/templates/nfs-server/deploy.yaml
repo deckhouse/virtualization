@@ -1,3 +1,4 @@
+{{ if .Values.nfsEnabled }}
 ---
 kind: Deployment
 apiVersion: apps/v1
@@ -40,3 +41,4 @@ spec:
       - name: nfs-data
         persistentVolumeClaim:
           claimName: nfs-data
+{{ end }}
