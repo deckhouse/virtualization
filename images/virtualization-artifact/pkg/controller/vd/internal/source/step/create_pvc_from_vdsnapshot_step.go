@@ -137,7 +137,12 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *v1alpha2.Virt
 	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
 	vdsupplements.SetPVCName(vd, pvc.Name)
 
-	return nil, common_vdsnapshot.AddOriginalMetadata(vd, vs)
+	err = common_vdsnapshot.AddOriginalMetadata(vd, vs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add original metadata: %w", err)
+	}
+
+	return nil, nil
 }
 
 func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
