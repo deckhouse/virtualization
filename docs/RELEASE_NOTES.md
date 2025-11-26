@@ -3,6 +3,41 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.2.0
+
+### New features
+
+- [vmrestore] The `VirtualMachineRestore` resource is marked as deprecated. Use the following resources instead:
+  - `VirtualMachineOperation` with type `Clone` - for cloning an existing virtual machine;
+  - `VirtualMachineOperation` with type `Restore` - for restoring an existing virtual machine to a state from a snapshot;
+  - `VirtualMachineSnapshotOperation` - for creating a new virtual machine based on a snapshot.
+- [vmsop] Added the `VirtualMachineSnapshotOperations` resource for creating a virtual machine based on a `VirtualMachineSnapshot` snapshot.
+- [vmclass] For the `VirtualMachineClass` resource, version v1alpha2 is marked as deprecated. It is recommended to use version v1alpha3 instead:
+  - in version v1alpha3, the `.spec.sizingPolicies.coreFraction` field is now set as a string with a percentage (e.g., "50%"), similar to the field in a virtual machine.
+- [module] Added validation for the virtualization ModuleConfig that prohibits reducing the size and changing the selected storage class for dvcr.
+- [module] Improved audit events by using more informative messages that include virtual machine names and user information.
+- [module] Added the ability to schedule garbage collection for dvcr:
+  - by default, this feature is disabled;
+  - to enable cleanup, you need to set a schedule in the module settings: `.spec.settings.dvcr.gc.schedule`.
+- [vmbda] Added detailed error output in the `Attached` condition of the `VirtualMachineBlockDeviceAttachment` resource when a block device is unavailable on the virtual machine node.
+- [module] Added new metrics for disks:
+  - `d8_virtualization_virtualdisk_capacity_bytes` - a metric showing the disk size;
+  - `d8_virtualization_virtualdisk_info` - a metric with information about the disk configuration;
+  - `d8_virtualization_virtualdisk_status_inuse` - a metric showing the current use of the disk by a virtual machine or for creating other block devices.
+
+### Fixes
+
+- [vmclass] Added the ability to modify or delete the generic `VirtualMachineClass`. The virtualization module will no longer restore it to its original state.
+- [vm] Fixed the MethodNotAllowed error for patch and watch operations when querying the `VirtualMachineClass` resource via command-line utilities (d8 k, kubectl).
+- [image] Fixed the inability to delete `VirtualImage` and `ClusterVirtualImage` resources for a stopped virtual machine.
+- [module] Fixed rbac for cluster roles user and editor.
+- [module] Fixed the `D8VirtualizationVirtualMachineFirmwareOutOfDate` alert, which could be duplicated when virtualization runs in HA mode.
+- [snapshot] Fixed an error that could lead to inconsistency of `VirtualMachineSnapshot` and `VirtualDiskSnapshot` resources when creating a snapshot of a virtual machine with multiple disks.
+
+### Security
+
+- [module] Fixed vulnerability CVE-2025-64324
+
 ## v1.1.3
 
 ### Security
@@ -12,7 +47,6 @@ weight: 70
 ### Other
 
 - [observability] The virtual machine overview dashboards (`Namespace / Virtual Machine` and `Namespace / Virtual Machines`) have been improved: in addition to the cluster level, they are now also available at the project level.
-
 
 ## v1.1.2
 
