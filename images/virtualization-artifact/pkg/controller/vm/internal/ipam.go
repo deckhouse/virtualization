@@ -114,7 +114,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 							Reason(vmcondition.ReasonIPAddressNotAssigned).
 							Message(msg).
 							Condition())
-						log.Error(msg)
+						log.Warn(msg)
 					}
 					break
 				}

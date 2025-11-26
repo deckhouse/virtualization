@@ -10,6 +10,7 @@ properties:
       By default, Deckhouse automatically decides whether to enable the HA mode. Click [here](../../deckhouse-configure-global.html#parameters) to learn more about the HA mode for modules.
   virtualMachineCIDRs:
     type: array
+    minItems: 1
     description: |
       List of CIDRs used to allocate static IP addresses for Virtual Machines.
 

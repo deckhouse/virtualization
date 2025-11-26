@@ -53,7 +53,3 @@ linters-settings:
           - tools/addlicense/testdata
           - test/performance/ssh
           - test/e2e/legacy/testdata/sshkeys
-  images:
-    # CDI patches are soon to be phased out by moving them to 3p repo
-    patches:
-      disable: true
