@@ -148,7 +148,7 @@ tasks:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
     cmds:
       - |
-        docker run --pull=always -it \
+        docker run --pull=always \
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
         dev-registry.deckhouse.io/sys/deckhouse-oss/install:main \
