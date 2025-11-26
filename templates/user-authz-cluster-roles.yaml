@@ -15,7 +15,7 @@ rules:
   - virtualmachinerestores
   - clustervirtualimages
   - virtualdisks
-  - virtualdisksnapshot
+  - virtualdisksnapshots
   - virtualimages
   - virtualmachineblockdeviceattachments
   - virtualmachineipaddresses
