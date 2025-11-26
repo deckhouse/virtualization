@@ -14,21 +14,104 @@
 
 name: E2E Matrix Tests (bootstrap)
 
+env:
+  BRANCH: main
+  VIRTUALIZATION_TAG: main
+  DECKHOUSE_TAG: main
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
       - main
-      - feat/ci-e2e-matrix
-  workflow_dispatch:
+      - feat/ci/nightly-e2e-test-nested-env
 
-permissions:
-  contents: read
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  noop:
-    name: Bootstrap
+  bootstrap:
+    name: Bootstrap cluster
     runs-on: ubuntu-latest
     steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+      - uses: actions/checkout@v4
+        # with:
+        #   ref: ${{ env.BRANCH }}
+
+      - name: Set outputs
+        id: vars
+        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Install htpasswd utility
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apache2-utils
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+
+      - name: Generate values.yaml
+        run: |
+          cat <<EOF > test/dvp-over-dvp/values.yaml
+          namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          clusterConfigurationPrefix: tst-dhctl
+          sa: dkp-sa
+          deckhouse:
+            tag: ${{ env.DECKHOUSE_TAG }}
+            kubernetesVersion: Automatic
+            registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+          virtualization:
+            tag: ${{ env.VIRTUALIZATION_TAG }}
+          image:
+            url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+            defaultUser: ubuntu
+            bootloader: BIOS
+          ingressHosts:
+            - api
+            - grafana
+            - dex
+            - prometheus
+            - console
+            - virtualization
+          instances:
+            masterNodes:
+              count: 1
+              cores: 4
+              coreFraction: 50%
+              memory: 14Gi
+            additionalNodes:
+              - name: worker
+                count: 3
+                cores: 4
+                coreFraction: 25%
+                memory: 8Gi
+                nodeType: CloudEphemeral
+          EOF
+
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: service-account
+          k8s-url: https://api.e2e.virtlab.flant.com
+          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+
+      - name: Bootstrap cluster
+        run: |
+          cd test/dvp-over-dvp
+          task install
+
+      - name: Show nodes (test)
+        run: |
+          cd test/dvp-over-dvp
+          task kubectl -- get pods
+      - name: Show nodes (test)
+        if: ${{ always() }}
+        run: |
+          cd test/dvp-over-dvp
+          task infra-undeploy

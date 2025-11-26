@@ -1,0 +1,42 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: nfs-server
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-server
+  template:
+    metadata:
+      name: nfs-server
+      labels:
+        app: nfs-server
+    spec:
+      nodeSelector:
+        "kubernetes.io/os": linux
+      containers:
+        - name: nfs-server
+          image: itsthenetwork/nfs-server-alpine:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SHARED_DIRECTORY
+              value: "/exports"
+          volumeMounts:
+            - mountPath: /exports
+              name: nfs-data
+          ports:
+            - name: tcp-2049
+              containerPort: 2049
+              protocol: TCP
+            - name: udp-111
+              containerPort: 111
+              protocol: UDP
+          securityContext:
+            privileged: true
+      volumes:
+      - name: nfs-data
+        persistentVolumeClaim:
+          claimName: nfs-data
