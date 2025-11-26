@@ -57,6 +57,10 @@ on:
         default: true
         description: "Set to true if build is required"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   print-vars:
     runs-on: [self-hosted, large]
@@ -92,9 +96,19 @@ jobs:
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
+      - name: Validation for tag
+        run: |
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+.*$'
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get specified tag
+        run: git fetch --tags
+
+      - name: Checkout specified tag
+        run: git checkout tags/${{ github.event.inputs.tag }}
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -150,9 +164,18 @@ jobs:
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
+      - name: Validation for tag
+        run: |
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+.*$'
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get specified tag
+        run: git fetch --tags
+
+      - name: Checkout specified tag
+        run: git checkout tags/${{ github.event.inputs.tag }}
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -214,9 +237,19 @@ jobs:
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
+      - name: Validation for tag
+        run: |
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+.*$'
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get specified tag
+        run: git fetch --tags
+
+      - name: Checkout specified tag
+        run: git checkout tags/${{ github.event.inputs.tag }}
+  
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -274,11 +307,16 @@ jobs:
           echo $MODULES_MODULE_SOURCE
       - name: Validation for tag
         run: |
-          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+'
-        shell: bash
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+.*$'
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Get specified tag
+        run: git fetch --tags
+
+      - name: Checkout specified tag
+        run: git checkout tags/${{ github.event.inputs.tag }}
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
