@@ -342,7 +342,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 		}
 
 		var (
-			labels         map[string]string
+			labelsMap      map[string]string
 			annotationsMap map[string]string
 		)
 
@@ -358,17 +358,17 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			}
 
 			if vs != nil && vs.Annotations != nil {
-				if labelsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]; labelsJSON != "" {
-					var originalLabels map[string]string
-					if err := json.Unmarshal([]byte(labelsJSON), &originalLabels); err == nil {
-						labels = originalLabels
+				if vs.Annotations[annotations.AnnVirtualDiskOriginalLabels] != "" {
+					err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]), &labelsMap)
+					if err != nil {
+						return nil, fmt.Errorf("failed to unmarshal the original labels: %w", err)
 					}
 				}
 
-				if annotationsJSON := vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]; annotationsJSON != "" {
-					var originalAnnotations map[string]string
-					if err := json.Unmarshal([]byte(annotationsJSON), &originalAnnotations); err == nil {
-						annotationsMap = originalAnnotations
+				if vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations] != "" {
+					err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]), &annotationsMap)
+					if err != nil {
+						return nil, fmt.Errorf("failed to unmarshal the original annotations: %w", err)
 					}
 				}
 			}
@@ -382,7 +382,7 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        vdSnapshot.Spec.VirtualDiskName,
 				Namespace:   vdSnapshot.Namespace,
-				Labels:      labels,
+				Labels:      labelsMap,
 				Annotations: annotationsMap,
 			},
 			Spec: v1alpha2.VirtualDiskSpec{
