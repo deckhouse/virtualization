@@ -197,10 +197,10 @@ func (t *sizingPolicyTest) GenerateSizingPolicyResources(vmClassName, vmClassNam
 					},
 					Memory: &v1alpha3.SizingPolicyMemory{
 						MemoryMinMax: v1alpha3.MemoryMinMax{
-							Min: resource.MustParse("1Gi"),
-							Max: resource.MustParse("8Gi"),
+							Min: ptr.To(resource.MustParse("1Gi")),
+							Max: ptr.To(resource.MustParse("8Gi")),
 						},
-						Step: resource.MustParse("512Mi"),
+						Step: ptr.To(resource.MustParse("512Mi")),
 					},
 					CoreFractions: []v1alpha3.CoreFractionValue{
 						"5%",

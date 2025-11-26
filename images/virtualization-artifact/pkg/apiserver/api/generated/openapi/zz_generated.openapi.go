@@ -410,7 +410,6 @@ func schema_virtualization_api_core_v1alpha3_SizingPolicyMemory(ref common.Refer
 					"perCore": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Amount of memory per CPU core.",
-							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha3.SizingPolicyMemoryPerCore"),
 						},
 					},
