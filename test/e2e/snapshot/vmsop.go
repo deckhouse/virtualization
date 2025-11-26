@@ -38,8 +38,6 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-const prefix = "vmsop-create-vm-"
-
 var _ = Describe("VMSOPCreateVirtualMachine", Ordered, func() {
 	var (
 		vd         *v1alpha2.VirtualDisk
