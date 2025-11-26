@@ -39,6 +39,9 @@ properties:
             type: string
           serviceIP:
             type: string
+          garbageCollectionModeEnabled:
+            type: string
+            default: ""
       controller:
         type: object
         default: {}
@@ -138,9 +141,6 @@ properties:
             type: object
             default: {}
             properties:
-              garbageCollectionModeEnabled:
-                type: string
-                default: ""
               storage:
                 type: object
                 default: {}
