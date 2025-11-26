@@ -1,5 +1,5 @@
 {{- if eq (include "dvcr.isEnabled" . ) "true"}}
-{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 {{- $storageClassName := dig "storageClassName" "" .Values.virtualization.internal.moduleConfig.dvcr.storage.persistentVolumeClaim }}
 kind: PersistentVolumeClaim
 apiVersion: v1

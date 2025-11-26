@@ -27,10 +27,10 @@ true
       name: dvcr-secrets
       key: salt
 
-{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
   value: "/var/lib/registry"
-{{- else if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "ObjectStorage" }}
+{{- else if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "ObjectStorage" }}
   {{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.objectStorage.type "S3" }}
 - name: REGISTRY_STORAGE_S3_REGION
   value: "{{ .Values.virtualization.internal.moduleConfig.dvcr.storage.objectStorage.s3.region }}"
@@ -53,7 +53,7 @@ true
 {{- end }}
 
 {{- define "dvcr.envs.garbageCollection" -}}
-{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
   value: "/var/lib/registry"
 {{- end }}
@@ -64,7 +64,7 @@ true
 - name: "dvcr-config"
   mountPath: "/etc/docker/registry"
 
-{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 - name: data
   mountPath: /var/lib/registry/
 {{- end }}
@@ -82,7 +82,7 @@ true
 {{- define "dvcr.volumeMounts.garbageCollection" -}}
 - name: "dvcr-config"
   mountPath: "/etc/docker/registry"
-{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 - name: data
   mountPath: /var/lib/registry/
 {{- end }}
@@ -94,7 +94,7 @@ true
   configMap:
     name: dvcr-config
 
-{{- if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 - name: data
   persistentVolumeClaim:
     claimName: dvcr
@@ -118,18 +118,18 @@ true
 replicas: 1
 strategy:
   type: Recreate
-{{- else if and (include "helm_lib_ha_enabled" .) (eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "ObjectStorage") }}
+{{- else if and (include "helm_lib_ha_enabled" .) (eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "ObjectStorage") }}
 replicas: 2
 strategy:
   type: RollingUpdate
   rollingUpdate:
     maxSurge: 0
     maxUnavailable: 1
-{{- else if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "ObjectStorage" }}
+{{- else if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "ObjectStorage" }}
 replicas: 1
 strategy:
   type: RollingUpdate
-{{- else if eq .Values.virtualization.internal.moduleConfig.dvcr.storage.type "PersistentVolumeClaim" }}
+{{- else if eq (.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "PersistentVolumeClaim" }}
 replicas: 1
 strategy:
   type: Recreate
@@ -140,7 +140,7 @@ strategy:
   {{- $context := index . 0 -}}
   {{- $yes := index . 1 -}}
   {{- $no  := index . 2 -}}
-  {{- if and (include "helm_lib_ha_enabled" $context) (eq $context.Values.virtualization.internal.moduleConfig.dvcr.storage.type "ObjectStorage") }}
+  {{- if and (include "helm_lib_ha_enabled" $context) (eq ($context.Values.virtualization.internal.moduleConfig | dig "dvcr" "storage" "type" "") "ObjectStorage") }}
     {{- $yes -}}
   {{- else }}
     {{- $no -}}
