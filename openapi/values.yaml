@@ -136,54 +136,6 @@ properties:
       moduleConfig:
         type: object
         additionalProperties: true
-        properties:
-          dvcr:
-            type: object
-            default: {}
-            properties:
-              storage:
-                type: object
-                default: {}
-                properties:
-                  type:
-                    type: string
-                    default: ""
-                  persistentVolumeClaim:
-                    type: object
-                    default: {}
-                    properties:
-                      storageClassName:
-                        type: string
-                        default: ""
-                      size:
-                        type: string
-                        default: ""
-                  objectStorage:
-                    type: object
-                    default: {}
-                    properties:
-                      type:
-                        type: string
-                        default: ""
-                      s3:
-                        type: object
-                        default: {}
-                        properties:
-                          accessKey:
-                            type: string
-                            default: ""
-                          secretKey:
-                            type: string
-                            default: ""
-                          region:
-                            type: string
-                            default: ""
-                          regionEndpoint:
-                            type: string
-                            default: ""
-                          bucket:
-                            type: string
-                            default: ""
       moduleConfigValidation:
         type: object
         properties:
