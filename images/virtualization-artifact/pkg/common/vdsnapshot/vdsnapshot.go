@@ -61,7 +61,7 @@ func AddOriginalMetadata(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) erro
 		if vd.Annotations == nil {
 			vd.Annotations = make(map[string]string)
 		}
-		for key, value := range labelsMap {
+		for key, value := range annotationsMap {
 			if _, exists := vd.Annotations[key]; !exists {
 				vd.Annotations[key] = value
 			}
