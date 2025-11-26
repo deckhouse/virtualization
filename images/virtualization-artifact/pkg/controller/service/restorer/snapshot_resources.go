@@ -18,7 +18,6 @@ package restorer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -29,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	common_vdsnapshot "github.com/deckhouse/virtualization-controller/pkg/common/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -341,49 +340,14 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			return nil, fmt.Errorf("the virtual disk snapshot %q %w", vdSnapshotName, common.ErrVirtualDiskSnapshotNotFound)
 		}
 
-		var (
-			labelsMap      map[string]string
-			annotationsMap map[string]string
-		)
-
-		if vdSnapshot.Status.VolumeSnapshotName != "" {
-			vsKey := types.NamespacedName{
-				Namespace: vdSnapshot.Namespace,
-				Name:      vdSnapshot.Status.VolumeSnapshotName,
-			}
-
-			vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
-			}
-
-			if vs != nil && vs.Annotations != nil {
-				if vs.Annotations[annotations.AnnVirtualDiskOriginalLabels] != "" {
-					err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]), &labelsMap)
-					if err != nil {
-						return nil, fmt.Errorf("failed to unmarshal the original labels: %w", err)
-					}
-				}
-
-				if vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations] != "" {
-					err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]), &annotationsMap)
-					if err != nil {
-						return nil, fmt.Errorf("failed to unmarshal the original annotations: %w", err)
-					}
-				}
-			}
-		}
-
 		vd := v1alpha2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       v1alpha2.VirtualDiskKind,
 				APIVersion: v1alpha2.Version,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        vdSnapshot.Spec.VirtualDiskName,
-				Namespace:   vdSnapshot.Namespace,
-				Labels:      labelsMap,
-				Annotations: annotationsMap,
+				Name:      vdSnapshot.Spec.VirtualDiskName,
+				Namespace: vdSnapshot.Namespace,
 			},
 			Spec: v1alpha2.VirtualDiskSpec{
 				DataSource: &v1alpha2.VirtualDiskDataSource{
@@ -399,6 +363,25 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 					{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
 				},
 			},
+		}
+
+		if vdSnapshot.Status.VolumeSnapshotName != "" {
+			vsKey := types.NamespacedName{
+				Namespace: vdSnapshot.Namespace,
+				Name:      vdSnapshot.Status.VolumeSnapshotName,
+			}
+
+			vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch the volume snapshot %q: %w", vsKey.Name, err)
+			}
+
+			if vs != nil && vs.Annotations != nil {
+				err := common_vdsnapshot.AddOriginalMetadata(&vd, vs)
+				if err != nil {
+					return nil, fmt.Errorf("failed to add original metadata: %w", err)
+				}
+			}
 		}
 
 		vds = append(vds, &vd)
