@@ -354,6 +354,9 @@ jobs:
       - job-FE
       - job-CE
     if: ${{ always() && needs.job-CE.result != 'failure' && needs.job-EE.result != 'failure' && needs.job-SE-Plus.result != 'failure' && needs.job-FE.result != 'failure' }}
+    strategy:
+      matrix:
+        check: ["registry", "releases", "documentation"]
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
@@ -370,8 +373,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Check release channel
+      - name: Check version via registry
+        if: ${{ matrix.check == 'registry' }}
         run: |
           EDITIONS=("ee" "fe" "ce" "se-plus")
           PROD_REGISTRY="registry.deckhouse.io/deckhouse"
@@ -387,6 +390,20 @@ jobs:
             fi
           done
 
+      - name: Check version on site ${{ matrix.check }}
+        if: ${{ matrix.check == 'releases' }}
+        run: |
+          echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+          sleep 300
+
+          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          CHANNEL=${{ github.event.inputs.channel }} \
+          VERSION=${{ github.event.inputs.tag }} \
+          COUNT=5 \
+          task -d tools/moduleversions go:run
+      - name: Check version on site ${{ matrix.check }}
+        if: ${{ matrix.check == 'documentation' }}
+        run: |
           echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
           sleep 300
 
