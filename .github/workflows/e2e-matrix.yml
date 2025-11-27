@@ -127,6 +127,8 @@ jobs:
           cd test/dvp-over-dvp
           task install
       
+      - name: Chmod attach-vmbda.sh
+        run: chmod +x test/dvp-over-dvp/vmbda/attach-vmbda.sh
       - name: Create vmbda for workers
         run: |
           echo "=== $(pwd) ==="

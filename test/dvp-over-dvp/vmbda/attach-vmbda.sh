@@ -23,6 +23,9 @@ create_vd() {
   local name=$1
   local size=$2
   local storageClass=$3
+
+  echo "Create vd ${name}"
+
   kubectl apply -f - <<EOF
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -43,6 +46,9 @@ create_vmbda() {
   local name=$1
   local vm=$2
   local vd=$3
+
+  echo "Create vmbda ${name}"
+  
   kubectl apply -f - <<EOF
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
