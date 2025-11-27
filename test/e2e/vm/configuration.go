@@ -25,7 +25,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -88,9 +87,7 @@ var _ = Describe("VirtualMachineConfiguration", func() {
 		err = f.Clients.GenericClient().Update(context.Background(), t.VM)
 		Expect(err).NotTo(HaveOccurred())
 
-		t.CheckRestartAwaitingChanges(t.VM)
-
-		if t.VM.Spec.Disruptions.RestartApprovalMode == v1alpha2.Manual {
+		if util.IsRestartRequired(t.VM, 3*time.Second) {
 			util.RebootVirtualMachineBySSH(f, t.VM)
 		}
 
@@ -156,19 +153,4 @@ func (t *configurationTest) GenerateResources(restartApprovalMode v1alpha2.Resta
 		),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 	)
-}
-
-func (t *configurationTest) CheckRestartAwaitingChanges(vm *v1alpha2.VirtualMachine) {
-	if vm.Spec.Disruptions.RestartApprovalMode != v1alpha2.Manual {
-		return
-	}
-
-	// Avoid race conditions during the calculation of the "need restart" condition.
-	Eventually(func(g Gomega) {
-		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-		g.Expect(err).NotTo(HaveOccurred())
-		needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, t.VM.Status.Conditions)
-		g.Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
-		g.Expect(t.VM.Status.RestartAwaitingChanges).NotTo(BeNil())
-	}).WithTimeout(3 * time.Second).WithPolling(time.Second).Should(Succeed())
 }

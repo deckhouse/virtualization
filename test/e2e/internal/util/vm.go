@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -147,4 +148,22 @@ func IsVDAttached(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
 		}
 	}
 	return false
+}
+
+func IsRestartRequired(vm *v1alpha2.VirtualMachine, timeout time.Duration) bool {
+	GinkgoHelper()
+
+	if vm.Spec.Disruptions.RestartApprovalMode != v1alpha2.Manual {
+		return false
+	}
+
+	Eventually(func(g Gomega) {
+		err := framework.GetClients().GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+		g.Expect(err).NotTo(HaveOccurred())
+		needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+		g.Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
+		g.Expect(vm.Status.RestartAwaitingChanges).NotTo(BeNil())
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+
+	return true
 }
