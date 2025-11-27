@@ -133,6 +133,8 @@ jobs:
           cd test/dvp-over-dvp
           echo "after [cd]"
           echo "=== $(pwd) ==="
+          ls -la 
+          ls -la vmbda
           chmod +x vmbda/attach-vmbda.sh
           
           echo "Try create vmbda for workers"

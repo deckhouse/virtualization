@@ -24,6 +24,7 @@ create_vd() {
   local size=$2
   local storageClass=$3
   kubectl apply -f - <<EOF
+---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
 metadata:
@@ -43,6 +44,7 @@ create_vmbda() {
   local vm=$2
   local vd=$3
   kubectl apply -f - <<EOF
+---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineBlockDeviceAttachment
 metadata:
