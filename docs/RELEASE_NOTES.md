@@ -16,7 +16,7 @@ weight: 70
   - In version `v1alpha3`, the `.spec.sizingPolicies.coreFraction` field is now a string with a percentage (for example, "50%"), similar to the field in a virtual machine.
 - [module] Added validation for the virtualization ModuleConfig that prevents decreasing the DVCR storage size and changing its StorageClass.
 - [module] Improved audit events by using more informative messages that include virtual machine names and user information.
-- [module] Added the ability to schedule DVCR garbage collection:
+- [module] Added the ability to clean up DVCR from non-existent project and cluster images:
   - By default, this feature is disabled.
   - To enable cleanup, set a schedule in the module settings: `.spec.settings.dvcr.gc.schedule`.
 - [vmbda] Added detailed error output in the `Attached` condition of the `VirtualMachineBlockDeviceAttachment` resource when a block device is unavailable on the virtual machine node.
