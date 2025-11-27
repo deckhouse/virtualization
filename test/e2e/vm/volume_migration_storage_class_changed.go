@@ -26,50 +26,43 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
+	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
 )
 
-var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
+// Ordered is required due to concurrent migration limitations in the cluster to prevent test interference.
+// ContinueOnFailure ensures all independent tests run even if one fails.
+var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func() {
 	var (
-		f                = framework.NewFramework("volume-migration-storage-class-changed")
-		storageClass     *storagev1.StorageClass
-		vi               *v1alpha2.VirtualImage
-		nextStorageClass string
+		f                      = framework.NewFramework("volume-migration-storage-class-changed")
+		storageClass           *storagev1.StorageClass
+		vi                     *v1alpha2.VirtualImage
+		targetStorageClassName string
 	)
 
 	BeforeEach(func() {
-		// TODO: Remove Skip after fixing the issue.
-		Skip("This test case is not working everytime. Should be fixed.")
-
 		storageClass = framework.GetConfig().StorageClass.TemplateStorageClass
 		if storageClass == nil {
 			Skip("TemplateStorageClass is not set.")
 		}
-
-		scList, err := f.KubeClient().StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+		targetStorageClass, err := getTargetStorageClass(f, storageClass)
 		Expect(err).NotTo(HaveOccurred())
 
-		for _, sc := range scList.Items {
-			if sc.Name == storageClass.Name {
-				continue
-			}
-			if sc.VolumeBindingMode != nil && *sc.VolumeBindingMode == storagev1.VolumeBindingWaitForFirstConsumer {
-				nextStorageClass = sc.Name
-				break
-			}
-		}
-
-		if nextStorageClass == "" {
+		if targetStorageClass == "" {
 			Skip("No available storage class for test")
 		}
+		targetStorageClassName = targetStorageClass
 
 		f.Before()
 
@@ -136,7 +129,7 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Patch VD with new storage class")
-		err = PatchStorageClassName(context.Background(), f, nextStorageClass, vdsForMigration...)
+		err = patchStorageClassName(context.Background(), f, targetStorageClassName, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Wait until VM migration succeeded")
@@ -151,7 +144,7 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 			pvc, err := f.KubeClient().CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), migratedVD.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(pvc.Spec.StorageClassName).NotTo(BeNil())
-			Expect(*pvc.Spec.StorageClassName).To(Equal(nextStorageClass))
+			Expect(*pvc.Spec.StorageClassName).To(Equal(targetStorageClassName))
 			Expect(pvc.Status.Phase).To(Equal(corev1.ClaimBound))
 		}
 	},
@@ -185,7 +178,7 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 		util.UntilVMAgentReady(crclient.ObjectKeyFromObject(vm), framework.LongTimeout)
 
 		By("Patch VD with new storage class")
-		err = PatchStorageClassName(context.Background(), f, nextStorageClass, vdsForMigration...)
+		err = patchStorageClassName(context.Background(), f, targetStorageClassName, vdsForMigration...)
 		Expect(err).NotTo(HaveOccurred())
 
 		Eventually(func() error {
@@ -201,7 +194,7 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 			}
 
 			// revert migration
-			err = PatchStorageClassName(context.Background(), f, storageClass.Name, vdsForMigration...)
+			err = patchStorageClassName(context.Background(), f, storageClass.Name, vdsForMigration...)
 			Expect(err).NotTo(HaveOccurred())
 
 			return nil
@@ -211,7 +204,7 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 	},
 		Entry("when only root disk changed storage class", storageClassMigrationRootOnlyBuild, vdRootName),
 		Entry("when root disk changed storage class and one local additional disk", storageClassMigrationRootAndLocalAdditionalBuild, vdRootName),
-		Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName), // TODO:fixme
+		Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName),
 		Entry("when only additional disk changed storage class", storageClassMigrationAdditionalOnlyBuild, vdAdditionalName),
 	)
 
@@ -234,12 +227,12 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 		vdForMigration, err := f.VirtClient().VirtualDisks(ns).Get(context.Background(), vdRootName, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 
-		toStorageClasses := []string{nextStorageClass, storageClass.Name}
+		toStorageClasses := []string{targetStorageClassName, storageClass.Name}
 
 		for _, sc := range toStorageClasses {
 			By(fmt.Sprintf("Patch VD %s with new storage class %s", vdForMigration.Name, sc))
 
-			err = PatchStorageClassName(context.Background(), f, sc, vdForMigration)
+			err = patchStorageClassName(context.Background(), f, sc, vdForMigration)
 			Expect(err).NotTo(HaveOccurred())
 
 			Eventually(func() error {
@@ -288,7 +281,46 @@ var _ = Describe("StorageClassMigration", Ordered, ContinueOnFailure, func() {
 	})
 })
 
-func PatchStorageClassName(ctx context.Context, f *framework.Framework, scName string, vds ...*v1alpha2.VirtualDisk) error {
+func getTargetStorageClass(f *framework.Framework, storageClass *storagev1.StorageClass) (string, error) {
+	// GetVolumeAndAccessModes needs no nil object.
+	notEmptyVD := &v1alpha2.VirtualDisk{}
+	modeGetter := volumemode.NewVolumeAndAccessModesGetter(f.Clients.GenericClient(), getStorageProfile(f))
+
+	volumeMode, _, err := modeGetter.GetVolumeAndAccessModes(context.Background(), notEmptyVD, storageClass)
+	if err != nil {
+		return "", err
+	}
+
+	scList, err := f.KubeClient().StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	for _, sc := range scList.Items {
+		if sc.Name == storageClass.Name {
+			continue
+		}
+		// TODO: Add support for storage classes using the local volume provisioner.
+		// Temporarily disabled because the storage layer itself has stability problems.
+		if sc.Provisioner == "local.csi.storage.deckhouse.io" {
+			GinkgoWriter.Printf("Skipping local storage class %s\n", sc.Name)
+			continue
+		}
+
+		nextVolumeMode, _, err := modeGetter.GetVolumeAndAccessModes(context.Background(), notEmptyVD, &sc)
+		if err != nil {
+			GinkgoWriter.Printf("Skipping storage class %s: cannot get volume mode: %s\n", sc.Name, err)
+			continue
+		}
+
+		if volumeMode == nextVolumeMode {
+			return sc.Name, nil
+		}
+	}
+	return "", nil
+}
+
+func patchStorageClassName(ctx context.Context, f *framework.Framework, scName string, vds ...*v1alpha2.VirtualDisk) error {
 	patchBytes, err := patch.NewJSONPatch(patch.WithReplace("/spec/persistentVolumeClaim/storageClassName", scName)).Bytes()
 	if err != nil {
 		return fmt.Errorf("new json patch: %w", err)
@@ -302,4 +334,18 @@ func PatchStorageClassName(ctx context.Context, f *framework.Framework, scName s
 	}
 
 	return nil
+}
+
+func getStorageProfile(f *framework.Framework) func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+	return func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+		obj := &rewrite.StorageProfile{}
+		err := f.RewriteClient().Get(ctx, name, obj)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		return obj.StorageProfile, nil
+	}
 }
