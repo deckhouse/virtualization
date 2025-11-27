@@ -59,7 +59,6 @@ regexpLogFilter:
   - "persistentvolumeclaims .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "persistentvolumeclaims \"vd-f6fd1238-9cfe-4c22-bb48-cd64778740e3-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-p8cxr because it is being terminated"
   - "virtualmachineoperations.virtualization.deckhouse.io .* is forbidden: unable to create new content in namespace .* because it is being terminated" # "err": "virtualmachineoperations.virtualization.deckhouse.io \"volume-migration-\" is forbidden: unable to create new content in namespace virtualization-e2e-volume-migration-storage-class-changed-qsggq because it is being terminated"
   - "error patching metadata .* devices found, 16 is maximum" # "error patching metadata ([{\"op\":\"replace\",\"path\":\"/metadata/finalizers\",\"value\":[\"virtualization.deckhouse.io/vmbda-cleanup\"]}]): admission webhook \"vmbda.virtualization-controller.validate.d8-virtualization\" denied the request: block device attached to VirtualMachine \"x-310732-worker-16758df7-qglxg-49z75\" limit reached: 17 devices found, 16 is maximum"
-  - "failed to create restorer secret: secrets .* already exists" # "failed to create restorer secret: secrets \"vmsnapshot\" already exists"
 
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io
