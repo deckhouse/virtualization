@@ -101,3 +101,68 @@ func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachin
 	}
 	return err
 }
+
+func RebootVirtualMachineBySSH(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo reboot")
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	vmop := vmopbuilder.New(
+		vmopbuilder.WithGenerateName("vmop-e2e-reboot-"),
+		vmopbuilder.WithNamespace(vm.Namespace),
+		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
+		vmopbuilder.WithVirtualMachine(vm.Name),
+	)
+	err := f.CreateWithDeferredDeletion(context.Background(), vmop)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
+	Eventually(func() error {
+		vm := &v1alpha2.VirtualMachine{}
+		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
+		if err != nil {
+			return fmt.Errorf("failed to get virtual machine: %w", err)
+		}
+
+		runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+
+		if runningCondition.LastTransitionTime.Time.After(previousRunningTime) && vm.Status.Phase == v1alpha2.MachineRunning {
+			return nil
+		}
+
+		return fmt.Errorf("virtual machine %s is not rebooted", key.Name)
+	}, timeout, time.Second).Should(Succeed())
+}
+
+func IsVDAttached(vm *v1alpha2.VirtualMachine, vd *v1alpha2.VirtualDisk) bool {
+	for _, bd := range vm.Status.BlockDeviceRefs {
+		if bd.Kind == v1alpha2.DiskDevice && bd.Name == vd.Name && bd.Attached {
+			return true
+		}
+	}
+	return false
+}
+
+func IsRestartRequired(vm *v1alpha2.VirtualMachine, timeout time.Duration) bool {
+	GinkgoHelper()
+
+	if vm.Spec.Disruptions.RestartApprovalMode != v1alpha2.Manual {
+		return false
+	}
+
+	Eventually(func(g Gomega) {
+		err := framework.GetClients().GenericClient().Get(context.Background(), client.ObjectKeyFromObject(vm), vm)
+		g.Expect(err).NotTo(HaveOccurred())
+		needRestart, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+		g.Expect(needRestart.Status).To(Equal(metav1.ConditionTrue))
+		g.Expect(vm.Status.RestartAwaitingChanges).NotTo(BeNil())
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+
+	return true
+}
