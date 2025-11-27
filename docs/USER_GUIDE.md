@@ -6,7 +6,7 @@ weight: 50
 
 ## Introduction
 
-This guide is intended for users of Deckhouse Virtualization Platform (DVP) and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
+This guide is intended for users of the `virtualization` module in the Deckhouse ecosystem and describes the procedure for creating and modifying resources that are available for creation in cluster projects and namespaces.
 
 ## Quick start on creating a VM
 
@@ -234,7 +234,7 @@ When connected to a virtual machine, the image is accessed in read-only mode.
 The image creation process includes the following steps:
 
 - The user creates a `VirtualImage` resource.
-- After creation, the image is automatically loaded from the specified source into the storage (DVCR).
+- After creation, the image is automatically downloaded from the source specified in the specification to DVCR or PVC storage, depending on the type.
 - Once the download is complete, the resource becomes available for disk creation.
 
 There are different types of images:
@@ -244,6 +244,7 @@ There are different types of images:
 
 Examples of resources for obtaining virtual machine images:
 
+<a id="image-resources-table"></a>
 | Distribution                                                                      | Default user.             |
 | --------------------------------------------------------------------------------- | ------------------------- |
 | [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
@@ -605,7 +606,7 @@ EOF
 
 ## Disks
 
-Disks in virtual machines are necessary for writing and storing data, ensuring that applications and operating systems can fully function. DVP provides the storage for these disks.
+Virtual machine disks are used to write and store data required for operating systems and applications to run. Various types of storage can be used for this purpose.
 
 Depending on the storage properties, the behavior of disks during creation of virtual machines during operation may differ:
 
@@ -622,7 +623,7 @@ VolumeBindingMode property:
 AccessMode:
 
 - `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)`: Only one instance of the virtual machine can access the disk. Live migration of virtual machines with such disks is supported only in DVP commercial editions. Live migration is only available if all disks are connected statically via (`.spec.blockDeviceRefs`). Disks connected dynamically via `VirtualMachineBlockDeviceAttachments` must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
+- `ReadWriteOnce (RWO)`: The disk can be accessed by only a single virtual machine instance. Live migration of virtual machines that use such disks is supported only in commercial editions. Live migration is available only if all disks are attached statically via `.spec.blockDeviceRefs`. Disks attached dynamically via VirtualMachineBlockDeviceAttachments must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -649,7 +650,7 @@ nfs-4-1-wffc                         nfs.csi.k8s.io                        Delet
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-How to find out the available storage options in the DVP web interface:
+How to find out the available storage options in the web interface:
 
 - Go to the "System" tab, then to the "Storage" section → "Storage Classes".
 
@@ -676,17 +677,18 @@ EOF
 
 After creation, the `VirtualDisk` resource can be in the following states (phases):
 
-- `Pending` - waiting for all dependent resources required for disk creation to be ready.
-- `Provisioning` - disk creation process is in progress.
-- `Resizing` - the process of resizing the disk is in progress.
-- `WaitForFirstConsumer` - the disk is waiting for the virtual machine that will use it to be created.
-- `WaitForUserUpload` - the disk is waiting for the user to upload an image (type: Upload).
-- `Ready` - the disk has been created and is ready for use.
-- `Failed` - an error occurred during the creation process.
-- `PVCLost` - system error, PVC with data has been lost.
-- `Terminating` - the disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
+- `Pending`: Waiting for all dependent resources required for disk creation to be ready.
+- `Provisioning`: Disk creation process is in progress.
+- `Resizing`: Process of resizing the disk is in progress.
+- `WaitForFirstConsumer`: Disk is waiting for the virtual machine that will use it to be created.
+- `WaitForUserUpload`: Disk is waiting for the user to upload an image (type: Upload).
+- `Ready`: Disk has been created and is ready for use.
+- `Migrating`: Live migration of a disk.
+- `Failed`: An error occurred during the creation process.
+- `PVCLost`: System error, PVC with data has been lost.
+- `Terminating`: Disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
 
-As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
+As long as the disk has not reached the `Ready` phase, you can modify any fields in the `.spec` block. When changes are made, the disk creation process is restarted.
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
 
@@ -810,6 +812,58 @@ How to create a disk from an image in the web interface (this step can be skippe
 - Click the "Create" button.
 - The disk status is displayed at the top left, under the disk name.
 
+### Upload a disk from the command line
+
+To upload a disk from the command line, first create the VirtualDisk resource as shown in the following example:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: uploaded-disk
+spec:
+  dataSource:
+    type: Upload
+EOF
+```
+
+Once created, the resource enters the `WaitForUserUpload` phase, which means it is ready to accept a disk upload.
+
+Two upload options are available: from a cluster node and from any node outside the cluster:
+
+```bash
+d8 k get vd uploaded-disk -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
+
+Example output:
+
+```json
+{
+  "external": "https://virtualization.example.com/upload/<secret-url>",
+  "inCluster": "http://10.222.165.239/upload"
+}
+```
+
+Upload the disk using the following command:
+
+```bash
+curl https://virtualization.example.com/upload/<secret-url> --progress-bar -T <image.name> | cat
+```
+
+After the upload completes, the disk should be created and enter the `Ready` phase:
+
+```bash
+d8 k get vd uploaded-disk
+```
+
+Example output:
+
+```txt
+NAMESPACE   NAME                  PHASE   CAPACITY    AGE
+default     uploaded-disk         Ready   3Gi         7d23h
+```
+
 ### Change disk size
 
 You can increase the size of disks even if they are already attached to a running virtual machine. To do this, edit the `spec.persistentVolumeClaim.size` field:
@@ -831,6 +885,10 @@ Let's apply the changes:
 
 ```bash
 d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+
+# Alternatively, apply the changes by editing the resource.
+
+d8 k edit vd linux-vm-root
 ```
 
 Let's check the size after the change:
@@ -866,46 +924,53 @@ Method #2:
 - Click on the "Save" button that appears.
 - The disk status is displayed at the top left, under its name.
 
-### Changing the disk StorageClass
+### Migrating disks to other storage
 
-In the DVP commercial editions, it is possible to change the StorageClass for existing disks. Currently, this is only supported for running VMs (`Phase` should be `Running`).
+In commercial editions, you can migrate (move) a virtual machine disk to another storage by changing its StorageClass.
 
 {{< alert level="warning">}}
-Storage class migration is only available for disks connected statically via `.spec.blockDeviceRefs`.
+Limitations of disk migration between storage:
 
-To migrate the storage class of disks attached via `VirtualMachineBlockDeviceAttachments`, they must be reattached statically by specifying disks names in `.spec.blockDeviceRefs`.
+- Migration is only available for virtual machines in the `Running` state.
+- Migration is only supported between disks of the same type: `Block` ↔ `Block`, `FileSystem` ↔ `FileSystem`; conversion between different types is not possible.
+- Migration is only supported for disks attached statically via the `.spec.blockDeviceRefs` parameter in the virtual machine specification.
+- If a disk was attached via the VirtualMachineBlockDeviceAttachments resource, it must be temporarily reattached directly for migration by specifying the disk name in `.spec.blockDeviceRefs`.
 {{< /alert >}}
 
-Example:
+Example of migrating a disk to the `new-storage-class-name` StorageClass:
 
 ```bash
 d8 k patch vd disk --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
+
+# Alternatively, apply the changes by editing the resource.
+
+d8 k edit vd disk
 ```
 
-After the disk configuration is updated, a live migration of the VM is triggered, during which the disk is migrated to the new storage.
+After the disk configuration is updated, a live migration of the VM is triggered, during which the VM disk is moved to the new storage.
 
-If a VM has multiple disks attached and you need to change the storage class for several of them, this operation must be performed sequentially:
+If a VM has multiple disks attached, and you need to change the storage class for several of them, this operation must be performed sequentially:
 
 ```bash
 d8 k patch vd disk1 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 d8 k patch vd disk2 --type=merge --patch '{"spec":{"persistentVolumeClaim":{"storageClassName":"new-storage-class-name"}}}'
 ```
 
-If migration fails, repeated attempts are made with increasing delays (exponential backoff algorithm). The maximum delay is 300 seconds (5 minutes). Delays: 5 seconds (1st attempt), 10 seconds (2nd), then each delay doubles, reaching 300 seconds (7th and subsequent attempts). The first attempt is performed without delay.
+If migration fails, retry attempts are performed with increasing delays (exponential backoff algorithm). The maximum delay is 300 seconds (5 minutes). Delays are: 5 seconds (1st attempt), 10 seconds (2nd), then each delay doubles until it reaches 300 seconds (7th and subsequent attempts). The first attempt is performed without delay.
 
-To cancel migration, the user must return the storage class in the specification to the original one.
+To cancel migration, the StorageClass in the specification must be reverted to its original value.
 
 ## Virtual machines
 
 The `VirtualMachine` resource is used to create a virtual machine, its parameters allow you to configure:
 
-- [virtual machine class](admin_guide.html#virtual-machine-classes)
-- resources required for virtual machine operation (processor, memory, disks and images);
-- rules of virtual machine placement on cluster nodes;
-- bootloader settings and optimal parameters for the guest OS;
-- virtual machine startup policy and policy for applying changes;
-- initial configuration scenarios (cloud-init);
-- list of block devices.
+- [Virtual machine class](admin_guide.html#virtual-machine-classes).
+- Resources required for virtual machine operation (processor, memory, disks and images).
+- Rules of virtual machine placement on cluster nodes.
+- Bootloader settings and optimal parameters for the guest OS.
+- Virtual machine startup policy and policy for applying changes.
+- Initial configuration scenarios (cloud-init).
+- List of block devices.
 
 The full description of virtual machine configuration parameters can be found at [link](cr.html#virtualmachine)
 
@@ -936,7 +1001,7 @@ spec:
       packages:
         - nginx
         - qemu-guest-agent
-      run_cmd:
+      runcmd:
         - systemctl daemon-reload
         - systemctl enable --now nginx.service
         - systemctl enable --now qemu-guest-agent.service
@@ -1002,7 +1067,7 @@ How to create a virtual machine in the web interface:
   packages:
     - nginx
     - qemu-guest-agent
-  run_cmd:
+  runcmd:
     - systemctl daemon-reload
     - systemctl enable --now nginx.service
     - systemctl enable --now qemu-guest-agent.service
@@ -1080,7 +1145,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
   The VM is migrated to another node in the cluster (live migration).
   - Features:
-    - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
+    - The `type: Migratable` condition indicates whether the VM can be migrated.
   - Possible issues:
     - Incompatibility of processor instructions (when using host or host-passthrough processor types).
     - Difference in kernel versions on hypervisor nodes.
@@ -1254,6 +1319,143 @@ status:
         coresPerSocket: 1
 ```
 
+### Initialization scripts
+
+Initialization scripts are used for the initial configuration of a virtual machine when it is started.
+
+The following initialization scripts are supported:
+
+- [Cloud-Init](https://cloudinit.readthedocs.io).
+- [Sysprep](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
+
+#### Cloud-Init
+
+Cloud-Init is a tool for automatically configuring virtual machines on first boot. It allows you to perform a wide range of configuration tasks without manual intervention.
+
+{{< alert level="warning" >}}
+Cloud-Init configuration is written in YAML format and must start with the `#cloud-config` header at the beginning of the configuration block. For information about other possible headers and their purpose, see the [official Cloud-Init documentation](https://cloudinit.readthedocs.io/en/latest/explanation/format.html#headers-and-content-types).
+{{< /alert >}}
+
+The main capabilities of Cloud-Init include:
+
+- Creating users, setting passwords, and adding SSH keys for access.
+- Automatically installing necessary software on first boot.
+- Running arbitrary commands and scripts for system configuration.
+- Automatically starting and enabling system services (for example, [`qemu-guest-agent`](#guest-os-agent)).
+
+##### Typical usage scenarios
+
+1. Adding an SSH key for a [pre-installed user](#image-resources-table) that may already be present in the cloud image (for example, the `ubuntu` user in official Ubuntu images). The name of such a user depends on the image. Check the documentation for your distribution.
+
+   ```yaml
+   #cloud-config
+   ssh_authorized_keys:
+     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ```
+
+1. Creating a user with a password and SSH key:
+
+   ```yaml
+   #cloud-config
+   users:
+     - name: cloud
+       passwd: "$6$rounds=4096$saltsalt$..."
+       lock_passwd: false
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       shell: /bin/bash
+       ssh-authorized-keys:
+         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
+   ssh_pwauth: True
+   ```
+
+   To generate a password hash, use the command `mkpasswd --method=SHA-512 --rounds=4096`.
+
+1. Installing packages and services:
+
+   ```yaml
+   #cloud-config
+   package_update: true
+   packages:
+     - nginx
+     - qemu-guest-agent
+   runcmd:
+     - systemctl daemon-reload
+     - systemctl enable --now nginx.service
+     - systemctl enable --now qemu-guest-agent.service
+   ```
+
+##### Using Cloud-Init
+
+The Cloud-Init script can be embedded directly into the virtual machine specification, but its size is limited to a maximum of 2048 bytes:
+
+```yaml
+spec:
+  provisioning:
+    type: UserData
+    userData: |
+      #cloud-config
+      package_update: true
+      ...
+```
+
+For longer scenarios and/or when private data is involved, the script for initial initialization of the virtual machine can be created in a Secret resource. An example of a Secret with a Cloud-Init script is shown below:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-init-example
+data:
+  userData: <base64 data>
+type: provisioning.virtualization.deckhouse.io/cloud-init
+```
+
+A fragment of the virtual machine configuration when using the Cloud-Init initialization script stored in a Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init-example
+```
+
+{{< alert level="info" >}}
+The value of the `.data.userData` field must be Base64 encoded. To encode it, you can use the `base64 -w 0` command or `echo -n "content" | base64`.
+{{< /alert >}}
+
+#### Sysprep
+
+When configuring virtual machines running Windows using Sysprep, only the Secret-based option is supported.
+
+An example of a Secret with a Sysprep script is shown below:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sysprep-example
+data:
+  unattend.xml: <base64 data>
+type: provisioning.virtualization.deckhouse.io/sysprep
+```
+
+{{< alert level="info" >}}
+The value of the `.data.unattend.xml` field must be Base64 encoded. To encode, you can use the command `base64 -w 0` or `echo -n "content" | base64`.
+{{< /alert >}}
+
+A fragment of the virtual machine configuration using the Sysprep initialization script in a Secret:
+
+```yaml
+spec:
+  provisioning:
+    type: SysprepRef
+    sysprepRef:
+      kind: Secret
+      name: sysprep-example
+```
+
 ### Guest OS agent
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
@@ -1317,46 +1519,14 @@ You can automate the installation of the agent for Linux OS using a cloud-init i
   package_update: true
   packages:
     - qemu-guest-agent
-  run_cmd:
+  runcmd:
     - systemctl enable --now qemu-guest-agent.service
 ```
 
-### User Configuration for Cloud Images
+QEMU Guest Agent does not require additional configuration after installation. However, to ensure application-level snapshot consistency (without stopping services), you can add scripts that are executed automatically in the guest OS before and after filesystem `freeze` and `thaw` operations. The scripts must be executable and placed in a special directory, whose path depends on the Linux distribution in use:
 
-When using cloud images (with cloud-init support), you must specify an SSH key or a password for the pre-installed user, or create a new user with a password or SSH key via cloud-init. Otherwise, it will be impossible to log in to the virtual machine!
-
-Examples:
-
-1. Setting a password for an existing user (for example, `ubuntu` is often present in official cloud images):
-
-   In many cloud images, the default user is already predefined (e.g., `ubuntu` in Ubuntu Cloud Images), and its name cannot always be overridden via the `cloud-init` `users` block. In such cases, it is recommended to use dedicated cloud-init parameters for managing the default user.
-
-   In a cloud image, you can add a public SSH key for the default user using the `ssh_authorized_keys` parameter at the root level of cloud-init:
-
-   ```yaml
-   #cloud-config
-   ssh_authorized_keys:
-     - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ```
-
-2. Creating a new user with a password and SSH key:
-
-   ```yaml
-   #cloud-config
-   users:
-     - name: cloud
-       passwd: "$6$rounds=4096$QktreHgVzeZy70h3$C8c4gjzYMY75.C7IjN1.GgrjMSdeyG79W.hZgsTNnlrJIzuB48qzCui8KP1par.OvCEV3Xi8FzRiqqZ74LOK6."
-       lock_passwd: false
-       sudo: ALL=(ALL) NOPASSWD:ALL
-       shell: /bin/bash
-       ssh-authorized-keys:
-         - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD... your-public-key ...
-   ssh_pwauth: True
-   ```
-
-{{< alert level="info" >}}
-The value of the `passwd` field is a hashed password (for example, you can generate it using `mkpasswd --method=SHA-512 --rounds=4096`).
-{{< /alert >}}
+- `/etc/qemu-ga/hooks.d/`: For Debian/Ubuntu-based distributions.
+- `/etc/qemu/fsfreeze-hook.d/`: For RHEL/CentOS/Fedora-based distributions.
 
 ### Connecting to a virtual machine
 
@@ -1522,6 +1692,10 @@ Apply the following patch to the virtual machine to change the number of cores f
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+
+# Alternatively, apply the changes by editing the resource.
+
+d8 k edit vm linux-vm
 ```
 
 Example output:
@@ -1613,79 +1787,6 @@ How to perform the operation in the web interface:
 - Enable the "Auto-apply changes" switch.
 - Click on the "Save" button that appears.
 
-### Initialization scripts
-
-Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
-
-The initial initial initialization scripts supported are:
-
-- [CloudInit](https://cloudinit.readthedocs.io)
-- [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
-
-The CloudInit script can be embedded directly into the virtual machine specification, but this script is limited to a maximum length of 2048 bytes:
-
-```yaml
-spec:
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      package_update: true
-      ...
-```
-
-For longer scenarios and/or the presence of private data, the script for initial initial initialization of the virtual machine can be created in Secret. An example of Secret with a CloudInit script is shown below:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloud-init-example
-data:
-  userData: <base64 data>
-type: provisioning.virtualization.deckhouse.io/cloud-init
-```
-
-A fragment of the virtual machine configuration using the CloudInit initialization script stored in Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: UserDataRef
-    userDataRef:
-      kind: Secret
-      name: cloud-init-example
-```
-
-Note: The value of the `.data.userData` field must be Base64 encoded.
-
-To configure Windows virtual machines using Sysprep, only the Secret variant is supported.
-
-An example of Secret with Sysprep script is shown below:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-example
-data:
-  unattend.xml: <base64 data>
-type: provisioning.virtualization.deckhouse.io/sysprep
-```
-
-Note: The value of the `.data.unattend.xml` field must be Base64 encoded.
-
-fragment of virtual machine configuration using Sysprep initialization script in Secret:
-
-```yaml
-spec:
-  provisioning:
-    type: SysprepRef
-    sysprepRef:
-      kind: Secret
-      name: sysprep-example
-```
-
 ### Placement of VMs by nodes
 
 The following methods can be used to manage the placement of virtual machines (placement parameters) across nodes:
@@ -1707,7 +1808,15 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing `taints` on nodes.
+- Consider existing `taints` on nodes. If necessary, you can add appropriate `tolerations` to the VM. An example of using `tolerations` to allow scheduling on nodes with the `node.deckhouse.io/group=:NoSchedule` taint is provided below.
+
+```yaml
+spec:
+  tolerations:
+    - key: "node.deckhouse.io/group"
+      operator: "Exists"
+      effect: "NoSchedule"
+```
 
 {{< alert level="info" >}}
 When changing placement parameters:
@@ -2189,7 +2298,7 @@ How to publish a VM service using Ingress in the web interface:
 
 ### Live virtual machine migration
 
-Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in the management of virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
+Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in managing virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
 
 #### How live migration works
 
@@ -2197,131 +2306,52 @@ The live migration process involves several steps:
 
 1. **Creation of a new VM instance**
 
-   A new VM is created on the target host in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
+   A new VM is created on the target node in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
 
-2. **Primary Memory Transfer**
+1. **Primary memory transfer**
 
    The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
 
-3. **Change Tracking (Dirty Pages)**
+1. **Change tracking (Dirty Pages)**
 
-    While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages and the hypervisor marks them.
+   While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages, and the hypervisor marks them.
 
-4. **Iterative synchronization**.
+1. **Iterative synchronization**
 
-   After the initial transfer, only the modified pages are resent. This process is repeated in several cycles:
+   After the initial transfer, only the modified pages are sent again. This process is repeated over several cycles:
+
    - The higher the load on the VM, the more "dirty" pages appear, and the longer the migration takes.
    - With good network bandwidth, the amount of unsynchronized data gradually decreases.
 
-5. **Final synchronization and switching**.
+1. **Final synchronization and switching**
 
-    When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
-    - The remaining memory changes are transferred to the target node.
-    - The state of the CPU, devices, and open connections are synchronized.
-    - The VM is started on the new node and the source copy is deleted.
+   When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
 
-![](./images/migration.png)
+   - The remaining memory changes are transferred to the target node.
+   - The state of the CPU, devices, and open connections are synchronized.
+   - The VM is started on the new node, and the source copy is deleted.
 
-{{< alert level="warning" >}}
-For successful live migration, all disks attached to the VM must be accessible on the target nodes to which the migration is planned.
+Until the VM switches to the new node (Phase 5), the VM on the source node continues to operate normally and provide services to users.
 
-If a disk uses storage with local disks, such storage must be available to create a new local volume on the target node.
+![Migration](./images/migration.png)
 
-Otherwise, migration will not be possible.
-{{< /alert >}}
+#### Requirements and limitations
 
+For successful live migration, certain requirements must be met. Failure to meet these requirements can lead to limitations and issues during migration.
 
-{{< alert level="warning">}}
-Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
+- Disk availability: All disks attached to the VM must be accessible on the target node, otherwise migration will be impossible. For network storage (NFS, Ceph, etc.), this requirement is usually met automatically, as disks are accessible on all cluster nodes. For local storage, the situation is different: the storage system must be available on the target node to create a new local volume. If local storage exists only on the source node, migration cannot be performed.
 
-To manage the migration process, configure the live migration policy using [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the VM settings.
-{{< /alert >}}
+- Network bandwidth: Network speed is critical for live migration. With low bandwidth, the number of memory synchronization iterations increases, VM downtime during the final stage of migration increases, and in the worst case, migration may not complete due to a timeout. To manage the migration process, configure the live migration policy [`.spec.liveMigrationPolicy`](#configuring-migration-policy) in the virtual machine settings. For network problems, use the AutoConverge mechanism (see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section).
 
-#### AutoConverge mechanism
+- Kernel versions on nodes: For stable live migration operation, all cluster nodes must use the same Linux kernel version. Differences in kernel versions can lead to incompatible interfaces, system calls, and resource handling features, which can disrupt the virtual machine migration process.
 
-If the network struggles to handle data transfer and the number of "dirty" pages keeps growing, the AutoConverge mechanism can be useful. It helps complete migration even with low network bandwidth.
+- CPU compatibility: CPU compatibility depends on the CPU type specified in the virtual machine class. When using the `Host` type, migration is only possible between nodes with similar CPU types: migration between nodes with Intel and AMD processors does not work, and it also does not work between different CPU generations due to differences in instruction sets. When using the `HostPassthrough` type, the VM can only migrate to a node with exactly the same processor as on the source node. To ensure migration compatibility between nodes with different processors, use the `Discovery`, `Model`, or `Features` types in the virtual machine class.
 
-The working principles of AutoConverge mechanism:
+- Migration execution time: A completion timeout is set for live migration, which is calculated using the formula: `Completion timeout = 800 seconds × (Memory size in GiB + Disk size in GiB (if Block Migration is used))`. If migration does not complete within this time, the operation is considered failed and is canceled automatically. For example, for a virtual machine with 4 GiB of memory and 20 GiB of disk, the timeout will be `800 seconds × (4 GiB + 20 GiB) = 19200 seconds (320 minutes or ~5.3 hours)`. With low network speed or high load on the VM, migration may not complete within the allotted time.
 
-1. **VM CPU slowdown**.
-
-    The hypervisor gradually reduces the CPU frequency of the source VM. This reduces the rate at which new "dirty" pages appear. The higher the load on the VM, the greater the slowdown.
-
-2. **Synchronization acceleration**.
-
-    Once the data transfer rate exceeds the memory change rate, final synchronization is started and the VM switches to the new node.
-
-3. **Automatic Termination**
-
-    Final synchronization is started when the data transfer rate exceeds the memory change rate.
-
-AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network struggles to handle data transfer. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
-
-#### Configuring migration policy
-
-To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter in the VM configuration. The following options are available:
-
-- `AlwaysSafe` - Migration is performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximizing VM performance is important but requires high network bandwidth.
-- `PreferSafe` - (used as the default policy) By default, migration runs without AutoConverge, but CPU slowdown can be enabled manually if the migration fails to complete. This is done by using the VirtualMachineOperation resource with `type=Evict` and `force=true`.
-- `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
-- `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
-
-#### Migration types
-
-Migration can be performed manually by the user, or automatically by the following system events:
-
-- Updating the "firmware" of a virtual machine.
-- Redistribution of load in the cluster.
-- Transferring a node into maintenance mode (Node drain).
-- When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
-
-The trigger for live migration is the appearance of the `VirtualMachineOperations` resource with the `Evict` type.
-
-The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
-
-| Type of system event            | Resource name prefix   |
-|---------------------------------|------------------------|
-| Firmware update                 | firmware-update-*      |
-| Load shifting                   | evacuation-*           |
-| Drain node                      | evacuation-*           |
-| Modify placement parameters     | nodeplacement-update-* |
-| Disk storage migration          | volume-migration-*     |
-
-This resource can be in the following states:
-
-- `Pending` - the operation is pending.
-- `InProgress` - live migration is in progress.
-- `Completed` - live migration of the virtual machine has been completed successfully.
-- `Failed` - the live migration of the virtual machine has failed.
-
-Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
-
-You can view active operations using the command:
-
-```bash
-d8 k get vmop
-```
-
-Example output:
-
-```txt
-NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
-firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
-```
-
-You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
-
-How to view active operations in the web interface:
-
-- Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines" section.
-- Select the required VM from the list and click on its name.
-- Go to the "Events" tab.
-
-#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`
+#### How to perform a live VM migration
 
 Let's look at an example. Before starting the migration, view the current status of the virtual machine:
-
 
 ```bash
 d8 k get vm
@@ -2336,15 +2366,17 @@ linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
+To migrate a virtual machine from one node to another while taking into account VM placement requirements, use the following command:
 
 ```bash
-d8 v evict -n <namespace> <vm-name>
+d8 v evict -n <namespace> <vm-name> [--force]
 ```
 
-execution of this command leads to the creation of the `VirtualMachineOperations` resource.
+Running this command creates a VirtualMachineOperations resource.
 
-You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
+When used during virtual machine migration, the `--force` flag activates a special mechanism called AutoConverge (for more details, see the [Migration with insufficient network bandwidth](#migration-with-insufficient-network-bandwidth) section). This mechanism automatically reduces the CPU load of the virtual machine (slows down its CPU) when it is necessary to speed up the completion of migration and help it complete successfully, even when the virtual machine memory transfer is too slow. Use this flag if a standard migration cannot complete due to high virtual machine activity.
+
+You can also start the migration by creating a VirtualMachineOperations (`vmop`) resource with the `Evict` type manually:
 
 ```yaml
 d8 k create -f - <<EOF
@@ -2357,6 +2389,8 @@ spec:
   virtualMachineName: linux-vm
   # operation to evict
   type: Evict
+  # Allow CPU slowdown by AutoConverge mechanism to guarantee that migration will complete.
+  force: true
 EOF
 ```
 
@@ -2369,12 +2403,14 @@ d8 k get vm -w
 Example output:
 
 ```txt
-NAME                                   PHASE       NODE           IPADDRESS     AGE
+NAME                                  PHASE       NODE           IPADDRESS     AGE
 linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
+
+You can interrupt any live migration while it is in the `Pending` or `InProgress` phase by deleting the corresponding VirtualMachineOperations resource.
 
 How to perform a live VM migration in the web interface:
 
@@ -2383,6 +2419,111 @@ How to perform a live VM migration in the web interface:
 - Select the desired virtual machine from the list and click the ellipsis button.
 - Select "Migrate" from the pop-up menu.
 - Confirm or cancel the migration in the pop-up window.
+
+#### Configuring migration policy
+
+The migration policy determines when to use the AutoConverge mechanism (CPU slowdown) to guarantee migration completion.
+
+The AutoConverge mechanism helps complete migration even with low network bandwidth, guaranteeing that the migration will complete successfully. However, it slows down the virtual machine's CPU, which can affect the performance of applications running on the virtual machine.
+
+The AutoConverge mechanism works in two stages:
+
+1. **Virtual machine CPU slowdown**
+
+   The hypervisor gradually reduces the CPU frequency of the source virtual machine. This reduces the rate at which new "dirty" pages appear. The higher the load on the virtual machine, the greater the slowdown.
+
+1. **Automatic migration completion**
+
+   Once the data transfer rate exceeds the memory change rate, final synchronization is started, and the virtual machine switches to the new node.
+
+To configure the migration policy, use the [`.spec.liveMigrationPolicy`](/modules/virtualization/cr.html#virtualmachine-v1alpha2-spec-livemigrationpolicy) parameter in the virtual machine configuration. The following options are available:
+
+- `AlwaysSafe`: Migration is always performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximum virtual machine performance is important, but it requires high network bandwidth.
+- `PreferSafe` (used as the default policy): Migration is performed without slowing down the CPU (AutoConverge is not used). However, you can start migration with CPU slowdown using the VirtualMachineOperation resource with parameters `type=Evict` and `force=true`.
+- `AlwaysForced`: Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This guarantees migration completion even with poor network, but may reduce virtual machine performance.
+- `PreferForced`: Migration uses AutoConverge, meaning the CPU is slowed down when necessary. However, you can start migration without slowing down the CPU using the VirtualMachineOperation resource with parameters `type=Evict` and `force=false`.
+
+#### Migration with insufficient network bandwidth
+
+During live migration of a virtual machine, a situation may arise when network bandwidth is insufficient to transfer data faster than it changes in the virtual machine's memory. In this case, the number of "dirty" pages continues to grow, and the migration may not complete within the timeout.
+
+To solve this problem, the AutoConverge mechanism is used, which is configured through the [migration policy](#configuring-migration-policy).
+
+To determine whether network bandwidth is insufficient for live migration of a virtual machine, check the graphs in the "Namespace / Virtual Machine" → "VM Status details" → "Live migration memory metrics" section:
+
+- **Processed memory rate** is less than **Dirty memory rate**.
+- **Remaining memory rate** does not decrease for a long time.
+
+This means that the network has become a bottleneck for migration.
+
+Example of a situation where migration cannot be completed due to insufficient network bandwidth: memory is continuously changed inside the virtual machine using stress-ng.
+
+![](./images/livemigration-example.png)
+
+Example of performing migration of the same virtual machine using the `--force` flag of the `d8 v evict` command (which enables the AutoConverge mechanism): here you can clearly see that the CPU frequency decreases step by step to reduce the memory change rate.
+
+![](./images/livemigration-example-autoconverge.png)
+
+If the network limits the migration speed, you can:
+
+1. Wait for the operation to complete with an error due to timeout.
+1. Cancel the current migration operation by deleting the vmop object:
+
+   ```bash
+   d8 k delete vmop <operation-name>
+   ```
+
+   Then restart the migration using the `--force` flag to enable the AutoConverge mechanism. Using the `--force` flag must comply with the current [virtual machine migration policy](#configuring-migration-policy).
+
+#### System-initiated migrations
+
+Migration can be performed automatically by the following system events:
+
+- Updating the "firmware" of a virtual machine.
+- Redistribution of load in the cluster.
+- Transferring a node into maintenance mode (Node drain).
+- When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
+
+The trigger for live migration is the appearance of the VirtualMachineOperations resource with the `Evict` type.
+
+The table shows the VirtualMachineOperations resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
+
+| Type of system event                 | Resource name prefix   |
+|--------------------------------------|------------------------|
+| Firmware update                      | `firmware-update-*`      |
+| Load redistribution in the cluster   | `evacuation-*`           |
+| Node drain                           | `evacuation-*`           |
+| VM placement settings change         | `nodeplacement-update-*` |
+| Disk storage migration               | `volume-migration-*`     |
+
+This resource can be in the following states:
+
+- `Pending`: The operation is pending.
+- `InProgress`: Live migration is in progress.
+- `Completed`: Live migration of the virtual machine has completed successfully.
+- `Failed`: Live migration of the virtual machine has failed.
+
+You can view active operations using the command:
+
+```bash
+d8 k get vmop
+```
+
+Example output:
+
+```txt
+NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+firmware-update-fnbk2   Completed   Evict   linux-vm            148m
+```
+
+To cancel the migration, delete the corresponding resource.
+
+How to view active operations in the web interface:
+
+1. Go to the "Projects" tab and select the desired project.
+1. Go to the "Virtualization" → "Virtual Machines" section.
+1. Select the required VM from the list and click on its name.
+1. Go to the "Events" tab.
 
 #### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
@@ -2503,6 +2644,10 @@ Remove the `.metadata.ownerReferences` blocks from the resource found:
 
 ```bash
 d8 k patch vmip linux-vm-7prpx --type=merge --patch '{"metadata":{"ownerReferences":null}}'
+
+# Alternatively, apply the changes by editing the resource.
+
+d8 k edit vmip linux-vm-7prpx
 ```
 
 After the virtual machine is deleted, the `vmip` resource is preserved and can be reused again in the newly created virtual machine:
@@ -2528,23 +2673,21 @@ EOF
 
 ### Additional network interfaces
 
-Virtual machines can be connected not only to the main cluster network interface but also to additional networks provided by the `d8-sdn` module. Such networks include project Networks and ClusterNetworks.
-
-Additional networks are defined in the `.spec.networks` configuration block. If this block is absent (default value), the VM is connected only to the main cluster network.
-
-{{< alert level=“warning” >}}
-Changes to the list of additional networks (adding or removing) take effect only after the VM is rebooted.
+{{< alert level="warning" >}}
+To work with additional networks, the `sdn` module must be enabled.
 {{< /alert >}}
 
-{{< alert level=“info” >}}
-To avoid changing the order of network interfaces inside the guest OS, always add new networks to the end of the `.spec.networks` list.
-{{< /alert >}}
+Virtual machines can be connected to additional networks: project networks (`Network`) or cluster networks (`ClusterNetwork`).
 
-Conditions and limitations:
+To do this, specify the desired networks in the configuration section `.spec.networks`. If this block is not specified (which is the default behavior), the VM will use only the main cluster network.
 
-- The `d8-sdn` module is required to work with additional networks.
-- The order of networks in `.spec.networks` determines the sequence in which interfaces are attached to the VM bus.
-- Configuration of network parameters (IP addresses, gateways, DNS, etc.) in additional networks must be performed manually inside the guest OS (for example, via cloud-init).
+Important considerations when working with additional network interfaces:
+
+- The order of listing networks in `.spec.networks` determines the order in which interfaces are connected inside the virtual machine.
+- Adding or removing additional networks takes effect only after the VM is rebooted.
+- To preserve the order of network interfaces inside the guest operating system, it is recommended to add new networks to the end of the `.spec.networks` list (do not change the order of existing ones).
+- Network security policies (NetworkPolicy) do not apply to additional network interfaces.
+- Network parameters (IP addresses, gateways, DNS, etc.) for additional networks are configured manually from within the guest OS (for example, using Cloud-Init).
 
 Example of connecting a VM to the project network `user-net`:
 
@@ -2632,7 +2775,27 @@ When a network is removed from the VM configuration:
 
 ## Snapshots
 
-Snapshots are designed to save the state of a resource at a particular point in time. Disk snapshots and virtual machine snapshots are currently supported.
+Snapshots allow you to capture the current state of a resource for later recovery or cloning: a disk snapshot saves only the data from the selected disk, while a virtual machine snapshot includes the VM settings and the state of all its disks.
+
+### Consistent snapshots
+
+Snapshots can be consistent or inconsistent; this is controlled by the `requiredConsistency` parameter. By default, `requiredConsistency` is set to `true`, which means a consistent snapshot is required.
+
+A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
+
+- The virtual machine is turned off.
+- [`qemu-guest-agent`](#guest-os-agent) is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+
+QEMU Guest Agent supports hook scripts that allow you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency. For more information on configuring hooks scripts, see the [Guest OS agent](#guest-os-agent) section.
+
+An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
+
+- The VM is running, and `qemu-guest-agent` is not installed or not running in the guest OS.
+- The snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
+
+{{< alert level="warning" >}}
+When restoring from such a snapshot, file system integrity issues may occur, as the data state may be inconsistent.
+{{< /alert >}}
 
 ### Creating disk snapshots
 
@@ -2751,22 +2914,6 @@ A virtual machine snapshot is a saved state of a virtual machine at a specific p
 It is recommended to disconnect all images (VirtualImage/ClusterVirtualImage) from the virtual machine before creating its snapshot. Disk images are not saved together with the VM snapshot, and their absence in the cluster during recovery may cause the virtual machine to fail to start and remain in a Pending state while waiting for the images to become available.
 {{< /alert >}}
 
-#### Types of snapshots
-
-Snapshots can be consistent or inconsistent, which is determined by the `requiredConsistency` parameter. By default, the `requiredConsistency` parameter is set to `true`, which requires a consistent snapshot.
-
-A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
-- The virtual machine is turned off.
-- `qemu-guest-agent` is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
-
-An inconsistent snapshot may not reflect the consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
-- The VM is running, and `qemu-guest-agent` is not installed or running in the guest OS.
-- The VM is running, and `qemu-guest-agent` is not installed in the guest OS, but the snapshot manifest specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
-
-{{< alert level="warning" >}}
-There is a risk of data loss or integrity violation when restoring from such a snapshot.
-{{< /alert >}}
-
 #### Creating snapshots
 
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
@@ -2881,15 +3028,78 @@ d8 k get vmop <vmop-name> -o json | jq “.status.resources”
 It is not recommended to cancel the restore operation (delete the `VirtualMachineOperation` resource in the `InProgress` phase) from a snapshot, which can result in an inconsistent state of the restored virtual machine.
 {{< /alert >}}
 
+{{< alert level="info" >}}
+When restoring a VM from a snapshot, the disks associated with it are also restored from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
+{{< /alert >}}
 
 ## Creating a VM clone
 
-VM cloning is performed using the `VirtualMachineOperation` resource with the `clone` operation type.
+You can create a VM clone in two ways: from an existing VM or from a previously created snapshot of that VM.
+
+{{< alert level="warning">}}
+The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the guest OS network settings after cloning.
+{{< /alert >}}
+
+Cloning creates a copy of a VM, so the resources of the new VM must have unique names. To do this, use the `nameReplacements` and/or `customization` parameters:
+
+- `nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
+- `customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+
+Configuration example:
+
+```yaml
+nameReplacements:
+  - from:
+      kind: <resource type>
+      name: <old name>
+    to:
+      name: <new name>
+customization:
+  namePrefix: <prefix>
+  nameSuffix: <suffix>
+```
+
+As a result, a VM named <prefix><new name><suffix> will be created.
+
+One of three modes can be used for the cloning operation:
+
+- `DryRun`: Test run to check for possible conflicts. The results are displayed in the `status.resources` field of the corresponding operation resource.
+- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
+
+Information about conflicts that arose during cloning can be viewed in the operation resource status:
+
+```bash
+# For cloning from an existing VM.
+d8 k get vmop <vmop-name> -o json | jq '.status.resources'
+
+# For cloning from a VM snapshot.
+d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
+```
+
+## Creating a clone from an existing VM
+
+VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
 
 {{< alert level="warning">}}
 Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
+
+Before cloning, you need to prepare the guest OS to avoid conflicts with unique identifiers and network settings.
+
+Linux:
+
+- Clear the `machine-id` using `sudo truncate -s 0 /etc/machine-id` (for systemd) or delete the `/var/lib/dbus/machine-id` file.
+- Remove SSH host keys: `sudo rm -f /etc/ssh/ssh_host_*`.
+- Clear network interface configuration (if static settings are used).
+- Clear the Cloud-Init cache (if used): `sudo cloud-init clean`.
+
+Windows:
+
+- Run `sysprep` with the `/generalize` option, or use tools to reset unique identifiers (SID, hostname, etc.).
+
+Example of creating a VM clone:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -2905,58 +3115,60 @@ spec:
     customization: {}
 ```
 
-{{< alert level="warning">}}
-The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the network settings of the guest OS after cloning.
+The `nameReplacements` and `customization` parameters are configured in the `.spec.clone` block (see [general description](#creating-a-vm-clone) above).
+
+{{< alert level="info" >}}
+During cloning, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After cloning is complete, the temporary snapshots are automatically deleted, so they are not visible in the resource list. However, the specification of cloned disks still contains a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is expected behavior and does not indicate a problem: such references remain valid because, by the time the clone starts, all necessary data has already been transferred to the new disks.
 {{< /alert >}}
 
-Cloning creates a copy of an existing VM, so the resources of the new VM must have unique names. To do this, use the `.spec.clone.nameReplacements` and/or `.spec.clone.customisation` parameters.
+## Creating a clone from a VM snapshot
 
-- `.spec.clone.nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
-- `.spec.clone.customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
+Cloning a VM from a snapshot is performed using the VirtualMachineSnapshotOperation resource with the `CreateVirtualMachine` operation type.
 
-Configuration example:
+Example of creating a VM clone from a snapshot:
 
 ```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: <vmsop-name>
 spec:
-  clone:
-    nameReplacements:
-      - from:
-          kind: <resource type>
-          name: <old name>
-      - to:
-          name: <new name>
-    customization:
-      namePrefix: <prefix>
-      nameSuffix: <suffix>
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: <name of the VM snapshot from which to clone>
+  createVirtualMachine:
+    mode: DryRun | Strict | BestEffort
+    nameReplacements: []
+    customization: {}
 ```
 
-As a result, a VM named <prefix><new name><suffix> will be created.
+The `nameReplacements` and `customization` parameters are configured in the `.spec.createVirtualMachine` block (see [general description](#creating-a-vm-clone) above).
 
-One of three modes can be used for the cloning operation:
-- `DryRun`: A test run to check for possible conflicts. The results are displayed in the `status.resources` field of the VirtualMachineOperation resource.
-- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
-- `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
-
-Information about conflicts that arose during cloning can be viewed in the resource status:
-
-```bash
-d8 k get vmop <vmop-name> -o json | jq '.status.resources'
-```
+{{< alert level="info" >}}
+When cloning a VM from a snapshot, the disks associated with it are also created from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
+{{< /alert >}}
 
 ## Data export
 
-DVP allows you to export virtual machine disks and disk images using the `d8` utility (version 1.17 and above).
+You can export virtual machine disks and disk snapshots using the `d8` utility (version 0.20.7 and above). For this function to work, the module [`storage-volume-data-manager`](/modules/storage-volume-data-manager/) must be enabled.
+
+{{< alert level="warning" >}}
+The disk must not be in use at the time of export. If it is attached to a VM, that VM must be stopped first.
+{{< /alert >}}
 
 Example: export a disk (run on a cluster node):
 
 ```bash
-d8 download -n <namespace> vd/<virtual-disk-name> -o file.img
+d8 data download -n <namespace> vd/<virtual-disk-name> -o file.img
 ```
 
 Example: export a disk snapshot (run on a cluster node):
 
 ```bash
-d8 download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
+d8 data download -n <namespace> vds/<virtual-disksnapshot-name> -o file.img
 ```
 
-To export resources outside the cluster, you must also use the `--publish` flag.
+If you are exporting data from a machine other than a cluster node (for example, from your local machine), use the `--publish` flag.
+
+{{< alert level="info" >}}
+To import a downloaded disk back into the cluster, upload it as an [image](#load-an-image-from-the-command-line) or as a [disk](#upload-a-disk-from-the-command-line).
+{{< /alert >}}
