@@ -27,7 +27,7 @@ weight: 70
 
 ### Fixes
 
-- [vmclass] Added the ability to modify or delete the generic `VirtualMachineClass`. The virtualization module will no longer restore it to its original state.
+- [vmclass] Added the ability to modify or delete the `VirtualMachineClass` resource named "generic". The virtualization module will no longer restore it to its original state.
 - [vm] Fixed the MethodNotAllowed error for patch and watch operations when querying the `VirtualMachineClass` resource via command-line utilities (d8 k, kubectl).
 - [image] Fixed an issue that prevented deleting `VirtualImage` and `ClusterVirtualImage` resources for a stopped virtual machine.
 - [module] Fixed RBAC for the `user` and `editor` cluster roles.
