@@ -76,6 +76,7 @@ altLibs:
   - psmisc
   - msulogin
   - strace
+  - libfuse
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
