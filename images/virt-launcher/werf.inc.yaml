@@ -267,7 +267,7 @@ shell:
 
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
-    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
