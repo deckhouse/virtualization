@@ -9,11 +9,13 @@ runs:
   steps:
       - name: Set kubeconfig
         uses: actions/github-script@v6
+        env:
+          KUBECONFIG_CONTENT: ${{ inputs.kubeconfig }}
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
-            const kubeconfig = process.env.INPUT_KUBECONFIG;
+            const kubeconfig = process.env.KUBECONFIG_CONTENT;
             const runnerTempDir = process.env['RUNNER_TEMP'];
             const kubeconfigFile = path.join(runnerTempDir, `kubeconfig_${Date.now()}`);
             fs.writeFileSync(kubeconfigFile, kubeconfig);
