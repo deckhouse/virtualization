@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -101,7 +102,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
 
-	h.syncRunning(changed, kvvm, kvvmi, pod, log)
+	h.syncRunning(ctx, changed, kvvm, kvvmi, pod, log)
 	return reconcile.Result{}, nil
 }
 
@@ -109,7 +110,7 @@ func (h *LifeCycleHandler) Name() string {
 	return nameLifeCycleHandler
 }
 
-func (h *LifeCycleHandler) syncRunning(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) {
+func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, log *slog.Logger) {
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
 	if pod != nil && pod.Status.Message != "" {
@@ -118,6 +119,16 @@ func (h *LifeCycleHandler) syncRunning(vm *v1alpha2.VirtualMachine, kvvm *virtv1
 			Message(fmt.Sprintf("%s: %s", pod.Status.Reason, pod.Status.Message))
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return
+	}
+
+	if pod != nil {
+		if volumeError := h.checkPodVolumeErrors(ctx, pod, log); volumeError != nil {
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonPodNotStarted).
+				Message(volumeError.Error())
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+			return
+		}
 	}
 
 	if kvvm != nil {
@@ -201,4 +212,47 @@ func (h *LifeCycleHandler) syncRunning(vm *v1alpha2.VirtualMachine, kvvm *virtv1
 	}
 	cb.Reason(vmcondition.ReasonVmIsNotRunning).Status(metav1.ConditionFalse)
 	conditions.SetCondition(cb, &vm.Status.Conditions)
+}
+
+func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, pod *corev1.Pod, log *slog.Logger) error {
+	if pod.Status.Phase != corev1.PodPending {
+		return nil
+	}
+
+	hasContainerCreating := false
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			hasContainerCreating = true
+			break
+		}
+	}
+
+	if !hasContainerCreating {
+		return nil
+	}
+
+	eventList := &corev1.EventList{}
+	err := h.client.List(ctx, eventList, &client.ListOptions{
+		Namespace: pod.Namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"involvedObject.name": pod.Name,
+			"involvedObject.kind": "Pod",
+		}),
+	})
+	if err != nil {
+		log.Error("Failed to list pod events", "error", err)
+		return nil
+	}
+
+	for _, event := range eventList.Items {
+		if event.Type != corev1.EventTypeWarning {
+			continue
+		}
+
+		if event.Reason == "FailedAttachVolume" || event.Reason == "FailedMount" {
+			return fmt.Errorf("%s: %s", event.Reason, event.Message)
+		}
+	}
+
+	return nil
 }

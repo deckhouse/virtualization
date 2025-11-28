@@ -167,7 +167,7 @@ func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 		}
 
 		networkStatusAnnotation, found := pod.Annotations[annotations.AnnNetworksStatus]
-		if !found {
+		if !found && pod.Status.Phase == corev1.PodRunning {
 			errorMessages = append(errorMessages, "Cannot determine the status of additional interfaces, waiting for a response from the SDN module")
 			continue
 		}
