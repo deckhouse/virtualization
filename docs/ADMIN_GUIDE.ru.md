@@ -62,7 +62,29 @@ spec:
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` — класс хранения (например, `sds-replicated-thin-r1`).
 
 {{< alert level="warning" >}}
-Хранилище, обслуживающее данный класс хранения (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`), должно быть доступно на узлах, где запускается DVCR (system-узлы, либо worker-узлы, при отсутствии system-узлов).
+Перенос образов при изменении значения параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` не поддерживается.
+
+При смене StorageClass DVCR все образы, хранящиеся в DVCR, будут утеряны.
+{{< /alert >}}
+
+Для изменения StorageClass DVCR выполните следующие действия:
+
+1. Измените значение [параметра `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`](/modules/virtualization/configuration.html#parameters-dvcr-storage-persistentvolumeclaim-storageclassname).
+
+1. Удалите старый PVC для DVCR с помощью следующей команды:
+
+   ```shell
+   d8 k -n d8-virtualization delete pvc -l app=dvcr
+   ```
+
+1. Перезапустите DVCR, выполнив следующую команду:
+
+   ```shell
+   d8 k -n d8-virtualization rollout restart deployment dvcr
+   ```
+
+{{< alert level="warning" >}}
+Хранилище, обслуживающее данный класс хранения `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`, должно быть доступно на узлах, где запускается DVCR (system-узлы, либо worker-узлы, при отсутствии system-узлов).
 {{< /alert >}}
 
 **Сетевые настройки**
@@ -420,6 +442,48 @@ d8 k describe cvi ubuntu-22-04
 - Нажмите кнопку «Создать».
 - Дождитесь пока образ перейдет в состояние `Готов`.
 
+### Очистка хранилища образов
+
+Со временем создание и удаление ресурсов ClusterVirtualImage, VirtualImage, VirtualDisk приводит к накоплению
+неактуальных образов во внутрикластерном хранилище. Для поддержания хранилища в актуальном состоянии предусмотрена сборка мусора по расписанию.
+По умолчанию эта функция отключена. Для включения очистки нужно задать расписание в настройках модуля в ресурсе ModuleConfig/virtualization:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  # ...
+  settings:
+    dvcr:
+      gc:
+        schedule: "0 20 * * *"
+  # ...
+```
+
+На время работы сборки мусора хранилище переводится в режим «только чтение». Все создаваемые в это время ресурсы будут ожидать окончания очистки.
+
+Для проверки наличия неактуальных образов в хранилище можно выполнить такую команду:
+
+```bash
+d8 k -n d8-virtualization exec deploy/dvcr -- dvcr-cleaner gc check
+```
+
+На экран будут выведены сведения о состоянии хранилища и список неактуальных образов, которые могут быть удалены.
+
+```console
+Found 2 cvi, 5 vi, 1 vd manifests in registry
+Found 1 cvi, 5 vi, 11 vd resources in cluster
+  Total     Used    Avail     Use%
+36.3GiB  13.1GiB  22.4GiB      39%
+Images eligible for cleanup:
+KIND                   NAMESPACE            NAME
+ClusterVirtualImage                         debian-12
+VirtualDisk            default              debian-10-root
+VirtualImage           default              ubuntu-2204
+```
+
 ## Классы виртуальных машин
 
 Ресурс VirtualMachineClass предназначен для централизованной конфигурации предпочтительных параметров виртуальных машин.
@@ -429,11 +493,15 @@ d8 k describe cvi ubuntu-22-04
 
 Во время установки автоматически создаётся ресурс VirtualMachineClass с именем `generic`. Он представляет собой универсальный тип процессора на основе более старой, но широко поддерживаемой архитектуры Nehalem. Это позволяет запускать виртуальные машины на любых узлах кластера и поддерживает их живую миграцию.
 
-{{< alert level="info" >}}
-Рекомендуется создать как минимум один ресурс VirtualMachineClass в кластере с типом `Discovery` сразу после того, как все узлы будут настроены и добавлены в кластер.
-Это позволит использовать в виртуальных машинах универсальный процессор с максимально возможными характеристиками с учетом CPU на узлах кластера, что позволит виртуальным машинам использовать максимум возможностей CPU и при необходимости беспрепятственно осуществлять миграцию между узлами кластера.
+Администратор может изменять параметры ресурса VirtualMachineClass `generic` (за исключением секции `.spec.cpu`), либо удалить данный ресурс.
 
-Пример настройки смотрите в разделе [Пример конфигурации vCPU Discovery](#пример-конфигурации-vcpu-discovery)
+{{< alert level="info" >}}
+
+Не рекомендуется использовать VirtualMachineClass `generic` для запуска рабочих нагрузок в production-средах, поскольку данный класс соответствует процессору с наименьшей функциональностью.
+
+Рекомендуется после добавления и настройки всех узлов в кластере создать хотя бы один ресурс VirtualMachineClass с типом `Discovery`. Это обеспечит выбор наилучшей доступной конфигурации процессора с учётом всех CPU в вашем кластере, позволит виртуальным машинам максимально эффективно использовать возможности процессоров и обеспечит беспрепятственную миграцию между узлами.
+
+Пример настройки смотрите в разделе [Пример конфигурации vCPU Discovery](#пример-конфигурации-vcpu-discovery).
 {{< /alert >}}
 
 Чтобы вывести список ресурсов VirtualMachineClass, выполните следующую команду:

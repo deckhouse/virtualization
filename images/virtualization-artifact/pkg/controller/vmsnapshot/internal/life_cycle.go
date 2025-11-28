@@ -200,13 +200,28 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	}
 
 	virtualMachineReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineReadyType, vmSnapshot.Status.Conditions)
-	if vm == nil || virtualMachineReadyCondition.Status != metav1.ConditionTrue {
-		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
-		msg := fmt.Sprintf("Waiting for the virtual machine %q to be ready for snapshotting.", vmSnapshot.Spec.VirtualMachineName)
+	if vm == nil {
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual machine %q does not exist.", vmSnapshot.Spec.VirtualMachineName)
 		h.recorder.Event(
 			vmSnapshot,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonVMSnapshottingPending,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonVMSnapshottingFailed,
+			msg,
+		)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.WaitingForTheVirtualMachine).
+			Message(msg)
+		return reconcile.Result{}, nil
+	}
+	if virtualMachineReadyCondition.Status != metav1.ConditionTrue {
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual machine %q is not ready.", vmSnapshot.Spec.VirtualMachineName)
+		h.recorder.Event(
+			vmSnapshot,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonVMSnapshottingFailed,
 			msg,
 		)
 		cb.
@@ -251,27 +266,24 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	}
 	isAwaitingConsistency := needToFreeze && !canFreeze && vmSnapshot.Spec.RequiredConsistency
 	if isAwaitingConsistency {
-		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhasePending
+		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
 		msg := fmt.Sprintf(
-			"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
-				"waiting for the virtual machine to be %s",
-			vm.Name, v1alpha2.MachineStopped,
+			"Cannot take a consistent snapshot of virtual machine %q.",
+			vm.Name,
 		)
 
 		agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
 		if agentReadyCondition.Status != metav1.ConditionTrue {
 			msg = fmt.Sprintf(
-				"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
-					"virtual machine agent is not ready and virtual machine cannot be frozen: "+
-					"waiting for virtual machine agent to be ready or virtual machine will stop",
+				"Cannot take a consistent snapshot of virtual machine %q: virtual machine agent is not ready and the virtual machine cannot be frozen.",
 				vm.Name,
 			)
 		}
 
 		h.recorder.Event(
 			vmSnapshot,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonVMSnapshottingPending,
+			corev1.EventTypeWarning,
+			v1alpha2.ReasonVMSnapshottingFailed,
 			msg,
 		)
 		cb.

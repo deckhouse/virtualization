@@ -46,15 +46,15 @@ func CheckDefaultVMClass(virtClient virtclient.Client) error {
 		}
 	}
 
-	// Current default class is already present.
-	// Do not check Spec, developer may have its own thoughts on default class Spec.
-	if e2eClass != nil && currentDefaultClass.Name == DefaultVirtualMachineClassName {
+	// Expect that VMClass for e2e is also a default VMClass.
+	if e2eClass != nil && currentDefaultClass != nil && currentDefaultClass.Name == DefaultVirtualMachineClassName {
 		return nil
 	}
 
+	// Handle other cases.
 	switch {
 	case e2eClass != nil && currentDefaultClass != nil:
-		return fmt.Errorf("cluster has wrong default class %s, e2e tests requires %s class, run these commands to fix this issue: %s ; %s",
+		return fmt.Errorf("cluster has wrong default class %s, e2e tests requires %s class to be default, run these commands to fix this issue: %s ; %s",
 			currentDefaultClass.Name,
 			DefaultVirtualMachineClassName,
 			cmdRemoveDefaultClassAnnotation(currentDefaultClass.Name),
@@ -66,6 +66,11 @@ func CheckDefaultVMClass(virtClient virtclient.Client) error {
 			DefaultVirtualMachineClassName,
 			cmdRemoveDefaultClassAnnotation(currentDefaultClass.Name),
 			cmdCopyGenericAsDefaultClass(),
+		)
+	case e2eClass != nil && currentDefaultClass == nil:
+		return fmt.Errorf("cluster has no default class, e2e tests requires %s class to be default, run this command to fix this issue: %s",
+			DefaultVirtualMachineClassName,
+			cmdSetDefaultClassAnnotation(DefaultVirtualMachineClassName),
 		)
 	case e2eClass == nil && currentDefaultClass == nil:
 		return fmt.Errorf("cluster has no default class, e2e tests requires %s class to be default, run this command to fix this issue: %s",
