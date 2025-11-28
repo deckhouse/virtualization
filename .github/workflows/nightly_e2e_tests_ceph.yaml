@@ -59,6 +59,7 @@ jobs:
 
       - name: Set kubeconfig
         uses: ./.github/actions/set-kubeconfig
+        id: set-kubeconfig
         env:
           KUBECONFIG: ${{ secrets.NIGHTLY_E2E_TESTS_SECRET }}
 
