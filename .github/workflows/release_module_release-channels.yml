@@ -64,17 +64,34 @@ jobs:
     steps:
       - name: PRINT VARS
         run: |
-          echo $MODULES_REGISTRY
-          echo $MODULE_SOURCE_NAME
-          echo $CI_COMMIT_REF_NAME
-          echo $MODULES_MODULE_NAME
-          echo $RELEASE_CHANNEL
-          echo $MODULES_MODULE_TAG
+          echo MODULES_REGISTRY=$MODULES_REGISTRY
+          echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
+          echo CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME
+          echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
+          echo RELEASE_CHANNEL=$RELEASE_CHANNEL
+          echo MODULE_EDITION=$MODULE_EDITION
+          echo DOCKER_CONFIG=$DOCKER_CONFIG
+        shell: bash
+
+      - name: Check that input tag is valid
+        id: get-tag
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          echo "Processing tag: $TAG"
+
+          # Check if tag matches vX.Y.Z pattern (release)
+          if echo "$TAG" | grep -P '^v\d+\.\d+\.\d+$' > /dev/null; then
+            echo "$TAG is a valid release tag"
+          else
+            echo "Error: Invalid tag format. Use format vX.Y.Z"
+            exit 1
+          fi
         shell: bash
 
   job-CE:
     name: Edition CE
     runs-on: [self-hosted, large]
+    needs: print-vars
     if: github.event.inputs.ce == 'true'
     steps:
       - name: Setup Docker config
@@ -95,6 +112,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -119,10 +137,6 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - name: Cleanup Docker config
-        run: |
-          rm -rf $DOCKER_CONFIG
-
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -130,8 +144,13 @@ jobs:
           module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
 
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
+
   job-EE:
     name: Edition EE
+    needs: print-vars
     runs-on: [self-hosted, large]
     if: github.event.inputs.ee == 'true'
     steps:
@@ -153,6 +172,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -183,16 +203,16 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - name: Cleanup Docker config
-        run: |
-          rm -rf $DOCKER_CONFIG
-
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
 
   job-SE-Plus:
     name: Edition SE Plus
@@ -217,6 +237,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -241,16 +262,16 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - name: Cleanup Docker config
-        run: |
-          rm -rf $DOCKER_CONFIG
-
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
 
   job-FE:
     name: Edition FE
@@ -279,6 +300,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event.inputs.tag }}
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -303,13 +325,13 @@ jobs:
           source_repo_ssh_key: ${{ secrets.SOURCE_REPO_SSH_KEY }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - name: Cleanup Docker config
-        run: |
-          rm -rf $DOCKER_CONFIG
-
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
+
+      - name: Cleanup Docker config
+        run: |
+          rm -rf $DOCKER_CONFIG
