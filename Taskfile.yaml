@@ -165,8 +165,7 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null,
-                  "args": []
+                  "command": null
                 },
                 {
                   "name": "proxy",
@@ -264,8 +263,7 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null,
-                  "args": []
+                  "command": null
                 },
                 {
                   "name": "proxy",

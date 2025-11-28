@@ -35,6 +35,7 @@ type VirtualMachineExpansion interface {
 	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
 	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
 	CancelEvacuation(ctx context.Context, name string, dryRun []string) error
+	USBRedir(ctx context.Context, name string) (StreamInterface, error)
 }
 
 type SerialConsoleOptions struct {
@@ -80,4 +81,8 @@ func (c *virtualMachines) RemoveVolume(ctx context.Context, name string, opts v1
 
 func (c *virtualMachines) CancelEvacuation(ctx context.Context, name string, dryRun []string) error {
 	return fmt.Errorf("not implemented")
+}
+
+func (c *virtualMachines) USBRedir(ctx context.Context, name string) (StreamInterface, error) {
+	return nil, fmt.Errorf("not implemented")
 }

@@ -43,6 +43,7 @@ type VirtualMachineStorage struct {
 	freeze           *vmrest.FreezeREST
 	unfreeze         *vmrest.UnfreezeREST
 	cancelEvacuation *vmrest.CancelEvacuationREST
+	usbRedir         *vmrest.USBRedirREST
 	vmClient         versionedv1alpha2.VirtualMachinesGetter
 }
 
@@ -70,6 +71,7 @@ func NewStorage(
 		freeze:           vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
 		unfreeze:         vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
 		cancelEvacuation: vmrest.NewCancelEvacuationREST(vmLister, kubevirt, proxyCertManager),
+		usbRedir:         vmrest.NewUSBRedirREST(vmLister, kubevirt, proxyCertManager),
 		vmClient:         vmClient,
 	}
 }
@@ -104,6 +106,10 @@ func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
 
 func (store VirtualMachineStorage) CancelEvacuationREST() *vmrest.CancelEvacuationREST {
 	return store.cancelEvacuation
+}
+
+func (store VirtualMachineStorage) USBRedirREST() *vmrest.USBRedirREST {
+	return store.usbRedir
 }
 
 // New implements rest.Storage interface
