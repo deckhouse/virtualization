@@ -62,6 +62,10 @@ jobs:
         env:
           KUBECONFIG: ${{ secrets.NIGHTLY_E2E_TESTS_SECRET }}
 
+      - name: Set KUBECONFIG environment variable
+        run: |
+          export KUBECONFIG=$(${{ steps.set-kubeconfig.outputs.kubeconfig_file }})
+
       - name: Download dependencies
         working-directory: ./test/e2e/
         run: |
