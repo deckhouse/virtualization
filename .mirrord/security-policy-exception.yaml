@@ -1,0 +1,33 @@
+apiVersion: deckhouse.io/v1alpha1
+kind: SecurityPolicyException
+metadata:
+  name: mirrord-agent-exception
+  namespace: default
+spec:
+  network:
+    hostPID:
+      allowedValue: true
+      metadata:
+        description: "Required for mirrord agent to attach to target container"
+  securityContext:
+    capabilities:
+      allowedValues:
+        add:
+        - NET_ADMIN
+        - NET_RAW
+        - SYS_ADMIN
+        - SYS_PTRACE
+        - SYS_RESOURCE
+        drop:
+        - ALL
+  volumes:
+    hostPath:
+      allowedValues:
+      - path: /run
+        readOnly: false
+        metadata:
+          description: "Required for mirrord agent container runtime access"
+      - path: /var
+        readOnly: false
+        metadata:
+          description: "Required for mirrord agent container runtime access"
