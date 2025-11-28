@@ -23,12 +23,12 @@ import (
 )
 
 func New(options ...Option) *v1alpha2.VirtualMachineSnapshot {
-	vdsnapshot := NewEmpty("", "")
-	ApplyOptions(vdsnapshot, options...)
-	return vdsnapshot
+	vmsnapshot := NewEmpty("", "")
+	ApplyOptions(vmsnapshot, options)
+	return vmsnapshot
 }
 
-func ApplyOptions(vmsnapshot *v1alpha2.VirtualMachineSnapshot, opts ...Option) {
+func ApplyOptions(vmsnapshot *v1alpha2.VirtualMachineSnapshot, opts []Option) {
 	if vmsnapshot == nil {
 		return
 	}
@@ -46,6 +46,10 @@ func NewEmpty(name, namespace string) *v1alpha2.VirtualMachineSnapshot {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+		Spec: v1alpha2.VirtualMachineSnapshotSpec{
+			RequiredConsistency: true,                         // Default value from kubebuilder annotation
+			KeepIPAddress:       v1alpha2.KeepIPAddressAlways, // Default value from kubebuilder annotation
 		},
 	}
 }
