@@ -47,7 +47,7 @@ var config = &pkg.HookConfig{
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       policySnapshotName,
-			APIVersion: "admissionregistration.k8s.io/v1beta1",
+			APIVersion: "admissionregistration.k8s.io/v1",
 			Kind:       "ValidatingAdmissionPolicy",
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-policy"},
@@ -58,7 +58,7 @@ var config = &pkg.HookConfig{
 		},
 		{
 			Name:       bindingSnapshotName,
-			APIVersion: "admissionregistration.k8s.io/v1beta1",
+			APIVersion: "admissionregistration.k8s.io/v1",
 			Kind:       "ValidatingAdmissionPolicyBinding",
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-binding"},
