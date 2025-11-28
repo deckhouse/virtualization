@@ -37,7 +37,7 @@ jobs:
         with:
           method: service-account
           k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+          k8s-secret: ${{ secrets.NIGHTLY_E2E_TESTS_SECRET }}
 
       - name: Send results to channel
         if: always()
