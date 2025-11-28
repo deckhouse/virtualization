@@ -26,6 +26,9 @@ on:
       - main
       - feat/ci/nightly-e2e-test-nested-env
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  cancel-in-progress: true
 defaults:
   run:
     shell: bash
@@ -98,7 +101,7 @@ jobs:
             tag: ${{ env.VIRTUALIZATION_TAG }}
           image:
             url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
-            defaultUser: ubuntu
+            defaultUser: cloud
             bootloader: BIOS
           ingressHosts:
             - api
@@ -110,13 +113,13 @@ jobs:
           instances:
             masterNodes:
               count: 1
-              cores: 4
+              cores: 8
               coreFraction: 50%
               memory: 14Gi
             additionalNodes:
               - name: worker
                 count: 3
-                cores: 4
+                cores: 10
                 coreFraction: 25%
                 memory: 8Gi
                 nodeType: CloudEphemeral
@@ -126,39 +129,72 @@ jobs:
         run: |
           cd test/dvp-over-dvp
           task install
-      
-      - name: Chmod attach-vmbda.sh
-        run: chmod +x test/dvp-over-dvp/vmbda/attach-vmbda.sh
       - name: Create vmbda for workers
         run: |
-          echo "=== $(pwd) ==="
           cd test/dvp-over-dvp
-          echo "after [cd]"
-          echo "=== $(pwd) ==="
-          ls -la 
-          ls -la vmbda
-          chmod +x vmbda/attach-vmbda.sh
-          
-          echo "Try create vmbda for workers"
-          ./vmbda/attach-vmbda.sh "nightly-e2e-${{ steps.vars.outputs.sha_short }}""
+          chmod +x ./vmbda/attach-vmbda.sh
+
+          echo "Create vmbda for workers"
+          ./vmbda/attach-vmbda.sh "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
           echo "End create vmbda for workers"
           
           echo "Pods"
-          kubectl get pods -n nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo ""
 
           echo "VMs"
-          kubectl get vm -n nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo ""
           
           echo "VDs"
-          kubectl get vd -n nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo ""
           
           echo "VMBDAs"
-          kubectl get vmbda -n nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          kubectl get vmbda -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
 
-      - name: Get pods
+      # - name: Get pods
+      #   run: |
+      #     cd test/dvp-over-dvp
+      #     task kubectl -- get pods -n d8-system
+      
+      - name: Get info about nested master VM
         run: |
           cd test/dvp-over-dvp
-          task kubectl -- get pods -n nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          nested_master=$(kubectl -n nightly-e2e-${{ steps.vars.outputs.sha_short }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
+
+          d8 k get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo ""
+
+          echo "login to master"
+          echo "os-release master"
+          d8 v ssh -i ./tmp/ssh/cloud \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            cloud@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            -c 'cat /etc/os-release'
+          echo ""
+          
+          echo "hostname master"
+          d8 v ssh -i ./tmp/ssh/cloud  \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            cloud@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            -c 'hostname'
+      
+      - name: Copy script for gen nested kubeconfig
+        run: |
+          cd test/dvp-over-dvp
+          task configure:cluster:sa
+
+          echo "kubeconfig"
+          d8 v ssh -i ./tmp/ssh/cloud -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${nested-master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} ls -la /tmp/
+          echo ""
+
+          d8 v ssh -i ./tmp/ssh/cloud -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${nested-master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} ls -la $HOME
+          echo ""
 
       - name: infra-undeploy
         if: ${{ always() }}

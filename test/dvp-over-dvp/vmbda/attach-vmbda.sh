@@ -9,7 +9,7 @@ if [[ -z "${VD_SIZE}" ]]; then
 fi
 
 if [[ -z "${NAMESPACE}" ]]; then
-  local sha=$(git rev-parse --short HEAD) || true
+  sha=$(git rev-parse --short HEAD) || true
   NAMESPACE=nightly-e2e-short-${sha}
 fi
 
@@ -24,9 +24,9 @@ create_vd() {
   local size=$2
   local storageClass=$3
 
-  echo "Create vd ${name}"
+  echo "Create VD: ${name}"
 
-  kubectl apply -f - <<EOF
+  kubectl apply -f -<<EOF
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk
@@ -38,7 +38,7 @@ spec:
     size: ${size}
     storageClassName: ${storageClass}
 EOF
-  
+
   kubectl -n ${NAMESPACE} wait --for=condition=Ready vd ${name} --timeout=300s
 }
 
@@ -47,7 +47,7 @@ create_vmbda() {
   local vm=$2
   local vd=$3
 
-  echo "Create vmbda ${name}"
+  echo "Create VMBDA: ${name}"
   
   kubectl apply -f - <<EOF
 ---
@@ -63,6 +63,7 @@ spec:
   virtualMachineName: ${vm}
 EOF
 
+kubectl -n ${NAMESPACE} wait --for=condition=Attached vmbda ${name} --timeout=300s
 }
 
 main() {
@@ -76,4 +77,4 @@ main() {
   done <<< "${VMS}"
 }
 
-main
+main $@

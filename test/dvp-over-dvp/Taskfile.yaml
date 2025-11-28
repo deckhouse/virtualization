@@ -225,3 +225,19 @@ tasks:
       - task: __ssh-command
         vars:
           CMD: TERM=xterm-256color sudo /usr/local/bin/k9s {{ .CLI_ARGS }}
+
+  configure:cluster:sa:
+    desc: Configure kubeconfig for nested cluster
+    vars:
+      script: gen-sa.sh
+    cmds:
+    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" ./nested-sa-config/{{ .script }} cloud@master-0:/tmp/
+    - task: __ssh-command
+      vars:
+        CMD: sudo chmod +x /tmp/{{ .script }}
+    - task: __ssh-command
+      vars:
+        CMD: sudo /tmp/{{ .script }}
+    - task: __ssh-command
+      vars:
+        CMD: sudo /opt/deckhouse/bin/kubectl apply -f {{ .config }}
