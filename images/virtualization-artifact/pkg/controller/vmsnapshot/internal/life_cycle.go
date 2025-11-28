@@ -202,7 +202,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	virtualMachineReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineReadyType, vmSnapshot.Status.Conditions)
 	if vm == nil {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
-		msg := fmt.Sprintf("Cannot take a snapshot right now: the virtual machine %q does not exist.", vmSnapshot.Spec.VirtualMachineName)
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual machine %q does not exist.", vmSnapshot.Spec.VirtualMachineName)
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeWarning,
@@ -217,7 +217,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *v1alpha2.Virtu
 	}
 	if virtualMachineReadyCondition.Status != metav1.ConditionTrue {
 		vmSnapshot.Status.Phase = v1alpha2.VirtualMachineSnapshotPhaseFailed
-		msg := fmt.Sprintf("Cannot take a snapshot right now: the virtual machine %q is not ready.", vmSnapshot.Spec.VirtualMachineName)
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual machine %q is not ready.", vmSnapshot.Spec.VirtualMachineName)
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeWarning,

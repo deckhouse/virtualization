@@ -127,7 +127,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	virtualDiskReadyCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
 	if vd == nil {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-		msg := fmt.Sprintf("Cannot take a snapshot right now: the virtual disk %q does not exist.", vdSnapshot.Spec.VirtualDiskName)
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual disk %q does not exist.", vdSnapshot.Spec.VirtualDiskName)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
@@ -136,7 +136,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	}
 	if virtualDiskReadyCondition.Status != metav1.ConditionTrue {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-		msg := fmt.Sprintf("Cannot take a snapshot right now: the virtual disk %q is not ready.", vdSnapshot.Spec.VirtualDiskName)
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual disk %q is not ready.", vdSnapshot.Spec.VirtualDiskName)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
@@ -155,7 +155,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 
 	if pvc == nil {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-		msg := fmt.Sprintf("Cannot take a snapshot right now: the persistent volume claim for virtual disk %q does not exist.", vdSnapshot.Spec.VirtualDiskName)
+		msg := fmt.Sprintf("Cannot take a snapshot: the persistent volume claim for virtual disk %q does not exist.", vdSnapshot.Spec.VirtualDiskName)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
@@ -164,7 +164,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	}
 	if pvc.Status.Phase != corev1.ClaimBound {
 		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
-		msg := fmt.Sprintf("Cannot take a snapshot right now: the persistent volume claim %q for virtual disk %q is not in phase %s.", pvc.Name, vdSnapshot.Spec.VirtualDiskName, corev1.ClaimBound)
+		msg := fmt.Sprintf("Cannot take a snapshot: the persistent volume claim %q for virtual disk %q is not in phase %s.", pvc.Name, vdSnapshot.Spec.VirtualDiskName, corev1.ClaimBound)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
