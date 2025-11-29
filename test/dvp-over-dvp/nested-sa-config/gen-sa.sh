@@ -77,7 +77,7 @@ if [[ -z "$SA_NAME" ]] || [[ -z "$CLUSTER_PREFIX" ]] || [[ -z "$CLUSTER_NAME" ]]
 fi
 
 if [[ -z "$FILE_NAME" ]]; then
-  FILE_NAME=kube.config
+  FILE_NAME=/tmp/kube.config
 fi
 
 SA_TOKEN=virt-${CLUSTER_PREFIX}-${SA_NAME}-token
