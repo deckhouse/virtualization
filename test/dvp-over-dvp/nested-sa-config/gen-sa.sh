@@ -161,6 +161,7 @@ kubeconfig_set_context
 log_success "kubeconfig created and stored in $FILE_NAME"
 
 log_info "kubeconfig created and stored in $FILE_NAME"
+chmod 777 $FILE_NAME
 ls -la $FILE_NAME
 cat $FILE_NAME
 # kubectl config use-context $CONTEXT_NAME --kubeconfig=$FILE_NAME

@@ -236,6 +236,8 @@ jobs:
           d8vscp ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }}:/tmp/kube.config tmp/kube.config
 
           echo "=== nestedt cluster via api get nodes ==="
+          sudo chown 1001:1001 tmp/kube.config
+          sudo chmod 600 tmp/kube.config
           kubectl --kubeconfig=tmp/kube.config get nodes
           echo ""
 
