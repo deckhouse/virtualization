@@ -229,14 +229,14 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
             -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e'
-          echo "d8vssh -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e' - done"
+          echo "d8vssh -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /tmp/kube.config' - done"
           echo ""
           
           echo "copy kubeconfig to runner"
-          d8vscp ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }}:/tmp/kube.config ./tmp/kube.config
+          d8vscp ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }}:/tmp/kube.config tmp/kube.config
 
           echo "=== nestedt cluster via api get nodes ==="
-          kubectl --kubeconfig=./tmp/kube.config get nodes
+          kubectl --kubeconfig=tmp/kube.config get nodes
           echo ""
 
           d8vssh "-c 'cat /etc/os-release'"

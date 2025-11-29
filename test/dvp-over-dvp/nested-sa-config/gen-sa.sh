@@ -85,7 +85,6 @@ SA_CAR_NAME=virt-${CLUSTER_PREFIX}-${SA_NAME}
 
 USER_NAME=${SA_NAME}
 CONTEXT_NAME=${CLUSTER_NAME}-${USER_NAME}
-FILE_NAME=kube.config
 
 if kubectl cluster-info > /dev/null 2>&1; then
   log_success "Access to Kubernetes cluster exists."
@@ -134,7 +133,10 @@ log_success "SA, Secrets and ClusterAuthorizationRule applied"
 
 
 kubeconfig_cert_cluster_section() {
-  kubectl config set-cluster $CLUSTER_NAME --insecure-skip-tls-verify=true
+  kubectl config set-cluster $CLUSTER_NAME \
+    --insecure-skip-tls-verify=true \
+    --server=https://$(kubectl -n d8-user-authn get ing kubernetes-api -ojson | jq '.spec.rules[].host' -r) \
+    --kubeconfig=$FILE_NAME
 }
 
 kubeconfig_set_credentials() {
@@ -158,8 +160,10 @@ kubeconfig_set_context
 
 log_success "kubeconfig created and stored in $FILE_NAME"
 
-
-kubectl config use-context $CONTEXT_NAME --kubeconfig=$FILE_NAME
-kubectl --kubeconfig=$FILE_NAME get nodes
+log_info "kubeconfig created and stored in $FILE_NAME"
+ls -la $FILE_NAME
+cat $FILE_NAME
+# kubectl config use-context $CONTEXT_NAME --kubeconfig=$FILE_NAME
+# kubectl --kubeconfig=$FILE_NAME get nodes
 
 log_success "Done"
