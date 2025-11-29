@@ -38,6 +38,8 @@ jobs:
   bootstrap:
     name: Bootstrap cluster
     runs-on: ubuntu-latest
+    outputs:
+      kubeconfig-content: ${{ steps.generate-kubeconfig.outputs.config }}
     steps:
       - uses: actions/checkout@v4
         # with:
@@ -157,7 +159,8 @@ jobs:
       - name: Get info about nested master VM
         run: |
           cd test/dvp-over-dvp
-          nested_master=$(kubectl -n nightly-e2e-${{ steps.vars.outputs.sha_short }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
+          namespace=nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          nested_master=$(kubectl -n $namespace get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
 
           d8 k get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
           echo ""
@@ -180,9 +183,13 @@ jobs:
             ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
             -c 'hostname'
       
-      - name: Copy script for gen nested kubeconfig
+      - name: Generate nested kubeconfig
+        id: generate-kubeconfig
+        env:
+          kubeConfigPath: tmp/kube.config
         run: |
-          nested_master=$(kubectl -n nightly-e2e-${{ steps.vars.outputs.sha_short }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
+          namespace=nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          nested_master=$(kubectl -n $namespace get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
 
           d8vssh() {
             echo "$1 - 1 arg"
@@ -192,20 +199,23 @@ jobs:
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
-            $1
+            $1 $2
           }
           
           d8vscp() {
+            local source=$1
+            local dest=$2
             d8 v scp -i ./tmp/ssh/cloud  \
               --local-ssh=true \
               --local-ssh-opts="-o StrictHostKeyChecking=no" \
               --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-              $@
+              $source $dest
           }
 
           cd test/dvp-over-dvp
           # task configure:cluster:sa
-
+          
+          echo "Copy script for generating kubeconfig in nested cluster"
           echo "copy nested-sa-config/gen-sa.sh to master"
           d8vscp ./nested-sa-config/gen-sa.sh ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }}:/tmp/gen-sa.sh
           echo ""
@@ -221,30 +231,162 @@ jobs:
           echo "d8vssh -c 'chmod +x /tmp/gen-sa.sh' - done"
           echo ""
 
+          echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
           # d8vssh "-c 'sudo /tmp/gen-sa.sh'"
-          d8 v ssh -i ./tmp/ssh/cloud  \
+          
+          # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
+          
+          d8 v ssh -i ./tmp/ssh/cloud \
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
-            -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e'
-          echo "d8vssh -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /tmp/kube.config' - done"
+            -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}'
+
+          echo "d8vssh -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}' - done"
           echo ""
           
           echo "copy kubeconfig to runner"
-          d8vscp ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }}:/tmp/kube.config tmp/kube.config
+          d8vscp ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }}:/${{ env.kubeConfigPath }} ${{ env.kubeConfigPath }}
 
-          echo "=== nestedt cluster via api get nodes ==="
-          sudo chown 1001:1001 tmp/kube.config
-          sudo chmod 600 tmp/kube.config
-          kubectl --kubeconfig=tmp/kube.config get nodes
+          echo "=== nested cluster via api get nodes ==="
+          echo "sudo chown 1001:1001 ${{ env.kubeConfigPath }}"
+          sudo chown 1001:1001 ${{ env.kubeConfigPath }}
+          echo "sudo chmod 600 ${{ env.kubeConfigPath }}"
+          sudo chmod 600 ${{ env.kubeConfigPath }}
+          echo "rights - done"
+
+          echo "-----"
+          echo "cat ${{ env.kubeConfigPath }}"
+          cat ${{ env.kubeConfigPath }}
+          echo "-----"
           echo ""
 
-          d8vssh "-c 'cat /etc/os-release'"
+          echo "-----"
+          CONFIG=$(cat ${{ env.kubeConfigPath }} | base64 -w 0)
+          echo "$CONFIG"
+          echo "-----"
+          echo "config=$CONFIG" >> $GITHUB_OUTPUT
 
+          echo "cat ${{ env.kubeConfigPath }} - done"
+
+          echo "try d8 k"
+          d8 k --kubeconfig=tmp/kube.config get nodes
+
+          # echo "kubectl --kubeconfig=tmp/kube.config get nodes"
+          # export KUBECONFIG=$(pwd)/tmp/kube.config:$KUBECONFIG
+          # kubectl config get-contexts
+          # kubectl config use-context nested-e2e-nested-sa
+          # kubectl get nodes
+          # echo "kubectl get nodes, with nested cluster config- done"
+          # echo ""
+          
+          # echo "Test [ d8vssh -c 'cat /etc/os-release' ]"
+          # d8vssh "-c 'cat /etc/os-release'"
+    
+      - uses: actions/upload-artifact@v4
+        id: artifact-upload
+        if: always()
+        with:
+          name: generated-files
+          path: |
+            test/dvp-over-dvp/tmp
+            test/dvp-over-dvp/values.yaml
+
+          overwrite: true
+          include-hidden-files: true
+          retention-days: 1
+      # - name: Add annotation with the URL
+      #   run: |
+      #     ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact-upload.outputs.artifact-id }}"
+      #     echo "::notice title=Artifact Uploaded::Artifact available at: $ARTIFACT_URL"
+
+  configure-storage:
+    name: Configure storage
+    runs-on: ubuntu-latest
+    needs: bootstrap
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v4
+      
+      
+      - name: Restore kubeconfig from output
+        run: |
+          mkdir -p ~/.kube
+          echo "get kubeconfig-content"
+          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}"
+          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d > ~/.kube/config
+          echo "---"
+          echo "Show paths and files content"
+          ls -la ~/.kube
+          cat ~/.kube/config
+          chmod 600 ~/.kube/config
+          echo "-- end Show paths and files content --"
+          kubectl config get-contexts
+          kubectl config view
+          # ----------
+          PING_HOST=$(yq e '.clusters[0].cluster.server' ~/.kube/config)
+          echo "ping $PING_HOST"
+          ping -c 1 $PING_HOST
+          # ----------
+          echo "curl -v $PING_HOST"
+          curl -v $PING_HOST
+          # ----------
+          echo "kubectl get nodes"
+          kubectl get nodes
+
+  undeploy-infra:
+    name: Undeploy infra
+    runs-on: ubuntu-latest
+    needs:
+      - bootstrap
+      - configure-storage
+    if: ${{ always() }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install htpasswd utility
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apache2-utils
+      
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
+      
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: generated-files
+          path: test/dvp-over-dvp/
+      
+      - name: Show paths and files content
+        run: |
+          ls -la test/dvp-over-dvp/tmp
+          ls -la test/dvp-over-dvp/tmp/
+          cat test/dvp-over-dvp/values.yaml | tail -n +8
+      
+      - name: Configure kubectl via azure/k8s-set-context@v4
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          context: e2e-cluster-nightly-e2e-virt-sa
+          kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+          
       - name: infra-undeploy
-        if: ${{ always() }}
         run: |
           cd test/dvp-over-dvp
           task infra-undeploy
