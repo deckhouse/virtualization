@@ -215,12 +215,24 @@ jobs:
           echo ""
 
           echo "chmod nested-sa-config/gen-sa.sh"
-          d8vssh "-c 'chmod +x /tmp/gen-sa.sh'"
+          # d8vssh "-c 'chmod +x /tmp/gen-sa.sh'"
+          d8 v ssh -i ./tmp/ssh/cloud  \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            -c 'chmod +x /tmp/gen-sa.sh'
           echo "d8vssh -c 'chmod +x /tmp/gen-sa.sh' - done"
           echo ""
 
           echo "run nested-sa-config/gen-sa.sh"
-          d8vssh "-c 'sudo /tmp/gen-sa.sh'"
+          # d8vssh "-c 'sudo /tmp/gen-sa.sh'"
+          d8 v ssh -i ./tmp/ssh/cloud  \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            -c 'sudo /tmp/gen-sa.sh'
           echo "d8vssh -c 'sudo /tmp/gen-sa.sh' - done"
           echo ""
           
