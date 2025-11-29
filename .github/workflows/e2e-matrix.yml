@@ -152,11 +152,6 @@ jobs:
           
           echo "VMBDAs"
           kubectl get vmbda -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-
-      # - name: Get pods
-      #   run: |
-      #     cd test/dvp-over-dvp
-      #     task kubectl -- get pods -n d8-system
       
       - name: Get info about nested master VM
         run: |
