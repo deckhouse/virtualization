@@ -18,6 +18,7 @@ env:
   BRANCH: main
   VIRTUALIZATION_TAG: main
   DECKHOUSE_TAG: main
+  DEFAULT_USER: ubuntu
 on:
   workflow_dispatch:
   pull_request:
@@ -101,7 +102,7 @@ jobs:
             tag: ${{ env.VIRTUALIZATION_TAG }}
           image:
             url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
-            defaultUser: cloud
+            defaultUser: ${{ env.DEFAULT_USER }}
             bootloader: BIOS
           ingressHosts:
             - api
@@ -167,7 +168,7 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            cloud@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
             -c 'cat /etc/os-release'
           echo ""
           
@@ -176,7 +177,7 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            cloud@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
             -c 'hostname'
       
       - name: Copy script for gen nested kubeconfig
@@ -185,10 +186,10 @@ jobs:
           task configure:cluster:sa
 
           echo "kubeconfig"
-          d8 v ssh -i ./tmp/ssh/cloud -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${nested-master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} ls -la /tmp/
+          d8 v ssh -i ./tmp/ssh/cloud -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ env.DEFAULT_USER }}@${nested-master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} ls -la /tmp/
           echo ""
 
-          d8 v ssh -i ./tmp/ssh/cloud -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${nested-master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} ls -la $HOME
+          d8 v ssh -i ./tmp/ssh/cloud -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ env.DEFAULT_USER }}@${nested-master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} ls -la $HOME
           echo ""
 
       - name: infra-undeploy
