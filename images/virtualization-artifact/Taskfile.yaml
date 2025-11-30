@@ -75,8 +75,7 @@ tasks:
       TMPDIR=/tmp ./hack/mirrord.sh run --app=$PWD/cmd/virtualization-controller/main.go \
       --deployment=virtualization-controller                                 \
       --namespace={{ .BaseNamespace }}                                       \
-      --container-name=virtualization-controller                             \
-      --flags="--leader-election=false"
+      --container-name=virtualization-controller
 
   mirrord:wipe:controller:
     desc: "wipe up Mirrord's trash"
