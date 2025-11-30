@@ -70,6 +70,8 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return nil
 				}
 
+				fmt.Printf("VolumeEventWatcher: TRIGGERING reconciliation for VM %s, event count=%d, reason=%s\n", vmName, e.Count, e.Reason)
+
 				return []reconcile.Request{
 					{
 						NamespacedName: types.NamespacedName{
@@ -82,12 +84,11 @@ func (w *VolumeEventWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			predicate.TypedFuncs[*corev1.Event]{
 				CreateFunc: func(e event.TypedCreateEvent[*corev1.Event]) bool {
 					return e.Object.Type == corev1.EventTypeWarning &&
-						(e.Object.Reason == "FailedAttachVolume" || e.Object.Reason == "FailedMount")
+						(e.Object.Reason == "FailedAttachVolume" || e.Object.Reason == "FailedMount") &&
+						e.Object.Count == 1
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Event]) bool {
-					return e.ObjectNew.Type == corev1.EventTypeWarning &&
-						(e.ObjectNew.Reason == "FailedAttachVolume" || e.ObjectNew.Reason == "FailedMount") &&
-						e.ObjectOld.Count != e.ObjectNew.Count
+					return false
 				},
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Event]) bool {
 					return false

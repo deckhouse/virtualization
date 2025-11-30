@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -121,14 +122,12 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 		return
 	}
 
-	if pod != nil {
-		if volumeError := h.checkPodVolumeErrors(ctx, pod, log); volumeError != nil {
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonPodNotStarted).
-				Message(volumeError.Error())
-			conditions.SetCondition(cb, &vm.Status.Conditions)
-			return
-		}
+	if volumeError := h.checkPodVolumeErrors(ctx, vm, log); volumeError != nil {
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonPodNotStarted).
+			Message(volumeError.Error())
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return
 	}
 
 	if kvvm != nil {
@@ -214,45 +213,79 @@ func (h *LifeCycleHandler) syncRunning(ctx context.Context, vm *v1alpha2.Virtual
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 }
 
-func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, pod *corev1.Pod, log *slog.Logger) error {
-	if pod.Status.Phase != corev1.PodPending {
-		return nil
-	}
-
-	hasContainerCreating := false
-	for _, cs := range pod.Status.ContainerStatuses {
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
-			hasContainerCreating = true
-			break
-		}
-	}
-
-	if !hasContainerCreating {
-		return nil
-	}
-
-	eventList := &corev1.EventList{}
-	err := h.client.List(ctx, eventList, &client.ListOptions{
-		Namespace: pod.Namespace,
-		FieldSelector: fields.SelectorFromSet(fields.Set{
-			"involvedObject.name": pod.Name,
-			"involvedObject.kind": "Pod",
+func (h *LifeCycleHandler) checkPodVolumeErrors(ctx context.Context, vm *v1alpha2.VirtualMachine, log *slog.Logger) error {
+	var podList corev1.PodList
+	err := h.client.List(ctx, &podList, &client.ListOptions{
+		Namespace: vm.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			virtv1.VirtualMachineNameLabel: vm.Name,
 		}),
 	})
 	if err != nil {
-		log.Error("Failed to list pod events", "error", err)
+		log.Error("Failed to list pods", "error", err)
 		return nil
 	}
 
-	for _, event := range eventList.Items {
-		if event.Type != corev1.EventTypeWarning {
+	log.Info("checkPodVolumeErrors", "podCount", len(podList.Items))
+
+	if len(podList.Items) == 0 {
+		return nil
+	}
+	for _, pod := range podList.Items {
+		log.Info("checkPodVolumeErrors pod", "name", pod.Name, "phase", pod.Status.Phase, "containerStatuses", len(pod.Status.ContainerStatuses))
+
+		if pod.Status.Phase != corev1.PodPending {
 			continue
 		}
 
-		if event.Reason == "FailedAttachVolume" || event.Reason == "FailedMount" {
-			return fmt.Errorf("%s: %s", event.Reason, event.Message)
+		hasContainerCreating := false
+		for _, cs := range pod.Status.ContainerStatuses {
+			log.Info("checkPodVolumeErrors container", "name", cs.Name, "waiting", cs.State.Waiting != nil, "reason", func() string {
+				if cs.State.Waiting != nil {
+					return cs.State.Waiting.Reason
+				}
+				return ""
+			}())
+			if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+				hasContainerCreating = true
+				break
+			}
+		}
+
+		log.Info("checkPodVolumeErrors", "hasContainerCreating", hasContainerCreating)
+
+		if !hasContainerCreating {
+			continue
+		}
+
+		eventList := &corev1.EventList{}
+		err := h.client.List(ctx, eventList, &client.ListOptions{
+			Namespace: pod.Namespace,
+			FieldSelector: fields.SelectorFromSet(fields.Set{
+				"involvedObject.name": pod.Name,
+				"involvedObject.kind": "Pod",
+			}),
+		})
+		if err != nil {
+			log.Error("Failed to list pod events", "error", err)
+			continue
+		}
+
+		log.Info("checkPodVolumeErrors events", "count", len(eventList.Items))
+
+		for _, event := range eventList.Items {
+			log.Info("checkPodVolumeErrors event", "type", event.Type, "reason", event.Reason, "message", event.Message)
+			if event.Type != corev1.EventTypeWarning {
+				continue
+			}
+
+			if event.Reason == "FailedAttachVolume" || event.Reason == "FailedMount" {
+				log.Info("checkPodVolumeErrors FOUND ERROR", "reason", event.Reason, "message", event.Message)
+				return fmt.Errorf("%s: %s", event.Reason, event.Message)
+			}
 		}
 	}
 
+	log.Info("checkPodVolumeErrors returning nil")
 	return nil
 }
