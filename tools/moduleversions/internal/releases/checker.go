@@ -30,9 +30,34 @@ import (
 	"golang.org/x/text/language"
 )
 
+// ChannelVersion represents a version for a specific channel and edition.
+type ChannelVersion struct {
+	Edition string
+	Number  string
+	Channel string
+}
+
+// ModuleVersionInfo contains version information for a module across different editions.
+type ModuleVersionInfo struct {
+	Module   string
+	Versions []ChannelVersion
+}
+
+func (v ModuleVersionInfo) String() string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("Module: %s\n", v.Module))
+	for _, version := range v.Versions {
+		b.WriteString(fmt.Sprintf("%-7s %s %s\n", version.Edition, version.Channel, version.Number))
+	}
+	return b.String()
+}
+
 const (
-	httpTimeout        = 30 * time.Second
+	httpTimeout        = 5 * time.Second
 	expectedCellsCount = 6
+	// minURLPartsCount is the minimum number of parts expected in a URL after splitting by "/"
+	// For example: "https://releases.deckhouse.io/ee" -> ["https:", "", "releases.deckhouse.io", "ee"] = 4 parts
+	minURLPartsCount = 4
 )
 
 var channelMap = map[string]int{
@@ -115,7 +140,7 @@ func VerifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersi
 
 	for _, editionURL := range editionURLs {
 		urlParts := strings.Split(editionURL, "/")
-		if len(urlParts) < 4 {
+		if len(urlParts) < minURLPartsCount {
 			log.Printf("Warning: invalid URL format: %s", editionURL)
 			continue
 		}
@@ -143,4 +168,47 @@ func VerifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersi
 	}
 
 	return true, versionInfo, nil
+}
+
+const (
+	defaultReleasesBaseURL = "https://releases.deckhouse.io"
+	retryDelay             = 60 * time.Second
+)
+
+// Supported editions to check on releases.deckhouse.io
+var supportedEditions = []string{"fe", "ee", "ce", "se-plus"}
+
+// CheckVersionWithRetries checks version on releases.deckhouse.io with retry logic.
+func CheckVersionWithRetries(channel, version, moduleName string, attempts int) error {
+	editionURLs := make([]string, 0, len(supportedEditions))
+	for _, edition := range supportedEditions {
+		editionURLs = append(editionURLs, defaultReleasesBaseURL+"/"+edition)
+	}
+
+	fmt.Printf("Checking version %s on channel %s at %s...\n", version, channel, defaultReleasesBaseURL)
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		checkPassed, versionInfo, err := VerifyVersionAcrossAllEditions(editionURLs, channel, version, moduleName, defaultReleasesBaseURL)
+		if err != nil {
+			if attempt < attempts {
+				log.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
+				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
+				time.Sleep(retryDelay)
+				continue
+			}
+			// Last attempt failed
+			log.Printf("Version %s validation failed on %s after %d attempts: %v", version, defaultReleasesBaseURL, attempts, err)
+			return err
+		}
+
+		if checkPassed {
+			fmt.Printf("Version %s is valid on channel %s\n", version, channel)
+			fmt.Println(versionInfo)
+			return nil
+		}
+	}
+
+	// This should not happen if all attempts completed successfully
+	// If we reach here, it means the loop completed without returning, which shouldn't happen
+	return fmt.Errorf("version validation failed after %d attempts", attempts)
 }

@@ -18,31 +18,22 @@ package docs
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	"scaper/internal/version"
+
+	"github.com/PuerkitoBio/goquery"
 )
 
-const httpTimeout = 30 * time.Second
-
-// SiteInfo contains version information parsed from deckhouse.ru
-type SiteInfo struct {
-	Channels  map[string]string
-	URL       string
-	FetchTime time.Time
-}
+const httpTimeout = 5 * time.Second
 
 // VerifyVersion checks if the specified version exists for the given channel
 // on the deckhouse.ru documentation site.
 func VerifyVersion(docURL, expectedChannel, expectedVersion string) error {
-	info := &SiteInfo{
-		Channels:  map[string]string{},
-		URL:       docURL,
-		FetchTime: time.Now(),
-	}
+	channels := make(map[string]string)
 
 	client := &http.Client{
 		Timeout: httpTimeout,
@@ -73,12 +64,12 @@ func VerifyVersion(docURL, expectedChannel, expectedVersion string) error {
 		ver = version.NormalizeSemVer(ver)
 
 		if channel != "" && ver != "" {
-			info.Channels[channel] = ver
+			channels[channel] = ver
 		}
 	})
 
 	// Verify the expected version for the expected channel
-	foundVersion, exists := info.Channels[expectedChannel]
+	foundVersion, exists := channels[expectedChannel]
 	if !exists {
 		return fmt.Errorf("channel %s not found on documentation site %s", expectedChannel, docURL)
 	}
@@ -88,5 +79,44 @@ func VerifyVersion(docURL, expectedChannel, expectedVersion string) error {
 	}
 
 	fmt.Printf("Found version %s for channel %s on documentation site\n", foundVersion, expectedChannel)
+	return nil
+}
+
+const (
+	defaultDocumentationURL = "https://deckhouse.ru/modules"
+	retryDelay              = 60 * time.Second
+)
+
+// CheckVersionWithRetries checks version on documentation site with retry logic.
+func CheckVersionWithRetries(channel, version, moduleName string, attempts int) error {
+	documentationURL := fmt.Sprintf("%s/%s/stable/", defaultDocumentationURL, moduleName)
+	fmt.Printf("\nChecking version %s on channel %s at %s...\n", version, channel, documentationURL)
+
+	var err error
+
+	for attempt := 1; attempt <= attempts; attempt++ {
+		err = VerifyVersion(documentationURL, channel, version)
+		if err != nil {
+			if attempt < attempts {
+				log.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
+				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
+				time.Sleep(retryDelay)
+				continue
+			}
+			// Last attempt failed
+			log.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", version, documentationURL, attempts, err)
+			return err
+		}
+
+		fmt.Printf("Version %s is valid on channel %s at documentation site\n", version, channel)
+		return nil
+	}
+
+	// This should not happen, but handle it just in case
+	if err != nil {
+		log.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", version, documentationURL, attempts, err)
+		return fmt.Errorf("version validation failed after %d attempts: %w", attempts, err)
+	}
+
 	return nil
 }
