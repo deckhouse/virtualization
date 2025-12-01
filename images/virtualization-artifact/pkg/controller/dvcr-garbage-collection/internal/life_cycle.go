@@ -123,7 +123,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, req reconcile.Request, dep
 		hasCreationTimestamp := !secret.GetCreationTimestamp().Time.IsZero()
 		waitDuration := time.Since(secret.GetCreationTimestamp().Time)
 		if hasCreationTimestamp && waitDuration > dvcrtypes.WaitProvisionersTimeout {
-			// Wait for provisionerStop garbage collection and report error.
+			// Wait for provisioners timed out: report error and stop garbage collection.
 			dvcrcondition.UpdateGarbageCollectionCondition(deploy,
 				dvcrdeploymentcondition.Error,
 				"Wait for resources provisioners more than %s timeout: %s elapsed, garbage collection canceled",
