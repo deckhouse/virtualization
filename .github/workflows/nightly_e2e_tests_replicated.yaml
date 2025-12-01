@@ -73,7 +73,7 @@ jobs:
         id: e2e-tests
         working-directory: ./test/e2e/
         run: |
-          task run:ci -v
+          task run:ci -v LABELS="Slow"
 
       - uses: actions/upload-artifact@v4
         if: always()

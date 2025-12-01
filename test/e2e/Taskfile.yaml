@@ -50,6 +50,7 @@ tasks:
     cmds:
       - |
         go tool ginkgo -v \
+          --label-filter="!Slow" \
           --race \
           {{if .LABELS -}}
           --label-filter="{{ .LABELS }}" \
