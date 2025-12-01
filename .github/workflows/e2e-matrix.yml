@@ -261,7 +261,7 @@ jobs:
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
-            -c 'd8 p queue list'
+            -c 'sudo /opt/deckhouse/bin/d8 p queue list'
 
           echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
