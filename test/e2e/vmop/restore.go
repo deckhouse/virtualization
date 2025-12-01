@@ -19,7 +19,6 @@ package vmop
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -61,16 +60,17 @@ const (
 	resourceAnnotationValue   = "resourceAnnotationValue"
 	resourceLabelName         = "resourceLabelName"
 	resourceLabelValue        = "resourceLabelValue"
+	originalValueOnDisk       = "originalValueOnDisk"
 	changedValueOnDisk        = "changedValueOnDisk"
-	initialCPUCores           = 1
-	initialMemorySize         = "256Mi"
+	originalCPUCores          = 1
+	originalMemorySize        = "256Mi"
 	changedCPUCores           = 2
 	changedMemorySize         = "512Mi"
 	fileDataPath              = "/mnt/value"
 )
 
 var _ = Describe("VirtualMachineOperationRestore", func() {
-	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
+	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, shouldDeleteBeforeRestore bool) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
@@ -91,8 +91,7 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 
 			util.CreateBlockDeviceFilesystem(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, "ext4")
 			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name)
-			t.GeneratedValue = strconv.Itoa(time.Now().UTC().Second())
-			util.WriteFile(f, t.VM, fileDataPath, t.GeneratedValue)
+			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -134,58 +133,15 @@ var _ = Describe("VirtualMachineOperationRestore", func() {
 			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
 		By("Resource preparation", func() {
-			if removeRecoverableResources {
+			if shouldDeleteBeforeRestore {
 				t.RemoveRecoverableResources()
 			}
 		})
 		By("Restore VM from snapshot", func() {
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VMOPRestore)
-			Expect(err).NotTo(HaveOccurred())
-			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
-			if restoreMode != v1alpha2.SnapshotOperationModeDryRun {
-				// after restore, the VM is in the Stopped state
-				// if runPolicy == ManualPolicy, the VM should be started
-				if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-					util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
-					util.StartVirtualMachine(f, t.VM)
-				}
-
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
-				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-			}
+			t.RestoreVM(t.VM, t.VMOPRestore)
 		})
 		By("Check VM after restore", func() {
-			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VM), t.VM)
-			Expect(err).NotTo(HaveOccurred())
-
-			// In DryRun mode, the VM should remain unchanged and VMOPRestore should contain
-			// information about resources ready for restore. In actual restore modes,
-			// the VM should be restored to the snapshot state.
-			if restoreMode == v1alpha2.SnapshotOperationModeDryRun {
-				err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VMOPRestore), t.VMOPRestore)
-				Expect(err).NotTo(HaveOccurred())
-				restoreCompletedCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, t.VMOPRestore.Status.Conditions)
-				Expect(restoreCompletedCondition.Status).To(Equal(metav1.ConditionTrue))
-				Expect(restoreCompletedCondition.Reason).To(Equal(vmopcondition.ReasonDryRunOperationCompleted.String()))
-				Expect(restoreCompletedCondition.Message).To(ContainSubstring("The virtual machine can be restored from the snapshot."))
-
-				t.CheckResourceReadyForRestore(v1alpha2.VirtualMachineKind, t.VM.Name)
-				t.CheckResourceReadyForRestore(v1alpha2.VirtualDiskKind, t.VDRoot.Name)
-				t.CheckResourceReadyForRestore(v1alpha2.VirtualDiskKind, t.VDBlank.Name)
-				t.CheckResourceReadyForRestore(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, t.VMBDA.Name)
-
-				Expect(util.ReadFile(f, t.VM, fileDataPath)).To(Equal(changedValueOnDisk))
-				Expect(t.VM.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
-				Expect(t.VM.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
-				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
-				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
-			} else {
-				Expect(util.ReadFile(f, t.VM, fileDataPath)).To(Equal(t.GeneratedValue))
-				Expect(t.VM.Annotations[vmAnnotationName]).To(Equal(vmAnnotationOriginalValue))
-				Expect(t.VM.Labels[vmLabelName]).To(Equal(vmLabelOriginalValue))
-				Expect(t.VM.Status.Resources.CPU.Cores).To(Equal(initialCPUCores))
-				Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(initialMemorySize)))
-			}
+			t.CheckVMAfterRestore(t.VM, t.VDRoot, t.VDBlank, t.VMBDA, t.VMOPRestore)
 		})
 		By("After restoration, verify that labels and annotations are preserved on the resources", func() {
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VDRoot), t.VDRoot)
@@ -224,8 +180,7 @@ type restoreModeTest struct {
 	VMSnapshot  *v1alpha2.VirtualMachineSnapshot
 	VMOPRestore *v1alpha2.VirtualMachineOperation
 
-	GeneratedValue string
-	Framework      *framework.Framework
+	Framework *framework.Framework
 }
 
 func newRestoreTest(f *framework.Framework) *restoreModeTest {
@@ -270,8 +225,8 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
 		vmbuilder.WithAnnotation(vmAnnotationName, vmAnnotationOriginalValue),
 		vmbuilder.WithLabel(vmLabelName, vmLabelOriginalValue),
-		vmbuilder.WithCPU(initialCPUCores, ptr.To("5%")),
-		vmbuilder.WithMemory(resource.MustParse(initialMemorySize)),
+		vmbuilder.WithCPU(originalCPUCores, ptr.To("5%")),
+		vmbuilder.WithMemory(resource.MustParse(originalMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
 		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
@@ -359,21 +314,88 @@ func (t *restoreModeTest) RemoveRecoverableResources() {
 	}, framework.LongTimeout, time.Second).Should(Succeed())
 }
 
-func (t *restoreModeTest) CheckResourceReadyForRestore(kind, name string) {
+func (t *restoreModeTest) CheckVMAfterRestore(
+	vm *v1alpha2.VirtualMachine,
+	vdRoot, vdBlank *v1alpha2.VirtualDisk,
+	vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment,
+	vmopRestore *v1alpha2.VirtualMachineOperation,
+) {
 	GinkgoHelper()
 
-	resourceForRestore := t.getResourceInfoFromVMOP(kind, name)
+	err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vm), vm)
+	Expect(err).NotTo(HaveOccurred())
+
+	// In DryRun mode, the VM should remain unchanged and VMOPRestore should contain
+	// information about resources ready for restore. In actual restore modes,
+	// the VM should be restored to the snapshot state.
+	switch vmopRestore.Spec.Restore.Mode {
+	case v1alpha2.SnapshotOperationModeDryRun:
+		err := t.Framework.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(vmopRestore), vmopRestore)
+		Expect(err).NotTo(HaveOccurred())
+		restoreCompletedCondition, _ := conditions.GetCondition(vmopcondition.TypeRestoreCompleted, vmopRestore.Status.Conditions)
+		Expect(restoreCompletedCondition.Status).To(Equal(metav1.ConditionTrue))
+		Expect(restoreCompletedCondition.Reason).To(Equal(vmopcondition.ReasonDryRunOperationCompleted.String()))
+		Expect(restoreCompletedCondition.Message).To(ContainSubstring("The virtual machine can be restored from the snapshot."))
+
+		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineKind, vm.Name)
+		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdRoot.Name)
+		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdBlank.Name)
+		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineBlockDeviceAttachmentKind, vmbda.Name)
+
+		Expect(util.ReadFile(t.Framework, vm, fileDataPath)).To(Equal(changedValueOnDisk))
+		Expect(vm.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
+		Expect(vm.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
+		Expect(vm.Status.Resources.CPU.Cores).To(Equal(changedCPUCores))
+		Expect(vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
+	case v1alpha2.SnapshotOperationModeStrict, v1alpha2.SnapshotOperationModeBestEffort:
+		Expect(util.ReadFile(t.Framework, vm, fileDataPath)).To(Equal(originalValueOnDisk))
+		Expect(vm.Annotations[vmAnnotationName]).To(Equal(vmAnnotationOriginalValue))
+		Expect(vm.Labels[vmLabelName]).To(Equal(vmLabelOriginalValue))
+		Expect(vm.Status.Resources.CPU.Cores).To(Equal(originalCPUCores))
+		Expect(vm.Status.Resources.Memory.Size).To(Equal(resource.MustParse(originalMemorySize)))
+	default:
+		Fail("Invalid restore mode")
+	}
+}
+
+func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
+	GinkgoHelper()
+
+	resourceForRestore := t.getResourceInfoFromVMOP(vmopRestore, kind, name)
 	Expect(resourceForRestore).ShouldNot(BeNil())
 	Expect(resourceForRestore.Status).Should(Equal(v1alpha2.SnapshotResourceStatusCompleted))
 	Expect(resourceForRestore.Message).Should(ContainSubstring("is valid for restore"))
 }
 
-func (t *restoreModeTest) getResourceInfoFromVMOP(kind, name string) *v1alpha2.SnapshotResourceStatus {
-	for _, resourceForRestore := range t.VMOPRestore.Status.Resources {
+func (t *restoreModeTest) getResourceInfoFromVMOP(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) *v1alpha2.SnapshotResourceStatus {
+	for _, resourceForRestore := range vmopRestore.Status.Resources {
 		if resourceForRestore.Name == name && resourceForRestore.Kind == kind {
 			return &resourceForRestore
 		}
 	}
 
 	return nil
+}
+
+func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1alpha2.VirtualMachineOperation) {
+	GinkgoHelper()
+
+	err := t.Framework.CreateWithDeferredDeletion(context.Background(), vmopRestore)
+	Expect(err).NotTo(HaveOccurred())
+	util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestore)
+
+	if vmopRestore.Spec.Restore.Mode == v1alpha2.SnapshotOperationModeDryRun {
+		return
+	}
+
+	// after restore, the VM is in the Stopped state
+	// if runPolicy == ManualPolicy, the VM should be started
+	// cannot use isRestartRequired here, because we might skip the stopped phase
+	if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
+		util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+		util.StartVirtualMachine(t.Framework, t.VM)
+	}
+
+	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
+	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 }
