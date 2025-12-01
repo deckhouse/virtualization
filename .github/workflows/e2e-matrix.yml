@@ -265,6 +265,7 @@ jobs:
 
           echo "-----"
           CONFIG=$(cat ${{ env.kubeConfigPath }} | base64 -w 0)
+          CONFIG=$(echo $CONFIG | base64 -w 0)
           echo "$CONFIG"
           echo "-----"
           echo "config=$CONFIG" >> $GITHUB_OUTPUT
@@ -323,7 +324,7 @@ jobs:
           mkdir -p ~/.kube
           echo "get kubeconfig-content"
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}"
-          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d > ~/.kube/config
+          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
           echo "---"
           echo "Show paths and files content"
           ls -la ~/.kube
