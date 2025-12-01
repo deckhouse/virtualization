@@ -43,6 +43,11 @@ type AnsibleInventory struct {
 	options Options
 }
 
+type inventoryData struct {
+	hostVars map[string]map[string]interface{} // hostname -> variables
+	groups   map[string][]string               // group -> list of hostnames
+}
+
 type Options struct {
 	List      bool
 	Host      string
@@ -146,6 +151,10 @@ func (a *AnsibleInventory) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// ============================================================================
+// Inventory generation
+// ============================================================================
+
 func (a *AnsibleInventory) generateInventory(vms []v1alpha2.VirtualMachine) string {
 	switch strings.ToLower(a.options.Output) {
 	case "ini":
@@ -157,46 +166,28 @@ func (a *AnsibleInventory) generateInventory(vms []v1alpha2.VirtualMachine) stri
 	}
 }
 
-func (a *AnsibleInventory) generateInventoryJSON(vms []v1alpha2.VirtualMachine) string {
-	inventory := a.buildInventoryStructure(vms)
-
-	output, err := json.MarshalIndent(inventory, "", "  ")
-	if err != nil {
-		return fmt.Sprintf("Error: %v", err)
-	}
-
-	return string(output)
-}
-
 func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) string {
 	var builder strings.Builder
 
 	builder.WriteString("[all]\n")
+	groupsMap := make(map[string][]string)
+
 	for _, vm := range vms {
-		if vm.Status.IPAddress == "" {
+		if !a.isValidVM(vm) {
 			continue
 		}
 		hostName := a.getHostName(vm)
 		builder.WriteString(fmt.Sprintf("%s\n", hostName))
-	}
 
-	builder.WriteString("\n[all:vars]\n")
-	builder.WriteString(fmt.Sprintf("%s=\"%s\"\n", ansibleSSHCommonArgsKey, ansibleSSHCommonArgs))
-
-	// Collect groups from annotations
-	groupsMap := make(map[string][]string)
-	for _, vm := range vms {
-		if vm.Status.IPAddress == "" {
-			continue
-		}
-		hostName := a.getHostName(vm)
 		groups := a.getVMGroups(vm)
 		for _, group := range groups {
 			groupsMap[group] = append(groupsMap[group], hostName)
 		}
 	}
 
-	// Write groups
+	builder.WriteString("\n[all:vars]\n")
+	builder.WriteString(fmt.Sprintf("%s=\"%s\"\n", ansibleSSHCommonArgsKey, ansibleSSHCommonArgs))
+
 	for group, hosts := range groupsMap {
 		builder.WriteString(fmt.Sprintf("\n[%s]\n", group))
 		for _, host := range hosts {
@@ -208,7 +199,8 @@ func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) s
 }
 
 func (a *AnsibleInventory) generateInventoryYAML(vms []v1alpha2.VirtualMachine) string {
-	inventory := a.buildStaticYAMLInventory(vms)
+	data := a.collectInventoryData(vms)
+	inventory := a.buildYAMLInventory(data)
 
 	output, err := yaml.Marshal(inventory)
 	if err != nil {
@@ -218,35 +210,61 @@ func (a *AnsibleInventory) generateInventoryYAML(vms []v1alpha2.VirtualMachine) 
 	return string(output)
 }
 
-func (a *AnsibleInventory) buildStaticYAMLInventory(vms []v1alpha2.VirtualMachine) map[string]interface{} {
-	// For static YAML inventory, hosts should be a dictionary, not an array
-	allHosts := make(map[string]interface{})
-	groupsMap := make(map[string]map[string]interface{})
+func (a *AnsibleInventory) generateInventoryJSON(vms []v1alpha2.VirtualMachine) string {
+	data := a.collectInventoryData(vms)
+	inventory := a.buildJSONInventory(data)
+
+	output, err := json.MarshalIndent(inventory, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("Error: %v", err)
+	}
+
+	return string(output)
+}
+
+// ============================================================================
+// Data collection and structure building
+// ============================================================================
+
+func (a *AnsibleInventory) collectInventoryData(vms []v1alpha2.VirtualMachine) inventoryData {
+	data := inventoryData{
+		hostVars: make(map[string]map[string]interface{}),
+		groups:   make(map[string][]string),
+	}
 
 	for _, vm := range vms {
-		if vm.Status.IPAddress == "" {
+		if !a.isValidVM(vm) {
 			continue
 		}
 
 		hostName := a.getHostName(vm)
 		hostVars := a.getHostVars(vm)
-
-		if len(hostVars) > 0 {
-			allHosts[hostName] = hostVars
-		} else {
-			allHosts[hostName] = make(map[string]interface{})
+		if hostVars == nil {
+			hostVars = make(map[string]interface{})
 		}
+		data.hostVars[hostName] = hostVars
 
 		groups := a.getVMGroups(vm)
 		for _, group := range groups {
-			if _, exists := groupsMap[group]; !exists {
-				groupsMap[group] = make(map[string]interface{})
-			}
-			if len(hostVars) > 0 {
-				groupsMap[group][hostName] = hostVars
-			} else {
-				groupsMap[group][hostName] = make(map[string]interface{})
-			}
+			data.groups[group] = append(data.groups[group], hostName)
+		}
+	}
+
+	return data
+}
+
+func (a *AnsibleInventory) buildYAMLInventory(data inventoryData) map[string]interface{} {
+	allHosts := make(map[string]interface{})
+	groupsMap := make(map[string]map[string]interface{})
+
+	for hostName, hostVars := range data.hostVars {
+		allHosts[hostName] = hostVars
+	}
+
+	for group, hostNames := range data.groups {
+		groupsMap[group] = make(map[string]interface{})
+		for _, hostName := range hostNames {
+			groupsMap[group][hostName] = data.hostVars[hostName]
 		}
 	}
 
@@ -268,35 +286,66 @@ func (a *AnsibleInventory) buildStaticYAMLInventory(vms []v1alpha2.VirtualMachin
 	return inventory
 }
 
-func (a *AnsibleInventory) buildInventoryStructure(vms []v1alpha2.VirtualMachine) map[string]interface{} {
+func (a *AnsibleInventory) buildJSONInventory(data inventoryData) map[string]interface{} {
+	allHosts := make([]string, 0, len(data.hostVars))
+	for hostName := range data.hostVars {
+		allHosts = append(allHosts, hostName)
+	}
+
 	inventory := map[string]interface{}{
 		"_meta": map[string]interface{}{
-			"hostvars": make(map[string]interface{}),
+			"hostvars": data.hostVars,
 		},
 		"all": map[string]interface{}{
-			"hosts": []string{},
+			"hosts": allHosts,
 			"vars": map[string]interface{}{
 				ansibleSSHCommonArgsKey: ansibleSSHCommonArgs,
 			},
 		},
 	}
 
-	for _, vm := range vms {
-		if vm.Status.IPAddress == "" {
-			continue
+	for group, hostNames := range data.groups {
+		inventory[group] = map[string]interface{}{
+			"hosts": hostNames,
 		}
-
-		hostName := a.getHostName(vm)
-		allHosts := inventory["all"].(map[string]interface{})["hosts"].([]string)
-		inventory["all"].(map[string]interface{})["hosts"] = append(allHosts, hostName)
-
-		hostVars := a.getHostVars(vm)
-		inventory["_meta"].(map[string]interface{})["hostvars"].(map[string]interface{})[hostName] = hostVars
-
-		a.addVMToGroups(inventory, vm, hostName)
 	}
 
 	return inventory
+}
+
+// ============================================================================
+// VM helper methods
+// ============================================================================
+
+func (a *AnsibleInventory) isValidVM(vm v1alpha2.VirtualMachine) bool {
+	return vm.Status.IPAddress != ""
+}
+
+func (a *AnsibleInventory) getHostName(vm v1alpha2.VirtualMachine) string {
+	return fmt.Sprintf("%s.%s", vm.Name, vm.Namespace)
+}
+
+func (a *AnsibleInventory) getHostVars(vm v1alpha2.VirtualMachine) map[string]interface{} {
+	hostVars := map[string]interface{}{}
+
+	// Add annotations as host variables
+	// Only process annotations with prefix provisioning.virtualization.deckhouse.io/
+	if len(vm.Annotations) > 0 {
+		for key, value := range vm.Annotations {
+			if !strings.HasPrefix(key, annotationPrefix) {
+				continue
+			}
+			if key == groupsAnnotationKey {
+				continue
+			}
+			varName := strings.TrimPrefix(key, annotationPrefix)
+			if varName != "" {
+				hostVars[varName] = value
+			}
+		}
+	}
+
+	return hostVars
 }
 
 func (a *AnsibleInventory) getVMGroups(vm v1alpha2.VirtualMachine) []string {
@@ -321,11 +370,15 @@ func (a *AnsibleInventory) getVMGroups(vm v1alpha2.VirtualMachine) []string {
 	return result
 }
 
+// ============================================================================
+// Host info generation
+// ============================================================================
+
 func (a *AnsibleInventory) generateHostInfo(vms []v1alpha2.VirtualMachine, hostName string) string {
 	for _, vm := range vms {
 		vmHostName := a.getHostName(vm)
 		// Support search by both full name (vmname.namespace) and short name (vmname)
-		if (vmHostName == hostName || vm.Name == hostName) && vm.Status.IPAddress != "" {
+		if (vmHostName == hostName || vm.Name == hostName) && a.isValidVM(vm) {
 			hostVars := a.getHostVars(vm)
 
 			var output []byte
@@ -346,61 +399,9 @@ func (a *AnsibleInventory) generateHostInfo(vms []v1alpha2.VirtualMachine, hostN
 	return ""
 }
 
-func (a *AnsibleInventory) getHostName(vm v1alpha2.VirtualMachine) string {
-	return fmt.Sprintf("%s.%s", vm.Name, vm.Namespace)
-}
-
-func (a *AnsibleInventory) getHostVars(vm v1alpha2.VirtualMachine) map[string]interface{} {
-	hostVars := map[string]interface{}{}
-
-	// Add annotations as host variables
-	// Only process annotations with prefix provisioning.virtualization.deckhouse.io/
-	if len(vm.Annotations) > 0 {
-		for key, value := range vm.Annotations {
-			// Only process annotations with the specific prefix
-			if !strings.HasPrefix(key, annotationPrefix) {
-				continue
-			}
-			if key == groupsAnnotationKey {
-				continue
-			}
-			varName := strings.TrimPrefix(key, annotationPrefix)
-			if varName != "" {
-				hostVars[varName] = value
-			}
-		}
-	}
-
-	return hostVars
-}
-
-func (a *AnsibleInventory) addVMToGroups(inventory map[string]interface{}, vm v1alpha2.VirtualMachine, hostName string) {
-	if vm.Annotations == nil {
-		return
-	}
-
-	groupsValue, exists := vm.Annotations[groupsAnnotationKey]
-	if !exists || groupsValue == "" {
-		return
-	}
-
-	groups := strings.Split(groupsValue, ",")
-	for _, group := range groups {
-		group = strings.TrimSpace(group)
-		if group == "" {
-			continue
-		}
-
-		if _, exists := inventory[group]; !exists {
-			inventory[group] = map[string]interface{}{
-				"hosts": []string{},
-			}
-		}
-
-		groupHosts := inventory[group].(map[string]interface{})["hosts"].([]string)
-		inventory[group].(map[string]interface{})["hosts"] = append(groupHosts, hostName)
-	}
-}
+// ============================================================================
+// Usage
+// ============================================================================
 
 func usage() string {
 	return `  # Standard ansible inventory script interface:
