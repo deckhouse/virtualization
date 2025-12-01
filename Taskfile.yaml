@@ -215,18 +215,7 @@ tasks:
                   "ports": [ { "containerPort": 2345, "name": "dlv" } ],
                   "readinessProbe": null,
                   "livenessProbe": null,
-                  "command": null,
-                  "args": []
-                },
-                {
-                  "name": "proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
-                },
-                {
-                  "name": "kube-rbac-proxy",
-                  "readinessProbe": null,
-                  "livenessProbe": null
+                  "command": null
                 }
               ]
             }
