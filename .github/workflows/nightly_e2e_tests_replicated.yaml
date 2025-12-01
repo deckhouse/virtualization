@@ -59,9 +59,9 @@ jobs:
 
       - uses: azure/k8s-set-context@v4
         with:
-          method: service-account
-          k8s-url: https://api.e2e.virtlab.flant.com
-          k8s-secret: ${{ secrets.E2E_VIRTUALIZATION_SA_SECRET }}
+          method: kubeconfig
+          context: e2e-virt-e2e-tests
+          kubeconfig: ${{ secrets.NIGHTLY_E2E_TESTS_SECRET }}
 
       - name: Download dependencies
         working-directory: ./test/e2e/
