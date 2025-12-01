@@ -14,15 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helper
+package version
 
 import "strings"
 
-func GetSemVer(version string) string {
+// NormalizeSemVer removes the 'v' prefix from version string if present.
+func NormalizeSemVer(version string) string {
 	return strings.TrimPrefix(version, "v")
 }
 
-func GetChannel(channel string) string {
+// NormalizeChannel normalizes channel name by converting to lowercase and replacing spaces with hyphens.
+func NormalizeChannel(channel string) string {
 	channel = strings.ReplaceAll(strings.ToLower(channel), " ", "-")
 	return channel
 }
+

@@ -19,7 +19,7 @@ tasks:
     deps:
       - task: go:download
     cmds:
-      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --count {{.COUNT}} --check-releases
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --attempt {{.COUNT}} --check-releases
   
   check:docs:
     desc: "Check version on documentation site (https://deckhouse.ru/modules/virtualization/stable/)"
@@ -28,7 +28,7 @@ tasks:
     deps:
       - task: go:download
     cmds:
-      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --count {{.COUNT}} --check-docs
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --attempt {{.COUNT}} --check-docs
 
   crane:version:
     desc: "Get version from release image"
