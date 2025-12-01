@@ -242,12 +242,20 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
             -c 'chmod +x /tmp/gen-sa.sh'
-          # echo "d8vssh -c 'chmod +x /tmp/gen-sa.sh' - done"
+          # echo "'chmod +x /tmp/gen-sa.sh' - done"
           echo ""
+
+          echo "=== after chmod ==="
+          d8 v ssh -i ./tmp/ssh/cloud  \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
+            -c 'ls -la /tmp/'
+          echo "==="
 
           echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
-          # d8vssh "-c 'sudo /tmp/gen-sa.sh'"
           
           # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
           echo "==="
@@ -261,7 +269,7 @@ jobs:
             ${{ env.DEFAULT_USER }}@${nested_master}.$NAMESPACE \
             -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}'
 
-          # echo "d8vssh -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}' - done"
+          echo "'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}' - done"
           echo ""
           
           echo "copy kubeconfig to runner"
@@ -356,7 +364,7 @@ jobs:
     needs:
       - bootstrap
       - configure-storage
-    if: ${{ always() }}
+    # if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
       
