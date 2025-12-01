@@ -57,20 +57,11 @@ jobs:
       - name: Setup d8
         uses: ./.github/actions/install-d8
 
-      - name: Set kubeconfig
-        uses: actions/github-script@v6
-        env:
-          NIGHTLY_E2E_TESTS_SECRET: ${{ secrets.NIGHTLY_E2E_TESTS_SECRET }}
+      - uses: azure/k8s-set-context@v4
         with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const kubeconfig = JSON.parse(process.env.NIGHTLY_E2E_TESTS_SECRET);
-            const runnerTempDir = process.env['RUNNER_TEMP'];
-            const kubeconfigFile = path.join(runnerTempDir, `kubeconfig_${Date.now()}`);
-            fs.writeFileSync(kubeconfigFile, kubeconfig);
-            fs.chmodSync(kubeconfigFile, '600');
-            core.exportVariable('KUBECONFIG', kubeconfigFile)
+          method: kubeconfig
+          context: e2e-virt-e2e-tests
+          kubeconfig: ${{ secrets.NIGHTLY_E2E_TESTS_SECRET }}
 
       - name: Download dependencies
         working-directory: ./test/e2e/
