@@ -17,7 +17,7 @@ shell:
   install:
   - |
     echo "$date"
-    echo "Git clone {{ $gitRepoName }} repository..."
+    echo "Git clone {{ $gitRepoName }} {{ $tag }} repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $tag }} /src/kubevirt
 
     rm -rf /src/kubevirt/.git
