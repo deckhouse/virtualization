@@ -17,7 +17,7 @@ metadata:
 spec:
   version: 1
   settings:
-    defaultClusterStorageClass: nfs
+    defaultClusterStorageClass: {{ .Values.nfsSC }}
     modules:
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.domain }}"
 ---

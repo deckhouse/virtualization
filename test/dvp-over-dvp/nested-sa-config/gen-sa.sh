@@ -163,6 +163,6 @@ log_success "kubeconfig created and stored in $FILE_NAME"
 log_info "kubeconfig created and stored in $FILE_NAME"
 sudo chmod 444 $FILE_NAME
 ls -la $FILE_NAME
-cat $FILE_NAME
+# cat $FILE_NAME
 
 log_success "Done"

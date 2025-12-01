@@ -94,6 +94,7 @@ jobs:
           cat <<EOF > test/dvp-over-dvp/values.yaml
           namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
           storageClass: ${defaultStorageClass}
+          nfsSC: nightly-nfs-${{ steps.vars.outputs.sha_short }}
           clusterConfigurationPrefix: tst-dhctl
           sa: dkp-sa
           deckhouse:
@@ -254,6 +255,14 @@ jobs:
             -c 'ls -la /tmp/'
           echo "==="
 
+          echo "check d8 queue"
+          d8 v ssh -i ./tmp/ssh/cloud  \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
+            -c 'd8 p queue list'
+
           echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
           
@@ -297,8 +306,8 @@ jobs:
 
           echo "cat ${{ env.kubeConfigPath }} - done"
 
-          echo "try d8 k"
-          d8 k --kubeconfig=tmp/kube.config get nodes
+          # echo "try d8 k"
+          # d8 k --kubeconfig=tmp/kube.config get nodes
     
       - uses: actions/upload-artifact@v4
         id: artifact-upload
@@ -364,7 +373,7 @@ jobs:
     needs:
       - bootstrap
       - configure-storage
-    # if: ${{ always() }}
+    if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
       

@@ -10,7 +10,7 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 10Gi
-          # storageClassName: linstor-thin-r1
+          storageClassName: {{ .Values.nfsSC }}
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 192.168.10.0/24
