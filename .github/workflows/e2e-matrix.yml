@@ -128,35 +128,36 @@ jobs:
                 coreFraction: 25%
                 memory: 8Gi
                 nodeType: CloudEphemeral
+                bootloader: BIOS
           EOF
 
       - name: Bootstrap cluster
         run: |
           cd test/dvp-over-dvp
           task install
-      - name: Create vmbda for workers
-        run: |
-          cd test/dvp-over-dvp
-          chmod +x ./vmbda/attach-vmbda.sh
+      # - name: Create vmbda for workers
+      #   run: |
+      #     cd test/dvp-over-dvp
+      #     chmod +x ./vmbda/attach-vmbda.sh
 
-          echo "Create vmbda for workers"
-          ./vmbda/attach-vmbda.sh "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-          echo "End create vmbda for workers"
+      #     echo "Create vmbda for workers"
+      #     ./vmbda/attach-vmbda.sh "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+      #     echo "End create vmbda for workers"
           
-          echo "Pods"
-          kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-          echo ""
+      #     echo "Pods"
+      #     kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+      #     echo ""
 
-          echo "VMs"
-          kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-          echo ""
+      #     echo "VMs"
+      #     kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+      #     echo ""
           
-          echo "VDs"
-          kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-          echo ""
+      #     echo "VDs"
+      #     kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+      #     echo ""
           
-          echo "VMBDAs"
-          kubectl get vmbda -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+      #     echo "VMBDAs"
+      #     kubectl get vmbda -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
       
       - name: Get info about nested master VM
         run: |
@@ -336,30 +337,24 @@ jobs:
         uses: azure/setup-kubectl@v4
       
       
-      - name: Restore kubeconfig from output
+      - name: Check kubeconfig
         run: |
           mkdir -p ~/.kube
-          echo "get kubeconfig-content"
-          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}"
+          echo "Configure kube config"
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
-          echo "---"
+          
           echo "Show paths and files content"
           ls -la ~/.kube
           cat ~/.kube/config
           chmod 600 ~/.kube/config
-          echo "-- end Show paths and files content --"
-          kubectl config get-contexts
-          # ----------
-          PING_HOST=$(yq e '.clusters[0].cluster.server' ~/.kube/config | sed 's|https://||')
-          echo "ping $PING_HOST"
-          ping -c 5 $PING_HOST || true
-          # ----------
-          echo "curl -v $PING_HOST"
-          curl -v $PING_HOST || true
-          # ----------
+
           echo "kubectl get nodes"
           kubectl config use-context nested-e2e-nested-sa
           kubectl get nodes
+      
+      - name: Configure storage
+        run: |
+
 
   undeploy-infra:
     name: Undeploy infra

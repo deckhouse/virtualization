@@ -1,3 +1,5 @@
+{{ $enable := false}}
+{{ if $enable }}
 {{ range .Values.instances.additionalNodes }}
 ---
 apiVersion: deckhouse.io/v1alpha1
@@ -19,6 +21,9 @@ spec:
     image:
       kind: VirtualImage
       name: image
+  # additionalDisks:
+  #   - size: 50Gi
+  #     storageClass: {{ $.Values.storageClass }}
 ---
 apiVersion: deckhouse.io/v1
 kind: NodeGroup
@@ -37,4 +42,5 @@ spec:
     classReference:
       kind: DVPInstanceClass
       name: {{ .name }}
+{{ end }}
 {{ end }}

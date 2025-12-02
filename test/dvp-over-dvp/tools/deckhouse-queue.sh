@@ -9,6 +9,14 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+get_current_date() {
+  date +"%H:%M:%S %d-%m-%Y"
+}
+
+get_timestamp() {
+  date +%s
+}
+
 log_info() {
   local message="$1"
   local timestamp=$(get_current_date)
@@ -86,7 +94,7 @@ d8_queue() {
     if [ "$main_queue_ready" = true ] && [ "$list_queue_ready" = true ]; then
       break
     fi
-    echo "Wait until queues are ready ${i}/${count}"
+    echo "Wait until queues are empty ${i}/${count}"
     sleep 60
   done
 }
@@ -113,9 +121,9 @@ d8_ready() {
   fi
 }
 
-start_time=$(date +%s)
+start_time=$(get_timestamp)
 log_info "Checking that deckhouse is ready"
 d8_ready
-end_time=$(date +%s)
+end_time=$(get_timestamp)
 difference=$((end_time - start_time))
 log_success "Deckhouse is ready after $(date -ud "@$difference" +'%H:%M:%S')"
