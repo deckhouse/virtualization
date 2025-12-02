@@ -352,12 +352,13 @@ jobs:
           # ----------
           PING_HOST=$(yq e '.clusters[0].cluster.server' ~/.kube/config | sed 's|https://||')
           echo "ping $PING_HOST"
-          ping -c 1 $PING_HOST
+          ping -c 5 $PING_HOST
           # ----------
           echo "curl -v $PING_HOST"
           curl -v $PING_HOST
           # ----------
           echo "kubectl get nodes"
+          kubectl config use-context nested-e2e-nested-sa
           kubectl get nodes
 
   undeploy-infra:

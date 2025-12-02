@@ -1,5 +1,51 @@
 #!/usr/bin/env bash
 
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+log_info() {
+  local message="$1"
+  local timestamp=$(get_current_date)
+  echo -e "${BLUE}[INFO]${NC} $message"
+  if [ -n "$LOG_FILE" ]; then
+      echo "[$timestamp] [INFO] $message" >> "$LOG_FILE"
+  fi
+}
+
+log_success() {
+  local message="$1"
+  local timestamp=$(get_current_date)
+  echo -e "${GREEN}[SUCCESS]${NC} $message"
+  if [ -n "$LOG_FILE" ]; then
+      echo "[$timestamp] [SUCCESS] $message" >> "$LOG_FILE"
+  fi
+}
+
+log_warning() {
+  local message="$1"
+  local timestamp=$(get_current_date)
+  echo -e "${YELLOW}[WARNING]${NC} $message"
+  if [ -n "$LOG_FILE" ]; then
+      echo "[$timestamp] [WARNING] $message" >> "$LOG_FILE"
+  fi
+}
+
+log_error() {
+  local message="$1"
+  local timestamp=$(get_current_date)
+  echo -e "${RED}[ERROR]${NC} $message"
+  if [ -n "$LOG_FILE" ]; then
+      echo "[$timestamp] [ERROR] $message" >> "$LOG_FILE"
+  fi
+}
+
+
 kubectl() {
   sudo /opt/deckhouse/bin/kubectl $@
 }
@@ -41,7 +87,7 @@ d8_queue() {
       break
     fi
     echo "Wait until queues are ready ${i}/${count}"
-    sleep 5
+    sleep 60
   done
 }
 
@@ -57,19 +103,19 @@ d8_ready() {
   done
 
   if [ "$ready" = true ]; then
-    success_echo "Deckhouse is Ready!"
+    log_success "Deckhouse is Ready!"
     echo "Checking queues"
     d8_queue
   else
-    error_echo "Deckhouse is not ready after ${count}m, check its queue for errors:"
+    log_error "Deckhouse is not ready after ${count}m, check its queue for errors:"
     d8 p queue main | head -n25
     exit 1
   fi
 }
 
 start_time=$(date +%s)
-echo "Checking that deckhouse is ready"
+log_info "Checking that deckhouse is ready"
 d8_ready
 end_time=$(date +%s)
 difference=$((end_time - start_time))
-echo "Deckhouse is ready after $(date -ud "@$difference" +'%H:%M:%S')"
+log_success "Deckhouse is ready after $(date -ud "@$difference" +'%H:%M:%S')"
