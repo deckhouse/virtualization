@@ -71,7 +71,9 @@ func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 		case v1alpha2.MigrationResultSucceeded:
 			return nil
 		case v1alpha2.MigrationResultFailed:
-			Fail("migration failed")
+			migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+			msg := fmt.Sprintf("migration failed: reason: %s, message: %s", migrating.Reason, migrating.Message)
+			Fail(msg)
 		}
 
 		return nil

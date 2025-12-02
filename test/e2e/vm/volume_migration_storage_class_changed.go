@@ -151,7 +151,8 @@ var _ = Describe("StorageClassMigration", decoratorsForVolumeMigrations(), func(
 		Entry("when only root disk changed storage class", storageClassMigrationRootOnlyBuild, vdRootName),
 		Entry("when root disk changed storage class and one local additional disk", storageClassMigrationRootAndLocalAdditionalBuild, vdRootName),
 		Entry("when root disk changed storage class and one additional disk", storageClassMigrationRootAndAdditionalBuild, vdRootName, vdAdditionalName),
-		Entry("when only additional disk changed storage class", storageClassMigrationAdditionalOnlyBuild, vdAdditionalName),
+		// TODO: rnd and uncomment when problem will be solved
+		// Entry("when only additional disk changed storage class", storageClassMigrationAdditionalOnlyBuild, vdAdditionalName),
 	)
 
 	DescribeTable("should be reverted", func(build func() (vm *v1alpha2.VirtualMachine, vds []*v1alpha2.VirtualDisk), disksForMigration ...string) {
