@@ -135,37 +135,23 @@ jobs:
         run: |
           cd test/dvp-over-dvp
           task install
-      # - name: Create vmbda for workers
-      #   run: |
-      #     cd test/dvp-over-dvp
-      #     chmod +x ./vmbda/attach-vmbda.sh
 
-      #     echo "Create vmbda for workers"
-      #     ./vmbda/attach-vmbda.sh "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-      #     echo "End create vmbda for workers"
-          
-      #     echo "Pods"
-      #     kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-      #     echo ""
-
-      #     echo "VMs"
-      #     kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-      #     echo ""
-          
-      #     echo "VDs"
-      #     kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-      #     echo ""
-          
-      #     echo "VMBDAs"
-      #     kubectl get vmbda -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
-      
       - name: Get info about nested master VM
         run: |
           cd test/dvp-over-dvp
           namespace=nightly-e2e-${{ steps.vars.outputs.sha_short }}
           nested_master=$(kubectl -n $namespace get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
+          
+          echo "Pods"
+          kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo ""
 
-          d8 k get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo "VMs"
+          kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          echo ""
+          
+          echo "VDs"
+          kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
           echo ""
 
           echo "login to master"
@@ -290,7 +276,6 @@ jobs:
           path: |
             test/dvp-over-dvp/tmp
             test/dvp-over-dvp/values.yaml
-
           overwrite: true
           include-hidden-files: true
           retention-days: 1

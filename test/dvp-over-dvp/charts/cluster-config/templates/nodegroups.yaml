@@ -21,9 +21,6 @@ spec:
     image:
       kind: VirtualImage
       name: image
-  # additionalDisks:
-  #   - size: 50Gi
-  #     storageClass: {{ $.Values.storageClass }}
 ---
 apiVersion: deckhouse.io/v1
 kind: NodeGroup

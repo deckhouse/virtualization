@@ -72,7 +72,7 @@ d8_queue_list() {
 }
 
 d8_queue() {
-  count=20
+  local count=20
   local main_queue_ready=false
   local list_queue_ready=false
 
@@ -101,13 +101,17 @@ d8_queue() {
 
 d8_ready() {
   local ready=false
-  local count=10
+  local count=20
   for i in $(seq 1 $count) ; do
+    start_time=$(get_timestamp)
     echo "Wait until deckhouse is ready ${i}/${count}"
-    if kubectl -n d8-system wait deploy/deckhouse --for condition=available --timeout=60s; then
+    if kubectl -n d8-system wait deploy/deckhouse --for condition=available --timeout=60s 2>/dev/null; then
       ready=true
       break
     fi
+    end_time=$(get_timestamp)
+    difference=$((end_time - start_time))
+    log_warning "Wait until deckhouse is ready ${i}/${count} after ${difference}s"
   done
 
   if [ "$ready" = true ]; then
