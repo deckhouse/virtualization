@@ -2770,6 +2770,8 @@ spec:
                     Adds a name that uniquely identifies the ResourceClaim inside the pod.
                     Containers that need access to the ResourceClaim reference it with this name.
                   properties:
+                    hotpluggable:
+                      type: boolean
                     name:
                       description: |-
                         Uniquely identifies this resource claim inside the pod.
@@ -3602,6 +3604,17 @@ spec:
                               description: Name of the resource claims object used to provision this resource.
                               type: string
                           type: object
+                        hotplug:
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used to
+                                attach the device to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used to attach
+                                the device to the node.
+                              type: string
+                          type: object
                         name:
                           description: Name of the device as specified in `spec.domain.devices.gpus.name`
                             or `spec.domain.devices.hostDevices.name`.
@@ -3655,9 +3668,28 @@ spec:
                               description: Name of the resource claims object used to provision this resource.
                               type: string
                           type: object
+                        hotplug:
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used to
+                                attach the device to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used to attach
+                                the device to the node.
+                              type: string
+                          type: object
                         name:
                           description: Name of the device as specified in `spec.domain.devices.gpus.name`
                             or `spec.domain.devices.hostDevices.name`.
+                          type: string
+                        phase:
+                          type: string
+                        reason:
+                          type: string
+                        message:
+                          type: string
+                        address:
                           type: string
                       required:
                       - name
