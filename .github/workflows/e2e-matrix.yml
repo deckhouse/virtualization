@@ -95,7 +95,7 @@ jobs:
           namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
           storageClass: ${defaultStorageClass}
           nfsSC: nightly-nfs-${{ steps.vars.outputs.sha_short }}
-          clusterConfigurationPrefix: tst-dhctl
+          clusterConfigurationPrefix: repl
           sa: dkp-sa
           deckhouse:
             tag: ${{ env.DECKHOUSE_TAG }}
@@ -193,21 +193,6 @@ jobs:
         run: |
           NAMESPACE=nightly-e2e-${{ steps.vars.outputs.sha_short }}
           nested_master=$(kubectl -n $NAMESPACE get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
-
-          d8vssh() {
-            local cmd="$1"
-            echo "$cmd - 1 arg"
-            echo "$@ - all arg"
-
-            d8 v ssh -i ./tmp/ssh/cloud  \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${{ env.DEFAULT_USER }}@${nested_master}.$NAMESPACE \
-            -c "$cmd"
-
-            echo "d8vssh $1 - done"
-          }
           
           d8vscp() {
             local source=$1
@@ -218,6 +203,16 @@ jobs:
               --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
               $source $dest
             echo "d8vscp: $source -> $dest - done"
+          }
+          
+          d8vssh() {
+            local cmd=$1
+            d8 v ssh -i ./tmp/ssh/cloud \
+            --local-ssh=true \
+            --local-ssh-opts="-o StrictHostKeyChecking=no" \
+            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+            ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
+            -c "$cmd"
           }
 
           cd test/dvp-over-dvp
@@ -230,15 +225,13 @@ jobs:
           echo ""
 
           echo "chmod +x /tmp/gen-sa.sh"
-          
-          # d8vssh "-c 'chmod +x /tmp/gen-sa.sh'"
           d8 v ssh -i ./tmp/ssh/cloud \
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
             -c 'chmod +x /tmp/gen-sa.sh; chmod +x /tmp/deckhouse-queue.sh'
-          # echo "'chmod +x /tmp/gen-sa.sh' - done"
+          # echo "'chmod +x /tmp/gen-sa.sh; chmod +x /tmp/deckhouse-queue.sh' - done"
           echo ""
 
           echo "==="
@@ -250,8 +243,6 @@ jobs:
             -c 'ls -la /tmp/'
           echo "==="
 
-          
-          # ----------
           echo "check d8 queue"
           d8 v ssh -i ./tmp/ssh/cloud  \
             --local-ssh=true \
@@ -259,16 +250,12 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
             -c '/tmp/deckhouse-queue.sh'
-          # ----------
           
-            echo "Generate kube conf in nested cluster"
+          echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
           
           # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
           echo "==="
-          echo "-- -c 'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}' --"
-          echo "==="
-          
           d8 v ssh -i ./tmp/ssh/cloud \
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
@@ -289,19 +276,10 @@ jobs:
           sudo chmod 600 ${{ env.kubeConfigPath }}
           echo "rights - done"
 
-          echo "-----"
-          echo "cat ${{ env.kubeConfigPath }}"
-          cat ${{ env.kubeConfigPath }}
-          echo "-----"
-          echo ""
-
-          echo "-----"
+          echo "Kubeconf to github output"
           CONFIG=$(cat ${{ env.kubeConfigPath }} | base64 -w 0)
           CONFIG=$(echo $CONFIG | base64 -w 0)
-          echo "$CONFIG"
-          echo "-----"
           echo "config=$CONFIG" >> $GITHUB_OUTPUT
-
           echo "cat ${{ env.kubeConfigPath }} - done"
 
       - uses: actions/upload-artifact@v4
@@ -316,10 +294,6 @@ jobs:
           overwrite: true
           include-hidden-files: true
           retention-days: 1
-      # - name: Add annotation with the URL
-      #   run: |
-      #     ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.artifact-upload.outputs.artifact-id }}"
-      #     echo "::notice title=Artifact Uploaded::Artifact available at: $ARTIFACT_URL"
 
   configure-storage:
     name: Configure storage
@@ -354,7 +328,36 @@ jobs:
       
       - name: Configure storage
         run: |
+          cd test/dvp-over-dvp/storage/sds-replicated
+          kubectl apply -f mc.yaml
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
+          
+          bdexists=false
+          for i in {1..30}; do 
+            blockdevices=$(kubectl get blockdevice -o name | wc -l)
+            if [ $blockdevices -gt 3 ]; then
+              bdexists=true
+              break
+            fi
+            echo "Wait 30 sec until blockdevices is 3"
+            sleep 30
+          done
 
+          if [ $bdexists = false ]; then
+            echo "Blockdevices is not 3"
+            kubectl get blockdevice
+            kubectl get ns
+            kubectl get nodes
+            exit 1
+          fi
+
+          chmod +x lvg-gen.sh
+          ./lvg-gen.sh
+          
+          chmod +x rsc-gen.sh
+          ./rsc-gen.sh
+
+          echo "Done"
 
   undeploy-infra:
     name: Undeploy infra
