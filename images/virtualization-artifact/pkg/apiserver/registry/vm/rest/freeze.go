@@ -31,9 +31,7 @@ import (
 )
 
 type FreezeREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -41,12 +39,8 @@ var (
 	_ rest.Connecter = &FreezeREST{}
 )
 
-func NewFreezeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *FreezeREST {
-	return &FreezeREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewFreezeREST(baseREST *BaseREST) *FreezeREST {
+	return &FreezeREST{baseREST}
 }
 
 func (r FreezeREST) New() runtime.Object {

@@ -33,9 +33,7 @@ import (
 )
 
 type CancelEvacuationREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -43,12 +41,8 @@ var (
 	_ rest.Connecter = &CancelEvacuationREST{}
 )
 
-func NewCancelEvacuationREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *CancelEvacuationREST {
-	return &CancelEvacuationREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewCancelEvacuationREST(baseREST *BaseREST) *CancelEvacuationREST {
+	return &CancelEvacuationREST{baseREST}
 }
 
 func (r CancelEvacuationREST) New() runtime.Object {
