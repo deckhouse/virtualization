@@ -3579,6 +3579,8 @@ spec:
                             It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                             Containers that need access to the ResourceClaim reference it with this name.
                           properties:
+                            hotpluggable:
+                              type: boolean
                             name:
                               description: |-
                                 Name uniquely identifies this resource claim inside the pod.
@@ -4799,6 +4801,131 @@ spec:
                   type: object
                 type: array
                 x-kubernetes-list-type: atomic
+              resourceclaimrequests:
+                description: |-
+                  resourceclaimrequests indicates a list of resource claims add or remove from the vmi template and
+                  hotplug on an active running vmi.
+                items:
+                  properties:
+                    addresourceclaimoptions:
+                      description: |-
+                        addresourceclaimoptions when set indicates a resource claim should be added.
+                        the details within this field specify how to add the resource claim
+                      properties:
+                        dryrun:
+                          description: |-
+                            when present, indicates that modifications should not be
+                            persisted. an invalid or unrecognized dryrun directive will
+                            result in an error response and no further processing of the
+                            request. valid values are:
+                            - all: all dry run stages will be processed
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        hostdevice:
+                          description: hostdevice represents the host device that will be
+                            plugged into the running vmi
+                          properties:
+                            claimname:
+                              description: |-
+                                claimname needs to be provided from the list vmi.spec.resourceclaims[].name where this
+                                device is allocated
+                              type: string
+                            devicename:
+                              description: devicename is the name of the device provisioned
+                                by device-plugins
+                              type: string
+                            name:
+                              type: string
+                            requestname:
+                              description: |-
+                                requestname needs to be provided from resourceclaim.spec.devices.requests[].name where this
+                                device is requested
+                              type: string
+                            tag:
+                              description: if specified, the virtual network interface address
+                                and its tag will be provided to the guest via config drive
+                              type: string
+                          required:
+                            - name
+                          type: object
+                        name:
+                          description: |-
+                            name represents the name that will be used to map the
+                            device to the corresponding resource claim. this overrides any name
+                            that is set in the device struct itself.
+                          type: string
+                        resourceclaim:
+                          description: resourceclaim represents the resource claim to map
+                            to the host device
+                          properties:
+                            hotpluggable:
+                              type: boolean
+                            name:
+                              description: |-
+                                name uniquely identifies this resource claim inside the pod.
+                                this must be a dns_label.
+                              type: string
+                            resourceclaimname:
+                              description: |-
+                                resourceclaimname is the name of a resourceclaim object in the same
+                                namespace as this pod.
+
+                                exactly one of resourceclaimname and resourceclaimtemplatename must
+                                be set.
+                              type: string
+                            resourceclaimtemplatename:
+                              description: |-
+                                resourceclaimtemplatename is the name of a resourceclaimtemplate
+                                object in the same namespace as this pod.
+
+                                the template will be used to create a new resourceclaim, which will
+                                be bound to this pod. when this pod is deleted, the resourceclaim
+                                will also be deleted. the pod name and resource name, along with a
+                                generated component, will be used to form a unique name for the
+                                resourceclaim, which will be recorded in pod.status.resourceclaimstatuses.
+
+                                this field is immutable and no changes will be made to the
+                                corresponding resourceclaim by the control plane after creating the
+                                resourceclaim.
+
+                                exactly one of resourceclaimname and resourceclaimtemplatename must
+                                be set.
+                              type: string
+                          required:
+                            - name
+                          type: object
+                      required:
+                        - hostdevice
+                        - name
+                        - resourceclaim
+                      type: object
+                    removeresourceclaimoptions:
+                      description: |-
+                        removeresourceclaimoptions when set indicates a resource claim should be removed.
+                        the details within this field specify how to remove the resource claim
+                      properties:
+                        dryrun:
+                          description: |-
+                            when present, indicates that modifications should not be
+                            persisted. an invalid or unrecognized dryrun directive will
+                            result in an error response and no further processing of the
+                            request. valid values are:
+                            - all: all dry run stages will be processed
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                        name:
+                          type: string
+                      required:
+                        - name
+                      type: object
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
+
               volumeSnapshotStatuses:
                 description: |-
                   VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is

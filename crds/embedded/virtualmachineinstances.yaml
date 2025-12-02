@@ -3631,7 +3631,6 @@ spec:
                                   description: PCIAddress is the PCIe bus address
                                     of the allocated device
                                   type: string
-                                  type: object
                               type: object
                             name:
                               description: Name is the name of actual device on the
@@ -3640,6 +3639,17 @@ spec:
                             resourceClaimName:
                               description: ResourceClaimName is the name of the resource
                                 claims object used to provision this resource
+                              type: string
+                          type: object
+                        hotplug:
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used to
+                                attach the device to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used to attach
+                                the device to the node.
                               type: string
                           type: object
                         name:
@@ -3698,6 +3708,17 @@ spec:
                             resourceClaimName:
                               description: ResourceClaimName is the name of the resource
                                 claims object used to provision this resource
+                              type: string
+                          type: object
+                        hotplug:
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used to
+                                attach the device to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used to attach
+                                the device to the node.
                               type: string
                           type: object
                         name:
