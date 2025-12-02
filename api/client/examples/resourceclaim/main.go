@@ -44,7 +44,6 @@ func NewResourceClaimCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:           "resourceclaim (VirtualMachine)",
 		Short:         "add/remove resource claim to/from a VirtualMachine.",
-		Args:          cobra.ExactArgs(1),
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
@@ -85,14 +84,10 @@ type addResourceClaimOptions struct {
 func (o *addResourceClaimOptions) AddFlags(cmd *cobra.Command) {
 	fs := cmd.Flags()
 	fs.StringVarP(&o.Namespace, "namespace", "n", "", "namespace of virtual machine")
-	fs.StringVarP(&o.HotplugName, "hotplug-name", "h", "", "name of the hotplug device")
+	fs.StringVar(&o.HotplugName, "hotplug-name", "", "name of the hotplug device")
 	fs.StringVarP(&o.RequestName, "request-name", "r", "", "name of the resource claim request")
 	fs.StringVarP(&o.ResourceClaimTemplateName, "resource-claim-template-name", "t", "", "name of the resource claim template")
 	fs.BoolVarP(&o.DryRun, "dry-run", "d", false, "dry run")
-
-	_ = cmd.MarkFlagRequired("hotplug-name")
-	_ = cmd.MarkFlagRequired("request-name")
-	_ = cmd.MarkFlagRequired("resource-claim-template-name")
 }
 
 func (o *addResourceClaimOptions) Validate() error {
@@ -156,10 +151,8 @@ type removeResourceClaimOptions struct {
 func (o *removeResourceClaimOptions) AddFlags(cmd *cobra.Command) {
 	fs := cmd.Flags()
 	fs.StringVarP(&o.Namespace, "namespace", "n", "", "namespace of virtual machine")
-	fs.StringVarP(&o.HotplugName, "hotplug-name", "h", "", "name of the hotplug device")
+	fs.StringVar(&o.HotplugName, "hotplug-name", "", "name of the hotplug device")
 	fs.BoolVarP(&o.DryRun, "dry-run", "d", false, "dry run")
-
-	_ = cmd.MarkFlagRequired("hotplug-name")
 }
 
 func (o *removeResourceClaimOptions) Validate() error {

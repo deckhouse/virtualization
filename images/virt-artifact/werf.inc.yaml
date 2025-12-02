@@ -9,7 +9,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "hotplug-0000" # TODO: remove this
+fromCacheVersion: "hotplug-0001" # TODO: remove this
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
