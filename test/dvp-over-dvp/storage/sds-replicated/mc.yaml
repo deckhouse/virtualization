@@ -22,7 +22,6 @@ metadata:
 spec:
   imageTag: main
   scanInterval: 15s
-  source: deckhouse
 ---
 apiVersion: deckhouse.io/v1alpha2
 kind: ModulePullOverride
@@ -31,4 +30,3 @@ metadata:
 spec:
   imageTag: main
   scanInterval: 15s
-  source: deckhouse
