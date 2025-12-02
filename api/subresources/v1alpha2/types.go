@@ -90,7 +90,30 @@ type VirtualMachineUnfreeze struct {
 // +k8s:conversion-gen:explicit-from=net/url.Values
 
 type VirtualMachineCancelEvacuation struct {
+	metav1.TypeMeta `json:",inline"`
+
+	DryRun []string `json:"dryRun,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineAddResourceClaim struct {
+	metav1.TypeMeta `json:",inline"`
+
+	Name                      string `json:"name"`
+	ResourceClaimTemplateName string `json:"resourceClaimTemplateName"`
+	RequestName               string `json:"requestName"`
+
+	DryRun []string `json:"dryRun,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
+type VirtualMachineRemoveResourceClaim struct {
 	metav1.TypeMeta
 
+	Name   string   `json:"name"`
 	DryRun []string `json:"dryRun,omitempty"`
 }

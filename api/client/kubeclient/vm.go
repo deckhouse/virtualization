@@ -165,3 +165,25 @@ func (v vm) CancelEvacuation(ctx context.Context, name string, dryRun []string) 
 	}
 	return c.Do(ctx).Error()
 }
+
+func (v vm) AddResourceClaim(ctx context.Context, name string, opts subv1alpha2.VirtualMachineAddResourceClaim) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "addresourceclaim")
+	return v.restClient.
+		Put().
+		AbsPath(path).
+		Param("name", opts.Name).
+		Param("resourceClaimTemplateName", opts.ResourceClaimTemplateName).
+		Param("requestName", opts.RequestName).
+		Do(ctx).
+		Error()
+}
+
+func (v vm) RemoveResourceClaim(ctx context.Context, name string, opts subv1alpha2.VirtualMachineRemoveResourceClaim) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "removeresourceclaim")
+	return v.restClient.
+		Put().
+		AbsPath(path).
+		Param("name", opts.Name).
+		Do(ctx).
+		Error()
+}
