@@ -34,9 +34,9 @@ RUN go mod edit -go=$GOVERSION && \
 
 RUN go work vendor
 
-RUN for p in patches/*.patch; do \
-        echo -n "Apply ${p} ... " && \
-        git apply --ignore-space-change --ignore-whitespace "${p}" && echo OK || (echo FAIL && exit 1); \
+RUN for p in $(test -d patches && ls -1 patches/*.patch 2>/dev/null) ; do \
+        echo -n "Apply ${p} ... " ; \
+        git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) ; \
     done
 
 ENV GO111MODULE=on

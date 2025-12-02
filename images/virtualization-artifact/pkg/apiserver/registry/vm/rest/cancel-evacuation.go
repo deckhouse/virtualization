@@ -33,9 +33,7 @@ import (
 )
 
 type CancelEvacuationREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -43,12 +41,8 @@ var (
 	_ rest.Connecter = &CancelEvacuationREST{}
 )
 
-func NewCancelEvacuationREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *CancelEvacuationREST {
-	return &CancelEvacuationREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewCancelEvacuationREST(baseREST *BaseREST) *CancelEvacuationREST {
+	return &CancelEvacuationREST{baseREST}
 }
 
 func (r CancelEvacuationREST) New() runtime.Object {
@@ -64,7 +58,7 @@ func (r CancelEvacuationREST) Connect(ctx context.Context, name string, opts run
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
 
-	location, transport, err := CancelEvacuationRESTRESTLocation(ctx, r.vmLister, name, cancelEvacuationOpts, r.kubevirt, r.proxyCertManager, newKVVMPather("evacuatecancel"))
+	location, transport, err := CancelEvacuationRESTRESTLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager, newKVVMPather("evacuatecancel"))
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +102,6 @@ func CancelEvacuationRESTRESTLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineCancelEvacuation,
 	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	cancelEvacuationPather pather,

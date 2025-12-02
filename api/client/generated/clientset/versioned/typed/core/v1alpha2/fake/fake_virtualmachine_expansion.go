@@ -54,3 +54,11 @@ func (c *fakeVirtualMachines) RemoveVolume(ctx context.Context, name string, opt
 func (c *fakeVirtualMachines) CancelEvacuation(ctx context.Context, name string, dryRun []string) error {
 	return nil
 }
+
+func (c *fakeVirtualMachines) AddResourceClaim(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddResourceClaim) error {
+	return nil
+}
+
+func (c *fakeVirtualMachines) RemoveResourceClaim(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveResourceClaim) error {
+	return nil
+}

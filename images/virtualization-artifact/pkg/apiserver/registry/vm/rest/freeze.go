@@ -31,9 +31,7 @@ import (
 )
 
 type FreezeREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -41,12 +39,8 @@ var (
 	_ rest.Connecter = &FreezeREST{}
 )
 
-func NewFreezeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *FreezeREST {
-	return &FreezeREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewFreezeREST(baseREST *BaseREST) *FreezeREST {
+	return &FreezeREST{baseREST}
 }
 
 func (r FreezeREST) New() runtime.Object {
@@ -57,11 +51,11 @@ func (r FreezeREST) Destroy() {
 }
 
 func (r FreezeREST) Connect(ctx context.Context, name string, opts runtime.Object, responder rest.Responder) (http.Handler, error) {
-	freezeOpts, ok := opts.(*subresources.VirtualMachineFreeze)
+	_, ok := opts.(*subresources.VirtualMachineFreeze)
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := FreezeLocation(ctx, r.vmLister, name, freezeOpts, r.kubevirt, r.proxyCertManager)
+	location, transport, err := FreezeLocation(ctx, r.vmLister, name, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +77,6 @@ func FreezeLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
 	name string,
-	opts *subresources.VirtualMachineFreeze,
 	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
