@@ -349,14 +349,13 @@ jobs:
           chmod 600 ~/.kube/config
           echo "-- end Show paths and files content --"
           kubectl config get-contexts
-          kubectl config view
           # ----------
           PING_HOST=$(yq e '.clusters[0].cluster.server' ~/.kube/config | sed 's|https://||')
           echo "ping $PING_HOST"
-          ping -c 5 $PING_HOST
+          ping -c 5 $PING_HOST || true
           # ----------
           echo "curl -v $PING_HOST"
-          curl -v $PING_HOST
+          curl -v $PING_HOST || true
           # ----------
           echo "kubectl get nodes"
           kubectl config use-context nested-e2e-nested-sa
