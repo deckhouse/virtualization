@@ -27,7 +27,6 @@ import (
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	"github.com/deckhouse/virtualization/api/subresources/install"
@@ -57,15 +56,17 @@ func init() {
 func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resourcesV1alpha2 := map[string]rest.Storage{
-		"virtualmachines":                  store,
-		"virtualmachines/console":          store.ConsoleREST(),
-		"virtualmachines/vnc":              store.VncREST(),
-		"virtualmachines/portforward":      store.PortForwardREST(),
-		"virtualmachines/addvolume":        store.AddVolumeREST(),
-		"virtualmachines/removevolume":     store.RemoveVolumeREST(),
-		"virtualmachines/freeze":           store.FreezeREST(),
-		"virtualmachines/unfreeze":         store.UnfreezeREST(),
-		"virtualmachines/cancelevacuation": store.CancelEvacuationREST(),
+		"virtualmachines":                     store,
+		"virtualmachines/console":             store.ConsoleREST(),
+		"virtualmachines/vnc":                 store.VncREST(),
+		"virtualmachines/portforward":         store.PortForwardREST(),
+		"virtualmachines/addvolume":           store.AddVolumeREST(),
+		"virtualmachines/removevolume":        store.RemoveVolumeREST(),
+		"virtualmachines/freeze":              store.FreezeREST(),
+		"virtualmachines/unfreeze":            store.UnfreezeREST(),
+		"virtualmachines/cancelevacuation":    store.CancelEvacuationREST(),
+		"virtualmachines/addresourceclaim":    store.AddResourceClaimREST(),
+		"virtualmachines/removeresourceclaim": store.RemoveResourceClaimREST(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[subv1alpha2.SchemeGroupVersion.Version] = resourcesV1alpha2
 	return apiGroupInfo
@@ -76,13 +77,11 @@ func Install(
 	server *genericapiserver.GenericAPIServer,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) error {
 	vmStorage := storage.NewStorage(
 		vmLister,
 		kubevirt,
 		proxyCertManager,
-		vmClient,
 	)
 	info := Build(vmStorage)
 	return server.InstallAPIGroup(&info)

@@ -33,9 +33,7 @@ import (
 )
 
 type PortForwardREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 var (
@@ -43,12 +41,8 @@ var (
 	_ rest.Connecter = &PortForwardREST{}
 )
 
-func NewPortForwardREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *PortForwardREST {
-	return &PortForwardREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewPortForwardREST(baseREST *BaseREST) *PortForwardREST {
+	return &PortForwardREST{baseREST}
 }
 
 // New implements rest.Storage interface

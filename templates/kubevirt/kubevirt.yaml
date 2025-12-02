@@ -73,6 +73,9 @@ spec:
       - VMLiveUpdateFeatures
       - VolumeMigration
       - VolumesUpdateStrategy
+      - HostDevicesWithDRA
+      - HostDevices
+      - HotplugHostDevicesWithDRA # custom feature gate - added in our KubeVirt fork, not present in upstream
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
