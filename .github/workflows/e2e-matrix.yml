@@ -192,9 +192,9 @@ jobs:
           NAMESPACE=nightly-e2e-${{ steps.vars.outputs.sha_short }}
           nested_master=$(kubectl -n $NAMESPACE get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
 
-          d8vsshCmd() {
-            echo "$1 - 1 arg"
-            echo "$2 - 2 arg"
+          d8vssh() {
+            local cmd="$1"
+            echo "$cmd - 1 arg"
             echo "$@ - all arg"
 
             d8 v ssh -i ./tmp/ssh/cloud  \
@@ -202,9 +202,9 @@ jobs:
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.$NAMESPACE \
-            -c "$1"
+            -c "$cmd"
 
-            echo "d8vssh $1 $2 - done"
+            echo "d8vssh $1 - done"
           }
           
           d8vscp() {
