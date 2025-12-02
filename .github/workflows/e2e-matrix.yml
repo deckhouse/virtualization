@@ -224,15 +224,8 @@ jobs:
           echo "copy nested-sa-config/gen-sa.sh to master"
           d8vscp "./nested-sa-config/gen-sa.sh" "${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE}:/tmp/gen-sa.sh"
           echo ""
-
-          echo "==="
-          d8 v ssh -i ./tmp/ssh/cloud  \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
-            -c 'ls -la /tmp/'
-          echo "==="
+          d8vscp "./tools/deckhouse-queue.sh" "${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
+          echo ""
 
           echo "chmod +x /tmp/gen-sa.sh"
           
@@ -242,11 +235,11 @@ jobs:
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
-            -c 'chmod +x /tmp/gen-sa.sh'
+            -c 'chmod +x /tmp/gen-sa.sh; chmod +x /tmp/deckhouse-queue.sh'
           # echo "'chmod +x /tmp/gen-sa.sh' - done"
           echo ""
 
-          echo "=== after chmod ==="
+          echo "==="
           d8 v ssh -i ./tmp/ssh/cloud  \
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
@@ -255,15 +248,18 @@ jobs:
             -c 'ls -la /tmp/'
           echo "==="
 
+          
+          # ----------
           echo "check d8 queue"
           d8 v ssh -i ./tmp/ssh/cloud  \
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
-            -c 'sudo /opt/deckhouse/bin/d8 p queue list'
-
-          echo "Generate kube conf in nested cluster"
+            -c '/tmp/deckhouse-queue.sh'
+          # ----------
+          
+            echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
           
           # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
@@ -306,9 +302,6 @@ jobs:
 
           echo "cat ${{ env.kubeConfigPath }} - done"
 
-          # echo "try d8 k"
-          # d8 k --kubeconfig=tmp/kube.config get nodes
-    
       - uses: actions/upload-artifact@v4
         id: artifact-upload
         if: always()
@@ -357,7 +350,7 @@ jobs:
           kubectl config get-contexts
           kubectl config view
           # ----------
-          PING_HOST=$(yq e '.clusters[0].cluster.server' ~/.kube/config)
+          PING_HOST=$(yq e '.clusters[0].cluster.server' ~/.kube/config | sed 's|https://||')
           echo "ping $PING_HOST"
           ping -c 1 $PING_HOST
           # ----------
