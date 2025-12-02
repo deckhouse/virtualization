@@ -137,3 +137,6 @@ replace (
 	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )
+
+// Kubevirt API replaces
+replace kubevirt.io/api => github.com/deckhouse/3p-kubevirt/staging/src/kubevirt.io/api v1.6.2-add-dra-hotplug-support
