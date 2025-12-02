@@ -69,7 +69,7 @@ const (
 	fileDataPath              = "/mnt/value"
 )
 
-var _ = Describe("VirtualMachineOperationRestore", func() {
+var _ = Describe("VirtualMachineOperationRestore", Label("Slow"), func() {
 	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, shouldDeleteBeforeRestore bool) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
