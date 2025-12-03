@@ -341,9 +341,6 @@ spec:
                             x-kubernetes-int-or-string: true
                         type: object
                     type: object
-                    x-kubernetes-validations:
-                      - message: The defaultCoreFraction must be one of the values in coreFractions
-                        rule: "!has(self.defaultCoreFraction) || self.defaultCoreFraction in self.coreFractions"
                   type: array
                 tolerations:
                   description: |-

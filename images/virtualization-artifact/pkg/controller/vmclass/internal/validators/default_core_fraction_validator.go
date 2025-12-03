@@ -66,4 +66,3 @@ func containsCoreFraction(fractions []v1alpha2.CoreFractionValue, value v1alpha2
 	}
 	return false
 }
-
