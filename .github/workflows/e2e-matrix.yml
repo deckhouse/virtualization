@@ -423,19 +423,21 @@ jobs:
       - name: Wait for Virtualization to be ready
         run: |
           echo "Waiting for Virtualization module to be ready"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
+          # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
 
           for i in {1..30}; do
             virtualization_status=$(kubectl get modules virtualization -o jsonpath='{.status.phase}')
             if [ "$virtualization_status" == "Ready" ]; then
+              kubectl get modules virtualization
               break
             fi
             echo "Waiting 10s for Virtualization module to be ready"
+            kubectl get modules virtualization
             sleep 10
           done
 
           echo "Wait for pods to be ready"
-          kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=300s
+          kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=600s
   e2e-test:
     name: E2E test
     runs-on: ubuntu-22.04
