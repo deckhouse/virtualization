@@ -20,6 +20,7 @@ env:
   DECKHOUSE_TAG: main
   DEFAULT_USER: ubuntu
   GO_VERSION: "1.24.5"
+  NESTED_STORAGECLASS_NAME: nested-thin-r1
 on:
   workflow_dispatch:
   pull_request:
@@ -399,7 +400,7 @@ jobs:
                 storage:
                   persistentVolumeClaim:
                     size: 10Gi
-                    storageClassName: nested-thin-r2
+                    storageClassName: ${{ env.NESTED_STORAGECLASS_NAME }}
                   type: PersistentVolumeClaim
               virtualMachineCIDRs:
                 - 192.168.10.0/24
