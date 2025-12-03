@@ -131,10 +131,18 @@ jobs:
                 bootloader: BIOS
           EOF
 
-      - name: Bootstrap cluster
+      - name: Bootstrap cluster [infra-deploy]
         run: |
           cd test/dvp-over-dvp
-          task install
+          task infra-deploy
+      - name: Bootstrap cluster [dhctl-bootstrap]
+        run: |
+          cd test/dvp-over-dvp
+          task dhctl-bootstrap
+      - name: Install [show-connection-info]
+        run: |
+          cd test/dvp-over-dvp
+          task show-connection-info
 
       - name: Get info about nested master VM
         run: |
