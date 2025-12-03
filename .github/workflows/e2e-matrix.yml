@@ -316,11 +316,13 @@ jobs:
           cd test/dvp-over-dvp/storage/sds-replicated
           kubectl apply -f mc.yaml
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
+
+          workers=$(kubectl get nodes -o name | grep -v master | wc -l)
           
           bdexists=false
           for i in {1..30}; do 
             blockdevices=$(kubectl get blockdevice -o name | wc -l)
-            if [ $blockdevices -gt 3 ]; then
+            if [ $blockdevices -ge $workers ]; then
               bdexists=true
               break
             fi

@@ -127,7 +127,6 @@ spec:
     name: ${SA_NAME}
     namespace: d8-service-accounts
   accessLevel: SuperAdmin
-  #allowAccessToSystemNamespaces: true
 EOF
 log_success "SA, Secrets and ClusterAuthorizationRule applied"
 

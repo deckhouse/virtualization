@@ -72,7 +72,7 @@ d8_queue_list() {
 }
 
 d8_queue() {
-  local count=20
+  local count=60
   local main_queue_ready=false
   local list_queue_ready=false
 
@@ -81,6 +81,7 @@ d8_queue() {
       echo "main queue is clear"
       main_queue_ready=true
     else
+      echo "Show main queue"
       d8 p queue main | head -n25
     fi
 
@@ -88,6 +89,7 @@ d8_queue() {
       echo "list queue is clear"
       list_queue_ready=true
     else
+      echo "Show queue list"
       d8 p queue list | head -n25
     fi
 
@@ -95,17 +97,17 @@ d8_queue() {
       break
     fi
     echo "Wait until queues are empty ${i}/${count}"
-    sleep 60
+    sleep 20
   done
 }
 
 d8_ready() {
   local ready=false
-  local count=20
+  local count=60
   for i in $(seq 1 $count) ; do
     start_time=$(get_timestamp)
     echo "Wait until deckhouse is ready ${i}/${count}"
-    if kubectl -n d8-system wait deploy/deckhouse --for condition=available --timeout=60s 2>/dev/null; then
+    if kubectl -n d8-system wait deploy/deckhouse --for condition=available --timeout=20s 2>/dev/null; then
       ready=true
       break
     fi

@@ -45,8 +45,6 @@ metadata:
 spec:
   enabled: true
   version: 1
-  #settings:
-    #enableMultiTenancy: true
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
