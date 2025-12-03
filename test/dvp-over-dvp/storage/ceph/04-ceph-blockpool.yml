@@ -5,8 +5,8 @@ metadata:
   namespace: d8-operator-ceph # namespace:cluster
 spec:
   parameters:
-    pg_num: '128'
-    pgp_num: '128'
+    pg_num: "128"
+    pgp_num: "128"
   failureDomain: host
   replicated:
     size: 2

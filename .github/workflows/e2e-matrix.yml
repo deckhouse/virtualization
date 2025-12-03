@@ -149,7 +149,7 @@ jobs:
           cd test/dvp-over-dvp
           namespace=nightly-e2e-${{ steps.vars.outputs.sha_short }}
           nested_master=$(kubectl -n $namespace get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
-          
+
           echo "Pods"
           kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
           echo ""
@@ -157,7 +157,7 @@ jobs:
           echo "VMs"
           kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
           echo ""
-          
+
           echo "VDs"
           kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
           echo ""
@@ -171,7 +171,7 @@ jobs:
             ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
             -c 'cat /etc/os-release'
           echo ""
-          
+
           echo "hostname master"
           d8 v ssh -i ./tmp/ssh/cloud  \
             --local-ssh=true \
@@ -179,7 +179,7 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
             -c 'hostname'
-      
+
       - name: Generate nested kubeconfig
         id: generate-kubeconfig
         env:
@@ -187,7 +187,7 @@ jobs:
         run: |
           NAMESPACE=nightly-e2e-${{ steps.vars.outputs.sha_short }}
           nested_master=$(kubectl -n $NAMESPACE get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
-          
+
           d8vscp() {
             local source=$1
             local dest=$2
@@ -198,7 +198,7 @@ jobs:
               $source $dest
             echo "d8vscp: $source -> $dest - done"
           }
-          
+
           d8vssh() {
             local cmd=$1
             d8 v ssh -i ./tmp/ssh/cloud \
@@ -210,7 +210,7 @@ jobs:
           }
 
           cd test/dvp-over-dvp
-          
+
           echo "Copy script for generating kubeconfig in nested cluster"
           echo "copy nested-sa-config/gen-sa.sh to master"
           d8vscp "./nested-sa-config/gen-sa.sh" "${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE}:/tmp/gen-sa.sh"
@@ -244,10 +244,10 @@ jobs:
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
             ${{ env.DEFAULT_USER }}@${nested_master}.${NAMESPACE} \
             -c '/tmp/deckhouse-queue.sh'
-          
+
           echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
-          
+
           # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
           echo "==="
           d8 v ssh -i ./tmp/ssh/cloud \
@@ -259,7 +259,7 @@ jobs:
 
           echo "'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${{ env.kubeConfigPath }}' - done"
           echo ""
-          
+
           echo "copy kubeconfig to runner"
           d8vscp "${{ env.DEFAULT_USER }}@${nested_master}.$NAMESPACE:/${{ env.kubeConfigPath }}" "${{ env.kubeConfigPath }}"
 
@@ -302,14 +302,13 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
-      
-      
+
       - name: Check kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "Configure kube config"
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
-          
+
           echo "Show paths and files content"
           ls -la ~/.kube
           cat ~/.kube/config
@@ -318,7 +317,7 @@ jobs:
           echo "kubectl get nodes"
           kubectl config use-context nested-e2e-nested-sa
           kubectl get nodes
-      
+
       - name: Configure storage
         run: |
           cd test/dvp-over-dvp/storage/sds-replicated
@@ -326,7 +325,7 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
 
           workers=$(kubectl get nodes -o name | grep -v master | wc -l)
-          
+
           bdexists=false
           for i in {1..30}; do 
             blockdevices=$(kubectl get blockdevice -o name | wc -l)
@@ -348,7 +347,7 @@ jobs:
 
           chmod +x lvg-gen.sh
           ./lvg-gen.sh
-          
+
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
 
@@ -363,15 +362,15 @@ jobs:
     if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install htpasswd utility
         run: |
           sudo apt-get update
           sudo apt-get install -y apache2-utils
-      
+
       - name: Setup d8
         uses: ./.github/actions/install-d8
-      
+
       - name: Install Task
         uses: arduino/setup-task@v2
         with:
@@ -383,20 +382,20 @@ jobs:
         with:
           name: generated-files
           path: test/dvp-over-dvp/
-      
+
       - name: Show paths and files content
         run: |
           ls -la test/dvp-over-dvp/tmp
           ls -la test/dvp-over-dvp/tmp/
           cat test/dvp-over-dvp/values.yaml | tail -n +8
-      
+
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
         with:
           method: kubeconfig
           context: e2e-cluster-nightly-e2e-virt-sa
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
-          
+
       - name: infra-undeploy
         run: |
           cd test/dvp-over-dvp

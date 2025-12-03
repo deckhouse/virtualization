@@ -24,7 +24,7 @@ spec:
   placement:
     all:
       tolerations:
-      - operator: Exists
+        - operator: Exists
   dashboard:
     enabled: true
     ssl: true
