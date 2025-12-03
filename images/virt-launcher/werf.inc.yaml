@@ -236,7 +236,7 @@ import:
   - usr/bin/coreutils
 - image: tools/iproute2
   add: /
-  to: /relocate/
+  to: /relocate/usr
   after: setup
   includePaths:
   - sbin/tc

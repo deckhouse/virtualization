@@ -41,6 +41,7 @@ func (f *Framework) saveTestCaseDump() {
 	f.saveTestCaseResources(ft, tmpDir)
 	f.savePodAdditionalInfo(ft, tmpDir)
 	f.saveIntvirtvmDescriptions(ft, tmpDir)
+	f.saveIntvirtvmiDescriptions(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -129,6 +130,19 @@ func (f *Framework) saveIntvirtvmDescriptions(testCaseFullText, dumpPath string)
 	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachine description:\nError: %s\n", err)
+	}
+}
+
+func (f *Framework) saveIntvirtvmiDescriptions(testCaseFullText, dumpPath string) {
+	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe intvirtvmi --namespace %s", f.Namespace().Name), ShortTimeout)
+	if describeCmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachineInstance:\nError: %s\n", describeCmd.StdErr())
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__intvirtvmi_describe", dumpPath, testCaseFullText)
+	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachineInstance description:\nError: %s\n", err)
 	}
 }
 

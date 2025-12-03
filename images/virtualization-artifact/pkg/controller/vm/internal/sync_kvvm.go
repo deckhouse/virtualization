@@ -144,7 +144,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
 			if !classChanges.IsEmpty() {
 				allChanges.Add(classChanges.GetAll()...)
-				classChanged = true
+				classChanged = classChanges.IsDisruptive()
 			}
 		}
 	}
