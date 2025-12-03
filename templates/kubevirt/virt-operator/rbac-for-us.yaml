@@ -1030,6 +1030,8 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/addresourceclaim
+  - virtualmachines/removeresourceclaim
   - virtualmachines/migrate
   - virtualmachines/memorydump
   - virtualmachines/addinterface

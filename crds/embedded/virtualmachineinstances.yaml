@@ -2787,6 +2787,8 @@ spec:
                     It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                     Containers that need access to the ResourceClaim reference it with this name.
                   properties:
+                    hotpluggable:
+                      type: boolean
                     name:
                       description: |-
                         Name uniquely identifies this resource claim inside the pod.
@@ -7262,6 +7264,8 @@ spec:
                     It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                     Containers that need access to the ResourceClaim reference it with this name.
                   properties:
+                    hotpluggable:
+                      type: boolean
                     name:
                       description: |-
                         Name uniquely identifies this resource claim inside the pod.
