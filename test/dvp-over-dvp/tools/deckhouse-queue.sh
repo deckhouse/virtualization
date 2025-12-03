@@ -41,7 +41,6 @@ log_error() {
   echo -e "[$timestamp] ${RED}[ERROR]${NC} $message"
 }
 
-
 kubectl() {
   sudo /opt/deckhouse/bin/kubectl $@
 }
@@ -60,7 +59,7 @@ d8_queue_list() {
 }
 
 d8_queue() {
-  local count=60
+  local count=90
   local main_queue_ready=false
   local list_queue_ready=false
 
@@ -85,7 +84,7 @@ d8_queue() {
       break
     fi
     echo "Wait until queues are empty ${i}/${count}"
-    sleep 20
+    sleep 10
   done
 }
 
