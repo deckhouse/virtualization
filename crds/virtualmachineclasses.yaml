@@ -281,6 +281,13 @@ spec:
                         items:
                           type: boolean
                         type: array
+                      defaultCoreFraction:
+                        description: |-
+                          Default core fraction value for the VirtualMachineClass.
+                          This value will be used when creating a VM without an explicitly specified coreFraction.
+                        maximum: 100
+                        minimum: 1
+                        type: integer
                       memory:
                         description: Memory sizing policy.
                         properties:
@@ -334,6 +341,9 @@ spec:
                             x-kubernetes-int-or-string: true
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                      - message: The defaultCoreFraction must be one of the values in coreFractions
+                        rule: "!has(self.defaultCoreFraction) || self.defaultCoreFraction in self.coreFractions"
                   type: array
                 tolerations:
                   description: |-
@@ -775,6 +785,9 @@ spec:
                         items:
                           type: boolean
                         type: array
+                      defaultCoreFraction:
+                        description: Default core fraction value for the VirtualMachineClass.
+                        type: string
                       memory:
                         description: Memory sizing policy.
                         properties:

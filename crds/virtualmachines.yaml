@@ -38,7 +38,7 @@ spec:
           properties:
             spec:
               x-kubernetes-validations:
-                - rule: "self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100"
+                - rule: "!has(self.cpu.coreFraction) || (self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100)"
                   message: "Core fraction must be between 1% and 100%."
               type: object
               required:
@@ -888,9 +888,8 @@ spec:
                       description: Number of cores.
                     coreFraction:
                       type: string
-                      default: "100%"
                       description: |
-                        Guaranteed share of CPU time that will be allocated to the VM. Specified as a percentage. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range.
+                        Guaranteed share of CPU time that will be allocated to the VM. Specified as a percentage. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass. If not specified, the default value from the VirtualMachineClass sizing policy will be used. If no default is set in the class, "100%" will be applied.
 
                 memory:
                   type: object
