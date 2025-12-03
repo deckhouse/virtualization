@@ -18,6 +18,7 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -38,9 +39,8 @@ func GetBlockDevicePath(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdK
 	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
-	devicePath, ok, err := GetDeviceBySerial(f, vm, serial)
+	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
 	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
-	Expect(ok).To(BeTrue(), "failed to get device by serial")
 	return devicePath
 }
 
@@ -50,9 +50,8 @@ func CreateBlockDeviceFilesystem(f *framework.Framework, vm *v1alpha2.VirtualMac
 	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
-	devicePath, ok, err := GetDeviceBySerial(f, vm, serial)
+	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
 	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
-	Expect(ok).To(BeTrue(), "failed to get device by serial")
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mkfs.%s %s", fsType, devicePath))
 	Expect(err).NotTo(HaveOccurred())
@@ -64,9 +63,8 @@ func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKin
 	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
-	devicePath, ok, err := GetDeviceBySerial(f, vm, serial)
+	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
 	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
-	Expect(ok).To(BeTrue(), "failed to get device by serial")
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
 	Expect(err).NotTo(HaveOccurred())
@@ -76,27 +74,27 @@ func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKin
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func GetDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, bool, error) {
+func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo lsblk -o PATH,SERIAL | grep %s | awk \"{print \\$1, \\$2}\"", serial))
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	cmdLines := strings.Split(strings.TrimSpace(cmdOut), "\n")
 	if len(cmdLines) == 0 {
-		return "", false, nil
+		return "", errors.New("shell out is empty")
 	}
 
 	columns := strings.Split(strings.TrimSpace(cmdLines[0]), " ")
 	if len(columns) != 2 {
-		return "", false, nil
+		return "", errors.New("shell out columns mismatch")
 	}
 
 	if columns[1] == serial {
-		return columns[0], true, nil
+		return columns[0], nil
 	}
 
-	return "", false, nil
+	return "", errors.New("no block device found")
 }
 
 func GetBlockDeviceSerialNumber(vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) (string, bool) {

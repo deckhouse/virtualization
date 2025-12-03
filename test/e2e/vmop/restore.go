@@ -70,7 +70,7 @@ const (
 )
 
 var _ = Describe("VirtualMachineOperationRestore", Label("Slow"), func() {
-	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, shouldDeleteBeforeRestore bool) {
+	DescribeTable("restores a virtual machine from a snapshot", func(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy, removeRecoverableResources bool) {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
@@ -82,7 +82,7 @@ var _ = Describe("VirtualMachineOperationRestore", Label("Slow"), func() {
 				context.Background(), t.CVI, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
 			)
 			Expect(err).NotTo(HaveOccurred())
-			if runPolicy == v1alpha2.ManualPolicy {
+			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
 				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 				util.StartVirtualMachine(f, t.VM)
 			}
@@ -104,8 +104,6 @@ var _ = Describe("VirtualMachineOperationRestore", Label("Slow"), func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
-			// Save the last transition time of the Running status, so that we can verify
-			// that the virtual machine was actually rebooted after changes.
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
 			t.VM.Annotations[vmAnnotationName] = vmAnnotationChangedValue
@@ -133,7 +131,7 @@ var _ = Describe("VirtualMachineOperationRestore", Label("Slow"), func() {
 			Expect(t.VM.Status.Resources.Memory.Size).To(Equal(resource.MustParse(changedMemorySize)))
 		})
 		By("Resource preparation", func() {
-			if shouldDeleteBeforeRestore {
+			if removeRecoverableResources {
 				t.RemoveRecoverableResources()
 			}
 		})
