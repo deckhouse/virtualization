@@ -734,6 +734,27 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddResourceCl
 							Format:      "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resourceClaimTemplateName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"requestName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"dryRun": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -749,6 +770,7 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddResourceCl
 						},
 					},
 				},
+				Required: []string{"name", "resourceClaimTemplateName", "requestName"},
 			},
 		},
 	}
@@ -976,6 +998,13 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveResourc
 							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"dryRun": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -991,7 +1020,7 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveResourc
 						},
 					},
 				},
-				Required: []string{"TypeMeta"},
+				Required: []string{"TypeMeta", "name"},
 			},
 		},
 		Dependencies: []string{

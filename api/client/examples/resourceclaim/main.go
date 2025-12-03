@@ -57,7 +57,7 @@ func NewResourceClaimCommand() *cobra.Command {
 }
 
 func NewAddResourceClaimCommand() *cobra.Command {
-	opts := addResourceClaimOptions{}
+	opts := &addResourceClaimOptions{}
 
 	cmd := cobra.Command{
 		Use:           "add (VirtualMachine)",
@@ -68,7 +68,7 @@ func NewAddResourceClaimCommand() *cobra.Command {
 		RunE:          opts.Run,
 	}
 
-	opts.AddFlags(&cmd)
+	opts.AddFlags(cmd.Flags())
 
 	return &cmd
 }
@@ -81,8 +81,7 @@ type addResourceClaimOptions struct {
 	DryRun                    bool
 }
 
-func (o *addResourceClaimOptions) AddFlags(cmd *cobra.Command) {
-	fs := cmd.Flags()
+func (o *addResourceClaimOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVarP(&o.Namespace, "namespace", "n", "", "namespace of virtual machine")
 	fs.StringVar(&o.HotplugName, "hotplug-name", "", "name of the hotplug device")
 	fs.StringVarP(&o.RequestName, "request-name", "r", "", "name of the resource claim request")
@@ -121,6 +120,8 @@ func (o *addResourceClaimOptions) Run(cmd *cobra.Command, args []string) error {
 		RequestName:               o.RequestName,
 		DryRun:                    dryRun(o.DryRun),
 	}
+
+	cmd.Println("Options:", options)
 
 	return client.VirtualMachines(namespace).AddResourceClaim(cmd.Context(), name, options)
 }

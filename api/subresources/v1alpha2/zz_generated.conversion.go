@@ -222,6 +222,9 @@ func Convert_subresources_VirtualMachine_To_v1alpha2_VirtualMachine(in *subresou
 }
 
 func autoConvert_v1alpha2_VirtualMachineAddResourceClaim_To_subresources_VirtualMachineAddResourceClaim(in *VirtualMachineAddResourceClaim, out *subresources.VirtualMachineAddResourceClaim, s conversion.Scope) error {
+	out.Name = in.Name
+	out.ResourceClaimTemplateName = in.ResourceClaimTemplateName
+	out.RequestName = in.RequestName
 	out.DryRun = *(*[]string)(unsafe.Pointer(&in.DryRun))
 	return nil
 }
@@ -232,6 +235,9 @@ func Convert_v1alpha2_VirtualMachineAddResourceClaim_To_subresources_VirtualMach
 }
 
 func autoConvert_subresources_VirtualMachineAddResourceClaim_To_v1alpha2_VirtualMachineAddResourceClaim(in *subresources.VirtualMachineAddResourceClaim, out *VirtualMachineAddResourceClaim, s conversion.Scope) error {
+	out.Name = in.Name
+	out.ResourceClaimTemplateName = in.ResourceClaimTemplateName
+	out.RequestName = in.RequestName
 	out.DryRun = *(*[]string)(unsafe.Pointer(&in.DryRun))
 	return nil
 }
@@ -244,6 +250,27 @@ func Convert_subresources_VirtualMachineAddResourceClaim_To_v1alpha2_VirtualMach
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineAddResourceClaim(in *url.Values, out *VirtualMachineAddResourceClaim, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["name"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Name, s); err != nil {
+			return err
+		}
+	} else {
+		out.Name = ""
+	}
+	if values, ok := map[string][]string(*in)["resourceClaimTemplateName"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.ResourceClaimTemplateName, s); err != nil {
+			return err
+		}
+	} else {
+		out.ResourceClaimTemplateName = ""
+	}
+	if values, ok := map[string][]string(*in)["requestName"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.RequestName, s); err != nil {
+			return err
+		}
+	} else {
+		out.RequestName = ""
+	}
 	if values, ok := map[string][]string(*in)["dryRun"]; ok && len(values) > 0 {
 		out.DryRun = *(*[]string)(unsafe.Pointer(&values))
 	} else {
@@ -489,6 +516,7 @@ func Convert_url_Values_To_v1alpha2_VirtualMachinePortForward(in *url.Values, ou
 }
 
 func autoConvert_v1alpha2_VirtualMachineRemoveResourceClaim_To_subresources_VirtualMachineRemoveResourceClaim(in *VirtualMachineRemoveResourceClaim, out *subresources.VirtualMachineRemoveResourceClaim, s conversion.Scope) error {
+	out.Name = in.Name
 	out.DryRun = *(*[]string)(unsafe.Pointer(&in.DryRun))
 	return nil
 }
@@ -499,6 +527,7 @@ func Convert_v1alpha2_VirtualMachineRemoveResourceClaim_To_subresources_VirtualM
 }
 
 func autoConvert_subresources_VirtualMachineRemoveResourceClaim_To_v1alpha2_VirtualMachineRemoveResourceClaim(in *subresources.VirtualMachineRemoveResourceClaim, out *VirtualMachineRemoveResourceClaim, s conversion.Scope) error {
+	out.Name = in.Name
 	out.DryRun = *(*[]string)(unsafe.Pointer(&in.DryRun))
 	return nil
 }
@@ -511,6 +540,13 @@ func Convert_subresources_VirtualMachineRemoveResourceClaim_To_v1alpha2_VirtualM
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineRemoveResourceClaim(in *url.Values, out *VirtualMachineRemoveResourceClaim, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["name"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Name, s); err != nil {
+			return err
+		}
+	} else {
+		out.Name = ""
+	}
 	if values, ok := map[string][]string(*in)["dryRun"]; ok && len(values) > 0 {
 		out.DryRun = *(*[]string)(unsafe.Pointer(&values))
 	} else {
