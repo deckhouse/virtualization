@@ -258,12 +258,12 @@ var _ = Describe("VirtualMachineRestoreForce", Ordered, func() {
 			})
 
 			By("Checking the result of restoration", func() {
-				// const (
-				// 	testLabelKey        = "test-label"
-				// 	testLabelValue      = "test-label-value"
-				// 	testAnnotationKey   = "test-annotation"
-				// 	testAnnotationValue = "test-annotation-value"
-				// )
+				const (
+					testLabelKey        = "test-label"
+					testLabelValue      = "test-label-value"
+					testAnnotationKey   = "test-annotation"
+					testAnnotationValue = "test-annotation-value"
+				)
 
 				vmrestores := &v1alpha2.VirtualMachineRestoreList{}
 				err := GetObjects(v1alpha2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
@@ -289,10 +289,8 @@ var _ = Describe("VirtualMachineRestoreForce", Ordered, func() {
 							Expect(err).NotTo(HaveOccurred())
 							Expect(vd.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
 
-							// Skip the annotation and label checks until the issue with virtual disk restoration is fixed.
-							// Cause: Sometimes, a virtual disk does not have annotations and labels from a virtual disk snapshot, causing the test to fail.
-							// Expect(vd.Annotations).To(HaveKeyWithValue(testAnnotationKey, testAnnotationValue))
-							// Expect(vd.Labels).To(HaveKeyWithValue(testLabelKey, testLabelValue))
+							Expect(vd.Annotations).To(HaveKeyWithValue(testAnnotationKey, testAnnotationValue))
+							Expect(vd.Labels).To(HaveKeyWithValue(testLabelKey, testLabelValue))
 						}
 
 						// if bd.VirtualMachineBlockDeviceAttachmentName != "" {
