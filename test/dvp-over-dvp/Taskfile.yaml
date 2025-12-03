@@ -151,6 +151,7 @@ tasks:
         docker run --pull=always \
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
+        -v "{{ .SSH_DIR }}/dhctl:/tmp/dhctl/" \
         -e "DHCTL_PARALLEL_CLOUD_PERMANENT_NODES_BOOTSTRAP=false" \
         dev-registry.deckhouse.io/sys/deckhouse-oss/install:main \
             dhctl bootstrap \
