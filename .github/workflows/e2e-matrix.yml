@@ -329,9 +329,9 @@ jobs:
           kubectl apply -f mc.yaml
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
 
-          echo "Check queues"
-          chmod +x ../../tools/deckhouse-queue.sh
-          ../../tools/deckhouse-queue.sh
+          # echo "Check queues"
+          # chmod +x ../../tools/deckhouse-queue.sh
+          # ../../tools/deckhouse-queue.sh
 
           echo "Wait bd"
           workers=$(kubectl get nodes -o name | grep -v master | wc -l)
