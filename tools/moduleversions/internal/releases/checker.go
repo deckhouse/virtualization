@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"scaper/internal/version"
+	"moduleversions/internal/version"
 
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/text/cases"

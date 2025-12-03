@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import "scaper/cmd"
+import "moduleversions/cmd"
 
 func main() {
 	cmd.Execute()

@@ -52,7 +52,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.inputs.channel }}"
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
   cancel-in-progress: true
 
 jobs:

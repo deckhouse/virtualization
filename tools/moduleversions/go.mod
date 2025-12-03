@@ -1,4 +1,4 @@
-module scaper
+module moduleversions
 
 go 1.24
 
