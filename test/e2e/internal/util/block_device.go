@@ -135,7 +135,7 @@ func GetBlockDeviceSerialNumber(vm *v1alpha2.VirtualMachine, bdKind v1alpha2.Blo
 func WriteFile(f *framework.Framework, vm *v1alpha2.VirtualMachine, path, value string) {
 	GinkgoHelper()
 
-	// Escape single quotes in value to prevent command injection
+	// Escape single quotes in value to prevent command injection.
 	escapedValue := strings.ReplaceAll(value, "'", "'\"'\"'")
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo bash -c \"echo '%s' > %s\"", escapedValue, path))
 	Expect(err).NotTo(HaveOccurred())
