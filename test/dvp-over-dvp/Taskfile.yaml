@@ -152,6 +152,7 @@ tasks:
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
         dev-registry.deckhouse.io/sys/deckhouse-oss/install:main \
+            DHCTL_PARALLEL_CLOUD_PERMANENT_NODES_BOOTSTRAP=false \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \
