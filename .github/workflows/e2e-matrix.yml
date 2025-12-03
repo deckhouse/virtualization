@@ -362,6 +362,64 @@ jobs:
 
           echo "show global config"
           kubectl get mc global -o yaml
+  configure-virtualization:
+    name: Configure Virtualization
+    runs-on: ubuntu-22.04
+    needs:
+      - bootstrap
+      - configure-storage
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubectl CLI
+        uses: azure/setup-kubectl@v4
+
+      - name: Check kubeconfig
+        run: |
+          echo "Configure kube config"
+          mkdir -p ~/.kube
+          echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl config use-context nested-e2e-nested-sa
+
+      - name: Configure Virtualization
+        run: |
+          echo "Apply Virtualization module config"
+          kubectl apply -f -<<EOF
+          apiVersion: deckhouse.io/v1alpha1
+          kind: ModuleConfig
+          metadata:
+            name: virtualization
+          spec:
+            enabled: true
+            settings:
+              dvcr:
+                storage:
+                  persistentVolumeClaim:
+                    size: 10Gi
+                    storageClassName: nested-thin-r2
+                  type: PersistentVolumeClaim
+              virtualMachineCIDRs:
+                - 192.168.10.0/24
+            version: 1
+          ---
+          apiVersion: deckhouse.io/v1alpha2
+          kind: ModulePullOverride
+          metadata:
+            name: virtualization
+          spec:
+            imageTag: ${{ env.VIRTUALIZATION_TAG }}
+            scanInterval: 15s
+          EOF
+
+          kubectl get mc virtualization
+          kubectl get mpo virtualization
+      - name: Wait for Virtualization to be ready
+        run: |
+            echo "Waiting for Virtualization module to be ready"
+            kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
+
+            echo "Wait for pods to be ready"
+            kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=300s
   e2e-test:
     name: E2E test
     runs-on: ubuntu-22.04
