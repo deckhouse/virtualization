@@ -301,13 +301,18 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 	bootOrder := uint(1)
 	var updateVolumesStrategy *virtv1.UpdateVolumesStrategy = nil
 
-	for _, bd := range vm.Spec.BlockDeviceRefs {
+	for _, bd := range vm.Status.BlockDeviceRefs {
 		if bd.Kind != v1alpha2.DiskDevice {
-			bootOrder++
+			if !bd.Hotplugged {
+				bootOrder++
+			}
 			continue
 		}
 
 		vd := vdsByName[bd.Name]
+		if vd == nil {
+			continue
+		}
 
 		var pvcName string
 		migrating, _ := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
@@ -320,14 +325,18 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 		}
 
 		name := GenerateVDDiskName(bd.Name)
-		if err := kvvm.SetDisk(name, SetDiskOptions{
+		opts := SetDiskOptions{
 			PersistentVolumeClaim: pointer.GetPointer(pvcName),
 			Serial:                GenerateSerialFromObject(vd),
-			BootOrder:             bootOrder,
-		}); err != nil {
+			IsHotplugged:          bd.Hotplugged,
+		}
+		if !bd.Hotplugged {
+			opts.BootOrder = bootOrder
+			bootOrder++
+		}
+		if err := kvvm.SetDisk(name, opts); err != nil {
 			return err
 		}
-		bootOrder++
 	}
 
 	kvvm.SetUpdateVolumesStrategy(updateVolumesStrategy)

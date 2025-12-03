@@ -438,7 +438,7 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		})
 	})
 
-	It("should be failed with RWO VMBDA", func() {
+	It("should succeed with hotplugged RWO disk", func() {
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationRootAndAdditionalBuild()
@@ -477,16 +477,15 @@ var _ = Describe("LocalVirtualDiskMigration", Ordered, ContinueOnFailure, func()
 		By("Starting migrations for virtual machines")
 		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
 
-		By("Waiting for migration failed")
+		By("Waiting for migration to complete")
 		Eventually(func(g Gomega) {
 			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
 			g.Expect(err).NotTo(HaveOccurred())
 
-			g.Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseFailed))
+			g.Expect(vmop.Status.Phase).To(Equal(v1alpha2.VMOPPhaseCompleted))
 			completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-			g.Expect(completed.Status).To(Equal(metav1.ConditionFalse))
-			g.Expect(completed.Reason).To(Equal(vmopcondition.ReasonHotplugDisksNotShared.String()))
-		}).WithTimeout(framework.MiddleTimeout).WithPolling(time.Second).Should(Succeed())
+			g.Expect(completed.Status).To(Equal(metav1.ConditionTrue))
+		}).WithTimeout(framework.LongTimeout).WithPolling(time.Second).Should(Succeed())
 	})
 })
 
