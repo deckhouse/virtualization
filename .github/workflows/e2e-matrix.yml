@@ -302,6 +302,9 @@ jobs:
         with:
           version: 3.x
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup d8
+        uses: ./.github/actions/install-d8
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
@@ -326,8 +329,12 @@ jobs:
           kubectl apply -f mc.yaml
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
 
-          workers=$(kubectl get nodes -o name | grep -v master | wc -l)
+          echo "Check queues"
+          chmod +x ../../tools/deckhouse-queue.sh
+          ../../tools/deckhouse-queue.sh
 
+          echo "Wait bd"
+          workers=$(kubectl get nodes -o name | grep -v master | wc -l)
           bdexists=false
           for i in {1..60}; do 
             blockdevices=$(kubectl get blockdevice -o name | wc -l)
@@ -366,6 +373,7 @@ jobs:
 
           echo "show global config"
           kubectl get mc global -o yaml
+
   configure-virtualization:
     name: Configure Virtualization
     runs-on: ubuntu-22.04
