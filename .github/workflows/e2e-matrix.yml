@@ -340,8 +340,11 @@ jobs:
 
           if [ $bdexists = false ]; then
             echo "Blockdevices is not 3"
+            echo "kubectl blockdevice"
             kubectl get blockdevice
+            echo "kubectl ns"
             kubectl get ns
+            echo "kubectl nodes"
             kubectl get nodes
             exit 1
           fi
@@ -477,8 +480,8 @@ jobs:
         run: |
           STORAGE_CLASS_NAME=nested-thin-r1 task run:ci -v LABELS="Slow"
 
-  undeploy-infra:
-    name: Undeploy infra
+  undeploy-cluster:
+    name: Undeploy cluster
     runs-on: ubuntu-latest
     needs:
       - bootstrap
@@ -506,12 +509,6 @@ jobs:
         with:
           name: generated-files
           path: test/dvp-over-dvp/
-
-      - name: Show paths and files content
-        run: |
-          ls -la test/dvp-over-dvp/tmp
-          ls -la test/dvp-over-dvp/tmp/
-          cat test/dvp-over-dvp/values.yaml | tail -n +8
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
