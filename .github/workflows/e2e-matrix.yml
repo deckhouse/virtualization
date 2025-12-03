@@ -277,7 +277,11 @@ jobs:
           CONFIG=$(echo $CONFIG | base64 -w 0)
           echo "config=$CONFIG" >> $GITHUB_OUTPUT
           echo "cat ${{ env.kubeConfigPath }} - done"
-
+      
+      - name: Set permissions for artifact
+        if: always()
+        run: |
+          sudo chown -fR 1001:1001 test/dvp-over-dvp
       - uses: actions/upload-artifact@v4
         id: artifact-upload
         if: always()
