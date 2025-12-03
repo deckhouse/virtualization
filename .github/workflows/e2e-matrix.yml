@@ -415,20 +415,21 @@ jobs:
           kubectl get mpo virtualization
       - name: Wait for Virtualization to be ready
         run: |
-            echo "Waiting for Virtualization module to be ready"
-            kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
+          echo "Waiting for Virtualization module to be ready"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
 
-            echo "Wait for pods to be ready"
-            kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=300s
+          echo "Wait for pods to be ready"
+          kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=300s
   e2e-test:
     name: E2E test
     runs-on: ubuntu-22.04
     needs:
       - bootstrap
       - configure-storage
+      - configure-virtualization
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Go ${{ env.GO_VERSION }}
         uses: actions/setup-go@v5
         with:
@@ -448,7 +449,7 @@ jobs:
 
       - name: Setup d8
         uses: ./.github/actions/install-d8
-      
+
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
 
@@ -459,23 +460,22 @@ jobs:
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
           kubectl config use-context nested-e2e-nested-sa
-      
+
       - name: Download dependencies
         working-directory: ./test/e2e/
         run: |
           echo "Download dependencies"
           go mod download
-      
+
       - name: Create vmclass for e2e tests
         run: |
           kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
-      
+
       - name: Run E2E
         id: e2e-tests
         working-directory: ./test/e2e/
         run: |
           STORAGE_CLASS_NAME=nested-thin-r1 task run:ci -v LABELS="Slow"
-          
 
   undeploy-infra:
     name: Undeploy infra
