@@ -64,3 +64,8 @@ spec:
 EOF
 
 kubectl apply -f ${manifest}
+
+DEFAULT_STORAGE_CLASS=nested-thin-r1
+kubectl patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
+
+kubectl get sc

@@ -14,14 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# ceph auth caps client.ceph-rbd-pool-r2 mgr 'allow *' mon 'allow *' osd 'allow *' mds 'allow *'
-echo "Define user ceph-rbd-pool-r2"
-ceph_user_pool=ceph-rbd-pool-r2
+echo "Define user nested-ceph-rbd-pool-r2"
+ceph_user_pool=nested-ceph-rbd-pool-r2
 echo "Set permissions for user $ceph_user_pool (mgr 'allow *' mon 'allow *' osd 'allow *' mds 'allow *')"
 usr=$(kubectl -n d8-operator-ceph exec deployments/rook-ceph-tools -c ceph-tools -- \
     ceph auth get-or-create client.$ceph_user_pool mon 'allow *' mgr 'allow *' osd "allow rwx pool=$ceph_user_pool")
-# [client.ceph-rbd-pool-r2]
-# 	key = AQBEfu9lZqz3LxAAFr0Mmyz/D52rb4cTZ1qXEw==
 echo "Get fsid"
 fsid=$(kubectl -n d8-operator-ceph exec deployments/rook-ceph-tools -c ceph-tools -- ceph fsid)
 
@@ -44,7 +41,7 @@ kubectl apply -f - <<EOF
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: CephClusterConnection
 metadata:
-  name: ceph-pool-r2
+  name: nested-ceph-pool-r2
 spec:
   clusterID: $fsid
   monitors:
@@ -66,7 +63,7 @@ kubectl apply -f - <<EOF
 apiVersion: storage.deckhouse.io/v1alpha1
 kind: CephStorageClass
 metadata:
-  name: ceph-pool-r2-csi-rbd
+  name: nested-ceph-pool-r2-csi-rbd
 spec:
   clusterConnectionName: ceph-cluster
   rbd:
@@ -81,7 +78,7 @@ sleep 5
 kubectl get sc
 
 
-DEFAULT_STORAGE_CLASS=ceph-pool-r2-csi-rbd
+DEFAULT_STORAGE_CLASS=nested-ceph-pool-r2-csi-rbd
 kubectl patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
 
 sleep 2

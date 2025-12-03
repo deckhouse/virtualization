@@ -21,6 +21,7 @@ env:
   DEFAULT_USER: ubuntu
   GO_VERSION: "1.24.5"
   NESTED_STORAGECLASS_NAME: nested-thin-r1
+  STORAGE_TYPE: replicated
 on:
   workflow_dispatch:
   pull_request:
@@ -327,7 +328,7 @@ jobs:
           kubectl config use-context nested-e2e-nested-sa
           kubectl get nodes
 
-      - name: Configure storage
+      - name: Configure replicated storage
         run: |
           cd test/dvp-over-dvp/storage/sds-replicated
           kubectl apply -f mc.yaml
@@ -377,7 +378,34 @@ jobs:
 
           echo "show global config"
           kubectl get mc global -o yaml
+      - name: Configure ceph storage
+        if: ${{ env.STORAGE_TYPE == 'ceph' }}
+        run: |
+          cd test/dvp-over-dvp/storage/ceph
+          export registry=${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          yq e '.spec.registry.dockerCfg = env(registry)' -i 00-ms.yaml
+          unset registry
 
+          kubectl apply -f 00-ms.yaml
+          kubectl apply -f 01-mc.yaml
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=300s
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=300s
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=300s
+          
+          kubectl apply -f 02-sa.yaml
+          kubectl apply -f 03-cm.yaml
+          kubectl apply -f 04-cluster.yaml
+          kubectl wait --for=condition=Ready pod -n d8-operator-ceph --timeout=600s
+
+          echo "Show pods"
+          kubectl get pods -n d8-operator-ceph
+
+          kubectl apply -f 05-blockpool.yaml
+          kubectl apply -f 06-toolbox.yaml
+
+          chmod+x ./ceph-configre.sh
+          ./ceph-configre.sh
+          
   configure-virtualization:
     name: Configure Virtualization
     runs-on: ubuntu-22.04
