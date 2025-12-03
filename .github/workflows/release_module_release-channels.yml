@@ -23,8 +23,8 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
-  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
-  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
+  SOURCE_REPO: ${{ secrets.SOURCE_REPO }}
+  SOURCE_REPO_GIT: ${{secrets.SOURCE_REPO_GIT}}
 
 on:
   workflow_dispatch:

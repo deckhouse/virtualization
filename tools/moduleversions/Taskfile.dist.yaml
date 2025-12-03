@@ -20,7 +20,7 @@ tasks:
       - task: go:download
     cmds:
       - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --attempt {{.COUNT}} --check-releases
-  
+
   check:docs:
     desc: "Check version on documentation site (https://deckhouse.ru/modules/virtualization/stable/)"
     vars:
@@ -36,15 +36,15 @@ tasks:
       LICENSE: "{{ .LICENSE }}"
       REGISTRY:
         sh: |
-            base64 -d <<< "{{.LICENSE}}" | jq '.auths | to_entries | .[] | .key' -r
+          base64 -d <<< "{{.LICENSE}}" | jq '.auths | to_entries | .[] | .key' -r
       USERNAME:
         sh: |
-            creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
-            echo $creds | base64 -d | cut -d ':' -f1
+          creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+          echo $creds | base64 -d | cut -d ':' -f1
       PASSWORD:
         sh: |
-            creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
-            echo $creds | base64 -d | cut -d ':' -f2
+          creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+          echo $creds | base64 -d | cut -d ':' -f2
     cmds:
       - |
         # Check if already logged in by inspecting Docker config
