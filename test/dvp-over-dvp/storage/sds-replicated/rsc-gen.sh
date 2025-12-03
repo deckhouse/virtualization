@@ -49,8 +49,4 @@ spec:
   topology: Ignored
 EOF
 
-kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io d8-sds-replicated-volume-rsc-validation
-kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io d8-sds-replicated-volume-rsp-validation
-kubectl delete validatingwebhookconfigurations.admissionregistration.k8s.io d8-sds-replicated-volume-sc-validation
-
 kubectl apply -f ${manifest}

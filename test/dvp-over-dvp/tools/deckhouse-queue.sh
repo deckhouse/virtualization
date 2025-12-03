@@ -20,37 +20,25 @@ get_timestamp() {
 log_info() {
   local message="$1"
   local timestamp=$(get_current_date)
-  echo -e "${BLUE}[INFO]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
-      echo "[$timestamp] [INFO] $message" >> "$LOG_FILE"
-  fi
+  echo -e "[$timestamp] ${BLUE}[INFO]${NC} $message"
 }
 
 log_success() {
   local message="$1"
   local timestamp=$(get_current_date)
-  echo -e "${GREEN}[SUCCESS]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
-      echo "[$timestamp] [SUCCESS] $message" >> "$LOG_FILE"
-  fi
+  echo -e "[$timestamp] ${GREEN}[SUCCESS]${NC} $message"
 }
 
 log_warning() {
   local message="$1"
   local timestamp=$(get_current_date)
-  echo -e "${YELLOW}[WARNING]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
-      echo "[$timestamp] [WARNING] $message" >> "$LOG_FILE"
-  fi
+  echo -e "[$timestamp] ${YELLOW}[WARNING]${NC} $message"
 }
 
 log_error() {
   local message="$1"
   local timestamp=$(get_current_date)
-  echo -e "${RED}[ERROR]${NC} $message"
-  if [ -n "$LOG_FILE" ]; then
-      echo "[$timestamp] [ERROR] $message" >> "$LOG_FILE"
-  fi
+  echo -e "[$timestamp] ${RED}[ERROR]${NC} $message"
 }
 
 
@@ -104,9 +92,9 @@ d8_queue() {
 d8_ready() {
   local ready=false
   local count=60
+  common_start_time=$(get_timestamp)
   for i in $(seq 1 $count) ; do
     start_time=$(get_timestamp)
-    echo "Wait until deckhouse is ready ${i}/${count}"
     if kubectl -n d8-system wait deploy/deckhouse --for condition=available --timeout=20s 2>/dev/null; then
       ready=true
       break
@@ -121,7 +109,10 @@ d8_ready() {
     echo "Checking queues"
     d8_queue
   else
-    log_error "Deckhouse is not ready after ${count}m, check its queue for errors:"
+    common_end_time=$(get_timestamp)
+    common_difference=$((common_end_time - common_start_time))
+    common_formatted_difference=$(date -u +'%H:%M:%S' -d "@$common_difference")
+    log_error "Deckhouse is not ready after ${count} attempts and ${common_formatted_difference} time, check its queue for errors:"
     d8 p queue main | head -n25
     exit 1
   fi
