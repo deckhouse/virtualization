@@ -3,6 +3,12 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.2.1
+
+### Fixes
+
+- [module] Removed the use of the deprecated `admissionregistration.k8s.io/v1beta1` api version in the hook, which could have prevented virtualization upgrades in clusters running Kubernetes >=1.34.
+
 ## v1.2.0
 
 ### New features
