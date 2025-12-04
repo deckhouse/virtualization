@@ -26,7 +26,7 @@ spec:
               cpu: "200m"
               memory: "200Mi"
           ports:
-            - containerPort: 2222
+            - containerPort: {{ .Values.infra.jumphost.containerPort }}
           env:
             - name: SSH_KEY
               value: "{{ .Values.sshPublicKey }}"
