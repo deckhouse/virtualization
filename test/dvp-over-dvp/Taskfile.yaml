@@ -145,9 +145,9 @@ tasks:
       JUMPHOST_EXT_IP:
         sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
       JUMPHOST_NODEPORT:
-        sh: |
-          port=$(yq eval '.infra.jumphost.svcPort' values.yaml)
-          kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq ".spec.ports[] | select(.port==$port) | .nodePort"
+        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq ".spec.ports[] | select(.port==2222) | .nodePort"
+        # # port=$(yq eval '.infra.jumphost.svcPort' values.yaml)
+        # kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq ".spec.ports[] | select(.port==$port) | .nodePort"
         # sh: yq eval '.infra.jumphost.svcPort' values.yaml
     cmds:
       - |

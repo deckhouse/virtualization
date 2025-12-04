@@ -46,13 +46,9 @@ jobs:
           - storage_type: ceph
             nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
             default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
-            jumphost_container_port: 2222
-            jumphost_svc_port: 2222
           - storage_type: replicated
             nested_storageclass_name: nested-thin-r1
             default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
-            jumphost_container_port: 2222
-            jumphost_svc_port: 2223
     concurrency:
       group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ matrix.storage_type }}"
       cancel-in-progress: true
@@ -117,10 +113,6 @@ jobs:
 
           cat <<EOF > test/dvp-over-dvp/values.yaml
           namespace: ${{ steps.vars.outputs.namespace }}
-          infra:
-            jumphost:
-              containerPort: ${{ matrix.jumphost_container_port }}
-              svcPort: ${{ matrix.jumphost_svc_port }}
           storageClass: ${defaultStorageClass}
           nfsEnabled: false
           nfsSC: nested-nfs-${{ matrix.storage_type }}-${{ steps.vars.outputs.sha_short }}

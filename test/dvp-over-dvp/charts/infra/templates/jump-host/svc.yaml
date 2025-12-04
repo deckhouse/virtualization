@@ -10,5 +10,5 @@ spec:
     app: jump-host
   ports:
     - protocol: TCP
-      port: {{ .Values.infra.jumphost.svcPort }}
-      targetPort: {{ .Values.infra.jumphost.containerPort }}
+      port: 2222
+      targetPort: 2222
