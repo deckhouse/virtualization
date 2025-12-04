@@ -41,6 +41,16 @@ const (
 	coreAPIVersion     = "v1"
 )
 
+var coreKinds = map[string]bool{
+	"Pod":                   true,
+	"PersistentVolumeClaim": true,
+	"PersistentVolume":      true,
+	"Event":                 true,
+	"Service":               true,
+	"ConfigMap":             true,
+	"Secret":                true,
+}
+
 func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.Client, namespace, vmName string) error {
 	// Get VM
 	vm, err := client.VirtualMachines(namespace).Get(ctx, vmName, metav1.GetOptions{})
@@ -240,12 +250,44 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		return err
 	}
 
+	// Collect VM pods and their UIDs for finding dependent pods
+	vmPodUIDs := make(map[string]bool)
 	for _, pod := range pods.Items {
+		vmPodUIDs[string(pod.UID)] = true
 		b.outputResource("Pod", pod.Name, namespace, &pod)
 		b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 
 		if b.saveLogs {
 			b.collectSinglePodLogs(ctx, client, namespace, pod.Name, false)
+		}
+	}
+
+	// Collect pods that have ownerReference to VM pods (e.g., hotplug volume pods)
+	if len(vmPodUIDs) > 0 {
+		allPods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			// If we can't list all pods, continue without dependent pods
+			if !b.handleError("Pod", namespace, err) {
+				return err
+			}
+		} else {
+			for _, pod := range allPods.Items {
+				// Skip VM pods we already collected
+				if vmPodUIDs[string(pod.UID)] {
+					continue
+				}
+				// Check if this pod has ownerReference to any VM pod
+				for _, ownerRef := range pod.OwnerReferences {
+					if ownerRef.Kind == "Pod" && vmPodUIDs[string(ownerRef.UID)] {
+						b.outputResource("Pod", pod.Name, namespace, &pod)
+						b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
+						if b.saveLogs {
+							b.collectSinglePodLogs(ctx, client, namespace, pod.Name, false)
+						}
+						break
+					}
+				}
+			}
 		}
 	}
 
@@ -341,26 +383,7 @@ func (b *DebugBundle) getInternalResourceList(ctx context.Context, resource, nam
 }
 
 func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.Object) error {
-	// Check if object is unstructured and prepare it
 	unstructuredObj, isUnstructured := obj.(*unstructured.Unstructured)
-	if isUnstructured {
-		// For unstructured objects, ensure kind is set if missing
-		// apiVersion should already be present from cluster, but will be handled below if missing
-		if unstructuredObj.GetKind() == "" {
-			unstructuredObj.SetKind(kind)
-		}
-	} else {
-		// For typed objects, ensure GVK is set
-		// TypeMeta is embedded in the struct, but we need to ensure GVK is set
-		// so that it's properly serialized
-		gvk := obj.GetObjectKind().GroupVersionKind()
-		if gvk.Kind == "" {
-			gvk.Kind = kind
-		}
-		// If Group or Version is empty, try to infer from the object type
-		// Objects from cluster should have GVK set, but if not, we'll add it during JSON processing
-		obj.GetObjectKind().SetGroupVersionKind(gvk)
-	}
 
 	// Output separator if not first resource
 	if b.resourceCount > 0 {
@@ -369,9 +392,6 @@ func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.O
 	b.resourceCount++
 
 	// Convert to JSON first to preserve all fields including TypeMeta (kind, apiVersion, spec, status, etc.)
-	// For typed objects, TypeMeta is embedded in the struct with json:",inline" tag,
-	// so json.Marshal should include it. However, if TypeMeta fields are empty,
-	// they might be omitted due to omitempty tags. We ensure GVK is set above.
 	jsonBytes, err := json.Marshal(obj)
 	if err != nil {
 		return fmt.Errorf("failed to marshal %s/%s to JSON: %w", kind, name, err)
@@ -413,22 +433,10 @@ func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.O
 			if apiVersion != "" && apiVersion != "/" {
 				jsonObj["apiVersion"] = apiVersion
 				needsUpdate = true
-			} else {
+			} else if coreKinds[kind] {
 				// Fallback: for core Kubernetes resources, use "v1"
-				// This handles cases where GVK is not set for core resources
-				coreKinds := map[string]bool{
-					"Pod":                   true,
-					"PersistentVolumeClaim": true,
-					"PersistentVolume":      true,
-					"Event":                 true,
-					"Service":               true,
-					"ConfigMap":             true,
-					"Secret":                true,
-				}
-				if coreKinds[kind] {
-					jsonObj["apiVersion"] = coreAPIVersion
-					needsUpdate = true
-				}
+				jsonObj["apiVersion"] = coreAPIVersion
+				needsUpdate = true
 			}
 		}
 		// Ensure kind is also present
