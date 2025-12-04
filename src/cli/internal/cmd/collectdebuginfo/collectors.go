@@ -34,21 +34,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	internalAPIGroup   = "internal.virtualization.deckhouse.io"
-	internalAPIVersion = "v1"
-	coreAPIVersion     = "v1"
-)
-
 var coreKinds = map[string]bool{
 	"Pod":                   true,
 	"PersistentVolumeClaim": true,
 	"PersistentVolume":      true,
 	"Event":                 true,
-	"Service":               true,
-	"ConfigMap":             true,
-	"Secret":                true,
 }
+
+// Resource collection functions
 
 func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.Client, namespace, vmName string) error {
 	// Get VM
@@ -229,7 +222,6 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 			return err
 		}
 		b.outputResource("ClusterVirtualImage", name, "", cvi)
-		// ClusterVirtualImage doesn't have events in namespace
 
 	default:
 		return fmt.Errorf("unknown block device kind: %s", kind)
@@ -293,8 +285,29 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 	return nil
 }
 
+// Event collection functions
+
+func (b *DebugBundle) collectEvents(ctx context.Context, client kubeclient.Client, namespace, resourceType, resourceName string) {
+	events, err := client.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("involvedObject.name=%s", resourceName),
+	})
+	if err != nil {
+		if b.handleError("Event", resourceName, err) {
+			return
+		}
+		return
+	}
+
+	// Add each event individually to preserve TypeMeta
+	for i := range events.Items {
+		b.outputResource("Event", fmt.Sprintf("%s-%s-%d", strings.ToLower(resourceType), resourceName, i), namespace, &events.Items[i])
+	}
+}
+
+// Log collection functions
+
 func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclient.Client, namespace, podName string) {
-	logPrefix := fmt.Sprintf("%s/%s", namespace, podName)
+	logPrefix := fmt.Sprintf("logs %s/%s", namespace, podName)
 
 	// Get current logs
 	req := client.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{})
@@ -317,33 +330,14 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 	}
 }
 
-func (b *DebugBundle) collectEvents(ctx context.Context, client kubeclient.Client, namespace, resourceType, resourceName string) {
-	events, err := client.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("involvedObject.name=%s", resourceName),
-	})
-	if err != nil {
-		if b.handleError("Event", resourceName, err) {
-			return
-		}
-		return
-	}
-
-	// Add each event individually to preserve TypeMeta
-	for i := range events.Items {
-		b.outputResource("Event", fmt.Sprintf("%s-%s-%d", strings.ToLower(resourceType), resourceName, i), namespace, &events.Items[i])
-	}
-}
-
-func (b *DebugBundle) getInternalGVR(resource string) schema.GroupVersionResource {
-	return schema.GroupVersionResource{
-		Group:    internalAPIGroup,
-		Version:  internalAPIVersion,
-		Resource: resource,
-	}
-}
+// Helper functions
 
 func (b *DebugBundle) getInternalResource(ctx context.Context, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	obj, err := b.dynamicClient.Resource(b.getInternalGVR(resource)).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	obj, err := b.dynamicClient.Resource(schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
+		Resource: resource,
+	}).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +345,11 @@ func (b *DebugBundle) getInternalResource(ctx context.Context, resource, namespa
 }
 
 func (b *DebugBundle) getInternalResourceList(ctx context.Context, resource, namespace string) ([]*unstructured.Unstructured, error) {
-	list, err := b.dynamicClient.Resource(b.getInternalGVR(resource)).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	list, err := b.dynamicClient.Resource(schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
+		Resource: resource,
+	}).Namespace(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -364,83 +362,45 @@ func (b *DebugBundle) getInternalResourceList(ctx context.Context, resource, nam
 }
 
 func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.Object) error {
-	unstructuredObj, isUnstructured := obj.(*unstructured.Unstructured)
-
 	// Output separator if not first resource
 	if b.resourceCount > 0 {
 		fmt.Fprintf(b.stdout, "\n---\n")
 	}
 	b.resourceCount++
 
-	// Convert to JSON first to preserve all fields including TypeMeta (kind, apiVersion, spec, status, etc.)
+	// Ensure Kind is set from input if missing
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	if gvk.Kind == "" {
+		gvk.Kind = kind
+		obj.GetObjectKind().SetGroupVersionKind(gvk)
+	}
+
+	// If GroupVersion is missing/empty, try to get from scheme
+	if gvk.GroupVersion().Empty() {
+		gvks, _, err := kubeclient.Scheme.ObjectKinds(obj)
+		if err == nil && len(gvks) > 0 {
+			gvk = gvks[0]
+			obj.GetObjectKind().SetGroupVersionKind(gvk)
+		} else if coreKinds[kind] {
+			// Fallback for core Kubernetes resources if scheme doesn't know about them
+			gvk = schema.GroupVersionKind{Group: "", Version: "v1", Kind: kind}
+			obj.GetObjectKind().SetGroupVersionKind(gvk)
+		}
+	}
+
+	// Marshal to JSON (now with TypeMeta if set)
 	jsonBytes, err := json.Marshal(obj)
 	if err != nil {
 		return fmt.Errorf("failed to marshal %s/%s to JSON: %w", kind, name, err)
 	}
 
-	// Always parse JSON and ensure apiVersion and kind are present
-	// This handles cases where TypeMeta might not be serialized properly
-	var jsonObj map[string]interface{}
-	if err := json.Unmarshal(jsonBytes, &jsonObj); err == nil {
-		needsUpdate := false
-		// If apiVersion is missing, try to get it from the object itself
-		if _, ok := jsonObj["apiVersion"]; !ok {
-			var apiVersion string
-
-			// For unstructured objects, get apiVersion directly
-			if isUnstructured {
-				apiVersion = unstructuredObj.GetAPIVersion()
-			} else {
-				// For typed objects, get apiVersion from GVK
-				// Objects from cluster should have GVK set correctly
-				gvk := obj.GetObjectKind().GroupVersionKind()
-
-				// If GVK is empty, try to get it from scheme
-				if gvk.Kind == "" || (gvk.Group == "" && gvk.Version == "") {
-					// Try to get GVK from scheme
-					if gvks, _, err := kubeclient.Scheme.ObjectKinds(obj); err == nil && len(gvks) > 0 {
-						gvk = gvks[0]
-						// Set GVK on the object for future use
-						obj.GetObjectKind().SetGroupVersionKind(gvk)
-					}
-				}
-
-				// Use GroupVersion().String() which automatically formats as "group/version" or "version"
-				// This works for both custom resources (group/version) and core resources (version only)
-				apiVersion = gvk.GroupVersion().String()
-			}
-
-			// If we got a valid apiVersion, use it
-			if apiVersion != "" && apiVersion != "/" {
-				jsonObj["apiVersion"] = apiVersion
-				needsUpdate = true
-			} else if coreKinds[kind] {
-				// Fallback: for core Kubernetes resources, use "v1"
-				jsonObj["apiVersion"] = coreAPIVersion
-				needsUpdate = true
-			}
-		}
-		// Ensure kind is also present
-		if _, ok := jsonObj["kind"]; !ok {
-			jsonObj["kind"] = kind
-			needsUpdate = true
-		}
-		// Re-marshal with apiVersion and kind if needed
-		if needsUpdate {
-			jsonBytes, err = json.Marshal(jsonObj)
-			if err != nil {
-				return fmt.Errorf("failed to re-marshal %s/%s to JSON: %w", kind, name, err)
-			}
-		}
-	}
-
-	// Convert JSON to YAML - this preserves all fields
+	// Convert to YAML
 	yamlBytes, err := yaml.JSONToYAML(jsonBytes)
 	if err != nil {
 		return fmt.Errorf("failed to convert %s/%s to YAML: %w", kind, name, err)
 	}
 
-	// Output comment and full YAML resource
+	// Output
 	fmt.Fprintf(b.stdout, "# %d. %s: %s\n%s", b.resourceCount, kind, name, string(yamlBytes))
 
 	return nil
