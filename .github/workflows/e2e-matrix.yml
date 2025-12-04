@@ -480,11 +480,11 @@ jobs:
           # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
 
           d8_queue_main() {
-            echo "$( d8 p queue main | grep -Po '(?<=length )([0-9]+)' )"
+            d8 p queue main | grep -Po '(?<=length )([0-9]+)' || echo "Failed to retrieve main queue"
           }
 
           d8_queue_list() {
-            d8 p queue list | grep -Po '([0-9]+)(?= active)'
+            d8 p queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
           }
 
           d8_queue() {
@@ -494,11 +494,11 @@ jobs:
 
             for i in $(seq 1 $count) ; do
               if [ $(d8_queue_main) == "0" ]; then
-                echo "main queue is clear"
+                echo "Main queue is clear"
                 main_queue_ready=true
               else
                 echo "Show main queue"
-                d8 p queue main | head -n25
+                d8 p queue main | head -n25 || echo "Failed to retrieve main queue" 
               fi
 
               if [ $(d8_queue_list) == "0" ]; then
@@ -506,7 +506,7 @@ jobs:
                 list_queue_ready=true
               else
                 echo "Show queue list"
-                d8 p queue list | head -n25
+                d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
               fi
 
               if [ "$main_queue_ready" = true ] && [ "$list_queue_ready" = true ]; then
