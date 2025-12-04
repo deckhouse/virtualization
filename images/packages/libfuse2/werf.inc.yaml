@@ -70,22 +70,20 @@ shell:
     OUTDIR=/out
 
     cd /src
-    meson setup build \
+    ./configure \
       --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --sbindir=/usr/sbin \
-      --buildtype=release
+      --enable-lib \
+      --enable-util \
+      --disable-static
 
-    meson compile -C build
-    DESTDIR=${OUTDIR} meson install -C build
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
 
     find $OUTDIR -type f -executable | while read -r execfile; do
     if strip "$execfile"; then
       echo "Stripped: $execfile"
     fi
     done
-
-    meson install -C build
 
     rm -rf /out/usr/share
     rm -rf /out/dev
