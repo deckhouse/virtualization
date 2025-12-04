@@ -4,7 +4,7 @@
 altPackages:
 - gcc git
 - make autoconf automake libtool pkgconfig
-- ninja-build
+- gettext-tools
 - tree
 packages:
 - systemd
