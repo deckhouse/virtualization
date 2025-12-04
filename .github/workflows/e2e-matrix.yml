@@ -21,7 +21,9 @@ env:
   DEFAULT_USER: ubuntu
   GO_VERSION: "1.24.5"
   NESTED_STORAGECLASS_NAME: nested-thin-r1
+  # NESTED_STORAGECLASS_NAME: nested-ceph-pool-r2-csi-rbd
   STORAGE_TYPE: replicated
+  # STORAGE_TYPE: ceph
 on:
   workflow_dispatch:
   pull_request:
@@ -266,24 +268,22 @@ jobs:
           echo "copy kubeconfig to runner"
           d8vscp "${{ env.DEFAULT_USER }}@${nested_master}.$NAMESPACE:/${{ env.kubeConfigPath }}" "${{ env.kubeConfigPath }}"
 
-          echo "=== nested cluster via api get nodes ==="
+          echo "=== Set rights for kubeconfig ==="
           echo "sudo chown 1001:1001 ${{ env.kubeConfigPath }}"
           sudo chown 1001:1001 ${{ env.kubeConfigPath }}
-          echo "sudo chmod 600 ${{ env.kubeConfigPath }}"
-          sudo chmod 600 ${{ env.kubeConfigPath }}
           echo "rights - done"
 
           echo "Kubeconf to github output"
           CONFIG=$(cat ${{ env.kubeConfigPath }} | base64 -w 0)
           CONFIG=$(echo $CONFIG | base64 -w 0)
           echo "config=$CONFIG" >> $GITHUB_OUTPUT
-          echo "cat ${{ env.kubeConfigPath }} - done"
       
       - name: Set permissions for artifact
         if: always()
         run: |
           sudo chown -fR 1001:1001 test/dvp-over-dvp
-      - uses: actions/upload-artifact@v4
+      - name: Upload generated files
+        uses: actions/upload-artifact@v4
         id: artifact-upload
         if: always()
         with:
@@ -291,6 +291,16 @@ jobs:
           path: |
             test/dvp-over-dvp/tmp
             test/dvp-over-dvp/values.yaml
+          overwrite: true
+          include-hidden-files: true
+          retention-days: 1
+      - name: Upload ssh config
+        uses: actions/upload-artifact@v4
+        id: artifact-upload-ssh
+        if: always()
+        with:
+          name: generated-files-ssh
+          path: test/dvp-over-dvp/tmp/ssh
           overwrite: true
           include-hidden-files: true
           retention-days: 1
@@ -329,6 +339,7 @@ jobs:
           kubectl get nodes
 
       - name: Configure replicated storage
+        if: ${{ env.STORAGE_TYPE == 'replicated' }}
         run: |
           cd test/dvp-over-dvp/storage/sds-replicated
           kubectl apply -f mc.yaml
@@ -491,7 +502,7 @@ jobs:
               fi
 
               if [ $(d8_queue_list) == "0" ]; then
-                echo "list queue is clear"
+                echo "Queue list is clear"
                 list_queue_ready=true
               else
                 echo "Show queue list"
@@ -501,7 +512,11 @@ jobs:
               if [ "$main_queue_ready" = true ] && [ "$list_queue_ready" = true ]; then
                 break
               fi
+              echo "===="
               echo "Wait until queues are empty ${i}/${count}"
+              echo "===="
+              kubectl get ns
+              echo "   "
               sleep 10
             done
           }
@@ -584,7 +599,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - e2e-test
-    if: ${{ always() }}
+    # if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
 

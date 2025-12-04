@@ -73,7 +73,7 @@ d8_queue() {
     fi
 
     if [ $(d8_queue_list) == "0" ]; then
-      echo "list queue is clear"
+      echo "list queue list is clear"
       list_queue_ready=true
     else
       echo "Show queue list"
