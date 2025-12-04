@@ -20,10 +20,6 @@ env:
   DECKHOUSE_TAG: main
   DEFAULT_USER: ubuntu
   GO_VERSION: "1.24.5"
-  # NESTED_STORAGECLASS_NAME: nested-thin-r1
-  NESTED_STORAGECLASS_NAME: nested-ceph-pool-r2-csi-rbd
-  # STORAGE_TYPE: replicated
-  STORAGE_TYPE: ceph
 on:
   workflow_dispatch:
   pull_request:
@@ -41,10 +37,28 @@ defaults:
 
 jobs:
   bootstrap:
-    name: Bootstrap cluster
+    name: Bootstrap cluster (${{ matrix.storage_type }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - storage_type: ceph
+            nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+            default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+            e2e_storage_class_name: nested-thin-r1
+          - storage_type: replicated
+            nested_storageclass_name: nested-thin-r1
+            default_cluster_storageclass: nested-thin-r1
+            e2e_storage_class_name: nested-thin-r1
+    concurrency:
+      group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ matrix.storage_type }}"
+      cancel-in-progress: true
     outputs:
       kubeconfig-content: ${{ steps.generate-kubeconfig.outputs.config }}
+      storage-type: ${{ steps.vars.outputs.storage_type }}
+      nested-storageclass-name: ${{ steps.vars.outputs.nested_storageclass_name }}
+      e2e-storage-class-name: ${{ steps.vars.outputs.e2e_storage_class_name }}
     steps:
       - uses: actions/checkout@v4
         # with:
@@ -53,9 +67,12 @@ jobs:
       - name: Set outputs
         id: vars
         run: |
-          namespace="nightly-e2e-${{ env.STORAGE_TYPE }}-$(git rev-parse --short HEAD)"
+          namespace="nightly-e2e-${{ matrix.storage_type }}-$(git rev-parse --short HEAD)"
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "storage_type=${{ matrix.storage_type }}" >> $GITHUB_OUTPUT
+          echo "nested_storageclass_name=${{ matrix.nested_storageclass_name }}" >> $GITHUB_OUTPUT
+          echo "e2e_storage_class_name=${{ matrix.e2e_storage_class_name }}" >> $GITHUB_OUTPUT
 
           REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           USERNAME=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
@@ -102,8 +119,9 @@ jobs:
           namespace: ${{ steps.vars.outputs.namespace }}
           storageClass: ${defaultStorageClass}
           nfsEnabled: false
-          nfsSC: nested-nfs-${{ env.STORAGE_TYPE }}-${{ steps.vars.outputs.sha_short }}
-          clusterConfigurationPrefix: ${{ env.STORAGE_TYPE }}
+          nfsSC: nested-nfs-${{ matrix.storage_type }}-${{ steps.vars.outputs.sha_short }}
+          defaultClusterStorageClass: ${{ matrix.default_cluster_storageclass }}
+          clusterConfigurationPrefix: ${{ matrix.storage_type }}
           sa: dkp-sa
           deckhouse:
             tag: ${{ env.DECKHOUSE_TAG }}
@@ -290,7 +308,7 @@ jobs:
         id: artifact-upload
         if: always()
         with:
-          name: generated-files
+          name: generated-files-${{ matrix.storage_type }}
           path: |
             test/dvp-over-dvp/tmp
             test/dvp-over-dvp/values.yaml
@@ -302,16 +320,28 @@ jobs:
         id: artifact-upload-ssh
         if: always()
         with:
-          name: generated-files-ssh
+          name: generated-files-ssh-${{ matrix.storage_type }}
           path: test/dvp-over-dvp/tmp/ssh
           overwrite: true
           include-hidden-files: true
           retention-days: 1
 
   configure-storage:
-    name: Configure storage
+    name: Configure storage (${{ matrix.storage_type }})
     runs-on: ubuntu-latest
     needs: bootstrap
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - storage_type: ceph
+            nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+            default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+            e2e_storage_class_name: nested-thin-r1
+          - storage_type: replicated
+            nested_storageclass_name: nested-thin-r1
+            default_cluster_storageclass: nested-thin-r1
+            e2e_storage_class_name: nested-thin-r1
     steps:
       - uses: actions/checkout@v4
 
@@ -328,6 +358,13 @@ jobs:
 
       - name: Check kubeconfig
         run: |
+          # Note: In GitHub Actions, when a job with matrix depends on another job with matrix,
+          # instances are automatically linked by their position in the matrix.
+          # This instance (storage_type=${{ matrix.storage_type }}) will receive kubeconfig
+          # from the corresponding bootstrap instance with the same matrix position.
+          echo "Current matrix storage_type: ${{ matrix.storage_type }}"
+          echo "Bootstrap storage-type output: ${{ needs.bootstrap.outputs.storage-type }}"
+          
           mkdir -p ~/.kube
           echo "Configure kube config"
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
@@ -342,7 +379,7 @@ jobs:
           kubectl get nodes
 
       - name: Configure replicated storage
-        if: ${{ env.STORAGE_TYPE == 'replicated' }}
+        if: ${{ matrix.storage_type == 'replicated' }}
         run: |
           cd test/dvp-over-dvp/storage/sds-replicated
           kubectl apply -f mc.yaml
@@ -394,7 +431,7 @@ jobs:
           echo "show global config"
           kubectl get mc global -o yaml
       - name: Configure ceph storage
-        if: ${{ env.STORAGE_TYPE == 'ceph' }}
+        if: ${{ matrix.storage_type == 'ceph' }}
         run: |
           cd test/dvp-over-dvp/storage/ceph
           export registry=${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
@@ -422,11 +459,23 @@ jobs:
           ./ceph-configre.sh
           
   configure-virtualization:
-    name: Configure Virtualization
+    name: Configure Virtualization (${{ matrix.storage_type }})
     runs-on: ubuntu-22.04
     needs:
       - bootstrap
       - configure-storage
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - storage_type: ceph
+            nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+            default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+            e2e_storage_class_name: nested-thin-r1
+          - storage_type: replicated
+            nested_storageclass_name: nested-thin-r1
+            default_cluster_storageclass: nested-thin-r1
+            e2e_storage_class_name: nested-thin-r1
     steps:
       - uses: actions/checkout@v4
       - name: Install kubectl CLI
@@ -436,6 +485,10 @@ jobs:
 
       - name: Check kubeconfig
         run: |
+          # Note: This instance (storage_type=${{ matrix.storage_type }}) automatically receives
+          # kubeconfig from the corresponding bootstrap instance with the same matrix position.
+          echo "Current matrix storage_type: ${{ matrix.storage_type }}"
+          echo "Bootstrap storage-type output: ${{ needs.bootstrap.outputs.storage-type }}"
           echo "Configure kube config"
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
@@ -457,8 +510,8 @@ jobs:
                 storage:
                   persistentVolumeClaim:
                     size: 10Gi
-                    storageClassName: ${{ env.NESTED_STORAGECLASS_NAME }}
-                  type: PersistentVolumeClaim
+                    storageClassName: ${{ matrix.nested_storageclass_name }}
+                    type: PersistentVolumeClaim
               virtualMachineCIDRs:
                 - 192.168.10.0/24
             version: 1
@@ -541,12 +594,24 @@ jobs:
           echo "Wait for pods to be ready"
           kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=600s
   e2e-test:
-    name: E2E test
+    name: E2E test (${{ matrix.storage_type }})
     runs-on: ubuntu-22.04
     needs:
       - bootstrap
       - configure-storage
       - configure-virtualization
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - storage_type: ceph
+            nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+            default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+            e2e_storage_class_name: nested-thin-r1
+          - storage_type: replicated
+            nested_storageclass_name: nested-thin-r1
+            default_cluster_storageclass: nested-thin-r1
+            e2e_storage_class_name: nested-thin-r1
     steps:
       - uses: actions/checkout@v4
 
@@ -575,6 +640,10 @@ jobs:
 
       - name: Check kubeconfig
         run: |
+          # Note: This instance (storage_type=${{ matrix.storage_type }}) automatically receives
+          # kubeconfig from the corresponding bootstrap instance with the same matrix position.
+          echo "Current matrix storage_type: ${{ matrix.storage_type }}"
+          echo "Bootstrap storage-type output: ${{ needs.bootstrap.outputs.storage-type }}"
           echo "Configure kube config"
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
@@ -595,13 +664,26 @@ jobs:
         id: e2e-tests
         working-directory: ./test/e2e/
         run: |
-          STORAGE_CLASS_NAME=nested-thin-r1 task run:ci -v LABELS="Slow"
+          STORAGE_CLASS_NAME=${{ matrix.e2e_storage_class_name }} task run:ci -v LABELS="Slow"
 
   undeploy-cluster:
-    name: Undeploy cluster
+    name: Undeploy cluster (${{ matrix.storage_type }})
     runs-on: ubuntu-latest
     needs:
+      - bootstrap
       - e2e-test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - storage_type: ceph
+            nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+            default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
+            e2e_storage_class_name: nested-thin-r1
+          - storage_type: replicated
+            nested_storageclass_name: nested-thin-r1
+            default_cluster_storageclass: nested-thin-r1
+            e2e_storage_class_name: nested-thin-r1
     # if: ${{ always() }}
     steps:
       - uses: actions/checkout@v4
@@ -623,7 +705,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v5
         with:
-          name: generated-files
+          name: generated-files-${{ matrix.storage_type }}
           path: test/dvp-over-dvp/
 
       - name: Configure kubectl via azure/k8s-set-context@v4
