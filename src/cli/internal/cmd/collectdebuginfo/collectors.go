@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package debugbundle
+package collectdebuginfo
 
 import (
 	"context"
@@ -37,7 +37,6 @@ import (
 const (
 	internalAPIGroup   = "internal.virtualization.deckhouse.io"
 	internalAPIVersion = "v1"
-	systemNamespace    = "d8-virtualization"
 	coreAPIVersion     = "v1"
 )
 
@@ -258,7 +257,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 
 		if b.saveLogs {
-			b.collectSinglePodLogs(ctx, client, namespace, pod.Name, false)
+			b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
 		}
 	}
 
@@ -282,7 +281,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 						b.outputResource("Pod", pod.Name, namespace, &pod)
 						b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 						if b.saveLogs {
-							b.collectSinglePodLogs(ctx, client, namespace, pod.Name, false)
+							b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
 						}
 						break
 					}
@@ -294,33 +293,15 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 	return nil
 }
 
-func (b *DebugBundle) collectSystemLogs(ctx context.Context, client kubeclient.Client) error {
-	pods, err := client.CoreV1().Pods(systemNamespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		if b.handleError("Pod", systemNamespace, err) {
-			return nil
-		}
-		return err
-	}
-
-	for _, pod := range pods.Items {
-		b.collectSinglePodLogs(ctx, client, systemNamespace, pod.Name, true)
-	}
-	return nil
-}
-
-func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclient.Client, namespace, podName string, isSystem bool) {
+func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclient.Client, namespace, podName string) {
 	logPrefix := fmt.Sprintf("%s/%s", namespace, podName)
-	if isSystem {
-		logPrefix = fmt.Sprintf("system/%s/%s", namespace, podName)
-	}
 
 	// Get current logs
 	req := client.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{})
 	if logStream, err := req.Stream(ctx); err == nil {
 		if logContent, err := io.ReadAll(logStream); err == nil {
-			fmt.Fprintf(b.stderr, "\n# %s\n", logPrefix)
-			fmt.Fprintf(b.stderr, "%s\n", string(logContent))
+			fmt.Fprintf(b.stdout, "\n# %s\n", logPrefix)
+			fmt.Fprintf(b.stdout, "%s\n", string(logContent))
 		}
 		logStream.Close()
 	}
@@ -329,8 +310,8 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 	req = client.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{Previous: true})
 	if logStream, err := req.Stream(ctx); err == nil {
 		if logContent, err := io.ReadAll(logStream); err == nil {
-			fmt.Fprintf(b.stderr, "\n# %s (previous)\n", logPrefix)
-			fmt.Fprintf(b.stderr, "%s\n", string(logContent))
+			fmt.Fprintf(b.stdout, "\n# %s (previous)\n", logPrefix)
+			fmt.Fprintf(b.stdout, "%s\n", string(logContent))
 		}
 		logStream.Close()
 	}
@@ -460,11 +441,7 @@ func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.O
 	}
 
 	// Output comment and full YAML resource
-	fmt.Fprintf(b.stdout, "# %s: %s", kind, name)
-	if namespace != "" {
-		fmt.Fprintf(b.stdout, " (namespace: %s)", namespace)
-	}
-	fmt.Fprintf(b.stdout, "\n%s", string(yamlBytes))
+	fmt.Fprintf(b.stdout, "# %d. %s: %s\n%s", b.resourceCount, kind, name, string(yamlBytes))
 
 	return nil
 }
