@@ -1,3 +1,4 @@
+{{ if .Values.nfsEnabled }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -11,3 +12,4 @@ spec:
     requests:
       storage: 10Gi
   storageClassName: {{ .Values.storageClass }}
+{{ end }}

@@ -1,4 +1,5 @@
-{{- $modules := list "upmeter" "local-path-provisioner" "pod-reloader" "secret-copier" "namespace-configurator" -}}
+{{/* "local-path-provisioner" */}}
+{{- $modules := list "upmeter" "pod-reloader" "secret-copier" "namespace-configurator" -}}
 {{ range $modules }}
 ---
 apiVersion: deckhouse.io/v1alpha1

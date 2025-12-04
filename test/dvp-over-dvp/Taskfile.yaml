@@ -75,7 +75,7 @@ tasks:
     cmds:
       - kubectl apply -f {{ .TMP_DIR }}/infra.yaml
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
-      - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=nfs-server --timeout=300s
+      # - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=nfs-server --timeout=300s
       - |
         export end_time=$(date +%s)
         difference=$((end_time - {{.start_time}}))

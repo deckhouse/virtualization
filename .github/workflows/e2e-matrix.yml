@@ -101,6 +101,7 @@ jobs:
           cat <<EOF > test/dvp-over-dvp/values.yaml
           namespace: ${{ steps.vars.outputs.namespace }}
           storageClass: ${defaultStorageClass}
+          nfsEnabled: false
           nfsSC: nested-nfs-${{ env.STORAGE_TYPE }}-${{ steps.vars.outputs.sha_short }}
           clusterConfigurationPrefix: ${{ env.STORAGE_TYPE }}
           sa: dkp-sa
