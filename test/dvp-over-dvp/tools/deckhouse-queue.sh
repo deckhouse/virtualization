@@ -69,7 +69,7 @@ d8_queue() {
       main_queue_ready=true
     else
       echo "Show main queue"
-      d8 p queue main | head -n25
+      d8 p queue main | head -n25 || echo "Failed to retrieve main queue"
     fi
 
     if [ $(d8_queue_list) == "0" ]; then
@@ -77,16 +77,13 @@ d8_queue() {
       list_queue_ready=true
     else
       echo "Show queue list"
-      d8 p queue list | head -n25
+      d8 p queue list | head -n25 || echo "Failed to retrieve queue"
     fi
 
     if [ "$main_queue_ready" = true ] && [ "$list_queue_ready" = true ]; then
       break
     fi
     echo "Wait until queues are empty ${i}/${count}"
-    if (( i % 5 == 0 )); then
-      kubectl -n d8-system get pods
-    fi
     sleep 10
   done
 }
@@ -104,6 +101,10 @@ d8_ready() {
     end_time=$(get_timestamp)
     difference=$((end_time - start_time))
     log_warning "Wait until deckhouse is ready ${i}/${count} after ${difference}s"
+    if (( i % 5 == 0 )); then
+      kubectl -n d8-system get pods
+      d8 p queue list | head -n25 || echo "Failed to retrieve queue"
+    fi
   done
 
   if [ "$ready" = true ]; then
