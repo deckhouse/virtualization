@@ -84,6 +84,9 @@ d8_queue() {
       break
     fi
     echo "Wait until queues are empty ${i}/${count}"
+    if (( i % 5 == 0 )); then
+      kubectl -n d8-system get pods
+    fi
     sleep 10
   done
 }
