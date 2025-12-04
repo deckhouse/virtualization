@@ -685,6 +685,7 @@ jobs:
             default_cluster_storageclass: nested-thin-r1
             e2e_storage_class_name: nested-thin-r1
     # if: ${{ always() }}
+    if: ${{ cancelled() }}
     steps:
       - uses: actions/checkout@v4
 
