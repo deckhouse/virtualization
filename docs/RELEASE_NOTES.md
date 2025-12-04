@@ -7,7 +7,7 @@ weight: 70
 
 ### Fixes
 
-- [module] Removed the use of the deprecated `admissionregistration.k8s.io/v1beta1` api version in the hook, which could have prevented virtualization upgrades in clusters running Kubernetes >=1.34.
+- [module] The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
 
 ## v1.2.0
 
