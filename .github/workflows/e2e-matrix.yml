@@ -55,6 +55,7 @@ jobs:
         run: |
           namespace="nightly-e2e-${{ env.STORAGE_TYPE }}-$(git rev-parse --short HEAD)"
           echo "namespace=$namespace" >> $GITHUB_OUTPUT
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
           REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           USERNAME=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
@@ -100,7 +101,7 @@ jobs:
           cat <<EOF > test/dvp-over-dvp/values.yaml
           namespace: ${{ steps.vars.outputs.namespace }}
           storageClass: ${defaultStorageClass}
-          nfsSC: nightly-nfs-${{ steps.vars.outputs.sha_short }}
+          nfsSC: nested-nfs-${{ env.STORAGE_TYPE }}-${{ steps.vars.outputs.sha_short }}
           clusterConfigurationPrefix: ${{ env.STORAGE_TYPE }}
           sa: dkp-sa
           deckhouse:
