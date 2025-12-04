@@ -89,6 +89,7 @@ shell:
     autoreconf -if
     ./configure \
       --prefix=/usr \
+      --sbindir=/usr/sbin \
       --enable-lib \
       --enable-util \
       --disable-static
