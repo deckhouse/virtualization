@@ -96,13 +96,6 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*v1al
 		return true
 	}
 
-	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, e.ObjectOld.Status.Conditions)
-	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, e.ObjectNew.Status.Conditions)
-
-	if oldFSFrozen.Reason != newFSFrozen.Reason {
-		return true
-	}
-
 	oldSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectOld.Status.Conditions)
 	newSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectNew.Status.Conditions)
 

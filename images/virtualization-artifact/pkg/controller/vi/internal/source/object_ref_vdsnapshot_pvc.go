@@ -21,12 +21,10 @@ import (
 	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -43,6 +41,7 @@ type ObjectRefVirtualDiskSnapshotPVC struct {
 	bounder      Bounder
 	client       client.Client
 	dvcrSettings *dvcr.Settings
+	diskService  Disk
 	recorder     eventrecord.EventRecorderLogger
 }
 
@@ -50,6 +49,7 @@ func NewObjectRefVirtualDiskSnapshotPVC(
 	importer Importer,
 	stat Stat,
 	bounder Bounder,
+	diskService Disk,
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	recorder eventrecord.EventRecorderLogger,
@@ -60,6 +60,7 @@ func NewObjectRefVirtualDiskSnapshotPVC(
 		bounder:      bounder,
 		client:       client,
 		dvcrSettings: dvcrSettings,
+		diskService:  diskService,
 		recorder:     recorder,
 	}
 }
@@ -74,7 +75,7 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *v1alpha2
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
+	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}

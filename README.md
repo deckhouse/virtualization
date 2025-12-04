@@ -1,7 +1,8 @@
 # Deckhouse virtualization module
 
 <p align="center">
-  <img src="docs/images/d8-virtualization-logo.png" width="400px" />
+    <img alt="Virtualization" src="docs/images/DVP_light_mode.svg#gh-light-mode-only" alt="Virtualization" width="950" />
+    <img alt="Virtualization" src="docs/images/DVP_dark_mode.svg#gh-dark-mode-only" alt="Virtualization" width="950" />
 </p>
 
 ## Description

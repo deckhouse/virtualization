@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -55,18 +56,14 @@ type storageClassValidator interface {
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 }
 
-type volumeAndAccessModesGetter interface {
-	GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
-}
-
 type MigrationHandler struct {
 	client      client.Client
 	scValidator storageClassValidator
-	modeGetter  volumeAndAccessModesGetter
+	modeGetter  volumemode.VolumeAndAccessModesGetter
 	gate        featuregate.FeatureGate
 }
 
-func NewMigrationHandler(client client.Client, storageClassValidator storageClassValidator, modeGetter volumeAndAccessModesGetter, gate featuregate.FeatureGate) *MigrationHandler {
+func NewMigrationHandler(client client.Client, storageClassValidator storageClassValidator, modeGetter volumemode.VolumeAndAccessModesGetter, gate featuregate.FeatureGate) *MigrationHandler {
 	return &MigrationHandler{
 		client:      client,
 		scValidator: storageClassValidator,
@@ -651,7 +648,7 @@ func (h MigrationHandler) createTargetPersistentVolumeClaim(ctx context.Context,
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("vd-%s-", vd.UID),
+			GenerateName: fmt.Sprintf("d8v-vd-%s-", vd.UID),
 			Namespace:    vd.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeControllerOwnerReference(vd),

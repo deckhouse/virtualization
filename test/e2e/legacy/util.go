@@ -44,8 +44,17 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/config"
+	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/network"
+)
+
+const (
+	CurlPod           = "curl-helper"
+	externalHost      = "https://flant.ru"
+	nginxActiveStatus = "active"
+	httpStatusOk      = "200"
 )
 
 func WaitResource(resource kc.Resource, ns, name, waitFor string, timeout time.Duration) {
@@ -784,4 +793,57 @@ func CreateNamespace(name string) {
 			Timeout: ShortTimeout,
 		},
 	)
+}
+
+func CheckResultSSHCommand(vmNamespace, vmName, cmd, equal string) {
+	GinkgoHelper()
+	Eventually(func() (string, error) {
+		res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+			Namespace:    vmNamespace,
+			Username:     conf.TestData.SSHUser,
+			IdentityFile: conf.TestData.Sshkey,
+		})
+		if res.Error() != nil {
+			return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return strings.TrimSpace(res.StdOut()), nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
+}
+
+func CheckCiliumAgents(kubectl kc.Kubectl, namespace string, vms ...string) {
+	GinkgoHelper()
+	for _, vm := range vms {
+		By(fmt.Sprintf("Cilium agent should be OK's for VM: %s", vm))
+		Eventually(func() error {
+			return network.CheckCiliumAgents(context.Background(), kubectl, vm, namespace)
+		}).
+			WithTimeout(Timeout).
+			WithPolling(Interval).
+			Should(Succeed())
+	}
+}
+
+func CheckExternalConnection(host, httpCode, vmNamespace string, vmNames ...string) {
+	GinkgoHelper()
+	for _, vmName := range vmNames {
+		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vmName))
+		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
+		CheckResultSSHCommand(vmNamespace, vmName, cmd, httpCode)
+	}
+}
+
+func ExecSSHCommand(vmNamespace, vmName, cmd string) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+			Namespace:    vmNamespace,
+			Username:     conf.TestData.SSHUser,
+			IdentityFile: conf.TestData.Sshkey,
+		})
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }

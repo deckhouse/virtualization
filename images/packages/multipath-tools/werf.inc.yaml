@@ -31,13 +31,12 @@ altPackages:
 - gcc-c++ makeinfo
 - libmultipath kpartx
 - dmsetup udev-rules-sgutils sg3_utils
-- libdevmapper-devel libudev-devel libsystemd-devel
-- libjson-c-devel
 packages:
 - util-linux
 - readline
 - libaio
 - liburing libuserspace-rcu
+- systemd libjson-c5 lvm2
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

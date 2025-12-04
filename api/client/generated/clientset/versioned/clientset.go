@@ -23,6 +23,7 @@ import (
 	http "net/http"
 
 	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
+	virtualizationv1alpha3 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha3"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -31,17 +32,24 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	VirtualizationV1alpha2() virtualizationv1alpha2.VirtualizationV1alpha2Interface
+	VirtualizationV1alpha3() virtualizationv1alpha3.VirtualizationV1alpha3Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
 	virtualizationV1alpha2 *virtualizationv1alpha2.VirtualizationV1alpha2Client
+	virtualizationV1alpha3 *virtualizationv1alpha3.VirtualizationV1alpha3Client
 }
 
 // VirtualizationV1alpha2 retrieves the VirtualizationV1alpha2Client
 func (c *Clientset) VirtualizationV1alpha2() virtualizationv1alpha2.VirtualizationV1alpha2Interface {
 	return c.virtualizationV1alpha2
+}
+
+// VirtualizationV1alpha3 retrieves the VirtualizationV1alpha3Client
+func (c *Clientset) VirtualizationV1alpha3() virtualizationv1alpha3.VirtualizationV1alpha3Interface {
+	return c.virtualizationV1alpha3
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -92,6 +100,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 	if err != nil {
 		return nil, err
 	}
+	cs.virtualizationV1alpha3, err = virtualizationv1alpha3.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -114,6 +126,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.virtualizationV1alpha2 = virtualizationv1alpha2.New(c)
+	cs.virtualizationV1alpha3 = virtualizationv1alpha3.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

@@ -26,17 +26,19 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 )
 
-func CreateNetworkPolicy(ctx context.Context, c client.Client, obj client.Object, finalizer string) error {
+func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, sup supplements.DataVolumeSupplement, finalizer string) error {
+	npName := sup.NetworkPolicy()
 	networkPolicy := netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "NetworkPolicy",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            obj.GetName(),
-			Namespace:       obj.GetNamespace(),
+			Name:            npName.Name,
+			Namespace:       npName.Namespace,
 			OwnerReferences: obj.GetOwnerReferences(),
 			Finalizers:      []string{finalizer},
 		},
@@ -59,10 +61,28 @@ func CreateNetworkPolicy(ctx context.Context, c client.Client, obj client.Object
 	return client.IgnoreAlreadyExists(err)
 }
 
-func GetNetworkPolicy(ctx context.Context, client client.Client, name types.NamespacedName) (*netv1.NetworkPolicy, error) {
-	return object.FetchObject(ctx, name, client, &netv1.NetworkPolicy{})
+func GetNetworkPolicy(ctx context.Context, client client.Client, legacyName types.NamespacedName, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
+	np, err := object.FetchObject(ctx, sup.NetworkPolicy(), client, &netv1.NetworkPolicy{})
+	if err != nil {
+		return nil, err
+	}
+	if np != nil {
+		return np, nil
+	}
+
+	// Return object with legacy naming otherwise
+	return object.FetchObject(ctx, legacyName, client, &netv1.NetworkPolicy{})
 }
 
-func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, obj client.Object) (*netv1.NetworkPolicy, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, client, &netv1.NetworkPolicy{})
+func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, legacyObjectKey client.Object, sup supplements.Generator) (*netv1.NetworkPolicy, error) {
+	np, err := object.FetchObject(ctx, sup.NetworkPolicy(), client, &netv1.NetworkPolicy{})
+	if err != nil {
+		return nil, err
+	}
+	if np != nil {
+		return np, nil
+	}
+
+	// Return object with legacy naming otherwise
+	return object.FetchObject(ctx, types.NamespacedName{Name: legacyObjectKey.GetName(), Namespace: legacyObjectKey.GetNamespace()}, client, &netv1.NetworkPolicy{})
 }

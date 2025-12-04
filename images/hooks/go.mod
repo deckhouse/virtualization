@@ -9,8 +9,8 @@ require (
 	github.com/deckhouse/module-sdk v0.3.3
 	github.com/deckhouse/virtualization-controller v0.0.0
 	github.com/deckhouse/virtualization/api v0.15.0
-	github.com/onsi/ginkgo/v2 v2.22.0
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/gomega v1.37.0
 	github.com/tidwall/gjson v1.18.0
 	golang.org/x/crypto v0.38.0
 	k8s.io/api v0.33.3
@@ -47,7 +47,7 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.17.0 // indirect
-	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect

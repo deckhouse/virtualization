@@ -28,11 +28,13 @@ import (
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 	dv1alpha1 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha1"
 	dv1alpha2 "github.com/deckhouse/virtualization/test/e2e/internal/api/deckhouse/v1alpha2"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	gt "github.com/deckhouse/virtualization/test/e2e/internal/git"
 	"github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
+	"github.com/deckhouse/virtualization/test/e2e/internal/rewrite"
 )
 
 var clients = Clients{}
@@ -48,6 +50,7 @@ type Clients struct {
 	d8virtualization d8.D8Virtualization
 	client           client.Client
 	dynamic          dynamic.Interface
+	rewriteClient    rewrite.Client
 
 	git gt.Git
 }
@@ -66,6 +69,10 @@ func (c Clients) GenericClient() client.Client {
 
 func (c Clients) DynamicClient() dynamic.Interface {
 	return c.dynamic
+}
+
+func (c Clients) RewriteClient() rewrite.Client {
+	return c.rewriteClient
 }
 
 func (c Clients) Kubectl() kubectl.Kubectl {
@@ -99,6 +106,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	clients.rewriteClient = rewrite.NewRewriteClient(clients.dynamic)
 	clients.kubectl, err = kubectl.NewKubectl(kubectl.KubectlConf(conf.ClusterTransport))
 	if err != nil {
 		panic(err)
@@ -114,6 +122,7 @@ func init() {
 	// use dynamic client for get kubevirt types
 	for _, f := range []func(*apiruntime.Scheme) error{
 		v1alpha2.AddToScheme,
+		v1alpha3.AddToScheme,
 		clientgoscheme.AddToScheme,
 		dv1alpha1.AddToScheme,
 		dv1alpha2.AddToScheme,

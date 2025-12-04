@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -43,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -53,6 +53,8 @@ type DiskService struct {
 	dvcrSettings   *dvcr.Settings
 	protection     *ProtectionService
 	controllerName string
+
+	volumeAndAccessModesGetter volumemode.VolumeAndAccessModesGetter
 }
 
 func NewDiskService(
@@ -62,10 +64,11 @@ func NewDiskService(
 	controllerName string,
 ) *DiskService {
 	return &DiskService{
-		client:         client,
-		dvcrSettings:   dvcrSettings,
-		protection:     protection,
-		controllerName: controllerName,
+		client:                     client,
+		dvcrSettings:               dvcrSettings,
+		protection:                 protection,
+		controllerName:             controllerName,
+		volumeAndAccessModesGetter: volumemode.NewVolumeAndAccessModesGetter(client, nil),
 	}
 }
 
@@ -112,7 +115,7 @@ func (s DiskService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, sup, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -125,54 +128,7 @@ func (s DiskService) Start(
 }
 
 func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, obj client.Object, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
-	if obj == nil {
-		return "", "", errors.New("object is nil")
-	}
-	if sc == nil {
-		return "", "", errors.New("storage class is nil")
-	}
-
-	// Priority: object > storage class > storage profile.
-
-	// 1. Get modes from annotations on the object.
-	accessMode, _ := s.parseAccessMode(obj)
-	volumeMode, _ := s.parseVolumeMode(obj)
-
-	if accessMode != "" && volumeMode != "" {
-		return volumeMode, accessMode, nil
-	}
-
-	// 2. Get modes from annotations on the storage class.
-	if m, exists := s.parseAccessMode(sc); accessMode == "" && exists {
-		accessMode = m
-	}
-	if m, exists := s.parseVolumeMode(sc); volumeMode == "" && exists {
-		volumeMode = m
-	}
-
-	if accessMode != "" && volumeMode != "" {
-		return volumeMode, accessMode, nil
-	}
-
-	// 3. Get modes from storage profile.
-	storageProfile, err := s.GetStorageProfile(ctx, sc.Name)
-	if err != nil {
-		return "", "", fmt.Errorf("get storage profile: %w", err)
-	}
-
-	if storageProfile == nil {
-		return "", "", fmt.Errorf("storage profile %q not found: %w", sc.Name, ErrStorageProfileNotFound)
-	}
-
-	storageCaps := s.parseStorageCapabilities(storageProfile.Status)
-	if accessMode == "" && storageCaps.AccessMode != "" {
-		accessMode = storageCaps.AccessMode
-	}
-	if volumeMode == "" && storageCaps.VolumeMode != "" {
-		volumeMode = storageCaps.VolumeMode
-	}
-
-	return volumeMode, accessMode, nil
+	return s.volumeAndAccessModesGetter.GetVolumeAndAccessModes(ctx, obj, sc)
 }
 
 func (s DiskService) StartImmediate(
@@ -199,7 +155,7 @@ func (s DiskService) StartImmediate(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, dataVolumeSupplement, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -299,7 +255,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 	}
 
 	// 2. Delete network policy.
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.DataVolume())
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.LegacyDataVolume(), sup)
 	if err != nil {
 		return false, err
 	}
@@ -340,7 +296,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup supplements.Gen
 	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)
 }
 
-func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+func (s DiskService) Protect(ctx context.Context, sup supplements.Generator, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	err := s.protection.AddOwnerRef(ctx, owner, pvc)
 	if err != nil {
 		return fmt.Errorf("failed to add owner ref for pvc: %w", err)
@@ -352,7 +308,7 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	}
 
 	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
 		}
@@ -368,14 +324,14 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	return nil
 }
 
-func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error {
+func (s DiskService) Unprotect(ctx context.Context, sup supplements.Generator, dv *cdiv1.DataVolume) error {
 	err := s.protection.RemoveProtection(ctx, dv)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
 	}
 
 	if dv != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, dv, sup)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
 		}
@@ -446,67 +402,6 @@ func (s DiskService) GetStorageProfile(ctx context.Context, name string) (*cdiv1
 	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
 }
 
-type StorageCapabilities struct {
-	AccessMode corev1.PersistentVolumeAccessMode
-	VolumeMode corev1.PersistentVolumeMode
-}
-
-func (cp StorageCapabilities) IsEmpty() bool {
-	return cp.AccessMode == "" && cp.VolumeMode == ""
-}
-
-var accessModeWeights = map[corev1.PersistentVolumeAccessMode]int{
-	corev1.ReadOnlyMany:     0,
-	corev1.ReadWriteOncePod: 1,
-	corev1.ReadWriteOnce:    2,
-	corev1.ReadWriteMany:    3,
-}
-
-var volumeModeWeights = map[corev1.PersistentVolumeMode]int{
-	corev1.PersistentVolumeFilesystem: 0,
-	corev1.PersistentVolumeBlock:      1,
-}
-
-func getAccessModeMax(modes []corev1.PersistentVolumeAccessMode) corev1.PersistentVolumeAccessMode {
-	weight := -1
-	var m corev1.PersistentVolumeAccessMode
-	for _, mode := range modes {
-		if accessModeWeights[mode] > weight {
-			weight = accessModeWeights[mode]
-			m = mode
-		}
-	}
-	return m
-}
-
-func (s DiskService) parseVolumeMode(obj client.Object) (corev1.PersistentVolumeMode, bool) {
-	if obj == nil {
-		return "", false
-	}
-	switch obj.GetAnnotations()[annotations.AnnVirtualDiskVolumeMode] {
-	case string(corev1.PersistentVolumeBlock):
-		return corev1.PersistentVolumeBlock, true
-	case string(corev1.PersistentVolumeFilesystem):
-		return corev1.PersistentVolumeFilesystem, true
-	default:
-		return "", false
-	}
-}
-
-func (s DiskService) parseAccessMode(obj client.Object) (corev1.PersistentVolumeAccessMode, bool) {
-	if obj == nil {
-		return "", false
-	}
-	switch obj.GetAnnotations()[annotations.AnnVirtualDiskAccessMode] {
-	case string(corev1.ReadWriteOnce):
-		return corev1.ReadWriteOnce, true
-	case string(corev1.ReadWriteMany):
-		return corev1.ReadWriteMany, true
-	default:
-		return "", false
-	}
-}
-
 func (s DiskService) isImmediateBindingMode(sc *storagev1.StorageClass) bool {
 	if sc == nil {
 		return false
@@ -514,47 +409,16 @@ func (s DiskService) isImmediateBindingMode(sc *storagev1.StorageClass) bool {
 	return sc.GetAnnotations()[annotations.AnnVirtualDiskBindingMode] == string(storagev1.VolumeBindingImmediate)
 }
 
-func (s DiskService) parseStorageCapabilities(status cdiv1.StorageProfileStatus) StorageCapabilities {
-	var storageCapabilities []StorageCapabilities
-	for _, cp := range status.ClaimPropertySets {
-		var mode corev1.PersistentVolumeMode
-		if cp.VolumeMode == nil || *cp.VolumeMode == "" {
-			mode = corev1.PersistentVolumeFilesystem
-		} else {
-			mode = *cp.VolumeMode
-		}
-		storageCapabilities = append(storageCapabilities, StorageCapabilities{
-			AccessMode: getAccessModeMax(cp.AccessModes),
-			VolumeMode: mode,
-		})
-	}
-	slices.SortFunc(storageCapabilities, func(a, b StorageCapabilities) int {
-		if c := cmp.Compare(accessModeWeights[a.AccessMode], accessModeWeights[b.AccessMode]); c != 0 {
-			return c
-		}
-		return cmp.Compare(volumeModeWeights[a.VolumeMode], volumeModeWeights[b.VolumeMode])
-	})
-
-	if len(storageCapabilities) == 0 {
-		return StorageCapabilities{
-			AccessMode: corev1.ReadWriteOnce,
-			VolumeMode: corev1.PersistentVolumeFilesystem,
-		}
-	}
-
-	return storageCapabilities[len(storageCapabilities)-1]
-}
-
 func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup supplements.Generator) (*cdiv1.DataVolume, error) {
-	return object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementDataVolume, &cdiv1.DataVolume{})
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+	return supplements.FetchSupplement(ctx, s.client, sup, supplements.SupplementPVC, &corev1.PersistentVolumeClaim{})
 }
 
 func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {

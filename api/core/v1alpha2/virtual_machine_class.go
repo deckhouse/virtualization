@@ -36,9 +36,11 @@ const (
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization,backup.deckhouse.io/cluster-config=true}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization-cluster},scope=Cluster,shortName={vmc,vmclass},singular=virtualmachineclass
+// +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
 // +kubebuilder:printcolumn:name="IsDefault",type="string",JSONPath=".metadata.annotations.virtualmachineclass\\.virtualization\\.deckhouse\\.io\\/is-default-class",description="Default class for virtual machines without specified class."
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
+// +kubebuilder:deprecatedversion:warning="v1alpha2.VirtualMachineClass is deprecated; use v1alpha3.VirtualMachineClass"
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -132,10 +134,10 @@ type SizingPolicyMemory struct {
 	// Memory size discretization step. For example, the combination of `min=2Gi, `max=4Gi` and `step=1Gi` allows to set the virtual machine memory size to 2Gi, 3Gi, or 4Gi.
 	//
 	// +kubebuilder:example="512Mi"
-	Step resource.Quantity `json:"step,omitempty"`
+	Step *resource.Quantity `json:"step,omitempty"`
 
 	// Amount of memory per CPU core.
-	PerCore SizingPolicyMemoryPerCore `json:"perCore,omitempty"`
+	PerCore *SizingPolicyMemoryPerCore `json:"perCore,omitempty"`
 }
 
 type SizingPolicyMemoryPerCore struct {
@@ -146,11 +148,11 @@ type MemoryMinMax struct {
 	// Minimum amount of memory.
 	//
 	// +kubebuilder:example="1Gi"
-	Min resource.Quantity `json:"min,omitempty"`
+	Min *resource.Quantity `json:"min,omitempty"`
 	// Maximum amount of memory.
 	//
 	// +kubebuilder:example="8Gi"
-	Max resource.Quantity `json:"max,omitempty"`
+	Max *resource.Quantity `json:"max,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.max > self.min",message="The maximum must be greater than the minimum"

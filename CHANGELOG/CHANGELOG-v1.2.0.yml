@@ -1,0 +1,122 @@
+ci:
+  fixes:
+    - summary: Fix run script path.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1627
+    - summary: add intvirtvm describe to e2e test dumps, change restart approval mode
+      pull_request: https://github.com/deckhouse/virtualization/pull/1554
+core:
+  features:
+    - summary: >-
+        Added the `VirtualMachineSnapshotOperation` resource for creating a virtual machine based on
+        a `VirtualMachineSnapshot`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1727
+  fixes:
+    - summary: add missing libraries to virt-launcher build
+      pull_request: https://github.com/deckhouse/virtualization/pull/1761
+    - summary: >-
+        Fixed the MethodNotAllowed error for patch and watch operations when querying the
+        `VirtualMachineClass` resource via command-line utilities (d8 k, kubectl).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1666
+docs:
+  fixes:
+    - summary: Fix release notes ToC heading structure.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1714
+images:
+  fixes:
+    - summary: >-
+        Fixed an issue that prevented deleting `VirtualImage` and `ClusterVirtualImage` resources
+        for a stopped virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1669
+module:
+  features:
+    - summary: >-
+        Added the ability to clean up DVCR from non-existent project and cluster images:
+
+        - By default, this feature is disabled.
+
+        - To enable cleanup, set a schedule in the module settings:
+        `.spec.settings.dvcr.gc.schedule`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1688
+    - summary: >-
+        Added validation for the virtualization ModuleConfig that prevents decreasing the DVCR
+        storage size and changing its StorageClass.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1628
+    - summary: >-
+        Improved audit events by using more informative messages that include virtual machine names
+        and user information.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1611
+  fixes:
+    - summary: Fixed RBAC for the `user` and `editor` cluster roles.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1749
+    - summary: >-
+        Fixed the `D8VirtualizationVirtualMachineFirmwareOutOfDate` alert, which could be duplicated
+        when virtualization runs in HA mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1739
+    - summary: add Intermediate image for updating affected files in bundle image
+      pull_request: https://github.com/deckhouse/virtualization/pull/1719
+    - summary: >-
+        Added the ability to modify or delete the `VirtualMachineClass` resource named "generic".
+        The virtualization module will no longer restore it to its original state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1597
+    - summary: Fix virtualization-audit image check.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1589
+observability:
+  features:
+    - summary: >-
+        Added new metrics for disks:
+
+        - `d8_virtualization_virtualdisk_capacity_bytes`: Metric showing the disk size.
+
+        - `d8_virtualization_virtualdisk_info`: Metric with information about the disk
+        configuration.
+
+        - `d8_virtualization_virtualdisk_status_inuse`: Metric showing the current use of the disk
+        by a virtual machine or for creating other block devices.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1592
+test:
+  features:
+    - summary: Mark test case resources with label.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1645
+  fixes:
+    - summary: Fix migration helper usage.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1644
+    - summary: Exclude `http2.GoAwayError` from error checker.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1640
+    - summary: Set MiddleTimeout for framework Delete method.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1639
+vdsnapshot:
+  fixes:
+    - summary: >-
+        Fixed an error that could lead to inconsistencies between `VirtualMachineSnapshot` and
+        `VirtualDiskSnapshot` resources when creating a snapshot of a virtual machine with multiple
+        disks.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1668
+vmbda:
+  features:
+    - summary: >-
+        Added detailed error output in the `Attached` condition of the
+        `VirtualMachineBlockDeviceAttachment` resource when a block device is unavailable on the
+        virtual machine node.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1561
+vmclass:
+  features:
+    - summary: >-
+        For the `VirtualMachineClass` resource, version `v1alpha2` is deprecated. Use version
+        `v1alpha3` instead:
+
+        - In version `v1alpha3`, the `.spec.sizingPolicies.coreFraction` field is now a string with
+        a percentage (for example, "50%"), similar to the field in a virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1601
+vmrestore:
+  features:
+    - summary: >-
+        The `VirtualMachineRestore` resource is deprecated. Use the following resources instead:
+
+        - `VirtualMachineOperation` with type `Clone`: For cloning an existing virtual machine.
+
+        - `VirtualMachineOperation` with type `Restore`: For restoring an existing virtual machine
+        to a state from a snapshot.
+
+        - `VirtualMachineSnapshotOperation`: For creating a new virtual machine based on a snapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1631
+

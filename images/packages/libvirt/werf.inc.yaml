@@ -1,0 +1,269 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+
+---
+{{- $gitRepoName := $.ImageName }}
+{{- $version := get $.Firmware $gitRepoName }}
+{{- $gitRepoUrl := "libvirt/libvirt.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+git:
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
+  includePaths:
+  - patches
+  excludePaths:
+    - patches/README.md
+  stageDependencies:
+    install:
+      - '**/*'
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src/{{ $gitRepoName }}-{{ $version }}
+
+    cd /src/{{ $gitRepoName }}-{{ $version }}
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+altPackages:
+- binutils
+- gcc-c++
+- git gettext
+- bash-completion
+- clang ccache
+- make cmake
+- meson ninja-build
+- iproute iptables iptables-nft iptables-ipv6
+- openvswitch ebtables
+- pkgconfig
+- polkit kmod
+- parted
+- qemu-img open-iscsi
+- xml-utils xsltproc
+- polkit
+- python3 python3-devel
+- python3-module-pytest python3-module-docutils
+- python3-tools python3-module-pip
+- python3-module-black
+- mdevctl tshark
+- dmsetup pm-utils
+- tree
+altLibraries:
+- libpciaccess-devel
+- libyajl-devel sanlock-devel
+- libpcap-devel
+- libparted-devel
+- libdevmapper-devel
+- ceph-devel
+- libiscsi-devel libglusterfs-devel
+- systemtap-sdt-devel
+- wireshark-devel
+- libclocale
+- libyajl-devel
+packages:
+- dmidecode lvm2 libattr libbsd libmd util-linux
+- libgcrypt libfuse3 libaudit libnbd libcap-ng
+- openssl libcurl e2fsprogs libxcrypt numactl
+- zlib p11-kit
+- libssh libssh2 libjson-c5 keyutils
+- krb5 xz
+- readline
+- selinux
+- cyrus-sasl2
+- libtasn1 libtirpc
+- glib2 acl libunistring libxml2
+- gnutls
+- systemd libnl3 libslirp
+- glibc
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.10" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src/{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+{{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.altPackages | join " " }} \
+      {{ $builderDependencies.altLibraries | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+  - |
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
+    rpm -qa | sort > /packages.txt
+    mkdir -p /usr/libexec/ccache-wrappers
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $builderDependencies.packages | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
+    export CCACHE_BASEDIR="$(pwd)"
+    export PATH="$CCACHE_WRAPPERSDIR:$PATH"
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    CFLAGS="-Wframe-larger-than=262144" meson setup build \
+      -Dinit_script=systemd \
+      -Dsystem=true \
+      -Dremote_default_mode=direct \
+      -Dpciaccess=enabled \
+      -Dsasl=enabled \
+      -Dpolkit=enabled \
+      -Dlibssh=enabled \
+      -Dlibssh2=enabled \
+      -Dnumactl=enabled \
+      -Dcapng=enabled \
+      -Dudev=enabled \
+      -Ddriver_network=enabled \
+      -Ddriver_interface=enabled \
+      -Ddriver_libvirtd=enabled \
+      -Ddriver_qemu=enabled \
+      -Ddriver_remote=enabled \
+      -Dselinux=enabled \
+      -Dselinux_mount=enabled \
+      -Ddriver_esx=disabled -Dcurl=disabled \
+      -Dfirewalld=disabled \
+      -Dfirewalld_zone=disabled \
+      -Ddocs=disabled \
+      -Ddriver_ch=disabled \
+      -Ddriver_lxc=disabled -Dlogin_shell=disabled \
+      -Ddriver_openvz=disabled \
+      -Ddriver_test=disabled \
+      -Ddriver_vbox=disabled \
+      -Ddriver_vmware=disabled \
+      -Ddriver_hyperv=disabled -Dopenwsman=disabled \
+      -Ddriver_vz=disabled \
+      -Ddriver_bhyve=disabled \
+      -Dvbox_xpcomc_dir=disabled \
+      -Dwireshark_dissector=disabled \
+      -Dwireshark_plugindir=disabled \
+      -Dstorage_gluster=disabled -Dglusterfs=disabled \
+      -Dstorage_fs=disabled \
+      -Dstorage_lvm=disabled \
+      -Dstorage_zfs=disabled \
+      -Dstorage_vstorage=disabled \
+      -Dstorage_rbd=disabled \
+      -Dstorage_mpath=disabled \
+      -Dstorage_iscsi=disabled \
+      -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
+      -Dlibiscsi=disabled
+
+
+      {{- $_ := set $ "ProjectName" (list $.ImageName "libvirt" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
+
+  setup:
+  - |
+    OUTDIR=/out
+    cd /{{ $gitRepoName }}-{{ $version }}
+    DESTDIR=$OUTDIR ninja -C build install
+
+    rm -rf $OUTDIR/var
+    rm -rf $OUTDIR/usr/share/systemtap/tapset/libvirt_probes.stp
+    rm -rf $OUTDIR/usr/share/systemtap/tapset/libvirt_qemu_probes.stp
+    rm -rf $OUTDIR/usr/lib64/libvirt/lock-driver/sanlock.so
+    find $OUTDIR/usr/lib64/libvirt/storage-backend/ -type f -not -name 'libvirt_storage_backend_fs.so' -delete
+    rm -rf $OUTDIR/usr/lib64/libvirt/storage-file/libvirt_storage_file_gluster.so
+    rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_lxc.so
+    rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_ch.so
+    rm -rf $OUTDIR/usr/lib64/libvirt/connection-driver/libvirt_driver_vbox.so
+    rm -rf $OUTDIR/usr/sbin/virtlxcd
+    rm -rf $OUTDIR/usr/sbin/virtchd
+    rm -rf $OUTDIR/usr/sbin/virtvboxd
+    rm -rf $OUTDIR/usr/libexec/libvirt_sanlock_helper
+    rm -rf $OUTDIR/usr/libexec/libvirt_parthelper
+    rm -rf $OUTDIR/usr/libexec/libvirt_lxc
+    rm -rf $OUTDIR/usr/share/augeas/lenses/tests/
+    rm -rf $OUTDIR/usr/bin/virt-login-shell
+    rm -rf $OUTDIR/usr/libexec/virt-login-shell-helper
+    rm -rf $OUTDIR/usr/bin/virsh
+    rm -rf $OUTDIR/usr/bin/virt-admin
+    rm -rf $OUTDIR/usr/lib64/wireshark/plugins/4.4/epan/libvirt.so
+    rm -rf $OUTDIR/usr/share/libvirt/cpu_map/arm_*
+    rm -rf $OUTDIR/usr/share/libvirt/cpu_map/ppc64_*
+    rm -rf $OUTDIR/usr/share/libvirt/schemas/
+    rm -rf $OUTDIR/etc/logrotate.d/
+    rm -rf $OUTDIR/usr/lib/firewalld/
+    rm -rf $OUTDIR/etc/libvirt/nwfilter/
+    rm -rf $OUTDIR/usr/lib/sysusers.d/libvirt-qemu.sysusers.conf
+    rm -rf $OUTDIR/usr/lib/sysctl.d/postcopy-migration.sysctl
+    rm -rf $OUTDIR/usr/share/libvirt/test-screenshot.png
+    rm -rf $OUTDIR/etc/libvirt/libvirt-admin.conf
+    rm -rf $OUTDIR/etc/libvirt/qemu-lockd.conf
+    rm -rf $OUTDIR/etc/libvirt/qemu-sanlock.conf
+    rm -rf $OUTDIR/etc/libvirt/virtlockd.conf
+    rm -rf $OUTDIR/etc/libvirt/lxc.conf
+    rm -rf $OUTDIR/etc/libvirt/qemu.conf
+    rm -rf $OUTDIR/usr/share/augeas/
+    rm -rf $OUTDIR/etc/libvirt/virtnetworkd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtsecretd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtstoraged.conf
+    rm -rf $OUTDIR/etc/libvirt/virtlxcd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtchd.conf
+    rm -rf $OUTDIR/etc/libvirt/virtqemud.conf
+    rm -rf $OUTDIR/etc/libvirt/virtvboxd.conf
+    rm -rf $OUTDIR/usr/sbin/virt-sanlock-cleanup
+    rm -rf $OUTDIR/usr/lib/systemd/
+    rm -rf $OUTDIR/usr/bin/virt-qemu-qmp-proxy
+    rm -rf $OUTDIR/usr/share/bash-completion/
+    rm -rf $OUTDIR/etc/ssh/
+    rm -rf $OUTDIR/usr/share/doc
+    rm -rf $OUTDIR/usr/local/share/locale/
+
+    find $OUTDIR -type f -executable | while read -r execfile; do
+    if strip "$execfile"; then
+      echo "Stripped: $execfile"
+    fi
+    done
+    tree -hp $OUTDIR

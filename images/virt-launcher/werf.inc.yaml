@@ -24,21 +24,16 @@ altLibs:
   - libxfs-devel
   - libpci-devel
   - libgvnc-devel
-  - libfdt-devel
-  - libuuid-devel
-  - libslirp-devel
   - libdrm-devel
   - libxdp-devel
   - libSDL2-devel
   - libSDL2_image-devel
-  - libncursesw-devel
   - libalsa-devel
   - libpulseaudio-devel
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
   - libjpeg-devel
-  - libpng-devel
   - xkeyboard-config-devel
   - libgtk+3-devel
   - libvte
@@ -51,13 +46,9 @@ altLibs:
   - libspice-server-devel
   - ceph-devel
   - libnfs-devel
-  - libseccomp-devel
-  - libudev-devel
-  - libmultipath-devel
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - bzlib-devel
   - libcacard-devel
   - libusbredir-devel
   - libepoxy-devel
@@ -70,28 +61,22 @@ altLibs:
   - libyajl-devel
   - sanlock-devel
   - libpcap-devel
-  - libnl-devel
   - libparted-devel
   - libdevmapper-devel
   - libglusterfs-devel
-  - libfuse-devel
-  - libsystemd-devel
   - systemtap-sdt-devel
   - libclocale
   - libLLVMSPIRVLib-devel
   - ethtool
   - fdisk
-  - glibc-gconv-modules
-  - gnutls-utils
   - hwclock
-  - iptables
   - passt
-  - pcre
   - procps
   - policycoreutils
   - psmisc
   - msulogin
-  - iproute2
+  - strace
+  - libfuse
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -107,8 +92,12 @@ binaries:
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # Iproute2
-  - /usr/sbin/tc
+  # qemu
+  # commented out due to automatic relocate in `beforeInstall` step
+  # - /usr/bin/elf2dmp
+  # gobuilder
+  - /usr/bin/node-labeller
+  - /usr/bin/vlctl
 packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
@@ -130,6 +119,16 @@ packages:
 - libxkbcommon
 - libaio
 - liburing libunistring
+- libslirp ncurses libpng libseccomp
+- systemd multipath-tools bzip2 libnl3
+- pcre2
+- glibc nghttp3 ngtcp2 nghttp2 libpsl libidn2 libgmp
+- openldap openssl
+- e2fsprogs libxcrypt lvm2 libjson-glib
+- libvirt
+- libffi
+- libbrotli libntlm gcc libcap libgpg-error lz4
+- libuserspace-rcu lzo dtc
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -160,8 +159,8 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: {{ .ModuleNamePrefix }}libvirt
-  add: /BINS
+- image: {{ .ModuleNamePrefix }}packages/libvirt
+  add: /libvirt
   to: /libvirt-bins
   before: install
 - image: {{ .ModuleNamePrefix }}qemu
@@ -204,7 +203,7 @@ import:
   - virt-tail
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
-  to: /relocate/usr/bin
+  to: /usr/bin
   before: setup
   includePaths:
   - node-labeller
@@ -235,6 +234,12 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
+- image: tools/iproute2
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/tc
 
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
@@ -262,7 +267,7 @@ shell:
 
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
-    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -388,7 +393,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24.10" "builder/golang-alt-svace-1.24.10" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
@@ -411,16 +416,6 @@ secrets:
   value: {{ .GOPROXY }}
 shell:
   install:
-  {{- include "debian packages proxy" . | nindent 2 }}
-  - |
-    echo "install deps libvirt-dev"
-{{- if eq $.SVACE_ENABLED "false" }}
-    apt-get install -y libvirt-dev
-  {{- include "debian packages clean" . | nindent 2 }}
-{{- else }}
-  - apt-get -qq install -y libvirt-devel
-  {{- include "alt packages clean" . | nindent 2 }}
-{{- end }}
   - |
     # Install packages
     PKGS="{{ $builderDependencies.packages | join " " }}"
@@ -430,6 +425,7 @@ shell:
     done
   - mkdir -p /binaries
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
+  - export CGO_ENABLED=1
   - |
     echo "Build node-labeller binaries"
     cd /node-labeller
@@ -449,7 +445,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24.10" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries

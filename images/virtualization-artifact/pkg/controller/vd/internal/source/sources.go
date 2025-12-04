@@ -34,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -142,7 +143,7 @@ func setPhaseConditionFromStorageError(err error, vd *v1alpha2.VirtualDisk, cb *
 	switch {
 	case err == nil:
 		return false, nil
-	case errors.Is(err, service.ErrStorageProfileNotFound):
+	case errors.Is(err, volumemode.ErrStorageProfileNotFound):
 		vd.Status.Phase = v1alpha2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).
