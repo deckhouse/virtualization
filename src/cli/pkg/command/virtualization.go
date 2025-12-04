@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/console"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/debugbundle"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/portforward"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/scp"
@@ -84,6 +85,7 @@ func NewCommand(programName string) *cobra.Command {
 
 	virtCmd.AddCommand(
 		console.NewCommand(),
+		debugbundle.NewCommand(),
 		vnc.NewCommand(),
 		portforward.NewCommand(),
 		ssh.NewCommand(),
