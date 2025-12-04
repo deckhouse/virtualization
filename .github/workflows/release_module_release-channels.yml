@@ -373,22 +373,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check version via registry
+      - name: Check version in registry
         if: ${{ matrix.check == 'registry' }}
         run: |
-          EDITIONS=("ee" "fe" "ce" "se-plus")
-          PROD_REGISTRY="registry.deckhouse.io/deckhouse"
-
-          for EDITION in ${EDITIONS[@]}; do
-            echo "Check version on $EDITION"
-            getVersion=$(crane export $PROD_REGISTRY/$EDITION/modules/virtualization/release:${{ github.event.inputs.channel }} - | tar -Oxf - version.json | jq '.version' -r)
-            
-            if [[ "$getVersion" != "${{ github.event.inputs.tag }}" ]]; then
-              echo "Version is not valid in $EDITION and channel ${{ github.event.inputs.channel }}"
-              echo "Expected version: ${{ github.event.inputs.tag }} but got $getVersion"
-              exit 1
-            fi
-          done
+          CHANNEL=${{ github.event.inputs.channel }} \
+          VERSION=${{ github.event.inputs.tag }} \
+          task -d tools/moduleversions check:registry
 
       - name: Check version on site ${{ matrix.check }}
         if: ${{ matrix.check == 'releases' }}
