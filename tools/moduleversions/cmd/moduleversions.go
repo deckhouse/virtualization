@@ -53,11 +53,11 @@ var cfg = &Config{}
 func NewCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "moduleversions",
-		Short: "Verify module versions across releases.deckhouse.io and deckhouse.ru/modules",
-		Long: `Verify module versions across releases.deckhouse.io and deckhouse.ru/modules.
+		Short: "Verify module versions across releases.deckhouse.io and deckhouse.ru/modules/virtualization/[channel]/",
+		Long: `Verify module versions across releases.deckhouse.io and deckhouse.ru/modules/virtualization/[channel]/.
 
 This tool checks if a specified version exists for a given channel on both
-releases.deckhouse.io (across all editions) and deckhouse.ru/modules documentation site.`,
+releases.deckhouse.io (across all editions) and deckhouse.ru/modules/virtualization/[channel]/ documentation site.`,
 		Example: `  moduleversions --channel alpha --version v1.1.3
   moduleversions --channel stable --version 1.1.2 --check-releases
   moduleversions --channel beta --version 1.1.1 --check-docs`,
@@ -71,7 +71,7 @@ releases.deckhouse.io (across all editions) and deckhouse.ru/modules documentati
 	rootCmd.Flags().StringVarP(&cfg.ModuleName, "module", "m", defaultModuleName, "module name to check")
 	rootCmd.Flags().IntVarP(&cfg.Attempt, "attempt", "a", 1, "maximum number of retry attempts")
 	rootCmd.Flags().BoolVarP(&cfg.CheckReleases, "check-releases", "r", false, "check version on releases.deckhouse.io")
-	rootCmd.Flags().BoolVarP(&cfg.CheckDocs, "check-docs", "d", false, "check version on deckhouse.ru/modules")
+	rootCmd.Flags().BoolVarP(&cfg.CheckDocs, "check-docs", "d", false, "check version on deckhouse.ru/modules/virtualization/[channel]/")
 
 	rootCmd.MarkFlagRequired("channel")
 	rootCmd.MarkFlagRequired("version")

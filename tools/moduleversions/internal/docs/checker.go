@@ -89,7 +89,7 @@ const (
 
 // CheckVersionWithRetries checks version on documentation site with retry logic.
 func CheckVersionWithRetries(channel, version, moduleName string, attempts int) error {
-	documentationURL := fmt.Sprintf("%s/%s/stable/", defaultDocumentationURL, moduleName)
+	documentationURL := fmt.Sprintf("%s/%s/%s/", defaultDocumentationURL, moduleName, channel)
 	fmt.Printf("\nChecking version %s on channel %s at %s...\n", version, channel, documentationURL)
 
 	var err error
