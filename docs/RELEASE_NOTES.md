@@ -3,6 +3,12 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.2.1
+
+### Fixes
+
+- [module] The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
+
 ## v1.2.0
 
 ### New features
