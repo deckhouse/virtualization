@@ -3,7 +3,7 @@
 {{- define "$name" -}}
 altPackages:
 - gcc git
-- make rpm-macros-alternatives meson
+- make autoconf automake libtool pkgconfig
 - ninja-build
 - tree
 packages:
@@ -70,6 +70,7 @@ shell:
     OUTDIR=/out
 
     cd /src
+    autoreconf -if
     ./configure \
       --prefix=/usr \
       --enable-lib \
