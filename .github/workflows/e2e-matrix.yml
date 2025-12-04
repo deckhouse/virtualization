@@ -53,7 +53,8 @@ jobs:
       - name: Set outputs
         id: vars
         run: |
-          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          namespace="nightly-e2e-${{ env.STORAGE_TYPE }}-$(git rev-parse --short HEAD)"
+          echo "namespace=$namespace" >> $GITHUB_OUTPUT
 
           REGISTRY=$(base64 -d <<< ${{secrets.DEV_REGISTRY_DOCKER_CFG}} | jq '.auths | to_entries | .[] | .key' -r)
           USERNAME=$(base64 -d <<< ${{ secrets.DEV_REGISTRY_DOCKER_CFG }} | jq '.auths | to_entries | .[] | .value.auth' -r | base64 -d | cut -d ':' -f1)
@@ -97,7 +98,7 @@ jobs:
             | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
 
           cat <<EOF > test/dvp-over-dvp/values.yaml
-          namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          namespace: ${{ steps.vars.outputs.namespace }}
           storageClass: ${defaultStorageClass}
           nfsSC: nightly-nfs-${{ steps.vars.outputs.sha_short }}
           clusterConfigurationPrefix: ${{ env.STORAGE_TYPE }}
@@ -152,19 +153,19 @@ jobs:
       - name: Get info about nested master VM
         run: |
           cd test/dvp-over-dvp
-          namespace=nightly-e2e-${{ steps.vars.outputs.sha_short }}
-          nested_master=$(kubectl -n $namespace get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
+
+          nested_master=$(kubectl -n ${{ steps.vars.outputs.namespace }} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
 
           echo "Pods"
-          kubectl get pods -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          kubectl get pods -n "${{ steps.vars.outputs.namespace }}"
           echo ""
 
           echo "VMs"
-          kubectl get vm -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          kubectl get vm -n "${{ steps.vars.outputs.namespace }}"
           echo ""
 
           echo "VDs"
-          kubectl get vd -n "nightly-e2e-${{ steps.vars.outputs.sha_short }}"
+          kubectl get vd -n "${{ steps.vars.outputs.namespace }}"
           echo ""
 
           echo "login to master"
@@ -173,7 +174,7 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            ${{ env.DEFAULT_USER }}@${nested_master}.${{ steps.vars.outputs.namespace }} \
             -c 'cat /etc/os-release'
           echo ""
 
@@ -182,7 +183,7 @@ jobs:
             --local-ssh=true \
             --local-ssh-opts="-o StrictHostKeyChecking=no" \
             --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${{ env.DEFAULT_USER }}@${nested_master}.nightly-e2e-${{ steps.vars.outputs.sha_short }} \
+            ${{ env.DEFAULT_USER }}@${nested_master}.${{ steps.vars.outputs.namespace }} \
             -c 'hostname'
 
       - name: Generate nested kubeconfig
@@ -190,7 +191,7 @@ jobs:
         env:
           kubeConfigPath: tmp/kube.config
         run: |
-          NAMESPACE=nightly-e2e-${{ steps.vars.outputs.sha_short }}
+          NAMESPACE=${{ steps.vars.outputs.namespace }}
           nested_master=$(kubectl -n $NAMESPACE get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
 
           d8vscp() {
