@@ -34,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -128,8 +127,7 @@ func (s WaitForDVStep) setForProvisioning(vd *v1alpha2.VirtualDisk) (set bool) {
 
 func (s WaitForDVStep) setForFirstConsumerIsAwaited(ctx context.Context, vd *v1alpha2.VirtualDisk) (set bool, err error) {
 	if vd.Status.StorageClassName == "" {
-		logger.FromContext(ctx).Info("StorageClassName is empty, skipping WFFC check")
-		return false, nil
+		return false, fmt.Errorf("StorageClassName is empty, please report a bug")
 	}
 
 	sc, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Status.StorageClassName}, s.client, &storagev1.StorageClass{})
