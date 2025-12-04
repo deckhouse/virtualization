@@ -99,11 +99,11 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 }
 
 func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
-	if sp.Memory == nil || sp.Memory.Max.IsZero() {
+	if sp.Memory == nil || sp.Memory.Max == nil || sp.Memory.Max.IsZero() {
 		return
 	}
 
-	if vm.Spec.Memory.Size.Cmp(sp.Memory.Min) == common.CmpLesser {
+	if sp.Memory.Min != nil && vm.Spec.Memory.Size.Cmp(*sp.Memory.Min) == common.CmpLesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
@@ -112,7 +112,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 		))
 	}
 
-	if vm.Spec.Memory.Size.Cmp(sp.Memory.Max) == common.CmpGreater {
+	if vm.Spec.Memory.Size.Cmp(*sp.Memory.Max) == common.CmpGreater {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
@@ -121,8 +121,12 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 		))
 	}
 
-	if !sp.Memory.Step.IsZero() {
-		err := validateIsQuantized(vm.Spec.Memory.Size, sp.Memory.Min, sp.Memory.Max, sp.Memory.Step, "VM memory")
+	if sp.Memory.Step != nil && !sp.Memory.Step.IsZero() {
+		minVal := resource.Quantity{}
+		if sp.Memory.Min != nil {
+			minVal = *sp.Memory.Min
+		}
+		err := validateIsQuantized(vm.Spec.Memory.Size, minVal, *sp.Memory.Max, *sp.Memory.Step, "VM memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}
@@ -132,7 +136,7 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 }
 
 func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errorsArray []error) {
-	if sp.Memory == nil || sp.Memory.PerCore.Max.IsZero() {
+	if sp.Memory == nil || sp.Memory.PerCore == nil || sp.Memory.PerCore.Max == nil || sp.Memory.PerCore.Max.IsZero() {
 		return
 	}
 
@@ -142,7 +146,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	vmPerCore := vm.Spec.Memory.Size.Value() / int64(vm.Spec.CPU.Cores)
 	perCoreMemory := resource.NewQuantity(vmPerCore, resource.BinarySI)
 
-	if perCoreMemory.Cmp(sp.Memory.PerCore.Min) == common.CmpLesser {
+	if sp.Memory.PerCore.Min != nil && perCoreMemory.Cmp(*sp.Memory.PerCore.Min) == common.CmpLesser {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM per core memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
@@ -151,7 +155,7 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		))
 	}
 
-	if perCoreMemory.Cmp(sp.Memory.PerCore.Max) == common.CmpGreater {
+	if perCoreMemory.Cmp(*sp.Memory.PerCore.Max) == common.CmpGreater {
 		errorsArray = append(errorsArray, fmt.Errorf(
 			"requested VM per core memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
@@ -160,8 +164,12 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		))
 	}
 
-	if !sp.Memory.Step.IsZero() {
-		err := validateIsQuantized(*perCoreMemory, sp.Memory.PerCore.Min, sp.Memory.PerCore.Max, sp.Memory.Step, "VM per core memory")
+	if sp.Memory.Step != nil && !sp.Memory.Step.IsZero() {
+		minVal := resource.Quantity{}
+		if sp.Memory.PerCore.Min != nil {
+			minVal = *sp.Memory.PerCore.Min
+		}
+		err := validateIsQuantized(*perCoreMemory, minVal, *sp.Memory.PerCore.Max, *sp.Memory.Step, "VM per core memory")
 		if err != nil {
 			errorsArray = append(errorsArray, err)
 		}

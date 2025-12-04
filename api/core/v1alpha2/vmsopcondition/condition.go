@@ -44,6 +44,9 @@ const (
 	// ReasonNotReadyToBeExecuted is a ReasonCompleted indicating that the operation is not ready to be executed.
 	ReasonNotReadyToBeExecuted ReasonCompleted = "NotReadyToBeExecuted"
 
+	// ReasonVirtuamMachineSnapshotNotFound is a ReasonFailed indicating that the specified virtual machine snapshot is absent.
+	ReasonVirtuamMachineSnapshotNotFound ReasonCompleted = "VirtualMachineSnapshotNotFound"
+
 	// ReasonCreateVirtualMachineInProgress is a ReasonCompleted indicating that the clone operation is in progress.
 	ReasonCreateVirtualMachineInProgress ReasonCompleted = "CreateVirtualMachineInProgress"
 

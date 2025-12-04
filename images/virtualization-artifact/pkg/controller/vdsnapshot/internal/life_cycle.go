@@ -126,12 +126,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 	}
 
 	virtualDiskReadyCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
-	if vd == nil || virtualDiskReadyCondition.Status != metav1.ConditionTrue {
-		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
+	if vd == nil {
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual disk %q does not exist.", vdSnapshot.Spec.VirtualDiskName)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
-			Message(fmt.Sprintf("Waiting for the virtual disk %q to be ready for snapshotting.", vdSnapshot.Spec.VirtualDiskName))
+			Message(msg)
+		return reconcile.Result{}, nil
+	}
+	if virtualDiskReadyCondition.Status != metav1.ConditionTrue {
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		msg := fmt.Sprintf("Cannot take a snapshot: the virtual disk %q is not ready.", vdSnapshot.Spec.VirtualDiskName)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.WaitingForTheVirtualDisk).
+			Message(msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -144,12 +154,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 		}
 	}
 
-	if pvc == nil || pvc.Status.Phase != corev1.ClaimBound {
-		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
+	if pvc == nil {
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		msg := fmt.Sprintf("Cannot take a snapshot: the persistent volume claim for virtual disk %q does not exist.", vdSnapshot.Spec.VirtualDiskName)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.WaitingForTheVirtualDisk).
-			Message("Waiting for the virtual disk's pvc to be in phase Bound.")
+			Message(msg)
+		return reconcile.Result{}, nil
+	}
+	if pvc.Status.Phase != corev1.ClaimBound {
+		vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
+		msg := fmt.Sprintf("Cannot take a snapshot: the persistent volume claim %q for virtual disk %q is not in phase %s.", pvc.Name, vdSnapshot.Spec.VirtualDiskName, corev1.ClaimBound)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.WaitingForTheVirtualDisk).
+			Message(msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -244,27 +264,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *v1alpha2.Virtu
 			}
 
 			if vdSnapshot.Spec.RequiredConsistency {
-				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhasePending
+				vdSnapshot.Status.Phase = v1alpha2.VirtualDiskSnapshotPhaseFailed
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdscondition.PotentiallyInconsistent)
 
 				agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
-				switch {
-				case agentReadyCondition.Status != metav1.ConditionTrue:
+				if agentReadyCondition.Status != metav1.ConditionTrue {
 					cb.Message(fmt.Sprintf(
-						"The virtual machine %q with an attached virtual disk %q is %s: "+
-							"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
-							"virtual machine agent is not ready and virtual machine cannot be frozen: "+
-							"waiting for virtual machine agent to be ready, or virtual machine will stop",
-						vm.Name, vd.Name, vm.Status.Phase,
+						"Cannot take a consistent snapshot of virtual disk %q attached to virtual machine %q: virtual machine agent is not ready and the virtual machine cannot be frozen.",
+						vd.Name, vm.Name,
 					))
-				default:
+				} else {
 					cb.Message(fmt.Sprintf(
-						"The virtual machine %q with an attached virtual disk %q is %s: "+
-							"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
-							"waiting for the virtual machine to be %s or the disk to be detached",
-						vm.Name, vd.Name, vm.Status.Phase, v1alpha2.MachineStopped,
+						"Cannot take a consistent snapshot of virtual disk %q attached to virtual machine %q.",
+						vd.Name, vm.Name,
 					))
 				}
 

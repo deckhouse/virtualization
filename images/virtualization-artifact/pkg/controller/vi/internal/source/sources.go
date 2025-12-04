@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/volumemode"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -209,7 +210,7 @@ func setPhaseConditionFromStorageError(err error, vi *v1alpha2.VirtualImage, cb 
 	switch {
 	case err == nil:
 		return false, nil
-	case errors.Is(err, service.ErrStorageProfileNotFound):
+	case errors.Is(err, volumemode.ErrStorageProfileNotFound):
 		vi.Status.Phase = v1alpha2.ImageFailed
 		cb.
 			Status(metav1.ConditionFalse).

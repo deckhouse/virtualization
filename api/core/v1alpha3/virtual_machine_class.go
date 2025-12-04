@@ -131,10 +131,10 @@ type SizingPolicyMemory struct {
 	// Memory size discretization step. For example, the combination of `min=2Gi, `max=4Gi` and `step=1Gi` allows to set the virtual machine memory size to 2Gi, 3Gi, or 4Gi.
 	//
 	// +kubebuilder:example="512Mi"
-	Step resource.Quantity `json:"step,omitempty"`
+	Step *resource.Quantity `json:"step,omitempty"`
 
 	// Amount of memory per CPU core.
-	PerCore SizingPolicyMemoryPerCore `json:"perCore,omitempty"`
+	PerCore *SizingPolicyMemoryPerCore `json:"perCore,omitempty"`
 }
 
 type SizingPolicyMemoryPerCore struct {
@@ -145,11 +145,11 @@ type MemoryMinMax struct {
 	// Minimum amount of memory.
 	//
 	// +kubebuilder:example="1Gi"
-	Min resource.Quantity `json:"min,omitempty"`
+	Min *resource.Quantity `json:"min,omitempty"`
 	// Maximum amount of memory.
 	//
 	// +kubebuilder:example="8Gi"
-	Max resource.Quantity `json:"max,omitempty"`
+	Max *resource.Quantity `json:"max,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.max > self.min",message="The maximum must be greater than the minimum"
