@@ -348,6 +348,7 @@ jobs:
               break
             fi
             echo "Wait 20 sec until blockdevices is greater or equal to $workers"
+            d8 p queue list | head -n25
             sleep 20
           done
 
