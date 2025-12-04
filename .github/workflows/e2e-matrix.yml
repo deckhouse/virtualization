@@ -51,7 +51,7 @@ jobs:
           - storage_type: replicated
             nested_storageclass_name: nested-thin-r1
             default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
-            jumphost_container_port: 2223
+            jumphost_container_port: 2222
             jumphost_svc_port: 2223
     concurrency:
       group: "${{ github.workflow }}-${{ github.event.number || github.ref }}-${{ matrix.storage_type }}"
