@@ -106,5 +106,6 @@ shell:
     rm -rf /out/usr/share
     rm -rf /out/dev
     rm -rf /out/etc
+    mv $OUTDIR/sbin $OUTDIR/usr/sbin
 
     tree -hp /out
