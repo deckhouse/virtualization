@@ -20,10 +20,10 @@ env:
   DECKHOUSE_TAG: main
   DEFAULT_USER: ubuntu
   GO_VERSION: "1.24.5"
-  NESTED_STORAGECLASS_NAME: nested-thin-r1
-  # NESTED_STORAGECLASS_NAME: nested-ceph-pool-r2-csi-rbd
-  STORAGE_TYPE: replicated
-  # STORAGE_TYPE: ceph
+  # NESTED_STORAGECLASS_NAME: nested-thin-r1
+  NESTED_STORAGECLASS_NAME: nested-ceph-pool-r2-csi-rbd
+  # STORAGE_TYPE: replicated
+  STORAGE_TYPE: ceph
 on:
   workflow_dispatch:
   pull_request:
@@ -100,7 +100,7 @@ jobs:
           namespace: nightly-e2e-${{ steps.vars.outputs.sha_short }}
           storageClass: ${defaultStorageClass}
           nfsSC: nightly-nfs-${{ steps.vars.outputs.sha_short }}
-          clusterConfigurationPrefix: repl
+          clusterConfigurationPrefix: ${{ env.STORAGE_TYPE }}
           sa: dkp-sa
           deckhouse:
             tag: ${{ env.DECKHOUSE_TAG }}
