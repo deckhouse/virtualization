@@ -297,8 +297,8 @@ jobs:
         if: always()
         run: |
           sudo chown -fR 1001:1001 test/dvp-over-dvp
-          yq e '.deckhouse.registryDockerCfg = "None"' -i values.yaml
-          yq e 'select(.kind == "InitConfiguration") .deckhouse.registryDockerCfg = "None"' -i ./tmp/config.yaml
+          yq e '.deckhouse.registryDockerCfg = "None"' -i ./test/dvp-over-dvp/values.yaml
+          yq e 'select(.kind == "InitConfiguration") .deckhouse.registryDockerCfg = "None"' -i ./test/dvp-over-dvp/tmp/config.yaml
       - name: Upload generated files
         uses: actions/upload-artifact@v4
         id: artifact-upload
