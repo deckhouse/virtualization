@@ -434,6 +434,13 @@ jobs:
           unset registry
 
           kubectl apply -f 00-ms.yaml
+          d8 p queue list | head -n25 || echo "Failed to retrieve queue"
+
+          kubectl get ms
+          kubectl get mc
+
+
+
           kubectl apply -f 01-mc.yaml
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=300s
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=300s
