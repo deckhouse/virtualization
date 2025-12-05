@@ -3,6 +3,12 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.2.2
+
+### Fixes
+
+For the `d8:use:role:user` role, the permissions for starting, restarting, stopping, migrating, and restoring virtual machines (interaction with the `VirtualMachineOperation` resources) have been fixed.
+
 ## v1.2.1
 
 ### Fixes
