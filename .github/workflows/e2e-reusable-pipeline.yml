@@ -497,14 +497,41 @@ jobs:
           kubectl get modules
           echo "=========="
 
-          echo "Wait for csi-ceph"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=600s || echo "csi-ceph is not ready"
+          for i in {1..60}; do
+            csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
+            operator_ceph_status=$(kubectl get module operator-ceph -o jsonpath='{.status.phase}' || echo "False")
+            snapshot_controller_status=$(kubectl get module snapshot-controller -o jsonpath='{.status.phase}' || echo "False")
+            
+            if [ "${csi_ceph_status}" = "Ready" ] && [ "${operator_ceph_status}" = "Ready" ] && [ "${snapshot_controller_status}" = "Ready" ]; then
+              break
+            fi
+            
+            echo "Waiting 10s for csi-ceph, operator-ceph, snapshot-controller modules to be ready"
+            kubectl get modules
+            if (( i % 5 == 0 )); then
+              echo "= get ns ="
+              kubectl get ns
+              echo "= get mc ="
+              kubectl get mc
+              echo "= get modules ="
+              kubectl get mc csi-ceph -o yaml
+              kubectl get mc operator-ceph -o yaml
+              echo "====="
+            fi
+            
+            sleep 10
+          done
+
+
+
+          # echo "Wait for csi-ceph"
+          # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=600s || echo "csi-ceph is not ready"
           
-          echo "Wait for operator-ceph"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=600s || echo "operator-ceph is not ready"
+          # echo "Wait for operator-ceph"
+          # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=600s || echo "operator-ceph is not ready"
           
-          echo "Wait for snapshot-controller"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=600s || echo "snapshot-controller is not ready"
+          # echo "Wait for snapshot-controller"
+          # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=600s || echo "snapshot-controller is not ready"
           
           d8_queue
           kubectl get mc
@@ -516,6 +543,7 @@ jobs:
           kubectl apply -f 02-sa.yaml
           kubectl apply -f 03-cm.yaml
           kubectl apply -f 04-cluster.yaml
+          kubectl -n d8-operator-ceph get po
           kubectl wait --for=condition=Ready pod -n d8-operator-ceph --timeout=600s
 
           echo "Show pods"
@@ -567,6 +595,7 @@ jobs:
                   type: PersistentVolumeClaim
               virtualMachineCIDRs:
                 - 192.168.10.0/24
+            source: deckhouse
             version: 1
           ---
           apiVersion: deckhouse.io/v1alpha2
