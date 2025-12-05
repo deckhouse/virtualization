@@ -9,6 +9,7 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
+fromCacheVersion: "new-version0001" # TODO: remove this
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -83,7 +84,7 @@ shell:
     cd /kubevirt
 
     go mod download
-    go mod vendor
+    go work vendor
 
     for p in patches/*.patch ; do
       echo -n "Apply ${p} ... "
