@@ -3,6 +3,12 @@ title: "Релизы"
 weight: 70
 ---
 
+## v1.2.2
+
+### Исправления
+
+- [module] Для роли `d8:use:role:user` исправлены права доступа RBAC, которые не позволяли управлять ресурсом [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+
 ## v1.2.1
 
 ### Исправления
