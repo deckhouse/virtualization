@@ -33,6 +33,8 @@ RUN go mod edit -go=$GOVERSION && \
 
 RUN go mod vendor
 
+RUN for p in patches/*.patch ; do echo -n "Apply ${p} ... " ; git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) ; done
+
 ENV GO111MODULE=on
 ENV GOOS=linux
 ENV CGO_ENABLED=1
@@ -48,8 +50,8 @@ RUN apt-get update && apt-get install --yes \
         acl \
         procps \
         nftables \
-        qemu-img==9.0.2-alt3 \
-        xorriso==1.5.6-alt1 && \
+        qemu-img \
+        xorriso && \
     apt-get clean && \
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 

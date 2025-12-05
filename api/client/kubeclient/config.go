@@ -79,11 +79,11 @@ func GetClientFromRESTConfig(config *rest.Config) (Client, error) {
 		return nil, err
 	}
 	return &client{
-		Interface:   clientset,
-		config:      config,
-		shallowCopy: &shallowCopy,
-		restClient:  restClient,
-		virtClient:  virtClient,
+		Interface:                       clientset,
+		VirtualizationV1alpha2Interface: virtClient.VirtualizationV1alpha2(),
+		config:                          config,
+		shallowCopy:                     &shallowCopy,
+		restClient:                      restClient,
 	}, nil
 }
 
