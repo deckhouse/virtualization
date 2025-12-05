@@ -21,7 +21,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /libfuse2
+  to: /{{ .ImageName }}
   before: setup
 
 ---
@@ -90,6 +90,7 @@ shell:
     ./configure \
       --prefix=/usr \
       --sbindir=/usr/sbin \
+      --libdir=/usr/lib64 \
       --enable-lib \
       --enable-util \
       --disable-static
