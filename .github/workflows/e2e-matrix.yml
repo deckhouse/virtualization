@@ -17,7 +17,8 @@ name: E2E Matrix Tests (bootstrap)
 env:
   BRANCH: main
   VIRTUALIZATION_TAG: main
-  DECKHOUSE_TAG: main
+  # DECKHOUSE_TAG: main
+  DECKHOUSE_TAG: pr16886
   DEFAULT_USER: ubuntu
   GO_VERSION: "1.24.5"
 on:
@@ -157,7 +158,7 @@ jobs:
       - name: Bootstrap cluster [dhctl-bootstrap]
         run: |
           cd test/dvp-over-dvp
-          task dhctl-bootstrap
+          DECKHOUSE_TAG=${{ env.DECKHOUSE_TAG }} task dhctl-bootstrap
       - name: Bootstrap cluster [show-connection-info]
         run: |
           cd test/dvp-over-dvp
@@ -436,8 +437,6 @@ jobs:
 
           kubectl get ms
           kubectl get mc
-
-
 
           kubectl apply -f 01-mc.yaml
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=300s

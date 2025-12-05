@@ -140,23 +140,21 @@ tasks:
     deps:
       - render-cluster-config
     vars:
+      DECKHOUSE_TAG: '{{ .DECKHOUSE_TAG | default "main" }}'
       start_time:
         sh: date +%s
       JUMPHOST_EXT_IP:
         sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
       JUMPHOST_NODEPORT:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq ".spec.ports[] | select(.port==2222) | .nodePort"
-        # # port=$(yq eval '.infra.jumphost.svcPort' values.yaml)
-        # kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq ".spec.ports[] | select(.port==$port) | .nodePort"
-        # sh: yq eval '.infra.jumphost.svcPort' values.yaml
     cmds:
       - |
         docker run --pull=always \
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
         -v "{{ .TMP_DIR }}/dhctl:/tmp/dhctl/" \
-        -e "DHCTL_PARALLEL_CLOUD_PERMANENT_NODES_BOOTSTRAP=false" \
-        dev-registry.deckhouse.io/sys/deckhouse-oss/install:main \
+        {{ if eq .DECKHOUSE_TAG "main" }}-e "DHCTL_PARALLEL_CLOUD_PERMANENT_NODES_BOOTSTRAP=false" {{ end }}\
+        dev-registry.deckhouse.io/sys/deckhouse-oss/install:{{ .DECKHOUSE_TAG }} \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \
