@@ -61,8 +61,8 @@ on:
         required: true
       PROD_IO_REGISTRY_DOCKER_CFG:
         required: true
-      GITHUB_TOKEN:
-        required: true
+      # GITHUB_TOKEN:
+      #   required: true
 
 env:
   BRANCH: ${{ inputs.branch }}
