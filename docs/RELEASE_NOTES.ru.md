@@ -7,7 +7,7 @@ weight: 70
 
 ### Исправления
 
-- [module] Для роли `d8:use:role:user` исправлены права на запуск, перезапуск, остановку, миграцию и восстановление виртуальных машин через ресурс [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
+- [module] Для роли `d8:use:role:user` исправлены права доступа RBAC, которые не позволяли управлять ресурсом [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation).
 
 ## v1.2.1
 

@@ -7,7 +7,7 @@ weight: 70
 
 ### Fixes
 
-[module] Fixed permissions for the `d8:use:role:user` role to start, restart, stop, migrate, and restore virtual machines via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+[module] Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
 
 ## v1.2.1
 
