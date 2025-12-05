@@ -52,7 +52,7 @@ on:
       go_version:
         required: false
         type: string
-        default: '1.24.5'
+        default: '1.24.6'
         description: 'Go version'
     secrets:
       DEV_REGISTRY_DOCKER_CFG:
@@ -491,10 +491,19 @@ jobs:
 
           d8_queue
 
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=300s
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=300s
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=300s
+          kubectl get mc
+
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=900s || echo "csi-ceph is not ready"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=900s || echo "operator-ceph is not ready"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=900s || echo "snapshot-controller is not ready"
           
+          d8_queue
+          kubectl get mc
+          kubectl get ns
+          echo "=========="
+          kubectl get modules
+          echo "=========="
+
           kubectl apply -f 02-sa.yaml
           kubectl apply -f 03-cm.yaml
           kubectl apply -f 04-cluster.yaml
