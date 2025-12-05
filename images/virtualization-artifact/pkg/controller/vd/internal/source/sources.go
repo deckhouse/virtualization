@@ -182,7 +182,9 @@ func setPhaseConditionForPVCProvisioningDisk(
 				Message("Waiting for the pvc importer to be created")
 			return nil
 		}
-		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) {
+
+		dvRunningCond, _ := conditions.GetDataVolumeCondition(conditions.DVRunningConditionType, dv.Status.Conditions)
+		if isStorageClassWFFC(sc) && (dv.Status.Phase == cdiv1.PendingPopulation || dv.Status.Phase == cdiv1.WaitForFirstConsumer) && dvRunningCond.Reason == "" {
 			vd.Status.Phase = v1alpha2.DiskWaitForFirstConsumer
 			cb.
 				Status(metav1.ConditionFalse).
