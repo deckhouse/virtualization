@@ -371,20 +371,12 @@ jobs:
 
       - name: Check kubeconfig
         run: |
-          # Note: In GitHub Actions, when a job with matrix depends on another job with matrix,
-          # instances are automatically linked by their position in the matrix.
-          # This instance (storage_type=${{ inputs.storage_type }}) will receive kubeconfig
-          # from the corresponding bootstrap instance with the same matrix position.
-          echo "Current storage_type: ${{ inputs.storage_type }}"
-          echo "Bootstrap storage-type output: ${{ needs.bootstrap.outputs.storage-type }}"
-          
           mkdir -p ~/.kube
           echo "Configure kube config"
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
 
           echo "Show paths and files content"
           ls -la ~/.kube
-          cat ~/.kube/config
           chmod 600 ~/.kube/config
 
           echo "kubectl get nodes"
@@ -397,10 +389,6 @@ jobs:
           cd test/dvp-over-dvp/storage/sds-replicated
           kubectl apply -f mc.yaml
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
-
-          # echo "Check queues"
-          # chmod +x ../../tools/deckhouse-queue.sh
-          # ../../tools/deckhouse-queue.sh
 
           echo "Wait bd"
           workers=$(kubectl get nodes -o name | grep -v master | wc -l)
@@ -458,6 +446,26 @@ jobs:
           kubectl get mc
 
           kubectl apply -f 01-mc.yaml
+
+          d8_queue_list() {
+            d8 p queue list | grep -Po '([0-9]+)(?= active)'
+          }
+          
+          for i in {1..60}; do 
+            if [ $(d8_queue_list) == "0" ]; then
+              echo "list queue list is clear"
+              list_queue_ready=true
+            else
+              echo "Show queue list"
+              d8 p queue list | head -n25 || echo "Failed to retrieve queue"
+            fi
+
+            if [ "$list_queue_ready" = true ]; then
+              break
+            fi
+            sleep 20
+          done
+
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=300s
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=300s
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=300s
@@ -491,10 +499,6 @@ jobs:
 
       - name: Check kubeconfig
         run: |
-          # Note: This instance (storage_type=${{ inputs.storage_type }}) automatically receives
-          # kubeconfig from the corresponding bootstrap instance with the same matrix position.
-          echo "Current storage_type: ${{ inputs.storage_type }}"
-          echo "Bootstrap storage-type output: ${{ needs.bootstrap.outputs.storage-type }}"
           echo "Configure kube config"
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
@@ -634,10 +638,6 @@ jobs:
 
       - name: Check kubeconfig
         run: |
-          # Note: This instance (storage_type=${{ inputs.storage_type }}) automatically receives
-          # kubeconfig from the corresponding bootstrap instance with the same matrix position.
-          echo "Current storage_type: ${{ inputs.storage_type }}"
-          echo "Bootstrap storage-type output: ${{ needs.bootstrap.outputs.storage-type }}"
           echo "Configure kube config"
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
