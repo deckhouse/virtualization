@@ -56,6 +56,7 @@ type Generator interface {
 	UploaderTLSSecretForIngress() types.NamespacedName
 	ImagePullSecret() types.NamespacedName
 	NetworkPolicy() types.NamespacedName
+	CommonSupplement() types.NamespacedName
 
 	LegacyBounderPod() types.NamespacedName
 	LegacyImporterPod() types.NamespacedName
@@ -174,6 +175,11 @@ func (g *generator) DataVolume() types.NamespacedName {
 
 // NetworkPolicy generates name for NetworkPolicy.
 func (g *generator) NetworkPolicy() types.NamespacedName {
+	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
+}
+
+// CommonSupplement generates name for common supplemental resources with d8v-<prefix>-<name>-<uid> format.
+func (g *generator) CommonSupplement() types.NamespacedName {
 	return g.generateName(tplCommon, kvalidation.DNS1123SubdomainMaxLength)
 }
 

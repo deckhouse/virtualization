@@ -169,7 +169,7 @@ func (s CreatePersistentVolumeClaimStep) buildPVC(vi *v1alpha2.VirtualImage, vs 
 		DataSource: &corev1.TypedLocalObjectReference{
 			APIGroup: ptr.To(vs.GroupVersionKind().Group),
 			Kind:     vs.Kind,
-			Name:     vi.Spec.DataSource.ObjectRef.Name,
+			Name:     vs.Name,
 		},
 	}
 
