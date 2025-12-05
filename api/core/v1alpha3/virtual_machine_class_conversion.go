@@ -124,6 +124,20 @@ func convertSpecV3ToV2(v3Spec VirtualMachineClassSpec) (v1alpha2.VirtualMachineC
 				}
 			}
 
+			if v3Policy.DefaultCoreFraction != nil {
+				fractionStr := string(*v3Policy.DefaultCoreFraction)
+				if !regexp.MustCompile(`^([1-9]|[1-9][0-9]|100)%$`).MatchString(fractionStr) {
+					return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("spec.sizingPolicies[%d].defaultCoreFraction: value must be a percentage between 1%% and 100%% (e.g., 5%%, 10%%, 50%%), got %q", i, fractionStr)
+				}
+				fractionStr = fractionStr[:len(fractionStr)-1]
+				fractionInt, err := strconv.Atoi(fractionStr)
+				if err != nil {
+					return v1alpha2.VirtualMachineClassSpec{}, fmt.Errorf("failed to parse default core fraction: %w", err)
+				}
+				v2Fraction := v1alpha2.CoreFractionValue(fractionInt)
+				v2Policy.DefaultCoreFraction = &v2Fraction
+			}
+
 			v2Spec.SizingPolicies[i] = v2Policy
 		}
 	}
@@ -189,6 +203,11 @@ func convertSpecV2ToV3(v2Spec v1alpha2.VirtualMachineClassSpec) VirtualMachineCl
 				for j, v2Fraction := range v2Policy.CoreFractions {
 					v3Policy.CoreFractions[j] = CoreFractionValue(fmt.Sprintf("%d%%", v2Fraction))
 				}
+			}
+
+			if v2Policy.DefaultCoreFraction != nil {
+				v3Fraction := CoreFractionValue(fmt.Sprintf("%d%%", *v2Policy.DefaultCoreFraction))
+				v3Policy.DefaultCoreFraction = &v3Fraction
 			}
 
 			v3Spec.SizingPolicies[i] = v3Policy

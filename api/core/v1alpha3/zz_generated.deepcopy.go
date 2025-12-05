@@ -165,6 +165,11 @@ func (in *SizingPolicy) DeepCopyInto(out *SizingPolicy) {
 		*out = make([]CoreFractionValue, len(*in))
 		copy(*out, *in)
 	}
+	if in.DefaultCoreFraction != nil {
+		in, out := &in.DefaultCoreFraction, &out.DefaultCoreFraction
+		*out = new(CoreFractionValue)
+		**out = **in
+	}
 	if in.DedicatedCores != nil {
 		in, out := &in.DedicatedCores, &out.DedicatedCores
 		*out = make([]bool, len(*in))
