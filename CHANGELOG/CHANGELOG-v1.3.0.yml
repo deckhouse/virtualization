@@ -1,0 +1,27 @@
+core:
+  features:
+    - summary: Add VirtualMachineSnapshotOperations.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1728
+kubevirt:
+  fixes:
+    - summary: use container_kvm_t SELinux type for KubeVirt pods for security compliance
+      pull_request: https://github.com/deckhouse/virtualization/pull/1665
+vd:
+  fixes:
+    - summary: Restore annotations correctly.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1758
+    - summary: VirtualDisk no longer stuck in WaitForFirstConsumer phase after VM attachment.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1516
+vm:
+  fixes:
+    - summary: Fix migrating if node selector in vmclass was changed.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1773
+vmop:
+  fixes:
+    - summary: Fix VirtualDisk annotations and labels restoring by VMOP Restore.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1753
+vmsnapshot:
+  fixes:
+    - summary: Process secret already exists error.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1762
+
