@@ -23,10 +23,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
@@ -87,14 +85,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualDisk{},
-			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualDisk]{},
-		),
-	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
-	}
-
 	vdFromVIEnqueuer := watchers.NewVirtualDiskRequestEnqueuer(mgr.GetClient(), &v1alpha2.VirtualImage{}, v1alpha2.VirtualDiskObjectRefKindVirtualImage)
 	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), vdFromVIEnqueuer)
 	if err := viWatcher.Run(mgr, ctr); err != nil {
@@ -109,6 +99,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 
 	mgrClient := mgr.GetClient()
 	for _, w := range []Watcher{
+		watcher.NewVirtualDiskWatcher(),
 		watcher.NewPersistentVolumeClaimWatcher(mgrClient),
 		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
 		watcher.NewStorageClassWatcher(mgrClient),

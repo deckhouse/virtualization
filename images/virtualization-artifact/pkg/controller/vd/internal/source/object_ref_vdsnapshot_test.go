@@ -18,6 +18,7 @@ package source
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -34,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -185,7 +187,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		It("waits for the first consumer", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc, vdSnapshot, vs).Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
 
@@ -200,7 +202,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		It("is in provisioning", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc, vdSnapshot, vs).Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
 
@@ -271,6 +273,30 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
 			Expect(vd.Status.Phase).To(Equal(v1alpha2.DiskLost))
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
+		})
+	})
+
+	Context("Virtual disk has annotations and labels", func() {
+		It("checks that the restored virtual disk has its original metadata", func() {
+			key := "key"
+			value := "value"
+			originalMetadata := fmt.Sprintf("{\"%s\":\"%s\"}", key, value)
+
+			vs.Annotations = map[string]string{
+				annotations.AnnVirtualDiskOriginalAnnotations: originalMetadata,
+				annotations.AnnVirtualDiskOriginalLabels:      originalMetadata,
+			}
+
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).Build()
+
+			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+
+			Expect(vd.Annotations).To(HaveKeyWithValue(key, value))
+			Expect(vd.Labels).To(HaveKeyWithValue(key, value))
 		})
 	})
 })

@@ -105,6 +105,8 @@ const (
 	// ReasonVIStorageClassNotFound is event reason that VIStorageClass not found.
 	ReasonVIStorageClassNotFound = "VirtualImageStorageClassNotFound"
 
+	// ReasonMetadataSyncStarted is event reason that Metadata sync is started.
+	ReasonMetadataSyncStarted = "MetadataSyncStarted"
 	// ReasonDataSourceSyncStarted is event reason that DataSource sync is started.
 	ReasonDataSourceSyncStarted = "DataSourceImportStarted"
 	// ReasonDataSourceSyncInProgress is event reason that DataSource sync is in progress.
