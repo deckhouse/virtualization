@@ -1,0 +1,84 @@
+# Copyright 2025 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: E2E Pipeline (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      storage_type:
+        required: true
+        type: string
+        description: "Storage type (ceph or replicated)"
+      nested_storageclass_name:
+        required: true
+        type: string
+        description: "Nested storage class name"
+      default_cluster_storageclass:
+        required: true
+        type: string
+        description: "Default cluster storage class"
+      branch:
+        required: false
+        type: string
+        default: "main"
+        description: "Branch to use"
+      virtualization_tag:
+        required: false
+        type: string
+        default: "main"
+        description: "Virtualization tag"
+      deckhouse_tag:
+        required: false
+        type: string
+        default: "main"
+        description: "Deckhouse tag"
+      default_user:
+        required: false
+        type: string
+        default: "ubuntu"
+        description: "Default user"
+      go_version:
+        required: false
+        type: string
+        default: "1.24.5"
+        description: "Go version"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG:
+        required: true
+      VIRT_E2E_NIGHTLY_SA_TOKEN:
+        required: true
+      PROD_IO_REGISTRY_DOCKER_CFG:
+        required: true
+      GITHUB_TOKEN:
+        required: true
+
+env:
+  BRANCH: ${{ inputs.branch }}
+  VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
+  DECKHOUSE_TAG: ${{ inputs.deckhouse_tag }}
+  DEFAULT_USER: ${{ inputs.default_user }}
+  GO_VERSION: ${{ inputs.go_version }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  noop:
+    name: Bootstrap
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say hello
+        run: echo "Bootstrap workflow OK"
