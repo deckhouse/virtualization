@@ -97,9 +97,21 @@ func (s ImporterService) Start(
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
-func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
+func (s ImporterService) StartWithPodSetting(
+	ctx context.Context,
+	settings *importer.Settings,
+	sup supplements.Generator,
+	caBundle *datasource.CABundle,
+	podSettings *importer.PodSettings,
+	opts ...Option,
+) error {
+	options := newGenericOptions(opts...)
 	settings.Verbose = s.verbose
+
 	podSettings.Finalizer = s.protection.finalizer
+	if options.nodePlacement != nil {
+		podSettings.NodePlacement = options.nodePlacement
+	}
 
 	pod, err := importer.NewImporter(podSettings, settings).GetOrCreatePod(ctx, s.client)
 	if err != nil {

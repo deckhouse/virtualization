@@ -117,7 +117,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
-		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
+		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings, service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.

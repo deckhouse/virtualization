@@ -37,3 +37,12 @@ func WithNodePlacement(nodePlacement *provisioner.NodePlacement) Option {
 		o.nodePlacement = nodePlacement
 	}
 }
+
+func WithSystemNodeToleration() Option {
+	return func(o *genericOptions) {
+		if o.nodePlacement == nil {
+			o.nodePlacement = &provisioner.NodePlacement{}
+		}
+		provisioner.AddTolerationForSystemNodes(o.nodePlacement)
+	}
+}
