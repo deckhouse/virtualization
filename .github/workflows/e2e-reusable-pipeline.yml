@@ -492,10 +492,19 @@ jobs:
           d8_queue
 
           kubectl get mc
+          kubectl get ns
+          echo "=========="
+          kubectl get modules
+          echo "=========="
 
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=900s || echo "csi-ceph is not ready"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=900s || echo "operator-ceph is not ready"
-          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=900s || echo "snapshot-controller is not ready"
+          echo "Wait for csi-ceph"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=600s || echo "csi-ceph is not ready"
+          
+          echo "Wait for operator-ceph"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=600s || echo "operator-ceph is not ready"
+          
+          echo "Wait for snapshot-controller"
+          kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=600s || echo "snapshot-controller is not ready"
           
           d8_queue
           kubectl get mc
@@ -555,7 +564,7 @@ jobs:
                   persistentVolumeClaim:
                     size: 10Gi
                     storageClassName: ${{ inputs.nested_storageclass_name }}
-                    type: PersistentVolumeClaim
+                  type: PersistentVolumeClaim
               virtualMachineCIDRs:
                 - 192.168.10.0/24
             version: 1
@@ -632,6 +641,10 @@ jobs:
             fi
             echo "Waiting 10s for Virtualization module to be ready"
             kubectl get modules virtualization
+            if (( i % 5 == 0 )); then
+              kubectl get ns
+              kubectl get ns virtualization || echo "ns virtualization is not ready"
+            fi
             sleep 10
           done
 
