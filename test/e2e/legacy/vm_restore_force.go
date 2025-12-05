@@ -174,27 +174,27 @@ var _ = Describe("VirtualMachineRestoreForce", Ordered, func() {
 					})
 			})
 
-			// By("Attaching `VirtualDisk` after `VirtualMachine` snapshotting", func() {
-			// 	for i, vm := range vms.Items {
-			// 		vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
-			// 		newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
-			// 		CreateResource(ctx, newDisk)
-			// 		newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, v1alpha2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
-			// 		CreateResource(ctx, newVmbda)
-			//
-			// 		WaitPhaseByLabel(
-			// 			v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
-			// 			string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
-			// 			kc.WaitOptions{
-			// 				Namespace: vm.Namespace,
-			// 				Labels:    additionalDiskLabel,
-			// 				Timeout:   LongWaitDuration,
-			// 			})
-			// 		err := GetObject(v1alpha2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
-			// 		Expect(err).NotTo(HaveOccurred())
-			// 		Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name] + 1))
-			// 	}
-			// })
+			By("Attaching `VirtualDisk` after `VirtualMachine` snapshotting", func() {
+				for i, vm := range vms.Items {
+					vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
+					newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
+					CreateResource(ctx, newDisk)
+					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, v1alpha2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
+					CreateResource(ctx, newVmbda)
+
+					WaitPhaseByLabel(
+						v1alpha2.VirtualMachineBlockDeviceAttachmentResource,
+						string(v1alpha2.BlockDeviceAttachmentPhaseAttached),
+						kc.WaitOptions{
+							Namespace: vm.Namespace,
+							Labels:    additionalDiskLabel,
+							Timeout:   LongWaitDuration,
+						})
+					err := GetObject(v1alpha2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(vm.Status.BlockDeviceRefs).To(HaveLen(vmBlockDeviceCountBeforeSnapshotting[vm.Name] + 1))
+				}
+			})
 
 			By("Creating `VirtualMachineRestores`", func() {
 				vmsnapshots := &v1alpha2.VirtualMachineSnapshotList{}
@@ -295,12 +295,12 @@ var _ = Describe("VirtualMachineRestoreForce", Ordered, func() {
 							// Expect(vd.Labels).To(HaveKeyWithValue(testLabelKey, testLabelValue))
 						}
 
-						// if bd.VirtualMachineBlockDeviceAttachmentName != "" {
-						// 	vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-						// 	err := GetObject(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
-						// 	Expect(err).NotTo(HaveOccurred())
-						// 	Expect(vmbda.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
-						// }
+						if bd.VirtualMachineBlockDeviceAttachmentName != "" {
+							vmbda := &v1alpha2.VirtualMachineBlockDeviceAttachment{}
+							err := GetObject(v1alpha2.VirtualMachineBlockDeviceAttachmentKind, bd.VirtualMachineBlockDeviceAttachmentName, vmbda, kc.GetOptions{Namespace: vm.Namespace})
+							Expect(err).NotTo(HaveOccurred())
+							Expect(vmbda.Annotations).To(HaveKeyWithValue(annotations.AnnVMRestore, string(restore.UID)))
+						}
 					}
 				}
 			})
