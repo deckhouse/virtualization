@@ -51,3 +51,21 @@ func WithForce(force *bool) Option {
 		vmop.Spec.Force = force
 	}
 }
+
+func WithVMOPRestoreMode(mode v1alpha2.SnapshotOperationMode) Option {
+	return func(vmop *v1alpha2.VirtualMachineOperation) {
+		if vmop.Spec.Restore == nil {
+			vmop.Spec.Restore = &v1alpha2.VirtualMachineOperationRestoreSpec{}
+		}
+		vmop.Spec.Restore.Mode = mode
+	}
+}
+
+func WithVirtualMachineSnapshotName(name string) Option {
+	return func(vmop *v1alpha2.VirtualMachineOperation) {
+		if vmop.Spec.Restore == nil {
+			vmop.Spec.Restore = &v1alpha2.VirtualMachineOperationRestoreSpec{}
+		}
+		vmop.Spec.Restore.VirtualMachineSnapshotName = name
+	}
+}
