@@ -76,7 +76,6 @@ altLibs:
   - psmisc
   - msulogin
   - strace
-  - libfuse
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -102,7 +101,7 @@ packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
 - gnutls acl libbsd libgcrypt libmd
-- util-linux libfuse3 nettle libgsasl
+- util-linux libfuse3 libfuse2 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
 - zlib zstd p11-kit
