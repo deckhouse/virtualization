@@ -295,10 +295,12 @@ jobs:
           CONFIG=$(echo $CONFIG | base64 -w 0)
           echo "config=$CONFIG" >> $GITHUB_OUTPUT
       
-      - name: Set permissions for artifact
+      - name: Prepare artifact
         if: always()
         run: |
           sudo chown -fR 1001:1001 test/dvp-over-dvp
+          yq e '.deckhouse.registryDockerCfg = "None"' -i values.yaml
+          yq e 'select(.kind == "InitConfiguration") .deckhouse.registryDockerCfg = "None"' -i ./tmp/config.yaml
       - name: Upload generated files
         uses: actions/upload-artifact@v4
         id: artifact-upload
@@ -326,7 +328,6 @@ jobs:
     name: Configure storage (${{ matrix.storage_type }})
     runs-on: ubuntu-latest
     needs: bootstrap
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -466,7 +467,6 @@ jobs:
     needs:
       - bootstrap
       - configure-storage
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -601,7 +601,6 @@ jobs:
       - bootstrap
       - configure-storage
       - configure-virtualization
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
