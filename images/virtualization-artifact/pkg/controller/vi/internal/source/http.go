@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -378,6 +379,48 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 			v1alpha2.ReasonDataSourceSyncCompleted,
 			"The HTTP DataSource import has completed",
 		)
+
+		_, exists := vi.Annotations[annotations.AnnUseVolumeSnapshot]
+		if exists {
+			var vs *vsv1.VolumeSnapshot
+			vs, err = ds.diskService.GetVolumeSnapshot(ctx, pvc.Name, pvc.Namespace)
+			if err != nil {
+				vi.Status.Phase = v1alpha2.ImageFailed
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.ProvisioningFailed).
+					Message(err.Error())
+				return reconcile.Result{}, nil
+			}
+
+			if vs == nil {
+				err = ds.diskService.CreateVolumeSnapshot(ctx, pvc)
+				if err != nil {
+					vi.Status.Phase = v1alpha2.ImageFailed
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vicondition.ProvisioningFailed).
+						Message(err.Error())
+					return reconcile.Result{}, nil
+				}
+
+				vi.Status.Phase = v1alpha2.ImageProvisioning
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.Provisioning).
+					Message("The VolumeSnapshot has been created.")
+				return reconcile.Result{RequeueAfter: time.Second}, nil
+			}
+
+			if vs.Status.ReadyToUse == nil || !(*vs.Status.ReadyToUse) {
+				vi.Status.Phase = v1alpha2.ImageProvisioning
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vicondition.Provisioning).
+					Message("Waiting for the VolumeSnapshot to be ready to use.")
+				return reconcile.Result{RequeueAfter: time.Second}, nil
+			}
+		}
 
 		vi.Status.Phase = v1alpha2.ImageReady
 		cb.
