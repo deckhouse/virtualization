@@ -7,7 +7,7 @@ weight: 70
 
 ### Fixes
 
-For the `d8:use:role:user` role, the permissions for starting, restarting, stopping, migrating, and restoring virtual machines (interaction with the `VirtualMachineOperation` resources) have been fixed.
+[module] Fixed permissions for the `d8:use:role:user` role to start, restart, stop, migrate, and restore virtual machines via [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
 
 ## v1.2.1
 
