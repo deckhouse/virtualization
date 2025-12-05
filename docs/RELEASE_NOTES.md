@@ -3,6 +3,12 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.2.2
+
+### Fixes
+
+[module] Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the [VirtualMachineOperation](/modules/virtualization/cr.html#virtualmachineoperation) resource.
+
 ## v1.2.1
 
 ### Fixes
