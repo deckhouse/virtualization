@@ -447,24 +447,49 @@ jobs:
 
           kubectl apply -f 01-mc.yaml
 
-          d8_queue_list() {
-            d8 p queue list | grep -Po '([0-9]+)(?= active)'
+          d8_queue_main() {
+            d8 p queue main | grep -Po '(?<=length )([0-9]+)' || echo "Failed to retrieve main queue"
           }
-          
-          for i in {1..60}; do 
-            if [ $(d8_queue_list) == "0" ]; then
-              echo "list queue list is clear"
-              list_queue_ready=true
-            else
-              echo "Show queue list"
-              d8 p queue list | head -n25 || echo "Failed to retrieve queue"
-            fi
 
-            if [ "$list_queue_ready" = true ]; then
-              break
-            fi
-            sleep 20
-          done
+          d8_queue_list() {
+            d8 p queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
+          }
+
+          d8_queue() {
+            local count=90
+            local main_queue_ready=false
+            local list_queue_ready=false
+
+            for i in $(seq 1 $count) ; do
+              if [ $(d8_queue_main) == "0" ]; then
+                echo "Main queue is clear"
+                main_queue_ready=true
+              else
+                echo "Show main queue"
+                d8 p queue main | head -n25 || echo "Failed to retrieve main queue" 
+              fi
+
+              if [ $(d8_queue_list) == "0" ]; then
+                echo "Queue list is clear"
+                list_queue_ready=true
+              else
+                echo "Show queue list"
+                d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
+              fi
+
+              if [ "$main_queue_ready" = true ] && [ "$list_queue_ready" = true ]; then
+                break
+              fi
+              echo "===="
+              echo "Wait until queues are empty ${i}/${count}"
+              echo "===="
+              kubectl get ns
+              echo "   "
+              sleep 10
+            done
+          }
+
+          d8_queue
 
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules csi-ceph --timeout=300s
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules operator-ceph --timeout=300s
