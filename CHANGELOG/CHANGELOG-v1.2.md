@@ -27,6 +27,7 @@
  - **[core]** add missing libraries to virt-launcher build [#1761](https://github.com/deckhouse/virtualization/pull/1761)
  - **[core]** Fixed the MethodNotAllowed error for patch and watch operations when querying the `VirtualMachineClass` resource via command-line utilities (d8 k, kubectl). [#1666](https://github.com/deckhouse/virtualization/pull/1666)
  - **[images]** Fixed an issue that prevented deleting `VirtualImage` and `ClusterVirtualImage` resources for a stopped virtual machine. [#1669](https://github.com/deckhouse/virtualization/pull/1669)
+ - **[module]** Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from managing the VirtualMachineOperation resource. [#1794](https://github.com/deckhouse/virtualization/pull/1794)
  - **[module]** The deprecated part of the configuration has been removed, which could have prevented the virtualization module from upgrading in clusters running Kubernetes version 1.34 and above. [#1771](https://github.com/deckhouse/virtualization/pull/1771)
  - **[module]** Fixed RBAC for the `user` and `editor` cluster roles. [#1749](https://github.com/deckhouse/virtualization/pull/1749)
  - **[module]** Fixed the `D8VirtualizationVirtualMachineFirmwareOutOfDate` alert, which could be duplicated when virtualization runs in HA mode. [#1739](https://github.com/deckhouse/virtualization/pull/1739)
