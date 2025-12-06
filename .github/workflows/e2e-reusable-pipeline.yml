@@ -434,19 +434,6 @@ jobs:
       - name: Configure ceph storage
         if: ${{ inputs.storage_type == 'ceph' }}
         run: |
-          cd test/dvp-over-dvp/storage/ceph
-          export registry=${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
-          yq e '.spec.registry.dockerCfg = env(registry)' -i 00-ms.yaml
-          unset registry
-
-          kubectl apply -f 00-ms.yaml
-          d8 p queue list | head -n25 || echo "Failed to retrieve queue"
-
-          kubectl get ms
-          kubectl get mc
-
-          kubectl apply -f 01-mc.yaml
-
           d8_queue_main() {
             d8 p queue main | grep -Po '(?<=length )([0-9]+)' || echo "Failed to retrieve main queue"
           }
@@ -489,38 +476,113 @@ jobs:
             done
           }
 
+          cd test/dvp-over-dvp/storage/ceph
+          export registry=${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+          yq e '.spec.registry.dockerCfg = env(registry)' -i 00-ms.yaml
+          unset registry
+
+          kubectl apply -f 00-ms.yaml
+          d8 p queue list | head -n25 || echo "Failed to retrieve queue"
+
+          kubectl get ms
+          kubectl get mc
+
+          kubectl apply -f 01-mc.yaml
+
           d8_queue
 
-          kubectl get mc
-          kubectl get ns
-          echo "=========="
-          kubectl get modules
-          echo "=========="
-
+          echo "Wait for ceph operator and csi"
           for i in {1..60}; do
+            ceph_operator_status=$(kubectl get ns d8-operator-ceph -o jsonpath='{.status.phase}' || echo "False")
             csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
-            operator_ceph_status=$(kubectl get module operator-ceph -o jsonpath='{.status.phase}' || echo "False")
-            snapshot_controller_status=$(kubectl get module snapshot-controller -o jsonpath='{.status.phase}' || echo "False")
-            
-            if [ "${csi_ceph_status}" = "Ready" ] && [ "${operator_ceph_status}" = "Ready" ] && [ "${snapshot_controller_status}" = "Ready" ]; then
+            if [ "${ceph_operator_status}" = "Active" ] && [ "${csi_ceph_status}" = "Ready" ]; then
               break
             fi
+            echo "Waiting 10s for ceph operator and csi namespaces to be ready"
+            echo "get ns"
+            kubectl get ns | grep ceph
             
-            echo "Waiting 10s for csi-ceph, operator-ceph, snapshot-controller modules to be ready"
-            kubectl get modules
             if (( i % 5 == 0 )); then
               echo "= get ns ="
               kubectl get ns
-              echo "= get mc ="
-              kubectl get mc
-              echo "= get modules ="
-              kubectl get mc csi-ceph -o yaml
-              kubectl get mc operator-ceph -o yaml
               echo "====="
             fi
-            
-            sleep 10
           done
+
+          kubectl apply -f 02-sa.yaml
+          kubectl apply -f 03-cm.yaml
+          kubectl apply -f 04-cluster.yaml
+          kubectl -n d8-operator-ceph get po
+          
+          echo "Wait for ceph operator"
+          for i in {1..60}; do
+            ceph_mgr=$(kubectl -n d8-operator-ceph get po | grep ceph-mgr | grep Running | wc -l)
+            ceph_mon=$(kubectl -n d8-operator-ceph get po | grep ceph-mon | grep Running | wc -l)
+            ceph_osd=$(kubectl -n d8-operator-ceph get po | grep ceph-osd | grep Running | wc -l)
+            if [ "${ceph_mgr}" -ge "2"] && [ "${ceph_mon}" -ge "3" ] && [ "${ceph_osd}" -ge "3" ]; then
+              break
+            fi
+
+            echo "Waiting 10s for ceph operator to be ready"
+            kubectl -n d8-operator-ceph get po || echo "Failed to retrieve pods"
+            if (( i % 5 == 0 )); then
+              echo "= Get ceph ns ="
+              kubectl get ns | grep ceph
+              echo "= Get mc ="
+              kubectl get mc | grep ceph
+              echo "= Get modules ="
+              kubectl get modules  -o wide | grep ceph
+              echo "====="
+              echo "Show queue"
+              d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
+              echo "====="
+            fi
+          done
+          
+          
+          # kubectl wait --for=condition=Ready pod -n d8-operator-ceph --timeout=600s
+
+          echo "Show pods"
+          kubectl get pods -n d8-operator-ceph
+
+          kubectl apply -f 05-blockpool.yaml
+          kubectl apply -f 06-toolbox.yaml
+
+          chmod+x ./ceph-configre.sh
+          ./ceph-configre.sh
+
+          # ===================
+
+          # kubectl get mc
+          # kubectl get ns
+          # echo "=========="
+          # kubectl get modules
+          # echo "=========="
+
+          # for i in {1..60}; do
+          #   csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
+          #   operator_ceph_status=$(kubectl get module operator-ceph -o jsonpath='{.status.phase}' || echo "False")
+          #   snapshot_controller_status=$(kubectl get module snapshot-controller -o jsonpath='{.status.phase}' || echo "False")
+            
+          #   if [ "${csi_ceph_status}" = "Ready" ] && [ "${operator_ceph_status}" = "Ready" ] && [ "${snapshot_controller_status}" = "Ready" ]; then
+          #     break
+          #   fi
+            
+          #   echo "Waiting 10s for csi-ceph, operator-ceph, snapshot-controller modules to be ready"
+          #   kubectl get modules
+          #   if (( i % 5 == 0 )); then
+          #     echo "= get ns ="
+          #     kubectl get ns
+          #     echo "= get mc ="
+          #     kubectl get mc
+          #     echo "= get modules ="
+          #     kubectl get mc csi-ceph -o yaml
+          #     kubectl get mc operator-ceph -o yaml
+          #     echo "====="
+          #   fi
+            
+          #   sleep 10
+          # done
 
 
 
@@ -533,27 +595,27 @@ jobs:
           # echo "Wait for snapshot-controller"
           # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules snapshot-controller --timeout=600s || echo "snapshot-controller is not ready"
           
-          d8_queue
-          kubectl get mc
-          kubectl get ns
-          echo "=========="
-          kubectl get modules
-          echo "=========="
+          # d8_queue
+          # kubectl get mc
+          # kubectl get ns
+          # echo "=========="
+          # kubectl get modules
+          # echo "=========="
 
-          kubectl apply -f 02-sa.yaml
-          kubectl apply -f 03-cm.yaml
-          kubectl apply -f 04-cluster.yaml
-          kubectl -n d8-operator-ceph get po
-          kubectl wait --for=condition=Ready pod -n d8-operator-ceph --timeout=600s
+          # kubectl apply -f 02-sa.yaml
+          # kubectl apply -f 03-cm.yaml
+          # kubectl apply -f 04-cluster.yaml
+          # kubectl -n d8-operator-ceph get po
+          # kubectl wait --for=condition=Ready pod -n d8-operator-ceph --timeout=600s
 
-          echo "Show pods"
-          kubectl get pods -n d8-operator-ceph
+          # echo "Show pods"
+          # kubectl get pods -n d8-operator-ceph
 
-          kubectl apply -f 05-blockpool.yaml
-          kubectl apply -f 06-toolbox.yaml
+          # kubectl apply -f 05-blockpool.yaml
+          # kubectl apply -f 06-toolbox.yaml
 
-          chmod+x ./ceph-configre.sh
-          ./ceph-configre.sh
+          # chmod+x ./ceph-configre.sh
+          # ./ceph-configre.sh
           
   configure-virtualization:
     name: Configure Virtualization (${{ inputs.storage_type }})
