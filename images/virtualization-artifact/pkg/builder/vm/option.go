@@ -139,3 +139,9 @@ func WithNetwork(network v1alpha2.NetworksSpec) Option {
 		vm.Spec.Networks = append(vm.Spec.Networks, network)
 	}
 }
+
+func WithOsType(osType v1alpha2.OsType) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.OsType = osType
+	}
+}
