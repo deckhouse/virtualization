@@ -36,7 +36,8 @@ jobs:
       default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
       branch: main
       virtualization_tag: main
-      deckhouse_tag: pr16886
+      deckhouse_tag: main
+      # deckhouse_tag: pr16886
       default_user: ubuntu
       go_version: "1.24.6"
     secrets:
@@ -53,7 +54,8 @@ jobs:
       default_cluster_storageclass: ceph-pool-r2-csi-rbd-immediate
       branch: main
       virtualization_tag: main
-      deckhouse_tag: pr16886
+      deckhouse_tag: main
+      # deckhouse_tag: pr16886
       default_user: ubuntu
       go_version: "1.24.6"
     secrets:
