@@ -1,0 +1,74 @@
+---
+# Service account for the job that reports the Ceph version in an image
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-cmd-reporter
+  namespace: d8-operator-ceph # namespace:cluster
+  labels:
+    operator: rook
+    storage-backend: ceph
+    app.kubernetes.io/part-of: rook-ceph-operator
+imagePullSecrets:
+  - name: operator-ceph-registrysecret
+---
+# Service account for Ceph mgrs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-mgr
+  namespace: d8-operator-ceph # namespace:cluster
+  labels:
+    operator: rook
+    storage-backend: ceph
+    app.kubernetes.io/part-of: rook-ceph-operator
+imagePullSecrets:
+  - name: operator-ceph-registrysecret
+---
+# Service account for Ceph OSDs
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-osd
+  namespace: d8-operator-ceph # namespace:cluster
+  labels:
+    operator: rook
+    storage-backend: ceph
+    app.kubernetes.io/part-of: rook-ceph-operator
+imagePullSecrets:
+  - name: operator-ceph-registrysecret
+---
+# Service account for job that purges OSDs from a Rook-Ceph cluster
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-purge-osd
+  namespace: d8-operator-ceph # namespace:cluster
+imagePullSecrets:
+  - name: operator-ceph-registrysecret
+---
+# Service account for RGW server
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-rgw
+  namespace: d8-operator-ceph # namespace:cluster
+  labels:
+    operator: rook
+    storage-backend: ceph
+    app.kubernetes.io/part-of: rook-ceph-operator
+imagePullSecrets:
+  - name: operator-ceph-registrysecret
+---
+# Service account for RGW server
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rook-ceph-default
+  namespace: d8-operator-ceph # namespace:cluster
+  labels:
+    operator: rook
+    storage-backend: ceph
+    app.kubernetes.io/part-of: rook-ceph-operator
+imagePullSecrets:
+  - name: operator-ceph-registrysecret

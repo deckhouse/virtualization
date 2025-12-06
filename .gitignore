@@ -46,6 +46,9 @@ local.Dockerfile
 # direnv
 .envrc
 
+# dotenv file
+.env
+
 # logs
 log/
 logs/
@@ -60,3 +63,6 @@ retry/
 # nodejs
 node_modules/
 package-lock.json
+
+# values
+values.yaml
