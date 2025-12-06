@@ -32,9 +32,7 @@ import (
 )
 
 type ConsoleREST struct {
-	vmLister         virtlisters.VirtualMachineLister
-	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtAPIServerConfig
+	*BaseREST
 }
 
 type KubevirtAPIServerConfig struct {
@@ -48,12 +46,8 @@ var (
 	_ rest.Connecter = &ConsoleREST{}
 )
 
-func NewConsoleREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
-	return &ConsoleREST{
-		vmLister:         vmLister,
-		kubevirt:         kubevirt,
-		proxyCertManager: proxyCertManager,
-	}
+func NewConsoleREST(baseREST *BaseREST) *ConsoleREST {
+	return &ConsoleREST{baseREST}
 }
 
 // New implements rest.Storage interface

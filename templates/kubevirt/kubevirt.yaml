@@ -64,6 +64,7 @@ spec:
       - VolumesUpdateStrategy
       - HostDevicesWithDRA
       - HostDevices
+      - HotplugHostDevicesWithDRA # custom
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:

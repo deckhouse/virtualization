@@ -17,8 +17,9 @@ limitations under the License.
 package logger
 
 import (
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/spf13/pflag"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type Options struct {

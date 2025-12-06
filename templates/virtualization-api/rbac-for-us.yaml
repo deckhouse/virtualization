@@ -9,6 +9,7 @@ metadata:
 imagePullSecrets:
 - name: virtualization-module-registry
 ---
+# TODO: add addresourceclaim and removeresourceclaim permissions after rebase to main
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:

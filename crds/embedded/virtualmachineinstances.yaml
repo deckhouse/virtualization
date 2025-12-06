@@ -2787,6 +2787,8 @@ spec:
                     It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                     Containers that need access to the ResourceClaim reference it with this name.
                   properties:
+                    hotpluggable:
+                      type: boolean
                     name:
                       description: |-
                         Name uniquely identifies this resource claim inside the pod.
@@ -3631,7 +3633,6 @@ spec:
                                   description: PCIAddress is the PCIe bus address
                                     of the allocated device
                                   type: string
-                                  type: object
                               type: object
                             name:
                               description: Name is the name of actual device on the
@@ -3640,6 +3641,17 @@ spec:
                             resourceClaimName:
                               description: ResourceClaimName is the name of the resource
                                 claims object used to provision this resource
+                              type: string
+                          type: object
+                        hotplug:
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used to
+                                attach the device to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used to attach
+                                the device to the node.
                               type: string
                           type: object
                         name:
@@ -3698,6 +3710,17 @@ spec:
                             resourceClaimName:
                               description: ResourceClaimName is the name of the resource
                                 claims object used to provision this resource
+                              type: string
+                          type: object
+                        hotplug:
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used to
+                                attach the device to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used to attach
+                                the device to the node.
                               type: string
                           type: object
                         name:
@@ -7241,6 +7264,8 @@ spec:
                     It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                     Containers that need access to the ResourceClaim reference it with this name.
                   properties:
+                    hotpluggable:
+                      type: boolean
                     name:
                       description: |-
                         Name uniquely identifies this resource claim inside the pod.
