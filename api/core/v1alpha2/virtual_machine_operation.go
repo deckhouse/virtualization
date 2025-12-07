@@ -58,10 +58,22 @@ type VirtualMachineOperationSpec struct {
 	// * Effect on `Restart` and `Stop`: operation performs immediately.
 	// * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
 	Force *bool `json:"force,omitempty"`
+	// Evict contains settings for Evict operation.
+	// +optional
+	Evict *VirtualMachineOperationEvictSpec `json:"evict,omitempty"`
 	// Restore defines the restore operation.
 	Restore *VirtualMachineOperationRestoreSpec `json:"restore,omitempty"`
 	// Clone defines the clone operation.
 	Clone *VirtualMachineOperationCloneSpec `json:"clone,omitempty"`
+}
+
+// VirtualMachineOperationEvictSpec defines settings for Evict operation.
+type VirtualMachineOperationEvictSpec struct {
+	// NodeSelector restricts the set of nodes the VM can migrate to.
+	// Passed to KubeVirt's AddedNodeSelector which complements
+	// any existing nodeSelector or nodeAffinity on the VM.
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // VirtualMachineOperationRestoreSpec defines the restore operation.

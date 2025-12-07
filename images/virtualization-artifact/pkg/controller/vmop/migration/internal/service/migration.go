@@ -51,6 +51,12 @@ func (s MigrationService) IsApplicableForRunPolicy(runPolicy v1alpha2.RunPolicy)
 }
 
 func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
+	spec := virtv1.VirtualMachineInstanceMigrationSpec{
+		VMIName: vmop.Spec.VirtualMachine,
+	}
+	if vmop.Spec.Evict != nil && len(vmop.Spec.Evict.NodeSelector) > 0 {
+		spec.AddedNodeSelector = vmop.Spec.Evict.NodeSelector
+	}
 	return client.IgnoreAlreadyExists(s.client.Create(ctx, &virtv1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.SchemeGroupVersion.String(),
@@ -70,9 +76,7 @@ func (s MigrationService) CreateMigration(ctx context.Context, vmop *v1alpha2.Vi
 				},
 			},
 		},
-		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
-			VMIName: vmop.Spec.VirtualMachine,
-		},
+		Spec: spec,
 	}))
 }
 
