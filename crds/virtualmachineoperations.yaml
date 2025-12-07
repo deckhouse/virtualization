@@ -151,6 +151,18 @@ spec:
                         && size(self.customization.namePrefix) > 0) || (has(self.customization.nameSuffix)
                         && size(self.customization.nameSuffix) > 0))) || (has(self.nameReplacement)
                         && size(self.nameReplacement) > 0)
+                evict:
+                  description: Evict contains settings for Evict operation.
+                  properties:
+                    nodeSelector:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        NodeSelector restricts the set of nodes the VM can migrate to.
+                        Passed to KubeVirt's AddedNodeSelector which complements
+                        any existing nodeSelector or nodeAffinity on the VM.
+                      type: object
+                  type: object
                 force:
                   description: |-
                     Force execution of an operation.

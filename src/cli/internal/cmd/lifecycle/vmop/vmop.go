@@ -93,6 +93,16 @@ func (v VirtualMachineOperation) Evict(ctx context.Context, vmName, vmNamespace 
 	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
 }
 
+func (v VirtualMachineOperation) Migrate(ctx context.Context, vmName, vmNamespace string, nodeSelector map[string]string) (msg string, err error) {
+	vmop := v.newVMOP(vmName, vmNamespace, v1alpha2.VMOPTypeEvict, v.options.force)
+	if len(nodeSelector) > 0 {
+		vmop.Spec.Evict = &v1alpha2.VirtualMachineOperationEvictSpec{
+			NodeSelector: nodeSelector,
+		}
+	}
+	return v.do(ctx, vmop, v.options.createOnly, v.options.waitComplete)
+}
+
 func (v VirtualMachineOperation) do(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, createOnly, waitCompleted bool) (msg string, err error) {
 	if createOnly {
 		vmop, err = v.create(ctx, vmop)

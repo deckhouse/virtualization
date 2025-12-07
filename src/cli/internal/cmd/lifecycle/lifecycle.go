@@ -41,6 +41,7 @@ const (
 	Start   Command = "start"
 	Restart Command = "restart"
 	Evict   Command = "evict"
+	Migrate Command = "migrate"
 )
 
 type Manager interface {
@@ -48,6 +49,7 @@ type Manager interface {
 	Start(ctx context.Context, name, namespace string) (msg string, err error)
 	Restart(ctx context.Context, name, namespace string) (msg string, err error)
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
+	Migrate(ctx context.Context, name, namespace string, nodeSelector map[string]string) (msg string, err error)
 }
 
 func NewLifecycle(cmd Command) *Lifecycle {
@@ -76,6 +78,7 @@ type Options struct {
 	WaitComplete bool
 	CreateOnly   bool
 	Timeout      time.Duration
+	NodeSelector map[string]string
 }
 
 func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
@@ -106,6 +109,9 @@ func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
 	case Evict:
 		cmd.Printf("Evicting virtual machine %q\n", key.String())
 		msg, err = mgr.Evict(ctx, name, namespace)
+	case Migrate:
+		cmd.Printf("Migrating virtual machine %q\n", key.String())
+		msg, err = mgr.Migrate(ctx, name, namespace, l.opts.NodeSelector)
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
@@ -126,10 +132,17 @@ func (l *Lifecycle) Usage() string {
   {{ProgramName}} {{operation}} --%s=1m myvm
   # Configure wait vm phase (default: wait=%v)
   {{ProgramName}} {{operation}} --%s myvm`, opts.Timeout, timeoutFlag, opts.WaitComplete, waitFlag), "{{operation}}", string(l.cmd))
-	if l.cmd != Start && l.cmd != Evict {
+	if l.cmd != Start && l.cmd != Evict && l.cmd != Migrate {
 		usage += fmt.Sprintf(`
   # Configure shutdown policy (default: force=%v)
   {{ProgramName}} %s --%s myvm`, opts.Force, l.cmd, forceFlag)
+	}
+	if l.cmd == Migrate {
+		usage += `
+  # Migrate to specific node
+  {{ProgramName}} migrate myvm --node-selector="kubernetes.io/hostname=node-01"
+  # Migrate to nodes with specific labels
+  {{ProgramName}} migrate myvm --node-selector="zone=us-west,type=high-memory"`
 	}
 	return usage
 }
@@ -159,6 +172,7 @@ const (
 	waitFlag, waitFlagShort             = "wait", "w"
 	createOnlyFlag, createOnlyFlagShort = "create-only", "c"
 	timeoutFlag, timeoutFlagShort       = "timeout", "t"
+	nodeSelectorFlag                    = "node-selector"
 )
 
 func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
@@ -170,4 +184,9 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
 		fmt.Sprintf("--%s, -%s: Set this flag for create operation only.", createOnlyFlag, createOnlyFlagShort))
 	flagset.DurationVarP(&opts.Timeout, timeoutFlag, timeoutFlagShort, opts.Timeout,
 		fmt.Sprintf("--%s, -%s: Set this flag to change the timeout.", timeoutFlag, timeoutFlagShort))
+}
+
+func AddMigrateArgs(flagset *pflag.FlagSet, opts *Options) {
+	flagset.StringToStringVar(&opts.NodeSelector, nodeSelectorFlag, nil,
+		fmt.Sprintf("--%s: Node selector to restrict target nodes (e.g., zone=us-west,type=high-memory).", nodeSelectorFlag))
 }
