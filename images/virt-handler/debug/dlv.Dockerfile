@@ -33,14 +33,19 @@ RUN go mod edit -go=$GOVERSION && \
 
 RUN go mod vendor
 
+RUN for p in patches/*.patch ; do \
+      echo -n "Apply ${p} ... " \
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) \
+    done
+
 ENV GO111MODULE=on
 ENV GOOS=linux
 ENV CGO_ENABLED=1
 ENV GOARCH=amd64
 
-RUN go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
+RUN go build -gcflags="all=-N -l" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
 RUN gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk
-RUN go build -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
+RUN go build -gcflags="all=-N -l" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
 
 FROM basealt
 
@@ -48,7 +53,7 @@ RUN apt-get update && apt-get install --yes \
         acl \
         procps \
         nftables \
-        qemu-img==9.0.2-alt3 \
+        qemu-img==9.1.2-alt1 \
         xorriso==1.5.6-alt1 && \
     apt-get clean && \
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
