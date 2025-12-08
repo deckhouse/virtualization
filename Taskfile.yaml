@@ -216,6 +216,16 @@ tasks:
                   "readinessProbe": null,
                   "livenessProbe": null,
                   "command": null
+                },
+                {
+                  "name": "proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
+                },
+                {
+                  "name": "kube-rbac-proxy",
+                  "readinessProbe": null,
+                  "livenessProbe": null
                 }
               ]
             }
