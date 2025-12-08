@@ -19,6 +19,7 @@ package validators
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -49,20 +50,11 @@ func (v *DefaultCoreFractionValidator) validate(vmclass *v1alpha2.VirtualMachine
 			continue
 		}
 
-		if !containsCoreFraction(policy.CoreFractions, *policy.DefaultCoreFraction) {
+		if !slices.Contains(policy.CoreFractions, *policy.DefaultCoreFraction) {
 			return fmt.Errorf("vmclass %s sizingPolicy[%d]: defaultCoreFraction %d is not in the allowed coreFractions list %v",
 				vmclass.Name, i, *policy.DefaultCoreFraction, policy.CoreFractions)
 		}
 	}
 
 	return nil
-}
-
-func containsCoreFraction(fractions []v1alpha2.CoreFractionValue, value v1alpha2.CoreFractionValue) bool {
-	for _, f := range fractions {
-		if f == value {
-			return true
-		}
-	}
-	return false
 }
