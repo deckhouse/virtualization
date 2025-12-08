@@ -57,7 +57,7 @@ func CreateBlockDeviceFilesystem(f *framework.Framework, vm *v1alpha2.VirtualMac
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
+func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName, mountPoint string) {
 	GinkgoHelper()
 
 	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
@@ -66,12 +66,40 @@ func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKin
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
 	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
 
-	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mount %s /mnt", devicePath))
+	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mount %s %s", devicePath, mountPoint))
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func UnmountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, mountPoint string) {
+	GinkgoHelper()
+
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo umount %s", mountPoint))
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func RegisterFstabEntry(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) {
+	GinkgoHelper()
+
+	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	cmd := fmt.Sprintf(`UUID=$(lsblk -o SERIAL,UUID | grep %s | awk "{print \$2}"); echo "UUID=$UUID /mnt ext4 defaults 0 0" | sudo tee -a /etc/fstab`, serial)
-	_, err = f.SSHCommand(vm.Name, vm.Namespace, cmd)
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, cmd)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func GetBlockDeviceHash(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKind v1alpha2.BlockDeviceKind, bdName string) string {
+	GinkgoHelper()
+
+	serial, ok := GetBlockDeviceSerialNumber(vm, bdKind, bdName)
+	Expect(ok).To(BeTrue(), "failed to get block device serial number")
+
+	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
+	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+
+	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo dd if=%s bs=4M | sha256sum | awk \"{print \\$1}\"", devicePath))
+	Expect(err).NotTo(HaveOccurred())
+	return strings.TrimSpace(cmdOut)
 }
 
 func GetBlockDeviceBySerial(f *framework.Framework, vm *v1alpha2.VirtualMachine, serial string) (string, error) {

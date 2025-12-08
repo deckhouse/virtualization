@@ -67,6 +67,7 @@ const (
 	originalMemorySize        = "256Mi"
 	changedCPUCores           = 2
 	changedMemorySize         = "512Mi"
+	mountPoint                = "/mnt"
 	fileDataPath              = "/mnt/value"
 )
 
@@ -80,7 +81,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		By("Environment preparation", func() {
 			t.GenerateResources(restoreMode, restartApprovalMode, runPolicy)
 			err := f.CreateWithDeferredDeletion(
-				context.Background(), t.CVI, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA,
+				context.Background(), t.CVI, t.VI, t.VDRoot, t.VDBlank, t.VM, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
@@ -88,11 +89,18 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 				util.StartVirtualMachine(f, t.VM)
 			}
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
-			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
+			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA, t.VMBDAWithNoFstabEntry)
 
 			util.CreateBlockDeviceFilesystem(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, "ext4")
-			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name)
+			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name, mountPoint)
+			util.RegisterFstabEntry(f, t.VM, v1alpha2.DiskDevice, t.VDBlank.Name)
 			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
+
+			util.CreateBlockDeviceFilesystem(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, "ext4")
+			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, mountPoint)
+			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
+			util.UnmountBlockDevice(f, t.VM, mountPoint)
+			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -140,7 +148,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			t.RestoreVM(t.VM, t.VMOPRestore)
 		})
 		By("Check VM after restore", func() {
-			t.CheckVMAfterRestore(t.VM, t.VDRoot, t.VDBlank, t.VMBDA, t.VMOPRestore)
+			t.CheckVMAfterRestore(t.VM, t.VDRoot, t.VDBlank, t.VDBlankWithNoFstabEntry, t.VMBDA, t.VMBDAWithNoFstabEntry, t.VMOPRestore)
 		})
 		By("After restoration, verify that labels and annotations are preserved on the resources", func() {
 			err := f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VDRoot), t.VDRoot)
@@ -157,6 +165,16 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(t.VMBDA.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
 			Expect(t.VMBDA.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
+
+			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VDBlankWithNoFstabEntry), t.VDBlankWithNoFstabEntry)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(t.VDBlankWithNoFstabEntry.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
+			Expect(t.VDBlankWithNoFstabEntry.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
+
+			err = f.Clients.GenericClient().Get(context.Background(), crclient.ObjectKeyFromObject(t.VMBDAWithNoFstabEntry), t.VMBDAWithNoFstabEntry)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(t.VMBDAWithNoFstabEntry.Annotations[resourceAnnotationName]).To(Equal(resourceAnnotationValue))
+			Expect(t.VMBDAWithNoFstabEntry.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
 		})
 	},
 		Entry(
@@ -212,16 +230,20 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 })
 
 type restoreModeTest struct {
-	CVI         *v1alpha2.ClusterVirtualImage
-	VI          *v1alpha2.VirtualImage
-	VDRoot      *v1alpha2.VirtualDisk
-	VDBlank     *v1alpha2.VirtualDisk
-	VM          *v1alpha2.VirtualMachine
-	VMBDA       *v1alpha2.VirtualMachineBlockDeviceAttachment
-	VMSnapshot  *v1alpha2.VirtualMachineSnapshot
-	VMOPRestore *v1alpha2.VirtualMachineOperation
+	CVI                     *v1alpha2.ClusterVirtualImage
+	VI                      *v1alpha2.VirtualImage
+	VDRoot                  *v1alpha2.VirtualDisk
+	VDBlank                 *v1alpha2.VirtualDisk
+	VDBlankWithNoFstabEntry *v1alpha2.VirtualDisk
+	VM                      *v1alpha2.VirtualMachine
+	VMBDA                   *v1alpha2.VirtualMachineBlockDeviceAttachment
+	VMBDAWithNoFstabEntry   *v1alpha2.VirtualMachineBlockDeviceAttachment
+	VMSnapshot              *v1alpha2.VirtualMachineSnapshot
+	VMOPRestore             *v1alpha2.VirtualMachineOperation
 
 	Framework *framework.Framework
+
+	BlockDeviceHash string
 }
 
 func newRestoreTest(f *framework.Framework) *restoreModeTest {
@@ -261,6 +283,14 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		vdbuilder.WithLabel(resourceLabelName, resourceLabelValue),
 	)
 
+	t.VDBlankWithNoFstabEntry = vdbuilder.New(
+		vdbuilder.WithName("vd-blank-no-fstab-entry"),
+		vdbuilder.WithNamespace(t.Framework.Namespace().Name),
+		vdbuilder.WithPersistentVolumeClaim(nil, ptr.To(resource.MustParse("51Mi"))),
+		vdbuilder.WithAnnotation(resourceAnnotationName, resourceAnnotationValue),
+		vdbuilder.WithLabel(resourceLabelName, resourceLabelValue),
+	)
+
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
@@ -276,14 +306,10 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 				Kind: v1alpha2.DiskDevice,
 				Name: t.VDRoot.Name,
 			},
-		),
-		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ClusterImageDevice,
 				Name: t.CVI.Name,
 			},
-		),
-		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.ImageDevice,
 				Name: t.VI.Name,
@@ -298,6 +324,15 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		vmbdabuilder.WithNamespace(t.VDBlank.Namespace),
 		vmbdabuilder.WithVirtualMachineName(t.VM.Name),
 		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, t.VDBlank.Name),
+		vmbdabuilder.WithAnnotation(resourceAnnotationName, resourceAnnotationValue),
+		vmbdabuilder.WithLabel(resourceLabelName, resourceLabelValue),
+	)
+
+	t.VMBDAWithNoFstabEntry = vmbdabuilder.New(
+		vmbdabuilder.WithName("vmbda-no-fstab-entry"),
+		vmbdabuilder.WithNamespace(t.VDBlankWithNoFstabEntry.Namespace),
+		vmbdabuilder.WithVirtualMachineName(t.VM.Name),
+		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, t.VDBlankWithNoFstabEntry.Name),
 		vmbdabuilder.WithAnnotation(resourceAnnotationName, resourceAnnotationValue),
 		vmbdabuilder.WithLabel(resourceLabelName, resourceLabelValue),
 	)
@@ -327,7 +362,7 @@ func (t *restoreModeTest) RemoveRecoverableResources() {
 	Expect(err).NotTo(HaveOccurred())
 	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 
-	err = t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank, t.VMBDA)
+	err = t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Wait for resources to be deleted before proceeding.
@@ -352,13 +387,27 @@ func (t *restoreModeTest) RemoveRecoverableResources() {
 			Name:      t.VMBDA.Name,
 		}, &vmbdaLocal)
 		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
+		var vdBlankWithNoFstabEntryLocal v1alpha2.VirtualDisk
+		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: t.VDBlankWithNoFstabEntry.Namespace,
+			Name:      t.VDBlankWithNoFstabEntry.Name,
+		}, &vdBlankWithNoFstabEntryLocal)
+		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
+
+		var vmbdaWithNoFstabEntryLocal v1alpha2.VirtualMachineBlockDeviceAttachment
+		err = t.Framework.Clients.GenericClient().Get(context.Background(), types.NamespacedName{
+			Namespace: t.VMBDAWithNoFstabEntry.Namespace,
+			Name:      t.VMBDAWithNoFstabEntry.Name,
+		}, &vmbdaWithNoFstabEntryLocal)
+		g.Expect(k8serrors.IsNotFound(err)).Should(BeTrue())
 	}, framework.LongTimeout, time.Second).Should(Succeed())
 }
 
 func (t *restoreModeTest) CheckVMAfterRestore(
 	vm *v1alpha2.VirtualMachine,
-	vdRoot, vdBlank *v1alpha2.VirtualDisk,
-	vmbda *v1alpha2.VirtualMachineBlockDeviceAttachment,
+	vdRoot, vdBlank, vdBlankWithNoFstabEntry *v1alpha2.VirtualDisk,
+	vmbda, vmbdaWithNoFstabEntry *v1alpha2.VirtualMachineBlockDeviceAttachment,
 	vmopRestore *v1alpha2.VirtualMachineOperation,
 ) {
 	GinkgoHelper()
@@ -382,7 +431,10 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdRoot.Name)
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdBlank.Name)
 		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineBlockDeviceAttachmentKind, vmbda.Name)
+		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualDiskKind, vdBlankWithNoFstabEntry.Name)
+		t.CheckResourceReadyForRestore(vmopRestore, v1alpha2.VirtualMachineBlockDeviceAttachmentKind, vmbdaWithNoFstabEntry.Name)
 
+		Expect(util.GetBlockDeviceHash(t.Framework, vm, v1alpha2.DiskDevice, vdBlankWithNoFstabEntry.Name)).To(Equal(t.BlockDeviceHash))
 		Expect(util.ReadFile(t.Framework, vm, fileDataPath)).To(Equal(changedValueOnDisk))
 		Expect(vm.Annotations[vmAnnotationName]).To(Equal(vmAnnotationChangedValue))
 		Expect(vm.Labels[vmLabelName]).To(Equal(vmLabelChangedValue))
