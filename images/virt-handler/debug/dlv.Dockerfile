@@ -33,7 +33,10 @@ RUN go mod edit -go=$GOVERSION && \
 
 RUN go mod vendor
 
-RUN git apply patches/0001-upd-vendor-cgroups-devices-emulator-add-alias.patch
+RUN for p in patches/*.patch ; do \
+      echo -n "Apply ${p} ... " \
+      git apply --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) \
+    done
 
 ENV GO111MODULE=on
 ENV GOOS=linux
