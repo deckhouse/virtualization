@@ -73,19 +73,31 @@ func NewCommand() *cobra.Command {
 		Use:   "ansible-inventory",
 		Short: "Generate ansible inventory from virtual machines (ansible inventory script compatible).",
 		Long: `Generate ansible inventory from virtual machines.
-This command is compatible with ansible inventory script interface.
 
 When called without arguments, returns all hosts (same as --list).
 
+Only virtual machines with assigned IP addresses are included in the inventory.
+
 Arguments:
   --list                   Return all hosts (default behavior if no arguments)
-  --host <hostname>        Return variables for specific host
+  --host <hostname>        Show variables for a particular host; output format matches inventory entries
   --output, -o <format>    Output format: json, ini, or yaml (default: yaml)
-  --namespace, -n <ns>     Namespace to list virtual machines from (overrides kubeconfig context namespace)
+  --namespace, -n <ns>     Namespace to list virtual machines from
+                          (overrides kubeconfig context namespace)
 
 Host names format: <vmname>.<namespace> (e.g., myvm.default)
-VM annotations with prefix provisioning.virtualization.deckhouse.io/ are included as host variables.
-Use provisioning.virtualization.deckhouse.io/groups annotation to add VMs to groups.`,
+
+VM annotations:
+  - Annotations with prefix 'provisioning.virtualization.deckhouse.io/' are included
+    as host variables (prefix is stripped from variable name)
+  - Use 'provisioning.virtualization.deckhouse.io/groups' annotation to add VMs to groups
+    (comma-separated list of group names)
+
+Network access:
+  - For VM access, the Default network interface is used
+  - The 'ansible_ssh_common_args' variable is automatically set for port-forwarding
+    through kubectl using 'd8 v port-forward' command
+  - Additional network interfaces are not currently supported`,
 		Example: usage(),
 		Args:    cobra.NoArgs,
 		RunE:    c.Run,
@@ -405,29 +417,29 @@ func (a *AnsibleInventory) generateHostInfo(vms []v1alpha2.VirtualMachine, hostN
 
 func usage() string {
 	return `  # Standard ansible inventory script interface:
-  # Return all hosts in JSON format (required):
-  {{ProgramName}} ansible-inventory --list
+  # Return all hosts (default format is YAML):
+  {{ProgramName}} ansible-inventory [--list]
+  {{ProgramName}} ansible-inventory [--list] -o json
+  {{ProgramName}} ansible-inventory [--list] -o yaml
+  {{ProgramName}} ansible-inventory [--list] -o ini
 
-  # Return variables for specific host in JSON format (required):
-  {{ProgramName}} ansible-inventory --host <hostname>
+  # Return variables for specific host:
+  # Supports both full name (vmname.namespace) and short name (vmname)
   {{ProgramName}} ansible-inventory --host myvm.default
 
   # Specify namespace:
-  {{ProgramName}} ansible-inventory --list -n mynamespace
+  {{ProgramName}} ansible-inventory [--list] -n mynamespace
   {{ProgramName}} ansible-inventory --host myvm -n mynamespace
 
-  # Host names format: vmname.namespace (e.g., myvm.default)
-  # VM annotations with prefix provisioning.virtualization.deckhouse.io/ are included as host variables
-  # Use provisioning.virtualization.deckhouse.io/groups annotation to add VMs to groups
-  #
-  # Network access:
-  # For VM access, the Default network interface is used. The plugin does not currently
-  # support generating inventory for additional network interfaces.
-  #
   # Examples of using annotations for Ansible configuration:
   #
   # Add VM to groups (comma-separated):
   #   kubectl annotate vm myvm provisioning.virtualization.deckhouse.io/groups="web,production" -n default
   #
-  # Note: ansible_ssh_common_args is automatically set for port-forwarding through kubectl`
+  # Add custom host variable:
+  #   kubectl annotate vm myvm provisioning.virtualization.deckhouse.io/ansible_user="admin" -n default
+  #   # This will be available as 'ansible_user' variable in Ansible
+  #
+  # Note: Only VMs with assigned IP addresses are included in the inventory.
+  #       The 'ansible_ssh_common_args' variable is automatically set for port-forwarding.`
 }
