@@ -35,6 +35,8 @@ type VirtualMachineExpansion interface {
 	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
 	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
 	CancelEvacuation(ctx context.Context, name string, dryRun []string) error
+	AddResourceClaim(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddResourceClaim) error
+	RemoveResourceClaim(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveResourceClaim) error
 }
 
 type SerialConsoleOptions struct {
@@ -79,5 +81,13 @@ func (c *virtualMachines) RemoveVolume(ctx context.Context, name string, opts v1
 }
 
 func (c *virtualMachines) CancelEvacuation(ctx context.Context, name string, dryRun []string) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (c *virtualMachines) AddResourceClaim(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddResourceClaim) error {
+	return fmt.Errorf("not implemented")
+}
+
+func (c *virtualMachines) RemoveResourceClaim(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveResourceClaim) error {
 	return fmt.Errorf("not implemented")
 }
