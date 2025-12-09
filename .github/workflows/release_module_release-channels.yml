@@ -61,7 +61,7 @@ defaults:
     shell: bash
 
 concurrency:
-  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  group: "${{ github.workflow }}-${{ github.event.inputs.channel }}-${{ github.event.inputs.tag }}"
   cancel-in-progress: true
 
 jobs:
@@ -353,7 +353,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - job-CE
-    if: ${{ always() && needs.job-CE.result != 'failure' && needs.job-EE.result != 'failure' && needs.job-SE-Plus.result != 'failure' && needs.job-FE.result != 'failure' }}
+    if: ${{ always() && ! contains(needs.*.result, 'failure') }}
     strategy:
       matrix:
         check: ["registry", "releases", "documentation"]

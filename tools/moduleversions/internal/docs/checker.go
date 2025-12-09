@@ -18,7 +18,6 @@ package docs
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -98,24 +97,18 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		err = VerifyVersion(documentationURL, channel, version)
 		if err != nil {
 			if attempt < attempts {
-				log.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
+				fmt.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
 				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
 				time.Sleep(retryDelay)
 				continue
 			}
 			// Last attempt failed
-			log.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", version, documentationURL, attempts, err)
+			fmt.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", version, documentationURL, attempts, err)
 			return err
 		}
 
 		fmt.Printf("Version %s is valid on channel %s at documentation site\n", version, channel)
 		return nil
-	}
-
-	// This should not happen, but handle it just in case
-	if err != nil {
-		log.Printf("Version %s validation failed on documentation site %s after %d attempts: %v", version, documentationURL, attempts, err)
-		return fmt.Errorf("version validation failed after %d attempts: %w", attempts, err)
 	}
 
 	return nil

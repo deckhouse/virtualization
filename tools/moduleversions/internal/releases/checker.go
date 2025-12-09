@@ -18,7 +18,6 @@ package releases
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -141,7 +140,7 @@ func VerifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersi
 	for _, editionURL := range editionURLs {
 		urlParts := strings.Split(editionURL, "/")
 		if len(urlParts) < minURLPartsCount {
-			log.Printf("Warning: invalid URL format: %s", editionURL)
+			fmt.Printf("Warning: invalid URL format: %s", editionURL)
 			continue
 		}
 		edition := urlParts[len(urlParts)-1]
@@ -149,7 +148,7 @@ func VerifyVersionAcrossAllEditions(editionURLs []string, channel, expectedVersi
 		match, err := VerifyVersionInEdition(editionURL, channel, expectedVersion, moduleName)
 		if err != nil {
 			lastErr = err
-			log.Printf("Error checking %-7s edition on channel %s: %v", edition, cases.Title(language.Und).String(channel), err)
+			fmt.Printf("Error checking %-7s edition on channel %s: %v", edition, cases.Title(language.Und).String(channel), err)
 			continue
 		}
 
@@ -191,13 +190,13 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		checkPassed, versionInfo, err := VerifyVersionAcrossAllEditions(editionURLs, channel, version, moduleName, defaultReleasesBaseURL)
 		if err != nil {
 			if attempt < attempts {
-				log.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
+				fmt.Printf("Attempt %d/%d failed: %v", attempt, attempts, err)
 				fmt.Printf("Waiting %v before next attempt...\n", retryDelay)
 				time.Sleep(retryDelay)
 				continue
 			}
 			// Last attempt failed
-			log.Printf("Version %s validation failed on %s after %d attempts: %v", version, defaultReleasesBaseURL, attempts, err)
+			fmt.Printf("Version %s validation failed on %s after %d attempts: %v", version, defaultReleasesBaseURL, attempts, err)
 			return err
 		}
 
@@ -208,7 +207,5 @@ func CheckVersionWithRetries(channel, version, moduleName string, attempts int) 
 		}
 	}
 
-	// This should not happen if all attempts completed successfully
-	// If we reach here, it means the loop completed without returning, which shouldn't happen
-	return fmt.Errorf("version validation failed after %d attempts", attempts)
+	return nil
 }
