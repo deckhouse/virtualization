@@ -113,7 +113,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	}
 
 	var envSettings *importer.Settings
-	if pvc != nil && pvc.Spec.VolumeMode != nil {
+	if pvc.Spec.VolumeMode != nil {
 		envSettings = s.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 	} else {
 		envSettings = s.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))

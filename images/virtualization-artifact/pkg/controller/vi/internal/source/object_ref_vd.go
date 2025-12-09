@@ -121,7 +121,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		}
 
 		var envSettings *importer.Settings
-		if pvc != nil && pvc.Spec.VolumeMode != nil {
+		if pvc.Spec.VolumeMode != nil {
 			envSettings = ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 		} else {
 			envSettings = ds.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))
