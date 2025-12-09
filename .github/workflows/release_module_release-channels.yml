@@ -373,8 +373,8 @@ jobs:
         uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
-          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
 
       - uses: actions/checkout@v4
         with:
