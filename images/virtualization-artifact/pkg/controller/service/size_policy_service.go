@@ -28,6 +28,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+var ErrSizingPolicyValidation = errors.New("please check the sizing policy of the virtual machine class or contact the administrator for more information")
+
 type SizePolicyService struct{}
 
 func NewSizePolicyService() *SizePolicyService {
@@ -35,7 +37,6 @@ func NewSizePolicyService() *SizePolicyService {
 }
 
 func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachineClass) error {
-	// check if no sizing policy requirements are set
 	if vmClass == nil || len(vmClass.Spec.SizingPolicies) == 0 {
 		return nil
 	}
@@ -47,12 +48,23 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine
 
 	var errs []error
 
-	errs = append(errs, validateCoreFraction(vm, sizePolicy)...)
-	errs = append(errs, validateMemory(vm, sizePolicy)...)
-	errs = append(errs, validatePerCoreMemory(vm, sizePolicy)...)
+	err := validateCoreFraction(vm, sizePolicy)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	err = validateMemory(vm, sizePolicy)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	err = validatePerCoreMemory(vm, sizePolicy)
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("sizing policy validate: %w", errors.Join(errs...))
+		return fmt.Errorf("failed to validate sizing policy: %w: %w", errors.Join(errs...), ErrSizingPolicyValidation)
 	}
 
 	return nil
@@ -72,16 +84,15 @@ func getVMSizePolicy(vm *v1alpha2.VirtualMachine, vmClass *v1alpha2.VirtualMachi
 	return nil
 }
 
-func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errs []error) {
+func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) error {
 	if len(sp.CoreFractions) == 0 {
-		return
+		return nil
 	}
 
 	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
 	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("unable to parse CPU core fraction: %w", err))
-		return
+		return fmt.Errorf("unable to parse CPU core fraction: %w", err)
 	}
 
 	hasFractionValueInPolicy := false
@@ -92,33 +103,34 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	}
 
 	if !hasFractionValueInPolicy {
-		errs = append(errs, fmt.Errorf("VM core fraction value %d is not within the allowed values: %v", fraction, sp.CoreFractions))
+		formattedCoreFractions := formatCoreFractionValues(sp.CoreFractions)
+		return fmt.Errorf("VM core fraction value %s is not within the allowed values: %v", vm.Spec.CPU.CoreFraction, formattedCoreFractions)
 	}
 
-	return
+	return nil
 }
 
-func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errs []error) {
+func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) error {
 	if sp.Memory == nil || sp.Memory.Max == nil || sp.Memory.Max.IsZero() {
-		return
+		return nil
 	}
 
 	if sp.Memory.Min != nil && vm.Spec.Memory.Size.Cmp(*sp.Memory.Min) == common.CmpLesser {
-		errs = append(errs, fmt.Errorf(
+		return fmt.Errorf(
 			"requested VM memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
 			sp.Memory.Min.String(),
 			sp.Memory.Max.String(),
-		))
+		)
 	}
 
 	if vm.Spec.Memory.Size.Cmp(*sp.Memory.Max) == common.CmpGreater {
-		errs = append(errs, fmt.Errorf(
+		return fmt.Errorf(
 			"requested VM memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			vm.Spec.Memory.Size.String(),
 			sp.Memory.Min.String(),
 			sp.Memory.Max.String(),
-		))
+		)
 	}
 
 	if sp.Memory.Step != nil && !sp.Memory.Step.IsZero() {
@@ -128,16 +140,16 @@ func validateMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (err
 		}
 		err := validateIsQuantized(vm.Spec.Memory.Size, minVal, *sp.Memory.Max, *sp.Memory.Step, "VM memory")
 		if err != nil {
-			errs = append(errs, err)
+			return err
 		}
 	}
 
-	return
+	return nil
 }
 
-func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) (errs []error) {
+func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy) error {
 	if sp.Memory == nil || sp.Memory.PerCore == nil || sp.Memory.PerCore.Max == nil || sp.Memory.PerCore.Max.IsZero() {
-		return
+		return nil
 	}
 
 	// Calculate memory portion per CPU core
@@ -147,21 +159,21 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 	perCoreMemory := resource.NewQuantity(vmPerCore, resource.BinarySI)
 
 	if sp.Memory.PerCore.Min != nil && perCoreMemory.Cmp(*sp.Memory.PerCore.Min) == common.CmpLesser {
-		errs = append(errs, fmt.Errorf(
+		return fmt.Errorf(
 			"requested VM per core memory (%s) is less than the minimum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
 			sp.Memory.PerCore.Min.String(),
 			sp.Memory.PerCore.Max.String(),
-		))
+		)
 	}
 
 	if perCoreMemory.Cmp(*sp.Memory.PerCore.Max) == common.CmpGreater {
-		errs = append(errs, fmt.Errorf(
+		return fmt.Errorf(
 			"requested VM per core memory (%s) exceeds the maximum allowed, available range [%s, %s]",
 			perCoreMemory.String(),
 			sp.Memory.PerCore.Min.String(),
 			sp.Memory.PerCore.Max.String(),
-		))
+		)
 	}
 
 	if sp.Memory.Step != nil && !sp.Memory.Step.IsZero() {
@@ -171,11 +183,11 @@ func validatePerCoreMemory(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolic
 		}
 		err := validateIsQuantized(*perCoreMemory, minVal, *sp.Memory.PerCore.Max, *sp.Memory.Step, "VM per core memory")
 		if err != nil {
-			errs = append(errs, err)
+			return err
 		}
 	}
 
-	return
+	return nil
 }
 
 func validateIsQuantized(value, min, max, step resource.Quantity, source string) (err error) {
@@ -211,4 +223,12 @@ func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
 	grid = append(grid, max)
 
 	return grid
+}
+
+func formatCoreFractionValues(cf []v1alpha2.CoreFractionValue) []string {
+	result := make([]string, len(cf))
+	for i, v := range cf {
+		result[i] = fmt.Sprintf("%d%%", v)
+	}
+	return result
 }
