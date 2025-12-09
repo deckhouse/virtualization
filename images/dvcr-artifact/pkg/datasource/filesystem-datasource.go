@@ -23,6 +23,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -66,6 +67,10 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 
 	uuid, _ := uuid.NewUUID()
 	sourceImageFilename := uuid.String() + ".img"
+
+	for {
+		time.Sleep(time.Second)
+	}
 
 	return &FilesystemDataSource{
 		readCloser:          file,
