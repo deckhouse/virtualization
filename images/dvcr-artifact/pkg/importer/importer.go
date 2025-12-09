@@ -49,6 +49,7 @@ const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
 	BlockDeviceSource          = "blockDevice"
+	FilesystemSource          = "filesystem"
 )
 
 func New() *Importer {
@@ -200,6 +201,12 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 		result, err = datasource.NewBlockDeviceDataSource()
 		if err != nil {
 			return nil, fmt.Errorf("error creating block device data source: %w", err)
+		}
+	case FilesystemSource:
+		var err error
+		result, err = datasource.NewFilesystemDataSource()
+		if err != nil {
+			return nil, fmt.Errorf("error creating filesystem data source: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", i.srcType)

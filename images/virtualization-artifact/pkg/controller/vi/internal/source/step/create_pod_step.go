@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -53,6 +54,7 @@ type CreatePodStepStat interface {
 
 type CreatePodStep struct {
 	pod          *corev1.Pod
+	pvc          *corev1.PersistentVolumeClaim
 	dvcrSettings *dvcr.Settings
 	recorder     eventrecord.EventRecorderLogger
 	importer     CreatePodStepImporter
@@ -62,6 +64,7 @@ type CreatePodStep struct {
 
 func NewCreatePodStep(
 	pod *corev1.Pod,
+	pvc *corev1.PersistentVolumeClaim,
 	dvcrSettings *dvcr.Settings,
 	recorder eventrecord.EventRecorderLogger,
 	importer CreatePodStepImporter,
@@ -70,6 +73,7 @@ func NewCreatePodStep(
 ) *CreatePodStep {
 	return &CreatePodStep{
 		pod:          pod,
+		pvc:          pvc,
 		dvcrSettings: dvcrSettings,
 		recorder:     recorder,
 		importer:     importer,
@@ -88,7 +92,12 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	pvcKey := supgen.PersistentVolumeClaim()
 	podSettings := s.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace)
 
-	envSettings := s.getEnvSettings(vi, supgen)
+	var envSettings *importer.Settings
+	if s.pvc.Spec.VolumeMode != nil {
+		envSettings = s.getEnvSettings(vi, supgen, s.pvc.Spec.VolumeMode)
+	} else {
+		envSettings = s.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))
+	}
 
 	err := s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
 	switch {
@@ -111,9 +120,15 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	return nil, nil
 }
 
-func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator) *importer.Settings {
+func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
-	importer.ApplyBlockDeviceSourceSettings(&settings)
+
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeFilesystem {
+		importer.ApplyFilesystemSourceSettings(&settings)
+	} else {
+		importer.ApplyBlockDeviceSourceSettings(&settings)
+	}
+
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		s.dvcrSettings,

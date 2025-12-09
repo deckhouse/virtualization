@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -111,7 +112,18 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
-		envSettings := ds.getEnvSettings(cvi, supgen)
+		var pvc *corev1.PersistentVolumeClaim
+		err := ds.client.Get(ctx, types.NamespacedName{Name: vdRef.Status.Target.PersistentVolumeClaim, Namespace: vdRef.Namespace}, pvc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		var envSettings *importer.Settings
+		if pvc.Spec.VolumeMode != nil {
+			envSettings = ds.getEnvSettings(cvi, supgen, pvc.Spec.VolumeMode)
+		} else {
+			envSettings = ds.getEnvSettings(cvi, supgen, ptr.To(corev1.PersistentVolumeBlock))
+		}
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
@@ -216,9 +228,15 @@ func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *v1alpha2.Cluste
 	return ds.importerService.DeletePod(ctx, cvi, controllerName, supgen)
 }
 
-func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *v1alpha2.ClusterVirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
-	importer.ApplyBlockDeviceSourceSettings(&settings)
+
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeFilesystem {
+		importer.ApplyFilesystemSourceSettings(&settings)
+	} else {
+		importer.ApplyBlockDeviceSourceSettings(&settings)
+	}
+
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,

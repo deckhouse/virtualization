@@ -365,21 +365,19 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 	}
 
 	if imp.PodSettings.PVCName != "" {
-		podutil.AddVolumeDevice(
-			pod,
-			container,
-			corev1.Volume{
-				Name: "volume",
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: imp.PodSettings.PVCName,
-					},
+		volume := corev1.Volume{
+			Name: "volume",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: imp.PodSettings.PVCName,
 				},
 			},
-			corev1.VolumeDevice{
-				Name:       "volume",
-				DevicePath: "/dev/xvda",
-			},
-		)
+		}
+
+		if imp.EnvSettings.Source == SourceFilesystem {
+			podutil.AddVolume(pod, container, volume, corev1.VolumeMount{Name: "volume", MountPath: "/tmp/fs"}, corev1.EnvVar{Name: "IMPORTER_FILESYSTEM_DIR", Value: "/tmp/fs"})
+		} else {
+			podutil.AddVolumeDevice(pod, container, volume, corev1.VolumeDevice{Name: "volume", DevicePath: "/dev/xvda"})
+		}
 	}
 }

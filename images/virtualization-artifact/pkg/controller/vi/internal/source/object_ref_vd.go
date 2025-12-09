@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -113,7 +114,17 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
-		envSettings := ds.getEnvSettings(vi, supgen)
+		pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		var envSettings *importer.Settings
+		if pvc.Spec.VolumeMode != nil {
+			envSettings = ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
+		} else {
+			envSettings = ds.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))
+		}
 
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
@@ -411,9 +422,15 @@ func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.Virtual
 	return importerRequeue || diskRequeue, nil
 }
 
-func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator) *importer.Settings {
+func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
-	importer.ApplyBlockDeviceSourceSettings(&settings)
+
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeFilesystem {
+		importer.ApplyFilesystemSourceSettings(&settings)
+	} else {
+		importer.ApplyBlockDeviceSourceSettings(&settings)
+	}
+
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		ds.dvcrSettings,
