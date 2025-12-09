@@ -60,13 +60,13 @@ func NewAddOriginalMetadataStep(
 func (s AddOriginalMetadataStep) Take(ctx context.Context, vd *v1alpha2.VirtualDisk) (*reconcile.Result, error) {
 	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}, s.client, &v1alpha2.VirtualDiskSnapshot{})
 	if err != nil {
-		wrappedErr := fmt.Errorf("failed to fetch the virtual disk snapshot: %w", err)
+		err = fmt.Errorf("failed to fetch the virtual disk snapshot: %w", err)
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
-			Message(service.CapitalizeFirstLetter(wrappedErr.Error() + "."))
-		return nil, wrappedErr
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil, err
 	}
 
 	if vdSnapshot == nil {
@@ -80,13 +80,13 @@ func (s AddOriginalMetadataStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 
 	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: vdSnapshot.Status.VolumeSnapshotName, Namespace: vdSnapshot.Namespace}, s.client, &vsv1.VolumeSnapshot{})
 	if err != nil {
-		wrappedErr := fmt.Errorf("failed to fetch the volume snapshot: %w", err)
+		err = fmt.Errorf("failed to fetch the volume snapshot: %w", err)
 		vd.Status.Phase = v1alpha2.DiskFailed
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
-			Message(service.CapitalizeFirstLetter(wrappedErr.Error() + "."))
-		return nil, wrappedErr
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return nil, err
 	}
 
 	if vdSnapshot.Status.Phase != v1alpha2.VirtualDiskSnapshotPhaseReady || vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
@@ -124,12 +124,17 @@ func (s AddOriginalMetadataStep) Take(ctx context.Context, vd *v1alpha2.VirtualD
 	// when updating the virtual disk resource. Therefore, this step should finish
 	// with reconciliation if the metadata has changed.
 	if areAnnotationsAdded || areLabelsAdded {
+		msg := "The original metadata sync has started"
 		s.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
 			v1alpha2.ReasonMetadataSyncStarted,
-			"The original metadata sync has started",
+			msg,
 		)
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message(msg)
 		return &reconcile.Result{}, nil
 	}
 
@@ -151,7 +156,10 @@ func setOriginalAnnotations(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (
 
 	var areAnnotationsAdded bool
 	for key, originalvalue := range originalAnnotationsMap {
-		if currentValue, exists := vd.Annotations[key]; !exists || (key != lastAppliedConfigAnnotation && currentValue != originalvalue) {
+		if key == lastAppliedConfigAnnotation {
+			continue
+		}
+		if currentValue, exists := vd.Annotations[key]; !exists || currentValue != originalvalue {
 			vd.Annotations[key] = originalvalue
 			areAnnotationsAdded = true
 		}
