@@ -94,8 +94,14 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	pvcKey := supgen.PersistentVolumeClaim()
 	podSettings := s.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace)
 
+	vds := &v1alpha2.VirtualDiskSnapshot{}
+	err := s.client.Get(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, vds)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
+
 	vd := &v1alpha2.VirtualDisk{}
-	err := s.client.Get(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, vd)
+	err = s.client.Get(ctx, types.NamespacedName{Name: vds.Spec.VirtualDiskName, Namespace: vds.Namespace}, vd)
 	if err != nil {
 		return &reconcile.Result{}, err
 	}
