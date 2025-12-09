@@ -783,7 +783,7 @@ spec:
                           type: boolean
                         type: array
                       defaultCoreFraction:
-                        description: Default core fraction value for the VirtualMachineClass.
+                        description: Default `coreFraction` value for the VirtualMachineClass.
                         type: string
                       memory:
                         description: Memory sizing policy.
