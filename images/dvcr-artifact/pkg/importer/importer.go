@@ -181,7 +181,7 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
 }
 
-func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {
+func (i *Importer) newDataSource(ctx context.Context) (datasource.DataSourceInterface, error) {
 	var result datasource.DataSourceInterface
 	switch i.srcType {
 	case cc.SourceHTTP:
@@ -204,7 +204,7 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 		}
 	case FilesystemSource:
 		var err error
-		result, err = datasource.NewFilesystemDataSource()
+		result, err = datasource.NewFilesystemDataSource(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error creating filesystem data source: %w", err)
 		}

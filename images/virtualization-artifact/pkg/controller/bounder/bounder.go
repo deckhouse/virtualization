@@ -155,7 +155,7 @@ func (imp *Bounder) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 			},
 			corev1.VolumeDevice{
 				Name:       "volume",
-				DevicePath: "/dev/xvda",
+				DevicePath: common.ImporterBlockDeviceDir,
 			},
 		)
 	}
