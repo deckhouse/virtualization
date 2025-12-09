@@ -17,9 +17,12 @@ limitations under the License.
 package datasource
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,24 +50,27 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 		break
 	}
 
-
 	file, err := os.OpenFile(filesystemImagePath, os.O_RDONLY, 0)
 	if err != nil {
 		fmt.Printf("can not get open image %s: %w", filesystemImagePath, err)
 	}
 
-	for {
-		time.Sleep(10 * time.Second)
+	ctx := context.Background()
+
+	type ImageInfo struct {
+		VirtualSize uint64 `json:"virtual-size"`
+		Format      string `json:"format"`
+	}
+	var imageInfo ImageInfo
+
+	cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
+	rawOut, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("error running qemu-img info: %w", err)
 	}
 
-	sourceImageSize, err := file.Seek(0, io.SeekEnd)
-	if err != nil {
-		return nil, fmt.Errorf("error seeking to end: %w", err)
-	}
-
-	_, err = file.Seek(0, io.SeekStart)
-	if err != nil {
-		return nil, fmt.Errorf("error seeking to start: %w", err)
+	if err = json.Unmarshal(rawOut, &imageInfo); err != nil {
+		return nil, fmt.Errorf("error parsing qemu-img info output: %w", err)
 	}
 
 	uuid, _ := uuid.NewUUID()
@@ -72,7 +78,7 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 
 	return &FilesystemDataSource{
 		readCloser:          file,
-		sourceImageSize:     sourceImageSize,
+		sourceImageSize:     int64(imageInfo.VirtualSize),
 		sourceImageFilename: sourceImageFilename,
 	}, nil
 }
