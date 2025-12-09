@@ -43,8 +43,7 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 		if file.IsDir() {
 			continue
 		}
-		filesystemImagePath = file.Name()
-		fmt.Printf("filesystemImagePath: %s\n", filesystemImagePath)
+		fmt.Printf("filesystemImagePath: %s\n", file.Name())
 		break
 	}
 
