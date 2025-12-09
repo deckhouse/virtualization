@@ -47,13 +47,14 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 		break
 	}
 
-	for {
-		time.Sleep(10 * time.Second)
+
+	file, err := os.OpenFile(filesystemImagePath, os.O_RDONLY, 0)
+	if err != nil {
+		fmt.Printf("can not get open image %s: %w", filesystemImagePath, err)
 	}
 
-	file, err := os.Open(filesystemImagePath)
-	if err != nil {
-		return nil, fmt.Errorf("can not get open image %s: %w", filesystemImagePath, err)
+	for {
+		time.Sleep(10 * time.Second)
 	}
 
 	sourceImageSize, err := file.Seek(0, io.SeekEnd)
