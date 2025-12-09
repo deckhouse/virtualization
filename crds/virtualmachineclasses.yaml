@@ -283,8 +283,8 @@ spec:
                         type: array
                       defaultCoreFraction:
                         description: |-
-                          Default core fraction value for the VirtualMachineClass.
-                          This value will be used when creating a VM without an explicitly specified coreFraction.
+                          Default `coreFraction` value for the VirtualMachineClass.
+                          Used when creating a VM when `coreFraction` is not specified.
                         maximum: 100
                         minimum: 1
                         type: integer
