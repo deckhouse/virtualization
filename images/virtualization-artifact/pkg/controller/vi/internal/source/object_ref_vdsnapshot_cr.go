@@ -89,7 +89,7 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *v1alpha2.
 		step.NewReadyContainerRegistryStep(pod, ds.importer, ds.diskService, ds.stat, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
-		step.NewCreatePodStep(pod, pvc, ds.dvcrSettings, ds.recorder, ds.importer, ds.stat, cb),
+		step.NewCreatePodStep(pod, ds.client, ds.dvcrSettings, ds.recorder, ds.importer, ds.stat, cb),
 		step.NewWaitForPodStep(pod, pvc, ds.stat, cb),
 	).Run(ctx, vi)
 }
