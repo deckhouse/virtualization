@@ -19,18 +19,18 @@ env:
   MODULE_SOURCE_NAME: ${{ vars.PROD_MODULE_SOURCE_NAME }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
-  RELEASE_CHANNEL: ${{ github.event.inputs.version }}
+  RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
   MODULES_REGISTRY_LOGIN: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
-  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
-  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
+  SOURCE_REPO: ${{ secrets.SOURCE_REPO }}
+  SOURCE_REPO_GIT: ${{secrets.SOURCE_REPO_GIT}}
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Select version"
+      channel:
+        description: "Select channel"
         type: choice
         default: alpha
         options:
@@ -56,6 +56,13 @@ on:
         type: boolean
         default: true
         description: "Set to true if build is required"
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.inputs.channel }}-${{ github.event.inputs.tag }}"
+  cancel-in-progress: true
 
 jobs:
   print-vars:
@@ -142,7 +149,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
@@ -208,7 +215,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
@@ -267,7 +274,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
@@ -335,3 +342,63 @@ jobs:
       - name: Cleanup Docker config
         run: |
           rm -rf $DOCKER_CONFIG
+
+  check-version-on-release-channel:
+    name: Check version on release channel
+    runs-on: ubuntu-latest
+    env:
+      GO_VERSION: "1.24.6"
+    needs:
+      - job-EE
+      - job-SE-Plus
+      - job-FE
+      - job-CE
+    if: ${{ always() && ! contains(needs.*.result, 'failure') }}
+    strategy:
+      matrix:
+        check: ["registry", "releases", "documentation"]
+    steps:
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Login to PROD_REGISTRY
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check version in registry
+        if: ${{ matrix.check == 'registry' }}
+        run: |
+          CHANNEL=${{ github.event.inputs.channel }} \
+          VERSION=${{ github.event.inputs.tag }} \
+          task -d tools/moduleversions check:registry
+
+      - name: Check version on site ${{ matrix.check }}
+        if: ${{ matrix.check == 'releases' }}
+        run: |
+          echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
+          sleep 120
+
+          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          CHANNEL=${{ github.event.inputs.channel }} \
+          VERSION=${{ github.event.inputs.tag }} \
+          COUNT=5 \
+          task -d tools/moduleversions check:releases
+      - name: Check version on site ${{ matrix.check }}
+        if: ${{ matrix.check == 'documentation' }}
+        run: |
+          echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+          sleep 300
+
+          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          CHANNEL=${{ github.event.inputs.channel }} \
+          VERSION=${{ github.event.inputs.tag }} \
+          COUNT=5 \
+          task -d tools/moduleversions check:docs
