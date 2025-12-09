@@ -18,11 +18,9 @@ package datasource
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 
 	"github.com/google/uuid"
 )
@@ -35,35 +33,28 @@ type FilesystemDataSource struct {
 
 func NewFilesystemDataSource(ctx context.Context) (*FilesystemDataSource, error) {
 	filesystemImagePath := "/tmp/fs/disk.img"
-	file, err := os.OpenFile(filesystemImagePath, os.O_RDONLY, 0)
+
+	file, err := os.Open(filesystemImagePath)
 	if err != nil {
 		return nil, fmt.Errorf("can not get open image %s: %w", filesystemImagePath, err)
 	}
 
-	type ImageInfo struct {
-		VirtualSize uint64 `json:"virtual-size"`
-		Format      string `json:"format"`
-	}
-	var imageInfo ImageInfo
-
-	cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
-	rawOut, err := cmd.CombinedOutput()
+	sourceImageSize, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
-		return nil, fmt.Errorf("error running qemu-img info: %w", err)
+		return nil, fmt.Errorf("error seeking to end: %w", err)
 	}
 
-	if err = json.Unmarshal(rawOut, &imageInfo); err != nil {
-		return nil, fmt.Errorf("error parsing qemu-img info output: %w", err)
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, fmt.Errorf("error seeking to start: %w", err)
 	}
-
-	fmt.Printf("imageInfo: %+v\n", imageInfo)
 
 	uuid, _ := uuid.NewUUID()
 	sourceImageFilename := uuid.String() + ".img"
 
 	return &FilesystemDataSource{
 		readCloser:          file,
-		sourceImageSize:     int64(imageInfo.VirtualSize),
+		sourceImageSize:     int64(sourceImageSize),
 		sourceImageFilename: sourceImageFilename,
 	}, nil
 }
