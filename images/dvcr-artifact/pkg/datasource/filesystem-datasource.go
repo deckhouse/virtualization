@@ -40,18 +40,10 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 
 	for {
 		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
-		rawOut, err := cmd.Output()
+		rawOut, err := cmd.CombinedOutput()
 		if err != nil {
-			rawOut, err = cmd.CombinedOutput()
-			if err != nil {
-				fmt.Printf("inner error running qemu-img info: %w\n", err)
-			}
 			fmt.Printf("qemu-img command output: %s\n", string(rawOut))
-
-			fmt.Printf("error running qemu-img info: %w\n", err)
 		}
-
-		fmt.Printf("qemu-img command output: %s\n", string(rawOut))
 
 		time.Sleep(time.Second)
 	}
@@ -61,23 +53,15 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 		return nil, fmt.Errorf("can not get open image %s: %w", filesystemImagePath, err)
 	}
 
-
 	type ImageInfo struct {
 		VirtualSize uint64 `json:"virtual-size"`
 		Format      string `json:"format"`
 	}
 	var imageInfo ImageInfo
 
-
 	cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
-	rawOut, err := cmd.Output()
+	rawOut, err := cmd.CombinedOutput()
 	if err != nil {
-		rawOut, err = cmd.CombinedOutput()
-		if err != nil {
-			return nil, fmt.Errorf("error running qemu-img info: %w", err)
-		}
-		fmt.Printf("qemu-img command output: %s\n", string(rawOut))
-
 		return nil, fmt.Errorf("error running qemu-img info: %w", err)
 	}
 
