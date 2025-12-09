@@ -35,23 +35,9 @@ type FilesystemDataSource struct {
 
 func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 	filesystemImagePath := "/tmp/fs/disk.img"
-
-	files, err := os.ReadDir("/tmp/fs")
-	if err != nil {
-		return nil, fmt.Errorf("can not read directory /tmp/fs: %w", err)
-	}
-
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		fmt.Printf("filesystemImagePath: %s\n", file.Name())
-		break
-	}
-
 	file, err := os.OpenFile(filesystemImagePath, os.O_RDONLY, 0)
 	if err != nil {
-		fmt.Printf("can not get open image %s: %w", filesystemImagePath, err)
+		return nil, fmt.Errorf("can not get open image %s: %w", filesystemImagePath, err)
 	}
 
 	ctx := context.Background()
