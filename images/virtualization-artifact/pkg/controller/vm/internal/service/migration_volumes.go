@@ -118,7 +118,14 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
-		// kubevirt does not sync volumes with kvvmi yet
+		hasStale, err := s.hasStaleVolumePVCReferences(ctx, kvvmiInCluster)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if hasStale {
+			log.Info("KVVMI has stale PVC references, patching KVVM to trigger re-sync")
+			return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+		}
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
@@ -233,6 +240,25 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 		}
 	}
 	return false
+}
+
+func (s MigrationVolumesService) hasStaleVolumePVCReferences(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			pvc := &corev1.PersistentVolumeClaim{}
+			err := s.client.Get(ctx, types.NamespacedName{
+				Name:      v.PersistentVolumeClaim.ClaimName,
+				Namespace: kvvmi.Namespace,
+			}, pvc)
+			if k8serrors.IsNotFound(err) {
+				return true, nil
+			}
+			if err != nil {
+				return false, err
+			}
+		}
+	}
+	return false, nil
 }
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
