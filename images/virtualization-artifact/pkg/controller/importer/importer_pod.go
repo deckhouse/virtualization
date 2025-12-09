@@ -153,12 +153,13 @@ func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
 		}
 	}
 
-	annotations.SetRecommendedLabels(&pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
-	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	container := imp.makeImporterContainerSpec()
 	imp.addVolumes(&pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
+
+	annotations.SetRecommendedLabels(&pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	return &pod, nil
 }
