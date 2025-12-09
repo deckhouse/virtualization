@@ -46,6 +46,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/label"
 	"github.com/deckhouse/virtualization/test/e2e/internal/object"
 	"github.com/deckhouse/virtualization/test/e2e/internal/util"
+	"github.com/deckhouse/virtualization/test/e2e/legacy"
 )
 
 const (
@@ -76,7 +77,16 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		f := framework.NewFramework(fmt.Sprintf("vmop-restore-%s", strings.ToLower(string(restoreMode))))
 		DeferCleanup(f.After)
 		f.Before()
+
+		if !util.IsSdnModuleEnabled(f) {
+			Skip("SDN module is not enabled")
+		}
+		util.CreateClusterNetworkIfNotExists(f)
+
 		t := newRestoreTest(f)
+		if !t.IsStorageClassAvailableForTest(t.VM) {
+			Skip("Storage class is not available for test")
+		}
 
 		By("Environment preparation", func() {
 			t.GenerateResources(restoreMode, restartApprovalMode, runPolicy)
@@ -101,6 +111,8 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
+
+			t.CheckSDN(t.VM)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -291,6 +303,30 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		vdbuilder.WithLabel(resourceLabelName, resourceLabelValue),
 	)
 
+	cloudInit := `#cloud-config
+users:
+- name: cloud
+  # passwd: cloud
+  passwd: $6$rounds=4096$vln/.aPHBOI7BMYR$bBMkqQvuGs5Gyd/1H5DP4m9HjQSy.kgrxpaGEHwkX7KEFV8BS.HZWPitAtZ2Vd8ZqIZRqmlykRCagTgPejt1i.
+  shell: /bin/bash
+  sudo: ALL=(ALL) NOPASSWD:ALL
+  lock_passwd: false
+  ssh_authorized_keys:
+  # testcases
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
+write_files:
+  - path: /etc/netplan/60-sdn.yaml
+    permissions: '0644'
+    content: |
+      network:
+        version: 2
+        ethernets:
+          enp2s0:
+            addresses:
+              - 192.168.1.10/24
+runcmd:
+  - netplan apply
+`
 	t.VM = vmbuilder.New(
 		vmbuilder.WithName("vm"),
 		vmbuilder.WithNamespace(t.Framework.Namespace().Name),
@@ -300,7 +336,6 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		vmbuilder.WithMemory(resource.MustParse(originalMemorySize)),
 		vmbuilder.WithLiveMigrationPolicy(v1alpha2.AlwaysSafeMigrationPolicy),
 		vmbuilder.WithVirtualMachineClass(object.DefaultVMClass),
-		vmbuilder.WithProvisioningUserData(object.DefaultCloudInit),
 		vmbuilder.WithBlockDeviceRefs(
 			v1alpha2.BlockDeviceSpecRef{
 				Kind: v1alpha2.DiskDevice,
@@ -317,6 +352,14 @@ func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperati
 		),
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 		vmbuilder.WithRunPolicy(runPolicy),
+		vmbuilder.WithProvisioningUserData(cloudInit),
+		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
+			Type: v1alpha2.NetworksTypeMain,
+		}),
+		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
+			Type: v1alpha2.NetworksTypeClusterNetwork,
+			Name: util.ClusterNetworkName,
+		}),
 	)
 
 	t.VMBDA = vmbdabuilder.New(
@@ -449,6 +492,8 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 	default:
 		Fail("Invalid restore mode")
 	}
+
+	t.CheckSDN(vm)
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
@@ -491,4 +536,26 @@ func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1
 
 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
+}
+
+func (t *restoreModeTest) CheckSDN(vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
+	Expect(err).NotTo(HaveOccurred())
+	Expect(cmdOut).To(ContainSubstring("inet 192.168.1.10/24"))
+}
+
+func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {
+	GinkgoHelper()
+
+	sc, err := legacy.GetDefaultStorageClass()
+	Expect(err).NotTo(HaveOccurred())
+
+	if sc.Provisioner != "replicated.csi.storage.deckhouse.io" {
+		return true
+	}
+
+	placementCount, ok := sc.Parameters["replicated.csi.storage.deckhouse.io/placementCount"]
+	return ok && placementCount == "1"
 }
