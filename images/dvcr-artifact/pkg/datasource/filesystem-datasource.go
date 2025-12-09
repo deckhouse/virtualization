@@ -23,7 +23,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -34,20 +33,8 @@ type FilesystemDataSource struct {
 	sourceImageFilename string
 }
 
-func NewFilesystemDataSource() (*FilesystemDataSource, error) {
-	ctx := context.Background()
+func NewFilesystemDataSource(ctx context.Context) (*FilesystemDataSource, error) {
 	filesystemImagePath := "/tmp/fs/disk.img"
-
-	for {
-		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
-		rawOut, err := cmd.CombinedOutput()
-		if err != nil {
-			fmt.Printf("qemu-img command output: %s\n", string(rawOut))
-		}
-
-		time.Sleep(time.Second)
-	}
-
 	file, err := os.OpenFile(filesystemImagePath, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("can not get open image %s: %w", filesystemImagePath, err)
@@ -68,6 +55,8 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 	if err = json.Unmarshal(rawOut, &imageInfo); err != nil {
 		return nil, fmt.Errorf("error parsing qemu-img info output: %w", err)
 	}
+
+	fmt.Printf("imageInfo: %+v\n", imageInfo)
 
 	uuid, _ := uuid.NewUUID()
 	sourceImageFilename := uuid.String() + ".img"

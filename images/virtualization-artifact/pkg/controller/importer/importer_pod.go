@@ -153,7 +153,6 @@ func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
 		}
 	}
 
-
 	container := imp.makeImporterContainerSpec()
 	imp.addVolumes(&pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
