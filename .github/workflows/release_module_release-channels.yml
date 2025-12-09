@@ -337,7 +337,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
