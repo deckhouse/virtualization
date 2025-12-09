@@ -35,19 +35,39 @@ type FilesystemDataSource struct {
 }
 
 func NewFilesystemDataSource() (*FilesystemDataSource, error) {
+	ctx := context.Background()
 	filesystemImagePath := "/tmp/fs/disk.img"
+
+	for {
+		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
+		rawOut, err := cmd.Output()
+		if err != nil {
+			rawOut, err = cmd.CombinedOutput()
+			if err != nil {
+				fmt.Printf("inner error running qemu-img info: %w\n", err)
+			}
+			fmt.Printf("qemu-img command output: %s\n", string(rawOut))
+
+			fmt.Printf("error running qemu-img info: %w\n", err)
+		}
+
+		fmt.Printf("qemu-img command output: %s\n", string(rawOut))
+
+		time.Sleep(time.Second)
+	}
+
 	file, err := os.OpenFile(filesystemImagePath, os.O_RDONLY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("can not get open image %s: %w", filesystemImagePath, err)
 	}
 
-	ctx := context.Background()
 
 	type ImageInfo struct {
 		VirtualSize uint64 `json:"virtual-size"`
 		Format      string `json:"format"`
 	}
 	var imageInfo ImageInfo
+
 
 	cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
 	rawOut, err := cmd.Output()
@@ -67,24 +87,6 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 
 	uuid, _ := uuid.NewUUID()
 	sourceImageFilename := uuid.String() + ".img"
-
-	for {
-		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
-		rawOut, err := cmd.Output()
-		if err != nil {
-			rawOut, err = cmd.CombinedOutput()
-			if err != nil {
-				return nil, fmt.Errorf("error running qemu-img info: %w", err)
-			}
-			fmt.Printf("qemu-img command output: %s\n", string(rawOut))
-
-			return nil, fmt.Errorf("error running qemu-img info: %w", err)
-		}
-
-		fmt.Printf("qemu-img command output: %s\n", string(rawOut))
-
-		time.Sleep(time.Second)
-	}
 
 	return &FilesystemDataSource{
 		readCloser:          file,
