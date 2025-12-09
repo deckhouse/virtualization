@@ -56,6 +56,12 @@ on:
         type: boolean
         default: true
         description: "Set to true if build is required"
+
+      dry_run:
+        type: boolean
+        description: "Dry run"
+        default: false
+
 defaults:
   run:
     shell: bash
@@ -99,7 +105,7 @@ jobs:
     name: Edition CE
     runs-on: [self-hosted, large]
     needs: print-vars
-    if: github.event.inputs.ce == 'true'
+    if: github.event.inputs.ce == 'true' && github.event.inputs.dry_run == 'false'
     steps:
       - name: Setup Docker config
         run: |
@@ -159,7 +165,7 @@ jobs:
     name: Edition EE
     needs: print-vars
     runs-on: [self-hosted, large]
-    if: github.event.inputs.ee == 'true'
+    if: github.event.inputs.ee == 'true' && github.event.inputs.dry_run == 'false'
     steps:
       - name: Setup Docker config
         run: |
@@ -353,7 +359,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - job-CE
-    if: ${{ always() && ! contains(needs.*.result, 'failure') }}
+    if: ${{ always() && ! contains(needs.*.result, 'failure') && github.event.inputs.dry_run == 'true' }}
     strategy:
       matrix:
         check: ["registry", "releases", "documentation"]
