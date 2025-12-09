@@ -101,8 +101,6 @@ const (
 	// ClusterImageNotFound indicates that the `ClusterVirtualImage` datasource is not found, which prevents the import process from starting.
 	ClusterImageNotFound DatasourceReadyReason = "ClusterImageNotFound"
 
-	// AddingOriginalMetadataNotStarted indicates that the adding original metadata process has not started yet.
-	AddingOriginalMetadataNotStarted ReadyReason = "AddingOriginalMetadataNotStarted"
 	// WaitForUserUpload indicates that the `VirtualDisk` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
 	// Provisioning indicates that the provisioning process is currently in progress.
