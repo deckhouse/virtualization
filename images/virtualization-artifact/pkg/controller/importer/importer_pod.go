@@ -375,9 +375,9 @@ func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
 		}
 
 		if imp.EnvSettings.Source == SourceFilesystem {
-			podutil.AddVolume(pod, container, volume, corev1.VolumeMount{Name: "volume", MountPath: "/tmp/fs"}, corev1.EnvVar{Name: "IMPORTER_FILESYSTEM_DIR", Value: "/tmp/fs"})
+			podutil.AddVolume(pod, container, volume, corev1.VolumeMount{Name: "volume", MountPath: common.ImporterFilesystemDir}, corev1.EnvVar{Name: common.ImporterFilesystemVar, Value: common.ImporterFilesystemDir})
 		} else {
-			podutil.AddVolumeDevice(pod, container, volume, corev1.VolumeDevice{Name: "volume", DevicePath: "/dev/xvda"})
+			podutil.AddVolumeDevice(pod, container, volume, corev1.VolumeDevice{Name: "volume", DevicePath: common.ImporterBlockDeviceDir})
 		}
 	}
 }
