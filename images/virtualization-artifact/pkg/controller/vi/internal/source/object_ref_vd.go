@@ -114,13 +114,14 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 		vi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
 
-		pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
+		pvc := &corev1.PersistentVolumeClaim{}
+		err := ds.client.Get(ctx, types.NamespacedName{Name: vdRef.Status.Target.PersistentVolumeClaim, Namespace: vdRef.Namespace}, pvc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
 		var envSettings *importer.Settings
-		if pvc.Spec.VolumeMode != nil {
+		if pvc != nil && pvc.Spec.VolumeMode != nil {
 			envSettings = ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 		} else {
 			envSettings = ds.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))

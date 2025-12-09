@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -32,6 +33,24 @@ type FilesystemDataSource struct {
 
 func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 	filesystemImagePath := "/tmp/fs/disk.img"
+
+	files, err := os.ReadDir("/tmp/fs")
+	if err != nil {
+		return nil, fmt.Errorf("can not read directory /tmp/fs: %w", err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+		filesystemImagePath = file.Name()
+		fmt.Printf("filesystemImagePath: %s\n", filesystemImagePath)
+		break
+	}
+
+	for {
+		time.Sleep(10 * time.Second)
+	}
 
 	file, err := os.Open(filesystemImagePath)
 	if err != nil {
