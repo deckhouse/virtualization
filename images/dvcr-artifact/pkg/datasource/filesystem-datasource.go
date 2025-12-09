@@ -69,6 +69,20 @@ func NewFilesystemDataSource() (*FilesystemDataSource, error) {
 	sourceImageFilename := uuid.String() + ".img"
 
 	for {
+		cmd := exec.CommandContext(ctx, "qemu-img", "info", "--output=json", filesystemImagePath)
+		rawOut, err := cmd.Output()
+		if err != nil {
+			rawOut, err = cmd.CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("error running qemu-img info: %w", err)
+			}
+			fmt.Printf("qemu-img command output: %s\n", string(rawOut))
+
+			return nil, fmt.Errorf("error running qemu-img info: %w", err)
+		}
+
+		fmt.Printf("qemu-img command output: %s\n", string(rawOut))
+
 		time.Sleep(time.Second)
 	}
 
