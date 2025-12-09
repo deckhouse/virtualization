@@ -889,7 +889,10 @@ spec:
                     coreFraction:
                       type: string
                       description: |
-                        Guaranteed share of CPU time that will be allocated to the VM. Specified as a percentage. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass. If not specified, the default value from the VirtualMachineClass sizing policy will be used. If no default is set in the class, "100%" will be applied.
+                        Guaranteed share of CPU time allocated to the VM. Specified as a percentage.
+                        The allowed range is defined by `sizePolicy` in the selected VirtualMachineClass. If `sizePolicy` is not set, use values in the `1–100%` range.
+                        If the parameter is not specified, the default value from the class `sizePolicy` is used. 
+                        If no default is set in the class, `100%` is applied.
 
                 memory:
                   type: object
