@@ -1896,12 +1896,11 @@ spec:
                               properties:
                                 name:
                                   description: |-
-                                    Name is this DNS resolver option's name.
-                                    Required.
+                                    DNS resolver option name.
+                                    Required field.
                                   type: string
                                 value:
-                                  description: Value is this DNS resolver option's
-                                    value.
+                                  description: DNS resolver option value.
                                   type: string
                               type: object
                             type: array
@@ -2221,12 +2220,12 @@ spec:
                                       type: integer
                                     cache:
                                       description: |-
-                                        Cache specifies which kvm disk cache mode should be used.
-                                        Supported values are:
-                                        none: Guest I/O not cached on the host, but may be kept in a disk cache.
-                                        writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
-                                        writeback: Guest I/O cached on the host.
-                                        Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
+                                        Specifies which KVM disk cache mode should be used. Supported values:
+
+                                        - `none`: Guest I/O is not cached on the host, but may be kept in a disk cache.
+                                        - `writethrough`: Guest I/O is cached on the host but written through to the physical medium. This is the slowest mode but provides the most guarantees.
+                                        - `writeback`: Guest I/O is cached on the host.
+                                        Defaults to `none` if the storage supports O_DIRECT, otherwise `writethrough`.
                                       type: string
                                     cdrom:
                                       description: Attach a volume as a cdrom to the
@@ -2355,26 +2354,22 @@ spec:
                                   properties:
                                     claimName:
                                       description: |-
-                                        ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                        device is allocated
+                                        Must be provided from `vmi.spec.resourceClaims[].name` where this
+                                        device is allocated.
                                       type: string
                                     deviceName:
-                                      description: DeviceName is the name of the device
-                                        provisioned by device-plugins
+                                      description: Name of the device provisioned by device plugins.
                                       type: string
                                     name:
-                                      description: Name of the GPU device as exposed
-                                        by a device plugin
+                                      description: Name of the GPU device as exposed by a device plugin.
                                       type: string
                                     requestName:
                                       description: |-
-                                        RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                        device is requested
+                                        Must be provided from `resourceClaim.spec.devices.requests[].name` where this
+                                        device is requested.
                                       type: string
                                     tag:
-                                      description: If specified, the virtual network
-                                        interface address and its tag will be provided
-                                        to the guest via config drive
+                                      description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                                       type: string
                                     virtualGPUOptions:
                                       properties:
@@ -2411,24 +2406,21 @@ spec:
                                   properties:
                                     claimName:
                                       description: |-
-                                        ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
-                                        device is allocated
+                                        Must be provided from `vmi.spec.resourceClaims[].name` where this
+                                        device is allocated.
                                       type: string
                                     deviceName:
-                                      description: DeviceName is the name of the device
-                                        provisioned by device-plugins
+                                      description: Name of the device provisioned by device plugins.
                                       type: string
                                     name:
                                       type: string
                                     requestName:
                                       description: |-
-                                        RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                        device is requested
+                                        Must be provided from `resourceClaim.spec.devices.requests[].name` where this
+                                        device is requested.
                                       type: string
                                     tag:
-                                      description: If specified, the virtual network
-                                        interface address and its tag will be provided
-                                        to the guest via config drive
+                                      description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                                       type: string
                                   required:
                                   - name
@@ -2615,17 +2607,15 @@ spec:
                                       type: object
                                     state:
                                       description: |-
-                                        State represents the requested operational state of the interface.
-                                        The supported values are:
-                                        'absent', expressing a request to remove the interface.
-                                        'down', expressing a request to set the link down.
-                                        'up', expressing a request to set the link up.
-                                        Empty value functions as 'up'.
+                                        Requested operational state of the interface. Supported values:
+
+                                        - 'absent': Expresses a request to remove the interface.
+                                        - 'down': Expresses a request to set the link down.
+                                        - 'up': Expresses a request to set the link up.
+                                        An empty value functions as 'up'.
                                       type: string
                                     tag:
-                                      description: If specified, the virtual network
-                                        interface address and its tag will be provided
-                                        to the guest via config drive
+                                      description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                                       type: string
                                   required:
                                   - name
@@ -2648,15 +2638,14 @@ spec:
                                   guest CPUs.
                                 type: boolean
                               panicDevices:
-                                description: PanicDevices provides additional crash
-                                  information when a guest crashes.
+                                description: Provides additional crash information when a guest crashes.
                                 items:
                                   properties:
                                     model:
                                       description: |-
-                                        Model specifies what type of panic device is provided.
-                                        The panic model used when this attribute is missing depends on the hypervisor and guest arch.
-                                        One of: isa, hyperv, pvpanic.
+                                        Type of panic device to provide.
+                                        If this attribute is missing, the panic model used depends on the hypervisor and guest architecture.
+                                        Valid values: `isa`, `hyperv`, `pvpanic`.
                                       type: string
                                   type: object
                                 type: array
@@ -2685,13 +2674,13 @@ spec:
                                 properties:
                                   enabled:
                                     description: |-
-                                      Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
-                                      Defaults to True
+                                      Allows explicitly disabling the vTPM even when one is enabled by a preference referenced by the VirtualMachine.
+                                      Defaults to true.
                                     type: boolean
                                   persistent:
                                     description: |-
-                                      Persistent indicates the state of the TPM device should be kept accross reboots
-                                      Defaults to false
+                                      Indicates whether the state of the TPM device should be kept across reboots.
+                                      Defaults to false.
                                     type: boolean
                                 type: object
                               useVirtioTransitional:
@@ -2701,13 +2690,12 @@ spec:
                                   do not understand virtio_non_transitional (virtio 1.0).
                                 type: boolean
                               video:
-                                description: Video describes the video device configuration
-                                  for the vmi.
+                                description: Video device configuration for the VMI.
                                 properties:
                                   type:
                                     description: |-
-                                      Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
-                                      If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
+                                      Video device type (e.g., virtio, vga, bochs, ramfb).
+                                      If not specified, the default is architecture-dependent: VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64, virtio for Arm and s390x.
                                     type: string
                                 type: object
                               watchdog:
@@ -2715,12 +2703,11 @@ spec:
                                   which can be added to the vmi.
                                 properties:
                                   diag288:
-                                    description: diag288 watchdog device (specific
-                                      to s390x architecture).
+                                    description: diag288 watchdog device specific to s390x architecture.
                                     properties:
                                       action:
                                         description: |-
-                                          The action to take. Valid values are poweroff, reset, shutdown.
+                                          Action to take when the watchdog triggers. Valid values: poweroff, reset, shutdown.
                                           Defaults to reset.
                                         type: string
                                     type: object
@@ -2996,12 +2983,12 @@ spec:
                                 properties:
                                   msdmNameRef:
                                     description: |-
-                                      Similar to SlicNameRef, another ACPI entry that is used in more recent Windows versions.
-                                      The above points to the spec of MSDM too.
+                                      Similar to `SlicNameRef`, this is another ACPI entry used in more recent Windows versions.
+                                      This field points to the MSDM specification as well.
                                     type: string
                                   slicNameRef:
                                     description: |-
-                                      SlicNameRef should match the volume name of a secret object. The data in the secret should
+                                      Should match the volume name of a secret object. The data in the secret should
                                       be a binary blob that follows the ACPI SLIC standard, see:
                                       https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)
                                     type: string
@@ -3089,17 +3076,15 @@ spec:
                             description: IOThreads specifies the IOThreads options.
                             properties:
                               supplementalPoolThreadCount:
-                                description: SupplementalPoolThreadCount specifies
-                                  how many iothreads are allocated for the supplementalPool
-                                  policy.
+                                description: Number of IO threads allocated for the supplementalPool policy.
                                 format: int32
                                 type: integer
                             type: object
                           ioThreadsPolicy:
                             description: |-
-                              Controls whether or not disks will share IOThreads.
-                              Omitting IOThreadsPolicy disables use of IOThreads.
-                              One of: shared, auto, supplementalPool
+                              Controls whether disks share IOThreads.
+                              Omitting this field disables the use of IOThreads.
+                              Valid values: shared, auto, supplementalPool.
                             type: string
                           launchSecurity:
                             description: Launch Security setting of the vmi.
@@ -3557,55 +3542,47 @@ spec:
                         type: object
                       resourceClaims:
                         description: |-
-                          ResourceClaims define which ResourceClaims must be allocated
-                          and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources
-                          will be made available to the domain which consumes them
-                          by name.
+                          Defines which ResourceClaims must be allocated and reserved before the VMI,
+                          hence the `virt-launcher` pod is allowed to start. The resources will be made available to the domain
+                          which consumes them by name.
 
-                          This is an alpha field and requires enabling the
-                          DynamicResourceAllocation feature gate in kubernetes
-                           https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-                          This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
+                          This is an alpha field and requires enabling the `DynamicResourceAllocation` feature gate in Kubernetes.
+                          See https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
+                          This field should only be configured if one of the feature gates `GPUsWithDRA` or `HostDevicesWithDRA` is enabled.
                           This feature is in alpha.
                         items:
                           description: |-
-                            PodResourceClaim references exactly one ResourceClaim, either directly
+                            References exactly one ResourceClaim, either directly
                             or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
                             for the pod.
 
-                            It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
+                            Adds a name that uniquely identifies the ResourceClaim inside the Pod.
                             Containers that need access to the ResourceClaim reference it with this name.
                           properties:
                             name:
                               description: |-
-                                Name uniquely identifies this resource claim inside the pod.
-                                This must be a DNS_LABEL.
+                                Uniquely identifies this resource claim inside the pod.
+                                This must be a `DNS_LABEL`.
                               type: string
                             resourceClaimName:
                               description: |-
-                                ResourceClaimName is the name of a ResourceClaim object in the same
-                                namespace as this pod.
+                                Name of a ResourceClaim object in the same namespace as this pod.
 
-                                Exactly one of ResourceClaimName and ResourceClaimTemplateName must
-                                be set.
+                                Exactly one of `ResourceClaimName` and `ResourceClaimTemplateName` must be set.
                               type: string
                             resourceClaimTemplateName:
                               description: |-
-                                ResourceClaimTemplateName is the name of a ResourceClaimTemplate
-                                object in the same namespace as this pod.
+                                Name of a ResourceClaimTemplate object in the same namespace as this pod.
 
-                                The template will be used to create a new ResourceClaim, which will
-                                be bound to this pod. When this pod is deleted, the ResourceClaim
-                                will also be deleted. The pod name and resource name, along with a
-                                generated component, will be used to form a unique name for the
-                                ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+                                The template will be used to create a new ResourceClaim, which will be bound to this pod.
+                                When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name,
+                                along with a generated component, will be used to form a unique name for the ResourceClaim,
+                                which will be recorded in `pod.status.resourceClaimStatuses`.
 
-                                This field is immutable and no changes will be made to the
-                                corresponding ResourceClaim by the control plane after creating the
-                                ResourceClaim.
+                                This field is immutable and no changes will be made to the corresponding ResourceClaim
+                                by the control plane after creating the ResourceClaim.
 
-                                Exactly one of ResourceClaimName and ResourceClaimTemplateName must
-                                be set.
+                                Exactly one of `ResourceClaimName` and `ResourceClaimTemplateName` must be set.
                               type: string
                           required:
                           - name
@@ -4036,8 +4013,7 @@ spec:
                                     volume can be hotplugged and hotunplugged.
                                   type: boolean
                                 name:
-                                  description: Name of both the DataVolume and the
-                                    PVC in the same namespace.
+                                  description: Name of both the DataVolume and the PVC in the same namespace.
                                   type: string
                               required:
                               - name
@@ -4385,26 +4361,25 @@ spec:
                 properties:
                   controllerRevisionRef:
                     description: |-
-                      ControllerRef specifies the ControllerRevision storing a copy of the object captured
-                      when it is first seen by the VirtualMachine controller
+                      ControllerRevision storing a copy of the object captured
+                      when it is first seen by the VirtualMachine controller.
                     properties:
                       name:
-                        description: Name of the ControllerRevision
+                        description: Name of ControllerRevision.
                         type: string
                     type: object
                   inferFromVolume:
-                    description: InferFromVolume lists the name of a volume that should
-                      be used to infer or discover the resource
+                    description: Lists the name of a volume that should
+                      be used to infer or discover the resource.
                     type: string
                   inferFromVolumeFailurePolicy:
-                    description: InferFromVolumeFailurePolicy controls what should
-                      happen on failure when inferring the resource
+                    description: Controls what happens on failure when inferring the resource.
                     type: string
                   kind:
-                    description: Kind specifies the kind of resource
+                    description: Kind of resource.
                     type: string
                   name:
-                    description: Name is the name of resource
+                    description: Name of resource.
                     type: string
                 type: object
               memoryDumpRequest:
@@ -4414,31 +4389,27 @@ spec:
                 nullable: true
                 properties:
                   claimName:
-                    description: ClaimName is the name of the pvc that will contain
-                      the memory dump
+                    description: Name of the PVC that will contain
+                      the memory dump.
                     type: string
                   endTimestamp:
-                    description: EndTimestamp represents the time the memory dump
-                      was completed
+                    description: Time when the memory dump was completed.
                     format: date-time
                     type: string
                   fileName:
-                    description: FileName represents the name of the output file
+                    description: Name of the output file.
                     type: string
                   message:
-                    description: Message is a detailed message about failure of the
-                      memory dump
+                    description: Detailed message about failure of the memory dump.
                     type: string
                   phase:
-                    description: Phase represents the memory dump phase
+                    description: Memory dump phase.
                     type: string
                   remove:
-                    description: Remove represents request of dissociating the memory
-                      dump pvc
+                    description: Request to dissociate the memory dump PVC.
                     type: boolean
                   startTimestamp:
-                    description: StartTimestamp represents the time the memory dump
-                      started
+                    description: Time when the memory dump started.
                     format: date-time
                     type: string
                 required:
@@ -4457,26 +4428,25 @@ spec:
                 properties:
                   controllerRevisionRef:
                     description: |-
-                      ControllerRef specifies the ControllerRevision storing a copy of the object captured
-                      when it is first seen by the VirtualMachine controller
+                      Specifies the `ControllerRevision` storing a copy of the object captured
+                      when it is first seen by the VirtualMachine controller.
                     properties:
                       name:
-                        description: Name of the ControllerRevision
+                        description: Name of ControllerRevision.
                         type: string
                     type: object
                   inferFromVolume:
-                    description: InferFromVolume lists the name of a volume that should
-                      be used to infer or discover the resource
+                    description: Lists the name of a volume that should
+                      be used to infer or discover the resource.
                     type: string
                   inferFromVolumeFailurePolicy:
-                    description: InferFromVolumeFailurePolicy controls what should
-                      happen on failure when inferring the resource
+                    description: Controls what happens on failure when inferring the resource.
                     type: string
                   kind:
-                    description: Kind specifies the kind of resource
+                    description: Kind of resource.
                     type: string
                   name:
-                    description: Name is the name of resource
+                    description: Name of resource.
                     type: string
                 type: object
               printableStatus:
@@ -4594,11 +4564,11 @@ spec:
                               type: integer
                             cache:
                               description: |-
-                                Cache specifies which kvm disk cache mode should be used.
-                                Supported values are:
-                                none: Guest I/O not cached on the host, but may be kept in a disk cache.
-                                writethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.
-                                writeback: Guest I/O cached on the host.
+                                Cache specifies which KVM disk cache mode should be used. Supported values:
+
+                                - `none`: Guest I/O is not cached on the host, but may be kept in a disk cache.
+                                - `writethrough`: Guest I/O is cached on the host but written through to the physical medium. This is the slowest mode but provides the most guarantees.
+                                - `writeback`: Guest I/O is cached on the host.
                                 Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                               type: string
                             cdrom:
@@ -4752,8 +4722,7 @@ spec:
                                     volume can be hotplugged and hotunplugged.
                                   type: boolean
                                 name:
-                                  description: Name of both the DataVolume and the
-                                    PVC in the same namespace.
+                                  description: Name of both the DataVolume and the PVC in the same namespace.
                                   type: string
                               required:
                               - name
@@ -4875,7 +4844,7 @@ spec:
                                     on the corresponding PVC status
                                   type: object
                                 claimName:
-                                  description: ClaimName is the name of the PVC
+                                  description: Name of the PVC.
                                   type: string
                                 filesystemOverhead:
                                   description: Percentage of filesystem's size to
@@ -4925,7 +4894,7 @@ spec:
                                     on the corresponding PVC status
                                   type: object
                                 claimName:
-                                  description: ClaimName is the name of the PVC
+                                  description: Name of the PVC.
                                   type: string
                                 filesystemOverhead:
                                   description: Percentage of filesystem's size to
