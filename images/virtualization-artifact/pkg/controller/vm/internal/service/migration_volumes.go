@@ -118,19 +118,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
-		hasStale, err := s.hasStaleVolumePVCReferences(ctx, kvvmiInCluster)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if hasStale {
-			vdsByName, err := vmState.VirtualDisksByName(ctx)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			revertKVVM := s.buildRevertKVVM(kvvmInCluster, vdsByName)
-			log.Info("KVVMI has stale PVC references, patching KVVM to revert to source PVCs")
-			return reconcile.Result{}, s.patchVolumes(ctx, revertKVVM)
-		}
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
@@ -245,46 +232,6 @@ func (s MigrationVolumesService) shouldRevert(kvvmi *virtv1.VirtualMachineInstan
 		}
 	}
 	return false
-}
-
-func (s MigrationVolumesService) hasStaleVolumePVCReferences(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error) {
-	for _, v := range kvvmi.Spec.Volumes {
-		if v.PersistentVolumeClaim != nil {
-			pvc := &corev1.PersistentVolumeClaim{}
-			err := s.client.Get(ctx, types.NamespacedName{
-				Name:      v.PersistentVolumeClaim.ClaimName,
-				Namespace: kvvmi.Namespace,
-			}, pvc)
-			if k8serrors.IsNotFound(err) {
-				return true, nil
-			}
-			if err != nil {
-				return false, err
-			}
-		}
-	}
-	return false, nil
-}
-
-func (s MigrationVolumesService) buildRevertKVVM(kvvm *virtv1.VirtualMachine, vdsByName map[string]*v1alpha2.VirtualDisk) *virtv1.VirtualMachine {
-	revertKVVM := kvvm.DeepCopy()
-	revertKVVM.Spec.UpdateVolumesStrategy = nil
-
-	for i, v := range revertKVVM.Spec.Template.Spec.Volumes {
-		if v.PersistentVolumeClaim == nil || !v.PersistentVolumeClaim.Hotpluggable {
-			continue
-		}
-		name, _ := kvbuilder.GetOriginalDiskName(v.Name)
-		vd, ok := vdsByName[name]
-		if !ok || vd == nil {
-			continue
-		}
-		if vd.Status.MigrationState.SourcePVC != "" {
-			revertKVVM.Spec.Template.Spec.Volumes[i].PersistentVolumeClaim.ClaimName = vd.Status.MigrationState.SourcePVC
-		}
-	}
-
-	return revertKVVM
 }
 
 func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
