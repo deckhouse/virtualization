@@ -118,13 +118,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 			return reconcile.Result{}, err
 		}
 
-		var envSettings *importer.Settings
-		if pvc.Spec.VolumeMode != nil {
-			envSettings = ds.getEnvSettings(cvi, supgen, pvc.Spec.VolumeMode)
-		} else {
-			envSettings = ds.getEnvSettings(cvi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
-		}
-
+		envSettings := ds.getEnvSettings(cvi, supgen, pvc.Spec.VolumeMode)
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), podSettings)

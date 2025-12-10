@@ -112,13 +112,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 		return &reconcile.Result{}, err
 	}
 
-	var envSettings *importer.Settings
-	if pvc.Spec.VolumeMode != nil {
-		envSettings = s.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
-	} else {
-		envSettings = s.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
-	}
-
+	envSettings := s.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 	err = s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
 	switch {
 	case err == nil:

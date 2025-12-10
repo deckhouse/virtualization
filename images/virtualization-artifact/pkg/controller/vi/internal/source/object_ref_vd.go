@@ -120,13 +120,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 			return reconcile.Result{}, err
 		}
 
-		var envSettings *importer.Settings
-		if pvc.Spec.VolumeMode != nil {
-			envSettings = ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
-		} else {
-			envSettings = ds.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
-		}
-
+		envSettings := ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 		podSettings := ds.importerService.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace)
 		err = ds.importerService.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
