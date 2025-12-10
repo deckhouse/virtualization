@@ -101,6 +101,7 @@ type ClusterVirtualImageContainerImage struct {
 type ClusterVirtualImageObjectRef struct {
 	Kind ClusterVirtualImageObjectRefKind `json:"kind"`
 	// Name of the existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Namespace where the VirtualImage, VirtualDisk or VirtualDiskSnapshot resource is located.
 	Namespace string `json:"namespace,omitempty"`

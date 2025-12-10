@@ -83,14 +83,17 @@ type NameReplacement struct {
 	// Selector to choose resources for name replacement.
 	From NameReplacementFrom `json:"from"`
 	// New resource name.
+	// +kubebuilder:validation:MinLength=1
 	To string `json:"to"`
 }
 
 // NameReplacementFrom represents a selector to choose resources for name replacement.
 type NameReplacementFrom struct {
 	// Kind of a resource to rename.
+	// +kubebuilder:validation:MinLength=1
 	Kind string `json:"kind,omitempty"`
 	// Current name of a resource to rename.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 }
 

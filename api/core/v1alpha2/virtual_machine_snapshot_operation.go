@@ -47,6 +47,7 @@ type VirtualMachineSnapshotOperation struct {
 type VirtualMachineSnapshotOperationSpec struct {
 	Type VMSOPType `json:"type"`
 	// Name of the virtual machine snapshot the operation is performed for.
+	// +kubebuilder:validation:MinLength=1
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 	// CreateVirtualMachine defines the clone operation.
 	CreateVirtualMachine *VMSOPCreateVirtualMachineSpec `json:"createVirtualMachine,omitempty"`
@@ -84,7 +85,6 @@ type VirtualMachineSnapshotOperationStatus struct {
 	// Resources contains the list of resources that are affected by the snapshot operation.
 	Resources []SnapshotResourceStatus `json:"resources,omitempty"`
 }
-
 
 // VirtualMachineSnapshotOperationList contains a list of VirtualMachineSnapshotOperation resources.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

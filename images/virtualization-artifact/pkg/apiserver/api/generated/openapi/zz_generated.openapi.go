@@ -320,7 +320,7 @@ func schema_virtualization_api_core_v1alpha3_SizingPolicy(ref common.ReferenceCa
 					},
 					"defaultCoreFraction": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Default core fraction value for the VirtualMachineClass.",
+							Description: "Default `coreFraction` value for the VirtualMachineClass.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

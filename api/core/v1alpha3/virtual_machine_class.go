@@ -117,7 +117,7 @@ type SizingPolicy struct {
 	Memory *SizingPolicyMemory `json:"memory,omitempty"`
 	// Allowed values of the `coreFraction` parameter in percentages (e.g., "5%", "10%", "25%", "50%", "100%").
 	CoreFractions []CoreFractionValue `json:"coreFractions,omitempty"`
-	// Default core fraction value for the VirtualMachineClass.
+	// Default `coreFraction` value for the VirtualMachineClass.
 	DefaultCoreFraction *CoreFractionValue `json:"defaultCoreFraction,omitempty"`
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
