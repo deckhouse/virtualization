@@ -77,6 +77,12 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 	}
 	for _, n := range vm.Spec.Networks {
 		if n.Type == v1alpha2.NetworksTypeMain {
+			res = append(res, InterfaceSpec{
+				Type:          n.Type,
+				Name:          n.Name,
+				InterfaceName: NameDefaultInterface,
+				MAC:           "",
+			})
 			continue
 		}
 		var mac string
@@ -104,7 +110,15 @@ func CreateNetworkSpec(vm *v1alpha2.VirtualMachine, vmmacs []*v1alpha2.VirtualMa
 }
 
 func (c InterfaceSpecList) ToString() (string, error) {
-	data, err := json.Marshal(c)
+	filtered := make(InterfaceSpecList, 0, len(c))
+	for _, spec := range c {
+		if spec.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		filtered = append(filtered, spec)
+	}
+
+	data, err := json.Marshal(filtered)
 	if err != nil {
 		return "", err
 	}
