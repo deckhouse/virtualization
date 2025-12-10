@@ -59,7 +59,7 @@ Successful
 
 ## Garbage collector
 
-When all removing operations are finished, run the `garbage collect`:
+When all removal operations are finished and there are no virtual disks in the `provisioning` phase, run the `garbage collect`:
 ```bash
 k exec -it -n d8-virtualization dvcr-84c4bffc46-tkgvq -c dvcr -- dvcr-cleaner gc run
 ? Confirm? [y/N] y█
