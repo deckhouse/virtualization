@@ -70,7 +70,7 @@ const (
 	changedMemorySize           = "512Mi"
 	mountPoint                  = "/mnt"
 	fileDataPath                = "/mnt/value"
-	additionalNetworkIp         = "192.168.1.10/24"
+	additionalNetworkIP         = "192.168.1.10/24"
 	clusterNetworkCreateCommand = `kubectl apply -f - <<EOF
 apiVersion: network.deckhouse.io/v1alpha1
 kind: ClusterNetwork
@@ -132,7 +132,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
-			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIp)
+			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -513,7 +513,7 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		Fail("Invalid restore mode")
 	}
 
-	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIp)
+	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
