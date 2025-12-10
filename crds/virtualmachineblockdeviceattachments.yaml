@@ -88,12 +88,14 @@ spec:
                       type: string
                     name:
                       description: Name of the block device to attach.
+                      minLength: 1
                       type: string
                   type: object
                 virtualMachineName:
                   description:
                     Virtual machine name the disk or image should be attached
                     to.
+                  minLength: 1
                   type: string
               required:
                 - blockDeviceRef

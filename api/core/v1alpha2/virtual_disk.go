@@ -137,6 +137,7 @@ type VirtualDiskObjectRef struct {
 	// Kind of the existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource.
 	Kind VirtualDiskObjectRefKind `json:"kind"`
 	// Name of the existing VirtualImage, ClusterVirtualImage, or VirtualDiskSnapshot resource.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 }
 
