@@ -17,6 +17,7 @@ limitations under the License.
 package ansibleinventory
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -44,8 +45,8 @@ type AnsibleInventory struct {
 }
 
 type inventoryData struct {
-	hostVars map[string]map[string]interface{} // hostname -> variables
-	groups   map[string][]string               // group -> list of hostnames
+	hostVars map[string]map[string]string // hostname -> variables
+	groups   map[string][]string          // group -> list of hostnames
 }
 
 type Options struct {
@@ -81,7 +82,7 @@ Only virtual machines with assigned IP addresses are included in the inventory.
 Arguments:
   --list                   Return all hosts (default behavior if no arguments)
   --host <hostname>        Show variables for a particular host; output format matches inventory entries
-  --output, -o <format>    Output format: json, ini, or yaml (default: yaml)
+  --output, -o <format>    Output format: json, ini, or yaml (default: json)
   --namespace, -n <ns>     Namespace to list virtual machines from
                           (overrides kubeconfig context namespace)
 
@@ -114,7 +115,7 @@ func AddCommandlineArgs(flagset *pflag.FlagSet, opts *Options) {
 	flagset.StringVar(&opts.Host, "host", opts.Host,
 		"Return variables for specific host")
 	flagset.StringVarP(&opts.Output, "output", "o", opts.Output,
-		"Output format: json, ini, or yaml (default: yaml)")
+		"Output format: json, ini, or yaml (default: json)")
 	flagset.StringVarP(&opts.Namespace, "namespace", "n", opts.Namespace,
 		"Namespace to list virtual machines from (overrides kubeconfig context namespace)")
 }
@@ -196,28 +197,23 @@ func (a *AnsibleInventory) generateInventory(vms []v1alpha2.VirtualMachine) stri
 }
 
 func (a *AnsibleInventory) generateInventoryINI(vms []v1alpha2.VirtualMachine) string {
+	data := a.collectInventoryData(vms)
+
 	var builder strings.Builder
 
 	builder.WriteString("[all]\n")
-	groupsMap := make(map[string][]string)
-
-	for _, vm := range vms {
-		if !a.isValidVM(vm) {
-			continue
+	for hostName, hostVars := range data.hostVars {
+		builder.WriteString(hostName)
+		for varName, value := range hostVars {
+			builder.WriteString(fmt.Sprintf(" %s=%s", varName, value))
 		}
-		hostName := a.getHostName(vm)
-		builder.WriteString(fmt.Sprintf("%s\n", hostName))
-
-		groups := a.getVMGroups(vm)
-		for _, group := range groups {
-			groupsMap[group] = append(groupsMap[group], hostName)
-		}
+		builder.WriteString("\n")
 	}
 
 	builder.WriteString("\n[all:vars]\n")
 	builder.WriteString(fmt.Sprintf("%s=\"%s\"\n", ansibleSSHCommonArgsKey, ansibleSSHCommonArgs))
 
-	for group, hosts := range groupsMap {
+	for group, hosts := range data.groups {
 		builder.WriteString(fmt.Sprintf("\n[%s]\n", group))
 		for _, host := range hosts {
 			builder.WriteString(fmt.Sprintf("%s\n", host))
@@ -257,7 +253,7 @@ func (a *AnsibleInventory) generateInventoryJSON(vms []v1alpha2.VirtualMachine) 
 
 func (a *AnsibleInventory) collectInventoryData(vms []v1alpha2.VirtualMachine) inventoryData {
 	data := inventoryData{
-		hostVars: make(map[string]map[string]interface{}),
+		hostVars: make(map[string]map[string]string),
 		groups:   make(map[string][]string),
 	}
 
@@ -269,7 +265,7 @@ func (a *AnsibleInventory) collectInventoryData(vms []v1alpha2.VirtualMachine) i
 		hostName := a.getHostName(vm)
 		hostVars := a.getHostVars(vm)
 		if hostVars == nil {
-			hostVars = make(map[string]interface{})
+			hostVars = make(map[string]string)
 		}
 		data.hostVars[hostName] = hostVars
 
@@ -354,8 +350,8 @@ func (a *AnsibleInventory) getHostName(vm v1alpha2.VirtualMachine) string {
 	return fmt.Sprintf("%s.%s", vm.Name, vm.Namespace)
 }
 
-func (a *AnsibleInventory) getHostVars(vm v1alpha2.VirtualMachine) map[string]interface{} {
-	hostVars := map[string]interface{}{}
+func (a *AnsibleInventory) getHostVars(vm v1alpha2.VirtualMachine) map[string]string {
+	hostVars := make(map[string]string)
 
 	// Add annotations as host variables
 	// Only process annotations with prefix provisioning.virtualization.deckhouse.io/
@@ -420,6 +416,19 @@ func (a *AnsibleInventory) generateHostInfo(vm *v1alpha2.VirtualMachine) string 
 	switch strings.ToLower(a.options.Output) {
 	case "yaml":
 		output, err = yaml.Marshal(hostVars)
+	case "ini":
+		var builder bytes.Buffer
+		first := true
+		for varName, value := range hostVars {
+			if first {
+				first = false
+			} else {
+				builder.WriteString(" ")
+			}
+			builder.WriteString(fmt.Sprintf("%s=%s", varName, value))
+		}
+		builder.WriteString("\n")
+		output = builder.Bytes()
 	default:
 		output, err = json.MarshalIndent(hostVars, "", "  ")
 	}
