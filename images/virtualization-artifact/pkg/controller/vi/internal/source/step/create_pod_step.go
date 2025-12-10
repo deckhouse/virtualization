@@ -23,6 +23,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -54,6 +56,7 @@ type CreatePodStepStat interface {
 type CreatePodStep struct {
 	pod          *corev1.Pod
 	dvcrSettings *dvcr.Settings
+	client       client.Client
 	recorder     eventrecord.EventRecorderLogger
 	importer     CreatePodStepImporter
 	stat         CreatePodStepStat
@@ -62,6 +65,7 @@ type CreatePodStep struct {
 
 func NewCreatePodStep(
 	pod *corev1.Pod,
+	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	recorder eventrecord.EventRecorderLogger,
 	importer CreatePodStepImporter,
@@ -70,6 +74,7 @@ func NewCreatePodStep(
 ) *CreatePodStep {
 	return &CreatePodStep{
 		pod:          pod,
+		client:       client,
 		dvcrSettings: dvcrSettings,
 		recorder:     recorder,
 		importer:     importer,
@@ -88,9 +93,26 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	pvcKey := supgen.PersistentVolumeClaim()
 	podSettings := s.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace)
 
-	envSettings := s.getEnvSettings(vi, supgen)
+	vds := &v1alpha2.VirtualDiskSnapshot{}
+	err := s.client.Get(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, vds)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
 
-	err := s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
+	vd := &v1alpha2.VirtualDisk{}
+	err = s.client.Get(ctx, types.NamespacedName{Name: vds.Spec.VirtualDiskName, Namespace: vds.Namespace}, vd)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = s.client.Get(ctx, types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}, pvc)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
+
+	envSettings := s.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
+	err = s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
 	switch {
 	case err == nil:
 		// OK.
@@ -111,9 +133,15 @@ func (s CreatePodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImage) (*re
 	return nil, nil
 }
 
-func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator) *importer.Settings {
+func (s CreatePodStep) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
-	importer.ApplyBlockDeviceSourceSettings(&settings)
+
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeBlock {
+		importer.ApplyBlockDeviceSourceSettings(&settings)
+	} else {
+		importer.ApplyFilesystemSourceSettings(&settings)
+	}
+
 	importer.ApplyDVCRDestinationSettings(
 		&settings,
 		s.dvcrSettings,
