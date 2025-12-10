@@ -31,6 +31,9 @@ func convertToAPIDevice(usbDevice Device) *resourceapi.Device {
 			"manufacturer": {
 				StringValue: ptr.To(usbDevice.Manufacturer),
 			},
+			"product": {
+				StringValue: ptr.To(usbDevice.Product),
+			},
 			"vendorID": {
 				StringValue: ptr.To(usbDevice.VendorID.String()),
 			},

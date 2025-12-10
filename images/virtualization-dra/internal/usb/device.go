@@ -37,6 +37,7 @@ func NewDeviceSet() *DeviceSet {
 type Device struct {
 	Name         string
 	Manufacturer string
+	Product      string
 	VendorID     int4x
 	ProductID    int4x
 	BCD          int4x
@@ -87,6 +88,9 @@ func LoadDevice(path string) (device Device, err error) {
 		return
 	}
 	if err = parseManufacturer(path, &device); err != nil {
+		return
+	}
+	if err = parseProduct(path, &device); err != nil {
 		return
 	}
 	return
@@ -207,6 +211,20 @@ func parseManufacturer(path string, device *Device) error {
 		device.Manufacturer = strings.TrimSpace(lines[0])
 	} else {
 		device.Manufacturer = "unknown"
+	}
+	return nil
+}
+
+func parseProduct(path string, device *Device) error {
+	b, err := os.ReadFile(filepath.Join(path, "product"))
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(b), "\n")
+	if len(lines) >= 1 {
+		device.Product = strings.TrimSpace(lines[0])
+	} else {
+		device.Product = "unknown"
 	}
 	return nil
 }
