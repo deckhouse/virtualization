@@ -56,6 +56,12 @@ on:
         type: boolean
         default: true
         description: "Set to true if build is required"
+
+      check_only:
+        type: boolean
+        description: "Run only check version on release channel"
+        default: false
+
 defaults:
   run:
     shell: bash
@@ -99,7 +105,7 @@ jobs:
     name: Edition CE
     runs-on: [self-hosted, large]
     needs: print-vars
-    if: github.event.inputs.ce == 'true'
+    if: inputs.ce && !inputs.check_only
     steps:
       - name: Setup Docker config
         run: |
@@ -134,7 +140,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -159,7 +165,7 @@ jobs:
     name: Edition EE
     needs: print-vars
     runs-on: [self-hosted, large]
-    if: github.event.inputs.ee == 'true'
+    if: inputs.ee && !inputs.check_only
     steps:
       - name: Setup Docker config
         run: |
@@ -200,7 +206,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -259,7 +265,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -322,7 +328,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -348,12 +354,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GO_VERSION: "1.24.6"
+      input_channel: ${{ github.event.inputs.channel }}
+      input_version: ${{ github.event.inputs.tag }}
     needs:
       - job-EE
       - job-SE-Plus
       - job-FE
       - job-CE
-    if: ${{ always() && ! contains(needs.*.result, 'failure') }}
+    if: ${{ always() && ! contains(needs.*.result, 'failure') || inputs.check_only }}
     strategy:
       matrix:
         check: ["registry", "releases", "documentation"]
@@ -372,39 +380,51 @@ jobs:
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
         with:
-          registry: ${{ vars.PROD_REGISTRY }}
-          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          registry: ${{ vars.PROD_READ_REGISTRY }}
+          registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Check version in registry
-        if: ${{ matrix.check == 'registry' }}
+        if: ${{ matrix.check == 'registry' && always() }}
         run: |
-          CHANNEL=${{ github.event.inputs.channel }} \
-          VERSION=${{ github.event.inputs.tag }} \
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
           task -d tools/moduleversions check:registry
 
       - name: Check version on site ${{ matrix.check }}
-        if: ${{ matrix.check == 'releases' }}
+        if: ${{ matrix.check == 'releases' && always() }}
+        env:
+          input_check_only: ${{ inputs.check_only }}
         run: |
-          echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
-          sleep 120
+          # When check_only is true, we don't want to wait 120 seconds
+          # because we just want to check the version we're interested in on the website
+          if [ $input_check_only = false]; then
+            echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
+            sleep 120
+          fi
 
           echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
-          CHANNEL=${{ github.event.inputs.channel }} \
-          VERSION=${{ github.event.inputs.tag }} \
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
           COUNT=5 \
           task -d tools/moduleversions check:releases
       - name: Check version on site ${{ matrix.check }}
-        if: ${{ matrix.check == 'documentation' }}
+        if: ${{ matrix.check == 'documentation' && always() }}
+        env:
+          input_check_only: ${{ inputs.check_only }}
         run: |
-          echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
-          sleep 300
+          # When check_only is true, we don't want to wait 300 seconds
+          # because we just want to check the version we're interested in on the website
+          if [ $input_check_only = false]; then
+            echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+            sleep 300
+          fi
 
           echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
-          CHANNEL=${{ github.event.inputs.channel }} \
-          VERSION=${{ github.event.inputs.tag }} \
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
           COUNT=5 \
           task -d tools/moduleversions check:docs
