@@ -96,14 +96,11 @@ func AddTolerationForSystemNodes(placement *NodePlacement) {
 	if placement == nil {
 		return
 	}
-	hasSystem := false
+	// Do nothing if system-node toleration is present.
 	for _, toleration := range placement.Tolerations {
 		if toleration.Key == systemNodeToleration.Key && toleration.Value == systemNodeToleration.Value {
-			hasSystem = true
-			break
+			return
 		}
 	}
-	if !hasSystem {
-		placement.Tolerations = append(placement.Tolerations, systemNodeToleration)
-	}
+	placement.Tolerations = append(placement.Tolerations, systemNodeToleration)
 }
