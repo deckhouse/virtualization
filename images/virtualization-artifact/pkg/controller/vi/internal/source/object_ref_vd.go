@@ -124,7 +124,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *v1alpha2.Vir
 		if pvc.Spec.VolumeMode != nil {
 			envSettings = ds.getEnvSettings(vi, supgen, pvc.Spec.VolumeMode)
 		} else {
-			envSettings = ds.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeBlock))
+			envSettings = ds.getEnvSettings(vi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
 		}
 
 		ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())

@@ -122,7 +122,7 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *v1alpha2.ClusterVi
 		if pvc.Spec.VolumeMode != nil {
 			envSettings = ds.getEnvSettings(cvi, supgen, pvc.Spec.VolumeMode)
 		} else {
-			envSettings = ds.getEnvSettings(cvi, supgen, ptr.To(corev1.PersistentVolumeBlock))
+			envSettings = ds.getEnvSettings(cvi, supgen, ptr.To(corev1.PersistentVolumeFilesystem))
 		}
 
 		ownerRef := metav1.NewControllerRef(cvi, cvi.GroupVersionKind())
