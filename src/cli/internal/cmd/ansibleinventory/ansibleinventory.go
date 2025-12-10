@@ -138,14 +138,24 @@ func (a *AnsibleInventory) Run(cmd *cobra.Command, args []string) error {
 		namespace = a.options.Namespace
 	}
 
-	vmList, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list virtual machines: %w", err)
-	}
-	allVMs := vmList.Items
-
 	if a.options.Host != "" {
-		hostInfo := a.generateHostInfo(allVMs, a.options.Host)
+		nsFromHost, hostName := a.parseHost(a.options.Host)
+
+		if nsFromHost == "" && namespace == "" {
+			return fmt.Errorf("no default namespace in context, no --namespace arg, no namespace in --host: specify namespace for host info")
+		}
+
+		// Override namespace if the `--host` argument is in the form host.namespace.
+		if nsFromHost != "" {
+			namespace = nsFromHost
+		}
+
+		vm, err := client.VirtualMachines(namespace).Get(context.TODO(), hostName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("get vm %s in namespace %s: %w", hostName, namespace, err)
+		}
+
+		hostInfo := a.generateHostInfo(vm)
 		if hostInfo == "" {
 			cmd.Print("{}")
 			return nil
@@ -155,7 +165,14 @@ func (a *AnsibleInventory) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if a.options.List {
-		inventory := a.generateInventory(allVMs)
+		if namespace == "" {
+			return fmt.Errorf("no default namespace in context, no --namespace arg: inventory for all VirtualMachines is not implemented yet, specify namespace")
+		}
+		vmList, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list virtual machines: %w", err)
+		}
+		inventory := a.generateInventory(vmList.Items)
 		cmd.Print(inventory)
 		return nil
 	}
@@ -386,29 +403,31 @@ func (a *AnsibleInventory) getVMGroups(vm v1alpha2.VirtualMachine) []string {
 // Host info generation
 // ============================================================================
 
-func (a *AnsibleInventory) generateHostInfo(vms []v1alpha2.VirtualMachine, hostName string) string {
-	for _, vm := range vms {
-		vmHostName := a.getHostName(vm)
-		// Support search by both full name (vmname.namespace) and short name (vmname)
-		if (vmHostName == hostName || vm.Name == hostName) && a.isValidVM(vm) {
-			hostVars := a.getHostVars(vm)
+// parseHost returns namespace and name for the --host option:
+//
+// - "hostname" form: namespace is empty string, name is hostname
+// - "hostname.namespace" form: split this by . and return namespace and name.
+func (a *AnsibleInventory) parseHost(hostOpt string) (string, string) {
+	name, namespace, _ := strings.Cut(hostOpt, ".")
+	return namespace, name
+}
 
-			var output []byte
-			var err error
-			switch strings.ToLower(a.options.Output) {
-			case "yaml":
-				output, err = yaml.Marshal(hostVars)
-			default:
-				output, err = json.MarshalIndent(hostVars, "", "  ")
-			}
-			if err != nil {
-				return ""
-			}
+func (a *AnsibleInventory) generateHostInfo(vm *v1alpha2.VirtualMachine) string {
+	hostVars := a.getHostVars(*vm)
 
-			return string(output)
-		}
+	var output []byte
+	var err error
+	switch strings.ToLower(a.options.Output) {
+	case "yaml":
+		output, err = yaml.Marshal(hostVars)
+	default:
+		output, err = json.MarshalIndent(hostVars, "", "  ")
 	}
-	return ""
+	if err != nil {
+		return ""
+	}
+
+	return string(output)
 }
 
 // ============================================================================
