@@ -23,7 +23,7 @@ Manages virtual machine-related operations in your Kubernetes cluster.
 #### ansible-inventory
 
 ```shell
-# Get inventory (default: YAML format)
+# Get inventory for default namespace in YAML format
 d8 virtualization ansible-inventory
 d8 virtualization ansible-inventory --list
 
