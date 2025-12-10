@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
@@ -44,7 +43,7 @@ func IsSdnModuleEnabled(f *framework.Framework) bool {
 	return enabled != nil && *enabled
 }
 
-func CreateClusterNetworkIfNotExists(f *framework.Framework) {
+func IsClusterNetworkExists(f *framework.Framework) bool {
 	GinkgoHelper()
 
 	gvr := schema.GroupVersionResource{
@@ -56,36 +55,5 @@ func CreateClusterNetworkIfNotExists(f *framework.Framework) {
 	_, err := framework.GetClients().DynamicClient().Resource(gvr).Get(context.Background(), ClusterNetworkName, metav1.GetOptions{})
 	Expect(err).To(SatisfyAny(BeNil(), WithTransform(k8serrors.IsNotFound, BeTrue())))
 
-	if err != nil && k8serrors.IsNotFound(err) {
-		unstructuredClusterNetwork := &unstructured.Unstructured{
-			Object: map[string]any{
-				"apiVersion": gvr.GroupVersion().String(),
-				"kind":       "ClusterNetwork",
-				"metadata": map[string]any{
-					"name": ClusterNetworkName,
-				},
-			},
-		}
-
-		unstructuredClusterNetwork.Object["spec"] = map[string]any{
-			"vlan": map[string]any{
-				"id": ClusterNetworkVLANID,
-			},
-			"parentNodeNetworkInterfaces": map[string]any{
-				"labelSelector": map[string]any{
-					"matchLabels": map[string]any{
-						"network.deckhouse.io/interface-type": "NIC",
-						"network.deckhouse.io/node-role":      "worker",
-					},
-				},
-			},
-			"type": "VLAN",
-		}
-
-		_, err = framework.GetClients().DynamicClient().Resource(gvr).Create(context.Background(), unstructuredClusterNetwork, metav1.CreateOptions{})
-		Expect(err).NotTo(HaveOccurred())
-
-		UntilConditionStatus("Ready", string(metav1.ConditionTrue), framework.MiddleTimeout, unstructuredClusterNetwork)
-		Expect(err).NotTo(HaveOccurred())
-	}
+	return err == nil || !k8serrors.IsNotFound(err)
 }

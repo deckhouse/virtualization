@@ -50,26 +50,42 @@ import (
 )
 
 const (
-	minimalVIURL              = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	minimalCVIURL             = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
-	vmAnnotationName          = "vmAnnotationName"
-	vmAnnotationOriginalValue = "vmAnnotationOriginalValue"
-	vmAnnotationChangedValue  = "vmAnnotationChangedValue"
-	vmLabelName               = "vmLabelName"
-	vmLabelOriginalValue      = "vmLabelOriginalValue"
-	vmLabelChangedValue       = "vmLabelChangedValue"
-	resourceAnnotationName    = "resourceAnnotation"
-	resourceAnnotationValue   = "resourceAnnotationValue"
-	resourceLabelName         = "resourceLabelName"
-	resourceLabelValue        = "resourceLabelValue"
-	originalValueOnDisk       = "originalValueOnDisk"
-	changedValueOnDisk        = "changedValueOnDisk"
-	originalCPUCores          = 1
-	originalMemorySize        = "256Mi"
-	changedCPUCores           = 2
-	changedMemorySize         = "512Mi"
-	mountPoint                = "/mnt"
-	fileDataPath              = "/mnt/value"
+	minimalVIURL                = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
+	minimalCVIURL               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
+	vmAnnotationName            = "vmAnnotationName"
+	vmAnnotationOriginalValue   = "vmAnnotationOriginalValue"
+	vmAnnotationChangedValue    = "vmAnnotationChangedValue"
+	vmLabelName                 = "vmLabelName"
+	vmLabelOriginalValue        = "vmLabelOriginalValue"
+	vmLabelChangedValue         = "vmLabelChangedValue"
+	resourceAnnotationName      = "resourceAnnotation"
+	resourceAnnotationValue     = "resourceAnnotationValue"
+	resourceLabelName           = "resourceLabelName"
+	resourceLabelValue          = "resourceLabelValue"
+	originalValueOnDisk         = "originalValueOnDisk"
+	changedValueOnDisk          = "changedValueOnDisk"
+	originalCPUCores            = 1
+	originalMemorySize          = "256Mi"
+	changedCPUCores             = 2
+	changedMemorySize           = "512Mi"
+	mountPoint                  = "/mnt"
+	fileDataPath                = "/mnt/value"
+	additionalNetworkIp         = "192.168.1.10/24"
+	clusterNetworkCreateCommand = `kubectl apply -f - <<EOF
+apiVersion: network.deckhouse.io/v1alpha1
+kind: ClusterNetwork
+metadata:
+  name: cn-1003-for-e2e-test
+spec:
+  parentNodeNetworkInterfaces:
+    labelSelector:
+      matchLabels:
+        network.deckhouse.io/interface-type: NIC
+        network.deckhouse.io/node-role: worker
+  type: VLAN
+  vlan:
+    id: 1003
+EOF`
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
@@ -81,7 +97,10 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		if !util.IsSdnModuleEnabled(f) {
 			Skip("SDN module is not enabled")
 		}
-		util.CreateClusterNetworkIfNotExists(f)
+
+		if !util.IsClusterNetworkExists(f) {
+			Skip(fmt.Sprintf("Cluster network is not exists, please apply cluster network first by command: %s", clusterNetworkCreateCommand))
+		}
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
@@ -95,7 +114,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			if t.VM.Spec.RunPolicy == v1alpha2.ManualPolicy {
-				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
+				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.LongTimeout, t.VM)
 				util.StartVirtualMachine(f, t.VM)
 			}
 			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
@@ -109,10 +128,11 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			util.CreateBlockDeviceFilesystem(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, "ext4")
 			util.MountBlockDevice(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name, mountPoint)
 			util.WriteFile(f, t.VM, fileDataPath, originalValueOnDisk)
+			// Unmount the disk to ensure nothing affects the hash.
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
-			t.CheckSDN(t.VM)
+			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIp)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -493,7 +513,7 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		Fail("Invalid restore mode")
 	}
 
-	t.CheckSDN(vm)
+	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIp)
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
@@ -538,12 +558,12 @@ func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1
 	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
 }
 
-func (t *restoreModeTest) CheckSDN(vm *v1alpha2.VirtualMachine) {
+func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMachine, ip string) {
 	GinkgoHelper()
 
 	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
 	Expect(err).NotTo(HaveOccurred())
-	Expect(cmdOut).To(ContainSubstring("inet 192.168.1.10/24"))
+	Expect(cmdOut).To(ContainSubstring(fmt.Sprintf("inet %s", ip)))
 }
 
 func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {

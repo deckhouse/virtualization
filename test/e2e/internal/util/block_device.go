@@ -40,7 +40,7 @@ func GetBlockDevicePath(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdK
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
 	return devicePath
 }
 
@@ -51,7 +51,7 @@ func CreateBlockDeviceFilesystem(f *framework.Framework, vm *v1alpha2.VirtualMac
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mkfs.%s %s", fsType, devicePath))
 	Expect(err).NotTo(HaveOccurred())
@@ -64,7 +64,7 @@ func MountBlockDevice(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdKin
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
 
 	_, err = f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo mount %s %s", devicePath, mountPoint))
 	Expect(err).NotTo(HaveOccurred())
@@ -95,8 +95,9 @@ func GetBlockDeviceHash(f *framework.Framework, vm *v1alpha2.VirtualMachine, bdK
 	Expect(ok).To(BeTrue(), "failed to get block device serial number")
 
 	devicePath, err := GetBlockDeviceBySerial(f, vm, serial)
-	Expect(err).NotTo(HaveOccurred(), fmt.Errorf("failed to get device by serial: %w", err))
+	Expect(err).NotTo(HaveOccurred(), "failed to get device by serial")
 
+	// We use dd to ensure the entire disk is read.
 	cmdOut, err := f.SSHCommand(vm.Name, vm.Namespace, fmt.Sprintf("sudo dd if=%s bs=4M | sha256sum | awk \"{print \\$1}\"", devicePath))
 	Expect(err).NotTo(HaveOccurred())
 	return strings.TrimSpace(cmdOut)
