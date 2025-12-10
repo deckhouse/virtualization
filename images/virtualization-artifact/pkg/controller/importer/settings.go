@@ -33,6 +33,8 @@ const (
 	SourceDVCR = "dvcr"
 	// SourceBlockDevice is the source type of block device
 	SourceBlockDevice = "blockDevice"
+	// SourceFilesystem is the source type of filesystem
+	SourceFilesystem = "filesystem"
 )
 
 // Settings stores all possible settings for dvcr-importer binary.
@@ -131,4 +133,9 @@ func ApplyDVCRSourceSettings(podEnvVars *Settings, dvcrImageName string) {
 // ApplyBlockDeviceSourceSettings updates importer Pod settings to use BlockDevice as source.
 func ApplyBlockDeviceSourceSettings(podEnvVars *Settings) {
 	podEnvVars.Source = SourceBlockDevice
+}
+
+// ApplyFilesystemSourceSettings updates importer Pod settings to use filesystem as source.
+func ApplyFilesystemSourceSettings(podEnvVars *Settings) {
+	podEnvVars.Source = SourceFilesystem
 }

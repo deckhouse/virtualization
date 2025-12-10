@@ -57,6 +57,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		ctx         context.Context
 		scheme      *runtime.Scheme
 		vi          *virtv2.VirtualImage
+		vd          *virtv2.VirtualDisk
 		vs          *vsv1.VolumeSnapshot
 		sc          *storagev1.StorageClass
 		vdSnapshot  *virtv2.VirtualDiskSnapshot
@@ -136,7 +137,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				Name: "vd-snapshot",
 				UID:  "11111111-1111-1111-1111-111111111111",
 			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{},
+			Spec: virtv2.VirtualDiskSnapshotSpec{VirtualDiskName: "vd"},
 			Status: virtv2.VirtualDiskSnapshotStatus{
 				Phase:              virtv2.VirtualDiskSnapshotPhaseReady,
 				VolumeSnapshotName: vs.Name,
@@ -179,6 +180,18 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				Name: supgen.ImporterPod().Name,
 			},
 		}
+
+		vd = &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vd",
+				UID:  "11111111-1111-1111-1111-111111111111",
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: pvc.Name,
+				},
+			},
+		}
 	})
 
 	Context("VirtualImage has just been created", func() {
@@ -195,7 +208,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			}
 
 			vi.Status = virtv2.VirtualImageStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs, vd, pvc).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						switch obj.(type) {
@@ -213,12 +226,10 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
-			Expect(pvcCreated).To(BeTrue())
+			Expect(pvcCreated).To(BeFalse())
 			Expect(podCreated).To(BeTrue())
 
 			ExpectCondition(vi, metav1.ConditionFalse, vicondition.Provisioning, true)
-			Expect(vi.Status.SourceUID).ToNot(BeNil())
-			Expect(*vi.Status.SourceUID).ToNot(BeEmpty())
 			Expect(vi.Status.Phase).To(Equal(virtv2.ImageProvisioning))
 			Expect(vi.Status.Target.PersistentVolumeClaim).To(BeEmpty())
 		})
