@@ -347,7 +347,7 @@ func (a *AnsibleInventory) buildJSONInventory(data inventoryData) map[string]int
 // ============================================================================
 
 func (a *AnsibleInventory) isValidVM(vm v1alpha2.VirtualMachine) bool {
-	return vm.Status.IPAddress != ""
+	return vm.Status.IPAddress != "" && vm.Status.Phase == v1alpha2.MachineRunning
 }
 
 func (a *AnsibleInventory) getHostName(vm v1alpha2.VirtualMachine) string {
