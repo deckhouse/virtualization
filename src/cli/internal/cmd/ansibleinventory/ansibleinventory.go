@@ -60,7 +60,7 @@ func DefaultOptions() Options {
 	return Options{
 		List:      false,
 		Host:      "",
-		Output:    "yaml",
+		Output:    "json",
 		Namespace: "",
 	}
 }
@@ -445,7 +445,7 @@ func (a *AnsibleInventory) generateHostInfo(vm *v1alpha2.VirtualMachine) string 
 
 func usage() string {
 	return `  # Standard ansible inventory script interface:
-  # Return all hosts (default format is YAML):
+  # Return all hosts (default format is JSON):
   {{ProgramName}} ansible-inventory [--list]
   {{ProgramName}} ansible-inventory [--list] -o json
   {{ProgramName}} ansible-inventory [--list] -o yaml
