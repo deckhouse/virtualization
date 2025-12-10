@@ -426,10 +426,10 @@ func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, vi *v1alpha2.Virtual
 func (ds ObjectRefVirtualDisk) getEnvSettings(vi *v1alpha2.VirtualImage, sup supplements.Generator, volumeMode *corev1.PersistentVolumeMode) *importer.Settings {
 	var settings importer.Settings
 
-	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeFilesystem {
-		importer.ApplyFilesystemSourceSettings(&settings)
-	} else {
+	if volumeMode != nil && *volumeMode == corev1.PersistentVolumeBlock {
 		importer.ApplyBlockDeviceSourceSettings(&settings)
+	} else {
+		importer.ApplyFilesystemSourceSettings(&settings)
 	}
 
 	importer.ApplyDVCRDestinationSettings(
