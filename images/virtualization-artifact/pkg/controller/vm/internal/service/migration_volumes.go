@@ -118,6 +118,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 
 	kvvmiSynced := equality.Semantic.DeepEqual(kvvmInClusterCopy.Spec.Template.Spec.Volumes, kvvmiInCluster.Spec.Volumes)
 	if !kvvmiSynced {
+		// kubevirt does not sync volumes with kvvmi yet
 		log.Info("kvvmi volumes are not synced yet, skip volume migration.")
 		return reconcile.Result{}, nil
 	}
