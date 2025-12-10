@@ -112,7 +112,7 @@ const (
 
 	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
-	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
+	ReasonVirtualMachineClassNotExists   Reason = "VirtualMachineClassNotExists"
 
 	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
 	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
