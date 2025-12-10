@@ -359,7 +359,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - job-CE
-    if: ${{ always() && ! contains(needs.*.result, 'failure') && github.event.inputs.check_only == 'true' }}
+    if: ${{ always() && ! contains(needs.*.result, 'failure') || github.event.inputs.check_only == 'true' }}
     strategy:
       matrix:
         check: ["registry", "releases", "documentation"]
@@ -378,7 +378,7 @@ jobs:
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
         with:
-          registry: "registry.deckhouse.io"
+          registry: ${{ vars.PROD_READ_REGISTRY }}
           registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
           registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
 
@@ -395,8 +395,12 @@ jobs:
       - name: Check version on site ${{ matrix.check }}
         if: ${{ matrix.check == 'releases' && always() }}
         run: |
-          echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
-          sleep 120
+          # When check_only is true, we don't want to wait 120 seconds
+          # because we just want to check the version we're interested in on the website
+          if ${{ github.event.inputs.check_only}} == false; then
+            echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
+            sleep 120
+          fi
 
           echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
           CHANNEL=${{ github.event.inputs.channel }} \
@@ -406,8 +410,12 @@ jobs:
       - name: Check version on site ${{ matrix.check }}
         if: ${{ matrix.check == 'documentation' && always() }}
         run: |
-          echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
-          sleep 300
+          # When check_only is true, we don't want to wait 300 seconds
+          # because we just want to check the version we're interested in on the website
+          if ${{ github.event.inputs.check_only}} == false; then
+            echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+            sleep 300
+          fi
 
           echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
           CHANNEL=${{ github.event.inputs.channel }} \
