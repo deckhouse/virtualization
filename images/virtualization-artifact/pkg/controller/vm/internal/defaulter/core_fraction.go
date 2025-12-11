@@ -87,8 +87,8 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 				return string(*sp.DefaultCoreFraction), nil
 			case len(sp.CoreFractions) > 0 && !slices.Contains(sp.CoreFractions, defaultValue):
 				return "", fmt.Errorf(
-					"the default value for core fraction is not defined. For the specified configuration .spec.cpu.cores %d, "+
-						"the following core fractions are allowed: %v. Please specify the .spec.core.coreFraction value and try again",
+					"the default value for core fraction is not defined. For the specified configuration \".spec.cpu.cores %d\", "+
+						"the following core fractions are allowed: %v. Please specify the \".spec.core.coreFraction\" value and try again",
 					vm.Spec.CPU.Cores,
 					sp.CoreFractions,
 				)
