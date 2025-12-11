@@ -122,6 +122,7 @@ type SizingPolicy struct {
 	// Allowed values of the `dedicatedCores` parameter.
 	DedicatedCores []bool `json:"dedicatedCores,omitempty"`
 	// The policy applies for a specified range of the number of CPU cores.
+	// +kubebuilder:validation:Required
 	Cores *SizingPolicyCores `json:"cores,omitempty"`
 }
 
