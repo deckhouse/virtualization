@@ -7,7 +7,7 @@ weight: 70
 
 ### Новые возможности
 
-- [vmclass] В ресурсе `VirtualMachineClass` добавлено поле `.spec.sizingPolicies.defaultCoreFraction`, позволяющее задать coreFraction по умолчанию для виртуальных машин, использующих данный класс.
+- [vmclass] В ресурсе `VirtualMachineClass` добавлено поле `.spec.sizingPolicies.defaultCoreFraction`, позволяющее задать значение `coreFraction` по умолчанию для виртуальных машин, использующих этот класс.
 
 ### Исправления
 
