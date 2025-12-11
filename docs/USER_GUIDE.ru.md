@@ -3146,7 +3146,7 @@ Windows:
 
 - выполнить генерализацию с помощью `sysprep` с параметром `/generalize` или использовать инструменты для очистки уникальных идентификаторов (SID, hostname и так далее).
 
-Пример создания клона ВМ:
+Ресурс для создания клона ВМ:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3168,11 +3168,61 @@ spec:
 В процессе клонирования для виртуальной машины и всех её дисков автоматически создаются временные снимки. Именно из этих снимков затем собирается новая ВМ. После завершения процесса клонирования временные снимки автоматически удаляются — их не будет видно в списке ресурсов. Однако внутри спецификации клонируемых дисков будет оставаться ссылка (`dataSource`) на соответствующий снимок, даже если самого снимка уже не существует. Это ожидаемое поведение и не свидетельствует о проблемах: такие ссылки корректны, потому что к моменту запуска клона все необходимые данные уже были перенесены на новые диски.
 {{< /alert >}}
 
+Пример создания клона:
+
+Разберем на примере ВМ с именем `database` и подключенного к ней диска `database-root`.
+
+Пример с переименованием конкретных ресурсов:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: clone-database
+spec:
+  type: Clone
+  virtualMachineName: database
+  clone:
+    mode: Strict
+    nameReplacements:
+      - from:
+          kind: VirtualMachine
+          name: database
+        to:
+          name: database-clone
+      - from:
+          kind: VirtualDisk
+          name: database-root
+        to:
+          name: database-clone-root
+```
+
+В результате будет создана ВМ с именем `database-clone` и диск `database-clone-root`.
+
+Пример с использованием префикса для всех ресурсов:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: clone-database
+spec:
+  type: Clone
+  virtualMachineName: database
+  clone:
+    mode: Strict
+    customization:
+      namePrefix: clone-
+      nameSuffix: -prod
+```
+
+В результате будет создана ВМ с именем `clone-database-prod` и диск `clone-database-root-prod`.
+
 ### Создание клона из снимка ВМ
 
 Клонирование ВМ из снимка выполняется с использованием ресурса VirtualMachineSnapshotOperation с типом операции `CreateVirtualMachine`.
 
-Пример создания клона ВМ из снимка:
+Ресурс для создания клона ВМ из снимка:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3190,9 +3240,65 @@ spec:
 
 Параметры `nameReplacements` и `customization` настраиваются в блоке `.spec.createVirtualMachine` (см. [общее описание](#создание-клона-вм) выше).
 
+Чтобы посмотреть список ресурсов, сохранённых в снимке, используйте команду:
+
+```bash
+d8 k get vmsnapshot <snapshot-name> -o jsonpath='{.status.resources}' | jq
+```
+
 {{< alert level="info" >}}
 При клонировании ВМ из снимка связанные с ней диски также создаются из соответствующих снимков, поэтому в спецификации диска будет указан параметр `dataSource` с ссылкой на нужный снимок диска.
 {{< /alert >}}
+
+Пример создания клона:
+
+Разберем на примере снимка ВМ с именем `database-snapshot`, который содержит ВМ `database` и диск `database-root`.
+
+Пример с переименованием конкретных ресурсов:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: clone-database-from-snapshot
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: database-snapshot
+  createVirtualMachine:
+    mode: Strict
+    nameReplacements:
+      - from:
+          kind: VirtualMachine
+          name: database
+        to:
+          name: database-clone
+      - from:
+          kind: VirtualDisk
+          name: database-root
+        to:
+          name: database-clone-root
+```
+
+В результате будет создана ВМ с именем `database-clone` и диск `database-clone-root`.
+
+Пример с использованием префикса для всех ресурсов:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: clone-database-from-snapshot
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: database-snapshot
+  createVirtualMachine:
+    mode: Strict
+    customization:
+      namePrefix: clone-
+      nameSuffix: -prod
+```
+
+В результате будет создана ВМ с именем `clone-database-prod` и диск `clone-database-root-prod`.
 
 ## Экспорт данных
 

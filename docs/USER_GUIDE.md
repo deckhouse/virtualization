@@ -3112,7 +3112,7 @@ Windows:
 
 - Run `sysprep` with the `/generalize` option, or use tools to reset unique identifiers (SID, hostname, etc.).
 
-Example of creating a VM clone:
+Resource for creating a VM clone:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3134,11 +3134,61 @@ The `nameReplacements` and `customization` parameters are configured in the `.sp
 During cloning, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After cloning is complete, the temporary snapshots are automatically deleted, so they are not visible in the resource list. However, the specification of cloned disks still contains a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is expected behavior and does not indicate a problem: such references remain valid because, by the time the clone starts, all necessary data has already been transferred to the new disks.
 {{< /alert >}}
 
+Example of creating a clone:
+
+Let's consider an example with a VM named `database` and its attached disk `database-root`.
+
+Example with renaming specific resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: clone-database
+spec:
+  type: Clone
+  virtualMachineName: database
+  clone:
+    mode: Strict
+    nameReplacements:
+      - from:
+          kind: VirtualMachine
+          name: database
+        to:
+          name: database-clone
+      - from:
+          kind: VirtualDisk
+          name: database-root
+        to:
+          name: database-clone-root
+```
+
+As a result, a VM named `database-clone` and a disk `database-clone-root` will be created.
+
+Example with using a prefix for all resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineOperation
+metadata:
+  name: clone-database
+spec:
+  type: Clone
+  virtualMachineName: database
+  clone:
+    mode: Strict
+    customization:
+      namePrefix: clone-
+      nameSuffix: -prod
+```
+
+As a result, a VM named `clone-database-prod` and a disk `clone-database-root-prod` will be created.
+
 ### Creating a clone from a VM snapshot
 
 Cloning a VM from a snapshot is performed using the VirtualMachineSnapshotOperation resource with the `CreateVirtualMachine` operation type.
 
-Example of creating a VM clone from a snapshot:
+Resource for creating a VM clone from a snapshot:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3156,9 +3206,65 @@ spec:
 
 The `nameReplacements` and `customization` parameters are configured in the `.spec.createVirtualMachine` block (see [general description](#creating-a-vm-clone) above).
 
+To view the list of resources saved in a snapshot, use the command:
+
+```bash
+d8 k get vmsnapshot <snapshot-name> -o jsonpath='{.status.resources}' | jq
+```
+
 {{< alert level="info" >}}
 When cloning a VM from a snapshot, the disks associated with it are also created from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
 {{< /alert >}}
+
+Example of creating a clone:
+
+Let's consider an example with a VM snapshot named `database-snapshot`, which contains a VM `database` and a disk `database-root`.
+
+Example with renaming specific resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: clone-database-from-snapshot
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: database-snapshot
+  createVirtualMachine:
+    mode: Strict
+    nameReplacements:
+      - from:
+          kind: VirtualMachine
+          name: database
+        to:
+          name: database-clone
+      - from:
+          kind: VirtualDisk
+          name: database-root
+        to:
+          name: database-clone-root
+```
+
+As a result, a VM named `database-clone` and a disk `database-clone-root` will be created.
+
+Example with using a prefix for all resources:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineSnapshotOperation
+metadata:
+  name: clone-database-from-snapshot
+spec:
+  type: CreateVirtualMachine
+  virtualMachineSnapshotName: database-snapshot
+  createVirtualMachine:
+    mode: Strict
+    customization:
+      namePrefix: clone-
+      nameSuffix: -prod
+```
+
+As a result, a VM named `clone-database-prod` and a disk `clone-database-root-prod` will be created.
 
 ## Data export
 
