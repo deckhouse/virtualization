@@ -189,8 +189,8 @@ var _ = Describe("ComplexTest", Ordered, func() {
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				// Skip this check until the issue with cilium-agents is fixed.
-				// CheckCiliumAgents(kubectl, ns, vms...)
+				// There is a known issue with the Cilium agent check.
+				CheckCiliumAgents(kubectl, ns, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 			})
 		})

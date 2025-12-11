@@ -68,13 +68,13 @@ var _ = Describe("VirtualMachineConnectivity", func() {
 			t.CheckCloudInitCompleted(framework.LongTimeout)
 		})
 
-		// Skip this check until the issue with cilium-agents is fixed.
-		// By("Check Cilium agents are properly configured for the VMs", func() {
-		// 	err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VMa.Name, f.Namespace().Name)
-		// 	Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMa.Name)
-		// 	err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VMb.Name, f.Namespace().Name)
-		// 	Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMb.Name)
-		// })
+		// There is a known issue with the Cilium agent check.
+		By("Check Cilium agents are properly configured for the VMs", func() {
+			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VMa.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMa.Name)
+			err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VMb.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VMb.Name)
+		})
 
 		By("Check VMs can reach external network", func() {
 			network.CheckExternalConnectivity(f, t.VMa.Name, network.ExternalHost, network.HTTPStatusOk)
