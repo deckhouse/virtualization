@@ -18,9 +18,9 @@ package defaulter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,24 +86,18 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 			switch {
 			case sp.DefaultCoreFraction != nil:
 				return string(*sp.DefaultCoreFraction), nil
-			case len(sp.CoreFractions) == 0 || slices.Contains(sp.CoreFractions, v1alpha3.CoreFractionValue(defaultValue)):
-				return defaultValue, nil
-			default:
+			case len(sp.CoreFractions) > 0 && !slices.Contains(sp.CoreFractions, defaultValue):
 				return "", fmt.Errorf(
-					"the default value for core fraction is not defined. For the specified configuration \".spec.cpu.cores: %d\","+
-						"the following core fractions are allowed: [%s]. Please specify the .spec.core.coreFraction value and try again",
+					"the default value for core fraction is not defined. For the specified configuration .spec.cpu.cores: %d,"+
+						"the following core fractions are allowed: %v. Please specify the .spec.core.coreFraction value and try again",
 					vm.Spec.CPU.Cores,
-					strings.Join(func(coreFractions []v1alpha3.CoreFractionValue) []string {
-						var coreFractionStrings []string
-						for _, v := range coreFractions {
-							coreFractionStrings = append(coreFractionStrings, string(v))
-						}
-						return coreFractionStrings
-					}(sp.CoreFractions), ", "),
+					sp.CoreFractions,
 				)
+			default:
+				return defaultValue, nil
 			}
 		}
 	}
 
-	return defaultValue, nil
+	return "", errors.New("The specified .spec.cpu.cores is not among those allowed by the virtual machine sizing policies.")
 }
