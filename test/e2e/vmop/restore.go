@@ -83,7 +83,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			Skip("SDN module is not enabled")
 		}
 
-		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("Cluster network is not exists, please apply cluster network first by command: %s", util.ClusterNetworkCreateCommand))
+		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
