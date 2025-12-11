@@ -273,6 +273,13 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, vmop *v1alp
 			msg += ": " + msgByFailedReason
 		}
 
+		pod, err := h.getTargetPod(ctx, mig)
+		if err == nil {
+			if volumeStatus := getTargetPodVolumeStatus(pod); volumeStatus != "" {
+				msg += " (" + volumeStatus + ")"
+			}
+		}
+
 		completedCond.
 			Status(metav1.ConditionFalse).
 			Reason(vmopcondition.ReasonOperationFailed).
@@ -571,6 +578,23 @@ func isPodPendingUnschedulable(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func getTargetPodVolumeStatus(pod *corev1.Pod) string {
+	if pod == nil {
+		return ""
+	}
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "ContainerCreating" {
+			return fmt.Sprintf("container %q is waiting for volumes to be attached", cs.Name)
+		}
+	}
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.ContainersReady && cond.Status == corev1.ConditionFalse {
+			return "target pod containers are not ready (possibly waiting for volume attachment)"
+		}
+	}
+	return ""
 }
 
 func (h LifecycleHandler) getConditionCompletedMessageByReason(ctx context.Context, reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) (string, error) {
