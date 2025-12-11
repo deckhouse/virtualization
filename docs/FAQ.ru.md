@@ -497,3 +497,191 @@ ansible -m shell -a "uptime" \
     NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
     dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
     ```
+
+## Как создать golden image для Linux?
+
+Golden image - это предварительно настроенный образ виртуальной машины, который можно использовать для быстрого создания новых ВМ с уже установленным программным обеспечением и настройками.
+
+1. Создайте виртуальную машину, установите на неё необходимое программное обеспечение и выполните все требуемые настройки.
+
+1. Рекомендуется установить и настроить qemu-guest-agent. Для RHEL/CentOS:
+
+    ```bash
+    yum install -y qemu-guest-agent
+    ```
+
+   Для Debian/Ubuntu:
+
+    ```bash
+    apt-get update
+    apt-get install -y qemu-guest-agent
+    ```
+
+   Включите и запустите сервис:
+
+    ```bash
+    systemctl enable qemu-guest-agent
+    systemctl start qemu-guest-agent
+    ```
+
+1. Установите политику запуска ВМ (`runPolicy)`: AlwaysOnUnlessStoppedManually` - это потребуется, чтобы ВМ можно было выключить.
+
+1. Выполните следующие команды для подготовки образа:
+
+   Очистите неиспользуемые блоки файловой системы:
+
+    ```bash
+    fstrim -v /
+    fstrim -v /boot
+    ```
+
+   Очистите сетевые настройки:
+
+    ```bash
+    # Для RHEL:
+    nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+
+    # Для старых ifcfg-файлов (RHEL):
+    rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+
+    # Для Debian/Ubuntu:
+    rm -f /etc/network/interfaces.d/*
+    ```
+
+   Очистите системные идентификаторы:
+
+    ```bash
+    echo -n > /etc/machine-id
+    rm -f /var/lib/dbus/machine-id
+    ln -s /etc/machine-id /var/lib/dbus/machine-id
+    ```
+
+   Удалите SSH host keys:
+
+    ```bash
+    rm -f /etc/ssh/ssh_host_*
+    ```
+
+   Очистите systemd journal:
+
+    ```bash
+    journalctl --vacuum-size=100M --vacuum-time=7d
+    ```
+
+   Очистите кэш пакетных менеджеров:
+
+    ```bash
+    # Для RHEL:
+    yum clean all
+
+    # Для Debian/Ubuntu:
+    apt-get clean
+    ```
+
+   Очистите временные файлы:
+
+    ```bash
+    rm -rf /tmp/*
+    rm -rf /var/tmp/*
+    ```
+
+   Очистите логи:
+
+    ```bash
+    find /var/log -name "*.log" -type f -exec truncate -s 0 {} \;
+    ```
+
+   Очистите историю команд:
+
+    ```bash
+    history -c
+    ```
+
+   Для RHEL: выполните сброс и восстановление контекстов SELinux (одно из двух действий):
+
+    ```bash
+    # Проверка и восстановление контекстов сразу
+    restorecon -R /
+
+    # или запланировать relabel при следующей загрузке
+    touch /.autorelabel
+    ```
+
+   Проверьте корректность fstab (убедитесь, что все записи используют UUID или LABEL вместо /dev/sdX):
+
+    ```bash
+    blkid
+    ```
+
+   Очистите состояние cloud-init, логи и seed (рекомендуемый способ):
+
+    ```bash
+    cloud-init clean --logs --seed
+    ```
+
+   Выполните финальную синхронизацию и очистку буферов:
+
+    ```bash
+    sync
+    echo 3 > /proc/sys/vm/drop_caches
+    ```
+
+   Выключите виртуальную машину:
+
+    ```bash
+    poweroff
+    ```
+
+1. Создайте ресурс `VirtualImage` из диска подготовленной ВМ:
+
+    ```bash
+    d8 k apply -f -<<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualImage
+    metadata:
+      name: <image-name>
+      namespace: <namespace>
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualDisk
+          name: <source-disk-name>
+    EOF
+    ```
+
+   Или создайте `ClusterVirtualImage`, чтобы образ был доступен на уровне кластера для всех проектов:
+
+    ```bash
+    d8 k apply -f -<<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: ClusterVirtualImage
+    metadata:
+      name: <image-name>
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualDisk
+          name: <source-disk-name>
+          namespace: <namespace>
+    EOF
+    ```
+
+1. Создайте диск из созданного образа:
+
+    ```yaml
+    d8 k apply -f -<<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualDisk
+    metadata:
+      name: <vm-disk-name>
+      namespace: <namespace>
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualImage
+          name: <image-name>
+    EOF
+    ```

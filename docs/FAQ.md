@@ -494,3 +494,191 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
     NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
     dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
     ```
+
+## How to create a golden image for Linux?
+
+A golden image is a pre-configured virtual machine image that can be used to quickly create new VMs with pre-installed software and settings.
+
+1. Create a virtual machine, install the required software on it, and perform all necessary configurations.
+
+1. It is recommended to install and configure qemu-guest-agent. For RHEL/CentOS:
+
+    ```bash
+    yum install -y qemu-guest-agent
+    ```
+
+   For Debian/Ubuntu:
+
+    ```bash
+    apt-get update
+    apt-get install -y qemu-guest-agent
+    ```
+
+   Enable and start the service:
+
+    ```bash
+    systemctl enable qemu-guest-agent
+    systemctl start qemu-guest-agent
+    ```
+
+1. Set the VM run policy to `AlwaysOnUnlessStoppedManually` - this is required to be able to shut down the VM.
+
+1. Execute the following commands to prepare the image:
+
+   Clean unused filesystem blocks:
+
+    ```bash
+    fstrim -v /
+    fstrim -v /boot
+    ```
+
+   Clean network settings:
+
+    ```bash
+    # For RHEL:
+    nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+
+    # For old ifcfg files (RHEL):
+    rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+
+    # For Debian/Ubuntu:
+    rm -f /etc/network/interfaces.d/*
+    ```
+
+   Clean system identifiers:
+
+    ```bash
+    echo -n > /etc/machine-id
+    rm -f /var/lib/dbus/machine-id
+    ln -s /etc/machine-id /var/lib/dbus/machine-id
+    ```
+
+   Remove SSH host keys:
+
+    ```bash
+    rm -f /etc/ssh/ssh_host_*
+    ```
+
+   Clean systemd journal:
+
+    ```bash
+    journalctl --vacuum-size=100M --vacuum-time=7d
+    ```
+
+   Clean package manager cache:
+
+    ```bash
+    # For RHEL:
+    yum clean all
+
+    # For Debian/Ubuntu:
+    apt-get clean
+    ```
+
+   Clean temporary files:
+
+    ```bash
+    rm -rf /tmp/*
+    rm -rf /var/tmp/*
+    ```
+
+   Clean logs:
+
+    ```bash
+    find /var/log -name "*.log" -type f -exec truncate -s 0 {} \;
+    ```
+
+   Clean command history:
+
+    ```bash
+    history -c
+    ```
+
+   For RHEL: reset and restore SELinux contexts (one of two actions):
+
+    ```bash
+    # Check and restore contexts immediately
+    restorecon -R /
+
+    # or schedule relabel on next boot
+    touch /.autorelabel
+    ```
+
+   Check fstab correctness (make sure all entries use UUID or LABEL instead of /dev/sdX):
+
+    ```bash
+    blkid
+    ```
+
+   Clean cloud-init state, logs, and seed (recommended method):
+
+    ```bash
+    cloud-init clean --logs --seed
+    ```
+
+   Perform final synchronization and buffer cleanup:
+
+    ```bash
+    sync
+    echo 3 > /proc/sys/vm/drop_caches
+    ```
+
+   Shut down the virtual machine:
+
+    ```bash
+    poweroff
+    ```
+
+1. Create a `VirtualImage` resource from the prepared VM disk:
+
+    ```bash
+    d8 k apply -f -<<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualImage
+    metadata:
+      name: <image-name>
+      namespace: <namespace>
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualDisk
+          name: <source-disk-name>
+    EOF
+    ```
+
+   Or create a `ClusterVirtualImage` to make the image available at the cluster level for all projects:
+
+    ```bash
+    d8 k apply -f -<<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: ClusterVirtualImage
+    metadata:
+      name: <image-name>
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualDisk
+          name: <source-disk-name>
+          namespace: <namespace>
+    EOF
+    ```
+
+1. Create a VM from the created image:
+
+    ```yaml
+    d8 k apply -f -<<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualDisk
+    metadata:
+      name: <vm-disk-name>
+      namespace: <namespace>
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualImage
+          name: <image-name>
+    EOF
+    ```
