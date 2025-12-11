@@ -56,9 +56,6 @@ func (w *SecretWatcher) Watch(mgr manager.Manager, ctr controller.Controller) er
 			&corev1.Secret{},
 			handler.TypedEnqueueRequestsFromMapFunc(w.enqueue),
 			predicate.TypedFuncs[*corev1.Secret]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
-					return e.ObjectOld.Type != e.ObjectNew.Type
-				},
 				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool { return false },
 			},
 		),
