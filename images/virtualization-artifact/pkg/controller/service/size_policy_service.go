@@ -64,7 +64,7 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *v1alpha2.VirtualMachine
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("failed to validate sizing policy: %w: %w", errors.Join(errs...), ErrSizingPolicyValidation)
+		return fmt.Errorf("sizing policy validation has failed: %w: %w", errors.Join(errs...), ErrSizingPolicyValidation)
 	}
 
 	return nil
@@ -89,7 +89,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 		return nil
 	}
 
-	fractionStr := strings.ReplaceAll(vm.Spec.CPU.CoreFraction, "%", "")
+	fractionStr, _ := strings.CutSuffix(vm.Spec.CPU.CoreFraction, "%")
 	fraction, err := strconv.Atoi(fractionStr)
 	if err != nil {
 		return fmt.Errorf("unable to parse CPU core fraction: %w", err)
