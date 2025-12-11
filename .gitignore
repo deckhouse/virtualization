@@ -60,3 +60,5 @@ retry/
 # nodejs
 node_modules/
 package-lock.json
+
+static-libs/
