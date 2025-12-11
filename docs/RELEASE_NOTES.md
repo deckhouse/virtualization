@@ -7,14 +7,14 @@ weight: 70
 
 ### New Features
 
-- [vmclass] A `.spec.sizingPolicies.defaultCoreFraction` field has been added to the `VirtualMachineClass` resource, allowing you to set the default coreFraction for virtual machines using this class.
+- [vmclass] Added the `.spec.sizingPolicies.defaultCoreFraction` field to the `VirtualMachineClass` resource, allowing you to set the default `coreFraction` for virtual machines that use this class.
 
 ### Fixes
 
 - [vi/cvi] Added the ability to use system nodes to create project and cluster images.
-- [vd] Accelerated the attachment of disks in WaitForFirstConsumer mode to the virtual machine.
+- [vd] Accelerated disk attachment in `WaitForFirstConsumer` mode for virtual machines.
 - [vd] Fixed an issue with restoring labels and annotations on a disk created from a snapshot.
-- [observability] In clusters operating in HA mode, the display of charts for virtual machines has been fixed.
+- [observability] Fixed the display of virtual machine charts in clusters running in HA mode.
 
 ## v1.2.2
 
