@@ -69,30 +69,31 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 }
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
-	if networksSpec[0].Type != v1alpha2.NetworksTypeMain {
-		return nil, fmt.Errorf("first network in the list must be of type '%s'", v1alpha2.NetworksTypeMain)
-	}
-	if networksSpec[0].Name != "" {
-		return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
-	}
-
 	namesSet := make(map[string]struct{})
-
 	for i, network := range networksSpec {
-		if network.Type == v1alpha2.NetworksTypeMain {
+		typ := network.Type
+		name := network.Name
+
+		if typ == v1alpha2.NetworksTypeMain {
 			if i > 0 {
-				return nil, fmt.Errorf("only one network of type '%s' is allowed", v1alpha2.NetworksTypeMain)
+				return nil, fmt.Errorf("first network in the list must be of type '%s'", v1alpha2.NetworksTypeMain)
 			}
-			continue
-		}
-		if network.Name == "" {
-			return nil, fmt.Errorf("network at index %d with type '%s' must have a non-empty name", i, network.Type)
+
+			if name != "" {
+				return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
+			}
+		} else if name == "" {
+			return nil, fmt.Errorf("network with type '%s' must have a non-empty name", typ)
 		}
 
-		if _, exists := namesSet[network.Name]; exists {
-			return nil, fmt.Errorf("network name '%s' is duplicated", network.Name)
+		key := typ + name
+		if _, exists := namesSet[key]; exists {
+			if name != "" {
+				return nil, fmt.Errorf("network %s:%s is duplicated", typ, name)
+			}
+			return nil, fmt.Errorf("network %s is duplicated", typ)
 		}
-		namesSet[network.Name] = struct{}{}
+		namesSet[key] = struct{}{}
 	}
 
 	return nil, nil

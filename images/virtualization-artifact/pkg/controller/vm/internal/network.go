@@ -72,7 +72,9 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}()
 
-	if len(vm.Spec.Networks) > 1 {
+	hasOnlyDefaultNetwork := len(vm.Spec.Networks) == 1 && vm.Spec.Networks[0].Type == v1alpha2.NetworksTypeMain
+
+	if !hasOnlyDefaultNetwork {
 		if !h.featureGate.Enabled(featuregates.SDN) {
 			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisable).Message("For additional network interfaces, please enable SDN module")
 			return reconcile.Result{}, nil
@@ -134,14 +136,16 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		}
 	}
 
-	networksStatus := []v1alpha2.NetworksStatus{
-		{
-			Type: v1alpha2.NetworksTypeMain,
-			Name: "default",
-		},
-	}
-
+	var networksStatus []v1alpha2.NetworksStatus
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
+		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
+			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
+				Type: v1alpha2.NetworksTypeMain,
+				Name: network.NameDefaultInterface,
+			})
+			continue
+		}
+
 		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 			Type:                         interfaceSpec.Type,
 			Name:                         interfaceSpec.Name,

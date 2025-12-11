@@ -85,8 +85,14 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		return reconcile.Result{}, err
 	}
 
-	// 'Main' network is always present but not require a MAC address.
-	expectedMACAddresses := len(vm.Spec.Networks) - 1
+	expectedMACAddresses := 0
+	for _, network := range vm.Spec.Networks {
+		// 'Main' network not require a MAC address.
+		if network.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		expectedMACAddresses++
+	}
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -176,7 +182,7 @@ func countNetworksWithMACRequest(networkSpec []v1alpha2.NetworksSpec, vmmacs []*
 
 	count := 0
 	for _, ns := range networkSpec {
-		if ns.Type != v1alpha2.NetworksTypeMain {
+		if ns.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 
