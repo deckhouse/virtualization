@@ -1,0 +1,6 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: vm
+spec:
+  liveMigrationPolicy: PreferForced
