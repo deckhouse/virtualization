@@ -18,7 +18,6 @@ package defaulter
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 
@@ -88,7 +87,7 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 				return string(*sp.DefaultCoreFraction), nil
 			case len(sp.CoreFractions) > 0 && !slices.Contains(sp.CoreFractions, defaultValue):
 				return "", fmt.Errorf(
-					"the default value for core fraction is not defined. For the specified configuration .spec.cpu.cores: %d,"+
+					"the default value for core fraction is not defined. For the specified configuration .spec.cpu.cores %d, "+
 						"the following core fractions are allowed: %v. Please specify the .spec.core.coreFraction value and try again",
 					vm.Spec.CPU.Cores,
 					sp.CoreFractions,
@@ -99,5 +98,5 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 		}
 	}
 
-	return "", errors.New("The specified .spec.cpu.cores is not among those allowed by the virtual machine sizing policies.")
+	return "", fmt.Errorf("the specified \".spec.cpu.cores %d\" value is not among the sizing policies allowed for the virtual machine", vm.Spec.CPU.Cores)
 }
