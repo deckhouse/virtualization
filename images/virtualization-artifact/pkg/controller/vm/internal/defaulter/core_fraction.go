@@ -19,6 +19,8 @@ package defaulter
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,21 +58,22 @@ func (d *CoreFractionDefaulter) Default(ctx context.Context, vm *v1alpha2.Virtua
 	}
 
 	// Find the matching sizing policy based on CPU cores.
-	defaultCoreFraction := d.getDefaultCoreFraction(vm, vmClass)
-	if defaultCoreFraction != "" {
-		vm.Spec.CPU.CoreFraction = defaultCoreFraction
+	defaultCoreFraction, err := d.getDefaultCoreFraction(vm, vmClass)
+	if err != nil {
+		return err
 	}
+	vm.Spec.CPU.CoreFraction = defaultCoreFraction
 
 	return nil
 }
 
 // getDefaultCoreFraction finds the default core fraction from the VMClass sizing policy
 // that matches the VM's CPU cores count.
-func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachine, vmClass *v1alpha3.VirtualMachineClass) string {
+func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachine, vmClass *v1alpha3.VirtualMachineClass) (string, error) {
 	const defaultValue = "100%"
 
 	if vmClass == nil || len(vmClass.Spec.SizingPolicies) == 0 {
-		return defaultValue
+		return defaultValue, nil
 	}
 
 	for _, sp := range vmClass.Spec.SizingPolicies {
@@ -80,12 +83,26 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 
 		// Check if VM's cores fall within this policy's range.
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
-			if sp.DefaultCoreFraction != nil {
-				return string(*sp.DefaultCoreFraction)
+			var coreFractionStringSlice []string
+			for _, v := range sp.CoreFractions {
+				coreFractionStringSlice = append(coreFractionStringSlice, string(v))
 			}
-			return defaultValue
+
+			switch {
+			case sp.DefaultCoreFraction != nil:
+				return string(*sp.DefaultCoreFraction), nil
+			case len(coreFractionStringSlice) == 0 || slices.Contains(coreFractionStringSlice, defaultValue):
+				return defaultValue, nil
+			default:
+				return "", fmt.Errorf(
+					"the default value for core fraction is not defined. For the specified configuration \".spec.cpu.cores: %d\","+
+						"the following core fractions are allowed: [%s]. Please specify the .spec.core.coreFraction value and try again",
+					vm.Spec.CPU.Cores,
+					strings.Join(coreFractionStringSlice, ", "),
+				)
+			}
 		}
 	}
 
-	return defaultValue
+	return defaultValue, nil
 }
