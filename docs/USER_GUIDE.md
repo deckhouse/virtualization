@@ -3045,21 +3045,34 @@ Cloning creates a copy of a VM, so the resources of the new VM must have unique 
 - `nameReplacements`: Allows you to replace the names of existing resources with new ones to avoid conflicts.
 - `customization`: Sets a prefix or suffix for the names of all cloned VM resources (disks, IP addresses, etc.).
 
-Configuration example:
+Example of renaming specific resources:
 
 ```yaml
 nameReplacements:
   - from:
-      kind: <resource type>
-      name: <old name>
+      kind: VirtualMachine
+      name: <old-vm-name>
     to:
-      name: <new name>
+      name: <new-vm-name>
+  - from:
+      kind: VirtualDisk
+      name: <old-disk-name>
+    to:
+      name: <new-disk-name>
+  ...
+```
+
+As a result, a VM named `<new-vm-name>` will be created, and the specified resources will be renamed according to the replacement rules.
+
+Example of adding a prefix or suffix to all resources:
+
+```yaml
 customization:
   namePrefix: <prefix>
   nameSuffix: <suffix>
 ```
 
-As a result, a VM named <prefix><new name><suffix> will be created.
+As a result, a VM named `<prefix><original-vm-name><suffix>` will be created, and all resources (disks, IP addresses, etc.) will receive the prefix and suffix.
 
 One of three modes can be used for the cloning operation:
 

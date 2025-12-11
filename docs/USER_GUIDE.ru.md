@@ -3078,21 +3078,34 @@ d8 k get vmop <vmop-name> -o json | jq '.status.resources'
 - `nameReplacements` — позволяет заменить имена существующих ресурсов на новые, чтобы избежать конфликтов.
 - `customization` — задает префикс или суффикс для имен всех клонируемых ресурсов ВМ (дисков, IP-адресов и т. д.).
 
-Пример конфигурации:
+Пример переименования конкретных ресурсов:
 
 ```yaml
 nameReplacements:
   - from:
-      kind: <resource type>
-      name: <old name>
+      kind: VirtualMachine
+      name: <old-vm-name>
     to:
-      name: <new name>
+      name: <new-vm-name>
+  - from:
+      kind: VirtualDisk
+      name: <old-disk-name>
+    to:
+      name: <new-disk-name>
+  ...
+```
+
+В результате будет создана ВМ с именем `<new-vm-name>`, а указанные ресурсы будут переименованы согласно правилам замены.
+
+Пример добавления префикса или суффикса ко всем ресурсам:
+
+```yaml
 customization:
   namePrefix: <prefix>
   nameSuffix: <suffix>
 ```
 
-В результате будет создана ВМ с именем <prefix><new name><suffix>.
+В результате будет создана ВМ с именем `<prefix><original-vm-name><suffix>`, а все ресурсы (диски, IP-адреса и т. д.) получат префикс и суффикс.
 
 Для операции клонирования возможно использовать один из трех режимов:
 
