@@ -1097,7 +1097,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
     - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
   - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
 
-    ``` bash
+    ```bash
     d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
     ```
 
@@ -1111,7 +1111,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
   - Diagnostics:
     - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
 
-      ``` bash
+      ```bash
       d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
       ```
 
@@ -1129,9 +1129,9 @@ A virtual machine (VM) goes through several phases in its existence, from creati
     - Diagnosis:
       - Check `.status.conditions`, condition `type: Running`.
 
-        ``` bash
+        ```bash
         d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
-        ``
+        ```
 
 - `Stopping` - The VM is stopped or rebooted.
 
@@ -1781,7 +1781,7 @@ spec:
 How to perform the operation in the web interface:
 
 - Go to the "Projects" tab and select the desired project.
-- Go to the "Virtualization" → "Virtual Machines”"section.
+- Go to the "Virtualization" → "Virtual Machines" section.
 - Select the required VM from the list and click on its name.
 - On the "Configuration" tab, scroll down to the "Additional Settings" section.
 - Enable the "Auto-apply changes" switch.
@@ -2989,7 +2989,7 @@ To restore a VM from a snapshot, use the `VirtualMachineOperation` resource with
 Example:
 
 ```yaml
-apiVersion: virtualisation.deckhouse.io/v1alpha2
+apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
   name: restore-vm
@@ -3036,7 +3036,7 @@ When restoring a VM from a snapshot, the disks associated with it are also resto
 
 You can create a VM clone in two ways: from an existing VM or from a previously created snapshot of that VM.
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 The cloned VM will be assigned a new IP address for the cluster network and MAC addresses for additional network interfaces (if any), so you will need to reconfigure the guest OS network settings after cloning.
 {{< /alert >}}
 
@@ -3077,7 +3077,7 @@ As a result, a VM named `<prefix><original-vm-name><suffix>` will be created, an
 One of three modes can be used for the cloning operation:
 
 - `DryRun`: Test run to check for possible conflicts. The results are displayed in the `status.resources` field of the corresponding operation resource.
-- `Strict`: Strict mode, requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
+- `Strict`: Strict mode requiring all resources with new names and their dependencies (e.g., images) to be present in the cloned VM.
 - `BestEffort`: Mode in which missing external dependencies (e.g., ClusterVirtualImage, VirtualImage) are automatically removed from the configuration of the cloned VM.
 
 Information about conflicts that arose during cloning can be viewed in the operation resource status:
@@ -3094,7 +3094,7 @@ d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
 
 VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
 
-{{< alert level="warning">}}
+{{< alert level="warning" >}}
 Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
 It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
 {{< /alert >}}
@@ -3112,7 +3112,7 @@ Windows:
 
 - Run `sysprep` with the `/generalize` option, or use tools to reset unique identifiers (SID, hostname, etc.).
 
-Resource for creating a VM clone:
+To create a VM clone, use the following resource:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3134,9 +3134,7 @@ The `nameReplacements` and `customization` parameters are configured in the `.sp
 During cloning, temporary snapshots are automatically created for the virtual machine and all its disks. The new VM is then assembled from these snapshots. After cloning is complete, the temporary snapshots are automatically deleted, so they are not visible in the resource list. However, the specification of cloned disks still contains a reference (`dataSource`) to the corresponding snapshot, even if the snapshot itself no longer exists. This is expected behavior and does not indicate a problem: such references remain valid because, by the time the clone starts, all necessary data has already been transferred to the new disks.
 {{< /alert >}}
 
-Example of creating a clone:
-
-Let's consider an example with a VM named `database` and its attached disk `database-root`.
+The following example demonstrates cloning a VM named `database` with an attached disk `database-root`:
 
 Example with renaming specific resources:
 
@@ -3163,7 +3161,7 @@ spec:
           name: database-clone-root
 ```
 
-As a result, a VM named `database-clone` and a disk `database-clone-root` will be created.
+As a result, a VM named `database-clone` and a disk named `database-clone-root` will be created.
 
 Example with using a prefix for all resources:
 
@@ -3182,13 +3180,13 @@ spec:
       nameSuffix: -prod
 ```
 
-As a result, a VM named `clone-database-prod` and a disk `clone-database-root-prod` will be created.
+As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` will be created.
 
 ### Creating a clone from a VM snapshot
 
 Cloning a VM from a snapshot is performed using the VirtualMachineSnapshotOperation resource with the `CreateVirtualMachine` operation type.
 
-Resource for creating a VM clone from a snapshot:
+To create a VM clone from a snapshot, use the following resource:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -3216,9 +3214,7 @@ d8 k get vmsnapshot <snapshot-name> -o jsonpath='{.status.resources}' | jq
 When cloning a VM from a snapshot, the disks associated with it are also created from the corresponding snapshots, so the disk specification will contain a `dataSource` parameter with a reference to the required disk snapshot.
 {{< /alert >}}
 
-Example of creating a clone:
-
-Let's consider an example with a VM snapshot named `database-snapshot`, which contains a VM `database` and a disk `database-root`.
+The following example demonstrates cloning from a VM snapshot named `database-snapshot`, which contains a VM `database` and a disk `database-root`:
 
 Example with renaming specific resources:
 
@@ -3245,7 +3241,7 @@ spec:
           name: database-clone-root
 ```
 
-As a result, a VM named `database-clone` and a disk `database-clone-root` will be created.
+As a result, a VM named `database-clone` and a disk named `database-clone-root` will be created.
 
 Example with using a prefix for all resources:
 
@@ -3264,7 +3260,7 @@ spec:
       nameSuffix: -prod
 ```
 
-As a result, a VM named `clone-database-prod` and a disk `clone-database-root-prod` will be created.
+As a result, a VM named `clone-database-prod` and a disk named `clone-database-root-prod` will be created.
 
 ## Data export
 

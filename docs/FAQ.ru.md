@@ -500,157 +500,168 @@ ansible -m shell -a "uptime" \
 
 ## Как создать golden image для Linux?
 
-Golden image - это предварительно настроенный образ виртуальной машины, который можно использовать для быстрого создания новых ВМ с уже установленным программным обеспечением и настройками.
+Golden image — это предварительно настроенный образ виртуальной машины, который можно использовать для быстрого создания новых ВМ с уже установленным программным обеспечением и настройками.
 
 1. Создайте виртуальную машину, установите на неё необходимое программное обеспечение и выполните все требуемые настройки.
 
-1. Рекомендуется установить и настроить qemu-guest-agent. Для RHEL/CentOS:
+1. Установите и настройте qemu-guest-agent (рекомендуется):
 
-    ```bash
-    yum install -y qemu-guest-agent
-    ```
+   - Для RHEL/CentOS:
 
-   Для Debian/Ubuntu:
+     ```bash
+     yum install -y qemu-guest-agent
+     ```
 
-    ```bash
-    apt-get update
-    apt-get install -y qemu-guest-agent
-    ```
+   - Для Debian/Ubuntu:
 
-   Включите и запустите сервис:
+     ```bash
+     apt-get update
+     apt-get install -y qemu-guest-agent
+     ```
 
-    ```bash
-    systemctl enable qemu-guest-agent
-    systemctl start qemu-guest-agent
-    ```
+1. Включите и запустите сервис:
 
-1. Установите политику запуска ВМ (`runPolicy)`: AlwaysOnUnlessStoppedManually` - это потребуется, чтобы ВМ можно было выключить.
+   ```bash
+   systemctl enable qemu-guest-agent
+   systemctl start qemu-guest-agent
+   ```
 
-1. Выполните следующие команды для подготовки образа:
+1. Установите политику запуска ВМ [runPolicy: AlwaysOnUnlessStoppedManually](/modules/virtualization/stable/cr.html#virtualmachine-v1alpha2-spec-runpolicy) — это потребуется, чтобы ВМ можно было выключить.
 
-   Очистите неиспользуемые блоки файловой системы:
+1. Подготовьте образ. Очистите неиспользуемые блоки файловой системы:
 
-    ```bash
-    fstrim -v /
-    fstrim -v /boot
-    ```
+   ```bash
+   fstrim -v /
+   fstrim -v /boot
+   ```
 
-   Очистите сетевые настройки:
+1. Очистите сетевые настройки:
 
-    ```bash
-    # Для RHEL:
-    nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+   - Для RHEL:
 
-    # Для старых ifcfg-файлов (RHEL):
-    rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+     ```bash
+     nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+     rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+     ```
 
-    # Для Debian/Ubuntu:
-    rm -f /etc/network/interfaces.d/*
-    ```
+   - Для Debian/Ubuntu:
 
-   Очистите системные идентификаторы:
+     ```bash
+     rm -f /etc/network/interfaces.d/*
+     ```
 
-    ```bash
-    echo -n > /etc/machine-id
-    rm -f /var/lib/dbus/machine-id
-    ln -s /etc/machine-id /var/lib/dbus/machine-id
-    ```
+1. Очистите системные идентификаторы:
 
-   Удалите SSH host keys:
+   ```bash
+   echo -n > /etc/machine-id
+   rm -f /var/lib/dbus/machine-id
+   ln -s /etc/machine-id /var/lib/dbus/machine-id
+   ```
 
-    ```bash
-    rm -f /etc/ssh/ssh_host_*
-    ```
+1. Удалите SSH host keys:
 
-   Очистите systemd journal:
+   ```bash
+   rm -f /etc/ssh/ssh_host_*
+   ```
 
-    ```bash
-    journalctl --vacuum-size=100M --vacuum-time=7d
-    ```
+1. Очистите systemd journal:
 
-   Очистите кэш пакетных менеджеров:
+   ```bash
+   journalctl --vacuum-size=100M --vacuum-time=7d
+   ```
 
-    ```bash
-    # Для RHEL:
-    yum clean all
+1. Очистите кэш пакетных менеджеров:
 
-    # Для Debian/Ubuntu:
-    apt-get clean
-    ```
+   - Для RHEL:
 
-   Очистите временные файлы:
+     ```bash
+     yum clean all
+     ```
 
-    ```bash
-    rm -rf /tmp/*
-    rm -rf /var/tmp/*
-    ```
+   - Для Debian/Ubuntu:
 
-   Очистите логи:
+     ```bash
+     apt-get clean
+     ```
 
-    ```bash
-    find /var/log -name "*.log" -type f -exec truncate -s 0 {} \;
-    ```
+1. Очистите временные файлы:
 
-   Очистите историю команд:
+   ```bash
+   rm -rf /tmp/*
+   rm -rf /var/tmp/*
+   ```
 
-    ```bash
-    history -c
-    ```
+1. Очистите логи:
 
-   Для RHEL: выполните сброс и восстановление контекстов SELinux (одно из двух действий):
+   ```bash
+   find /var/log -name "*.log" -type f -exec truncate -s 0 {} \;
+   ```
 
-    ```bash
-    # Проверка и восстановление контекстов сразу
-    restorecon -R /
+1. Очистите историю команд:
 
-    # или запланировать relabel при следующей загрузке
-    touch /.autorelabel
-    ```
+   ```bash
+   history -c
+   ```
 
-   Проверьте корректность fstab (убедитесь, что все записи используют UUID или LABEL вместо /dev/sdX):
+   Для RHEL: выполните сброс и восстановление контекстов SELinux (выберите один из вариантов):
 
-    ```bash
-    blkid
-    ```
+   - Вариант 1: Проверка и восстановление контекстов сразу:
 
-   Очистите состояние cloud-init, логи и seed (рекомендуемый способ):
+     ```bash
+     restorecon -R /
+     ```
 
-    ```bash
-    cloud-init clean --logs --seed
-    ```
+   - Вариант 2: Запланировать relabel при следующей загрузке:
 
-   Выполните финальную синхронизацию и очистку буферов:
+     ```bash
+     touch /.autorelabel
+     ```
 
-    ```bash
-    sync
-    echo 3 > /proc/sys/vm/drop_caches
-    ```
+1. Убедитесь, что в `/etc/fstab` используются UUID или LABEL вместо имён устройств (например, `/dev/sdX`). Для проверки выполните:
 
-   Выключите виртуальную машину:
+   ```bash
+   blkid
+   cat /etc/fstab
+   ```
 
-    ```bash
-    poweroff
-    ```
+1. Очистите состояние cloud-init, логи и seed (рекомендуемый способ):
+
+   ```bash
+   cloud-init clean --logs --seed
+   ```
+
+1. Выполните финальную синхронизацию и очистку буферов:
+
+   ```bash
+   sync
+   echo 3 > /proc/sys/vm/drop_caches
+   ```
+
+1. Выключите виртуальную машину:
+
+   ```bash
+   poweroff
+   ```
 
 1. Создайте ресурс `VirtualImage` из диска подготовленной ВМ:
 
-    ```bash
-    d8 k apply -f -<<EOF
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualImage
-    metadata:
-      name: <image-name>
-      namespace: <namespace>
-    spec:
-      dataSource:
-        type: ObjectRef
-        objectRef:
-          kind: VirtualDisk
-          name: <source-disk-name>
-    EOF
-    ```
+   ```bash
+   d8 k apply -f -<<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: <image-name>
+     namespace: <namespace>
+   spec:
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualDisk
+         name: <source-disk-name>
+   EOF
+   ```
 
-   Или создайте `ClusterVirtualImage`, чтобы образ был доступен на уровне кластера для всех проектов:
+   Альтернативно, создайте `ClusterVirtualImage`, чтобы образ был доступен на уровне кластера для всех проектов:
 
     ```bash
     d8 k apply -f -<<EOF
@@ -668,20 +679,22 @@ Golden image - это предварительно настроенный обр
     EOF
     ```
 
-1. Создайте диск из созданного образа:
+1. Создайте диск ВМ из созданного образа:
 
-    ```yaml
-    d8 k apply -f -<<EOF
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualDisk
-    metadata:
-      name: <vm-disk-name>
-      namespace: <namespace>
-    spec:
-      dataSource:
-        type: ObjectRef
-        objectRef:
-          kind: VirtualImage
-          name: <image-name>
-    EOF
-    ```
+   ```bash
+   d8 k apply -f -<<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: <vm-disk-name>
+     namespace: <namespace>
+   spec:
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualImage
+         name: <image-name>
+   EOF
+   ```
+
+После выполнения этих шагов у вас будет golden image, который можно использовать для быстрого создания новых виртуальных машин с предустановленным программным обеспечением и настройками.

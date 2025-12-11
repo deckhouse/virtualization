@@ -13,7 +13,8 @@ We need to download it and publish it on some http-service available from the cl
 
 1. Create an empty disk for OS installation:
 
-    ```yaml
+    ```bash
+    d8 k apply -f -<<EOF
     apiVersion: virtualization.deckhouse.io/v1alpha2
     kind: VirtualDisk
     metadata:
@@ -23,6 +24,7 @@ We need to download it and publish it on some http-service available from the cl
       persistentVolumeClaim:
         size: 100Gi
         storageClassName: local-path
+    EOF
     ```
 
 1. Create resources with iso-images of Windows OS and virtio drivers:
@@ -481,6 +483,7 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
 
     ```console
     {"size":"59G","storageClass":"linstor-thick-data-r1"}
+    ```
 
 1. Check the current status of the DVCR:
 
@@ -501,153 +504,164 @@ A golden image is a pre-configured virtual machine image that can be used to qui
 
 1. Create a virtual machine, install the required software on it, and perform all necessary configurations.
 
-1. It is recommended to install and configure qemu-guest-agent. For RHEL/CentOS:
+1. Install and configure qemu-guest-agent (recommended):
 
-    ```bash
-    yum install -y qemu-guest-agent
-    ```
+   - For RHEL/CentOS:
 
-   For Debian/Ubuntu:
+     ```bash
+     yum install -y qemu-guest-agent
+     ```
 
-    ```bash
-    apt-get update
-    apt-get install -y qemu-guest-agent
-    ```
+   - For Debian/Ubuntu:
 
-   Enable and start the service:
+     ```bash
+     apt-get update
+     apt-get install -y qemu-guest-agent
+     ```
 
-    ```bash
-    systemctl enable qemu-guest-agent
-    systemctl start qemu-guest-agent
-    ```
+1. Enable and start the service:
 
-1. Set the VM run policy to `AlwaysOnUnlessStoppedManually` - this is required to be able to shut down the VM.
+   ```bash
+   systemctl enable qemu-guest-agent
+   systemctl start qemu-guest-agent
+   ```
 
-1. Execute the following commands to prepare the image:
+1. Set the VM run policy to [`runPolicy: AlwaysOnUnlessStoppedManually`](/modules/virtualization/stable/cr.html#virtualmachine-v1alpha2-spec-runpolicy). This is required to be able to shut down the VM.
 
-   Clean unused filesystem blocks:
+1. Prepare the image. Clean unused filesystem blocks:
 
-    ```bash
-    fstrim -v /
-    fstrim -v /boot
-    ```
+   ```bash
+   fstrim -v /
+   fstrim -v /boot
+   ```
 
-   Clean network settings:
+1. Clean network settings:
 
-    ```bash
-    # For RHEL:
-    nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+   - For RHEL:
 
-    # For old ifcfg files (RHEL):
-    rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+     ```bash
+     nmcli con delete $(nmcli -t -f NAME,DEVICE con show | grep -v ^lo: | cut -d: -f1)
+     rm -f /etc/sysconfig/network-scripts/ifcfg-eth*
+     ```
 
-    # For Debian/Ubuntu:
-    rm -f /etc/network/interfaces.d/*
-    ```
+   - For Debian/Ubuntu:
 
-   Clean system identifiers:
+     ```bash
+     rm -f /etc/network/interfaces.d/*
+     ```
 
-    ```bash
-    echo -n > /etc/machine-id
-    rm -f /var/lib/dbus/machine-id
-    ln -s /etc/machine-id /var/lib/dbus/machine-id
-    ```
+1. Clean system identifiers:
 
-   Remove SSH host keys:
+   ```bash
+   echo -n > /etc/machine-id
+   rm -f /var/lib/dbus/machine-id
+   ln -s /etc/machine-id /var/lib/dbus/machine-id
+   ```
 
-    ```bash
-    rm -f /etc/ssh/ssh_host_*
-    ```
+1. Remove SSH host keys:
 
-   Clean systemd journal:
+   ```bash
+   rm -f /etc/ssh/ssh_host_*
+   ```
 
-    ```bash
-    journalctl --vacuum-size=100M --vacuum-time=7d
-    ```
+1. Clean systemd journal:
 
-   Clean package manager cache:
+   ```bash
+   journalctl --vacuum-size=100M --vacuum-time=7d
+   ```
 
-    ```bash
-    # For RHEL:
-    yum clean all
+1. Clean package manager cache:
 
-    # For Debian/Ubuntu:
-    apt-get clean
-    ```
+   - For RHEL:
 
-   Clean temporary files:
+     ```bash
+     yum clean all
+     ```
 
-    ```bash
-    rm -rf /tmp/*
-    rm -rf /var/tmp/*
-    ```
+   - For Debian/Ubuntu:
 
-   Clean logs:
+     ```bash
+     apt-get clean
+     ```
 
-    ```bash
-    find /var/log -name "*.log" -type f -exec truncate -s 0 {} \;
-    ```
+1. Clean temporary files:
 
-   Clean command history:
+   ```bash
+   rm -rf /tmp/*
+   rm -rf /var/tmp/*
+   ```
 
-    ```bash
-    history -c
-    ```
+1. Clean logs:
 
-   For RHEL: reset and restore SELinux contexts (one of two actions):
+   ```bash
+   find /var/log -name "*.log" -type f -exec truncate -s 0 {} \;
+   ```
 
-    ```bash
-    # Check and restore contexts immediately
-    restorecon -R /
+1. Clean command history:
 
-    # or schedule relabel on next boot
-    touch /.autorelabel
-    ```
+   ```bash
+   history -c
+   ```
 
-   Check fstab correctness (make sure all entries use UUID or LABEL instead of /dev/sdX):
+   For RHEL: reset and restore SELinux contexts (choose one of the following):
 
-    ```bash
-    blkid
-    ```
+   - Option 1: Check and restore contexts immediately:
 
-   Clean cloud-init state, logs, and seed (recommended method):
+     ```bash
+     restorecon -R /
+     ```
 
-    ```bash
-    cloud-init clean --logs --seed
-    ```
+   - Option 2: Schedule relabel on next boot:
 
-   Perform final synchronization and buffer cleanup:
+     ```bash
+     touch /.autorelabel
+     ```
 
-    ```bash
-    sync
-    echo 3 > /proc/sys/vm/drop_caches
-    ```
+1. Verify that `/etc/fstab` uses UUID or LABEL instead of device names (e.g., `/dev/sdX`). To check, run:
 
-   Shut down the virtual machine:
+   ```bash
+   blkid
+   cat /etc/fstab
+   ```
 
-    ```bash
-    poweroff
-    ```
+1. Clean cloud-init state, logs, and seed (recommended method):
+
+   ```bash
+   cloud-init clean --logs --seed
+   ```
+
+1. Perform final synchronization and buffer cleanup:
+
+   ```bash
+   sync
+   echo 3 > /proc/sys/vm/drop_caches
+   ```
+
+1. Shut down the virtual machine:
+
+   ```bash
+   poweroff
+   ```
 
 1. Create a `VirtualImage` resource from the prepared VM disk:
 
-    ```bash
-    d8 k apply -f -<<EOF
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualImage
-    metadata:
-      name: <image-name>
-      namespace: <namespace>
-    spec:
-      dataSource:
-        type: ObjectRef
-        objectRef:
-          kind: VirtualDisk
-          name: <source-disk-name>
-    EOF
-    ```
+   ```bash
+   d8 k apply -f -<<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: <image-name>
+     namespace: <namespace>
+   spec:
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualDisk
+         name: <source-disk-name>
+   EOF
+   ```
 
-   Or create a `ClusterVirtualImage` to make the image available at the cluster level for all projects:
+   Alternatively, create a `ClusterVirtualImage` to make the image available at the cluster level for all projects:
 
     ```bash
     d8 k apply -f -<<EOF
@@ -665,20 +679,22 @@ A golden image is a pre-configured virtual machine image that can be used to qui
     EOF
     ```
 
-1. Create a VM from the created image:
+1. Create a VM disk from the created image:
 
-    ```yaml
-    d8 k apply -f -<<EOF
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualDisk
-    metadata:
-      name: <vm-disk-name>
-      namespace: <namespace>
-    spec:
-      dataSource:
-        type: ObjectRef
-        objectRef:
-          kind: VirtualImage
-          name: <image-name>
-    EOF
-    ```
+   ```bash
+   d8 k apply -f -<<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: <vm-disk-name>
+     namespace: <namespace>
+   spec:
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualImage
+         name: <image-name>
+   EOF
+   ```
+
+After completing these steps, you will have a golden image that can be used to quickly create new virtual machines with pre-installed software and configurations.
