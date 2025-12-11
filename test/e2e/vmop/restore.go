@@ -50,42 +50,27 @@ import (
 )
 
 const (
-	minimalVIURL                = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	minimalCVIURL               = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
-	vmAnnotationName            = "vmAnnotationName"
-	vmAnnotationOriginalValue   = "vmAnnotationOriginalValue"
-	vmAnnotationChangedValue    = "vmAnnotationChangedValue"
-	vmLabelName                 = "vmLabelName"
-	vmLabelOriginalValue        = "vmLabelOriginalValue"
-	vmLabelChangedValue         = "vmLabelChangedValue"
-	resourceAnnotationName      = "resourceAnnotation"
-	resourceAnnotationValue     = "resourceAnnotationValue"
-	resourceLabelName           = "resourceLabelName"
-	resourceLabelValue          = "resourceLabelValue"
-	originalValueOnDisk         = "originalValueOnDisk"
-	changedValueOnDisk          = "changedValueOnDisk"
-	originalCPUCores            = 1
-	originalMemorySize          = "256Mi"
-	changedCPUCores             = 2
-	changedMemorySize           = "512Mi"
-	mountPoint                  = "/mnt"
-	fileDataPath                = "/mnt/value"
-	additionalNetworkIP         = "192.168.1.10/24"
-	clusterNetworkCreateCommand = `kubectl apply -f - <<EOF
-apiVersion: network.deckhouse.io/v1alpha1
-kind: ClusterNetwork
-metadata:
-  name: cn-1003-for-e2e-test
-spec:
-  parentNodeNetworkInterfaces:
-    labelSelector:
-      matchLabels:
-        network.deckhouse.io/interface-type: NIC
-        network.deckhouse.io/node-role: worker
-  type: VLAN
-  vlan:
-    id: 1003
-EOF`
+	minimalVIURL              = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
+	minimalCVIURL             = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
+	vmAnnotationName          = "vmAnnotationName"
+	vmAnnotationOriginalValue = "vmAnnotationOriginalValue"
+	vmAnnotationChangedValue  = "vmAnnotationChangedValue"
+	vmLabelName               = "vmLabelName"
+	vmLabelOriginalValue      = "vmLabelOriginalValue"
+	vmLabelChangedValue       = "vmLabelChangedValue"
+	resourceAnnotationName    = "resourceAnnotation"
+	resourceAnnotationValue   = "resourceAnnotationValue"
+	resourceLabelName         = "resourceLabelName"
+	resourceLabelValue        = "resourceLabelValue"
+	originalValueOnDisk       = "originalValueOnDisk"
+	changedValueOnDisk        = "changedValueOnDisk"
+	originalCPUCores          = 1
+	originalMemorySize        = "256Mi"
+	changedCPUCores           = 2
+	changedMemorySize         = "512Mi"
+	mountPoint                = "/mnt"
+	fileDataPath              = "/mnt/value"
+	additionalNetworkIP       = "192.168.1.10/24"
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
@@ -99,7 +84,7 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		}
 
 		if !util.IsClusterNetworkExists(f) {
-			Skip(fmt.Sprintf("Cluster network is not exists, please apply cluster network first by command: %s", clusterNetworkCreateCommand))
+			Skip(fmt.Sprintf("Cluster network is not exists, please apply cluster network first by command: %s", util.ClusterNetworkCreateCommand))
 		}
 
 		t := newRestoreTest(f)

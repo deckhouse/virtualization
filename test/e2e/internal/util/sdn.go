@@ -29,8 +29,23 @@ import (
 )
 
 const (
-	ClusterNetworkName   = "cn-1003-for-e2e-test"
-	ClusterNetworkVLANID = 1003
+	ClusterNetworkName          = "cn-1003-for-e2e-test"
+	ClusterNetworkVLANID        = 1003
+	ClusterNetworkCreateCommand = `kubectl apply -f - <<EOF
+apiVersion: network.deckhouse.io/v1alpha1
+kind: ClusterNetwork
+metadata:
+  name: cn-1003-for-e2e-test
+spec:
+  parentNodeNetworkInterfaces:
+    labelSelector:
+      matchLabels:
+        network.deckhouse.io/interface-type: NIC
+        network.deckhouse.io/node-role: worker
+  type: VLAN
+  vlan:
+    id: 1003
+EOF`
 )
 
 func IsSdnModuleEnabled(f *framework.Framework) bool {
