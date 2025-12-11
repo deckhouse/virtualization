@@ -83,22 +83,23 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 
 		// Check if VM's cores fall within this policy's range.
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
-			var coreFractionStringSlice []string
-			for _, v := range sp.CoreFractions {
-				coreFractionStringSlice = append(coreFractionStringSlice, string(v))
-			}
-
 			switch {
 			case sp.DefaultCoreFraction != nil:
 				return string(*sp.DefaultCoreFraction), nil
-			case len(coreFractionStringSlice) == 0 || slices.Contains(coreFractionStringSlice, defaultValue):
+			case len(sp.CoreFractions) == 0 || slices.Contains(sp.CoreFractions, v1alpha3.CoreFractionValue(defaultValue)):
 				return defaultValue, nil
 			default:
 				return "", fmt.Errorf(
 					"the default value for core fraction is not defined. For the specified configuration \".spec.cpu.cores: %d\","+
 						"the following core fractions are allowed: [%s]. Please specify the .spec.core.coreFraction value and try again",
 					vm.Spec.CPU.Cores,
-					strings.Join(coreFractionStringSlice, ", "),
+					strings.Join(func(coreFractions []v1alpha3.CoreFractionValue) []string {
+						var coreFractionStrings []string
+						for _, v := range coreFractions {
+							coreFractionStrings = append(coreFractionStrings, string(v))
+						}
+						return coreFractionStrings
+					}(sp.CoreFractions), ", "),
 				)
 			}
 		}
