@@ -25,7 +25,7 @@ import (
 
 	"hooks/pkg/settings"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha3"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
@@ -71,7 +71,7 @@ var config = &pkg.HookConfig{
 		},
 		{
 			Name:     vmClassGenericSnapshot,
-			Kind:     v1alpha2.VirtualMachineClassKind,
+			Kind:     v1alpha3.VirtualMachineClassKind,
 			JqFilter: `{apiVersion, kind, "metadata": ( .metadata | {name, labels, annotations, creationTimestamp} ) }`,
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{vmClassGenericName},
@@ -167,13 +167,13 @@ func parseVMClassInstallationStateFromSnapshot(input *pkg.HookInput) (*vmClassIn
 }
 
 // parseVMClassGenericFromSnapshot unmarshal ModuleConfig from jqFilter result.
-func parseVMClassGenericFromSnapshot(input *pkg.HookInput) (*v1alpha2.VirtualMachineClass, error) {
+func parseVMClassGenericFromSnapshot(input *pkg.HookInput) (*v1alpha3.VirtualMachineClass, error) {
 	snap := input.Snapshots.Get(vmClassGenericSnapshot)
 	if len(snap) < 1 {
 		return nil, nil
 	}
 
-	var vmclass v1alpha2.VirtualMachineClass
+	var vmclass v1alpha3.VirtualMachineClass
 	err := snap[0].UnmarshalTo(&vmclass)
 	if err != nil {
 		return nil, err
@@ -183,11 +183,11 @@ func parseVMClassGenericFromSnapshot(input *pkg.HookInput) (*v1alpha2.VirtualMac
 
 // vmClassGenericManifest returns a manifest for 'generic' vmclass
 // that should work for VM on every Node in cluster.
-func vmClassGenericManifest() *v1alpha2.VirtualMachineClass {
-	return &v1alpha2.VirtualMachineClass{
+func vmClassGenericManifest() *v1alpha3.VirtualMachineClass {
+	return &v1alpha3.VirtualMachineClass{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha2.SchemeGroupVersion.String(),
-			Kind:       v1alpha2.VirtualMachineClassKind,
+			APIVersion: v1alpha3.SchemeGroupVersion.String(),
+			Kind:       v1alpha3.VirtualMachineClassKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: vmClassGenericName,
@@ -196,43 +196,43 @@ func vmClassGenericManifest() *v1alpha2.VirtualMachineClass {
 				"module": settings.ModuleName,
 			},
 		},
-		Spec: v1alpha2.VirtualMachineClassSpec{
-			CPU: v1alpha2.CPU{
-				Type:  v1alpha2.CPUTypeModel,
+		Spec: v1alpha3.VirtualMachineClassSpec{
+			CPU: v1alpha3.CPU{
+				Type:  v1alpha3.CPUTypeModel,
 				Model: "Nehalem",
 			},
-			SizingPolicies: []v1alpha2.SizingPolicy{
+			SizingPolicies: []v1alpha3.SizingPolicy{
 				{
-					Cores: &v1alpha2.SizingPolicyCores{
+					Cores: &v1alpha3.SizingPolicyCores{
 						Min: 1,
 						Max: 4,
 					},
 					DedicatedCores: []bool{false},
-					CoreFractions:  []v1alpha2.CoreFractionValue{5, 10, 20, 50, 100},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"5%", "10%", "20%", "50%", "100%"},
 				},
 				{
-					Cores: &v1alpha2.SizingPolicyCores{
+					Cores: &v1alpha3.SizingPolicyCores{
 						Min: 5,
 						Max: 8,
 					},
 					DedicatedCores: []bool{false},
-					CoreFractions:  []v1alpha2.CoreFractionValue{20, 50, 100},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"20%", "50%", "100%"},
 				},
 				{
-					Cores: &v1alpha2.SizingPolicyCores{
+					Cores: &v1alpha3.SizingPolicyCores{
 						Min: 9,
 						Max: 16,
 					},
 					DedicatedCores: []bool{true, false},
-					CoreFractions:  []v1alpha2.CoreFractionValue{50, 100},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"50%", "100%"},
 				},
 				{
-					Cores: &v1alpha2.SizingPolicyCores{
+					Cores: &v1alpha3.SizingPolicyCores{
 						Min: 17,
 						Max: 1024,
 					},
 					DedicatedCores: []bool{true, false},
-					CoreFractions:  []v1alpha2.CoreFractionValue{100},
+					CoreFractions:  []v1alpha3.CoreFractionValue{"100%"},
 				},
 			},
 		},
@@ -240,7 +240,7 @@ func vmClassGenericManifest() *v1alpha2.VirtualMachineClass {
 }
 
 // isManagedByModule checks if vmclass has all labels that module set when installing vmclass.
-func isManagedByModule(vmClass *v1alpha2.VirtualMachineClass) bool {
+func isManagedByModule(vmClass *v1alpha3.VirtualMachineClass) bool {
 	if vmClass == nil {
 		return false
 	}
@@ -266,7 +266,7 @@ const (
 
 // addPatchesToCleanupMetadata fills patch collector with patches if vmclass metadata
 // should be cleaned.
-func addPatchesToCleanupMetadata(input *pkg.HookInput, vmClass *v1alpha2.VirtualMachineClass) {
+func addPatchesToCleanupMetadata(input *pkg.HookInput, vmClass *v1alpha3.VirtualMachineClass) {
 	var patches []map[string]interface{}
 
 	labelNames := []string{
