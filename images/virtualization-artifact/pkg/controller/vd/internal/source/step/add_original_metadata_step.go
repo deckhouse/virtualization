@@ -159,7 +159,8 @@ func setOriginalAnnotations(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (
 		if key == lastAppliedConfigAnnotation {
 			continue
 		}
-		if currentValue, exists := vd.Annotations[key]; !exists || currentValue != originalvalue {
+
+		if _, exists := vd.Annotations[key]; !exists {
 			vd.Annotations[key] = originalvalue
 			areAnnotationsAdded = true
 		}
@@ -183,7 +184,7 @@ func setOriginalLabels(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) (bool,
 
 	var areLabelsAdded bool
 	for key, originalvalue := range originalLabelsMap {
-		if currentValue, exists := vd.Labels[key]; !exists || currentValue != originalvalue {
+		if _, exists := vd.Labels[key]; !exists {
 			vd.Labels[key] = originalvalue
 			areLabelsAdded = true
 		}
