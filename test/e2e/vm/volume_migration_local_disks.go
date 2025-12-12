@@ -461,7 +461,7 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 		})
 	})
 
-	It("should be failed with RWO VMBDA", func() {
+	It("should succeed with hotplugged RWO disk", func() {
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationRootAndAdditionalBuild()
