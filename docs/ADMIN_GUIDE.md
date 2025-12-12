@@ -783,7 +783,7 @@ Additional requirements can be specified for each range of cores:
 1. Memory — specify:
 
     - Either minimum and maximum memory for all cores in the range,
-    - Either the minimum and maximum memory per core (`memoryPerCore`).
+    - Either the minimum and maximum memory per core (`memory.perCore`).
 
 2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage). If the `coreFraction` parameter is explicitly specified in the virtual machine specification, its value must be from this list.
 
@@ -792,7 +792,7 @@ Additional requirements can be specified for each range of cores:
 {{< alert level="warning" >}}
 Important: For each range of cores, be sure to specify:
 
-- Either memory (or `memoryPerCore`),
+- Either memory (or `memory.perCore`),
 - Either coreFractions,
 - Or both parameters at the same time.
 {{< /alert >}}
@@ -812,15 +812,16 @@ Examples of memory volume dependency on the number of cores:
 
   In this example, for any virtual machine with 1 to 4 cores, you can choose any memory volume from 2 to 8 GB — regardless of the number of cores. Memory does not depend on the number of cores in the range.
 
-- When using the `memoryPerCore` parameter, the allowed memory volume is calculated as the product of the number of cores multiplied by the specified memory range per core:
+- When using the `memory.perCore` parameter, the allowed memory volume is calculated as the product of the number of cores multiplied by the specified memory range per core:
 
   ```yaml
   - cores:
       min: 1
       max: 4
-    memoryPerCore:
-      min: 1Gi
-      max: 2Gi
+    memory:
+      perCore:
+        min: 1Gi
+        max: 2Gi
   ```
 
   In this case:
@@ -829,7 +830,46 @@ Examples of memory volume dependency on the number of cores:
   - For a virtual machine with 3 cores: from 3×1 GiB = 3 GiB to 3×2 GiB = 6 GiB of memory
   - For a virtual machine with 4 cores: from 4×1 GiB = 4 GiB to 4×2 GiB = 8 GiB of memory
 
-  Thus, when using `memoryPerCore`, the allowed memory volume automatically scales proportionally to the number of cores, providing more flexible and fair resource distribution.
+  Thus, when using `memory.perCore`, the allowed memory volume automatically scales proportionally to the number of cores, providing more flexible and fair resource distribution.
+
+- Examples of using the `memory.step` parameter for memory discretization:
+
+  The `step` parameter defines the memory size discretization step. It allows you to limit available memory values to specific increments, which simplifies resource management and prevents setting arbitrary values.
+
+  - Example with `memory.min` and `memory.max` with a 1 GB step:
+
+    ```yaml
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 2Gi
+        max: 8Gi
+        step: 1Gi
+    ```
+
+    In this case, only the following memory values are available: 2 GB, 3 GB, 4 GB, 5 GB, 6 GB, 7 GB, 8 GB. You cannot set, for example, 2.5 GB or 7.5 GB.
+
+  - Example with `memory.perCore` and step:
+
+    ```yaml
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        perCore:
+          min: 1Gi
+          max: 2Gi
+        step: 512Mi
+    ```
+
+    In this case, for each virtual machine, available memory values are calculated taking into account the step:
+    - For 1 core: 1 GB, 1.5 GB, 2 GB
+    - For 2 cores: 2 GB, 3 GB, 4 GB
+    - For 3 cores: 3 GB, 4.5 GB, 6 GB
+    - For 4 cores: 4 GB, 6 GB, 8 GB
+
+    Note that the step is applied to the total memory volume, not to the memory per core.
 
 Here is an example of a policy with similar settings:
 
