@@ -722,8 +722,15 @@ jobs:
               sleep 10
             done
           }
-
+          echo "Checking virtualization module is on"
+          if [ "$(kubectl get mc virtualization -o jsonpath='{.spec.enabled}')" != "true" ]; then
+            echo "Virtualization module is not enabled"
+            echo "Enabling virtualization module"
+            kubectl patch mc virtualization -p '{"spec":{"enabled": true}}' --type merge
+          fi
+          
           d8_queue
+          
           # kubectl -n d8-virtualization get pods || echo "ns virtualization is not ready"
 
           for i in {1..60}; do
