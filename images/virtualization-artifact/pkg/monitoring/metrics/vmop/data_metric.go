@@ -22,6 +22,7 @@ type dataMetric struct {
 	Name      string
 	Namespace string
 	UID       string
+	Type      string
 	Phase     v1alpha2.VMOPPhase
 }
 
@@ -36,5 +37,6 @@ func newDataMetric(vmop *v1alpha2.VirtualMachineOperation) *dataMetric {
 		Namespace: vmop.Namespace,
 		UID:       string(vmop.UID),
 		Phase:     vmop.Status.Phase,
+		Type:      string(vmop.Spec.Type),
 	}
 }

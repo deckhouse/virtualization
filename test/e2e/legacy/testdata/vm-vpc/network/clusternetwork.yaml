@@ -8,6 +8,6 @@ spec:
       matchLabels:
         network.deckhouse.io/interface-type: NIC
         network.deckhouse.io/node-role: worker
-  type: Vlan
+  type: VLAN
   vlan:
     id: 1003

@@ -127,3 +127,15 @@ func WithRestartApprovalMode(restartApprovalMode v1alpha2.RestartApprovalMode) O
 		vm.Spec.Disruptions.RestartApprovalMode = restartApprovalMode
 	}
 }
+
+func WithRunPolicy(runPolicy v1alpha2.RunPolicy) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.RunPolicy = runPolicy
+	}
+}
+
+func WithNetwork(network v1alpha2.NetworksSpec) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Networks = append(vm.Spec.Networks, network)
+	}
+}

@@ -128,13 +128,13 @@ var _ = Describe("VirtualMachineMigration", func() {
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 		})
 
-		// Skip this check until the issue with cilium-agents is fixed.
-		// By("Check Cilium agents are properly configured for the VM", func() {
-		// 	err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBIOS.Name, f.Namespace().Name)
-		// 	Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmBIOS.Name)
-		// 	err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmUEFI.Name, f.Namespace().Name)
-		// 	Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmUEFI.Name)
-		// })
+		// There is a known issue with the Cilium agent check.
+		By("Check Cilium agents are properly configured for the VM", func() {
+			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBIOS.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmBIOS.Name)
+			err = network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmUEFI.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmUEFI.Name)
+		})
 
 		By("Check VM can reach external network", func() {
 			network.CheckExternalConnectivity(f, vmBIOS.Name, network.ExternalHost, network.HTTPStatusOk)

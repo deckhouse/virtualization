@@ -208,7 +208,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			importer.GetPodSettingsWithPVCFunc = func(_ *metav1.OwnerReference, _ supplements.Generator, _, _ string) *importer2.PodSettings {
 				return nil
 			}
-			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings) error {
+			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings, _ ...service.Option) error {
 				podCreated = true
 				return nil
 			}
@@ -334,6 +334,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 })
 
 func ExpectCondition(vi *v1alpha2.VirtualImage, status metav1.ConditionStatus, reason vicondition.ReadyReason, msgExists bool) {
+	GinkgoHelper()
 	ready, _ := conditions.GetCondition(vicondition.Ready, vi.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

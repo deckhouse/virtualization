@@ -121,7 +121,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirtua
 		log.Info("Cleaning up...")
 	case pod == nil || svc == nil || ing == nil:
 		envSettings := ds.getEnvSettings(cvi, supgen)
-		err = ds.uploaderService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
+		err = ds.uploaderService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.
