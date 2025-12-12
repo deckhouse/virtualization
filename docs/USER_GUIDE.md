@@ -3081,11 +3081,6 @@ d8 k get vmsop <vmsop-name> -o json | jq '.status.resources'
 
 VM cloning is performed using the VirtualMachineOperation resource with the `Clone` operation type.
 
-{{< alert level="warning">}}
-Before cloning, the source VM must be [powered off](#vm-start-and-state-management-policy).
-It is recommended to set the `.spec.runPolicy: AlwaysOff` parameter in the configuration of the VM being cloned if you want to prevent the VM clone from starting automatically. This is because the clone inherits the behaviour of the parent VM.
-{{< /alert >}}
-
 Before cloning, you need to prepare the guest OS to avoid conflicts with unique identifiers and network settings.
 
 Linux:
