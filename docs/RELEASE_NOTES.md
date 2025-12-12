@@ -3,6 +3,19 @@ title: "Release Notes"
 weight: 70
 ---
 
+## v1.3.0
+
+### New Features
+
+- [vmclass] Added the `.spec.sizingPolicies.defaultCoreFraction` field to the `VirtualMachineClass` resource, allowing you to set the default `coreFraction` for virtual machines that use this class.
+
+### Fixes
+
+- [vi/cvi] Added the ability to use system nodes to create project and cluster images.
+- [vd] Accelerated disk attachment in `WaitForFirstConsumer` mode for virtual machines.
+- [vd] Fixed an issue with restoring labels and annotations on a disk created from a snapshot.
+- [observability] Fixed the display of virtual machine charts in clusters running in HA mode.
+
 ## v1.2.2
 
 ### Fixes
