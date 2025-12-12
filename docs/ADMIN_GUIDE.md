@@ -442,7 +442,7 @@ How to perform the operation in the web interface:
 ### Cleaning up image storage
 
 Over time, the creation and deletion of ClusterVirtualImage, VirtualImage, and VirtualDisk resources leads to the accumulation
-of outdated images in the intra-cluster storage. Scheduled garbage collection is implemented to keep the storage up to 
+of outdated images in the intra-cluster storage. Scheduled garbage collection is implemented to keep the storage up to
 date, but this feature is disabled by default.
 
 ```yaml
@@ -785,7 +785,9 @@ Additional requirements can be specified for each range of cores:
     - Either minimum and maximum memory for all cores in the range,
     - Either the minimum and maximum memory per core (`memoryPerCore`).
 
-2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage).
+2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage). If the `coreFraction` parameter is explicitly specified in the virtual machine specification, its value must be from this list.
+
+3. Default core fraction value (`defaultCoreFraction`) — specifies which core fraction will be used by default for this range of cores if the `coreFraction` parameter is not explicitly specified in the virtual machine specification. This value must be present in the `coreFractions` list. If `defaultCoreFraction` is not set, the default value of `100%` is applied.
 
 {{< alert level="warning" >}}
 Important: For each range of cores, be sure to specify:
@@ -812,6 +814,7 @@ spec:
         max: 8Gi
         step: 512Mi
       coreFractions: [5, 10, 20, 50, 100]
+      defaultCoreFraction: 50  # Default value for the 1–4 core range
     # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
     # i.e., 5 GB, 6 GB, 7 GB, etc.
     # No dedicated cores are allowed.
@@ -824,6 +827,7 @@ spec:
         max: 16Gi
         step: 1Gi
       coreFractions: [20, 50, 100]
+      defaultCoreFraction: 100  # Default value for the 5–8 core range
     # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
     # You can use dedicated cores if needed.
     # Some `corefraction` options are available.
