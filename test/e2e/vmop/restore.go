@@ -338,9 +338,6 @@ runcmd:
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 		vmbuilder.WithRunPolicy(runPolicy),
 		vmbuilder.WithProvisioningUserData(cloudInit),
-		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeMain,
-		}),
 	)
 
 	t.VMBDA = vmbdabuilder.New(
