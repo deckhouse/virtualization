@@ -1128,11 +1128,11 @@ spec:
                       properties:
                         name:
                           description: |-
-                            DNS resolver option name.
-                            Required field.
+                            Name is this DNS resolver option's name.
+                            Required.
                           type: string
                         value:
-                          description: DNS resolver option value.
+                          description: Value is this DNS resolver option's value.
                           type: string
                       type: object
                     type: array
@@ -1576,19 +1576,16 @@ spec:
                           properties:
                             claimName:
                               description: |-
-                                Must be provided from `vmi.spec.resourceClaims[].name` where this
-                                device is allocated.
+                                ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                                device is allocated
                               type: string
                             deviceName:
-                              description: Name of the device provisioned by device plugins.
+                              description: DeviceName is the name of the device provisioned
+                                by device-plugins
                               type: string
                             name:
-                              description: Name of the GPU device as exposed by a device plugin.
-                              type: string
-                            requestName:
-                              description: |-
-                                Must be provided from `resourceClaim.spec.devices.requests[].name` where this
-                                device is requested.
+                              description: Name of the GPU device as exposed by a
+                                device plugin
                               type: string
                             requestName:
                               description: |-
@@ -1596,7 +1593,9 @@ spec:
                                 device is requested
                               type: string
                             tag:
-                              description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
+                              description: If specified, the virtual network interface
+                                address and its tag will be provided to the guest
+                                via config drive
                               type: string
                             virtualGPUOptions:
                               properties:
@@ -1631,21 +1630,24 @@ spec:
                           properties:
                             claimName:
                               description: |-
-                                Must be provided from `vmi.spec.resourceClaims[].name` where this
-                                device is allocated.
+                                ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                                device is allocated
                               type: string
                             deviceName:
-                              description: Name of the device provisioned by device plugins.
+                              description: DeviceName is the name of the device provisioned
+                                by device-plugins
                               type: string
                             name:
                               type: string
                             requestName:
                               description: |-
-                                Must be provided from `resourceClaim.spec.devices.requests[].name` where this
-                                device is requested.
+                                RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                                device is requested
                               type: string
                             tag:
-                              description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
+                              description: If specified, the virtual network interface
+                                address and its tag will be provided to the guest
+                                via config drive
                               type: string
                           required:
                           - name
@@ -1860,14 +1862,15 @@ spec:
                           like the number of guest CPUs.
                         type: boolean
                       panicDevices:
-                        description: Provides additional crash information when a guest crashes.
+                        description: PanicDevices provides additional crash information
+                          when a guest crashes.
                         items:
                           properties:
                             model:
                               description: |-
-                                Type of panic device to provide.
-                                If this attribute is missing, the panic model used depends on the hypervisor and guest architecture.
-                                Valid values: `isa`, `hyperv`, `pvpanic`.
+                                Model specifies what type of panic device is provided.
+                                The panic model used when this attribute is missing depends on the hypervisor and guest arch.
+                                One of: isa, hyperv, pvpanic.
                               type: string
                           type: object
                         type: array
@@ -1895,13 +1898,13 @@ spec:
                         properties:
                           enabled:
                             description: |-
-                              Allows explicitly disabling the vTPM even when one is enabled by a preference referenced by the VirtualMachine.
-                              Defaults to true.
+                              Enabled allows a user to explicitly disable the vTPM even when one is enabled by a preference referenced by the VirtualMachine
+                              Defaults to True
                             type: boolean
                           persistent:
                             description: |-
-                              Indicates whether the state of the TPM device should be kept across reboots.
-                              Defaults to false.
+                              Persistent indicates the state of the TPM device should be kept accross reboots
+                              Defaults to false
                             type: boolean
                         type: object
                       useVirtioTransitional:
@@ -1911,12 +1914,13 @@ spec:
                           do not understand virtio_non_transitional (virtio 1.0).
                         type: boolean
                       video:
-                        description: Video device configuration for the VMI.
+                        description: Video describes the video device configuration
+                          for the vmi.
                         properties:
                           type:
                             description: |-
-                              Video device type (e.g., virtio, vga, bochs, ramfb).
-                              If not specified, the default is architecture-dependent: VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64, virtio for Arm and s390x.
+                              Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).
+                              If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
                             type: string
                         type: object
                       watchdog:
@@ -1924,11 +1928,12 @@ spec:
                           be added to the vmi.
                         properties:
                           diag288:
-                            description: diag288 watchdog device specific to s390x architecture.
+                            description: diag288 watchdog device (specific to s390x
+                              architecture).
                             properties:
                               action:
                                 description: |-
-                                  Action to take when the watchdog triggers. Valid values: poweroff, reset, shutdown.
+                                  The action to take. Valid values are poweroff, reset, shutdown.
                                   Defaults to reset.
                                 type: string
                             type: object
@@ -2290,18 +2295,19 @@ spec:
                         type: string
                     type: object
                   ioThreads:
-                    description: IOThreads options.
+                    description: IOThreads specifies the IOThreads options.
                     properties:
                       supplementalPoolThreadCount:
-                        description: Number of IO threads allocated for the `supplementalPool` policy.
+                        description: SupplementalPoolThreadCount specifies how many
+                          iothreads are allocated for the supplementalPool policy.
                         format: int32
                         type: integer
                     type: object
                   ioThreadsPolicy:
                     description: |-
-                      Controls whether disks share IOThreads.
-                      Omitting this field disables the use of IOThreads.
-                      Valid values: shared, auto, supplementalPool.
+                      Controls whether or not disks will share IOThreads.
+                      Omitting IOThreadsPolicy disables use of IOThreads.
+                      One of: shared, auto, supplementalPool
                     type: string
                   launchSecurity:
                     description: Launch Security setting of the vmi.
@@ -2758,47 +2764,55 @@ spec:
                 type: object
               resourceClaims:
                 description: |-
-                  Defines which ResourceClaims must be allocated and reserved before the VMI,
-                  hence the `virt-launcher` pod is allowed to start. The resources will be made available to the domain
-                  which consumes them by name.
+                  ResourceClaims define which ResourceClaims must be allocated
+                  and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources
+                  will be made available to the domain which consumes them
+                  by name.
 
-                  This is an alpha field and requires enabling the `DynamicResourceAllocation` feature gate in Kubernetes.
-                  See https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-                  This field should only be configured if one of the feature gates `GPUsWithDRA` or `HostDevicesWithDRA` is enabled.
+                  This is an alpha field and requires enabling the
+                  DynamicResourceAllocation feature gate in kubernetes
+                   https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
+                  This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                   This feature is in alpha.
                 items:
                   description: |-
-                    References exactly one ResourceClaim, either directly
+                    PodResourceClaim references exactly one ResourceClaim, either directly
                     or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
                     for the pod.
 
-                    Adds a name that uniquely identifies the ResourceClaim inside the pod.
+                    It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
                     Containers that need access to the ResourceClaim reference it with this name.
                   properties:
                     name:
                       description: |-
-                        Uniquely identifies this resource claim inside the pod.
-                        Must be a `DNS_LABEL`.
+                        Name uniquely identifies this resource claim inside the pod.
+                        This must be a DNS_LABEL.
                       type: string
                     resourceClaimName:
                       description: |-
-                        Name of a ResourceClaim object in the same namespace as this pod.
+                        ResourceClaimName is the name of a ResourceClaim object in the same
+                        namespace as this pod.
 
-                        Exactly one of `ResourceClaimName` and `ResourceClaimTemplateName` must be set.
+                        Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                        be set.
                       type: string
                     resourceClaimTemplateName:
                       description: |-
-                        Name of a ResourceClaimTemplate object in the same namespace as this pod.
+                        ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+                        object in the same namespace as this pod.
 
-                        The template will be used to create a new ResourceClaim, which will be bound to this pod.
-                        When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name,
-                        along with a generated component, will be used to form a unique name for the ResourceClaim,
-                        which will be recorded in `pod.status.resourceClaimStatuses`.
+                        The template will be used to create a new ResourceClaim, which will
+                        be bound to this pod. When this pod is deleted, the ResourceClaim
+                        will also be deleted. The pod name and resource name, along with a
+                        generated component, will be used to form a unique name for the
+                        ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
 
-                        This field is immutable and no changes will be made to the corresponding ResourceClaim
-                        by the control plane after creating the ResourceClaim.
+                        This field is immutable and no changes will be made to the
+                        corresponding ResourceClaim by the control plane after creating the
+                        ResourceClaim.
 
-                        Exactly one of `ResourceClaimName` and `ResourceClaimTemplateName` must be set.
+                        Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                        be set.
                       type: string
                   required:
                   - name
@@ -3212,7 +3226,8 @@ spec:
                           description: Path defines the path to disk file in the container
                           type: string
                         hotpluggable:
-                          description: Indicates whether the volume can be hotplugged and hotunplugged.
+                          description: Hotpluggable indicates whether the volume can
+                            be hotplugged and hotunplugged.
                           type: boolean
                       required:
                       - image
@@ -3223,10 +3238,12 @@ spec:
                         the process of populating that PVC with a disk image.
                       properties:
                         hotpluggable:
-                          description: Indicates whether the volume can be hotplugged and hotunplugged.
+                          description: Hotpluggable indicates whether the volume can
+                            be hotplugged and hotunplugged.
                           type: boolean
                         name:
-                          description: Name of both the DataVolume and the PVC in the same namespace.
+                          description: Name of both the DataVolume and the PVC in
+                            the same namespace.
                           type: string
                       required:
                       - name
@@ -3392,7 +3409,8 @@ spec:
                             More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
                           type: string
                         hotpluggable:
-                          description: Indicates whether the volume can be hotplugged and hotunplugged.
+                          description: Hotpluggable indicates whether the volume can
+                            be hotplugged and hotunplugged.
                           type: boolean
                         readOnly:
                           description: |-
@@ -3420,7 +3438,8 @@ spec:
                             More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
                           type: string
                         hotpluggable:
-                          description: Indicates whether the volume can be hotplugged and hotunplugged.
+                          description: Hotpluggable indicates whether the volume can
+                            be hotplugged and hotunplugged.
                           type: boolean
                         readOnly:
                           description: |-
@@ -3582,34 +3601,40 @@ spec:
                   This feature is in alpha.
                 properties:
                   gpuStatuses:
-                    description: State of GPUs requested in `spec.domain.devices.gpus`.
+                    description: GPUStatuses reflects the state of GPUs requested
+                      in spec.domain.devices.gpus
                     items:
                       properties:
                         deviceResourceClaimStatus:
-                          description: DRA-related information for the device.
+                          description: DeviceResourceClaimStatus reflects the DRA
+                            related information for the device
                           properties:
                             attributes:
                               description: |-
-                                Properties of the device that could be used by kubevirt and other components to learn more
-                                about the device, like `pciAddress` or `mdevUUID`.
+                                Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
+                                about the device, like pciAddress or mdevUUID
                               properties:
                                 mDevUUID:
-                                  description: Mediated device UUID of the allocated device.
+                                  description: MDevUUID is the mediated device uuid
+                                    of the allocated device
                                   type: string
                                 pciAddress:
-                                  description: PCIe bus address of the allocated device.
+                                  description: PCIAddress is the PCIe bus address
+                                    of the allocated device
                                   type: string
                               type: object
                             name:
-                              description: Name of actual device on the host provisioned by the driver as reflected in `resourceclaim.status`.
+                              description: Name is the name of actual device on the
+                                host provisioned by the driver as reflected in resourceclaim.status
                               type: string
                             resourceClaimName:
-                              description: Name of the resource claims object used to provision this resource.
+                              description: ResourceClaimName is the name of the resource
+                                claims object used to provision this resource
                               type: string
                           type: object
                         name:
-                          description: Name of the device as specified in `spec.domain.devices.gpus.name`
-                            or `spec.domain.devices.hostDevices.name`.
+                          description: Name of the device as specified in spec.domain.devices.gpus.name
+                            or spec.domain.devices.hostDevices.name
                           type: string
                       required:
                       - name
@@ -3618,35 +3643,40 @@ spec:
                     x-kubernetes-list-type: atomic
                   hostDeviceStatuses:
                     description: |-
-                      State of host devices requested in `spec.domain.devices.hostDevices`.
+                      HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices
                       DRA
                     items:
                       properties:
                         deviceResourceClaimStatus:
-                          description: DRA-related information for the device.
+                          description: DeviceResourceClaimStatus reflects the DRA
+                            related information for the device
                           properties:
                             attributes:
                               description: |-
-                                Properties of the device that could be used by kubevirt and other components to learn more
-                                about the device, like `pciAddress` or `mdevUUID`.
+                                Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
+                                about the device, like pciAddress or mdevUUID
                               properties:
                                 mDevUUID:
-                                  description: Mediated device UUID of the allocated device.
+                                  description: MDevUUID is the mediated device uuid
+                                    of the allocated device
                                   type: string
                                 pciAddress:
-                                  description: PCIe bus address of the allocated device.
+                                  description: PCIAddress is the PCIe bus address
+                                    of the allocated device
                                   type: string
                               type: object
                             name:
-                              description: Name of actual device on the host provisioned by the driver as reflected in `resourceclaim.status`.
+                              description: Name is the name of actual device on the
+                                host provisioned by the driver as reflected in resourceclaim.status
                               type: string
                             resourceClaimName:
-                              description: Name of the resource claims object used to provision this resource.
+                              description: ResourceClaimName is the name of the resource
+                                claims object used to provision this resource
                               type: string
                           type: object
                         name:
-                          description: Name of the device as specified in `spec.domain.devices.gpus.name`
-                            or `spec.domain.devices.hostDevices.name`.
+                          description: Name of the device as specified in spec.domain.devices.gpus.name
+                            or spec.domain.devices.hostDevices.name
                           type: string
                       required:
                       - name
@@ -3716,17 +3746,15 @@ spec:
                         type: string
                       type: array
                     linkState:
-                      description: 'Current operational link state. Values: up, down.'
+                      description: 'LinkState Reports the current operational link
+                        state''. values: up, down.'
                       type: string
                     mac:
-                      description: Hardware address of a Virtual Machine interface.
+                      description: Hardware address of a Virtual Machine interface
                       type: string
                     name:
                       description: Name of the interface, corresponds to name of the
-                        network assigned to the interface.
-                      type: string
-                    podInterfaceName:
-                      description: Name of the pod network interface.
+                        network assigned to the interface
                       type: string
                     podInterfaceName:
                       description: PodInterfaceName represents the name of the pod
@@ -4031,7 +4059,7 @@ spec:
                         type: boolean
                     type: object
                   migrationNetworkType:
-                    description: Type of migration network, either 'pod' or 'migration'.
+                    description: The type of migration network, either 'pod' or 'migration'
                     type: string
                   migrationPolicyName:
                     description: Name of the migration policy. If string is empty,
@@ -4050,7 +4078,7 @@ spec:
                     type: string
                   sourcePersistentStatePVCName:
                     description: If the VMI being migrated uses persistent features
-                      (backend-storage), its source PVC name is saved here.
+                      (backend-storage), its source PVC name is saved here
                     type: string
                   sourcePod:
                     type: string
@@ -4143,7 +4171,7 @@ spec:
                     type: string
                   targetPersistentStatePVCName:
                     description: If the VMI being migrated uses persistent features
-                      (backend-storage), its target PVC name is saved here.
+                      (backend-storage), its target PVC name is saved here
                     type: string
                   targetPod:
                     description: The target pod that the VMI is moving to
@@ -4421,3 +4449,8 @@ spec:
         type: object
     served: true
     storage: true
+# IMPORTANT! Do not add status subresource, as it breaks the status update
+# in Kubevirt components.
+# Delete this precaution when future Kubevirt updates add status subresource.
+#      subresources:
+#        status: {}
