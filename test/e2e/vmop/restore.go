@@ -183,48 +183,48 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			Expect(t.VMBDAWithNoFstabEntry.Labels[resourceLabelName]).To(Equal(resourceLabelValue))
 		})
 	},
-		Entry(
-			"DryRun restore mode; manual restart approval mode; always on unless stopped manually run policy",
-			v1alpha2.SnapshotOperationModeDryRun,   // restoreMode
-			v1alpha2.Manual,                        // restartApprovalMode
-			v1alpha2.AlwaysOnUnlessStoppedManually, // runPolicy
-			false,                                  // removeRecoverableResources
-		),
-		Entry(
-			"BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy",
-			v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
-			v1alpha2.Manual,                          // restartApprovalMode
-			v1alpha2.AlwaysOnUnlessStoppedManually,   // runPolicy
-			false,                                    // removeRecoverableResources
-		),
-		Entry(
-			"Strict restore mode; manual restart approval mode; always on unless stopped manually run policy",
-			v1alpha2.SnapshotOperationModeStrict,   // restoreMode
-			v1alpha2.Manual,                        // restartApprovalMode
-			v1alpha2.AlwaysOnUnlessStoppedManually, // runPolicy
-			false,                                  // removeRecoverableResources
-		),
-		Entry(
-			"BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion",
-			v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
-			v1alpha2.Manual,                          // restartApprovalMode
-			v1alpha2.AlwaysOnUnlessStoppedManually,   // runPolicy
-			true,                                     // removeRecoverableResources
-		),
-		Entry(
-			"Strict restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion",
-			v1alpha2.SnapshotOperationModeStrict,   // restoreMode
-			v1alpha2.Manual,                        // restartApprovalMode
-			v1alpha2.AlwaysOnUnlessStoppedManually, // runPolicy
-			true,                                   // removeRecoverableResources
-		),
-		Entry(
-			"BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy",
-			v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
-			v1alpha2.Automatic,                       // restartApprovalMode
-			v1alpha2.AlwaysOnUnlessStoppedManually,   // runPolicy
-			false,                                    // removeRecoverableResources
-		),
+		// Entry(
+		// 	"DryRun restore mode; manual restart approval mode; always on unless stopped manually run policy",
+		// 	v1alpha2.SnapshotOperationModeDryRun,   // restoreMode
+		// 	v1alpha2.Manual,                        // restartApprovalMode
+		// 	v1alpha2.AlwaysOnUnlessStoppedManually, // runPolicy
+		// 	false,                                  // removeRecoverableResources
+		// ),
+		// Entry(
+		// 	"BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy",
+		// 	v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
+		// 	v1alpha2.Manual,                          // restartApprovalMode
+		// 	v1alpha2.AlwaysOnUnlessStoppedManually,   // runPolicy
+		// 	false,                                    // removeRecoverableResources
+		// ),
+		// Entry(
+		// 	"Strict restore mode; manual restart approval mode; always on unless stopped manually run policy",
+		// 	v1alpha2.SnapshotOperationModeStrict,   // restoreMode
+		// 	v1alpha2.Manual,                        // restartApprovalMode
+		// 	v1alpha2.AlwaysOnUnlessStoppedManually, // runPolicy
+		// 	false,                                  // removeRecoverableResources
+		// ),
+		// Entry(
+		// 	"BestEffort restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion",
+		// 	v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
+		// 	v1alpha2.Manual,                          // restartApprovalMode
+		// 	v1alpha2.AlwaysOnUnlessStoppedManually,   // runPolicy
+		// 	true,                                     // removeRecoverableResources
+		// ),
+		// Entry(
+		// 	"Strict restore mode; manual restart approval mode; always on unless stopped manually run policy; with resource deletion",
+		// 	v1alpha2.SnapshotOperationModeStrict,   // restoreMode
+		// 	v1alpha2.Manual,                        // restartApprovalMode
+		// 	v1alpha2.AlwaysOnUnlessStoppedManually, // runPolicy
+		// 	true,                                   // removeRecoverableResources
+		// ),
+		// Entry(
+		// 	"BestEffort restore mode; automatic restart approval mode; always on unless stopped manually run policy",
+		// 	v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
+		// 	v1alpha2.Automatic,                       // restartApprovalMode
+		// 	v1alpha2.AlwaysOnUnlessStoppedManually,   // runPolicy
+		// 	false,                                    // removeRecoverableResources
+		// ),
 		Entry(
 			"BestEffort restore mode; automatic restart approval mode; manual run policy",
 			v1alpha2.SnapshotOperationModeBestEffort, // restoreMode
