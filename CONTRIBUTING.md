@@ -47,37 +47,24 @@ Images, such as build images or images with binary artifacts, should not be incl
 
 ## Conventions
 
-### Commit message
+### Changes Block
 
-Each commit message consists of a **header** and a [**body**](#body). The header has a special format that includes a [**type**](#type), a [**scope**](#scope) and a [**subject**](#subject):
+When submitting a pull request, include a **changes block** to document modifications for the changelog. This block helps automate the release changelog creation, tracks updates, and prepares release notes.
 
+#### Format
+
+The changes block consists of YAML documents, each detailing a specific change. Use the following structure:
+
+````
+```changes
+section: <affected-section>
+type: <feature|fix|chore>
+summary: <Concise description of the change.>
+impact_level: <low|high>  # Optional
+impact: |
+  <Detailed impact description if impact_level is high>
 ```
-<type>(<scope>): <subject>
-<BLANK LINE>
-<body>
-```
-
-**Examples:**
-
-  - _feat(api): bump resource version to v1beta1_
-  - _feat(images): implement ImageLost phase_
-  - _feat(images, vi): add PVC as a storage_
-  - _fix(vm, vmclass): fix unsupported type of class_
-  - _refactor(core): rename 3rd party resources_
-  - _docs(module): describe how to install module_
-  - _chore(core): use alt linux as base image_
-  - _chore: update go dependencies_
-
-#### Type
-
-Must be one of the following:
-
-* **feat**: new features or capabilities that enhance the user's experience.
-* **fix**: bug fixes that enhance the user's experience.
-* **refactor**: a code changes that neither fixes a bug nor adds a feature.
-* **docs**: updates or improvements to documentation.
-* **test**: additions or corrections to tests.
-* **chore**: updates that don't fit into other types.
+````
 
 #### Scope
 
@@ -131,53 +118,6 @@ Supported scopes are the following:
   # Testing related changes.
   - test
   ```
-
-#### Subject
-
-The subject contains a succinct description of the change:
-
-  - use the imperative, present tense: "change" not "changed" nor "changes"
-  - don't capitalize the first letter
-  - no dot (.) at the end
-
-#### Body
-
-Just as in the **subject**, use the imperative, present tense: "change" not "changed" nor "changes".
-The body should include the motivation for the change and contrast this with previous behavior.
-
-### Branch name
-
-Each branch name consists of a [**type**](#type), [**scope**](#scope), and a [**short-description**](#short-description):
-
-```
-<type>/<scope>/<short-description>
-```
-
-When naming branches, only the top-level scope should be used. Multiple or nested scopes are not allowed in branch names, ensuring that each branch is clearly associated with a broad area of the project.
-
-**Examples:**
-
-  - _feat/disks/support-new-image-source_
-  - _chore/ci/speed-up-builds_
-
-### Changes Block
-
-When submitting a pull request, include a **changes block** to document modifications for the changelog. This block helps automate the release changelog creation, tracks updates, and prepares release notes.
-
-#### Format
-
-The changes block consists of YAML documents, each detailing a specific change. Use the following structure:
-
-````
-```changes
-section: <affected-section>
-type: <feature|fix|chore>
-summary: <Concise description of the change.>
-impact_level: <low|high>  # Optional
-impact: |
-  <Detailed impact description if impact_level is high>
-```
-````
 
 #### Fields Description
 
