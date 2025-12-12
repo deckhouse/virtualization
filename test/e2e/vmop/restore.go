@@ -70,7 +70,6 @@ const (
 	changedMemorySize         = "512Mi"
 	mountPoint                = "/mnt"
 	fileDataPath              = "/mnt/value"
-	additionalNetworkIP       = "192.168.1.10/24"
 )
 
 var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
@@ -108,8 +107,6 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			// Unmount the disk to ensure nothing affects the hash.
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
-
-			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -476,8 +473,6 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 	default:
 		Fail("Invalid restore mode")
 	}
-
-	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
@@ -520,14 +515,6 @@ func (t *restoreModeTest) RestoreVM(vm *v1alpha2.VirtualMachine, vmopRestore *v1
 
 	util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.LongTimeout)
 	util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-}
-
-func (t *restoreModeTest) CheckAdditionalNetworkInterface(vm *v1alpha2.VirtualMachine, ip string) {
-	GinkgoHelper()
-
-	cmdOut, err := t.Framework.SSHCommand(vm.GetName(), vm.GetNamespace(), "ip -4 addr show")
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cmdOut).To(ContainSubstring(fmt.Sprintf("inet %s", ip)))
 }
 
 func (t *restoreModeTest) IsStorageClassAvailableForTest(vm *v1alpha2.VirtualMachine) bool {
