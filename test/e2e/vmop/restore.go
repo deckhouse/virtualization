@@ -79,8 +79,6 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		DeferCleanup(f.After)
 		f.Before()
 
-		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
-
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
 			Skip("Storage class is not available for test")
