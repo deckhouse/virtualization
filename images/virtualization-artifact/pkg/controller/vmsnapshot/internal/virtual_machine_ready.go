@@ -84,8 +84,10 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *v1al
 
 	switch vm.Status.Phase {
 	case v1alpha2.MachineRunning, v1alpha2.MachineStopped:
-		snapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
-		if snapshotting.Status != metav1.ConditionTrue {
+		// If the snapshotting condition is not found, it means that the vm is ready for snapshotting.
+		// Otherwise, check the status of the condition and ensure it reflects the current state of the object.
+		snapshotting, ok := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
+		if ok && (snapshotting.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(snapshotting, vm)) {
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualMachineNotReadyForSnapshotting)
 			if snapshotting.Message == "" {
 				cb.Message("The VirtualMachineSnapshot resource has not been detected for the virtual machine yet.")

@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,7 +87,7 @@ func (r SecretRestorer) Store(ctx context.Context, vm *v1alpha2.VirtualMachine, 
 	}
 
 	err = r.client.Create(ctx, &secret)
-	if err != nil {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return nil, fmt.Errorf("failed to create restorer secret: %w", err)
 	}
 

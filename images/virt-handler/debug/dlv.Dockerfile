@@ -44,9 +44,9 @@ ENV GOOS=linux
 ENV CGO_ENABLED=1
 ENV GOARCH=amd64
 
-RUN go build -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
+RUN go build -gcflags="all=-N -l" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
 RUN gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk
-RUN go build -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
+RUN go build -gcflags="all=-N -l" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
 
 FROM basealt
 

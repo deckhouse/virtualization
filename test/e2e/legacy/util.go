@@ -831,3 +831,19 @@ func CheckExternalConnection(host, httpCode, vmNamespace string, vmNames ...stri
 		CheckResultSSHCommand(vmNamespace, vmName, cmd, httpCode)
 	}
 }
+
+func ExecSSHCommand(vmNamespace, vmName, cmd string) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		res := framework.GetClients().D8Virtualization().SSHCommand(vmName, cmd, d8.SSHOptions{
+			Namespace:    vmNamespace,
+			Username:     conf.TestData.SSHUser,
+			IdentityFile: conf.TestData.Sshkey,
+		})
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
+}

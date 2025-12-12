@@ -329,9 +329,9 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 				vm := &v1alpha2.VirtualMachine{}
 				err = GetObject(v1alpha2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
 				Expect(err).NotTo(HaveOccurred())
-				// Skip the network checks until the issue with the virtual machine's MAC address is fixed.
-				// Cause: Sometimes, a virtual machine has a different MAC address after restoration, causing the test to fail.
-				// Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
+				// It is a known issue that sometimes a virtual machine has a different MAC address
+				// after restoration, causing the test to fail.
+				Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
 			}
 		})
 	})
