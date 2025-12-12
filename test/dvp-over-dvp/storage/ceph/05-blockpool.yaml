@@ -1,0 +1,13 @@
+apiVersion: ceph.rook.io/v1
+kind: CephBlockPool
+metadata:
+  name: ceph-rbd-pool-r2
+  namespace: d8-operator-ceph # namespace:cluster
+spec:
+  parameters:
+    pg_num: "128"
+    pgp_num: "128"
+  failureDomain: host
+  replicated:
+    size: 2
+    requireSafeReplicaSize: false
