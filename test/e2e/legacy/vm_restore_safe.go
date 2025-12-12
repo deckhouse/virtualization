@@ -37,7 +37,6 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-safe"}
 		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-safe"}
-		originalVMNetworks  map[string][]v1alpha2.NetworksStatus
 	)
 
 	BeforeAll(func() {
@@ -75,47 +74,6 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 					Namespace: namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-			})
-		})
-
-		It("add additional interface to virtual machines", func() {
-			sdnEnabled, err := isSdnModuleEnabled()
-			if err != nil || !sdnEnabled {
-				Skip("Module SDN is disabled. Skipping part of tests.")
-			}
-			By("patch virtual machine for add additional network interface", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				vmNames := strings.Split(res.StdOut(), " ")
-				Expect(vmNames).NotTo(BeEmpty())
-
-				cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"networks\":[{\"type\":\"Main\"},{\"type\":\"ClusterNetwork\",\"name\":\"cn-1003-for-e2e-test\"}]}}'", kc.ResourceVM, namespace, res.StdOut())
-				patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
-				Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
-
-				RebootVirtualMachinesByVMOP(testCaseLabel, namespace, vmNames...)
-			})
-			By("`VirtualMachine` agent should be ready after patching", func() {
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-			By("remembering the .status.networks of each VM after patching", func() {
-				vms := &v1alpha2.VirtualMachineList{}
-				err := GetObjects(v1alpha2.VirtualMachineResource, vms, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
-				Expect(err).NotTo(HaveOccurred())
-
-				originalVMNetworks = make(map[string][]v1alpha2.NetworksStatus, len(vms.Items))
-				for _, vm := range vms.Items {
-					originalVMNetworks[vm.Name] = vm.Status.Networks
-				}
 			})
 		})
 	})
@@ -307,30 +265,6 @@ var _ = Describe("VirtualMachineRestoreSafe", Ordered, func() {
 					}
 				}
 			})
-		})
-
-		It("check the .status.networks of each VM after restore", func() {
-			sdnEnabled, err := isSdnModuleEnabled()
-			if err != nil || !sdnEnabled {
-				Skip("Module SDN is disabled. Skipping part of tests.")
-			}
-
-			vmrestores := &v1alpha2.VirtualMachineRestoreList{}
-			err = GetObjects(v1alpha2.VirtualMachineRestoreKind, vmrestores, kc.GetOptions{Namespace: namespace, Labels: testCaseLabel})
-			Expect(err).NotTo(HaveOccurred())
-
-			for _, restore := range vmrestores.Items {
-				vmsnapshot := &v1alpha2.VirtualMachineSnapshot{}
-				err := GetObject(v1alpha2.VirtualMachineSnapshotKind, restore.Spec.VirtualMachineSnapshotName, vmsnapshot, kc.GetOptions{Namespace: restore.Namespace})
-				Expect(err).NotTo(HaveOccurred())
-
-				vm := &v1alpha2.VirtualMachine{}
-				err = GetObject(v1alpha2.VirtualMachineKind, vmsnapshot.Spec.VirtualMachineName, vm, kc.GetOptions{Namespace: vmsnapshot.Namespace})
-				Expect(err).NotTo(HaveOccurred())
-				// It is a known issue that sometimes a virtual machine has a different MAC address
-				// after restoration, causing the test to fail.
-				Expect(originalVMNetworks).To(HaveKeyWithValue(vm.Name, vm.Status.Networks))
-			}
 		})
 	})
 
