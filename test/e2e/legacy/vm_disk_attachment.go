@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/config"
 	"github.com/deckhouse/virtualization/test/e2e/internal/d8"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
@@ -106,8 +107,8 @@ var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
+			By(fmt.Sprintf("VMs should be in the %s phase", v1alpha2.MachineRunning))
+			WaitPhaseByLabel(kc.ResourceVM, string(v1alpha2.MachineRunning), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
@@ -116,7 +117,7 @@ var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 	})
 
 	Describe("Attachment", func() {
-		Context("When virtual machine agents are ready", func() {
+		Context(fmt.Sprintf("When VMs in the %s phase", v1alpha2.MachineRunning), func() {
 			It("get disk count before attachment", func() {
 				Eventually(func() error {
 					return GetDisksMetadata(ns, vmName, &disksBefore)
@@ -132,8 +133,8 @@ var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be ready")
-				WaitVMAgentReady(kc.WaitOptions{
+				By(fmt.Sprintf("VMs should be in the %s phase", v1alpha2.MachineRunning))
+				WaitPhaseByLabel(kc.ResourceVM, string(v1alpha2.MachineRunning), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -168,9 +169,9 @@ var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
-			It("checks VM phase", func() {
-				By("Virtual machines should be ready")
-				WaitVMAgentReady(kc.WaitOptions{
+			It("checks VMs phase", func() {
+				By(fmt.Sprintf("VMs should be in the %s phase", v1alpha2.MachineRunning))
+				WaitPhaseByLabel(kc.ResourceVM, string(v1alpha2.MachineRunning), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
@@ -191,15 +192,19 @@ var _ = Describe("VirtualDiskAttachment", Ordered, func() {
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ns, ResourcesToDelete{
-				KustomizationDir: conf.TestData.VMDiskAttachment,
-				AdditionalResources: []AdditionalResource{
-					{
-						Resource: kc.ResourceVMBDA,
-						Labels:   testCaseLabel,
-					},
-				},
-			})
+			if config.IsCleanUpNeeded() {
+				DeleteTestCaseResources(
+					ns,
+					ResourcesToDelete{
+						KustomizationDir: conf.TestData.VMDiskAttachment,
+						AdditionalResources: []AdditionalResource{
+							{
+								Resource: kc.ResourceVMBDA,
+								Labels:   testCaseLabel,
+							},
+						},
+					})
+			}
 		})
 	})
 })
