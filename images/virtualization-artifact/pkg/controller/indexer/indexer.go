@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -57,6 +57,8 @@ const (
 	IndexFieldVMMACByAddress = "spec.address|status.address"
 
 	IndexFieldVMMACLeaseByVMMAC = "spec.virtualMachineMACAddressRef.Name"
+
+	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
 )
 
 var IndexGetters = []IndexGetter{
@@ -65,6 +67,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVI,
 	IndexVMByCVI,
 	IndexVMByNode,
+	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
 	IndexVMRestoreByVMSnapshot,
@@ -94,8 +97,8 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 }
 
 func IndexVMByClass() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachine{}, IndexFieldVMByClass, func(object client.Object) []string {
-		vm, ok := object.(*virtv2.VirtualMachine)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByClass, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
 		if !ok || vm == nil {
 			return nil
 		}
@@ -104,26 +107,26 @@ func IndexVMByClass() (obj client.Object, field string, extractValue client.Inde
 }
 
 func IndexVMByVD() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachine{}, IndexFieldVMByVD, func(object client.Object) []string {
-		return getBlockDeviceNamesByKind(object, virtv2.DiskDevice)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByVD, func(object client.Object) []string {
+		return getBlockDeviceNamesByKind(object, v1alpha2.DiskDevice)
 	}
 }
 
 func IndexVMByVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachine{}, IndexFieldVMByVI, func(object client.Object) []string {
-		return getBlockDeviceNamesByKind(object, virtv2.ImageDevice)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByVI, func(object client.Object) []string {
+		return getBlockDeviceNamesByKind(object, v1alpha2.ImageDevice)
 	}
 }
 
 func IndexVMByCVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachine{}, IndexFieldVMByCVI, func(object client.Object) []string {
-		return getBlockDeviceNamesByKind(object, virtv2.ClusterImageDevice)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByCVI, func(object client.Object) []string {
+		return getBlockDeviceNamesByKind(object, v1alpha2.ClusterImageDevice)
 	}
 }
 
 func IndexVMByNode() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachine{}, IndexFieldVMByNode, func(object client.Object) []string {
-		vm, ok := object.(*virtv2.VirtualMachine)
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByNode, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
 		if !ok || vm == nil || vm.Status.Node == "" {
 			return nil
 		}
@@ -131,8 +134,27 @@ func IndexVMByNode() (obj client.Object, field string, extractValue client.Index
 	}
 }
 
-func getBlockDeviceNamesByKind(obj client.Object, kind virtv2.BlockDeviceKind) []string {
-	vm, ok := obj.(*virtv2.VirtualMachine)
+func IndexVMByProvisioningSecret() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByProvisioningSecret, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil || vm.Spec.Provisioning == nil {
+			return nil
+		}
+
+		var secrets []string
+		if vm.Spec.Provisioning.UserDataRef != nil && vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
+			secrets = append(secrets, vm.Spec.Provisioning.UserDataRef.Name)
+		}
+		if vm.Spec.Provisioning.SysprepRef != nil && vm.Spec.Provisioning.SysprepRef.Kind == v1alpha2.SysprepRefKindSecret {
+			secrets = append(secrets, vm.Spec.Provisioning.SysprepRef.Name)
+		}
+
+		return secrets
+	}
+}
+
+func getBlockDeviceNamesByKind(obj client.Object, kind v1alpha2.BlockDeviceKind) []string {
+	vm, ok := obj.(*v1alpha2.VirtualMachine)
 	if !ok || vm == nil {
 		return nil
 	}
