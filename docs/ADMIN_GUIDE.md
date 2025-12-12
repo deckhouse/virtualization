@@ -797,6 +797,40 @@ Important: For each range of cores, be sure to specify:
 - Or both parameters at the same time.
 {{< /alert >}}
 
+Examples of memory volume dependency on the number of cores:
+
+- When using the `memory` parameter, the allowed memory volume is fixed for the entire range of cores and does not depend on their number:
+
+  ```yaml
+  - cores:
+      min: 1
+      max: 4
+    memory:
+      min: 2Gi
+      max: 8Gi
+  ```
+
+  In this example, for any virtual machine with 1 to 4 cores, you can choose any memory volume from 2 to 8 GB — regardless of the number of cores. Memory does not depend on the number of cores in the range.
+
+- When using the `memoryPerCore` parameter, the allowed memory volume is calculated as the product of the number of cores multiplied by the specified memory range per core:
+
+  ```yaml
+  - cores:
+      min: 1
+      max: 4
+    memoryPerCore:
+      min: 1Gi
+      max: 2Gi
+  ```
+
+  In this case:
+  - For a virtual machine with 1 core: from 1×1 GiB = 1 GiB to 1×2 GiB = 2 GiB of memory
+  - For a virtual machine with 2 cores: from 2×1 GiB = 2 GiB to 2×2 GiB = 4 GiB of memory
+  - For a virtual machine with 3 cores: from 3×1 GiB = 3 GiB to 3×2 GiB = 6 GiB of memory
+  - For a virtual machine with 4 cores: from 4×1 GiB = 4 GiB to 4×2 GiB = 8 GiB of memory
+
+  Thus, when using `memoryPerCore`, the allowed memory volume automatically scales proportionally to the number of cores, providing more flexible and fair resource distribution.
+
 Here is an example of a policy with similar settings:
 
 ```yaml
