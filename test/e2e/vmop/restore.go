@@ -79,10 +79,6 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		DeferCleanup(f.After)
 		f.Before()
 
-		if !util.IsSdnModuleEnabled(f) {
-			Skip("SDN module is not enabled")
-		}
-
 		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
 
 		t := newRestoreTest(f)
@@ -317,16 +313,7 @@ users:
   ssh_authorized_keys:
   # testcases
   - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxcXHmwaGnJ8scJaEN5RzklBPZpVSic4GdaAsKjQoeA your_email@example.com
-write_files:
-  - path: /etc/netplan/60-sdn.yaml
-    permissions: '0644'
-    content: |
-      network:
-        version: 2
-        ethernets:
-          enp2s0:
-            addresses:
-              - 192.168.1.10/24
+
 runcmd:
   - netplan apply
 `
@@ -358,10 +345,6 @@ runcmd:
 		vmbuilder.WithProvisioningUserData(cloudInit),
 		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
 			Type: v1alpha2.NetworksTypeMain,
-		}),
-		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName,
 		}),
 	)
 
