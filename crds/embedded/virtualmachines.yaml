@@ -319,7 +319,7 @@ spec:
                                 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                 exists.
                                 More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                                (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                               type: string
                             volumeMode:
                               description: |-
@@ -812,6 +812,7 @@ spec:
                 description: |-
                   Running controls whether the associatied VirtualMachineInstance is created or not
                   Mutually exclusive with RunStrategy
+                  Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                 type: boolean
               template:
                 description: Template is the direct specification of VirtualMachineInstance
@@ -1219,7 +1220,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                             Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1234,7 +1235,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                             Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1402,7 +1403,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1417,7 +1418,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1583,7 +1584,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                             Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1598,7 +1599,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                             Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1766,7 +1767,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1781,7 +1782,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1894,9 +1895,12 @@ spec:
                                 options of a pod.
                               properties:
                                 name:
-                                  description: Required.
+                                  description: |-
+                                    DNS resolver option name.
+                                    Required field.
                                   type: string
                                 value:
+                                  description: DNS resolver option value.
                                   type: string
                               type: object
                             type: array
@@ -2216,8 +2220,12 @@ spec:
                                       type: integer
                                     cache:
                                       description: |-
-                                        Cache specifies which kvm disk cache mode should be used.
-                                        Supported values are: CacheNone, CacheWriteThrough.
+                                        Specifies which KVM disk cache mode should be used. Supported values:
+
+                                        - `none`: Guest I/O is not cached on the host, but may be kept in a disk cache.
+                                        - `writethrough`: Guest I/O is cached on the host but written through to the physical medium. This is the slowest mode but provides the most guarantees.
+                                        - `writeback`: Guest I/O is cached on the host.
+                                        Defaults to `none` if the storage supports O_DIRECT, otherwise `writethrough`.
                                       type: string
                                     cdrom:
                                       description: Attach a volume as a cdrom to the
@@ -2344,16 +2352,24 @@ spec:
                                   vmi.
                                 items:
                                   properties:
+                                    claimName:
+                                      description: |-
+                                        Must be provided from `vmi.spec.resourceClaims[].name` where this
+                                        device is allocated.
+                                      type: string
                                     deviceName:
+                                      description: Name of the device provisioned by device plugins.
                                       type: string
                                     name:
-                                      description: Name of the GPU device as exposed
-                                        by a device plugin
+                                      description: Name of the GPU device as exposed by a device plugin.
+                                      type: string
+                                    requestName:
+                                      description: |-
+                                        Must be provided from `resourceClaim.spec.devices.requests[].name` where this
+                                        device is requested.
                                       type: string
                                     tag:
-                                      description: If specified, the virtual network
-                                        interface address and its tag will be provided
-                                        to the guest via config drive
+                                      description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                                       type: string
                                     virtualGPUOptions:
                                       properties:
@@ -2388,19 +2404,25 @@ spec:
                                   vmi.
                                 items:
                                   properties:
+                                    claimName:
+                                      description: |-
+                                        Must be provided from `vmi.spec.resourceClaims[].name` where this
+                                        device is allocated.
+                                      type: string
                                     deviceName:
-                                      description: DeviceName is the resource name
-                                        of the host device exposed by a device plugin
+                                      description: Name of the device provisioned by device plugins.
                                       type: string
                                     name:
                                       type: string
+                                    requestName:
+                                      description: |-
+                                        Must be provided from `resourceClaim.spec.devices.requests[].name` where this
+                                        device is requested.
+                                      type: string
                                     tag:
-                                      description: If specified, the virtual network
-                                        interface address and its tag will be provided
-                                        to the guest via config drive
+                                      description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                                       type: string
                                   required:
-                                  - deviceName
                                   - name
                                   type: object
                                 type: array
@@ -2523,9 +2545,8 @@ spec:
                                     model:
                                       description: |-
                                         Interface model.
-                                        One of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.
+                                        One of: e1000, e1000e, igb, ne2k_pci, pcnet, rtl8139, virtio.
                                         Defaults to virtio.
-                                        TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
                                       type: string
                                     name:
                                       description: |-
@@ -2586,13 +2607,15 @@ spec:
                                       type: object
                                     state:
                                       description: |-
-                                        State represents the requested operational state of the interface.
-                                        The (only) value supported is 'absent', expressing a request to remove the interface.
+                                        Requested operational state of the interface. Supported values:
+
+                                        - 'absent': Expresses a request to remove the interface.
+                                        - 'down': Expresses a request to set the link down.
+                                        - 'up': Expresses a request to set the link up.
+                                        An empty value functions as 'up'.
                                       type: string
                                     tag:
-                                      description: If specified, the virtual network
-                                        interface address and its tag will be provided
-                                        to the guest via config drive
+                                      description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                                       type: string
                                   required:
                                   - name
@@ -2614,6 +2637,18 @@ spec:
                                   of the VirtualMachineInstance, like the number of
                                   guest CPUs.
                                 type: boolean
+                              panicDevices:
+                                description: Provides additional crash information when a guest crashes.
+                                items:
+                                  properties:
+                                    model:
+                                      description: |-
+                                        Type of panic device to provide.
+                                        If this attribute is missing, the panic model used depends on the hypervisor and guest architecture.
+                                        Valid values: `isa`, `hyperv`, `pvpanic`.
+                                      type: string
+                                  type: object
+                                type: array
                               rng:
                                 description: Whether to have random number generator
                                   from host
@@ -2637,10 +2672,15 @@ spec:
                               tpm:
                                 description: Whether to emulate a TPM device.
                                 properties:
+                                  enabled:
+                                    description: |-
+                                      Allows explicitly disabling the vTPM even when one is enabled by a preference referenced by the VirtualMachine.
+                                      Defaults to true.
+                                    type: boolean
                                   persistent:
                                     description: |-
-                                      Persistent indicates the state of the TPM device should be kept accross reboots
-                                      Defaults to false
+                                      Indicates whether the state of the TPM device should be kept across reboots.
+                                      Defaults to false.
                                     type: boolean
                                 type: object
                               useVirtioTransitional:
@@ -2649,10 +2689,28 @@ spec:
                                   This is helpful for old machines like CentOS6 or RHEL6 which
                                   do not understand virtio_non_transitional (virtio 1.0).
                                 type: boolean
+                              video:
+                                description: Video device configuration for the VMI.
+                                properties:
+                                  type:
+                                    description: |-
+                                      Video device type (e.g., virtio, vga, bochs, ramfb).
+                                      If not specified, the default is architecture-dependent: VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64, virtio for Arm and s390x.
+                                    type: string
+                                type: object
                               watchdog:
                                 description: Watchdog describes a watchdog device
                                   which can be added to the vmi.
                                 properties:
+                                  diag288:
+                                    description: diag288 watchdog device specific to s390x architecture.
+                                    properties:
+                                      action:
+                                        description: |-
+                                          Action to take when the watchdog triggers. Valid values: poweroff, reset, shutdown.
+                                          Defaults to reset.
+                                        type: string
+                                    type: object
                                   i6300esb:
                                     description: i6300esb watchdog device.
                                     properties:
@@ -2923,9 +2981,14 @@ spec:
                                 description: Information that can be set in the ACPI
                                   table
                                 properties:
+                                  msdmNameRef:
+                                    description: |-
+                                      Similar to `SlicNameRef`, this is another ACPI entry used in more recent Windows versions.
+                                      This field points to the MSDM specification as well.
+                                    type: string
                                   slicNameRef:
                                     description: |-
-                                      SlicNameRef should match the volume name of a secret object. The data in the secret should
+                                      Should match the volume name of a secret object. The data in the secret should
                                       be a binary blob that follows the ACPI SLIC standard, see:
                                       https://learn.microsoft.com/en-us/previous-versions/windows/hardware/design/dn653305(v=vs.85)
                                     type: string
@@ -3009,11 +3072,19 @@ spec:
                                   Defaults to a random generated uid.
                                 type: string
                             type: object
+                          ioThreads:
+                            description: IOThreads specifies the IOThreads options.
+                            properties:
+                              supplementalPoolThreadCount:
+                                description: Number of IO threads allocated for the supplementalPool policy.
+                                format: int32
+                                type: integer
+                            type: object
                           ioThreadsPolicy:
                             description: |-
-                              Controls whether or not disks will share IOThreads.
-                              Omitting IOThreadsPolicy disables use of IOThreads.
-                              One of: shared, auto
+                              Controls whether disks share IOThreads.
+                              Omitting this field disables the use of IOThreads.
+                              Valid values: shared, auto, supplementalPool.
                             type: string
                           launchSecurity:
                             description: Launch Security setting of the vmi.
@@ -3129,7 +3200,7 @@ spec:
                           - "None": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown.
                           - "LiveMigrate": the VirtualMachineInstance will be migrated instead of being shutdown.
                           - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
-                          - "External": the VirtualMachineInstance will be protected by a PDB and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
+                          - "External": the VirtualMachineInstance will be protected and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
                         type: string
                       hostname:
                         description: |-
@@ -3242,7 +3313,6 @@ spec:
                             description: |-
                               TCPSocket specifies an action involving a TCP port.
                               TCP hooks not yet supported
-                              TODO: implement a realistic TCP lifecycle hook
                             properties:
                               host:
                                 description: 'Optional: Host name to connect to, defaults
@@ -3441,7 +3511,6 @@ spec:
                             description: |-
                               TCPSocket specifies an action involving a TCP port.
                               TCP hooks not yet supported
-                              TODO: implement a realistic TCP lifecycle hook
                             properties:
                               host:
                                 description: 'Optional: Host name to connect to, defaults
@@ -3471,6 +3540,57 @@ spec:
                             format: int32
                             type: integer
                         type: object
+                      resourceClaims:
+                        description: |-
+                          Defines which ResourceClaims must be allocated and reserved before the VMI,
+                          hence the `virt-launcher` pod is allowed to start. The resources will be made available to the domain
+                          which consumes them by name.
+
+                          This is an alpha field and requires enabling the `DynamicResourceAllocation` feature gate in Kubernetes.
+                          See https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
+                          This field should only be configured if one of the feature gates `GPUsWithDRA` or `HostDevicesWithDRA` is enabled.
+                          This feature is in alpha.
+                        items:
+                          description: |-
+                            References exactly one ResourceClaim, either directly
+                            or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
+                            for the pod.
+
+                            Adds a name that uniquely identifies the ResourceClaim inside the Pod.
+                            Containers that need access to the ResourceClaim reference it with this name.
+                          properties:
+                            name:
+                              description: |-
+                                Uniquely identifies this resource claim inside the pod.
+                                This must be a `DNS_LABEL`.
+                              type: string
+                            resourceClaimName:
+                              description: |-
+                                Name of a ResourceClaim object in the same namespace as this pod.
+
+                                Exactly one of `ResourceClaimName` and `ResourceClaimTemplateName` must be set.
+                              type: string
+                            resourceClaimTemplateName:
+                              description: |-
+                                Name of a ResourceClaimTemplate object in the same namespace as this pod.
+
+                                The template will be used to create a new ResourceClaim, which will be bound to this pod.
+                                When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name,
+                                along with a generated component, will be used to form a unique name for the ResourceClaim,
+                                which will be recorded in `pod.status.resourceClaimStatuses`.
+
+                                This field is immutable and no changes will be made to the corresponding ResourceClaim
+                                by the control plane after creating the ResourceClaim.
+
+                                Exactly one of `ResourceClaimName` and `ResourceClaimTemplateName` must be set.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       schedulerName:
                         description: |-
                           If specified, the VMI will be dispatched by specified scheduler.
@@ -3600,7 +3720,6 @@ spec:
                                 Keys that don't exist in the incoming pod labels will
                                 be ignored. A null or empty list means only match against labelSelector.
 
-
                                 This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
                               items:
                                 type: string
@@ -3640,7 +3759,6 @@ spec:
                                 Valid values are integers greater than 0.
                                 When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                                 For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                                 labelSelector spread as 2/2/2:
                                 | zone1 | zone2 | zone3 |
@@ -3658,7 +3776,6 @@ spec:
                                 - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                                 - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                                 If this value is nil, the behavior is equivalent to the Honor policy.
                                 This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                               type: string
@@ -3669,7 +3786,6 @@ spec:
                                 - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                                 has a toleration, are included.
                                 - Ignore: node taints are ignored. All nodes are included.
-
 
                                 If this value is nil, the behavior is equivalent to the Ignore policy.
                                 This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -3743,10 +3859,13 @@ spec:
                                     secret that contains config drive networkdata.
                                   properties:
                                     name:
+                                      default: ""
                                       description: |-
                                         Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
                                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion, kind, uid?
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
@@ -3755,10 +3874,13 @@ spec:
                                     secret that contains config drive userdata.
                                   properties:
                                     name:
+                                      default: ""
                                       description: |-
                                         Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
                                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion, kind, uid?
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
@@ -3790,10 +3912,13 @@ spec:
                                     secret that contains NoCloud networkdata.
                                   properties:
                                     name:
+                                      default: ""
                                       description: |-
                                         Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
                                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion, kind, uid?
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
@@ -3802,10 +3927,13 @@ spec:
                                     secret that contains NoCloud userdata.
                                   properties:
                                     name:
+                                      default: ""
                                       description: |-
                                         Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
                                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion, kind, uid?
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
@@ -3824,10 +3952,13 @@ spec:
                                 More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
                               properties:
                                 name:
+                                  default: ""
                                   description: |-
                                     Name of the referent.
+                                    This field is effectively required, but due to backwards compatibility is
+                                    allowed to be empty. Instances of this type with an empty value here are
+                                    almost certainly wrong.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                                 optional:
                                   description: Specify whether the ConfigMap or it's
@@ -3882,9 +4013,7 @@ spec:
                                     volume can be hotplugged and hotunplugged.
                                   type: boolean
                                 name:
-                                  description: |-
-                                    Name of both the DataVolume and the PVC in the same namespace.
-                                    After PVC population the DataVolume is garbage collected by default.
+                                  description: Name of both the DataVolume and the PVC in the same namespace.
                                   type: string
                               required:
                               - name
@@ -4137,10 +4266,13 @@ spec:
                                     that should be attached as disk of CDROM type.
                                   properties:
                                     name:
+                                      default: ""
                                       description: |-
                                         Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
                                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion, kind, uid?
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
@@ -4150,10 +4282,13 @@ spec:
                                     that should be attached as disk of CDROM type.
                                   properties:
                                     name:
+                                      default: ""
                                       description: |-
                                         Name of the referent.
+                                        This field is effectively required, but due to backwards compatibility is
+                                        allowed to be empty. Instances of this type with an empty value here are
+                                        almost certainly wrong.
                                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                        TODO: Add other useful fields. apiVersion, kind, uid?
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
@@ -4219,6 +4354,34 @@ spec:
                   updated through an Update() before ObservedGeneration in Status.
                 format: int64
                 type: integer
+              instancetypeRef:
+                description: InstancetypeRef captures the state of any referenced
+                  instance type from the VirtualMachine
+                nullable: true
+                properties:
+                  controllerRevisionRef:
+                    description: |-
+                      ControllerRevision storing a copy of the object captured
+                      when it is first seen by the VirtualMachine controller.
+                    properties:
+                      name:
+                        description: Name of ControllerRevision.
+                        type: string
+                    type: object
+                  inferFromVolume:
+                    description: Lists the name of a volume that should
+                      be used to infer or discover the resource.
+                    type: string
+                  inferFromVolumeFailurePolicy:
+                    description: Controls what happens on failure when inferring the resource.
+                    type: string
+                  kind:
+                    description: Kind of resource.
+                    type: string
+                  name:
+                    description: Name of resource.
+                    type: string
+                type: object
               memoryDumpRequest:
                 description: |-
                   MemoryDumpRequest tracks memory dump request phase and info of getting a memory
@@ -4226,31 +4389,27 @@ spec:
                 nullable: true
                 properties:
                   claimName:
-                    description: ClaimName is the name of the pvc that will contain
-                      the memory dump
+                    description: Name of the PVC that will contain
+                      the memory dump.
                     type: string
                   endTimestamp:
-                    description: EndTimestamp represents the time the memory dump
-                      was completed
+                    description: Time when the memory dump was completed.
                     format: date-time
                     type: string
                   fileName:
-                    description: FileName represents the name of the output file
+                    description: Name of the output file.
                     type: string
                   message:
-                    description: Message is a detailed message about failure of the
-                      memory dump
+                    description: Detailed message about failure of the memory dump.
                     type: string
                   phase:
-                    description: Phase represents the memory dump phase
+                    description: Memory dump phase.
                     type: string
                   remove:
-                    description: Remove represents request of dissociating the memory
-                      dump pvc
+                    description: Request to dissociate the memory dump PVC.
                     type: boolean
                   startTimestamp:
-                    description: StartTimestamp represents the time the memory dump
-                      started
+                    description: Time when the memory dump started.
                     format: date-time
                     type: string
                 required:
@@ -4262,6 +4421,34 @@ spec:
                   vmi when started.
                 format: int64
                 type: integer
+              preferenceRef:
+                description: PreferenceRef captures the state of any referenced preference
+                  from the VirtualMachine
+                nullable: true
+                properties:
+                  controllerRevisionRef:
+                    description: |-
+                      Specifies the `ControllerRevision` storing a copy of the object captured
+                      when it is first seen by the VirtualMachine controller.
+                    properties:
+                      name:
+                        description: Name of ControllerRevision.
+                        type: string
+                    type: object
+                  inferFromVolume:
+                    description: Lists the name of a volume that should
+                      be used to infer or discover the resource.
+                    type: string
+                  inferFromVolumeFailurePolicy:
+                    description: Controls what happens on failure when inferring the resource.
+                    type: string
+                  kind:
+                    description: Kind of resource.
+                    type: string
+                  name:
+                    description: Name of resource.
+                    type: string
+                type: object
               printableStatus:
                 default: Stopped
                 description: PrintableStatus is a human readable, high-level representation
@@ -4377,8 +4564,12 @@ spec:
                               type: integer
                             cache:
                               description: |-
-                                Cache specifies which kvm disk cache mode should be used.
-                                Supported values are: CacheNone, CacheWriteThrough.
+                                Cache specifies which KVM disk cache mode should be used. Supported values:
+
+                                - `none`: Guest I/O is not cached on the host, but may be kept in a disk cache.
+                                - `writethrough`: Guest I/O is cached on the host but written through to the physical medium. This is the slowest mode but provides the most guarantees.
+                                - `writeback`: Guest I/O is cached on the host.
+                                Defaults to none if the storage supports O_DIRECT, otherwise writethrough.
                               type: string
                             cdrom:
                               description: Attach a volume as a cdrom to the vmi.
@@ -4531,9 +4722,7 @@ spec:
                                     volume can be hotplugged and hotunplugged.
                                   type: boolean
                                 name:
-                                  description: |-
-                                    Name of both the DataVolume and the PVC in the same namespace.
-                                    After PVC population the DataVolume is garbage collected by default.
+                                  description: Name of both the DataVolume and the PVC in the same namespace.
                                   type: string
                               required:
                               - name
@@ -4615,6 +4804,134 @@ spec:
                   - name
                   type: object
                 type: array
+              volumeUpdateState:
+                description: |-
+                  VolumeUpdateState contains the information about the volumes set
+                  updates related to the volumeUpdateStrategy
+                properties:
+                  volumeMigrationState:
+                    description: VolumeMigrationState tracks the information related
+                      to the volume migration
+                    properties:
+                      migratedVolumes:
+                        description: MigratedVolumes lists the source and destination
+                          volumes during the volume migration
+                        items:
+                          description: StorageMigratedVolumeInfo tracks the information
+                            about the source and destination volumes during the volume
+                            migration
+                          properties:
+                            destinationPVCInfo:
+                              description: DestinationPVCInfo contains the information
+                                about the destination PVC
+                              properties:
+                                accessModes:
+                                  description: |-
+                                    AccessModes contains the desired access modes the volume should have.
+                                    More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                capacity:
+                                  additionalProperties:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  description: Capacity represents the capacity set
+                                    on the corresponding PVC status
+                                  type: object
+                                claimName:
+                                  description: Name of the PVC.
+                                  type: string
+                                filesystemOverhead:
+                                  description: Percentage of filesystem's size to
+                                    be reserved when resizing the PVC
+                                  pattern: ^(0(?:\.\d{1,3})?|1)$
+                                  type: string
+                                preallocated:
+                                  description: Preallocated indicates if the PVC's
+                                    storage is preallocated or not
+                                  type: boolean
+                                requests:
+                                  additionalProperties:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  description: Requests represents the resources requested
+                                    by the corresponding PVC spec
+                                  type: object
+                                volumeMode:
+                                  description: |-
+                                    VolumeMode defines what type of volume is required by the claim.
+                                    Value of Filesystem is implied when not included in claim spec.
+                                  type: string
+                              type: object
+                            sourcePVCInfo:
+                              description: SourcePVCInfo contains the information
+                                about the source PVC
+                              properties:
+                                accessModes:
+                                  description: |-
+                                    AccessModes contains the desired access modes the volume should have.
+                                    More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                                  items:
+                                    type: string
+                                  type: array
+                                  x-kubernetes-list-type: atomic
+                                capacity:
+                                  additionalProperties:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  description: Capacity represents the capacity set
+                                    on the corresponding PVC status
+                                  type: object
+                                claimName:
+                                  description: Name of the PVC.
+                                  type: string
+                                filesystemOverhead:
+                                  description: Percentage of filesystem's size to
+                                    be reserved when resizing the PVC
+                                  pattern: ^(0(?:\.\d{1,3})?|1)$
+                                  type: string
+                                preallocated:
+                                  description: Preallocated indicates if the PVC's
+                                    storage is preallocated or not
+                                  type: boolean
+                                requests:
+                                  additionalProperties:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  description: Requests represents the resources requested
+                                    by the corresponding PVC spec
+                                  type: object
+                                volumeMode:
+                                  description: |-
+                                    VolumeMode defines what type of volume is required by the claim.
+                                    Value of Filesystem is implied when not included in claim spec.
+                                  type: string
+                              type: object
+                            volumeName:
+                              description: VolumeName is the name of the volume that
+                                is being migrated
+                              type: string
+                          required:
+                          - volumeName
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
+                type: object
             type: object
         required:
         - spec
