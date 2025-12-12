@@ -91,6 +91,7 @@ spec:
                           enum:
                             - Secret
                         name:
+                          minLength: 1
                           type: string
                           description: |
                             Name of the resource with the `cloud-init` scenario.
@@ -114,6 +115,7 @@ spec:
                           enum:
                             - Secret
                         name:
+                          minLength: 1
                           type: string
                           description: |
                             Secret name.
@@ -162,6 +164,7 @@ spec:
                     * `AlwaysOnUnlessStoppedManually`: Once created, the VM is always in a running state. It can be switched off by the OS or using the following command for the d8 utility: `d8 v stop <vm_name>`.
 
                 virtualMachineIPAddressName:
+                  minLength: 1
                   type: string
                   description: |
                     Name for the associated virtualMachineIPAddress resource.
@@ -778,6 +781,7 @@ spec:
                   type: object
 
                 priorityClassName:
+                  minLength: 1
                   description: |
                     [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/) as in the pod parameter `spec.priorityClassName` in Kubernetes.
                   type: string
@@ -869,10 +873,8 @@ spec:
                     * `EFI`: Use Unified Extensible Firmware (EFI/UEFI).
                     * `EFIWithSecureBoot`: Use UEFI/EFI with the Secure Boot support.
                 virtualMachineClassName:
+                  minLength: 1
                   type: string
-                  x-kubernetes-validations:
-                    - rule: "size(self) > 0"
-                      message: "The virtualMachineClassName field must not be an empty string."
                   description: |
                     Name of the VirtualMachineClass resource describing the requirements for a virtual CPU, memory, and the resource allocation policy.
                 cpu:
@@ -888,6 +890,7 @@ spec:
                       description: Number of cores.
                     coreFraction:
                       type: string
+                      pattern: ^(100|[1-9][0-9]?|[1-9])%$
                       description: |
                         Guaranteed share of CPU time allocated to the VM. Specified as a percentage.
                         The allowed range is defined by `sizePolicy` in the selected VirtualMachineClass. If `sizePolicy` is not set, use values in the `1–100%` range.
@@ -931,6 +934,7 @@ spec:
                           - "VirtualImage"
                           - "VirtualDisk"
                       name:
+                        minLength: 1
                         type: string
                         description: |
                           Name of the attached resource.
@@ -974,10 +978,12 @@ spec:
                           - "Network"
                           - "ClusterNetwork"
                       name:
+                        minLength: 1
                         type: string
                         description: |
                           The name of the network interface.
                       virtualMachineMACAddressName:
+                        minLength: 1
                         type: string
                         description: |
                           The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.

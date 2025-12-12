@@ -181,6 +181,7 @@ spec:
                           description:
                             Name of the existing VirtualImage, ClusterVirtualImage,
                             VirtualDisk or VirtualDiskSnapshot resource.
+                          minLength: 1
                           type: string
                         namespace:
                           description:

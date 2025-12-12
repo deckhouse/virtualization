@@ -56,6 +56,7 @@ type VirtualMachineBlockDeviceAttachmentList struct {
 
 type VirtualMachineBlockDeviceAttachmentSpec struct {
 	// Virtual machine name the disk or image should be attached to.
+	// +kubebuilder:validation:MinLength=1
 	VirtualMachineName string         `json:"virtualMachineName"`
 	BlockDeviceRef     VMBDAObjectRef `json:"blockDeviceRef"`
 }
@@ -78,6 +79,7 @@ type VMBDAObjectRef struct {
 	// * `ClusterVirtualImage`: Use ClusterVirtualImage as the disk. This type is always mounted in RO mode.
 	Kind VMBDAObjectRefKind `json:"kind,omitempty"`
 	// Name of the block device to attach.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name,omitempty"`
 }
 
