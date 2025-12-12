@@ -1,0 +1,9 @@
+vm:
+  fixes:
+    - summary: React to creating and modifying provisioning secrets.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1820
+vmop:
+  features:
+    - summary: Add ability to create VMOP Clone with VM in Running state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1816
+
