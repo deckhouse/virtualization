@@ -57,6 +57,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineFreeze{},
 		&VirtualMachineUnfreeze{},
 		&VirtualMachineCancelEvacuation{},
+		&VirtualMachineUSBRedir{},
 	)
 	return nil
 }

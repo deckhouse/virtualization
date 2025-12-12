@@ -72,6 +72,7 @@ rules:
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/usbredir
   verbs:
   - get
   - patch
@@ -100,6 +101,7 @@ rules:
   - virtualmachines/removevolume
   - virtualmachines/unfreeze
   - virtualmachines/vnc
+  - virtualmachines/usbredir
   verbs:
   - get
   - patch
