@@ -64,7 +64,6 @@ func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt)
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	allowPostCopy := MigrationAllowPostCopy
-	// test comment
 	allowWorkloadDisruption := MigrationAllowWorkloadDisruption
 
 	return &virtv1.MigrationConfiguration{

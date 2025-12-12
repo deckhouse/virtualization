@@ -1,0 +1,7 @@
+module:
+  fixes:
+    - summary: >-
+        Fixed RBAC access permissions for the `d8:use:role:user` role that prevented it from
+        managing the VirtualMachineOperation resource.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1794
+

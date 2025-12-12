@@ -83,8 +83,10 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *v1alpha
 
 	switch vd.Status.Phase {
 	case v1alpha2.DiskReady:
-		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
-		if snapshotting.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(snapshotting, vd) {
+		snapshotting, ok := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+		// If the snapshotting condition is not found, it means that the disk is ready for snapshotting.
+		// Otherwise, check the status of the condition and ensure it reflects the current state of the object.
+		if ok && (snapshotting.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(snapshotting, vd)) {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).

@@ -41,6 +41,7 @@ func (f *Framework) saveTestCaseDump() {
 	f.saveTestCaseResources(ft, tmpDir)
 	f.savePodAdditionalInfo(ft, tmpDir)
 	f.saveIntvirtvmDescriptions(ft, tmpDir)
+	f.saveIntvirtvmiDescriptions(ft, tmpDir)
 }
 
 // GetFormattedTestCaseFullText returns CurrentSpecReport().FullText(), formatted with the following rules:
@@ -104,10 +105,12 @@ func (f *Framework) savePodAdditionalInfo(testCaseFullText, dumpPath string) {
 	pods, err := f.Clients.kubeClient.CoreV1().Pods(f.Namespace().Name).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get PodList:\n%s\n", err)
+		return
 	}
 
 	if len(pods.Items) == 0 {
 		GinkgoWriter.Println("The list of pods is empty; nothing to dump.")
+		return
 	}
 
 	for _, pod := range pods.Items {
@@ -130,16 +133,31 @@ func (f *Framework) saveIntvirtvmDescriptions(testCaseFullText, dumpPath string)
 	}
 }
 
+func (f *Framework) saveIntvirtvmiDescriptions(testCaseFullText, dumpPath string) {
+	describeCmd := f.Clients.Kubectl().RawCommand(fmt.Sprintf("describe intvirtvmi --namespace %s", f.Namespace().Name), ShortTimeout)
+	if describeCmd.Error() != nil {
+		GinkgoWriter.Printf("Failed to describe InternalVirtualizationVirtualMachineInstance:\nError: %s\n", describeCmd.StdErr())
+	}
+
+	fileName := fmt.Sprintf("%s/e2e_failed__%s__intvirtvmi_describe", dumpPath, testCaseFullText)
+	err := os.WriteFile(fileName, describeCmd.StdOutBytes(), 0o644)
+	if err != nil {
+		GinkgoWriter.Printf("Failed to save InternalVirtualizationVirtualMachineInstance description:\nError: %s\n", err)
+	}
+}
+
 func (f *Framework) writePodLogs(name, namespace, filePath, testCaseFullText string) {
 	podLogs, err := f.Clients.KubeClient().CoreV1().Pods(namespace).GetLogs(name, &corev1.PodLogOptions{}).Stream(context.Background())
 	if err != nil {
 		GinkgoWriter.Printf("Failed to get logs:\nPodName: %s\nError: %w\n", name, err)
+		return
 	}
 	defer podLogs.Close()
 
 	logs, err := io.ReadAll(podLogs)
 	if err != nil {
 		GinkgoWriter.Printf("Failed to read logs:\nPodName: %s\nError: %w\n", name, err)
+		return
 	}
 
 	fileName := fmt.Sprintf("%s/e2e_failed__%s__%s__logs.json", filePath, testCaseFullText, name)

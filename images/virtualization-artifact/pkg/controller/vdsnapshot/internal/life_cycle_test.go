@@ -174,6 +174,36 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
 			Expect(ready.Message).To(BeEmpty())
 		})
+
+		It("fails when the virtual disk is missing", func() {
+			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualDisk, error) {
+				return nil, nil
+			}
+
+			h := NewLifeCycleHandler(snapshotter)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+			Expect(ready.Reason).To(Equal(vdscondition.WaitingForTheVirtualDisk.String()))
+			Expect(ready.Message).To(ContainSubstring("does not exist"))
+		})
+
+		It("fails when the virtual disk pvc is not Bound", func() {
+			pvc.Status.Phase = corev1.ClaimPending
+
+			h := NewLifeCycleHandler(snapshotter)
+
+			_, err := h.Handle(testContext(), vdSnapshot)
+			Expect(err).To(BeNil())
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
+			Expect(ready.Reason).To(Equal(vdscondition.WaitingForTheVirtualDisk.String()))
+			Expect(ready.Message).To(ContainSubstring("not in phase"))
+		})
 	})
 
 	Context("The virtual disk snapshot with virtual machine", func() {
@@ -258,11 +288,11 @@ var _ = Describe("LifeCycle handler", func() {
 
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhasePending))
+			Expect(vdSnapshot.Status.Phase).To(Equal(v1alpha2.VirtualDiskSnapshotPhaseFailed))
 			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
 			Expect(ready.Reason).To(Equal(vdscondition.PotentiallyInconsistent.String()))
-			Expect(ready.Message).ToNot(BeEmpty())
+			Expect(ready.Message).To(ContainSubstring("Cannot take a consistent snapshot"))
 		})
 
 		It("Cannot freeze virtual machine: allow potentially inconsistent", func() {

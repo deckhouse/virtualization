@@ -34,12 +34,14 @@ spec:
       maxAllowed:
         cpu: 100m
         memory: 250Mi
+    {{- if eq (include "dvcr.isGarbageCollection" . ) "true" }}
     - containerName: dvcr-garbage-collection
       minAllowed:
         {{- include "dvcr.resources.garbageCollection" . | nindent 8 }}
       maxAllowed:
         cpu: 100m
         memory: 250Mi
+    {{- end }}
 {{- end }}
 ---
 apiVersion: policy/v1

@@ -25,7 +25,6 @@ import (
 	_ "hooks/pkg/hooks/dvcr-garbage-collection"
 	_ "hooks/pkg/hooks/generate-secret-for-dvcr"
 	_ "hooks/pkg/hooks/install-vmclass-generic"
-	_ "hooks/pkg/hooks/migrate-delete-renamed-validation-admission-policy"
 	_ "hooks/pkg/hooks/migrate-virthandler-kvm-node-labels"
 	_ "hooks/pkg/hooks/tls-certificates-api"
 	_ "hooks/pkg/hooks/tls-certificates-api-proxy"
