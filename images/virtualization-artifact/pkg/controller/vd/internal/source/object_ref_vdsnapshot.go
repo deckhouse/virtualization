@@ -69,7 +69,6 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *v1alpha2.Vi
 	return steptaker.NewStepTakers[*v1alpha2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewAddOriginalMetadataStep(ds.recorder, ds.client, cb),
 		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.recorder, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
 	).Run(ctx, vd)
