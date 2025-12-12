@@ -1590,11 +1590,6 @@ spec:
                                 Must be provided from `resourceClaim.spec.devices.requests[].name` where this
                                 device is requested.
                               type: string
-                            requestName:
-                              description: |-
-                                RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
-                                device is requested
-                              type: string
                             tag:
                               description: If specified, the virtual network interface address and its tag will be provided to the guest via config drive.
                               type: string
@@ -3728,10 +3723,6 @@ spec:
                     podInterfaceName:
                       description: Name of the pod network interface.
                       type: string
-                    podInterfaceName:
-                      description: PodInterfaceName represents the name of the pod
-                        network interface
-                      type: string
                     queueCount:
                       description: Specifies how many queues are allocated by MultiQueue
                       format: int32
@@ -4421,3 +4412,8 @@ spec:
         type: object
     served: true
     storage: true
+# IMPORTANT! Do not add status subresource, as it breaks the status update
+# in Kubevirt components.
+# Delete this precaution when future Kubevirt updates add status subresource.
+#      subresources:
+#        status: {}
