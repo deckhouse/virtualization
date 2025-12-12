@@ -19,6 +19,7 @@ package defaulter
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,21 +57,22 @@ func (d *CoreFractionDefaulter) Default(ctx context.Context, vm *v1alpha2.Virtua
 	}
 
 	// Find the matching sizing policy based on CPU cores.
-	defaultCoreFraction := d.getDefaultCoreFraction(vm, vmClass)
-	if defaultCoreFraction != "" {
-		vm.Spec.CPU.CoreFraction = defaultCoreFraction
+	defaultCoreFraction, err := d.getDefaultCoreFraction(vm, vmClass)
+	if err != nil {
+		return err
 	}
+	vm.Spec.CPU.CoreFraction = defaultCoreFraction
 
 	return nil
 }
 
 // getDefaultCoreFraction finds the default core fraction from the VMClass sizing policy
 // that matches the VM's CPU cores count.
-func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachine, vmClass *v1alpha3.VirtualMachineClass) string {
+func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachine, vmClass *v1alpha3.VirtualMachineClass) (string, error) {
 	const defaultValue = "100%"
 
 	if vmClass == nil || len(vmClass.Spec.SizingPolicies) == 0 {
-		return defaultValue
+		return defaultValue, nil
 	}
 
 	for _, sp := range vmClass.Spec.SizingPolicies {
@@ -80,12 +82,21 @@ func (d *CoreFractionDefaulter) getDefaultCoreFraction(vm *v1alpha2.VirtualMachi
 
 		// Check if VM's cores fall within this policy's range.
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
-			if sp.DefaultCoreFraction != nil {
-				return string(*sp.DefaultCoreFraction)
+			switch {
+			case sp.DefaultCoreFraction != nil:
+				return string(*sp.DefaultCoreFraction), nil
+			case len(sp.CoreFractions) > 0 && !slices.Contains(sp.CoreFractions, defaultValue):
+				return "", fmt.Errorf(
+					"the default value for core fraction is not defined. For the specified configuration \".spec.cpu.cores %d\", "+
+						"the following core fractions are allowed: %v. Please specify the \".spec.core.coreFraction\" value and try again",
+					vm.Spec.CPU.Cores,
+					sp.CoreFractions,
+				)
+			default:
+				return defaultValue, nil
 			}
-			return defaultValue
 		}
 	}
 
-	return defaultValue
+	return "", fmt.Errorf("the specified \".spec.cpu.cores %d\" value is not among the sizing policies allowed for the virtual machine", vm.Spec.CPU.Cores)
 }
