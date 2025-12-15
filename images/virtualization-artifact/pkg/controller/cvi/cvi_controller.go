@@ -76,12 +76,12 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		dvcr.ImageMonitorSchedule,
+		dvcrSettings.ImageMonitorSchedule,
 		log,
 		postponehandler.New[*v1alpha2.ClusterVirtualImage](dvcrService, recorder),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
-		internal.NewImagePresenceHandler(mgr.GetClient(), dvcr),
+		internal.NewImagePresenceHandler(mgr.GetClient(), dvcrSettings),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
