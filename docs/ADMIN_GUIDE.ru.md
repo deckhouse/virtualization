@@ -22,6 +22,7 @@ spec:
   enabled: true
   version: 1
   settings:
+    ingressClass: nginx # опциональный параметр
     dvcr:
       storage:
         persistentVolumeClaim:
@@ -85,6 +86,39 @@ spec:
 
 {{< alert level="warning" >}}
 Хранилище, обслуживающее данный класс хранения `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`, должно быть доступно на узлах, где запускается DVCR (system-узлы, либо worker-узлы, при отсутствии system-узлов).
+{{< /alert >}}
+
+**Настройки Ingress**
+
+Параметр `.spec.settings.ingressClass` определяет класс Ingress-контроллера, который будет использоваться для загрузки образов виртуальных машин через веб-интерфейс или CLI.
+
+- Если параметр не указан, используется глобальное значение `modules.ingressClass` из конфигурации Deckhouse.
+- Параметр является опциональным и указывается только при необходимости использовать Ingress-контроллер, отличный от глобального.
+
+Пример:
+
+```yaml
+spec:
+  settings:
+    ingressClass: nginx
+```
+
+{{< alert level="info">}}
+
+При загрузке больших образов виртуальных машин (особенно при слабых каналах связи) рекомендуется увеличить таймаут завершения работы воркеров Ingress-контроллера. Это предотвратит прерывание загрузки при перезапуске или обновлении Ingress-контроллера.
+
+Пример:
+
+```yaml
+apiVersion: deckhouse.io/v1
+kind: IngressNginxController
+metadata:
+  name: nginx
+spec:
+  config:
+    worker-shutdown-timeout: 1800s  # 30 минут или более при необходимости
+```
+
 {{< /alert >}}
 
 **Сетевые настройки**
