@@ -597,7 +597,8 @@ func GenerateVMOPWithSuffix(vmName, vmNamespace, suffix string, labels map[strin
 func StopVirtualMachinesBySSH(vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 
-	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
+	// The `sleep` command is required to prevent an "abnormal closure" error.
+	cmd := "nohup sh -c \"sleep 5 && sudo systemctl poweroff --no-wall\" > /dev/null 2>&1 &"
 
 	for _, vmName := range vmNames {
 		ExecSSHCommand(vmNamespace, vmName, cmd)
@@ -607,7 +608,8 @@ func StopVirtualMachinesBySSH(vmNamespace string, vmNames ...string) {
 func RebootVirtualMachinesBySSH(vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 
-	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
+	// The `sleep` command is required to prevent an "abnormal closure" error.
+	cmd := "nohup sh -c \"sleep 5 && sudo systemctl reboot --no-wall\" > /dev/null 2>&1 &"
 
 	for _, vmName := range vmNames {
 		ExecSSHCommand(vmNamespace, vmName, cmd)
