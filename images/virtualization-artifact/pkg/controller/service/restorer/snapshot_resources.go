@@ -18,15 +18,18 @@ package restorer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
 	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
@@ -363,6 +366,11 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 			},
 		}
 
+		err = AddOriginalMetadata(ctx, &vd, vdSnapshot, client)
+		if err != nil {
+			return nil, fmt.Errorf("add original metadata: %w", err)
+		}
+
 		vds = append(vds, &vd)
 	}
 
@@ -371,4 +379,73 @@ func getVirtualDisks(ctx context.Context, client client.Client, vmSnapshot *v1al
 
 func (r *SnapshotResources) GetObjectHandlers() []ObjectHandler {
 	return r.objectHandlers
+}
+
+func AddOriginalMetadata(ctx context.Context, vd *v1alpha2.VirtualDisk, vdSnapshot *v1alpha2.VirtualDiskSnapshot, client client.Client) error {
+	vsKey := types.NamespacedName{
+		Namespace: vdSnapshot.Namespace,
+		Name:      vdSnapshot.Status.VolumeSnapshotName,
+	}
+
+	vs, err := object.FetchObject(ctx, vsKey, client, &vsv1.VolumeSnapshot{})
+	if err != nil {
+		return fmt.Errorf("fetch the volume snapshot %q: %w", vsKey.Name, err)
+	}
+
+	if vs == nil {
+		return fmt.Errorf("the volume snapshot %q is nil, please report a bug", vsKey.Name)
+	}
+
+	return errors.Join(
+		setOriginalAnnotations(vd, vs),
+		setOriginalLabels(vd, vs),
+	)
+}
+
+func setOriginalAnnotations(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) error {
+	if vs == nil || vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations] == "" {
+		return nil
+	}
+
+	var annotationsMap map[string]string
+	err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalAnnotations]), &annotationsMap)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal the original annotations: %w", err)
+	}
+
+	if vd.Annotations == nil {
+		vd.Annotations = make(map[string]string)
+	}
+
+	for key, value := range annotationsMap {
+		if _, exists := vd.Annotations[key]; !exists {
+			vd.Annotations[key] = value
+		}
+	}
+
+	return nil
+}
+
+func setOriginalLabels(vd *v1alpha2.VirtualDisk, vs *vsv1.VolumeSnapshot) error {
+	if vs == nil || vs.Annotations[annotations.AnnVirtualDiskOriginalLabels] == "" {
+		return nil
+	}
+
+	var labelsMap map[string]string
+	err := json.Unmarshal([]byte(vs.Annotations[annotations.AnnVirtualDiskOriginalLabels]), &labelsMap)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal the original annotations: %w", err)
+	}
+
+	if vd.Labels == nil {
+		vd.Labels = make(map[string]string)
+	}
+
+	for key, value := range labelsMap {
+		if _, exists := vd.Labels[key]; !exists {
+			vd.Labels[key] = value
+		}
+	}
+
+	return nil
 }
