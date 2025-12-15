@@ -92,7 +92,7 @@ The storage that serves the `.spec.settings.dvcr.storage.persistentVolumeClaim.s
 
 The `.spec.settings.ingressClass` parameter defines the Ingress controller class that will be used to upload virtual machine images via the web interface or CLI.
 
-- If the parameter is not specified, the global `modules.ingressClass` value from the Deckhouse configuration is used.
+- If the parameter is not specified, the global value from the Deckhouse configuration is used.
 - The parameter is optional and should only be specified when you need to use an Ingress controller different from the global one.
 
 Example:
