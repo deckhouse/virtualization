@@ -1,0 +1,12 @@
+
+{{range $_, $i := untilStep 0 (.Values.instances.masterNodes.count | int) 1}}
+  {{- $vmName := printf "master-%d" $i -}}
+  {{ include "infra.vm" (list $ $vmName $.Values.instances.masterNodes.cfg) | nindent 0 }}
+{{- end }}
+
+{{range $_, $v := .Values.instances.additionalNodes }}
+  {{range $_, $i := untilStep 0 ($v.count | int) 1}}
+    {{- $vmName := printf "%s-%d" $v.name $i -}}
+    {{ include "infra.vm" (list $ $vmName $v.cfg) | nindent 0}}
+  {{- end }}
+{{- end }}

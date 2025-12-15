@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dvp-over-dvp-80
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    group: master
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dvp-over-dvp-443
+  namespace: {{ .Values.namespace }}
+spec:
+  ports:
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+    name: https
+  selector:
+    group: master
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wildcard-https
+  namespace: {{ .Values.namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  ingressClassName: nginx
+  rules:
+  {{- range .Values.ingressHosts }}
+  - host: "{{ . }}.{{ $.Values.namespace }}.{{ $.Values.discovered.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dvp-over-dvp-443
+            port:
+              number: 443
+  {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wildcard-http
+  namespace: {{ .Values.namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: "*.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: dvp-over-dvp-80
+            port:
+              number: 80

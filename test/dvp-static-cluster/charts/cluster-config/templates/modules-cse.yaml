@@ -1,0 +1,18 @@
+{{ $enabled := false }}
+{{- if .Values.cse }}
+{{- $enabled = true }}
+{{- end }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: multitenancy-manager
+spec:
+  enabled: {{ $enabled }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: gost-integrity-controller
+spec:
+  enabled: {{ $enabled }}
