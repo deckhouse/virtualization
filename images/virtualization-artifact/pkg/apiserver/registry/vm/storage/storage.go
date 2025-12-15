@@ -27,23 +27,23 @@ import (
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
-	versionedv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
 	subv1alpha2 "github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type VirtualMachineStorage struct {
-	vmLister         virtlisters.VirtualMachineLister
-	console          *vmrest.ConsoleREST
-	vnc              *vmrest.VNCREST
-	portforward      *vmrest.PortForwardREST
-	addVolume        *vmrest.AddVolumeREST
-	removeVolume     *vmrest.RemoveVolumeREST
-	freeze           *vmrest.FreezeREST
-	unfreeze         *vmrest.UnfreezeREST
-	cancelEvacuation *vmrest.CancelEvacuationREST
-	vmClient         versionedv1alpha2.VirtualMachinesGetter
+	vmLister            virtlisters.VirtualMachineLister
+	console             *vmrest.ConsoleREST
+	vnc                 *vmrest.VNCREST
+	portforward         *vmrest.PortForwardREST
+	addVolume           *vmrest.AddVolumeREST
+	removeVolume        *vmrest.RemoveVolumeREST
+	freeze              *vmrest.FreezeREST
+	unfreeze            *vmrest.UnfreezeREST
+	cancelEvacuation    *vmrest.CancelEvacuationREST
+	addResourceClaim    *vmrest.AddResourceClaimREST
+	removeResourceClaim *vmrest.RemoveResourceClaimREST
 }
 
 var (
@@ -58,19 +58,20 @@ func NewStorage(
 	vmLister virtlisters.VirtualMachineLister,
 	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
-	vmClient versionedv1alpha2.VirtualMachinesGetter,
 ) *VirtualMachineStorage {
+	baseRest := vmrest.NewBaseREST(vmLister, proxyCertManager, kubevirt)
 	return &VirtualMachineStorage{
-		vmLister:         vmLister,
-		console:          vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
-		vnc:              vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
-		portforward:      vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
-		addVolume:        vmrest.NewAddVolumeREST(vmLister, kubevirt, proxyCertManager),
-		removeVolume:     vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
-		freeze:           vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
-		unfreeze:         vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
-		cancelEvacuation: vmrest.NewCancelEvacuationREST(vmLister, kubevirt, proxyCertManager),
-		vmClient:         vmClient,
+		vmLister:            vmLister,
+		console:             vmrest.NewConsoleREST(baseRest),
+		vnc:                 vmrest.NewVNCREST(baseRest),
+		portforward:         vmrest.NewPortForwardREST(baseRest),
+		addVolume:           vmrest.NewAddVolumeREST(baseRest),
+		removeVolume:        vmrest.NewRemoveVolumeREST(baseRest),
+		freeze:              vmrest.NewFreezeREST(baseRest),
+		unfreeze:            vmrest.NewUnfreezeREST(baseRest),
+		cancelEvacuation:    vmrest.NewCancelEvacuationREST(baseRest),
+		addResourceClaim:    vmrest.NewAddResourceClaimREST(baseRest),
+		removeResourceClaim: vmrest.NewRemoveResourceClaimREST(baseRest),
 	}
 }
 
@@ -104,6 +105,14 @@ func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
 
 func (store VirtualMachineStorage) CancelEvacuationREST() *vmrest.CancelEvacuationREST {
 	return store.cancelEvacuation
+}
+
+func (store VirtualMachineStorage) AddResourceClaimREST() *vmrest.AddResourceClaimREST {
+	return store.addResourceClaim
+}
+
+func (store VirtualMachineStorage) RemoveResourceClaimREST() *vmrest.RemoveResourceClaimREST {
+	return store.removeResourceClaim
 }
 
 // New implements rest.Storage interface
