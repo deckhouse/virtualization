@@ -481,6 +481,43 @@ VirtualDisk            default              debian-10-root
 VirtualImage           default              ubuntu-2204
 ```
 
+### Image presence monitoring
+
+The platform can periodically verify that images stored in DVCR still exist. This helps detect situations where images are deleted from DVCR (manually or due to storage issues) while the corresponding VirtualImage or ClusterVirtualImage resources still show the `Ready` phase.
+
+When enabled, the system performs lightweight checks against DVCR to verify image manifests exist. If an image is missing, the resource phase changes to `ImageLost`.
+
+To configure the monitoring schedule, use the `.spec.settings.dvcr.imageMonitorSchedule` parameter:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  # ...
+  settings:
+    dvcr:
+      imageMonitorSchedule: "0 * * * *"
+  # ...
+```
+
+The parameter accepts a cron expression. The default value is `0 * * * *` (every hour). To disable periodic monitoring, set an empty string:
+
+```yaml
+spec:
+  settings:
+    dvcr:
+      imageMonitorSchedule: ""
+```
+
+When an image is detected as missing, the resource status will change:
+
+```console
+NAME           PHASE       CDROM   PROGRESS   AGE
+ubuntu-22-04   ImageLost   false   100%       23h
+```
+
 ## Virtual machine classes
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
