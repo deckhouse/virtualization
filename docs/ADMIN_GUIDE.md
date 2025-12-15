@@ -939,6 +939,72 @@ How to configure sizing policies in the web interface in the [VM class creation 
 - You can add more ranges using the "Add" button.
 - To create a VM class, click the "Create" button.
 
+### CPU oversubscription
+
+CPU oversubscription is the practice of allocating more virtual cores to virtual machines than there are physical cores available on the hypervisor node. This allows for more efficient use of cluster computational resources, as not all VMs run at full capacity simultaneously.
+
+Oversubscription is managed using the `coreFraction` parameter, which is set in VirtualMachineClass through the sizing policy (`sizingPolicies`). The parameter defines the guaranteed minimum share of computational power per VM core (for example, `coreFraction: 20%` means the VM is guaranteed 20% of the core's power but can use up to 100% when free resources are available). The administrator sets the allowed `coreFractions` values and `defaultCoreFraction` (the default value if the user does not specify `coreFraction`).
+
+{{< alert level="info">}}
+If the `coreFractions` parameter is not set in VirtualMachineClass (or multiple values are set), users can manage oversubscription themselves by specifying `coreFraction` when creating VMs.
+{{< /alert >}}
+
+When planning VM placement, the sum of guaranteed resources is considered: `Σ(cores × coreFraction / 100)` for all VMs on the node. If this sum exceeds the number of physical cores, the VM will not be started on that node.
+
+Example: A node with 4 physical cores, 5 VMs with `cores: 2` and `coreFraction: 20%`:
+
+- Guaranteed resources: 5 × 2 × 0.2 = 2 CPU
+- Virtual cores: 10 on 4 physical (oversubscription ratio 2.5:1)
+- All VMs can be placed, as 2 CPU < 4 CPU
+
+Example 1: Hard-coded oversubscription
+
+The administrator hard-codes the oversubscription level — the user cannot change it:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: oversubscribed
+spec:
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 8
+      memory:
+        perCore:
+          min: 1Gi
+          max: 8Gi
+      coreFractions: [20]  # Only one value
+      defaultCoreFraction: 20
+```
+
+For all VMs of this class, `coreFraction: 20%` is hard-coded, ensuring a fixed oversubscription ratio of 5:1.
+
+Example 2: Flexible configuration
+
+Users can choose from multiple values:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: standard
+spec:
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        perCore:
+          min: 1Gi
+          max: 8Gi
+      coreFractions: [5, 10, 20, 50, 100]
+      defaultCoreFraction: 20
+```
+
+Users can select `coreFraction` from the list; if not specified, the value 20% is applied.
+
 ### vCPU Discovery configuration example
 
 ![VirtualMachineClass configuration example](./images/vmclass-examples.png)
