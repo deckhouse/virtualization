@@ -1,0 +1,40 @@
+{{- define "jump-host.ws-fqdn" -}}
+"ws.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
+{{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ws
+  namespace: {{ .Values.namespace }}
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: {{ include "jump-host.ws-fqdn" . }}
+      http:
+        paths:
+          - backend:
+              service:
+                name: jump-host
+                port:
+                  number: 8080
+            path: /
+            pathType: ImplementationSpecific
+  tls:
+  - hosts:
+    -  {{ include "jump-host.ws-fqdn" . }}
+    secretName: ws-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ws-tls
+  namespace: {{ .Values.namespace }}
+spec:
+  certificateOwnerRef: false
+  dnsNames:
+  -  {{ include "jump-host.ws-fqdn" . }}
+  issuerRef:
+    kind: ClusterIssuer
+    name: letsencrypt
+  secretName: ws-tls
