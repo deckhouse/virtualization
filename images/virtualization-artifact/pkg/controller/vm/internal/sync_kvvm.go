@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
@@ -143,7 +144,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
 			if !classChanges.IsEmpty() {
 				allChanges.Add(classChanges.GetAll()...)
-				classChanged = true
+				classChanged = classChanges.IsDisruptive()
 			}
 		}
 	}
@@ -298,11 +299,15 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		//  can be changed during the restoration process.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasChanges, err := h.detectKvvmSpecChanges(ctx, s)
+		hasVMChanges, err := h.detectVMSpecChanges(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
-		if hasChanges {
+		hasVMClassChanges, err := h.detectVMClassSpecChanges(ctx, s)
+		if err != nil {
+			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
+		}
+		if hasVMChanges || hasVMClassChanges {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
@@ -555,8 +560,8 @@ func (h *SyncKvvmHandler) isVMStopped(
 	return isVMStopped(kvvm) && (!isKVVMICreated(kvvm) || podStopped)
 }
 
-// detectKvvmSpecChanges returns true and no error if specification has changes.
-func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+// detectVMSpecChanges returns true and no error if specification has changes.
+func (h *SyncKvvmHandler) detectVMSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
 	currentKvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return false, err
@@ -567,7 +572,22 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	return !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
+	return currentKvvm.Annotations[annotations.AnnVMLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMLastAppliedSpec], nil
+}
+
+// detectVMClassSpecChanges returns true and no error if specification has changes.
+func (h *SyncKvvmHandler) detectVMClassSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	currentKvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
+	if err != nil {
+		return false, err
+	}
+
+	return currentKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec] != newKvvm.Annotations[annotations.AnnVMClassLastAppliedSpec], nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.

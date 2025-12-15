@@ -37,7 +37,7 @@ import (
 
 type Importer interface {
 	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
+	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings, opts ...service.Option) error
 	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
 	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)

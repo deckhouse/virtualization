@@ -184,6 +184,13 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 
 		It("waits for the first consumer", func() {
 			dv.Status.Phase = cdiv1.PendingPopulation
+			dv.Status.Conditions = []cdiv1.DataVolumeCondition{
+				{
+					Type:   cdiv1.DataVolumeRunning,
+					Status: corev1.ConditionFalse,
+					Reason: "",
+				},
+			}
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
 

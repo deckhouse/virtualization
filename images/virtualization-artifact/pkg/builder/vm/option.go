@@ -118,3 +118,24 @@ func WithProvisioningUserData(cloudInit string) Option {
 		UserData: cloudInit,
 	})
 }
+
+func WithRestartApprovalMode(restartApprovalMode v1alpha2.RestartApprovalMode) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		if vm.Spec.Disruptions == nil {
+			vm.Spec.Disruptions = &v1alpha2.Disruptions{}
+		}
+		vm.Spec.Disruptions.RestartApprovalMode = restartApprovalMode
+	}
+}
+
+func WithRunPolicy(runPolicy v1alpha2.RunPolicy) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.RunPolicy = runPolicy
+	}
+}
+
+func WithNetwork(network v1alpha2.NetworksSpec) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Networks = append(vm.Spec.Networks, network)
+	}
+}

@@ -51,7 +51,7 @@ spec:
           "system:serviceaccount:d8-virtualization:kubevirt-operator",
           "system:serviceaccount:d8-virtualization:virtualization-controller",
           "system:serviceaccount:d8-virtualization:virtualization-api",
-          "system:serviceaccount:d8-virtualization:virtualization-pre-delete-hook",
+          "system:serviceaccount:d8-virtualization:pre-delete-hook",
           "system:serviceaccount:d8-virtualization:vm-route-forge",
         ]
       message: "Operation forbidden for this user."

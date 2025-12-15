@@ -156,9 +156,7 @@ func NewBeforeProcess1Body() {
 
 func NewAfterAllProcessBody() {
 	if config.IsCleanUpNeeded() {
-		DeferCleanup(func() {
-			Expect(Cleanup()).To(Succeed())
-		})
+		Expect(Cleanup()).To(Succeed())
 	}
 }
 

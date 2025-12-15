@@ -101,7 +101,7 @@ packages:
 - swtpm libtpms numactl dmidecode
 - libisoburn libburn libattr libaudit
 - gnutls acl libbsd libgcrypt libmd
-- util-linux libfuse3 nettle libgsasl
+- util-linux libfuse3 libfuse2 nettle libgsasl
 - libnbd libcap-ng libcapstone libcurl
 - libjson-c5 keyutils libisofs
 - zlib zstd p11-kit
@@ -235,7 +235,7 @@ import:
   - usr/bin/coreutils
 - image: tools/iproute2
   add: /
-  to: /relocate/
+  to: /relocate/usr
   after: setup
   includePaths:
   - sbin/tc
@@ -266,7 +266,7 @@ shell:
 
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
-    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu,lib/swtpm-localca,lib/libvirt/swtpm}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/

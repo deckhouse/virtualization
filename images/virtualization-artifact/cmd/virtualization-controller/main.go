@@ -41,6 +41,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
+	dvcrgarbagecollection "github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration"
@@ -59,6 +60,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/volumemigration"
 	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/crd"
@@ -401,6 +403,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	vmsopLogger := logger.NewControllerLogger(vmsop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmsop.SetupController(ctx, mgr, vmsopLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	if err = vmsop.SetupGC(mgr, vmsopLogger, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	liveMigrationLogger := logger.NewControllerLogger(livemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if err = livemigration.SetupController(ctx, mgr, liveMigrationLogger); err != nil {
 		log.Error(err.Error())
@@ -438,6 +450,12 @@ func main() {
 
 	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	dvcrGarbageCollectionLogger := logger.NewControllerLogger(dvcrgarbagecollection.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = dvcrgarbagecollection.NewController(ctx, mgr, dvcrGarbageCollectionLogger, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

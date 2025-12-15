@@ -143,7 +143,7 @@ fi
 #     line 235: key "namespaceSelector" already set in map
 #     line 238: key "selector" already set in map
 #     line 19: key "spec" already set in map
-# ERROR     Job virtualization-pre-delete-hook
+# ERROR     Job pre-delete-hook
 #   error unmarshalling resource: error converting YAML to JSON: yaml: unmarshal errors:
 #     line 21: key "labels" already set in map
 # INVALID   Service virtualization-controller-metrics

@@ -25,7 +25,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization/api/core/v1alpha3"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SingleDefaultClassValidator struct {
@@ -40,7 +40,7 @@ func NewSingleDefaultClassValidator(client client.Client, vmClassService *servic
 	}
 }
 
-func (v *SingleDefaultClassValidator) ValidateCreate(ctx context.Context, vmClass *v1alpha3.VirtualMachineClass) (admission.Warnings, error) {
+func (v *SingleDefaultClassValidator) ValidateCreate(ctx context.Context, vmClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
 	err := v.vmClassService.ValidateDefaultAnnotation(vmClass)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func (v *SingleDefaultClassValidator) ValidateCreate(ctx context.Context, vmClas
 	return nil, nil
 }
 
-func (v *SingleDefaultClassValidator) ValidateUpdate(ctx context.Context, _, newVMClass *v1alpha3.VirtualMachineClass) (admission.Warnings, error) {
+func (v *SingleDefaultClassValidator) ValidateUpdate(ctx context.Context, _, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
 	err := v.vmClassService.ValidateDefaultAnnotation(newVMClass)
 	if err != nil {
 		return nil, err
@@ -68,8 +68,8 @@ func (v *SingleDefaultClassValidator) ValidateUpdate(ctx context.Context, _, new
 	return nil, nil
 }
 
-func (v *SingleDefaultClassValidator) checkDefaultIsSingle(ctx context.Context, vmClass *v1alpha3.VirtualMachineClass) error {
-	classes := &v1alpha3.VirtualMachineClassList{}
+func (v *SingleDefaultClassValidator) checkDefaultIsSingle(ctx context.Context, vmClass *v1alpha2.VirtualMachineClass) error {
+	classes := &v1alpha2.VirtualMachineClassList{}
 	err := v.client.List(ctx, classes)
 	if err != nil {
 		return fmt.Errorf("failed to list virtual machine classes: %w", err)

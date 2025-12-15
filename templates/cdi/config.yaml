@@ -20,7 +20,9 @@ spec:
     podResourceRequirements:
       limits:
         cpu: 1000m
-        memory: 600M
+        # Temporarily increase value to workaround OOMKill during importing huge images ~2.9GiB on linux kernels 6.12+.
+        # TODO: mitigate root cause and return to 600M.
+        memory: 3600M
       requests:
         cpu: 100m
         memory: 60M
@@ -162,3 +164,7 @@ spec:
   workload:
     nodeSelector:
       kubernetes.io/os: linux
+    tolerations:
+      - key: dedicated.deckhouse.io
+        operator: Equal
+        value: system

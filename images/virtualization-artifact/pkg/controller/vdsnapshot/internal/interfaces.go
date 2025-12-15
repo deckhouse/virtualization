@@ -21,6 +21,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -32,14 +33,16 @@ type VirtualDiskReadySnapshotter interface {
 }
 
 type LifeCycleSnapshotter interface {
-	Freeze(ctx context.Context, name, namespace string) error
-	IsFrozen(vm *v1alpha2.VirtualMachine) bool
-	CanFreeze(vm *v1alpha2.VirtualMachine) bool
-	CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine) (bool, error)
-	Unfreeze(ctx context.Context, name, namespace string) error
+	Freeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	IsFrozen(kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	CanFreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *v1alpha2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) (bool, error)
+	Unfreeze(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
 	CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error)
 	GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error)
 	GetVirtualDisk(ctx context.Context, name, namespace string) (*v1alpha2.VirtualDisk, error)
 	GetVirtualMachine(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error)
 	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
+	SyncFSFreezeRequest(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error
+	GetVirtualMachineInstance(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error)
 }

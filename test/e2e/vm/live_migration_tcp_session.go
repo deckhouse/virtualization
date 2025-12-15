@@ -93,8 +93,7 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 			err := f.CreateWithDeferredDeletion(context.Background(), iperfServerDisk, iperfClientDisk, iperfServer, iperfClient)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfServer), framework.LongTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(iperfClient), framework.LongTimeout)
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, iperfServer, iperfClient)
 		})
 
 		By("Wait for the iPerf server to start", func() {

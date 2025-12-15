@@ -73,11 +73,19 @@ shell:
 ---
 image: bundle
 fromImage: builder/scratch
-cacheVersion: 2025-11-18
+import:
+- image: prepare-bundle
+  add: /prep-bundle
+  to: /
+  after: setup
+
+---
+image: prepare-bundle
+fromImage: builder/alpine
 import:
 - image: images-digests
   add: /
-  to: /
+  to: /prep-bundle
   after: setup
   includePaths:
     - images_digests.json
@@ -86,11 +94,14 @@ import:
   {{-  end }}
 - image: go-hooks-artifact
   add: /go-hooks
-  to: /hooks/go
+  to: /prep-bundle/hooks/go
   after: setup
 git:
   - add: /
-    to: /
+    to: /prep-bundle
+    stageDependencies:
+      install:
+      - '**/*'
     includePaths:
       - charts
       - crds
@@ -111,6 +122,9 @@ git:
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
     {{- end }}
+shell:
+  install:
+    - ls -la /prep-bundle
 ---
 image: release-channel-version
 fromImage: builder/scratch

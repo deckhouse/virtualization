@@ -99,6 +99,14 @@ properties:
                   bucket:
                     description: |
                       Контейнер, в котором вы можете хранить свои файлы и объекты данных.
+      gc:
+        description: Настройки очистки хранилища
+        properties:
+          schedule:
+            description: |
+              Расписание для запуска процедуры очистки хранилища. Очистка удалит неактуальные образы, созданные для ресурсов `ClusterVirtualImage`, `VirtualImage`, `VirtualDisk`, которых уже нет в кластере.
+
+              Расписание по умолчанию не задано. Периодическая очистка включится, если задать расписание.
   virtualImages:
     type: object
     description: |

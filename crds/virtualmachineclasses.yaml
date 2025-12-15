@@ -281,6 +281,13 @@ spec:
                         items:
                           type: boolean
                         type: array
+                      defaultCoreFraction:
+                        description: |-
+                          Default `coreFraction` value for the VirtualMachineClass.
+                          Used when creating a VM when `coreFraction` is not specified.
+                        maximum: 100
+                        minimum: 1
+                        type: integer
                       memory:
                         description: Memory sizing policy.
                         properties:
@@ -512,7 +519,7 @@ spec:
             - spec
           type: object
       served: true
-      storage: false
+      storage: true
       subresources:
         status: {}
     - additionalPrinterColumns:
@@ -775,6 +782,9 @@ spec:
                         items:
                           type: boolean
                         type: array
+                      defaultCoreFraction:
+                        description: Default `coreFraction` value for the VirtualMachineClass.
+                        type: string
                       memory:
                         description: Memory sizing policy.
                         properties:
@@ -1006,6 +1016,6 @@ spec:
             - spec
           type: object
       served: true
-      storage: true
+      storage: false
       subresources:
         status: {}

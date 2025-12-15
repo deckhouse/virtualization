@@ -1,0 +1,11 @@
+core:
+  fixes:
+    - summary: Fix virt-launcher `/sbin/dmidecode not found` error
+      pull_request: https://github.com/deckhouse/virtualization/pull/1775
+module:
+  fixes:
+    - summary: >-
+        The deprecated part of the configuration has been removed, which could have prevented the
+        virtualization module from upgrading in clusters running Kubernetes version 1.34 and above.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1771
+

@@ -167,7 +167,7 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 			cb.Message("Migration is awaiting start.")
 
 		case vmopcondition.ReasonQuotaExceeded.String():
-			cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
+			cb.Message(fmt.Sprintf("Migration is pending: %s.", completed.Message))
 
 		case vmopcondition.ReasonMigrationPrepareTarget.String():
 			cb.Message("Migration is awaiting target preparation.")
@@ -188,16 +188,24 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(completed.Message)
 
 		case vmopcondition.ReasonNotApplicableForVMPhase.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Migration is not applicable for the current virtual machine phase")
+			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
+				fmt.Sprintf("Migration is not possible for the `%s` phase of a virtual machine; VirtualMachineOperation: %s.", vm.Status.Phase, vmop.Name),
+			)
 
 		case vmopcondition.ReasonNotApplicableForLiveMigrationPolicy.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Migration is not applicable for the live migration policy")
+			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
+				fmt.Sprintf("Migration is not possible for the `%s` live migration policy; VirtualMachineOperation: %s.", vm.Spec.LiveMigrationPolicy, vmop.Name),
+			)
 
 		case vmopcondition.ReasonNotApplicableForRunPolicy.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Migration is not applicable for the run policy")
+			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
+				fmt.Sprintf("Migration is not possible for the `%s` run policy; VirtualMachineOperation: %s.", vm.Spec.RunPolicy, vmop.Name),
+			)
 
 		case vmopcondition.ReasonOtherMigrationInProgress.String():
-			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Another migration is in progress")
+			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
+				fmt.Sprintf("Another migration is in progress; VirtualMachineOperation: %s.", vmop.Name),
+			)
 
 		case vmopcondition.ReasonOperationCompleted.String():
 			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
@@ -211,20 +219,28 @@ func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMac
 				return nil
 
 			case v1alpha2.VMOPPhasePending:
-				cb.Reason(vmcondition.ReasonMigratingPending).Message("Wait until operation is completed")
+				cb.Reason(vmcondition.ReasonMigratingPending).Message(
+					fmt.Sprintf("Wait until operation is completed; VirtualMachineOperation: %s.", vmop.Name),
+				)
 
 			case v1alpha2.VMOPPhaseInProgress:
-				cb.Reason(vmcondition.ReasonMigratingInProgress).Message("Wait until operation is completed")
+				cb.Reason(vmcondition.ReasonMigratingInProgress).Message(
+					fmt.Sprintf("Wait until operation is completed; VirtualMachineOperation: %s.", vmop.Name),
+				)
 
 			case v1alpha2.VMOPPhaseCompleted:
 				conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 				return nil
 
 			case v1alpha2.VMOPPhaseFailed:
-				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Operation failed")
+				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
+					fmt.Sprintf("Operation failed; VirtualMachineOperation: %s.", vmop.Name),
+				)
 
 			case v1alpha2.VMOPPhaseTerminating:
-				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("Operation terminated")
+				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message(
+					fmt.Sprintf("Operation terminated; VirtualMachineOperation: %s.", vmop.Name),
+				)
 			}
 		}
 

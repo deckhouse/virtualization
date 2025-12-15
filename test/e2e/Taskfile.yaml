@@ -51,6 +51,9 @@ tasks:
       - |
         go tool ginkgo -v \
           --race \
+          {{if not .FOCUS -}}
+          --label-filter="!Slow" \
+          {{end -}}
           {{if .LABELS -}}
           --label-filter="{{ .LABELS }}" \
           {{end -}}

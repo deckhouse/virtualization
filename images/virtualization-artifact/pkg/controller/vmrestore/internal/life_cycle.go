@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	svcrestorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -441,6 +442,11 @@ func (h LifeCycleHandler) getVirtualDisks(ctx context.Context, vmSnapshot *v1alp
 					{Name: vmSnapshot.Spec.VirtualMachineName, Mounted: true},
 				},
 			},
+		}
+
+		err = svcrestorer.AddOriginalMetadata(ctx, &vd, vdSnapshot, h.client)
+		if err != nil {
+			return nil, fmt.Errorf("add original metadata: %w", err)
 		}
 
 		vds = append(vds, &vd)

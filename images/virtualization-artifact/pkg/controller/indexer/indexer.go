@@ -63,6 +63,8 @@ const (
 	IndexFieldVMMACLeaseByVMMAC = "spec.virtualMachineMACAddressRef.Name"
 
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef"
+
+	IndexFieldVMByProvisioningSecret = "spec.provisioning.secretRef"
 )
 
 var IndexGetters = []IndexGetter{
@@ -71,6 +73,7 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVI,
 	IndexVMByCVI,
 	IndexVMByNode,
+	IndexVMByProvisioningSecret,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
 	IndexVMRestoreByVMSnapshot,
@@ -137,6 +140,25 @@ func IndexVMByNode() (obj client.Object, field string, extractValue client.Index
 			return nil
 		}
 		return []string{vm.Status.Node}
+	}
+}
+
+func IndexVMByProvisioningSecret() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualMachine{}, IndexFieldVMByProvisioningSecret, func(object client.Object) []string {
+		vm, ok := object.(*v1alpha2.VirtualMachine)
+		if !ok || vm == nil || vm.Spec.Provisioning == nil {
+			return nil
+		}
+
+		var secrets []string
+		if vm.Spec.Provisioning.UserDataRef != nil && vm.Spec.Provisioning.UserDataRef.Kind == v1alpha2.UserDataRefKindSecret {
+			secrets = append(secrets, vm.Spec.Provisioning.UserDataRef.Name)
+		}
+		if vm.Spec.Provisioning.SysprepRef != nil && vm.Spec.Provisioning.SysprepRef.Kind == v1alpha2.SysprepRefKindSecret {
+			secrets = append(secrets, vm.Spec.Provisioning.SysprepRef.Name)
+		}
+
+		return secrets
 	}
 }
 
