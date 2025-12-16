@@ -73,8 +73,17 @@ spec:
         type: strategic
     {{- end }}
 
-      # Add kube-api-rewriter as a sidecar container to cdi-apiserver and cdi-deployment.
+      # set labels for components
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: '{{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "cdi-deployment" "app.kubernetes.io/component" "dvp")) | fromYaml | toJson }}'
+        type: strategic
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: '{{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "cdi-apiserver" "app.kubernetes.io/component" "dvp")) | fromYaml | toJson }}'
+        type: strategic
 
+      # Add kube-api-rewriter as a sidecar container to cdi-apiserver and cdi-deployment.
       {{- $apiRewriterSettings := dict }}
       {{- $_ := set $apiRewriterSettings "WEBHOOK_ADDRESS" "https://127.0.0.1:8443" }}
       {{- $_ := set $apiRewriterSettings "WEBHOOK_CERT_FILE" "/var/run/certs/cdi-apiserver-server-cert/tls.crt" }}

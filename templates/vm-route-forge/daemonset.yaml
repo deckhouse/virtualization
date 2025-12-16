@@ -39,7 +39,7 @@ kind: DaemonSet
 metadata:
   name: vm-route-forge
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "vm-route-forge")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "vm-route-forge" "app.kubernetes.io/component" "dvp")) | nindent 2 }}
 spec:
   selector:
     matchLabels:

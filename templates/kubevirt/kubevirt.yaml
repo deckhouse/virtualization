@@ -326,6 +326,24 @@ spec:
       patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
       type: json
 
+    # set labels for components
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '{{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "virt-api" "app.kubernetes.io/component" "dvp")) | fromYaml | toJson }}'
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-operator
+      patch: '{{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "virt-operator" "app.kubernetes.io/component" "dvp")) | fromYaml | toJson }}'
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '{{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "virt-controller" "app.kubernetes.io/component" "dvp")) | fromYaml | toJson }}'
+      type: strategic
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: '{{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "virt-handler" "app.kubernetes.io/component" "dvp")) | fromYaml | toJson }}'
+      type: strategic
+
 # Additional environment variables for virt-controller.
 {{ define "virt-controller-additional-envs" }}
 env:
