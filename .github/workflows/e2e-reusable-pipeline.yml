@@ -66,6 +66,8 @@ on:
         required: true
       PROD_IO_REGISTRY_DOCKER_CFG:
         required: true
+      BOOTSTRAP_DEV_PROXY:
+        required: true
     outputs:
       e2e-summary:
         description: "E2E test results"
@@ -161,8 +163,10 @@ jobs:
             tag: ${{ env.DECKHOUSE_TAG }}
             kubernetesVersion: Automatic
             registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+            httpProxy: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
           image:
-            url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+            url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+            # url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
             defaultUser: ${{ env.DEFAULT_USER }}
             bootloader: BIOS
           ingressHosts:
@@ -488,6 +492,30 @@ jobs:
             d8 p logs | tail -n 100
             exit 1
           fi
+
+          echo "Wait pods and webhooks sds-replicated pods"
+          for i in {1..60}; do
+            echo "Check sds-replicated pods, linstor-node csi-node webhooks"
+            linstor_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep linstor-node | grep -c Running || echo 0)
+            csi_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep csi-node | grep -c Running || echo 0)
+            webhooks=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep webhooks | grep -c Running || echo 0)
+            
+            echo "check if sds-replicated pods are ready"
+            if [[ "${linstor_node}" -ge "${workers}" ]] && [[ "${csi_node}" -ge "${workers}" ]] && [[ "${webhooks}" -ge "1" ]]; then
+              echo "sds-replicated-volume is ready"
+              break
+            fi
+
+            echo "Not all pods are ready, "
+            echo "Waiting 10s for sds-replicated-volume to be ready"
+            if (( i % 5 == 0 )); then
+              echo "= Get pods ="
+              kubectl -n d8-sds-replicated-volume get pods || true
+              echo "Show queue"
+              d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
+              echo "====="
+            fi
+          done
 
           chmod +x lvg-gen.sh
           ./lvg-gen.sh

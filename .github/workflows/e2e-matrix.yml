@@ -48,6 +48,7 @@ jobs:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
   e2e-replicated:
     name: E2E Pipeline (Replicated)
@@ -66,6 +67,7 @@ jobs:
       DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
       VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
       PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
 
 
   report-to-channel:
