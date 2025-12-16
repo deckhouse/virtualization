@@ -52,16 +52,16 @@ spec:
         virtOperator: {{ $logVerbosity }}
       featureGates:
       - HotplugVolumes
-      - GPU
       - Snapshot
       - ExpandDisks
       - Root
-      - VMLiveUpdateFeatures
       - CPUManager
       - Sidecar
       - VolumeSnapshotDataSource
       - VolumeMigration
       - VolumesUpdateStrategy
+      - HostDevicesWithDRA
+      - HostDevices
     virtualMachineOptions:
       disableSerialConsoleLog: {}
   customizeComponents:
