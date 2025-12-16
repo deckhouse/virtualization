@@ -45,6 +45,10 @@ jobs:
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
       checkout_tag: ${{ steps.modules_module_tag.outputs.CHECKOUT_TAG }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Set vars
         id: modules_module_tag
         run: |
