@@ -414,8 +414,13 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 		return nil, err
 	}
 
-	if ip.Status.Address == "" {
-		return nil, fmt.Errorf("the IP address is not found for the virtual machine")
+	ipAddress := ""
+	if ip != nil {
+		if ip.Status.Address == "" {
+			return nil, fmt.Errorf("the IP address is not found for the virtual machine")
+		} else {
+			ipAddress = ip.Status.Address
+		}
 	}
 
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
@@ -431,7 +436,7 @@ func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virt
 	}
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, vmbdas, class, ip.Status.Address, networkSpec)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, vmbdas, class, ipAddress, networkSpec)
 	if err != nil {
 		return nil, err
 	}
