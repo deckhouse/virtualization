@@ -506,7 +506,6 @@ jobs:
               break
             fi
 
-            echo "Not all pods are ready, "
             echo "Waiting 10s for sds-replicated-volume to be ready"
             if (( i % 5 == 0 )); then
               echo "= Get pods ="
