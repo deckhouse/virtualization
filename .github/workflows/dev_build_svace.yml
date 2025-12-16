@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Build main with Svace every weekend
+name: Build latest CSE branch with Svace every weekend
 env:
   MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
