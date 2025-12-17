@@ -21,7 +21,7 @@ spec:
   settings:
     modules:
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
-    defaultClusterStorageClass: nfs
+    # defaultClusterStorageClass: nfs
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -63,12 +63,4 @@ metadata:
   name: control-plane-manager
 spec:
   enabled: true
-{{- if .Values.cse }}
-  settings:
-    apiserver:
-      auditPolicyEnabled: true
-      signature: Enforce
-    etcd:
-      maxDbSize: 6442450944
-{{- end }}
   version: 2
