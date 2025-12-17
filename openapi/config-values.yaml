@@ -88,15 +88,6 @@ properties:
       Internal service for storing all vms images.
     required: [storage]
     properties:
-      imageMonitorSchedule:
-        type: string
-        default: "0 * * * *"
-        x-examples: ["0 * * * *", "*/30 * * * *", ""]
-        description: |
-          Cron schedule for periodic reconciliation of Virtual Images and Cluster Virtual Images stored in DVCR.
-
-          Triggers reconciliation to verify images still exist in DVCR and update resource status accordingly.
-          Set to an empty string to disable periodic reconciliation.
       storage:
         type: object
         description: |

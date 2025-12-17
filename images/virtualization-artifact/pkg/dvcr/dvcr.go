@@ -38,8 +38,6 @@ type Settings struct {
 	InsecureTLS string
 	// UploaderIngressSettings are settings for uploading images to the DVCR using ingress.
 	UploaderIngressSettings UploaderIngressSettings
-	// ImageMonitorSchedule is a cron schedule for periodic DVCR image presence checks.
-	ImageMonitorSchedule string
 	// GCSchedule is a cron formatted schedule to periodically run a garbage collection.
 	GCSchedule string
 }
@@ -52,10 +50,11 @@ type UploaderIngressSettings struct {
 }
 
 const (
-	CVMIImageTmpl     = "cvi/%s:%s"
-	VMIImageTmpl      = "vi/%s/%s:%s"
-	VMDImageTmpl      = "vd/%s/%s:%s"
-	DefaultGCSchedule = "0 2 * * *"
+	CVMIImageTmpl                   = "cvi/%s:%s"
+	VMIImageTmpl                    = "vi/%s/%s:%s"
+	VMDImageTmpl                    = "vd/%s/%s:%s"
+	DefaultGCSchedule               = "0 2 * * *"
+	DefaultImageMonitorSchedule     = "0 * * * *"
 )
 
 // RegistryImageForCVI returns image name for CVI.
