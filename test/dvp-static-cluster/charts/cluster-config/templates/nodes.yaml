@@ -1,4 +1,4 @@
-{{range $_, $v := .Values.instances.additionalNodes }}
+{{- range $_, $v := .Values.instances.additionalNodes }}
   {{ if (ne ($v.count |int) 0) }}
 ---
 apiVersion: deckhouse.io/v1
@@ -23,11 +23,10 @@ spec:
     labelSelector:
       matchLabels:
         role: {{ $v.name }}
-  {{ end }}
+  {{- end }}
 
-
-  {{range $_, $i := untilStep 0 ($v.count | int) 1}}
-    {{ $vmName := printf "%s-%d" $v.name $i }}
+  {{- range $_, $i := untilStep 0 ($v.count | int) 1}}
+    {{- $vmName := printf "%s-%s-%d" $.Values.storage_type $v.name $i }}
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: StaticInstance

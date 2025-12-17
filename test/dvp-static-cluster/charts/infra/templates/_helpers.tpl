@@ -62,13 +62,9 @@ spec:
       ssh_pwauth: true
       package_update: true
       packages:
-        - tmux
-        - htop
         - qemu-guest-agent
-        - iputils-ping
         - jq
         - rsync
-        - fio
         - bind9-dnsutils
       users:
         - default

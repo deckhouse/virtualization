@@ -1,3 +1,4 @@
+{{/*
 {{- if eq .Values.deckhouse.bundle "Default" }}
 {{- if .Values.modules.virtualizationEnabled }}
 ---
@@ -29,3 +30,4 @@ spec:
 {{ end -}}
 {{ end -}}
 {{ end -}}
+*/}}

@@ -3,15 +3,13 @@
 version: "3"
 
 
-includes:
-  vm:
-    taskfile: Taskfile.vm.yaml
-
 vars:
   NAMESPACE:
     sh: yq eval '.namespace' values.yaml
-  D8_TAG:
+  DECKHOUSE_TAG:
     sh: yq eval '.deckhouse.tag' values.yaml
+  DEFAULT_USER:
+    sh: yq eval '.image.defaultUser' values.yaml
   TMP_DIR: ./tmp
   SSH_DIR: "{{ .TMP_DIR }}/ssh"
   SSH_FILE_NAME: cloud
@@ -25,14 +23,17 @@ tasks:
     desc: Preflight / Create tmp dir
     cmds:
       - mkdir -p "{{ .TMP_DIR }}"
+      - mkdir -p "{{ .SSH_DIR }}"
+    status:
+      - test -d "{{ .TMP_DIR }}"
+      - test -d "{{ .SSH_DIR }}"
 
   ssh-gen:
     desc: Preflight / Generate ssh keypair for jump-host
     deps:
-    - create-tmp-dir
+      - create-tmp-dir
     cmds:
-      - mkdir -p "{{ .SSH_DIR }}"
-      - yes | ssh-keygen -t ed25519 -b 1024 -f {{ .SSH_PRIV_KEY_FILE }} -N "" -C "cloud" -v
+      - ssh-keygen -t ed25519 -b 1024 -f {{ .SSH_PRIV_KEY_FILE }} -N "" -C "cloud"
       - chmod 0600 "{{ .SSH_PUB_KEY_FILE }}"
       - chmod 0400 "{{ .SSH_PRIV_KEY_FILE }}"
     status:
@@ -40,6 +41,8 @@ tasks:
 
   password-gen:
     desc: Preflight / Generate password
+    deps:
+      - ssh-gen
     cmds:
       - date +%s | sha256sum | base64 | head -c 10 > {{ .PASSWORD_FILE }}
       - |
@@ -50,25 +53,30 @@ tasks:
 
 
   generate-helm-values:
-    desc: Generate helm values
+    desc: Generate helm values {{ .DISCOVERED_VALUES_FILE }}
     deps:
-    - ssh-gen
     - password-gen
-    - create-tmp-dir
     cmds:
       - touch {{ .DISCOVERED_VALUES_FILE }}
       - |
-          export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
-          yq eval --inplace '.discovered.publicSSHKey = env(SSH_PUB_KEY)' {{ .DISCOVERED_VALUES_FILE }}
+        export SSH_PUB_KEY="$(cat {{ .SSH_PUB_KEY_FILE }})"
+        yq eval --inplace '.discovered.publicSSHKey = env(SSH_PUB_KEY)' {{ .DISCOVERED_VALUES_FILE }}
       - |
-          export SSH_PRIV_KEY_B64="$(cat {{ .SSH_PRIV_KEY_FILE }} | base64 -w 0)"
-          yq eval --inplace '.discovered.privateSSHKeyBase64 = env(SSH_PRIV_KEY_B64)' {{ .DISCOVERED_VALUES_FILE }}
+        export SSH_PRIV_KEY_B64="$(cat {{ .SSH_PRIV_KEY_FILE }} | base64 -w 0)"
+        yq eval --inplace '.discovered.privateSSHKeyBase64 = env(SSH_PRIV_KEY_B64)' {{ .DISCOVERED_VALUES_FILE }}
       - |
-          export DOMAIN=$(kubectl get mc global -o json | jq '.spec.settings.modules.publicDomainTemplate | split(".")[1:] | join(".")' -rc)
-          yq eval --inplace '.discovered.domain = env(DOMAIN)' {{ .DISCOVERED_VALUES_FILE }}
+        export DOMAIN=$(kubectl get mc global -o json | jq '.spec.settings.modules.publicDomainTemplate | split(".")[1:] | join(".")' -rc)
+        yq eval --inplace '.discovered.domain = env(DOMAIN)' {{ .DISCOVERED_VALUES_FILE }}
       - |
-          export CLUSTER_DOMAIN=$(kubectl -n d8-system exec -it svc/deckhouse-leader -- deckhouse-controller global values -o json | jq -rc .clusterConfiguration.clusterDomain)
-          yq eval --inplace '.discovered.clusterDomain = env(CLUSTER_DOMAIN)' {{ .DISCOVERED_VALUES_FILE }}
+        export CLUSTER_DOMAIN=$(kubectl -n d8-system exec svc/deckhouse-leader -- deckhouse-controller global values -o json | jq -rc .clusterConfiguration.clusterDomain)
+        yq eval --inplace '.discovered.clusterDomain = env(CLUSTER_DOMAIN)' {{ .DISCOVERED_VALUES_FILE }}
+      - |
+        export PASSWORD_HASH="$(cat {{ .PASSWORD_HASH_FILE }})"
+        yq eval --inplace '.discovered.passwordHash = env(PASSWORD_HASH)' {{ .DISCOVERED_VALUES_FILE }}
+  
+  render-vm-ips:
+    desc: Get VM IPs
+    cmds:
       - |
         if kubectl -n {{ .NAMESPACE }} get vm -o name 2>/dev/null | grep -q .; then
           export VM_IPS=$(kubectl -n {{ .NAMESPACE }} get vm -o json | jq -r '[.items[] | select(.status.ipAddress != null) | .metadata.name + ": " + .status.ipAddress] | join("\n")')
@@ -76,17 +84,13 @@ tasks:
         else
           yq eval --inplace '.discovered.vmIPs = {}' {{ .DISCOVERED_VALUES_FILE }}
         fi
-      - |
-        export PASSWORD_HASH="$(cat {{ .PASSWORD_HASH_FILE }})"
-        yq eval --inplace '.discovered.passwordHash = env(PASSWORD_HASH)' {{ .DISCOVERED_VALUES_FILE }}
 
   render-infra:
     desc: Preparation / Generate infra manifests
     deps:
-    - ssh-gen
     - generate-helm-values
     cmds:
-    - helm template static-dvp-over-dvp-infra ./charts/infra -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} > {{ .TMP_DIR }}/infra.yaml
+    - helm template static-dvp-over-dvp-infra ./charts/infra -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} >> {{ .TMP_DIR }}/infra.yaml
 
   infra-deploy:
     deps:
@@ -97,6 +101,7 @@ tasks:
         sh: date +%s
     cmds:
       - kubectl apply -f {{ .TMP_DIR }}/infra.yaml
+      - kubectl -n {{ .NAMESPACE }} get all
       - kubectl -n {{ .NAMESPACE }} wait --for=condition=Ready pod -l app=jump-host --timeout=300s
       - kubectl -n {{ .NAMESPACE }} get vi -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
       - kubectl -n {{ .NAMESPACE }} get vd -o name | xargs kubectl -n {{ .NAMESPACE }} wait --for='jsonpath={.status.phase}=Ready' --timeout=600s
@@ -106,12 +111,12 @@ tasks:
         export end_time=$(date +%s)
         difference=$((end_time - {{.start_time}}))
         date -ud "@$difference" +'%H:%M:%S'
+      - task: render-vm-ips
 
   infra-undeploy:
     desc: Destroy infra
     aliases:
     - uninstall
-    prompt: This command will destroy current infra... Do you want to continue?
     cmds:
       - kubectl delete -f {{ .TMP_DIR }}/infra.yaml || true
       - kubectl wait --for=delete namespace/{{ .NAMESPACE }} --timeout 300s || true
@@ -139,28 +144,24 @@ tasks:
       - task render-cluster-config
       - task render-cluster-manifests
 
-  update-cluster:
-    desc: Update cluster
-    deps:
-      - render-cluster-manifests
-    cmds:
-    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" {{ .TMP_DIR }}/config-manifests.yaml cloud@master-0:/tmp/config-manifests.yaml
-    - task: __ssh-command
-      vars:
-        CMD: sudo /opt/deckhouse/bin/kubectl apply -f /tmp/config-manifests.yaml
+  # update-cluster:
+  #   desc: Update cluster
+  #   deps:
+  #     - render-cluster-manifests
+  #   cmds:
+  #   - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" {{ .TMP_DIR }}/config-manifests.yaml {{ .DEFAULT_USER }}@master-0:/tmp/config-manifests.yaml
+  #   - task: __ssh-command
+  #     vars:
+  #       CMD: sudo /opt/deckhouse/bin/kubectl apply -f /tmp/config-manifests.yaml
 
   dhctl-bootstrap:
     desc: Bootstrap DKP over DVP
     deps:
       - render-cluster-config
     vars:
-      DeckhouseInstallImage:
-        sh: |
-          if $(yq eval '.cse' values.yaml); then
-            echo "dev-registry-cse.deckhouse.ru/sys/deckhouse-cse/install"
-          else
-            echo "dev-registry.deckhouse.io/sys/deckhouse-oss/install"
-          fi
+      DeckhouseInstallImage: "dev-registry.deckhouse.io/sys/deckhouse-oss/install"
+      prefix:
+        sh: yq eval '.storage_type' values.yaml
       start_time:
         sh: date +%s
       JUMPHOST_EXT_IP:
@@ -168,18 +169,19 @@ tasks:
       JUMPHOST_NODEPORT:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
       MASTER_NODE_IP:
-        sh: kubectl -n {{ .NAMESPACE }} get vm master-0 -o jsonpath="{.status.ipAddress}"
+        sh: kubectl -n {{ .NAMESPACE }} get vm {{.prefix}}-master-0 -o jsonpath="{.status.ipAddress}"
     cmds:
       - |
-        docker run --pull=always -it \
+        docker run --pull=always \
         -v "{{ .TMP_DIR }}/config.yaml:/config.yaml" \
         -v "{{ .SSH_DIR }}:/tmp/.ssh/" \
-        {{ .DeckhouseInstallImage }}:{{ .D8_TAG }} \
+        -v "{{ .TMP_DIR }}/dhctl:/tmp/dhctl/" \
+        {{ .DeckhouseInstallImage }}:{{ .DECKHOUSE_TAG }} \
             dhctl bootstrap \
             --config=/config.yaml \
             --ssh-agent-private-keys=/tmp/.ssh/{{ .SSH_FILE_NAME }} \
             --ssh-host={{ .MASTER_NODE_IP }} \
-            --ssh-user=cloud \
+            --ssh-user={{ .DEFAULT_USER }} \
               --ssh-bastion-port={{ .JUMPHOST_NODEPORT }} \
               --ssh-bastion-host={{ .JUMPHOST_EXT_IP }} \
               --ssh-bastion-user=user \
@@ -208,13 +210,8 @@ tasks:
     - echo "Connect to master task ssh-to-master"
     - |
         echo "Host cluster master node: {{ .MASTER_NODE_NAME }}"
-        echo "Host cluster grafana URL: https://grafana.{{ .DOMAIN }}"
         echo "Namespace: {{ .NAMESPACE }}"
-        echo "ssh-pub key:"
-        cat {{ .SSH_PUB_KEY_FILE }}
-        echo "ssh-priv key:"
-        cat {{ .SSH_PRIV_KEY_FILE }}
-        echo "OS User: cloud"
+        echo "OS User: {{ .DEFAULT_USER }}"
         echo "Bastion: user@{{ .JUMPHOST_EXT_IP }}:{{ .JUMPHOST_NODEPORT }}"
         echo vms:
         kubectl -n {{ .NAMESPACE }} get vm
@@ -234,11 +231,11 @@ tasks:
 
   ssh-to-master:
     cmds:
-      - /usr/bin/ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22' cloud@master-0
+      - /usr/bin/ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@master-0
 
   ssh-to-worker:
     cmds:
-      - /usr/bin/ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true worker-0.{{ .NAMESPACE }} 22' cloud@worker-0
+      - /usr/bin/ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true worker-0.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@worker-0
 
   ssh-to-master-via-jumphost:
     vars:
@@ -268,7 +265,7 @@ tasks:
               -J user@{{ .JUMPHOST_EXT_IP }}:{{ .JUMPHOST_NODEPORT }} \
               -o StrictHostKeyChecking=no \
               -o UserKnownHostsFile=/dev/null \
-              cloud@{{ .MASTER_NODE_IP}}
+              {{ .DEFAULT_USER }}@{{ .MASTER_NODE_IP}}
 
   ssh-to-master-via-ws:
     vars:
@@ -302,7 +299,7 @@ tasks:
               -J user@127.0.0.1:9999 \
               -o StrictHostKeyChecking=no \
               -o UserKnownHostsFile=/dev/null \
-              cloud@{{ .MASTER_NODE_IP}}
+              {{ .DEFAULT_USER }}@{{ .MASTER_NODE_IP}}
 
   clean:
     cmds:
@@ -313,7 +310,7 @@ tasks:
     silent: true
     internal: true
     cmds:
-      - /usr/bin/ssh -t -i {{ .SSH_PRIV_KEY_FILE }} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22' cloud@master-0 {{ .CMD }}
+      - /usr/bin/ssh -t -i {{ .SSH_PRIV_KEY_FILE }} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@master-0 {{ .CMD }}
 
   kubectl:
     desc: Run kubectl on master. Usage example "task kubectl -- get pods -A"
@@ -335,7 +332,7 @@ tasks:
       script: gen-lvg.sh
       config: /tmp/sds-local-lvg.yaml
     cmds:
-    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" storage/sds-local-volume/{{ .script }} cloud@master-0:/tmp/
+    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" storage/sds-local-volume/{{ .script }} {{ .DEFAULT_USER }}@master-0:/tmp/
     - task: __ssh-command
       vars:
         CMD: sudo chmod +x /tmp/{{ .script }}
@@ -352,7 +349,7 @@ tasks:
       script: gen-sc.sh
       config: /tmp/sds-local-sc
     cmds:
-    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" storage/sds-local-volume/{{ .script }} cloud@master-0:/tmp/
+    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" storage/sds-local-volume/{{ .script }} {{ .DEFAULT_USER }}@master-0:/tmp/
     - task: __ssh-command
       vars:
         CMD: sudo chmod +x /tmp/{{ .script }}

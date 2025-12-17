@@ -29,7 +29,7 @@ spec:
             - containerPort: 2222
           env:
             - name: SSH_KEY
-              value: "{{ .Values.sshPublicKey }}"
+              value: "{{ .Values.discovered.publicSSHKey }}"
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
