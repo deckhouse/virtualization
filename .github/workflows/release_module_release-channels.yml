@@ -459,15 +459,15 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           # Determine overall status
-          OVERALL_STATUS=":white_check_mark: SUCCESS!"
+          OVERALL_STATUS=":white_check_mark: **SUCCESS!**"
           if [[ "$CE_RESULT" == "failure" ]] || [[ "$EE_RESULT" == "failure" ]] || \
              [[ "$SE_PLUS_RESULT" == "failure" ]] || [[ "$FE_RESULT" == "failure" ]] || \
              [[ "$CHECK_RESULT" == "failure" ]]; then
-            OVERALL_STATUS=":x: FAILED!"
+            OVERALL_STATUS=":x: **FAILED!**"
           elif [[ "$CE_RESULT" == "cancelled" ]] || [[ "$EE_RESULT" == "cancelled" ]] || \
                [[ "$SE_PLUS_RESULT" == "cancelled" ]] || [[ "$FE_RESULT" == "cancelled" ]] || \
                [[ "$CHECK_RESULT" == "cancelled" ]]; then
-            OVERALL_STATUS=":warning: CANCELLED!"
+            OVERALL_STATUS=":warning: **CANCELLED!**"
           fi
 
           # Build editions status
