@@ -224,7 +224,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 
 	Context("when VMClass has no sizing policies", func() {
 		It("should set default 100%", func() {
-			vmClass := newVMClass("no-policies", nil)
+			vmClass := newVMClass("no-sizing-policies", nil)
 
 			setupCoreDefaulter(vmClass)
 
