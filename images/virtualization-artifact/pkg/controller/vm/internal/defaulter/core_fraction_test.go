@@ -41,7 +41,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 		setupCoreDefaulter = func(objs ...client.Object) {
 			GinkgoHelper()
 			fakeClient, err := testutil.NewFakeClientWithObjects(objs...)
-			Expect(err).Should(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 			coreDefaulter = defaulter.NewCoreFractionDefaulter(fakeClient)
 		}
 
@@ -91,8 +91,8 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM("any-class", 2, "25%")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(vm.Spec.CPU.CoreFraction).Should(Equal("25%"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.CPU.CoreFraction).To(Equal("25%"))
 		})
 	})
 
@@ -103,8 +103,8 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM("", 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
-			Expect(vm.Spec.CPU.CoreFraction).Should(BeEmpty())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.CPU.CoreFraction).To(BeEmpty())
 		})
 	})
 
@@ -115,7 +115,11 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM("non-existing-class", 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).To(SatisfyAll(
+				HaveOccurred(),
+				MatchError(ContainSubstring("failed to get")),
+				MatchError(ContainSubstring("not found")),
+			))
 		})
 	})
 
@@ -137,8 +141,8 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM(vmClass.Name, 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
-			Expect(vm.Spec.CPU.CoreFraction).Should(Equal("50%"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.CPU.CoreFraction).To(Equal("50%"))
 		})
 
 		It("should set default 100% when matching policy has no defaultCoreFraction", func() {
@@ -156,8 +160,8 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM(vmClass.Name, 6, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
-			Expect(vm.Spec.CPU.CoreFraction).Should(Equal("100%"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.CPU.CoreFraction).To(Equal("100%"))
 		})
 
 		It("should return error when no policy matches VM cores", func() {
@@ -177,8 +181,10 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM(vmClass.Name, 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).ShouldNot(BeNil())
-			Expect(err).Should(MatchError(ContainSubstring("not among the sizing policies")))
+			Expect(err).To(SatisfyAll(
+				HaveOccurred(),
+				MatchError(ContainSubstring("not among the sizing policies")),
+			))
 		})
 
 		It("should set default 100% when coreFractions includes 100%", func() {
@@ -197,8 +203,8 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM(vmClass.Name, 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
-			Expect(vm.Spec.CPU.CoreFraction).Should(Equal("100%"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(vm.Spec.CPU.CoreFraction).To(Equal("100%"))
 		})
 
 		It("should return error when coreFractions doesn't include 100% and no defaultCoreFraction", func() {
@@ -217,8 +223,10 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM(vmClass.Name, 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).ShouldNot(BeNil())
-			Expect(err).Should(MatchError(ContainSubstring("default value for core fraction is not defined")))
+			Expect(err).To(SatisfyAll(
+				HaveOccurred(),
+				MatchError(ContainSubstring("default value for core fraction is not defined")),
+			))
 		})
 	})
 
@@ -231,7 +239,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM(vmClass.Name, 2, "")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
+			Expect(err).NotTo(HaveOccurred())
 			Expect(vm.Spec.CPU.CoreFraction).Should(Equal("100%"))
 		})
 	})
