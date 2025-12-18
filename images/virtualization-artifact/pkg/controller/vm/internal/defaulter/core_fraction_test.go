@@ -142,7 +142,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 		})
 
 		It("should set default 100% when matching policy has no defaultCoreFraction", func() {
-			vmClass := newVMClass("no-default-fraction", []v1alpha3.SizingPolicy{
+			vmClass := newVMClass("no-default-core-fraction", []v1alpha3.SizingPolicy{
 				{
 					Cores: &v1alpha3.SizingPolicyCores{
 						Min: 5,
