@@ -85,7 +85,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	if !hasDefaultNetwork(vm.Status.Networks) {
 		vm.Status.IPAddress = ""
 		vm.Status.VirtualMachineIPAddress = ""
-		if err := h.deleteManagedVMIP(ctx, s); err != nil {
+		if err := h.deleteManagedVMIP(ctx, s, vm); err != nil {
 			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNotReady).
 				Message(fmt.Sprintf("Failed to delete VirtualMachineIPAddress: %v", err))
 			return reconcile.Result{}, err
