@@ -504,7 +504,7 @@ jobs:
             RELEASE_SUMMARY+="\n"
           fi
 
-          RELEASE_SUMMARY+="**Version Check:** $(get_status_emoji $CHECK_RESULT) $CHECK_RESULT\n"
+          RELEASE_SUMMARY+="**Version Check:** $(get_status_emoji $CHECK_RESULT) **${CHECK_RESULT^^}**\n"
 
           echo -e "$RELEASE_SUMMARY"
           curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${RELEASE_SUMMARY}\"}" $LOOP_WEBHOOK_URL
