@@ -438,11 +438,11 @@ jobs:
       - job-SE-Plus
       - job-FE
       - check-version-on-release-channel
-    if: ${{ always() && !inputs.check_only }}
+    if: ${{ always() }}
     steps:
       - name: Send results to Loop
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
           TAG: ${{ github.event.inputs.tag }}
           CHANNEL: ${{ github.event.inputs.channel }}
           CE_ENABLED: ${{ inputs.ce }}
