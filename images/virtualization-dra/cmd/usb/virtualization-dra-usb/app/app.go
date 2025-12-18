@@ -18,20 +18,27 @@ package app
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/cli/flag"
 
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/plugin"
 	"github.com/deckhouse/virtualization-dra/internal/usb"
+	usbgateway "github.com/deckhouse/virtualization-dra/internal/usb-gateway"
+	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
+	"github.com/deckhouse/virtualization-dra/pkg/controller"
 	"github.com/deckhouse/virtualization-dra/pkg/libusb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
+	"github.com/deckhouse/virtualization-dra/pkg/usbip"
 )
 
 func NewVirtualizationDraUSBCommand() *cobra.Command {
@@ -54,6 +61,8 @@ func NewVirtualizationDraUSBCommand() *cobra.Command {
 		fs.AddFlagSet(f)
 	}
 
+	cmd.AddCommand(NewInitCommand())
+
 	return cmd
 }
 
@@ -66,14 +75,16 @@ func newDraOptions() *draOptions {
 	}
 
 	o := &draOptions{
-		DriverName:  usb.DriverName,
-		Kubeconfig:  os.Getenv("KUBECONFIG"),
-		NodeName:    os.Getenv("NODE_NAME"),
-		Namespace:   os.Getenv("NAMESPACE"),
-		CDIRoot:     withDefault("CDI_ROOT", cdi.SpecDir),
-		HealthzPort: 51515,
-		logging:     &logger.Options{},
-		monitor:     libusb.NewDefaultMonitorConfig(),
+		DriverName:           usb.DriverName,
+		Kubeconfig:           os.Getenv("KUBECONFIG"),
+		NodeName:             os.Getenv("NODE_NAME"),
+		Namespace:            os.Getenv("NAMESPACE"),
+		USBGatewaySecretName: "virtualization-dra-usb-gateway",
+		CDIRoot:              withDefault("CDI_ROOT", cdi.SpecDir),
+		HealthzPort:          51515,
+		logging:              &logger.Options{},
+		monitor:              libusb.NewDefaultMonitorConfig(),
+		usbipdConfig:         &usbip.USBIPDConfig{},
 	}
 
 	if healthzPort := os.Getenv("HEALTHZ_PORT"); healthzPort != "" {
@@ -87,20 +98,32 @@ func newDraOptions() *draOptions {
 }
 
 type draOptions struct {
-	DriverName  string
-	Kubeconfig  string
-	Namespace   string
-	NodeName    string
-	CDIRoot     string
-	HealthzPort int
+	DriverName           string
+	Kubeconfig           string
+	Namespace            string
+	NodeName             string
+	USBGatewaySecretName string
+	CDIRoot              string
+	HealthzPort          int
 
-	logging *logger.Options
-	monitor *libusb.MonitorConfig
+	logging      *logger.Options
+	monitor      *libusb.MonitorConfig
+	usbipdConfig *usbip.USBIPDConfig
+
+	usbGatewayEnabled bool
 }
 
 func (o *draOptions) Complete() {
 	log := o.logging.Complete()
 	logger.SetDefaultLogger(log)
+
+	o.usbGatewayEnabled = featuregates.Default().USBGatewayEnabled()
+	if o.usbGatewayEnabled {
+		if !o.usbipdConfig.ExportEnabled {
+			slog.Warn("USB gateway is enabled but USBIPD export is disabled. Enabling USBIPD export.")
+		}
+		o.usbipdConfig.ExportEnabled = true
+	}
 }
 
 func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
@@ -109,12 +132,15 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.StringVar(&o.Kubeconfig, "kubeconfig", o.Kubeconfig, "Path to kubeconfig file")
 	mfs.StringVar(&o.Namespace, "namespace", o.Namespace, "Namespace")
 	mfs.StringVar(&o.NodeName, "node-name", o.NodeName, "Node name")
+	mfs.StringVar(&o.USBGatewaySecretName, "usb-gateway-secret-name", o.USBGatewaySecretName, "USB gateway secret name")
 	mfs.StringVar(&o.CDIRoot, "cdi-root", o.CDIRoot, "CDI root")
 	mfs.IntVar(&o.HealthzPort, "healthz-port", o.HealthzPort, "Healthz port")
 
 	o.logging.AddFlags(fs.FlagSet("logging"))
 	o.monitor.AddFlags(fs.FlagSet("usb-monitor"))
+	o.usbipdConfig.AddFlags(fs.FlagSet("usbipd"))
 	plugin.AddFlags(fs.FlagSet("plugin"))
+	featuregates.AddFlags(fs.FlagSet("feature-gates"))
 
 	return fs
 }
@@ -133,27 +159,38 @@ func (o *draOptions) Validate() error {
 		return fmt.Errorf("healthzPort is required")
 	}
 
+	if o.usbGatewayEnabled {
+		if o.USBGatewaySecretName == "" {
+			return fmt.Errorf("USBGatewaySecretName is required")
+		}
+	}
+
 	return nil
 }
 
-func (o *draOptions) Client() (kubernetes.Interface, error) {
+func (o *draOptions) Clients() (kubernetes.Interface, dynamic.Interface, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags("", o.Kubeconfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get rest config: %w", err)
+		return nil, nil, fmt.Errorf("failed to get rest config: %w", err)
 	}
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
+		return nil, nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	return client, nil
+	dynamicClient, err := dynamic.NewForConfig(cfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create dynamic client: %w", err)
+	}
+
+	return client, dynamicClient, nil
 }
 
 func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
-	client, err := o.Client()
+	client, dynamicClient, err := o.Clients()
 	if err != nil {
 		return err
 	}
@@ -163,19 +200,73 @@ func (o *draOptions) Run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create USB monitor: %w", err)
 	}
 
+	var usbGateway usbgateway.USBGateway
+
 	group, ctx := errgroup.WithContext(ctx)
+
+	if o.usbGatewayEnabled {
+		usbipd, err := o.usbipdConfig.Complete(monitor)
+		if err != nil {
+			return fmt.Errorf("failed to create USBIPD: %w", err)
+		}
+
+		f := informer.NewFactory(client, nil)
+		secretInformer := f.NamespacedSecret(o.Namespace)
+		resourceSliceInformer := f.ResourceSlice()
+
+		group.Go(func() error {
+			return f.Run(ctx)
+		})
+		f.WaitForCacheSync(ctx.Done())
+
+		usbGatewayController, err := usbgateway.NewUSBGatewayController(
+			ctx,
+			o.USBGatewaySecretName,
+			o.Namespace,
+			o.NodeName,
+			o.usbipdConfig.Address,
+			o.usbipdConfig.Port,
+			client,
+			secretInformer,
+			resourceSliceInformer,
+			usbip.New(),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create USB gateway controller: %w", err)
+		}
+
+		group.Go(func() error {
+			return usbipd.Run(ctx)
+		})
+
+		group.Go(func() error {
+			return controller.Run(usbGatewayController, ctx, 1)
+		})
+
+		marker := usbgateway.NewMarker(dynamicClient, o.NodeName)
+		if err = marker.Mark(ctx); err != nil {
+			return nil
+		}
+		defer func() {
+			if err = marker.Unmark(ctx); err != nil {
+				slog.Error("failed to unmark node for USB gateway", slog.Any("error", err))
+			}
+		}()
+
+		usbGateway = usbGatewayController
+	}
 
 	usbCDIManager, err := cdi.NewCDIManager(o.CDIRoot, "usb", o.DriverName, o.NodeName, "DRA_USB")
 	if err != nil {
 		return fmt.Errorf("failed to create CDI manager: %w", err)
 	}
 
-	usbStore, err := usb.NewAllocationStore(ctx, o.NodeName, usbCDIManager, monitor)
+	usbStore, err := usb.NewAllocationStore(ctx, o.NodeName, usbCDIManager, monitor, usbGateway)
 	if err != nil {
 		return fmt.Errorf("failed to create USB store: %w", err)
 	}
 
-	mgr, err := plugin.NewManager(o.DriverName, o.NodeName, client, usbStore, o.HealthzPort, false)
+	mgr, err := plugin.NewManager(o.DriverName, o.NodeName, client, usbStore, o.HealthzPort, o.usbGatewayEnabled)
 	if err != nil {
 		return fmt.Errorf("failed to create manager: %w", err)
 	}

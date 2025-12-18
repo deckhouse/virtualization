@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2026 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -79,7 +79,7 @@ func (jp *JSONPatch) Append(patches ...JSONPatchOperation) {
 }
 
 func (jp *JSONPatch) Delete(op, path string) {
-	slices.DeleteFunc(jp.operations, func(o JSONPatchOperation) bool {
+	jp.operations = slices.DeleteFunc(jp.operations, func(o JSONPatchOperation) bool {
 		return o.Op == op && o.Path == path
 	})
 }
