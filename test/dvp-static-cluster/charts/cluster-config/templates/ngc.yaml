@@ -18,7 +18,7 @@ metadata:
 spec:
   weight: 98
   nodeGroups: ["*"]
-  bundles: ["astra"]
+  bundles: ["astra", "ubuntu-lts", "debian"]
   content: |
     bb-sync-file /etc/modules-load.d/d8-dm-modules.conf - << "EOF"
     dm_snapshot

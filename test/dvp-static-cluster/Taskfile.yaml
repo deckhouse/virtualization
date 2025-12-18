@@ -2,7 +2,6 @@
 
 version: "3"
 
-
 vars:
   NAMESPACE:
     sh: yq eval '.namespace' values.yaml
@@ -51,11 +50,10 @@ tasks:
       - test -f "{{ .PASSWORD_FILE }}"
       - test -f "{{ .PASSWORD_HASH_FILE }}"
 
-
   generate-helm-values:
     desc: Generate helm values {{ .DISCOVERED_VALUES_FILE }}
     deps:
-    - password-gen
+      - password-gen
     cmds:
       - touch {{ .DISCOVERED_VALUES_FILE }}
       - |
@@ -73,7 +71,7 @@ tasks:
       - |
         export PASSWORD_HASH="$(cat {{ .PASSWORD_HASH_FILE }})"
         yq eval --inplace '.discovered.passwordHash = env(PASSWORD_HASH)' {{ .DISCOVERED_VALUES_FILE }}
-  
+
   render-vm-ips:
     desc: Get VM IPs
     cmds:
@@ -88,9 +86,9 @@ tasks:
   render-infra:
     desc: Preparation / Generate infra manifests
     deps:
-    - generate-helm-values
+      - generate-helm-values
     cmds:
-    - helm template static-dvp-over-dvp-infra ./charts/infra -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} >> {{ .TMP_DIR }}/infra.yaml
+      - helm template static-dvp-over-dvp-infra ./charts/infra -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} >> {{ .TMP_DIR }}/infra.yaml
 
   infra-deploy:
     deps:
@@ -116,26 +114,25 @@ tasks:
   infra-undeploy:
     desc: Destroy infra
     aliases:
-    - uninstall
+      - uninstall
     cmds:
-      - kubectl delete -f {{ .TMP_DIR }}/infra.yaml || true
+      - kubectl delete -f {{ .TMP_DIR }}/infra.yaml --timeout 300s || true
       - kubectl wait --for=delete namespace/{{ .NAMESPACE }} --timeout 300s || true
-
 
   render-cluster-config:
     desc: Preparation / Generate cluster config (infra required)
     deps:
-    - ssh-gen
-    - generate-helm-values
+      - ssh-gen
+      - generate-helm-values
     cmds:
-    - helm template dvp-over-static-dvp-cluster-config ./charts/cluster-config -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
+      - helm template dvp-over-static-dvp-cluster-config ./charts/cluster-config -f values.yaml -f {{ .DISCOVERED_VALUES_FILE }} > {{ .TMP_DIR }}/config.yaml
 
   render-cluster-manifests:
     desc: Preparation / Generate cluster config without cluster bootstrap configs (infra required)
     deps:
-    - render-cluster-config
+      - render-cluster-config
     cmds:
-    - yq 'select( (.apiVersion + "/" + .kind) != "deckhouse.io/v1/InitConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/ClusterConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/StaticClusterConfiguration" )' {{ .TMP_DIR }}/config.yaml > {{ .TMP_DIR }}/config-manifests.yaml
+      - yq 'select( (.apiVersion + "/" + .kind) != "deckhouse.io/v1/InitConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/ClusterConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/StaticClusterConfiguration" )' {{ .TMP_DIR }}/config.yaml > {{ .TMP_DIR }}/config-manifests.yaml
 
   render-all:
     desc: Generate all manifests
@@ -143,16 +140,6 @@ tasks:
       - task render-infra
       - task render-cluster-config
       - task render-cluster-manifests
-
-  # update-cluster:
-  #   desc: Update cluster
-  #   deps:
-  #     - render-cluster-manifests
-  #   cmds:
-  #   - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" {{ .TMP_DIR }}/config-manifests.yaml {{ .DEFAULT_USER }}@master-0:/tmp/config-manifests.yaml
-  #   - task: __ssh-command
-  #     vars:
-  #       CMD: sudo /opt/deckhouse/bin/kubectl apply -f /tmp/config-manifests.yaml
 
   dhctl-bootstrap:
     desc: Bootstrap DKP over DVP
@@ -207,8 +194,8 @@ tasks:
 
     silent: true
     cmds:
-    - echo "Connect to master task ssh-to-master"
-    - |
+      - echo "Connect to master task ssh-to-master"
+      - |
         echo "Host cluster master node: {{ .MASTER_NODE_NAME }}"
         echo "Namespace: {{ .NAMESPACE }}"
         echo "OS User: {{ .DEFAULT_USER }}"
@@ -220,145 +207,6 @@ tasks:
 
   install:
     cmds:
-    - task: infra-deploy
-    - task: dhctl-bootstrap
-    - task: show-connection-info
-
-  kill-dvp-resources:
-    cmds:
-      - kubectl -n {{ .NAMESPACE }} delete vm --all --force --grace-period=0
-      - kubectl -n {{ .NAMESPACE }} delete vd --all --force --grace-period=0
-
-  ssh-to-master:
-    cmds:
-      - /usr/bin/ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@master-0
-
-  ssh-to-worker:
-    cmds:
-      - /usr/bin/ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true worker-0.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@worker-0
-
-  ssh-to-master-via-jumphost:
-    vars:
-      SSH_AGENT_SOCK: "{{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}.sock"
-      JUMPHOST_EXT_IP:
-        sh: kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
-      JUMPHOST_NODEPORT:
-        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
-      MASTER_NODE_IP:
-        sh: kubectl -n {{ .NAMESPACE }} get vm master-0 -o jsonpath="{.status.ipAddress}"
-    cmds:
-      # kill ssh-agent
-      - ps aux | grep '{{ .SSH_AGENT_SOCK }}' | grep -v grep | awk '{print $2}' | xargs -r kill -9 || true
-      # remove ssh-agent sock
-      - rm -rf {{ .SSH_AGENT_SOCK }} || true
-      # create temp ssh-agent
-      - eval $(ssh-agent -a {{ .SSH_AGENT_SOCK }})
-      # add ssh key to agent
-      - SSH_AUTH_SOCK={{ .SSH_AGENT_SOCK }} ssh-add {{ .SSH_PRIV_KEY_FILE }}
-      # check ssh-agent
-      - SSH_AUTH_SOCK={{ .SSH_AGENT_SOCK }} ssh-add -l
-      # connect to master via jumphost
-      - |
-          SSH_AUTH_SOCK={{ .SSH_AGENT_SOCK }} \
-            /usr/bin/ssh \
-              -A -vv \
-              -J user@{{ .JUMPHOST_EXT_IP }}:{{ .JUMPHOST_NODEPORT }} \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              {{ .DEFAULT_USER }}@{{ .MASTER_NODE_IP}}
-
-  ssh-to-master-via-ws:
-    vars:
-      SSH_AGENT_SOCK: "{{ .SSH_DIR }}/{{ .SSH_FILE_NAME }}.sock"
-      DOMAIN:
-        sh: yq eval '.discovered.domain' {{ .DISCOVERED_VALUES_FILE }}
-      MASTER_NODE_IP:
-        sh: kubectl -n {{ .NAMESPACE }} get vm master-0 -o jsonpath="{.status.ipAddress}"
-    cmds:
-      # kill wstunnel
-      - ps aux | grep wstunnel | grep tcp://9999:127.0.0.1:2222 | awk '{print $2}' | xargs -r kill -9 || true
-      # start wstunnel
-      - wstunnel client -L tcp://9999:127.0.0.1:2222  wss://ws.{{ .NAMESPACE }}.{{ .DOMAIN }}:443 &
-      # kill ssh-agent
-      - ps aux | grep '{{ .SSH_AGENT_SOCK }}' | grep -v grep | awk '{print $2}' | xargs -r kill -9 || true
-      # remove ssh-agent sock
-      - rm -rf {{ .SSH_AGENT_SOCK }} || true
-      # create temp ssh-agent
-      - eval $(ssh-agent -a {{ .SSH_AGENT_SOCK }})
-      # add ssh key to agent
-      - SSH_AUTH_SOCK={{ .SSH_AGENT_SOCK }} ssh-add {{ .SSH_PRIV_KEY_FILE }}
-      # check ssh-agent
-      - SSH_AUTH_SOCK={{ .SSH_AGENT_SOCK }} ssh-add -l
-      # # remove known_hosts entry
-      - ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "[127.0.0.1]:9999"
-      # connect to master via jumphost
-      - |
-          SSH_AUTH_SOCK={{ .SSH_AGENT_SOCK }} \
-            /usr/bin/ssh \
-              -A \
-              -J user@127.0.0.1:9999 \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              {{ .DEFAULT_USER }}@{{ .MASTER_NODE_IP}}
-
-  clean:
-    cmds:
-      - task: infra-undeploy
-      - rm -rf "{{ .TMP_DIR }}"
-
-  __ssh-command:
-    silent: true
-    internal: true
-    cmds:
-      - /usr/bin/ssh -t -i {{ .SSH_PRIV_KEY_FILE }} -o LogLevel=ERROR -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22' {{ .DEFAULT_USER }}@master-0 {{ .CMD }}
-
-  kubectl:
-    desc: Run kubectl on master. Usage example "task kubectl -- get pods -A"
-    cmds:
-    - task: __ssh-command
-      vars:
-        CMD: sudo /opt/deckhouse/bin/kubectl {{ .CLI_ARGS }}
-
-  k9s:
-    desc: Run kubectl on master. Usage example "task kubectl -- get pods -A"
-    cmds:
-    - task: __ssh-command
-      vars:
-        CMD: TERM=xterm-256color sudo /usr/local/bin/k9s {{ .CLI_ARGS }}
-
-  configure:storage:sds-lvg:
-    desc: Copy storage manifests to master
-    vars:
-      script: gen-lvg.sh
-      config: /tmp/sds-local-lvg.yaml
-    cmds:
-    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" storage/sds-local-volume/{{ .script }} {{ .DEFAULT_USER }}@master-0:/tmp/
-    - task: __ssh-command
-      vars:
-        CMD: sudo chmod +x /tmp/{{ .script }}
-    - task: __ssh-command
-      vars:
-        CMD: sudo /tmp/{{ .script }}
-    - task: __ssh-command
-      vars:
-        CMD: sudo /opt/deckhouse/bin/kubectl apply -f {{ .config }}
-
-  configure:storage:local-sc:
-    desc: Copy storage manifests to master
-    vars:
-      script: gen-sc.sh
-      config: /tmp/sds-local-sc
-    cmds:
-    - rsync -azv -e "ssh -i {{ .SSH_PRIV_KEY_FILE }} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o 'ProxyCommand=d8 v port-forward --stdio=true master-0.{{ .NAMESPACE }} 22'" storage/sds-local-volume/{{ .script }} {{ .DEFAULT_USER }}@master-0:/tmp/
-    - task: __ssh-command
-      vars:
-        CMD: sudo chmod +x /tmp/{{ .script }}
-    - task: __ssh-command
-      vars:
-        CMD: sudo /tmp/{{ .script }}
-    - task: __ssh-command
-      vars:
-        CMD: sudo /opt/deckhouse/bin/kubectl apply -f {{ .config }}.yaml
-    - task: __ssh-command
-      vars:
-        CMD: sudo /opt/deckhouse/bin/kubectl apply -f {{ .config }}-multi.yaml
+      - task: infra-deploy
+      - task: dhctl-bootstrap
+      - task: show-connection-info
