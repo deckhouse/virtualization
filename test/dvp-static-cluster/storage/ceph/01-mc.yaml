@@ -15,7 +15,6 @@ metadata:
 spec:
   enabled: true
   source: deckhouse
-  # source: deckhouse-prod
   version: 1
 ---
 apiVersion: deckhouse.io/v1alpha2
@@ -24,13 +23,4 @@ metadata:
   name: csi-ceph
 spec:
   imageTag: main
-  scanInterval: 15s
-# ---
-# apiVersion: deckhouse.io/v1alpha1
-# kind: ModuleConfig
-# metadata:
-#   name: snapshot-controller
-# spec:
-#   enabled: true
-#   version: 1
-#   source: deckhouse-prod
+  scanInterval: 10m

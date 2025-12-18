@@ -21,7 +21,6 @@ spec:
   settings:
     modules:
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
-    # defaultClusterStorageClass: nfs
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig

@@ -20,15 +20,11 @@ on:
       storage_type:
         required: true
         type: string
-        description: "Storage type (ceph or replicated)"
+        description: "Storage type (ceph or replicated or etc.)"
       nested_storageclass_name:
         required: true
         type: string
         description: "Nested storage class name"
-      default_cluster_storageclass:
-        required: true
-        type: string
-        description: "Default cluster storage class"
       branch:
         required: false
         type: string
@@ -48,7 +44,7 @@ on:
         required: false
         type: string
         default: "ubuntu"
-        description: "Default user"
+        description: "Default user for vms"
       go_version:
         required: false
         type: string
@@ -73,16 +69,13 @@ on:
         description: "E2E test results"
         value: ${{ jobs.e2e-test.outputs.report-summary }}
 
-
 env:
   BRANCH: ${{ inputs.branch }}
   VIRTUALIZATION_TAG: ${{ inputs.virtualization_tag }}
   DECKHOUSE_TAG: ${{ inputs.deckhouse_tag }}
-  # DEFAULT_USER: ${{ inputs.default_user }}
-  DEFAULT_USER: cloud
+  DEFAULT_USER: ${{ inputs.default_user }}
   GO_VERSION: ${{ inputs.go_version }}
-  # CLUSTER_TYPE_PATH: ${{ env.CLUSTER_TYPE_PATH }}
-  CLUSTER_TYPE_PATH: test/dvp-static-cluster
+  SETUP_CLUSTER_TYPE_PATH: test/dvp-static-cluster
 
 defaults:
   run:
@@ -150,7 +143,7 @@ jobs:
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
 
       - name: Generate values.yaml
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           defaultStorageClass=$(kubectl get storageclass -o json \
             | jq -r '.items[] | select(.metadata.annotations."storageclass.kubernetes.io/is-default-class" == "true") | .metadata.name')
@@ -159,25 +152,29 @@ jobs:
           namespace: ${{ steps.vars.outputs.namespace }}
           storage_type: ${{ inputs.storage_type }}
           storageClass: ${defaultStorageClass}
-          nfsEnabled: false
-          nfsSC: nested-nfs-${{ inputs.storage_type }}-${{ steps.vars.outputs.sha_short }}
-          defaultClusterStorageClass: ${{ inputs.default_cluster_storageclass }}
-          clusterConfigurationPrefix: ${{ inputs.storage_type }}
           sa: dkp-sa
           deckhouse:
             tag: ${{ env.DECKHOUSE_TAG }}
             kubernetesVersion: Automatic
             registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
-            httpProxy: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
             bundle: Default
+            proxy:
+              httpProxy: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+              httpsProxy: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+              noProxy: 
+              - "localhost"
+              - "127.0.0.1"
+              - "10.0.0.0/8"
+              - "172.16.0.0/12"
+              - "192.168.0.0/16"
+              - "10.112.0.0/16"
+              - "10.223.0.0/16"
+              - "docker.io"
+              - ".ubuntu.com"
           image:
             url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-            # url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
             defaultUser: ${{ env.DEFAULT_USER }}
             bootloader: BIOS
-          modules:
-            virtualizationEnabled: false
-            sdsReplicatedVolumeEnabled: false
           ingressHosts:
             - api
             - grafana
@@ -208,48 +205,34 @@ jobs:
                 - size: 50Gi
           EOF
 
-      # instances:
-      #   masterNodes:
-      #     count: 1
-      #     cores: 8
-      #     coreFraction: 50%
-      #     memory: 14Gi
-      #   additionalNodes:
-      #     - name: worker
-      #       count: 3
-      #       cores: 10
-      #       coreFraction: 25%
-      #       memory: 8Gi
-      #       bootloader: BIOS
       - name: Bootstrap cluster [infra-deploy]
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task infra-deploy
       - name: Bootstrap cluster [dhctl-bootstrap]
         id: dhctl-bootstrap
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task dhctl-bootstrap
         timeout-minutes: 30
       - name: Bootstrap cluster [show-connection-info]
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task show-connection-info
-      
+
       - name: Save ssh to secrets in cluster
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
         if: always()
         run: |
-          kubectl -n $NAMESPACE create secret generic ssh-key --from-file=${{ env.CLUSTER_TYPE_PATH }}/tmp/ssh/cloud
+          kubectl -n $NAMESPACE create secret generic ssh-key --from-file=${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh/cloud
 
       - name: Get info about nested master VM
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         env:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
-          # nested_master=$(kubectl -n ${NAMESPACE} get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
           nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
           echo "Pods"
@@ -284,14 +267,12 @@ jobs:
 
       - name: Generate nested kubeconfig
         id: generate-kubeconfig
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         env:
           kubeConfigPath: tmp/kube.config
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
-          # nested_master=$(kubectl -n $NAMESPACE get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
-
           nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
           d8vscp() {
@@ -322,41 +303,49 @@ jobs:
           d8vscp "./tools/deckhouse-queue.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
           echo ""
 
-          d8 v ssh -i ./tmp/ssh/cloud \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c 'chmod +x /tmp/{gen-sa.sh,deckhouse-queue.sh}'
-          echo ""
-
-          d8 v ssh -i ./tmp/ssh/cloud  \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c 'ls -la /tmp/'
-          echo "==="
-
+          echo "Set file exec permissions"
+          d8vssh 'chmod +x /tmp/{gen-sa.sh,deckhouse-queue.sh}'
+          d8vssh 'ls -la /tmp/'
           echo "Check d8 queue"
-          d8 v ssh -i ./tmp/ssh/cloud  \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-            -c 'sudo /tmp/deckhouse-queue.sh'
+          d8vssh 'sudo /tmp/deckhouse-queue.sh'
+
+          # d8 v ssh -i ./tmp/ssh/cloud \
+          #   --local-ssh=true \
+          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
+          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+          #   ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+          #   -c 'chmod +x /tmp/{gen-sa.sh,deckhouse-queue.sh}'
+          # echo ""
+
+          # d8 v ssh -i ./tmp/ssh/cloud  \
+          #   --local-ssh=true \
+          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
+          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+          #   ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+          #   -c 'ls -la /tmp/'
+          # echo "==="
+
+          # echo "Check d8 queue"
+          # d8 v ssh -i ./tmp/ssh/cloud  \
+          #   --local-ssh=true \
+          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
+          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+          #   ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
+          #   -c 'sudo /tmp/deckhouse-queue.sh'
 
           echo "Generate kube conf in nested cluster"
           echo "run nested-sa-config/gen-sa.sh"
 
           # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
           echo "==="
-          d8 v ssh -i ./tmp/ssh/cloud \
-            --local-ssh=true \
-            --local-ssh-opts="-o StrictHostKeyChecking=no" \
-            --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-            ${DEFAULT_USER}@${nested_master}.$NAMESPACE \
-            -c "sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}"
+          # d8 v ssh -i ./tmp/ssh/cloud \
+          #   --local-ssh=true \
+          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
+          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
+          #   ${DEFAULT_USER}@${nested_master}.$NAMESPACE \
+          #   -c "sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}"
+
+          d8vssh "sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}"
 
           echo "'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}' - done"
           echo ""
@@ -381,7 +370,6 @@ jobs:
           NAMESPACE: ${{ steps.vars.outputs.namespace }}
           PREFIX: ${{ inputs.storage_type }}
         run: |
-          # nested_master=$(kubectl -n $NAMESPACE get vm -l dvp.deckhouse.io/node-group=master -o jsonpath="{.items[0].metadata.name}")
           nested_master=$(kubectl -n ${NAMESPACE} get vm -l group=${PREFIX}-master -o jsonpath="{.items[0].metadata.name}")
 
           d8vscp() {
@@ -395,16 +383,16 @@ jobs:
             echo "d8vscp: $source -> $dest - done"
           }
 
-          d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.CLUSTER_TYPE_PATH }}/tmp/"
+          d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/var/log/cloud-init*.log" "./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/"
 
       - name: Prepare artifact
         if: always()
         run: |
-          sudo chown -fR 1001:1001 ${{ env.CLUSTER_TYPE_PATH }}
-          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.CLUSTER_TYPE_PATH }}/values.yaml
-          yq e 'select(.kind == "InitConfiguration") .deckhouse.registryDockerCfg = "None"' -i ./${{ env.CLUSTER_TYPE_PATH }}/tmp/config.yaml
-          echo "${{ steps.generate-kubeconfig.outputs.config }}" | base64 -d | base64 -d > ./${{ env.CLUSTER_TYPE_PATH }}/kube-config
-      
+          sudo chown -fR 1001:1001 ${{ env.SETUP_CLUSTER_TYPE_PATH }}
+          yq e '.deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
+          yq e 'select(.kind == "InitConfiguration") .deckhouse.registryDockerCfg = "None"' -i ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/config.yaml || echo "The config.yaml file is not generated, skipping"
+          echo "${{ steps.generate-kubeconfig.outputs.config }}" | base64 -d | base64 -d > ./${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
+
       - name: Upload generated files
         uses: actions/upload-artifact@v4
         id: artifact-upload
@@ -412,8 +400,8 @@ jobs:
         with:
           name: generated-files-${{ inputs.storage_type }}
           path: |
-            ${{ env.CLUSTER_TYPE_PATH }}/tmp
-            ${{ env.CLUSTER_TYPE_PATH }}/values.yaml
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp
+            ${{ env.SETUP_CLUSTER_TYPE_PATH }}/values.yaml
           overwrite: true
           include-hidden-files: true
           retention-days: 1
@@ -424,18 +412,18 @@ jobs:
         if: always()
         with:
           name: generated-files-ssh-${{ inputs.storage_type }}
-          path: ${{ env.CLUSTER_TYPE_PATH }}/tmp/ssh
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/tmp/ssh
           overwrite: true
           include-hidden-files: true
           retention-days: 1
-      
+
       - name: Upload kubeconfig config
         uses: actions/upload-artifact@v4
         id: artifact-upload-kubeconfig
         if: always()
         with:
           name: generated-files-kubeconfig-${{ inputs.storage_type }}
-          path: ${{ env.CLUSTER_TYPE_PATH }}/kube-config
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
           overwrite: true
           include-hidden-files: true
           retention-days: 1
@@ -485,13 +473,11 @@ jobs:
 
       - name: Configure replicated storage
         if: ${{ inputs.storage_type == 'replicated' }}
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}/storage/sds-replicated
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
         run: |
           kubectl apply -f mc.yaml
           echo "Wait for sds-node-configurator"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
-          # echo "Wait for sds-replicated"
-          # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-replicated-volume --timeout=300s
 
           for i in {1..60}; do
             sds_replicated_volume_status=$(kubectl get ns d8-sds-replicated-volume -o jsonpath='{.status.phase}' || echo "False")
@@ -555,11 +541,10 @@ jobs:
 
             echo "Waiting 10s for sds-replicated-volume to be ready"
             if (( i % 5 == 0 )); then
-              echo "= Get pods ="
+              echo "[DEBUG] Get pods"
               kubectl -n d8-sds-replicated-volume get pods || true
-              echo "Show queue"
-              d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
-              echo "====="
+              echo "[DEBUG] Show queue (first 25 lines)"
+              d8 p queue list | head -n 25 || echo "Failed to retrieve list queue"
             fi
           done
 
@@ -568,12 +553,13 @@ jobs:
 
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
-          
-          echo "====== Show nested storageclasses ======="
+
+          echo "Enshure that nested storageclasses are created"
           kubectl get sc | grep nested || echo "No nested storageclasses"
           echo "Done"
       - name: Configure ceph storage
         if: ${{ inputs.storage_type == 'ceph' }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
         run: |
           d8_queue_list() {
             d8 p queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
@@ -604,18 +590,19 @@ jobs:
             done
           }
 
-          cd ${{ env.CLUSTER_TYPE_PATH }}/storage/ceph
           export registry=${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
           yq e '.spec.registry.dockerCfg = env(registry)' -i 00-ms.yaml
           unset registry
 
           echo "Create prod module source"
           kubectl apply -f 00-ms.yaml
-          kubectl get ms
+          kubectl wait --for=jsonpath='{.status.phase}' modulesource deckhouse-prod --timeout=30s
+          kubectl get modulesources
 
           echo "Create ceph operator and csi module config"
           kubectl apply -f 01-mc.yaml
 
+          echo "Wait while queues are empty"
           d8_queue
 
           echo "Start wait for ceph operator and csi"
@@ -668,20 +655,16 @@ jobs:
             echo "Waiting 10s for ceph operator to be ready"
             kubectl -n d8-operator-ceph get po || echo "Failed to retrieve pods"
             if (( i % 5 == 0 )); then
-              echo "= Get ceph ns ="
+              echo "[DEBUG] Show ceph ns"
               kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
-              echo "= Get mc ="
+              echo "[DEBUG] Show mc ceph"
               kubectl get mc | grep ceph || echo "Failed to retrieve mc"
-              echo "= Get modules ="
+              echo "[DEBUG] Show ceph in resource modules"
               kubectl get modules  -o wide | grep ceph || echo "Failed to retrieve modules"
-              echo "====="
-              echo "Show queue"
-              d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
-              echo "====="
+              echo "[DEBUG] Show queue"
+              d8 p queue list | head -n 25 || echo "Failed to retrieve list queue"
             fi
-            echo "===="
-            echo "Wait until all necessary pods are ready ${i}/60"
-            echo "===="
+            echo "[INFO] Wait until all necessary pods are ready ${i}/60"
             sleep 10
           done
 
@@ -693,9 +676,8 @@ jobs:
           echo "Wait for rook-ceph-tools, timeout 300s"
           kubectl -n d8-operator-ceph wait --for=condition=Available deployment/rook-ceph-tools --timeout=300s
 
-          echo "-- ls ceph pool --"
+          echo "Show ceph pools via rook-ceph-tools"
           kubectl -n d8-operator-ceph exec deployments/rook-ceph-tools -c ceph-tools -- ceph osd pool ls
-          echo "------"
 
           echo "Configure storage class"
           chmod +x ./ceph-configure.sh
@@ -760,9 +742,6 @@ jobs:
           kubectl get mpo virtualization
       - name: Wait for Virtualization to be ready
         run: |
-          echo "Waiting for Virtualization module to be ready"
-          # kubectl wait --for=jsonpath='{.status.phase}'=Ready modules virtualization --timeout=300s
-
           d8_queue_list() {
             d8 p queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
           }
@@ -796,16 +775,14 @@ jobs:
               sleep 10
             done
           }
-          echo "Checking virtualization module is on"
+          echo "Waiting for Virtualization module to be ready"
           if [ "$(kubectl get mc virtualization -o jsonpath='{.spec.enabled}')" != "true" ]; then
             echo "Virtualization module is not enabled"
             echo "Enabling virtualization module"
             kubectl patch mc virtualization -p '{"spec":{"enabled": true}}' --type merge
           fi
-          
+
           d8_queue
-          
-          # kubectl -n d8-virtualization get pods || echo "ns virtualization is not ready"
 
           for i in {1..60}; do
             virtualization_status=$(kubectl get modules virtualization -o jsonpath='{.status.phase}')
@@ -823,9 +800,6 @@ jobs:
             fi
             sleep 10
           done
-
-          # echo "Wait for pods to be ready"
-          # kubectl wait --for=condition=Ready pods --all -n d8-virtualization --timeout=600s
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
@@ -890,14 +864,7 @@ jobs:
             export SKIP_IMMEDIATE_SC_CHECK="yes"
           fi
           STORAGE_CLASS_NAME=${{ inputs.nested_storageclass_name }} FOCUS="VirtualMachineConfiguration" task run:ci -v LABELS="Slow"
-      
-      # - uses: actions/upload-artifact@v4
-      #   if: always()
-      #   with:
-      #     name: resources_from_failed_tests_${{ inputs.storage_type }}
-      #     path: ${{ runner.temp }}/e2e_failed__*
-      #     if-no-files-found: ignore
-      
+
       - name: Save results
         working-directory: ./test/e2e/
         id: report
@@ -936,7 +903,6 @@ jobs:
           path: test/e2e/e2e_summary_${{ inputs.storage_type }}.json
           if-no-files-found: ignore
 
-
   undeploy-cluster:
     name: Undeploy cluster (${{ inputs.storage_type }})
     runs-on: ubuntu-latest
@@ -968,7 +934,7 @@ jobs:
         uses: actions/download-artifact@v5
         with:
           name: generated-files-${{ inputs.storage_type }}
-          path: ${{ env.CLUSTER_TYPE_PATH }}/
+          path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/
 
       - name: Configure kubectl via azure/k8s-set-context@v4
         uses: azure/k8s-set-context@v4
@@ -978,6 +944,6 @@ jobs:
           kubeconfig: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
 
       - name: infra-undeploy
-        working-directory: ${{ env.CLUSTER_TYPE_PATH }}
+        working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}
         run: |
           task infra-undeploy

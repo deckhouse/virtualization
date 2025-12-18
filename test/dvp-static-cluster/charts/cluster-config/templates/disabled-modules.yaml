@@ -1,4 +1,4 @@
-{{- $modules := list "upmeter" "local-path-provisioner" "pod-reloader" "secret-copier" "namespace-configurator" "dashboard" "console" -}}
+{{- $modules := list "upmeter" "local-path-provisioner" "pod-reloader" "secret-copier" "namespace-configurator" "observability" "dashboard" "console" "loki" "log-shipper" -}}
 
 {{- range $modules }}
 ---

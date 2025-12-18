@@ -36,10 +36,6 @@ metadata:
   name: descheduler
 spec:
   enabled: {{ if eq $totalNodes 1 }}false{{ else }}true{{ end }}
-
-##################################################################
-## observability
-##################################################################
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -50,7 +46,6 @@ spec:
   enabled: true
   settings:
     retentionDays: 7
-    # storageClass: i-linstor-thin-r1
 ---
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
@@ -85,31 +80,6 @@ spec:
 apiVersion: deckhouse.io/v1alpha1
 kind: ModuleConfig
 metadata:
-  name: log-shipper
-spec:
-  enabled: true
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: loki
-spec:
-  settings:
-    # storageClass: i-linstor-thin-r1
-    diskSizeGigabytes: 50
-    retentionPeriodHours: 24
-    storeSystemLogs: false
-  enabled: true
-  version: 1
-
-##################################################################
-## storage
-##################################################################
-
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
   name: snapshot-controller
 spec:
   enabled: true
@@ -123,48 +93,6 @@ spec:
   imageTag: main
   rollback: false
   scanInterval: 10m0s
-
-{{ if or .Values.modules.sdsLocalVolumeEnabled .Values.modules.sdsReplicatedVolumeEnabled }}
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: sds-node-configurator
-spec:
-  version: 1
-  enabled: true
----
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: sds-node-configurator
-spec:
-  imageTag: main
-  scanInterval: 15s
-{{ end }}
-
-{{ if .Values.modules.sdsReplicatedVolumeEnabled }}
----
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: sds-replicated-volume
-spec:
-  version: 1
-  enabled: true
----
-apiVersion: deckhouse.io/v1alpha2
-kind: ModulePullOverride
-metadata:
-  name: sds-replicated-volume
-spec:
-  imageTag: main
-  scanInterval: 15s
-{{ end }}
-
-##################################################################
-## ingress
-##################################################################
 ---
 apiVersion: deckhouse.io/v1
 kind: IngressNginxController
@@ -182,10 +110,6 @@ spec:
   tolerations:
     - effect: NoSchedule
       operator: Exists
-
-##################################################################
-## rbac
-##################################################################
 ---
 apiVersion: deckhouse.io/v1
 kind: ClusterAuthorizationRule
