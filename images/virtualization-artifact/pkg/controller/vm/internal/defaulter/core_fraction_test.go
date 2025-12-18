@@ -218,7 +218,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 
 			err := coreDefaulter.Default(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
-			Expect(err.Error()).Should(ContainSubstring("default value for core fraction is not defined"))
+			Expect(err).Should(MatchError(ContainSubstring("default value for core fraction is not defined")))
 		})
 	})
 
