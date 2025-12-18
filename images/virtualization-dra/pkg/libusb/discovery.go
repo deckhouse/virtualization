@@ -33,13 +33,15 @@ func DiscoverPluggedUSBDevices() (map[string]*USBDevice, error) {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		path := filepath.Join(pathToUSBDevices, entry.Name())
+
+		if entry.Type()&os.ModeSymlink == 0 {
+			slog.Debug("Skipping non-symlink entry", slog.String("path", path), slog.String("type", entry.Type().String()))
 			continue
 		}
 
-		path := filepath.Join(pathToUSBDevices, entry.Name())
-
 		if !isUsbPath(path) {
+			slog.Debug("Skipping non-usb path", slog.String("path", path))
 			continue
 		}
 
@@ -54,6 +56,7 @@ func DiscoverPluggedUSBDevices() (map[string]*USBDevice, error) {
 			continue
 		}
 
+		slog.Debug("Discovered usb device", slog.String("path", path))
 		devices[path] = &device
 	}
 
