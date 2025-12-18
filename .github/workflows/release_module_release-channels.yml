@@ -454,7 +454,8 @@ jobs:
           # will be `success` only if all jobs in the matrix have succeeded
           CHECK_RESULT: ${{ needs.check-version-on-release-channel.result }}
         run: |
-          DATE=$(date +"%Y-%m-%d %H:%M:%S UTC")
+          export TZ=Europe/Moscow
+          DATE=$(date +"%Y-%m-%d %H:%M:%S UTC+03:00")
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
           # Determine overall status
@@ -482,18 +483,18 @@ jobs:
 
           EDITIONS_STATUS=""
           if [[ "$CE_ENABLED" == "true" ]]; then
-            EDITIONS_STATUS+="| CE | $(get_status_emoji $CE_RESULT) $CE_RESULT |\n"
+            EDITIONS_STATUS+="| CE | $(get_status_emoji $CE_RESULT) **${CE_RESULT^^}** |\n"
           fi
           if [[ "$EE_ENABLED" == "true" ]]; then
-            EDITIONS_STATUS+="| EE | $(get_status_emoji $EE_RESULT) $EE_RESULT |\n"
-            EDITIONS_STATUS+="| SE Plus | $(get_status_emoji $SE_PLUS_RESULT) $SE_PLUS_RESULT |\n"
-            EDITIONS_STATUS+="| FE | $(get_status_emoji $FE_RESULT) $FE_RESULT |\n"
+            EDITIONS_STATUS+="| EE | $(get_status_emoji $EE_RESULT) **${EE_RESULT^^}** |\n"
+            EDITIONS_STATUS+="| SE Plus | $(get_status_emoji $SE_PLUS_RESULT) **${SE_PLUS_RESULT^^}** |\n"
+            EDITIONS_STATUS+="| FE | $(get_status_emoji $FE_RESULT) **${FE_RESULT^^}** |\n"
           fi
 
           RELEASE_SUMMARY="## :dvp: **DVP | Release to ${CHANNEL} | ${TAG}**\n\n"
           RELEASE_SUMMARY+="**Status:** ${OVERALL_STATUS}\n"
           RELEASE_SUMMARY+="**Date:** ${DATE}\n"
-          RELEASE_SUMMARY+="**Workflow:** [View Run](${RUN_URL})\n\n"
+          RELEASE_SUMMARY+="[:link: GitHub Actions Output](${RUN_URL})\n\n"
 
           if [[ -n "$EDITIONS_STATUS" ]]; then
             RELEASE_SUMMARY+="### Editions\n"
