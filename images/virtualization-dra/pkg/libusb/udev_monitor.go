@@ -18,6 +18,7 @@ package libusb
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -89,12 +90,11 @@ type udevMonitor interface {
 
 // NewUdevMonitor creates a new USB monitor that uses the udev package
 func NewUdevMonitor(ctx context.Context, opts ...UdevMonitorOption) (Monitor, error) {
+	log := slog.With(slog.String("component", "udev-usb-monitor"))
 	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to discover USB devices during resync: %w", err)
 	}
-
-	log := slog.With(slog.String("component", "udev-usb-monitor"))
 
 	m := &UdevMonitor{
 		store:            NewUSBDeviceStore(devices, log),
@@ -231,7 +231,7 @@ func (m *UdevMonitor) handleDeviceUpdate(path string) {
 		return
 	}
 
-	slog.Debug("Load usb device", slog.String("path", path))
+	m.log.Debug("Load usb device", slog.String("path", path))
 
 	device, err := LoadUSBDevice(path)
 	if err != nil {
@@ -239,24 +239,56 @@ func (m *UdevMonitor) handleDeviceUpdate(path string) {
 		return
 	}
 
-	slog.Debug("Validate usb device", slog.String("path", path))
+	m.log.Debug("Validate usb device", slog.String("path", path))
 
 	if err := device.Validate(); err != nil {
 		m.log.Debug("device validation failed", slog.String("path", path), slog.String("error", err.Error()))
 		return
 	}
 
-	slog.Debug("Add usb device", slog.String("path", path))
+	m.log.Debug("Add usb device", slog.String("path", path))
 
 	m.store.AddDevice(path, &device)
 }
 
 func (m *UdevMonitor) handleDeviceRemove(path string) {
-	slog.Debug("Remove usb device", slog.String("path", path))
-	m.store.RemoveDevice(path)
+	// Small delay for sysfs to be fully populated
+	time.Sleep(50 * time.Millisecond)
+
+	// Check if path exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		m.log.Debug("Remove usb device", slog.String("path", path))
+		m.store.RemoveDevice(path)
+		return
+	}
+
+	if !isUsbPath(path) {
+		return
+	}
+
+	device, err := LoadUSBDevice(path)
+	if err != nil {
+		m.log.Debug("Remove usb device", slog.String("path", path))
+		m.log.Debug("failed to load device", slog.String("path", path), slog.String("error", err.Error()))
+		m.store.RemoveDevice(path)
+		return
+	}
+
+	if err := device.Validate(); err != nil {
+		m.log.Debug("Remove usb device", slog.String("path", path))
+		m.log.Debug("device validation failed", slog.String("path", path), slog.String("error", err.Error()))
+		m.store.RemoveDevice(path)
+		return
+	}
+
+	m.log.Debug("Add usb device", slog.String("path", path))
+
+	// update usb device
+	m.store.AddDevice(path, &device)
 }
 
 func (m *UdevMonitor) resync() {
+	m.log.Info("Resync usb devices")
 	devices, err := DiscoverPluggedUSBDevices()
 	if err != nil {
 		m.log.Error("failed to discover USB devices during resync", slog.String("error", err.Error()))

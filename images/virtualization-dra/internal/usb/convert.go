@@ -19,10 +19,12 @@ package usb
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-dra/internal/consts"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
 func (d *Device) ToAPIDevice(nodeName string) *resourcev1.Device {
@@ -77,10 +79,43 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourcev1.Device {
 				StringValue: ptr.To(usbDevice.DevicePath),
 			},
 			consts.AttrUsbAddress: {
-				StringValue: ptr.To(fmt.Sprintf("%s:%s", usbDevice.Bus, usbDevice.DeviceNumber)),
+				StringValue: ptr.To(usbAddressFromDev(&usbDevice)),
 			},
 		},
 	}
 
+	if !featuregates.Default().USBGatewayEnabled() {
+		device.NodeName = ptr.To(nodeName)
+	}
+
+	if featuregates.Default().USBNodeLocalMultiAllocationEnabled() {
+		device.BindsToNode = ptr.To(true)              // Required DRADeviceBindingConditions,DRAResourceClaimDeviceStatus
+		device.AllowMultipleAllocations = ptr.To(true) // Required DRAConsumableCapacity
+	}
+
 	return device
+}
+
+func getNodeSelector() *corev1.NodeSelector {
+	return &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      consts.USBGatewayLabel,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func usbAddressFromDev(dev *Device) string {
+	return usbAddress(dev.Bus.String(), dev.DeviceNumber.String())
+}
+
+func usbAddress(bus, deviceNumber string) string {
+	return fmt.Sprintf("%s:%s", bus, deviceNumber)
 }

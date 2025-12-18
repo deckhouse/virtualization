@@ -1,5 +1,10 @@
 {{- $priorityClassName := include "priorityClassName" . }}
 {{- $delve := (include "delve" . | fromYaml) -}}
+{{- define "virtualization-dra_init_resources" }}
+cpu: 10m
+memory: 25Mi
+{{- end }}
+
 {{- define "virtualization-dra_resources" }}
 cpu: 10m
 memory: 25Mi
@@ -22,7 +27,7 @@ spec:
     kind: DaemonSet
     name: virtualization-dra
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
     - containerName: virtualization-dra
@@ -56,14 +61,31 @@ spec:
         - name: virtualization-module-registry
       serviceAccountName: virtualization-dra
       dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
       nodeSelector:
         kubernetes.io/os: linux
-      hostNetwork: true
+      initContainers:
+        - name: virtualization-dra-init
+          image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
+          args:
+            - init
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_and_add"  (list . (list "SYS_MODULE")) | nindent 10 }}
+          resources:
+            requests:
+              {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
+              {{- include "virtualization-dra_init_resources" . | nindent 14 }}
+          volumeMounts:
+            - mountPath: /lib/modules
+              name: lib-modules
+            - mountPath: /tmp
+              name: tmp
       containers:
         - name: virtualization-dra
           {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraUsb") }}
           imagePullPolicy: "IfNotPresent"
+          args:
+            - --feature-gates=USBGateway=true,USBNodeLocalMultiAllocation=true
           env:
             - name: NAMESPACE
               valueFrom:
@@ -116,6 +138,11 @@ spec:
             - name: var-run
               mountPath: /var/run
       volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
         - name: plugins-registry
           hostPath:
             path: /var/lib/kubelet/plugins_registry

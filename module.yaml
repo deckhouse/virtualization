@@ -8,7 +8,7 @@ descriptions:
   ru: Запускает и управляет виртуальными машинами в платформе Deckhouse.
 tags: ["virtualization"]
 requirements:
-  deckhouse: ">= 1.74.2"
+  deckhouse: ">= 1.74" # TODO: FOR TEST. REVERT ME ">= 1.74.2"
   modules:
     cni-cilium: ">= 0.0.0"
 disable:
