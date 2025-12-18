@@ -9,10 +9,10 @@ import:
     to: /app/virtualization-dra-plugin
     after: install
   {{- if eq $.DEBUG_COMPONENT "delve/virtualization-dra-plugin" }}
-- image: debugger
-  add: /app/dlv
-  to: /app/dlv
-  after: install
+  - image: debugger
+    add: /app/dlv
+    to: /app/dlv
+    after: install
   {{- end }}
 imageSpec:
   config:
@@ -22,7 +22,7 @@ imageSpec:
     env:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/dlv"
       XDG_CONFIG_HOME: "/tmp"
-    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/app/virtualization-dra-plugin", "--", "--leader-election=false"]
+    entrypoint: ["/app/dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "/app/virtualization-dra-plugin", "--"]
     {{- else }}
     entrypoint: ["/app/virtualization-dra-plugin"]
     {{- end }}

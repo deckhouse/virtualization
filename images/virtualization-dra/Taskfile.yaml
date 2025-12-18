@@ -57,3 +57,15 @@ tasks:
     cmds:
       - |
         golangci-lint run
+
+
+  build:go-usbip:
+    desc: "Build go-usbip binary"
+    cmds:
+      - go build -o bin/go-usbip cmd/go-usbip/main.go
+
+  api:generate:
+    desc: "Generate API code"
+    cmds:
+      - hack/update-codegen.sh
+

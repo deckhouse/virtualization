@@ -14,23 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package main
 
 import (
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"context"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/deckhouse/virtualization-dra/cmd/usb-gateway/app"
 )
 
-const PathToUSBDevices = usb.PathToUSBDevices
+func main() {
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
-	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
-	if err != nil {
-		return nil, err
+	if err := app.NewUSBGatewayCommand().ExecuteContext(ctx); err != nil {
+		slog.Error("failed to execute command", slog.Any("err", err))
+		os.Exit(1)
 	}
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range devices {
-		usbDeviceSet.Add(toDevice(device))
-	}
-
-	return usbDeviceSet, nil
 }

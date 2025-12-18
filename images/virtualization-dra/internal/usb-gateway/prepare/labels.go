@@ -14,23 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package prepare
 
 import (
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+	"context"
+
+	"k8s.io/client-go/dynamic"
+
+	"github.com/deckhouse/virtualization-dra/internal/common"
+	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/labeler"
 )
 
-const PathToUSBDevices = usb.PathToUSBDevices
-
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
-	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
-	if err != nil {
-		return nil, err
-	}
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range devices {
-		usbDeviceSet.Add(toDevice(device))
-	}
-
-	return usbDeviceSet, nil
+func MarkNodeForUSBGateway(ctx context.Context, nodeName string, dynamicClient dynamic.Interface) error {
+	return labeler.NewNodeLabeler(dynamicClient).Label(ctx, nodeName, "", map[string]string{
+		common.USBGatewayLabel: "true",
+	})
 }

@@ -14,23 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package common
 
-import (
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
+const (
+	USBGatewayLabel = "virtualization.deckhouse.io/usb-gateway"
 )
 
-const PathToUSBDevices = usb.PathToUSBDevices
+const (
+	USBGatewayAnnotation = "virtualization.deckhouse.io/usb-gateway"
+)
 
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
-	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
-	if err != nil {
-		return nil, err
-	}
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range devices {
-		usbDeviceSet.Add(toDevice(device))
-	}
-
-	return usbDeviceSet, nil
-}
+const (
+	VirtualizationDraPluginName = "virtualization-dra"
+)
