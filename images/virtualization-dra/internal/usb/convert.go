@@ -17,16 +17,27 @@ limitations under the License.
 package usb
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/utils/ptr"
+
+	"github.com/deckhouse/virtualization-dra/internal/common"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
-func convertToAPIDevice(usbDevice Device) *resourceapi.Device {
-	return &resourceapi.Device{
-		Name: usbDevice.GetName(),
+func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
+	name := usbDevice.GetName(nodeName)
+	device := &resourceapi.Device{
+		Name: name,
 		Attributes: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
 			"name": {
-				StringValue: ptr.To(usbDevice.Name),
+				StringValue: ptr.To(name),
+			},
+			"path": {
+				StringValue: ptr.To(usbDevice.Path),
+			},
+			"busID": {
+				StringValue: ptr.To(usbDevice.BusID),
 			},
 			"manufacturer": {
 				StringValue: ptr.To(usbDevice.Manufacturer),
@@ -69,4 +80,26 @@ func convertToAPIDevice(usbDevice Device) *resourceapi.Device {
 			},
 		},
 	}
+
+	if featuregates.Default().USBGatewayEnabled() {
+		device.NodeSelector = &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{
+				{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{
+							Key:      common.USBGatewayLabel,
+							Operator: corev1.NodeSelectorOpExists,
+							Values:   []string{"true"},
+						},
+					},
+				},
+			},
+		}
+		// TODO: add support for multiple allocations
+		// device.AllowMultipleAllocations = ptr.To(true)
+	} else {
+		device.NodeName = ptr.To(nodeName)
+	}
+
+	return device
 }

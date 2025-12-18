@@ -14,23 +14,39 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+package protocol
 
-import (
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
-)
+import "bytes"
 
-const PathToUSBDevices = usb.PathToUSBDevices
+func ToDevicePath(path string) [256]byte {
+	var result [256]byte
+	writeCString(result[:], path)
+	return result
+}
 
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
-	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
-	if err != nil {
-		return nil, err
+func ToBusID(busID string) [32]byte {
+	var result [32]byte
+	writeCString(result[:], busID)
+	return result
+}
+
+func fromCString(buf []byte) string {
+	newBytes := buf[:]
+	if ib := bytes.IndexByte(newBytes, 0); ib != -1 {
+		newBytes = newBytes[:ib]
 	}
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range devices {
-		usbDeviceSet.Add(toDevice(device))
+	return string(newBytes)
+}
+
+func writeCString(dst []byte, s string) {
+	for i := range dst {
+		dst[i] = 0
 	}
 
-	return usbDeviceSet, nil
+	n := len(s)
+	if n >= len(dst) {
+		n = len(dst) - 1
+	}
+
+	copy(dst[:n], s)
 }

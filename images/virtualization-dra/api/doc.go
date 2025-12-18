@@ -14,23 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package usb
+// +k8s:deepcopy-gen=package
+// +groupName=dra.virtualization.deckhouse.io
 
-import (
-	"github.com/deckhouse/virtualization-dra/pkg/usb"
-)
-
-const PathToUSBDevices = usb.PathToUSBDevices
-
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
-	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
-	if err != nil {
-		return nil, err
-	}
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range devices {
-		usbDeviceSet.Add(toDevice(device))
-	}
-
-	return usbDeviceSet, nil
-}
+package api
