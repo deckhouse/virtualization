@@ -91,7 +91,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 			vm := newVM("vm-with-core-fraction", "any-class", 2, "25%")
 
 			err := coreDefaulter.Default(ctx, vm)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(vm.Spec.CPU.CoreFraction).Should(Equal("25%"))
 		})
 	})
