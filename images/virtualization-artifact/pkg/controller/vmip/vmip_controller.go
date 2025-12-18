@@ -56,7 +56,6 @@ func NewController(
 		internal.NewAttachedHandler(recorder, mgr.GetClient()),
 		internal.NewLifecycleHandler(recorder),
 		internal.NewProtectionHandler(),
-		internal.NewDeletionHandler(mgr.GetClient()),
 	}
 
 	r, err := NewReconciler(mgr.GetClient(), virtClient, handlers...)

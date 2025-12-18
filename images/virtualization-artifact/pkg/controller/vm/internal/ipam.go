@@ -23,11 +23,13 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -83,6 +85,11 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	if !hasDefaultNetwork(vm.Status.Networks) {
 		vm.Status.IPAddress = ""
 		vm.Status.VirtualMachineIPAddress = ""
+		if err := h.deleteManagedVMIP(ctx, s); err != nil {
+			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonIPAddressNotReady).
+				Message(fmt.Sprintf("Failed to delete VirtualMachineIPAddress: %v", err))
+			return reconcile.Result{}, err
+		}
 		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonIPAddressReady)
 		return reconcile.Result{}, nil
 	}
@@ -173,6 +180,20 @@ func hasDefaultNetwork(ns []v1alpha2.NetworksStatus) bool {
 		}
 	}
 	return false
+}
+
+func (h *IPAMHandler) deleteManagedVMIP(ctx context.Context, s state.VirtualMachineState, vm *v1alpha2.VirtualMachine) error {
+	vmip, err := s.IPAddress(ctx)
+	if err != nil {
+		return err
+	}
+	if vmip == nil || vm == nil || vmip.Labels[annotations.LabelVirtualMachineUID] != string(vm.GetUID()) {
+		return nil
+	}
+	if err := h.client.Delete(ctx, vmip); err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 func (h *IPAMHandler) Name() string {
