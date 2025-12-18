@@ -178,7 +178,7 @@ var _ = Describe("CoreFractionDefaulter", func() {
 
 			err := coreDefaulter.Default(ctx, vm)
 			Expect(err).ShouldNot(BeNil())
-			Expect(err.Error()).Should(ContainSubstring("not among the sizing policies"))
+			Expect(err).Should(MatchError(ContainSubstring("not among the sizing policies")))
 		})
 
 		It("should set default 100% when coreFractions includes 100%", func() {
