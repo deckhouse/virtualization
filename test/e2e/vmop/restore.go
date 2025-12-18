@@ -50,8 +50,6 @@ import (
 )
 
 const (
-	minimalVIURL              = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.qcow2"
-	minimalCVIURL             = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/test/test.iso"
 	vmAnnotationName          = "vmAnnotationName"
 	vmAnnotationOriginalValue = "vmAnnotationOriginalValue"
 	vmAnnotationChangedValue  = "vmAnnotationChangedValue"
@@ -270,13 +268,13 @@ func newRestoreTest(f *framework.Framework) *restoreModeTest {
 func (t *restoreModeTest) GenerateResources(restoreMode v1alpha2.SnapshotOperationMode, restartApprovalMode v1alpha2.RestartApprovalMode, runPolicy v1alpha2.RunPolicy) {
 	t.CVI = cvibuilder.New(
 		cvibuilder.WithName(fmt.Sprintf("%s-cvi", t.Framework.Namespace().Name)),
-		cvibuilder.WithDataSourceHTTP(minimalCVIURL, nil, nil),
+		cvibuilder.WithDataSourceHTTP(object.ImageURLMinimalISO, nil, nil),
 	)
 
 	t.VI = vibuilder.New(
 		vibuilder.WithName("vi"),
 		vibuilder.WithNamespace(t.Framework.Namespace().Name),
-		vibuilder.WithDataSourceHTTP(minimalVIURL, nil, nil),
+		vibuilder.WithDataSourceHTTP(object.ImageURLMinimalQCOW, nil, nil),
 		vibuilder.WithStorage(v1alpha2.StorageContainerRegistry),
 	)
 
