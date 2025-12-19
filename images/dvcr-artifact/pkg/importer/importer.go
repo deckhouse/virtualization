@@ -49,6 +49,7 @@ const (
 	DockerRegistrySchemePrefix = "docker://"
 	DVCRSource                 = "dvcr"
 	BlockDeviceSource          = "blockDevice"
+	FilesystemSource          = "filesystem"
 )
 
 func New() *Importer {
@@ -180,7 +181,7 @@ func (i *Importer) runForDataSource(ctx context.Context) error {
 	return monitoring.WriteImportCompleteMessage(res.SourceImageSize, res.VirtualSize, res.AvgSpeed, res.Format, durCollector.Collect())
 }
 
-func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterface, error) {
+func (i *Importer) newDataSource(ctx context.Context) (datasource.DataSourceInterface, error) {
 	var result datasource.DataSourceInterface
 	switch i.srcType {
 	case cc.SourceHTTP:
@@ -200,6 +201,12 @@ func (i *Importer) newDataSource(_ context.Context) (datasource.DataSourceInterf
 		result, err = datasource.NewBlockDeviceDataSource()
 		if err != nil {
 			return nil, fmt.Errorf("error creating block device data source: %w", err)
+		}
+	case FilesystemSource:
+		var err error
+		result, err = datasource.NewFilesystemDataSource(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("error creating filesystem data source: %w", err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", i.srcType)

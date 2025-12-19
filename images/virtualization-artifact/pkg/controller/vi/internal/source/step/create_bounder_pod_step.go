@@ -84,7 +84,7 @@ func (s CreateBounderPodStep) Take(ctx context.Context, vi *v1alpha2.VirtualImag
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
-	err = s.bounder.Start(ctx, ownerRef, supgen)
+	err = s.bounder.Start(ctx, ownerRef, supgen, service.WithSystemNodeToleration())
 	switch {
 	case err == nil:
 		// OK.

@@ -108,7 +108,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *v1alpha2.VirtualIm
 
 		envSettings := ds.getEnvSettings(vi, supgen)
 
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.
@@ -247,7 +247,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *v1alpha2.VirtualIma
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
 
 		envSettings := ds.getEnvSettings(vi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, vi, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.

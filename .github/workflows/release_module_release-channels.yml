@@ -19,18 +19,18 @@ env:
   MODULE_SOURCE_NAME: ${{ vars.PROD_MODULE_SOURCE_NAME }}
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
-  RELEASE_CHANNEL: ${{ github.event.inputs.version }}
+  RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
   MODULES_REGISTRY_LOGIN: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
-  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
-  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
+  SOURCE_REPO: ${{ secrets.SOURCE_REPO }}
+  SOURCE_REPO_GIT: ${{secrets.SOURCE_REPO_GIT}}
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Select version"
+      channel:
+        description: "Select channel"
         type: choice
         default: alpha
         options:
@@ -56,6 +56,24 @@ on:
         type: boolean
         default: true
         description: "Set to true if build is required"
+
+      check_only:
+        type: boolean
+        description: "Run only check version on release channel"
+        default: false
+
+      send_results_to_loop:
+        type: boolean
+        description: "Send results to Loop"
+        default: true
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.inputs.channel }}-${{ github.event.inputs.tag }}"
+  cancel-in-progress: true
 
 jobs:
   print-vars:
@@ -92,7 +110,7 @@ jobs:
     name: Edition CE
     runs-on: [self-hosted, large]
     needs: print-vars
-    if: github.event.inputs.ce == 'true'
+    if: inputs.ce && !inputs.check_only
     steps:
       - name: Setup Docker config
         run: |
@@ -127,7 +145,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -142,7 +160,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
@@ -152,7 +170,7 @@ jobs:
     name: Edition EE
     needs: print-vars
     runs-on: [self-hosted, large]
-    if: github.event.inputs.ee == 'true'
+    if: inputs.ee && !inputs.check_only
     steps:
       - name: Setup Docker config
         run: |
@@ -193,7 +211,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -208,7 +226,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
@@ -252,7 +270,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -267,7 +285,7 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
@@ -315,7 +333,7 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+      - if: ${{ inputs.enableBuild }}
         uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
@@ -330,8 +348,167 @@ jobs:
           module_source: ${{ steps.set_vars.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{ github.event.inputs.tag }}
-          release_channel: ${{ github.event.inputs.version }}
+          release_channel: ${{ github.event.inputs.channel }}
 
       - name: Cleanup Docker config
         run: |
           rm -rf $DOCKER_CONFIG
+
+  check-version-on-release-channel:
+    name: Check version on release channel
+    runs-on: ubuntu-latest
+    env:
+      GO_VERSION: "1.24.6"
+      input_channel: ${{ github.event.inputs.channel }}
+      input_version: ${{ github.event.inputs.tag }}
+    needs:
+      - job-EE
+      - job-SE-Plus
+      - job-FE
+      - job-CE
+    if: ${{ always() && ! contains(needs.*.result, 'failure') || inputs.check_only }}
+    strategy:
+      matrix:
+        check: ["registry", "releases", "documentation"]
+    steps:
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Login to PROD_REGISTRY
+        uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_READ_REGISTRY }}
+          registry_login: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check version in registry
+        if: ${{ matrix.check == 'registry' && always() }}
+        run: |
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
+          task -d tools/moduleversions check:registry
+
+      - name: Check version on site ${{ matrix.check }}
+        if: ${{ matrix.check == 'releases' && always() }}
+        env:
+          input_check_only: ${{ inputs.check_only }}
+        run: |
+          # When check_only is true, we don't want to wait 120 seconds
+          # because we just want to check the version we're interested in on the website
+          if [ $input_check_only = false]; then
+            echo "Waiting for site to update (versions are usually updated within 2 minutes)..."
+            sleep 120
+          fi
+
+          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
+          COUNT=5 \
+          task -d tools/moduleversions check:releases
+      - name: Check version on site ${{ matrix.check }}
+        if: ${{ matrix.check == 'documentation' && always() }}
+        env:
+          input_check_only: ${{ inputs.check_only }}
+        run: |
+          # When check_only is true, we don't want to wait 300 seconds
+          # because we just want to check the version we're interested in on the website
+          if [ $input_check_only = false]; then
+            echo "Waiting for site to update (versions are usually updated within 5 minutes)..."
+            sleep 300
+          fi
+
+          echo "Test that version deployed on site, retrying 5 times with delay of 60 seconds"
+          CHANNEL=$input_channel \
+          VERSION=$input_version \
+          COUNT=5 \
+          task -d tools/moduleversions check:docs
+
+  send-release-results-to-loop:
+    name: Send release results to Loop
+    runs-on: ubuntu-latest
+    needs:
+      - job-CE
+      - job-EE
+      - job-SE-Plus
+      - job-FE
+      - check-version-on-release-channel
+    if: ${{ always() && inputs.send_results_to_loop }}
+    steps:
+      - name: Send results to Loop
+        env:
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
+          TAG: ${{ github.event.inputs.tag }}
+          CHANNEL: ${{ github.event.inputs.channel }}
+          CE_ENABLED: ${{ inputs.ce }}
+          EE_ENABLED: ${{ inputs.ee }}
+          CE_RESULT: ${{ needs.job-CE.result }}
+          EE_RESULT: ${{ needs.job-EE.result }}
+          SE_PLUS_RESULT: ${{ needs.job-SE-Plus.result }}
+          FE_RESULT: ${{ needs.job-FE.result }}
+          # will be `success` only if all jobs in the matrix have succeeded
+          CHECK_RESULT: ${{ needs.check-version-on-release-channel.result }}
+        run: |
+          export TZ=Europe/Moscow
+          DATE=$(date +"%Y-%m-%d %H:%M:%S UTC+03:00")
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Determine overall status
+          OVERALL_STATUS=":white_check_mark: **SUCCESS!**"
+          if [[ "$CE_RESULT" == "failure" ]] || [[ "$EE_RESULT" == "failure" ]] || \
+             [[ "$SE_PLUS_RESULT" == "failure" ]] || [[ "$FE_RESULT" == "failure" ]] || \
+             [[ "$CHECK_RESULT" == "failure" ]]; then
+            OVERALL_STATUS=":x: **FAILED!**"
+          elif [[ "$CE_RESULT" == "cancelled" ]] || [[ "$EE_RESULT" == "cancelled" ]] || \
+               [[ "$SE_PLUS_RESULT" == "cancelled" ]] || [[ "$FE_RESULT" == "cancelled" ]] || \
+               [[ "$CHECK_RESULT" == "cancelled" ]]; then
+            OVERALL_STATUS=":warning: **CANCELLED!**"
+          fi
+
+          # Build editions status
+          get_status_emoji() {
+            case "$1" in
+              success) echo ":white_check_mark:" ;;
+              failure) echo ":x:" ;;
+              cancelled) echo ":warning:" ;;
+              skipped) echo ":fast_forward:" ;;
+              *) echo ":grey_question:" ;;
+            esac
+          }
+
+          EDITIONS_STATUS=""
+          if [[ "$CE_ENABLED" == "true" ]]; then
+            EDITIONS_STATUS+="| CE | $(get_status_emoji $CE_RESULT) **${CE_RESULT^^}** |\n"
+          fi
+          if [[ "$EE_ENABLED" == "true" ]]; then
+            EDITIONS_STATUS+="| EE | $(get_status_emoji $EE_RESULT) **${EE_RESULT^^}** |\n"
+            EDITIONS_STATUS+="| SE Plus | $(get_status_emoji $SE_PLUS_RESULT) **${SE_PLUS_RESULT^^}** |\n"
+            EDITIONS_STATUS+="| FE | $(get_status_emoji $FE_RESULT) **${FE_RESULT^^}** |\n"
+          fi
+
+          RELEASE_SUMMARY="## :dvp: **DVP | Release ${TAG} to ${CHANNEL}**\n\n"
+          RELEASE_SUMMARY+="**Status:** ${OVERALL_STATUS}\n"
+          RELEASE_SUMMARY+="**Date:** ${DATE}\n\n"
+
+          if [[ -n "$EDITIONS_STATUS" ]]; then
+            RELEASE_SUMMARY+="| Edition | Status |\n"
+            RELEASE_SUMMARY+="|---|---|\n"
+            RELEASE_SUMMARY+="${EDITIONS_STATUS}"
+            RELEASE_SUMMARY+="\n"
+          fi
+
+          RELEASE_SUMMARY+="**Version Check:** $(get_status_emoji $CHECK_RESULT) **${CHECK_RESULT^^}**\n"
+          RELEASE_SUMMARY+="[:link: GitHub Actions Output](${RUN_URL})\n\n"
+
+          echo -e "$RELEASE_SUMMARY"
+          curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${RELEASE_SUMMARY}\"}" $LOOP_WEBHOOK_URL

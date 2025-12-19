@@ -79,6 +79,12 @@ const (
 	ImportProxyNoProxy = "no_proxy"
 	// ImporterProxyCertDirVar provides a constant to capture our env variable "IMPORTER_PROXY_CERT_DIR"
 	ImporterProxyCertDirVar = "IMPORTER_PROXY_CERT_DIR"
+	// ImporterFilesystemVar provides a constant to capture our env variable "IMPORTER_FILESYSTEM"
+	ImporterFilesystemVar = "IMPORTER_FILESYSTEM"
+	// ImporterFilesystemDir provides a constant to capture our env variable "IMPORTER_FILESYSTEM_DIR"
+	ImporterFilesystemDir = "/tmp/fs"
+	// ImporterBlockDeviceDir provides a constant to capture our directory for block device
+	ImporterBlockDeviceDir = "/dev/xvda"
 
 	// ImporterDestinationAuthConfigDir is a mount directory for auth Secret.
 	ImporterDestinationAuthConfigDir = "/dvcr-auth"

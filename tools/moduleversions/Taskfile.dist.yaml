@@ -1,0 +1,99 @@
+version: "3"
+
+vars:
+  PROD_REGISTRY: registry.deckhouse.io/deckhouse
+  CHANNEL: '{{ .CHANNEL | default "alpha" }}'
+  VERSION: "{{ .VERSION }}"
+
+tasks:
+  go:download:
+    desc: "Go mod tidy"
+    silent: true
+    cmds:
+      - go mod download
+
+  check:releases:
+    desc: "Check version on release site (https://releases.deckhouse.io/ee/modules/virtualization)"
+    vars:
+      COUNT: "{{ .COUNT | default 5 }}"
+    deps:
+      - task: go:download
+    cmds:
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --attempt {{.COUNT}} --check-releases
+
+  check:docs:
+    desc: "Check version on documentation site (https://deckhouse.ru/modules/virtualization/stable/)"
+    vars:
+      COUNT: "{{ .COUNT | default 5 }}"
+    deps:
+      - task: go:download
+    cmds:
+      - go run ./main.go moduleversions --channel {{.CHANNEL}} --version {{.VERSION}} --attempt {{.COUNT}} --check-docs
+
+  check:registry:
+    desc: "Check version in the registry"
+    vars:
+      VERSION: "{{ .VERSION }}"
+      CHANNEL: "{{ .CHANNEL }}"
+    cmds:
+      - |
+        if [[ -z "{{ .VERSION }}" ]] && [[ -z "{{ .CHANNEL }}" ]]; then
+          echo "TAG and CHANNEL are required"
+          exit 1
+        fi
+
+        EDITIONS=("ee" "fe" "ce" "se-plus")
+        PROD_REGISTRY="registry.deckhouse.io/deckhouse"
+
+        for EDITION in ${EDITIONS[@]}; do
+          echo "Check version on $EDITION"
+          getVersion=$(crane export "$PROD_REGISTRY/$EDITION/modules/virtualization/release:{{ .CHANNEL }}" - | tar -Oxf - version.json | jq '.version' -r)
+          
+          if [[ "$getVersion" != "{{ .VERSION }}" ]]; then
+            echo "Version is not valid in $EDITION and channel {{ .CHANNEL }}"
+            echo "Expected version: {{ .VERSION }} but got $getVersion"
+            exit 1
+          else
+            echo "Version {{ .VERSION }} is valid in $EDITION and channel {{ .CHANNEL }}"
+          fi
+        done
+
+  crane:version:
+    desc: "Get version from release image"
+    vars:
+      LICENSE: "{{ .LICENSE }}"
+      REGISTRY:
+        sh: |
+          base64 -d <<< "{{.LICENSE}}" | jq '.auths | to_entries | .[] | .key' -r
+      USERNAME:
+        sh: |
+          creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+          echo $creds | base64 -d | cut -d ':' -f1
+      PASSWORD:
+        sh: |
+          creds=$(base64 -d <<< {{ .LICENSE }} | jq '.auths | to_entries | .[] | .value.auth' -r)
+          echo $creds | base64 -d | cut -d ':' -f2
+    cmds:
+      - |
+        # Check if already logged in by inspecting Docker config
+        if ! jq -e --arg reg "{{.REGISTRY}}" '.auths | has($reg)' ~/.docker/config.json > /dev/null 2>&1; then
+          echo "Not logged in to {{.REGISTRY}}. Authenticating via crane..."
+          echo "{{.PASSWORD}}" | crane auth login {{.REGISTRY}} -u {{.USERNAME}} --password-stdin
+        else
+          echo "Already authenticated to {{.REGISTRY}}"
+        fi
+      - |
+        # "se-plus" may not be accessable via lic, so skip it
+        EDITIONS=("ee" "fe" "ce")
+        PROD_REGISTRY={{ .PROD_REGISTRY }}
+
+        for EDITION in ${EDITIONS[@]}; do
+          echo "Check version on $EDITION"
+          getVersion=$(crane export $PROD_REGISTRY/$EDITION/modules/virtualization/release:{{ .CHANNEL }} - | tar -Oxf - version.json | jq '.version' -r)
+          
+          if [[ "$getVersion" != "{{ .VERSION }}" ]]; then
+            echo "Version is not valid in $EDITION and channel {{ .CHANNEL }}"
+            echo "Expected version: {{ .VERSION }} but got $getVersion"
+            exit 1
+          fi
+        done

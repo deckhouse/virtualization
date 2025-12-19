@@ -128,6 +128,7 @@ var _ = Describe("VirtualMachineMigration", func() {
 			util.UntilVMMigrationSucceeded(crclient.ObjectKeyFromObject(vmUEFI), framework.LongTimeout)
 		})
 
+		// There is a known issue with the Cilium agent check.
 		By("Check Cilium agents are properly configured for the VM", func() {
 			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), vmBIOS.Name, f.Namespace().Name)
 			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", vmBIOS.Name)
