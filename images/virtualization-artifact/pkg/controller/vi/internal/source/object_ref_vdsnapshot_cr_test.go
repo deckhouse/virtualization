@@ -57,6 +57,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 		ctx         context.Context
 		scheme      *runtime.Scheme
 		vi          *v1alpha2.VirtualImage
+		vd          *v1alpha2.VirtualDisk
 		vs          *vsv1.VolumeSnapshot
 		sc          *storagev1.StorageClass
 		vdSnapshot  *v1alpha2.VirtualDiskSnapshot
@@ -142,7 +143,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				Name: "vd-snapshot",
 				UID:  "11111111-1111-1111-1111-111111111111",
 			},
-			Spec: v1alpha2.VirtualDiskSnapshotSpec{},
+			Spec: v1alpha2.VirtualDiskSnapshotSpec{VirtualDiskName: "vd"},
 			Status: v1alpha2.VirtualDiskSnapshotStatus{
 				Phase:              v1alpha2.VirtualDiskSnapshotPhaseReady,
 				VolumeSnapshotName: vs.Name,
@@ -185,6 +186,18 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				Name: supgen.ImporterPod().Name,
 			},
 		}
+
+		vd = &v1alpha2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "vd",
+				UID:  "11111111-1111-1111-1111-111111111111",
+			},
+			Status: v1alpha2.VirtualDiskStatus{
+				Target: v1alpha2.DiskTarget{
+					PersistentVolumeClaim: pvc.Name,
+				},
+			},
+		}
 	})
 
 	Context("VirtualImage has just been created", func() {
@@ -195,7 +208,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			importer.GetPodSettingsWithPVCFunc = func(_ *metav1.OwnerReference, _ supplements.Generator, _, _ string) *importer2.PodSettings {
 				return nil
 			}
-			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings) error {
+			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importer2.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer2.PodSettings, _ ...service.Option) error {
 				podCreated = true
 				return nil
 			}
@@ -208,7 +221,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			}
 
 			vi.Status = v1alpha2.VirtualImageStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs, vd, pvc).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						switch obj.(type) {
@@ -321,6 +334,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 })
 
 func ExpectCondition(vi *v1alpha2.VirtualImage, status metav1.ConditionStatus, reason vicondition.ReadyReason, msgExists bool) {
+	GinkgoHelper()
 	ready, _ := conditions.GetCondition(vicondition.Ready, vi.Status.Conditions)
 	Expect(ready.Status).To(Equal(status))
 	Expect(ready.Reason).To(Equal(reason.String()))

@@ -26,7 +26,7 @@ const (
 	MetricVMOPStatusPhase = "virtualmachineoperation_status_phase"
 )
 
-var baseLabels = []string{"name", "namespace", "uid"}
+var baseLabels = []string{"name", "namespace", "uid", "type"}
 
 func WithBaseLabels(labels ...string) []string {
 	return append(baseLabels, labels...)
@@ -39,6 +39,7 @@ func WithBaseLabelsByMetric(m *dataMetric, labels ...string) []string {
 			m.Name,
 			m.Namespace,
 			m.UID,
+			m.Type,
 		}
 	}
 	return append(base, labels...)

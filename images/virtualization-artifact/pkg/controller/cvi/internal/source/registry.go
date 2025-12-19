@@ -126,7 +126,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *v1alpha2.ClusterVirt
 		cvi.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
-		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource))
+		err = ds.importerService.Start(ctx, envSettings, cvi, supgen, datasource.NewCABundleForCVMI(cvi.Spec.DataSource), service.WithSystemNodeToleration())
 		switch {
 		case err == nil:
 			// OK.

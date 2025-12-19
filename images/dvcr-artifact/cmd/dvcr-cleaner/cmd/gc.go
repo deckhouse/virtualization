@@ -58,6 +58,8 @@ var gcRunCmd = &cobra.Command{
 			return nil
 		}
 
+		// This directory contains data from virtual disks in the `provisioning` phase.
+		// GC can safely run for virtual disks if there are no disks in the `provisioning` phase.
 		vdCachePath := fmt.Sprintf("%s/vd", RepoDir)
 		err = os.RemoveAll(vdCachePath)
 		if err != nil {

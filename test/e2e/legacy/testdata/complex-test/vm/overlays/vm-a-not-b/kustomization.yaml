@@ -7,6 +7,7 @@ patches:
   - path: vm.affinity.patch.yaml
   - path: vm.tolerations.patch.yaml
   - path: vm.vmclass.patch.yaml
+  - path: vm.liveMigrationPolicy.patch.yaml
 labels:
   - includeSelectors: true
     pairs:

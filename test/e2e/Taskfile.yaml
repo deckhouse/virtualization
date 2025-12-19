@@ -50,8 +50,10 @@ tasks:
     cmds:
       - |
         go tool ginkgo -v \
-          --label-filter="!Slow" \
           --race \
+          {{if not .FOCUS -}}
+          --label-filter="!Slow" \
+          {{end -}}
           {{if .LABELS -}}
           --label-filter="{{ .LABELS }}" \
           {{end -}}

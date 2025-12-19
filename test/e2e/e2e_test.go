@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/legacy"
 	_ "github.com/deckhouse/virtualization/test/e2e/snapshot"
 	_ "github.com/deckhouse/virtualization/test/e2e/vm"
+	_ "github.com/deckhouse/virtualization/test/e2e/vmop"
 )
 
 func TestE2E(t *testing.T) {

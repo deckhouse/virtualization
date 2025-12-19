@@ -136,6 +136,7 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", Ordered, func() {
 			vms := strings.Split(res.StdOut(), " ")
 			Expect(vms).NotTo(BeEmpty())
 
+			// There is a known issue with the Cilium agent check.
 			CheckCiliumAgents(kubectl, ns, vms...)
 			CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 		})
