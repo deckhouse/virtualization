@@ -130,27 +130,29 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
-	lister := gc.NewObjectLister(func(ctx context.Context, now time.Time) ([]client.Object, error) {
-		cviList := &v1alpha2.ClusterVirtualImageList{}
-		fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldCVIByPhase, indexer.ReadyDVCRImage)
-		if err := mgr.GetClient().List(ctx, cviList, &client.ListOptions{FieldSelector: fieldSelector}); err != nil {
-			return nil, err
+	if r.imageMonitorSchedule != "" {
+		lister := gc.NewObjectLister(func(ctx context.Context, now time.Time) ([]client.Object, error) {
+			cviList := &v1alpha2.ClusterVirtualImageList{}
+			fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldCVIByPhase, indexer.ReadyDVCRImage)
+			if err := mgr.GetClient().List(ctx, cviList, &client.ListOptions{FieldSelector: fieldSelector}); err != nil {
+				return nil, err
+			}
+
+			objs := make([]client.Object, 0, len(cviList.Items))
+			for i := range cviList.Items {
+				objs = append(objs, &cviList.Items[i])
+			}
+			return objs, nil
+		})
+
+		cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, lister, r.log)
+		if err != nil {
+			return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
 		}
 
-		objs := make([]client.Object, 0, len(cviList.Items))
-		for i := range cviList.Items {
-			objs = append(objs, &cviList.Items[i])
+		if err := ctr.Watch(cronSource); err != nil {
+			return fmt.Errorf("failed to setup periodic image check: %w", err)
 		}
-		return objs, nil
-	})
-
-	cronSource, err := gc.NewCronSource(r.imageMonitorSchedule, lister, r.log)
-	if err != nil {
-		return fmt.Errorf("failed to create cron source for image monitoring: %w", err)
-	}
-
-	if err := ctr.Watch(cronSource); err != nil {
-		return fmt.Errorf("failed to setup periodic image check: %w", err)
 	}
 
 	return nil
