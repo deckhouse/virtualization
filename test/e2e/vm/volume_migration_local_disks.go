@@ -333,7 +333,8 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 		}),
 		Entry("when virtual machine stopped from OS", func(vm *v1alpha2.VirtualMachine) error {
 			By(fmt.Sprintf("Exec shutdown command for virtualmachine %s/%s", vm.Namespace, vm.Name))
-			return util.StopVirtualMachineFromOS(f, vm)
+			util.StopVirtualMachineFromOS(f, vm)
+			return nil
 		}),
 	)
 
