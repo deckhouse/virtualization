@@ -491,10 +491,9 @@ jobs:
             EDITIONS_STATUS+="| FE | $(get_status_emoji $FE_RESULT) **${FE_RESULT^^}** |\n"
           fi
 
-          RELEASE_SUMMARY="## :dvp: **DVP | Release to ${CHANNEL} | ${TAG}**\n\n"
+          RELEASE_SUMMARY="## :dvp: **DVP | Release ${TAG} to ${CHANNEL}**\n\n"
           RELEASE_SUMMARY+="**Status:** ${OVERALL_STATUS}\n"
           RELEASE_SUMMARY+="**Date:** ${DATE}\n"
-          RELEASE_SUMMARY+="[:link: GitHub Actions Output](${RUN_URL})\n\n"
 
           if [[ -n "$EDITIONS_STATUS" ]]; then
             RELEASE_SUMMARY+="### Editions\n"
@@ -505,6 +504,7 @@ jobs:
           fi
 
           RELEASE_SUMMARY+="**Version Check:** $(get_status_emoji $CHECK_RESULT) **${CHECK_RESULT^^}**\n"
+          RELEASE_SUMMARY+="[:link: GitHub Actions Output](${RUN_URL})\n\n"
 
           echo -e "$RELEASE_SUMMARY"
           curl --request POST --header 'Content-Type: application/json' --data "{\"text\": \"${RELEASE_SUMMARY}\"}" $LOOP_WEBHOOK_URL
