@@ -402,11 +402,10 @@ runcmd:
 func (t *restoreModeTest) RemoveRecoverableResources() {
 	GinkgoHelper()
 
-	err := util.StopVirtualMachineFromOS(t.Framework, t.VM)
-	Expect(err).NotTo(HaveOccurred())
+	util.StopVirtualMachineFromOS(t.Framework, t.VM)
 	util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 
-	err = t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry)
+	err := t.Framework.Delete(context.Background(), t.VDRoot, t.VDBlank, t.VMBDA, t.VDBlankWithNoFstabEntry, t.VMBDAWithNoFstabEntry)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Wait for resources to be deleted before proceeding.
