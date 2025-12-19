@@ -501,7 +501,6 @@ jobs:
           RELEASE_SUMMARY+="**Date:** ${DATE}\n"
 
           if [[ -n "$EDITIONS_STATUS" ]]; then
-            RELEASE_SUMMARY+="### Editions\n"
             RELEASE_SUMMARY+="| Edition | Status |\n"
             RELEASE_SUMMARY+="|---|---|\n"
             RELEASE_SUMMARY+="${EDITIONS_STATUS}"
