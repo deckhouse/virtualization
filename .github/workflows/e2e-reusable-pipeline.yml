@@ -505,7 +505,7 @@ jobs:
             kubectl get ns | grep sds-replicated-volume || echo "Namespaces sds-replicated-volume are not ready"
             
             if (( i % 5 == 0 )); then
-              d8 p queue list | head -n25 || echo "No queues"
+              d8 s queue list | head -n25 || echo "No queues"
             fi
             sleep 10
           done
@@ -521,7 +521,7 @@ jobs:
               break
             fi
             echo "Wait 10 sec until blockdevices is greater or equal to $workers [${i}/${count}]"
-            d8 p queue list | head -n25 || echo "No queues"
+            d8 s queue list | head -n25 || echo "No queues"
             sleep 10
           done
 
@@ -534,7 +534,7 @@ jobs:
             echo "Show cluster nodes"
             kubectl get nodes
             echo "Show deckhouse logs"
-            d8 p logs | tail -n 100
+            d8 s logs | tail -n 100
             exit 1
           fi
 
@@ -556,7 +556,7 @@ jobs:
               echo "[DEBUG] Get pods"
               kubectl -n d8-sds-replicated-volume get pods || true
               echo "[DEBUG] Show queue (first 25 lines)"
-              d8 p queue list | head -n 25 || echo "Failed to retrieve list queue"
+              d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
             fi
           done
 
@@ -574,7 +574,7 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
         run: |
           d8_queue_list() {
-            d8 p queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
           }
 
           d8_queue() {
@@ -587,7 +587,7 @@ jobs:
                 list_queue_ready=true
               else
                 echo "Show queue list"
-                d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
+                d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
               fi
 
               if [[ "$list_queue_ready" = true ]]; then
@@ -635,7 +635,7 @@ jobs:
               echo "Show all ns"
               kubectl get ns
               echo "====="
-              d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
+              d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
             fi
             sleep 10
           done
@@ -674,7 +674,7 @@ jobs:
               echo "[DEBUG] Show ceph in resource modules"
               kubectl get modules  -o wide | grep ceph || echo "Failed to retrieve modules"
               echo "[DEBUG] Show queue"
-              d8 p queue list | head -n 25 || echo "Failed to retrieve list queue"
+              d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
             fi
             echo "[INFO] Wait until all necessary pods are ready ${i}/60"
             sleep 10
@@ -755,63 +755,75 @@ jobs:
       - name: Wait for Virtualization to be ready
         run: |
           d8_queue_list() {
-            d8 p queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
           }
 
           d8_queue() {
             local count=90
-            local list_queue_ready=false
+            local queue_ready=false
 
             for i in $(seq 1 $count) ; do
               if [ $(d8_queue_list) == "0" ]; then
                 echo "Queue list is clear"
-                list_queue_ready=true
+                queue_ready=true
               else
                 echo "Show queue list"
-                d8 p queue list | head -n25 || echo "Failed to retrieve list queue"
+                d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
               fi
 
-              if [ "$list_queue_ready" = true ]; then
+              if [ "$queue_ready" = true ]; then
                 break
               fi
-              echo "===="
-              echo "Wait until queues are empty ${i}/${count}"
-              echo "===="
-              kubectl -n d8-virtualization get pods || echo "ns virtualization is not ready"
-              echo "   "
+              
+              echo " "
+              echo "[INFO] Wait until queues are empty ${i}/${count}"
               if (( i % 5 == 0 )); then
-                 d8 p logs | tail -n 100
-                 echo "====="
+                 d8 s logs | tail -n 100
+                 echo " "
               fi
-
               sleep 10
             done
           }
-          echo "Waiting for Virtualization module to be ready"
-          if [ "$(kubectl get mc virtualization -o jsonpath='{.spec.enabled}')" != "true" ]; then
-            echo "Virtualization module is not enabled"
-            echo "Enabling virtualization module"
-            kubectl patch mc virtualization -p '{"spec":{"enabled": true}}' --type merge
-          fi
+          
+          virttualization_ready() {
+            local count=60
+            local virtualization_status
 
+            for i in $(seq 1 $count) ; do
+              virtualization_status=$(kubectl get modules virtualization -o jsonpath='{.status.phase}')
+              if [ "$virtualization_status" == "Ready" ]; then
+                echo "Virtualization module is ready"
+                kubectl get modules virtualization
+                kubectl -n d8-virtualization get pods
+                echo "[SUCESS] Virtualization module is ready"
+                break
+              fi
+              echo " "
+              echo "[INFO] Waiting 10s for Virtualization module to be ready (attempt $i/$count)"
+              if (( i % 5 == 0 )); then
+                kubectl describe modules virtualization || echo "Module virtualization is not ready"
+                kubectl get ns d8-virtualization || echo "Namespace virtualization is not ready"
+                kubectl -n d8-virtualization get pods || echo "Pods in namespace virtualization is not ready"
+              fi
+              sleep 10
+            done
+            echo "[ERROR] Virtualization module deploy failed"
+            echo "[DEBUG] Show describe virtualization module"
+            kubectl describe modules virtualization || true
+            echo "[DEBUG] Check namespace d8-virtualization"
+            kubectl get ns d8-virtualization || true
+            echo "[DEBUG] Check pods in namespace d8-virtualization"
+            kubectl -n d8-virtualization get pods || true
+            echo "[DEBUG] Show deckhouse logs"
+            d8 s logs | tail -n 100
+            exit 1
+          }
+
+          echo " "
+          echo "[INFO] Waiting for Virtualization module to be ready"
           d8_queue
-
-          for i in {1..60}; do
-            virtualization_status=$(kubectl get modules virtualization -o jsonpath='{.status.phase}')
-            if [ "$virtualization_status" == "Ready" ]; then
-              echo "Virtualization module is ready"
-              kubectl get modules virtualization
-              kubectl -n d8-virtualization get pods
-              break
-            fi
-            echo "Waiting 10s for Virtualization module to be ready"
-            kubectl get modules virtualization
-            if (( i % 5 == 0 )); then
-              kubectl get ns d8-virtualization || echo "ns virtualization is not ready"
-              kubectl -n d8-virtualization get pods || echo "ns virtualization is not ready"
-            fi
-            sleep 10
-          done
+          
+          virttualization_ready
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04

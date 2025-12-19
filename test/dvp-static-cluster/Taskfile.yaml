@@ -152,7 +152,7 @@ tasks:
       start_time:
         sh: date +%s
       JUMPHOST_EXT_IP:
-        sh: kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
+        sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
       JUMPHOST_NODEPORT:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
       MASTER_NODE_IP:
@@ -186,7 +186,7 @@ tasks:
       PASSWORD:
         sh: cat {{ .PASSWORD_FILE }}
       JUMPHOST_EXT_IP:
-        sh: kubectl -n {{ .NAMESPACE }} exec -it deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
+        sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
       JUMPHOST_NODEPORT:
         sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
       MASTER_NODE_NAME:
