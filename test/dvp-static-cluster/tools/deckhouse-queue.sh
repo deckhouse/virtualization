@@ -56,12 +56,10 @@ log_error() {
 
 kubectl() {
   /opt/deckhouse/bin/kubectl $@
-  # sudo /opt/deckhouse/bin/kubectl $@
 }
 
 d8() {
   /opt/deckhouse/bin/d8 $@
-  # sudo /opt/deckhouse/bin/d8 $@
 }
 
 
@@ -75,31 +73,16 @@ d8_queue_list() {
 
 d8_queue() {
   local count=90
-  # local main_queue_ready=false
-  local list_queue_ready=false
 
   for i in $(seq 1 $count) ; do
-    # if [ $(d8_queue_main) == "0" ]; then
-    #   echo "main queue is clear"
-    #   main_queue_ready=true
-    # else
-    #   echo "Show main queue"
-    #   d8 p queue main | head -n25 || echo "Failed to retrieve main queue"
-    # fi
-
     if [ $(d8_queue_list) == "0" ]; then
-      echo "list queue list is clear"
-      list_queue_ready=true
+      log_success "Queue is clear"
+      break
     else
-      echo "Show queue list"
+      log_info "Show queue first 25 lines"
       d8 p queue list | head -n25 || echo "Failed to retrieve queue"
     fi
-
-    if [ "$list_queue_ready" = true ]; then
-    # if [ "$main_queue_ready" = true ] && [ "$list_queue_ready" = true ]; then
-      break
-    fi
-    echo "Wait until queues are empty ${i}/${count}"
+    log_info "Wait until queues are empty ${i}/${count}"
     sleep 10
   done
 }
@@ -125,7 +108,7 @@ d8_ready() {
 
   if [ "$ready" = true ]; then
     log_success "Deckhouse is Ready!"
-    echo "Checking queues"
+    log_info "Checking queues"
     d8_queue
   else
     common_end_time=$(get_timestamp)
