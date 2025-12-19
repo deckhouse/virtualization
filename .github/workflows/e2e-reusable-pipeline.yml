@@ -40,6 +40,16 @@ on:
         type: string
         default: "main"
         description: "Deckhouse tag"
+      pod_subnet_cidr:
+        required: false
+        type: string
+        default: "10.88.0.0/16"
+        description: "Pod subnet CIDR"
+      service_subnet_cidr:
+        required: false
+        type: string
+        default: "10.99.0.0/16"
+        description: "Service subnet CIDR"
       default_user:
         required: false
         type: string
@@ -154,6 +164,8 @@ jobs:
           storageClass: ${defaultStorageClass}
           sa: dkp-sa
           deckhouse:
+            podSubnetCIDR: ${{ inputs.pod_subnet_cidr }}
+            serviceSubnetCIDR: ${{ inputs.service_subnet_cidr }}
             tag: ${{ env.DECKHOUSE_TAG }}
             kubernetesVersion: Automatic
             registryDockerCfg: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}

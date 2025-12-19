@@ -40,6 +40,8 @@ jobs:
       branch: main
       virtualization_tag: main
       deckhouse_tag: main
+      pod_subnet_cidr: 10.88.0.0/16
+      service_subnet_cidr: 10.92.0.0/16
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3h"
@@ -58,6 +60,8 @@ jobs:
       branch: main
       virtualization_tag: main
       deckhouse_tag: main
+      pod_subnet_cidr: 10.89.0.0/16
+      service_subnet_cidr: 10.93.0.0/16
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3h"
