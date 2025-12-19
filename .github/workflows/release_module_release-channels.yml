@@ -498,7 +498,7 @@ jobs:
 
           RELEASE_SUMMARY="## :dvp: **DVP | Release ${TAG} to ${CHANNEL}**\n\n"
           RELEASE_SUMMARY+="**Status:** ${OVERALL_STATUS}\n"
-          RELEASE_SUMMARY+="**Date:** ${DATE}\n"
+          RELEASE_SUMMARY+="**Date:** ${DATE}\n\n"
 
           if [[ -n "$EDITIONS_STATUS" ]]; then
             RELEASE_SUMMARY+="| Edition | Status |\n"
