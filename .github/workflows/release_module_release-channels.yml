@@ -62,6 +62,11 @@ on:
         description: "Run only check version on release channel"
         default: false
 
+      send_results_to_loop:
+        type: boolean
+        description: "Send results to Loop"
+        default: true
+
 defaults:
   run:
     shell: bash
@@ -438,7 +443,7 @@ jobs:
       - job-SE-Plus
       - job-FE
       - check-version-on-release-channel
-    if: ${{ always() }}
+    if: ${{ always() && inputs.send_results_to_loop }}
     steps:
       - name: Send results to Loop
         env:
