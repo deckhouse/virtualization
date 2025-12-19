@@ -308,70 +308,34 @@ jobs:
             -c "$cmd"
           }
 
-          echo "Copy script for generating kubeconfig in nested cluster"
-          echo "Copy nested-sa-config/gen-sa.sh to master"
-          d8vscp "./nested-sa-config/gen-sa.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/gen-sa.sh"
+          echo "[INFO] Copy script for generating kubeconfig in nested cluster"
+          echo "[INFO] Copy tools/gen-kubeconfig.sh to master"
+          d8vscp "./tools/gen-kubeconfig.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/gen-kubeconfig.sh"
           echo ""
           d8vscp "./tools/deckhouse-queue.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
           echo ""
 
-          echo "Set file exec permissions"
-          d8vssh 'chmod +x /tmp/{gen-sa.sh,deckhouse-queue.sh}'
+          echo "[INFO] Set file exec permissions"
+          d8vssh 'chmod +x /tmp/{gen-kubeconfig.sh,deckhouse-queue.sh}'
           d8vssh 'ls -la /tmp/'
-          echo "Check d8 queue"
+          echo "[INFO] Check d8 queue in nested cluster"
           d8vssh 'sudo /tmp/deckhouse-queue.sh'
 
-          # d8 v ssh -i ./tmp/ssh/cloud \
-          #   --local-ssh=true \
-          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
-          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-          #   ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-          #   -c 'chmod +x /tmp/{gen-sa.sh,deckhouse-queue.sh}'
-          # echo ""
-
-          # d8 v ssh -i ./tmp/ssh/cloud  \
-          #   --local-ssh=true \
-          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
-          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-          #   ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-          #   -c 'ls -la /tmp/'
-          # echo "==="
-
-          # echo "Check d8 queue"
-          # d8 v ssh -i ./tmp/ssh/cloud  \
-          #   --local-ssh=true \
-          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
-          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-          #   ${DEFAULT_USER}@${nested_master}.${NAMESPACE} \
-          #   -c 'sudo /tmp/deckhouse-queue.sh'
-
-          echo "Generate kube conf in nested cluster"
-          echo "run nested-sa-config/gen-sa.sh"
-
-          # "Usage: gen-sa.sh <SA_NAME> <CLUSTER_PREFIX> <CLUSTER_NAME> [FILE_NAME]"
-          echo "==="
-          # d8 v ssh -i ./tmp/ssh/cloud \
-          #   --local-ssh=true \
-          #   --local-ssh-opts="-o StrictHostKeyChecking=no" \
-          #   --local-ssh-opts="-o UserKnownHostsFile=/dev/null" \
-          #   ${DEFAULT_USER}@${nested_master}.$NAMESPACE \
-          #   -c "sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}"
-
-          d8vssh "sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}"
-
-          echo "'sudo /tmp/gen-sa.sh nested-sa nested nested-e2e /${kubeConfigPath}' - done"
+          echo "[INFO] Generate kube conf in nested cluster"
+          echo "[INFO] Run gen-kubeconfig.sh in nested cluster"
+          d8vssh "sudo /tmp/gen-kubeconfig.sh nested-sa nested nested-e2e /${kubeConfigPath}"
           echo ""
 
-          echo "Copy kubeconfig to runner"
-          echo "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath} ./${kubeConfigPath}"
+          echo "[INFO] Copy kubeconfig to runner"
+          echo "[INFO] ${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath} ./${kubeConfigPath}"
           d8vscp "${DEFAULT_USER}@${nested_master}.$NAMESPACE:/${kubeConfigPath}" "./${kubeConfigPath}"
 
-          echo "=== Set rights for kubeconfig ==="
-          echo "sudo chown 1001:1001 ${kubeConfigPath}"
+          echo "[INFO] Set rights for kubeconfig"
+          echo "[INFO] sudo chown 1001:1001 ${kubeConfigPath}"
           sudo chown 1001:1001 ${kubeConfigPath}
-          echo "rights - done"
+          echo " "
 
-          echo "Kubeconf to github output"
+          echo "[INFO] Kubeconf to github output"
           CONFIG=$(cat ${kubeConfigPath} | base64 -w 0)
           CONFIG=$(echo $CONFIG | base64 -w 0)
           echo "config=$CONFIG" >> $GITHUB_OUTPUT
@@ -461,11 +425,12 @@ jobs:
       - name: Check kubeconfig
         run: |
           mkdir -p ~/.kube
-          echo "Configure kube config"
+          echo "[INFO] Configure kubeconfig for nested cluster"
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
 
-          echo "Show paths and files content"
+          echo "[INFO] Show paths and files content"
           ls -la ~/.kube
+          echo "[INFO] Set permissions for kubeconfig"
           chmod 600 ~/.kube/config
 
           echo "[INFO] Show nodes in cluster"
@@ -569,7 +534,7 @@ jobs:
           ./rsc-gen.sh
 
           echo "[INFO] Enshure that nested storageclasses are created"
-          kubectl get sc | grep nested || echo "No nested storageclasses"
+          kubectl get storageclass | grep nested || echo "[WARNING] No nested storageclasses"
           echo "[SUCCESS] Done"
       - name: Configure ceph storage
         if: ${{ inputs.storage_type == 'ceph' }}
@@ -602,7 +567,7 @@ jobs:
           yq e '.spec.registry.dockerCfg = env(registry)' -i 00-ms.yaml
           unset registry
 
-          echo "Create prod module source"
+          echo "[INFO] Create prod module source"
           kubectl apply -f 00-ms.yaml
           kubectl wait --for=jsonpath='{.status.phase}' modulesource deckhouse-prod --timeout=30s
           kubectl get modulesources
@@ -623,7 +588,7 @@ jobs:
               break
             fi
             
-            echo "Waiting 10s for ceph operator and csi namespaces to be ready"
+            echo "[INFO] Waiting 10s for ceph operator and csi namespaces to be ready"
             echo "[INFO] Get namespace"
             kubectl get namespace | grep ceph || echo "[WARNING] Namespaces operator-ceph and csi are not ready"
             
