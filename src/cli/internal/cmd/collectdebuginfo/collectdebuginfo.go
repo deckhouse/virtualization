@@ -34,7 +34,7 @@ func NewCommand() *cobra.Command {
 	bundle := &DebugBundle{}
 	cmd := &cobra.Command{
 		Use:     "collect-debug-info (VirtualMachine)",
-		Short:   "Collect debug information for VM: configuration, events, and logs.",
+		Short:   "Collect debug information for VM: configuration, events, and logs. Output is written to stdout.",
 		Example: usage(),
 		Args:    templates.ExactArgs("collect-debug-info", 1),
 		RunE:    bundle.Run,
@@ -56,12 +56,16 @@ type DebugBundle struct {
 }
 
 func usage() string {
-	return `  # Collect debug info for VirtualMachine 'myvm':
+	return `  # Collect debug info for VirtualMachine 'myvm' (output to stdout):
   {{ProgramName}} collect-debug-info myvm
   {{ProgramName}} collect-debug-info myvm.mynamespace
   {{ProgramName}} collect-debug-info myvm -n mynamespace
+
   # Include pod logs:
-  {{ProgramName}} collect-debug-info --with-logs myvm`
+  {{ProgramName}} collect-debug-info --with-logs myvm
+
+  # Save compressed output to file:
+  {{ProgramName}} collect-debug-info --with-logs myvm | gzip > debug-info.yaml.gz`
 }
 
 func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
