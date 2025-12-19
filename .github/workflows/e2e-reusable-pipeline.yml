@@ -468,17 +468,17 @@ jobs:
           ls -la ~/.kube
           chmod 600 ~/.kube/config
 
-          echo "kubectl get nodes"
+          echo "[INFO] Show nodes in cluster"
           kubectl config use-context nested-e2e-nested-sa
-          # kubectl get nodes
 
+          # some times kubectl get nodes returns error, so we need to retry
           for i in {1..3}; do
             echo "Attempt $i/3..."
             if (kubectl get nodes); then
-              echo "Successfully retrieved nodes."
+              echo "[SUCCESS] Successfully retrieved nodes."
               break
             else
-              echo "Retrying in 5 seconds..."
+              echo "[INFO] Retrying in 5 seconds..."
               sleep 5
             fi
           done
@@ -488,20 +488,20 @@ jobs:
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
         run: |
           kubectl apply -f mc.yaml
-          echo "Wait for sds-node-configurator"
+          echo "[INFO] Wait for sds-node-configurator"
           kubectl wait --for=jsonpath='{.status.phase}'=Ready modules sds-node-configurator --timeout=300s
 
           for i in {1..60}; do
             sds_replicated_volume_status=$(kubectl get ns d8-sds-replicated-volume -o jsonpath='{.status.phase}' || echo "False")
             
             if [[ "${sds_replicated_volume_status}" = "Active" ]]; then
-              echo "Namespaces sds-replicated-volume are Active"
+              echo "[SUCCESS] Namespaces sds-replicated-volume are Active"
               kubectl -n d8-sds-replicated-volume get pods
               break
             fi
             
-            echo "Waiting 10s for sds-replicated-volume to be ready"
-            echo "get ns"
+            echo "[INFO] Waiting 10s for sds-replicated-volume to be ready"
+            echo "[INFO] Show namespaces sds-replicated-volume"
             kubectl get ns | grep sds-replicated-volume || echo "Namespaces sds-replicated-volume are not ready"
             
             if (( i % 5 == 0 )); then
@@ -510,7 +510,7 @@ jobs:
             sleep 10
           done
 
-          echo "Wait bd"
+          echo "[INFO] Wait BlockDevice are ready"
           workers=$(kubectl get nodes -o name | grep worker | wc -l)
           bdexists=false
           count=60
@@ -520,43 +520,45 @@ jobs:
               bdexists=true
               break
             fi
-            echo "Wait 10 sec until blockdevices is greater or equal to $workers [${i}/${count}]"
+            echo "[INFO] Wait 10 sec until blockdevices is greater or equal to $workers [${i}/${count}]"
             d8 s queue list | head -n25 || echo "No queues"
             sleep 10
           done
 
           if [ $bdexists = false ]; then
-            echo "Blockdevices is not 3"
-            echo "Show blockdevice"
+            echo "[ERROR] Blockdevices is not 3"
+            echo "[DEBUG] Show blockdevice"
             kubectl get blockdevice
-            echo "Show sds namespaces"
+            echo "[DEBUG] Show sds namespaces"
             kubectl get ns | grep sds || echo "ns sds is not found"
-            echo "Show cluster nodes"
+            echo "[DEBUG] Show cluster nodes"
             kubectl get nodes
-            echo "Show deckhouse logs"
+            echo "[DEBUG] Show deckhouse logs"
             d8 s logs | tail -n 100
+            echo " "
             exit 1
           fi
 
-          echo "Wait pods and webhooks sds-replicated pods"
+          echo "[INFO] Wait pods and webhooks sds-replicated pods"
           for i in {1..60}; do
-            echo "Check sds-replicated pods, linstor-node csi-node webhooks"
+            echo "[INFO] Check sds-replicated pods, linstor-node csi-node webhooks"
             linstor_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep linstor-node | grep -c Running || echo 0)
             csi_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep csi-node | grep -c Running || echo 0)
             webhooks=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep webhooks | grep -c Running || echo 0)
             
-            echo "check if sds-replicated pods are ready"
+            echo "[INFO] Check if sds-replicated pods are ready"
             if [[ "${linstor_node}" -ge "${workers}" ]] && [[ "${csi_node}" -ge "${workers}" ]] && [[ "${webhooks}" -ge "1" ]]; then
-              echo "sds-replicated-volume is ready"
+              echo "[SUCCESS] sds-replicated-volume is ready"
               break
             fi
 
-            echo "Waiting 10s for sds-replicated-volume to be ready"
+            echo "[INFO] Waiting 10s for sds-replicated-volume to be ready"
             if (( i % 5 == 0 )); then
               echo "[DEBUG] Get pods"
               kubectl -n d8-sds-replicated-volume get pods || true
               echo "[DEBUG] Show queue (first 25 lines)"
               d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
+              echo " "
             fi
           done
 
@@ -566,15 +568,15 @@ jobs:
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
 
-          echo "Enshure that nested storageclasses are created"
+          echo "[INFO] Enshure that nested storageclasses are created"
           kubectl get sc | grep nested || echo "No nested storageclasses"
-          echo "Done"
+          echo "[SUCCESS] Done"
       - name: Configure ceph storage
         if: ${{ inputs.storage_type == 'ceph' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
         run: |
           d8_queue_list() {
-            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
+            d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "[WARNING] Failed to retrieve list queue"
           }
 
           d8_queue() {
@@ -582,11 +584,11 @@ jobs:
 
             for i in $(seq 1 $count) ; do
               if [[ "$(d8_queue_list)" == "0" ]]; then
-                echo "[SUCESS] Queue is clear"
+                echo "[SUCCESS] Queue is clear"
                 break
               else
                 echo "[INFO] Show queue list"
-                d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
               fi
 
               echo "[INFO] Wait until queues are empty ${i}/${count}"
@@ -605,10 +607,10 @@ jobs:
           kubectl wait --for=jsonpath='{.status.phase}' modulesource deckhouse-prod --timeout=30s
           kubectl get modulesources
 
-          echo "Create ceph operator and csi module config"
+          echo "[INFO] Create ceph operator and csi module config"
           kubectl apply -f 01-mc.yaml
 
-          echo "Wait while queues are empty"
+          echo "[INFO] Wait while queues are empty"
           d8_queue
 
           echo "Start wait for ceph operator and csi"
@@ -617,56 +619,56 @@ jobs:
             csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
             
             if [[ "${ceph_operator_status}" = "Active" ]] && [[ "${csi_ceph_status}" = "Ready" ]]; then
-              echo "Namespaces operator-ceph and csi are Active"
+              echo "[SUCCESS] Namespaces operator-ceph and csi are Active"
               break
             fi
             
             echo "Waiting 10s for ceph operator and csi namespaces to be ready"
-            echo "get ns"
-            kubectl get ns | grep ceph || echo "Namespaces operator-ceph and csi are not ready"
+            echo "[INFO] Get namespace"
+            kubectl get namespace | grep ceph || echo "[WARNING] Namespaces operator-ceph and csi are not ready"
             
             if (( i % 5 == 0 )); then
-              echo "Show all ns"
-              kubectl get ns
-              echo "====="
-              d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
+              echo "[DEBUG] Show all namespaces"
+              kubectl get namespace
+              echo " "
+              d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
             fi
             sleep 10
           done
 
-          echo "Create sa"
+          echo "[INFO] Create ServiceAccounts"
           kubectl apply -f 02-sa.yaml
-          echo "Create cm (patch existing for configure rbd support)"
+          echo "[INFO] Create ConfigMap (patch existing for configure rbd support)"
           kubectl apply -f 03-cm.yaml
-          echo "Create cluster"
+          echo "[INFO] Create Cluster"
           kubectl apply -f 04-cluster.yaml
 
-          echo "get pod in d8-operator-ceph"
+          echo "[INFO] Get pod in d8-operator-ceph"
           kubectl -n d8-operator-ceph get po
 
-          echo "Wait for ceph operator"
+          echo "[INFO] Wait for ceph operator"
           for i in {1..60}; do
-            echo "Check ceph pods, mon mgr osd"
+            echo "[INFO] Check ceph pods, mon mgr osd"
             ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mgr | grep -c Running || echo 0)
             ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mon | grep -c Running || echo 0)
             ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-osd | grep -c Running || echo 0)
             
-            echo "check if ceph pods are ready"
+            echo "[INFO] check if ceph pods are ready"
             if [[ "${ceph_mgr}" -ge "2" ]] && [[ "${ceph_mon}" -ge "3" ]] && [[ "${ceph_osd}" -ge "3" ]]; then
               echo "Ceph cluster is ready"
               break
             fi
 
-            echo "Not all pods are ready, ceph_mgr=${ceph_mgr}, ceph_mon=${ceph_mon}, ceph_osd=${ceph_osd}"
-            echo "Waiting 10s for ceph operator to be ready"
+            echo "[WARNING] Not all pods are ready, ceph_mgr=${ceph_mgr}, ceph_mon=${ceph_mon}, ceph_osd=${ceph_osd}"
+            echo "[INFO] Waiting 10s for ceph operator to be ready"
             kubectl -n d8-operator-ceph get po || echo "Failed to retrieve pods"
             if (( i % 5 == 0 )); then
-              echo "[DEBUG] Show ceph ns"
+              echo "[DEBUG] Show ceph namespace"
               kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
-              echo "[DEBUG] Show mc ceph"
+              echo "[DEBUG] Show ModuleConfig ceph"
               kubectl get mc | grep ceph || echo "Failed to retrieve mc"
               echo "[DEBUG] Show ceph in resource modules"
-              kubectl get modules  -o wide | grep ceph || echo "Failed to retrieve modules"
+              kubectl get modules -o wide | grep ceph || echo "Failed to retrieve modules"
               echo "[DEBUG] Show queue"
               d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
             fi
@@ -786,7 +788,7 @@ jobs:
             for i in $(seq 1 $count) ; do
               virtualization_status=$(kubectl get modules virtualization -o jsonpath='{.status.phase}')
               if [ "$virtualization_status" == "Ready" ]; then
-                echo "[SUCESS] Virtualization module is ready"
+                echo "[SUCCESS] Virtualization module is ready"
                 kubectl get modules virtualization
                 kubectl -n d8-virtualization get pods
                 break
@@ -797,7 +799,6 @@ jobs:
               if (( i % 5 == 0 )); then
                 echo " "
                 echo "[DEBUG] Show additional info"
-                echo " "
                 kubectl get ns d8-virtualization || echo "[WARNING] Namespace virtualization is not ready"
                 echo " "
                 kubectl -n d8-virtualization get pods || echo "[WARNING] Pods in namespace virtualization is not ready"
@@ -814,16 +815,24 @@ jobs:
             kubectl get ns d8-virtualization || true
             echo "[DEBUG] Show pods in namespace d8-virtualization"
             kubectl -n d8-virtualization get pods || true
-            echo "[DEBUG] Show dvcr info"
-            kubectl -n d8-virtualization get po -l app=dvcr -o yaml || true
-            echo " "
-            kubectl -n d8-virtualization describe po -l app=dvcr || true
+            echo "[DEBUG] Show dvcr pod yaml"
+            echo "::group::📦 dvcr pod yaml"
+            kubectl -n d8-virtualization get pod -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo "[DEBUG] Show dvcr pod describe"
+            echo "::group::📦 dvcr pod describe"
+            kubectl -n d8-virtualization describe pod -l app=dvcr || true
+            echo "::endgroup::"
             echo "[DEBUG] Show pvc in namespace d8-virtualization"
             kubectl get pvc -n d8-virtualization || true
             echo "[DEBUG] Show storageclasses"
             kubectl get storageclasses || true
+            echo "[DEBUG] Show queue (first 25 lines)"
+            d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
             echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
             d8 s logs | tail -n 100
+            echo "::endgroup::"
             exit 1
           }
 
