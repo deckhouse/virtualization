@@ -47,6 +47,10 @@ func (v *FirstBlockDeviceValidator) ValidateCreate(ctx context.Context, vm *v1al
 }
 
 func (v *FirstBlockDeviceValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
+		return nil, nil
+	}
+
 	if reflect.DeepEqual(oldVM.Spec.BlockDeviceRefs, newVM.Spec.BlockDeviceRefs) {
 		return nil, nil
 	}

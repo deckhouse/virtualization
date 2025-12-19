@@ -64,6 +64,9 @@ func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1a
 }
 
 func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
+		return nil, nil
+	}
 	return nil, v.validate(newVM)
 }
 

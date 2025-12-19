@@ -62,6 +62,10 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 }
 
 func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
+		return nil, nil
+	}
+
 	if oldVM.Spec.VirtualMachineIPAddress == newVM.Spec.VirtualMachineIPAddress {
 		return nil, nil
 	}
