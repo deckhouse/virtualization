@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -51,8 +52,8 @@ func (v *DefaultCoreFractionValidator) validate(vmclass *v1alpha2.VirtualMachine
 		}
 
 		if !slices.Contains(policy.CoreFractions, *policy.DefaultCoreFraction) {
-			return fmt.Errorf("vmclass %s sizingPolicy[%d]: defaultCoreFraction %d is not in the allowed coreFractions list %v",
-				vmclass.Name, i, *policy.DefaultCoreFraction, policy.CoreFractions)
+			return fmt.Errorf("vmclass %s sizingPolicy[%d]: defaultCoreFraction %d%% is not in the allowed coreFractions list %s",
+				vmclass.Name, i, *policy.DefaultCoreFraction, sizingpolicy.FormatCoreFractionValues(policy.CoreFractions))
 		}
 	}
 

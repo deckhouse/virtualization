@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	sizingpolicy "github.com/deckhouse/virtualization-controller/pkg/common/sizing_policy"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -103,7 +104,7 @@ func validateCoreFraction(vm *v1alpha2.VirtualMachine, sp *v1alpha2.SizingPolicy
 	}
 
 	if !hasFractionValueInPolicy {
-		formattedCoreFractions := formatCoreFractionValues(sp.CoreFractions)
+		formattedCoreFractions := sizingpolicy.FormatCoreFractionValues(sp.CoreFractions)
 		return fmt.Errorf("VM core fraction value %s is not within the allowed values: %v", vm.Spec.CPU.CoreFraction, formattedCoreFractions)
 	}
 
@@ -223,12 +224,4 @@ func generateValidGrid(min, max, step resource.Quantity) []resource.Quantity {
 	grid = append(grid, max)
 
 	return grid
-}
-
-func formatCoreFractionValues(cf []v1alpha2.CoreFractionValue) []string {
-	result := make([]string, len(cf))
-	for i, v := range cf {
-		result[i] = fmt.Sprintf("%d%%", v)
-	}
-	return result
 }
