@@ -828,7 +828,7 @@ jobs:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
     outputs:
-      report-summary: ${{ steps.report.outputs.summary }}
+      report-summary: ${{ steps.e2e-summary.outputs.summary }}
     needs:
       - bootstrap
       - configure-storage
@@ -879,9 +879,10 @@ jobs:
           kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
 
       - name: Run E2E
-        id: e2e-tests
+        id: e2e-summary
         env:
           TIMEOUT: ${{ inputs.e2e_timeout }}
+          CSI: ${{ inputs.storage_type }}
         working-directory: ./test/e2e/
         run: |
           if [[ "${{ inputs.storage_type }}" == "replicated" ]]; then
@@ -889,41 +890,18 @@ jobs:
           fi
           STORAGE_CLASS_NAME=${{ inputs.nested_storageclass_name }} FOCUS="VirtualMachineConfiguration" task run:ci -v LABELS="Slow"
 
-      - name: Save results
-        working-directory: ./test/e2e/
-        id: report
-        env:
-          input_storage_type: ${{ inputs.storage_type }}
-        if: always()
-        run: |
-          if [ -z "$SUMMARY" ]; then
-            SUMMARY=$(jq -n \
-              --arg csi "$input_storage_type" \
-              --arg date "$DATE" \
-              --arg startTime "$START_TIME" \
-              --arg branch "$GITHUB_REF_NAME" \
-              --arg status ":question: UNKNOWN" \
-              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/" \
-              '{
-                CSI: $csi,
-                Date: $date,
-                StartTime: $startTime,
-                Branch: $branch,
-                Status: $status,
-                Link: $link
-              }'
-            )
-          fi
-          echo $SUMMARY | jq
           echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
-          echo $SUMMARY > "e2e_summary_${{ inputs.storage_type }}_$DATE.json"
+          summary_file_name="e2e_summary_${{ inputs.storage_type }}_$DATE.json"
+          echo "report_file_name=${summary_file_name}" >> $GITHUB_OUTPUT
+          
+          echo $SUMMARY > "${summary_file_name}"
 
       - name: Upload summary test results
         uses: actions/upload-artifact@v4
         id: e2e-summary-artifact
         if: always()
         with:
-          name: e2e_summary_${{ inputs.storage_type }}_${{ env.DATE }}
+          name: ${{ steps.e2e-summary.outputs.report_file_name }}
           path: test/e2e/e2e_summary_${{ inputs.storage_type }}.json
           if-no-files-found: ignore
 

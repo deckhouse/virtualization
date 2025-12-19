@@ -170,9 +170,6 @@ jobs:
           DATE=$(date +"%Y-%m-%d")
           COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n\n"
 
-          # Parse summaries from job outputs
-          # ceph_summary=${{ toJSON(needs.e2e-ceph.outputs.e2e-summary) }}
-          # replicated_summary=${{ toJSON(needs.e2e-replicated.outputs.e2e-summary) }}
           # Save to json files
           cat > /tmp/ceph.json << 'EOF'
           ${{ needs.e2e-ceph.outputs.e2e-summary }}
@@ -189,15 +186,6 @@ jobs:
           if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
             parse_summary "$(cat /tmp/replicated.json)" "replicated"
           fi
-
-          # Parse each summary
-          # if [ -n "$ceph_summary" ] && [ "$ceph_summary" != "null" ]; then
-          #   parse_summary "$ceph_summary" "ceph"
-          # fi
-
-          # if [ -n "$replicated_summary" ] && [ "$replicated_summary" != "null" ]; then
-          #   parse_summary "$replicated_summary" "replicated"
-          # fi
 
           COMBINED_SUMMARY+="${markdown_table}\n"
 
