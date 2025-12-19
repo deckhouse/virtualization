@@ -447,7 +447,7 @@ jobs:
     steps:
       - name: Send results to Loop
         env:
-          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
           TAG: ${{ github.event.inputs.tag }}
           CHANNEL: ${{ github.event.inputs.channel }}
           CE_ENABLED: ${{ inputs.ce }}
