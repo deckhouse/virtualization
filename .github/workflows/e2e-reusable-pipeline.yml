@@ -727,6 +727,10 @@ jobs:
           spec:
             enabled: true
             settings:
+              https:
+                certManager:
+                  clusterIssuerName: selfsigned
+                mode: CertManager
               dvcr:
                 storage:
                   persistentVolumeClaim:
@@ -807,6 +811,7 @@ jobs:
               fi
               sleep 10
             done
+            
             echo "[ERROR] Virtualization module deploy failed"
             echo "[DEBUG] Show describe virtualization module"
             kubectl describe modules virtualization || true
