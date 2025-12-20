@@ -121,40 +121,33 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 		return err
 	}
 
-	// Static block devices
-	for _, bdRef := range vm.Spec.BlockDeviceRefs {
-		if err := b.collectBlockDevice(ctx, client, namespace, bdRef.Kind, bdRef.Name); err != nil {
-			if !b.handleError(string(bdRef.Kind), bdRef.Name, err) {
-				return err
-			}
-		}
+	// Track collected block devices to avoid duplicates
+	collectedBlockDevices := make(map[string]bool)
+
+	// Helper function to create block device key
+	bdKey := func(kind v1alpha2.BlockDeviceKind, name string) string {
+		return string(kind) + ":" + name
 	}
 
-	// Hotplug block devices
-	for _, bdRef := range vm.Status.BlockDeviceRefs {
-		if bdRef.Hotplugged {
+	// Static block devices
+	// Note: blockDeviceRefs can only contain block devices (VirtualDisk, VirtualImage, ClusterVirtualImage),
+	// not VMBDA. VMBDA are collected separately below.
+	for _, bdRef := range vm.Spec.BlockDeviceRefs {
+		key := bdKey(bdRef.Kind, bdRef.Name)
+		if !collectedBlockDevices[key] {
 			if err := b.collectBlockDevice(ctx, client, namespace, bdRef.Kind, bdRef.Name); err != nil {
 				if !b.handleError(string(bdRef.Kind), bdRef.Name, err) {
 					return err
 				}
-			}
-
-			// Get VMBDA
-			if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
-				vmbda, err := client.VirtualMachineBlockDeviceAttachments(namespace).Get(ctx, bdRef.VirtualMachineBlockDeviceAttachmentName, metav1.GetOptions{})
-				if err == nil {
-					if err := b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, namespace, vmbda); err != nil {
-						return fmt.Errorf("failed to output VirtualMachineBlockDeviceAttachment: %w", err)
-					}
-					b.collectEvents(ctx, client, namespace, "VirtualMachineBlockDeviceAttachment", vmbda.Name)
-				} else if !b.handleError("VirtualMachineBlockDeviceAttachment", bdRef.VirtualMachineBlockDeviceAttachmentName, err) {
-					return err
-				}
+			} else {
+				collectedBlockDevices[key] = true
 			}
 		}
 	}
 
 	// Get all VMBDA that reference this VM
+	// Note: Hotplugged block devices are collected through VMBDA, not from vm.Status.BlockDeviceRefs,
+	// to avoid duplication. All hotplugged devices have corresponding VMBDA resources.
 	vmbdas, err := client.VirtualMachineBlockDeviceAttachments(namespace).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		for _, vmbda := range vmbdas.Items {
@@ -178,9 +171,14 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 					default:
 						continue
 					}
-					if err := b.collectBlockDevice(ctx, client, namespace, bdKind, vmbda.Spec.BlockDeviceRef.Name); err != nil {
-						if !b.handleError(string(bdKind), vmbda.Spec.BlockDeviceRef.Name, err) {
-							return err
+					key := bdKey(bdKind, vmbda.Spec.BlockDeviceRef.Name)
+					if !collectedBlockDevices[key] {
+						if err := b.collectBlockDevice(ctx, client, namespace, bdKind, vmbda.Spec.BlockDeviceRef.Name); err != nil {
+							if !b.handleError(string(bdKind), vmbda.Spec.BlockDeviceRef.Name, err) {
+								return err
+							}
+						} else {
+							collectedBlockDevices[key] = true
 						}
 					}
 				}
