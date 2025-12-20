@@ -4,6 +4,8 @@ kind: Deployment
 metadata:
   name: jump-host
   namespace: {{ .Values.namespace }}
+  labels:
+    infra: jump-host
 spec:
   replicas: 1
   selector:
