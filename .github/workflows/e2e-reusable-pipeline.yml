@@ -688,10 +688,10 @@ jobs:
           spec:
             enabled: true
             settings:
-              https:
-                certManager:
-                  clusterIssuerName: selfsigned
-                mode: CertManager
+              # https:
+              #   certManager:
+              #     clusterIssuerName: selfsigned
+              #   mode: CertManager
               dvcr:
                 storage:
                   persistentVolumeClaim:
@@ -775,7 +775,9 @@ jobs:
             
             echo "[ERROR] Virtualization module deploy failed"
             echo "[DEBUG] Show describe virtualization module"
+            echo "::group::📦 describe virtualization module"
             kubectl describe modules virtualization || true
+            echo "::endgroup::"
             echo "[DEBUG] Show namespace d8-virtualization"
             kubectl get ns d8-virtualization || true
             echo "[DEBUG] Show pods in namespace d8-virtualization"
