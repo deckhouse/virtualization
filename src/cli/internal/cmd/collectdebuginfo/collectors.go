@@ -53,12 +53,16 @@ func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.
 		}
 		return err
 	}
-	b.outputResource("VirtualMachine", vmName, namespace, vm)
+	if err := b.outputResource("VirtualMachine", vmName, namespace, vm); err != nil {
+		return fmt.Errorf("failed to output VirtualMachine: %w", err)
+	}
 
 	// Get IVVM
 	ivvm, err := b.getInternalResource(ctx, "internalvirtualizationvirtualmachines", namespace, vmName)
 	if err == nil {
-		b.outputResource("InternalVirtualizationVirtualMachine", vmName, namespace, ivvm)
+		if err := b.outputResource("InternalVirtualizationVirtualMachine", vmName, namespace, ivvm); err != nil {
+			return fmt.Errorf("failed to output InternalVirtualizationVirtualMachine: %w", err)
+		}
 	} else if !b.handleError("InternalVirtualizationVirtualMachine", vmName, err) {
 		return err
 	}
@@ -66,7 +70,9 @@ func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.
 	// Get IVVMI
 	ivvmi, err := b.getInternalResource(ctx, "internalvirtualizationvirtualmachineinstances", namespace, vmName)
 	if err == nil {
-		b.outputResource("InternalVirtualizationVirtualMachineInstance", vmName, namespace, ivvmi)
+		if err := b.outputResource("InternalVirtualizationVirtualMachineInstance", vmName, namespace, ivvmi); err != nil {
+			return fmt.Errorf("failed to output InternalVirtualizationVirtualMachineInstance: %w", err)
+		}
 	} else if !b.handleError("InternalVirtualizationVirtualMachineInstance", vmName, err) {
 		return err
 	}
@@ -78,7 +84,9 @@ func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.
 	})
 	if err == nil {
 		for _, vmop := range vmops.Items {
-			b.outputResource("VirtualMachineOperation", vmop.Name, namespace, &vmop)
+			if err := b.outputResource("VirtualMachineOperation", vmop.Name, namespace, &vmop); err != nil {
+				return fmt.Errorf("failed to output VirtualMachineOperation: %w", err)
+			}
 		}
 	} else if !b.handleError("VirtualMachineOperation", "", err) {
 		return err
@@ -92,7 +100,9 @@ func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.
 			if found && vmiName == vmName {
 				name, _, _ := unstructured.NestedString(item.Object, "metadata", "name")
 				extraInfo := fmt.Sprintf(" (for VMI: %s)", vmiName)
-				b.outputResourceWithExtraInfo("InternalVirtualizationVirtualMachineInstanceMigration", name, namespace, item, extraInfo)
+				if err := b.outputResourceWithExtraInfo("InternalVirtualizationVirtualMachineInstanceMigration", name, namespace, item, extraInfo); err != nil {
+					return fmt.Errorf("failed to output InternalVirtualizationVirtualMachineInstanceMigration: %w", err)
+				}
 			}
 		}
 	} else if !b.handleError("InternalVirtualizationVirtualMachineInstanceMigration", "", err) {
@@ -133,7 +143,9 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 			if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
 				vmbda, err := client.VirtualMachineBlockDeviceAttachments(namespace).Get(ctx, bdRef.VirtualMachineBlockDeviceAttachmentName, metav1.GetOptions{})
 				if err == nil {
-					b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, namespace, vmbda)
+					if err := b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, namespace, vmbda); err != nil {
+						return fmt.Errorf("failed to output VirtualMachineBlockDeviceAttachment: %w", err)
+					}
 					b.collectEvents(ctx, client, namespace, "VirtualMachineBlockDeviceAttachment", vmbda.Name)
 				} else if !b.handleError("VirtualMachineBlockDeviceAttachment", bdRef.VirtualMachineBlockDeviceAttachmentName, err) {
 					return err
@@ -147,7 +159,9 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 	if err == nil {
 		for _, vmbda := range vmbdas.Items {
 			if vmbda.Spec.VirtualMachineName == vmName {
-				b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, namespace, &vmbda)
+				if err := b.outputResource("VirtualMachineBlockDeviceAttachment", vmbda.Name, namespace, &vmbda); err != nil {
+					return fmt.Errorf("failed to output VirtualMachineBlockDeviceAttachment: %w", err)
+				}
 				b.collectEvents(ctx, client, namespace, "VirtualMachineBlockDeviceAttachment", vmbda.Name)
 
 				// Get associated block device
@@ -186,21 +200,27 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 		if err != nil {
 			return err
 		}
-		b.outputResource("VirtualDisk", name, namespace, vd)
+		if err := b.outputResource("VirtualDisk", name, namespace, vd); err != nil {
+			return fmt.Errorf("failed to output VirtualDisk: %w", err)
+		}
 		b.collectEvents(ctx, client, namespace, "VirtualDisk", name)
 
 		// Get PVC
 		if vd.Status.Target.PersistentVolumeClaim != "" {
 			pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, vd.Status.Target.PersistentVolumeClaim, metav1.GetOptions{})
 			if err == nil {
-				b.outputResource("PersistentVolumeClaim", pvc.Name, namespace, pvc)
+				if err := b.outputResource("PersistentVolumeClaim", pvc.Name, namespace, pvc); err != nil {
+					return fmt.Errorf("failed to output PersistentVolumeClaim: %w", err)
+				}
 				b.collectEvents(ctx, client, namespace, "PersistentVolumeClaim", pvc.Name)
 
 				// Get PV
 				if pvc.Spec.VolumeName != "" {
 					pv, err := client.CoreV1().PersistentVolumes().Get(ctx, pvc.Spec.VolumeName, metav1.GetOptions{})
 					if err == nil {
-						b.outputResource("PersistentVolume", pv.Name, "", pv)
+						if err := b.outputResource("PersistentVolume", pv.Name, "", pv); err != nil {
+							return fmt.Errorf("failed to output PersistentVolume: %w", err)
+						}
 					} else if !b.handleError("PersistentVolume", pvc.Spec.VolumeName, err) {
 						return err
 					}
@@ -215,7 +235,9 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 		if err != nil {
 			return err
 		}
-		b.outputResource("VirtualImage", name, namespace, vi)
+		if err := b.outputResource("VirtualImage", name, namespace, vi); err != nil {
+			return fmt.Errorf("failed to output VirtualImage: %w", err)
+		}
 		b.collectEvents(ctx, client, namespace, "VirtualImage", name)
 
 	case v1alpha2.ClusterVirtualImageKind:
@@ -223,7 +245,9 @@ func (b *DebugBundle) collectBlockDevice(ctx context.Context, client kubeclient.
 		if err != nil {
 			return err
 		}
-		b.outputResource("ClusterVirtualImage", name, "", cvi)
+		if err := b.outputResource("ClusterVirtualImage", name, "", cvi); err != nil {
+			return fmt.Errorf("failed to output ClusterVirtualImage: %w", err)
+		}
 
 	default:
 		return fmt.Errorf("unknown block device kind: %s", kind)
@@ -247,7 +271,9 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 	vmPodUIDs := make(map[string]bool)
 	for _, pod := range pods.Items {
 		vmPodUIDs[string(pod.UID)] = true
-		b.outputResource("Pod", pod.Name, namespace, &pod)
+		if err := b.outputResource("Pod", pod.Name, namespace, &pod); err != nil {
+			return fmt.Errorf("failed to output Pod: %w", err)
+		}
 		b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 
 		if b.saveLogs {
@@ -272,7 +298,9 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 				// Check if this pod has ownerReference to any VM pod
 				for _, ownerRef := range pod.OwnerReferences {
 					if ownerRef.Kind == "Pod" && vmPodUIDs[string(ownerRef.UID)] {
-						b.outputResource("Pod", pod.Name, namespace, &pod)
+						if err := b.outputResource("Pod", pod.Name, namespace, &pod); err != nil {
+							return fmt.Errorf("failed to output Pod: %w", err)
+						}
 						b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 						if b.saveLogs {
 							b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
@@ -302,7 +330,10 @@ func (b *DebugBundle) collectEvents(ctx context.Context, client kubeclient.Clien
 
 	// Add each event individually to preserve TypeMeta
 	for i := range events.Items {
-		b.outputResource("Event", fmt.Sprintf("%s-%s-%d", strings.ToLower(resourceType), resourceName, i), namespace, &events.Items[i])
+		if err := b.outputResource("Event", fmt.Sprintf("%s-%s-%d", strings.ToLower(resourceType), resourceName, i), namespace, &events.Items[i]); err != nil {
+			// Log error but continue processing other events
+			_, _ = fmt.Fprintf(b.stderr, "Warning: failed to output Event: %v\n", err)
+		}
 	}
 }
 
@@ -327,12 +358,17 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 		TailLines: &tailLines,
 	})
 	logStream, err := req.Stream(logCtx)
-	if err == nil {
-		defer logStream.Close()
+	if err == nil && logStream != nil {
+		stream := logStream // Capture in closure
+		defer func() {
+			if stream != nil {
+				_ = stream.Close()
+			}
+		}()
 		logContent, err := b.readLogsWithTimeout(logCtx, logStream)
 		if err == nil {
-			fmt.Fprintf(b.stdout, "\n# %s\n", logPrefix)
-			fmt.Fprintf(b.stdout, "%s\n", string(logContent))
+			_, _ = fmt.Fprintf(b.stdout, "\n# %s\n", logPrefix)
+			_, _ = fmt.Fprintf(b.stdout, "%s\n", string(logContent))
 		}
 	}
 
@@ -345,12 +381,17 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 		TailLines: &tailLines,
 	})
 	logStream, err = req.Stream(logCtx)
-	if err == nil {
-		defer logStream.Close()
+	if err == nil && logStream != nil {
+		stream := logStream // Capture in closure
+		defer func() {
+			if stream != nil {
+				_ = stream.Close()
+			}
+		}()
 		logContent, err := b.readLogsWithTimeout(logCtx, logStream)
 		if err == nil {
-			fmt.Fprintf(b.stdout, "\n# %s (previous)\n", logPrefix)
-			fmt.Fprintf(b.stdout, "%s\n", string(logContent))
+			_, _ = fmt.Fprintf(b.stdout, "\n# %s (previous)\n", logPrefix)
+			_, _ = fmt.Fprintf(b.stdout, "%s\n", string(logContent))
 		}
 	}
 }
@@ -414,7 +455,7 @@ func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.O
 func (b *DebugBundle) outputResourceWithExtraInfo(kind, name, namespace string, obj runtime.Object, extraInfo string) error {
 	// Output separator if not first resource
 	if b.resourceCount > 0 {
-		fmt.Fprintf(b.stdout, "\n---\n")
+		_, _ = fmt.Fprintf(b.stdout, "\n---\n")
 	}
 	b.resourceCount++
 
@@ -441,17 +482,17 @@ func (b *DebugBundle) outputResourceWithExtraInfo(kind, name, namespace string, 
 	// Marshal to JSON (now with TypeMeta if set)
 	jsonBytes, err := json.Marshal(obj)
 	if err != nil {
-		return fmt.Errorf("failed to marshal %s/%s to JSON: %w", kind, name, err)
+		return fmt.Errorf("failed to marshal %s/%s (namespace: %s) to JSON: %w", kind, name, namespace, err)
 	}
 
 	// Convert to YAML
 	yamlBytes, err := yaml.JSONToYAML(jsonBytes)
 	if err != nil {
-		return fmt.Errorf("failed to convert %s/%s to YAML: %w", kind, name, err)
+		return fmt.Errorf("failed to convert %s/%s (namespace: %s) to YAML: %w", kind, name, namespace, err)
 	}
 
 	// Output with optional extra info
-	fmt.Fprintf(b.stdout, "# %d. %s: %s%s\n%s", b.resourceCount, kind, name, extraInfo, string(yamlBytes))
+	_, _ = fmt.Fprintf(b.stdout, "# %d. %s: %s%s\n%s", b.resourceCount, kind, name, extraInfo, string(yamlBytes))
 
 	return nil
 }

@@ -120,7 +120,7 @@ func (b *DebugBundle) collectResources(ctx context.Context, client kubeclient.Cl
 func (b *DebugBundle) handleError(resourceType, resourceName string, err error) bool {
 	if errors.IsForbidden(err) || errors.IsUnauthorized(err) {
 		if b.debug {
-			fmt.Fprintf(b.stderr, "Warning: Skipping %s/%s: permission denied\n", resourceType, resourceName)
+			_, _ = fmt.Fprintf(b.stderr, "Warning: Skipping %s/%s: permission denied\n", resourceType, resourceName)
 		}
 		return true
 	}
