@@ -557,7 +557,7 @@ jobs:
               fi
 
               echo "[INFO] Wait until queues are empty ${i}/${count}"
-              kubectl get ns | grep sds || echo "ns sds is not ready"
+              kubectl get ns | grep sds || echo "Namespaces sds not found"
               echo "   "
               sleep 10
             done
@@ -728,7 +728,7 @@ jobs:
 
             for i in $(seq 1 $count) ; do
               if [ $(d8_queue_list) == "0" ]; then
-                echo "[INFO] Queue list is clear"
+                echo "[SUCCESS] Queues are empty"
                 break
               else
                 echo "[INFO] Show queue list"
