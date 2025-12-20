@@ -487,7 +487,9 @@ jobs:
               break
             fi
             echo "[INFO] Wait 10 sec until blockdevices is greater or equal to $workers [${i}/${count}]"
-            d8 s queue list | head -n25 || echo "No queues"
+            if (( i % 5 == 0 )); then
+              d8 s queue list | head -n25 || echo "No queues"
+            fi
             sleep 10
           done
 
@@ -619,9 +621,9 @@ jobs:
           echo "[INFO] Wait for ceph operator"
           for i in {1..60}; do
             echo "[INFO] Check ceph pods, mon mgr osd"
-            ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mgr | grep -c Running || echo 0)
-            ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mon | grep -c Running || echo 0)
-            ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-osd | grep -c Running || echo 0)
+            ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mgr | grep -c Running)
+            ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mon | grep -c Running)
+            ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-osd | grep -c Running)
 
             ceph_mgr=$((ceph_mgr))
             ceph_mon=$((ceph_mon))
