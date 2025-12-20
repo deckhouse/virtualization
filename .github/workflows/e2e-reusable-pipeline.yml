@@ -617,10 +617,14 @@ jobs:
             ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mgr | grep -c Running || echo 0)
             ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mon | grep -c Running || echo 0)
             ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-osd | grep -c Running || echo 0)
+
+            ceph_mgr=$((ceph_mgr))
+            ceph_mon=$((ceph_mon))
+            ceph_osd=$((ceph_osd))
             
             echo "[INFO] check if ceph pods are ready"
-            if [[ "${ceph_mgr}" -ge "2" ]] && [[ "${ceph_mon}" -ge "3" ]] && [[ "${ceph_osd}" -ge "3" ]]; then
-              echo "Ceph cluster is ready"
+            if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
+              echo "[SUCCESS] Ceph cluster is ready"
               break
             fi
 
@@ -645,8 +649,10 @@ jobs:
           kubectl get pods -n d8-operator-ceph
 
           kubectl apply -f 05-blockpool.yaml
+          echo "[INFO] Wait for ceph-rbd-pool-r2 blockpool to be ready, timeout 600s"
+          kubectl -n d8-operator-ceph wait --for=jsonpath='{.status.phase}'=Ready cephblockpools.ceph.rook.io ceph-rbd-pool-r2 --timeout=600s
           kubectl apply -f 06-toolbox.yaml
-          echo "Wait for rook-ceph-tools, timeout 300s"
+          echo "[INFO] Wait for rook-ceph-tools, timeout 300s"
           kubectl -n d8-operator-ceph wait --for=condition=Available deployment/rook-ceph-tools --timeout=300s
 
           echo "Show ceph pools via rook-ceph-tools"
