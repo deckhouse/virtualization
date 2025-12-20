@@ -476,7 +476,8 @@ jobs:
           done
 
           echo "[INFO] Wait BlockDevice are ready"
-          workers=$(kubectl get nodes -o name | grep worker | wc -l)
+          workers=$(kubectl get nodes -o name | grep -c worker)
+          workers=$((workers))
           bdexists=false
           count=60
           for i in $(seq 1 $count); do
@@ -510,9 +511,13 @@ jobs:
             linstor_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep linstor-node | grep -c Running || echo 0)
             csi_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep csi-node | grep -c Running || echo 0)
             webhooks=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep webhooks | grep -c Running || echo 0)
+
+            linstor_node=$((linstor_node))
+            csi_node=$((csi_node))
+            webhooks=$((webhooks))
             
             echo "[INFO] Check if sds-replicated pods are ready"
-            if [[ "${linstor_node}" -ge "${workers}" ]] && [[ "${csi_node}" -ge "${workers}" ]] && [[ "${webhooks}" -ge "1" ]]; then
+            if [[ "${linstor_node}" -ge ${workers} && "${csi_node}" -ge ${workers} && ${webhooks} -ge 1 ]]; then
               echo "[SUCCESS] sds-replicated-volume is ready"
               break
             fi
@@ -583,7 +588,7 @@ jobs:
             ceph_operator_status=$(kubectl get ns d8-operator-ceph -o jsonpath='{.status.phase}' || echo "False")
             csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
             
-            if [[ "${ceph_operator_status}" = "Active" ]] && [[ "${csi_ceph_status}" = "Ready" ]]; then
+            if [[ "${ceph_operator_status}" = "Active" && "${csi_ceph_status}" = "Ready" ]]; then
               echo "[SUCCESS] Namespaces operator-ceph and csi are Active"
               break
             fi
@@ -645,7 +650,7 @@ jobs:
             sleep 10
           done
 
-          echo "Show pods"
+          echo "[INFO] Show pods"
           kubectl get pods -n d8-operator-ceph
 
           kubectl apply -f 05-blockpool.yaml
@@ -655,10 +660,10 @@ jobs:
           echo "[INFO] Wait for rook-ceph-tools, timeout 300s"
           kubectl -n d8-operator-ceph wait --for=condition=Available deployment/rook-ceph-tools --timeout=300s
 
-          echo "Show ceph pools via rook-ceph-tools"
+          echo "[INFO] Show ceph pools via rook-ceph-tools"
           kubectl -n d8-operator-ceph exec deployments/rook-ceph-tools -c ceph-tools -- ceph osd pool ls
 
-          echo "Configure storage class"
+          echo "[INFO] Configure storage class"
           chmod +x ./ceph-configure.sh
           ./ceph-configure.sh
 
@@ -677,7 +682,7 @@ jobs:
 
       - name: Check kubeconfig
         run: |
-          echo "Configure kube config"
+          echo "[INFO] Configure kube config"
           mkdir -p ~/.kube
           echo "${{ needs.bootstrap.outputs.kubeconfig-content }}" | base64 -d | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
@@ -685,7 +690,7 @@ jobs:
 
       - name: Configure Virtualization
         run: |
-          echo "Apply Virtualization module config"
+          echo "[INFO] Apply Virtualization module config"
           kubectl apply -f -<<EOF
           apiVersion: deckhouse.io/v1alpha1
           kind: ModuleConfig
