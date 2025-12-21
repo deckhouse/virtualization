@@ -16,11 +16,11 @@ metadata:
 spec:
   version: 2
   settings:
-    https:
-      certManager:
-        clusterIssuerName: selfsigned
-      mode: CertManager
     modules:
+      https:
+        certManager:
+          clusterIssuerName: selfsigned
+        mode: CertManager
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
 ---
 apiVersion: deckhouse.io/v1alpha1
