@@ -79,7 +79,6 @@ kubectl() {
 
 trap exit_trap SIGINT SIGTERM
 
-
 SA_NAME=$1
 CLUSTER_PREFIX=$2
 CLUSTER_NAME=$3
@@ -106,13 +105,6 @@ else
   log_error "No access to Kubernetes cluster or configuration issue."
   exit 1
 fi
-
-sleep 2
-log_info "===="
-log_info "Kubeconfig will be created successfully if you connected to k8s cluster via ssh tunnel or directly"
-log_info "===="
-sleep 2
-
 
 log_info "Apply SA, Secrets and ClusterAuthorizationRule"
 kubectl apply -f -<<EOF
@@ -179,6 +171,5 @@ log_success "kubeconfig created and stored in $FILE_NAME"
 log_info "kubeconfig created and stored in $FILE_NAME"
 sudo chmod 444 $FILE_NAME
 ls -la $FILE_NAME
-# cat $FILE_NAME
 
 log_success "Done"
