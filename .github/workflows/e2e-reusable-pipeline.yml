@@ -309,10 +309,10 @@ jobs:
           }
 
           echo "[INFO] Copy script for generating kubeconfig in nested cluster"
-          echo "[INFO] Copy tools/gen-kubeconfig.sh to master"
-          d8vscp "./tools/gen-kubeconfig.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/gen-kubeconfig.sh"
+          echo "[INFO] Copy scripts/gen-kubeconfig.sh to master"
+          d8vscp "./scripts/gen-kubeconfig.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/gen-kubeconfig.sh"
           echo ""
-          d8vscp "./tools/deckhouse-queue.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
+          d8vscp "./scripts/deckhouse-queue.sh" "${DEFAULT_USER}@${nested_master}.${NAMESPACE}:/tmp/deckhouse-queue.sh"
           echo ""
 
           echo "[INFO] Set file exec permissions"
@@ -476,12 +476,16 @@ jobs:
           done
 
           echo "[INFO] Wait BlockDevice are ready"
-          workers=$(kubectl get nodes -o name | grep -c worker)
+          workers=$(kubectl get nodes -o name | grep -c worker || echo 0)
           workers=$((workers))
+          if [[ $workers -eq 0 ]]; then
+            echo "[ERROR] No worker nodes found"
+            exit 1
+          fi
           bdexists=false
           count=60
           for i in $(seq 1 $count); do
-            blockdevices=$(kubectl get blockdevice -o name | wc -l)
+            blockdevices=$(kubectl get blockdevice -o name | wc -l || echo 0)
             if [ $blockdevices -ge $workers ]; then
               bdexists=true
               break
@@ -555,7 +559,8 @@ jobs:
             local count=90
 
             for i in $(seq 1 $count) ; do
-              if [[ "$(d8_queue_list)" == "0" ]]; then
+              queue_count=$(d8_queue_list)
+              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
                 echo "[SUCCESS] Queue is clear"
                 break
               else
@@ -621,9 +626,9 @@ jobs:
           echo "[INFO] Wait for ceph operator"
           for i in {1..60}; do
             echo "[INFO] Check ceph pods, mon mgr osd"
-            ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mgr | grep -c Running)
-            ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mon | grep -c Running)
-            ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-osd | grep -c Running)
+            ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mgr | grep -c Running || echo 0)
+            ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-mon | grep -c Running || echo 0)
+            ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep ceph-osd | grep -c Running || echo 0)
 
             ceph_mgr=$((ceph_mgr))
             ceph_mon=$((ceph_mon))
@@ -740,7 +745,8 @@ jobs:
             local count=90
 
             for i in $(seq 1 $count) ; do
-              if [ $(d8_queue_list) == "0" ]; then
+              queue_count=$(d8_queue_list)
+              if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
                 echo "[SUCCESS] Queues are empty"
                 break
               else
@@ -759,7 +765,7 @@ jobs:
             done
           }
           
-          virttualization_ready() {
+          virtualization_ready() {
             local count=90
             local virtualization_status
 
@@ -820,7 +826,7 @@ jobs:
           echo "[INFO] Waiting for Virtualization module to be ready"
           d8_queue
           
-          virttualization_ready
+          virtualization_ready
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
