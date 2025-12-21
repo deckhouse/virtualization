@@ -16,6 +16,10 @@ metadata:
 spec:
   version: 2
   settings:
+    https:
+      certManager:
+        clusterIssuerName: selfsigned
+      mode: CertManager
     modules:
       publicDomainTemplate: "%s.{{ .Values.namespace }}.{{ .Values.discovered.domain }}"
 ---
