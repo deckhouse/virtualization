@@ -6,4 +6,4 @@ spec:
   dataSource:
     type: "HTTP"
     http:
-      url: "https://e2e-test-images.e2e.virtlab.flant.com/cirros-0.5.1.qcow2"
+      url: "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/cirros/cirros-0.5.1.qcow2"

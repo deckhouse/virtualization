@@ -205,3 +205,12 @@ tasks:
     cmds:
       - |
         golangci-lint run --sort-results
+
+  set-prefix:ci:
+    desc: "Change URL for images"
+    cmds:
+      - find ./ -type f -exec sed -i 's#https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru#https://e2e-test-images.e2e.virtlab.flant.com/noble-server-cloudimg-amd64.img#g' {} \;
+  set-prefix:user:
+    desc: "Change URL for images"
+    cmds:
+      - find ./ -type f -exec sed -i 's#https://e2e-test-images.e2e.virtlab.flant.com/noble-server-cloudimg-amd64.img#https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru#g' {} \;
