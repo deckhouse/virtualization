@@ -156,12 +156,12 @@ jobs:
             fi
 
             # Add row to table
-            markdown_table+="| $link_text | $status | $passed | $failed	| $pending	| $skipped	| $date | $time | $branch |\n"
+            markdown_table+="| $link_text | $status | $passed | $failed	| $pending	| $skipped | $date | $time | $branch |\n"
           }
 
           # Initialize markdown table
           markdown_table=""
-          header="| CSI | Status | Passed | Failed	| Pending	| Skipped	| Date | Time | Branch|\n"
+          header="| CSI | Status | Passed | Failed | Pending	| Skipped	| Date | Time | Branch|\n"
           separator="|---|---|---|---|---|---|---|---|---|\n"
           markdown_table+="$header"
           markdown_table+="$separator"
