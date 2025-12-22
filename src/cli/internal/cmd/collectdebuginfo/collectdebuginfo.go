@@ -17,11 +17,15 @@ limitations under the License.
 package collectdebuginfo
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/dynamic"
 
@@ -34,38 +38,32 @@ func NewCommand() *cobra.Command {
 	bundle := &DebugBundle{}
 	cmd := &cobra.Command{
 		Use:     "collect-debug-info (VirtualMachine)",
-		Short:   "Collect debug information for VM: configuration, events, and logs. Output is written to stdout.",
+		Short:   "Collect debug information for VM: configuration, events, and logs. Output is written as compressed archive to stdout.",
 		Example: usage(),
 		Args:    templates.ExactArgs("collect-debug-info", 1),
 		RunE:    bundle.Run,
 	}
 
-	cmd.Flags().BoolVar(&bundle.saveLogs, "with-logs", false, "Include pod logs in output")
 	cmd.Flags().BoolVar(&bundle.debug, "debug", false, "Enable debug output for permission errors")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type DebugBundle struct {
-	saveLogs      bool
 	debug         bool
 	dynamicClient dynamic.Interface
 	stdout        io.Writer
 	stderr        io.Writer
-	resourceCount int
+	tarWriter     *tar.Writer
+	gzipWriter    *gzip.Writer
+	fileCount     int
 }
 
 func usage() string {
-	return `  # Collect debug info for VirtualMachine 'myvm' (output to stdout):
-  {{ProgramName}} collect-debug-info myvm
-  {{ProgramName}} collect-debug-info myvm.mynamespace
-  {{ProgramName}} collect-debug-info myvm -n mynamespace
-
-  # Include pod logs:
-  {{ProgramName}} collect-debug-info --with-logs myvm
-
-  # Save compressed output to file:
-  {{ProgramName}} collect-debug-info --with-logs myvm | gzip > debug-info.yaml.gz`
+	return `  # Collect debug info for VirtualMachine 'myvm' (output compressed archive to stdout):
+  {{ProgramName}} collect-debug-info myvm > debug-info.tar.gz
+  {{ProgramName}} collect-debug-info myvm.mynamespace > debug-info.tar.gz
+  {{ProgramName}} collect-debug-info myvm -n mynamespace > debug-info.tar.gz`
 }
 
 func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
@@ -93,6 +91,19 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 
 	b.stdout = cmd.OutOrStdout()
 	b.stderr = cmd.ErrOrStderr()
+
+	// Check if stdout is a terminal - if so, don't output archive
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		_, _ = fmt.Fprintf(b.stderr, "Error: Output is being written to terminal. Please redirect to a file:\n")
+		_, _ = fmt.Fprintf(b.stderr, "  %s collect-debug-info %s > debug-info.tar.gz\n", cmd.CommandPath(), args[0])
+		return fmt.Errorf("output must be redirected to a file")
+	}
+
+	// Initialize archive writers
+	b.gzipWriter = gzip.NewWriter(b.stdout)
+	defer b.gzipWriter.Close()
+	b.tarWriter = tar.NewWriter(b.gzipWriter)
+	defer b.tarWriter.Close()
 
 	if err := b.collectResources(cmd.Context(), client, namespace, name); err != nil {
 		return err

@@ -17,6 +17,7 @@ limitations under the License.
 package collectdebuginfo
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -130,8 +131,6 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 	}
 
 	// Static block devices
-	// Note: blockDeviceRefs can only contain block devices (VirtualDisk, VirtualImage, ClusterVirtualImage),
-	// not VMBDA. VMBDA are collected separately below.
 	for _, bdRef := range vm.Spec.BlockDeviceRefs {
 		key := bdKey(bdRef.Kind, bdRef.Name)
 		if !collectedBlockDevices[key] {
@@ -146,8 +145,6 @@ func (b *DebugBundle) collectBlockDevices(ctx context.Context, client kubeclient
 	}
 
 	// Get all VMBDA that reference this VM
-	// Note: Hotplugged block devices are collected through VMBDA, not from vm.Status.BlockDeviceRefs,
-	// to avoid duplication. All hotplugged devices have corresponding VMBDA resources.
 	vmbdas, err := client.VirtualMachineBlockDeviceAttachments(namespace).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		for _, vmbda := range vmbdas.Items {
@@ -273,10 +270,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 			return fmt.Errorf("failed to output Pod: %w", err)
 		}
 		b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
-
-		if b.saveLogs {
-			b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
-		}
+		b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
 	}
 
 	// Collect pods that have ownerReference to VM pods (e.g., hotplug volume pods)
@@ -300,9 +294,7 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 							return fmt.Errorf("failed to output Pod: %w", err)
 						}
 						b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
-						if b.saveLogs {
-							b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
-						}
+						b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
 						break
 					}
 				}
@@ -328,7 +320,8 @@ func (b *DebugBundle) collectEvents(ctx context.Context, client kubeclient.Clien
 
 	// Add each event individually to preserve TypeMeta
 	for i := range events.Items {
-		if err := b.outputResource("Event", fmt.Sprintf("%s-%s-%d", strings.ToLower(resourceType), resourceName, i), namespace, &events.Items[i]); err != nil {
+		eventName := fmt.Sprintf("%s-%s-%d", strings.ToLower(resourceType), strings.ToLower(resourceName), i)
+		if err := b.outputResource("Event", eventName, namespace, &events.Items[i]); err != nil {
 			// Log error but continue processing other events
 			_, _ = fmt.Fprintf(b.stderr, "Warning: failed to output Event: %v\n", err)
 		}
@@ -345,7 +338,6 @@ const (
 )
 
 func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclient.Client, namespace, podName string) {
-	logPrefix := fmt.Sprintf("logs %s/%s", namespace, podName)
 	tailLines := maxLogLines
 
 	// Get current logs with timeout and line limit
@@ -364,9 +356,13 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 			}
 		}()
 		logContent, err := b.readLogsWithTimeout(logCtx, logStream)
-		if err == nil {
-			_, _ = fmt.Fprintf(b.stdout, "\n# %s\n", logPrefix)
-			_, _ = fmt.Fprintf(b.stdout, "%s\n", string(logContent))
+		if err == nil && len(logContent) > 0 {
+			fileName := fmt.Sprintf("pod-log-%s.log", strings.ToLower(podName))
+			if err := b.writeToArchive(fileName, logContent); err != nil {
+				_, _ = fmt.Fprintf(b.stderr, "Warning: failed to write log file %s: %v\n", fileName, err)
+			} else {
+				b.fileCount++
+			}
 		}
 	}
 
@@ -387,9 +383,13 @@ func (b *DebugBundle) collectSinglePodLogs(ctx context.Context, client kubeclien
 			}
 		}()
 		logContent, err := b.readLogsWithTimeout(logCtx, logStream)
-		if err == nil {
-			_, _ = fmt.Fprintf(b.stdout, "\n# %s (previous)\n", logPrefix)
-			_, _ = fmt.Fprintf(b.stdout, "%s\n", string(logContent))
+		if err == nil && len(logContent) > 0 {
+			fileName := fmt.Sprintf("pod-log-%s-previous.log", strings.ToLower(podName))
+			if err := b.writeToArchive(fileName, logContent); err != nil {
+				_, _ = fmt.Fprintf(b.stderr, "Warning: failed to write log file %s: %v\n", fileName, err)
+			} else {
+				b.fileCount++
+			}
 		}
 	}
 }
@@ -451,12 +451,6 @@ func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.O
 }
 
 func (b *DebugBundle) outputResourceWithExtraInfo(kind, name, namespace string, obj runtime.Object, extraInfo string) error {
-	// Output separator if not first resource
-	if b.resourceCount > 0 {
-		_, _ = fmt.Fprintf(b.stdout, "\n---\n")
-	}
-	b.resourceCount++
-
 	// Ensure Kind is set from input if missing
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	if gvk.Kind == "" {
@@ -489,8 +483,28 @@ func (b *DebugBundle) outputResourceWithExtraInfo(kind, name, namespace string, 
 		return fmt.Errorf("failed to convert %s/%s (namespace: %s) to YAML: %w", kind, name, namespace, err)
 	}
 
-	// Output with optional extra info
-	_, _ = fmt.Fprintf(b.stdout, "# %d. %s: %s%s\n%s", b.resourceCount, kind, name, extraInfo, string(yamlBytes))
+	// Create filename: <resource-name>-<name>.yaml (all lowercase)
+	resourceName := strings.ToLower(kind)
+	fileName := fmt.Sprintf("%s-%s.yaml", resourceName, strings.ToLower(name))
+	if err := b.writeToArchive(fileName, yamlBytes); err != nil {
+		return fmt.Errorf("failed to write %s to archive: %w", fileName, err)
+	}
 
+	b.fileCount++
+	return nil
+}
+
+func (b *DebugBundle) writeToArchive(fileName string, content []byte) error {
+	header := &tar.Header{
+		Name: fileName,
+		Size: int64(len(content)),
+		Mode: 0644,
+	}
+	if err := b.tarWriter.WriteHeader(header); err != nil {
+		return fmt.Errorf("failed to write tar header for %s: %w", fileName, err)
+	}
+	if _, err := b.tarWriter.Write(content); err != nil {
+		return fmt.Errorf("failed to write content for %s: %w", fileName, err)
+	}
 	return nil
 }
