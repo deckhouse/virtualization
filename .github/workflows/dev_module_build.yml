@@ -45,6 +45,7 @@ on:
     branches:
       - main
       - feat/vd/enable-hotplug-sc-migration
+      - feat/vmop/enable-hotplug-local-disk-migration
   push:
     branches:
       - main
