@@ -207,9 +207,9 @@ jobs:
             parse_summary "$ceph_summary" "ceph"
           else
             # Save to json files
-            cat > /tmp/ceph.json << 'EOF'
-            ${{ needs.e2e-ceph.outputs.e2e-summary }}
-            EOF
+            cat > /tmp/ceph.json <<'EOF'
+          ${{ needs.e2e-ceph.outputs.e2e-summary }}
+          EOF
             
             if [ -s /tmp/ceph.json ] && [ "$(cat /tmp/ceph.json)" != '""' ] && [ "$(cat /tmp/ceph.json)" != '{}' ]; then
               parse_summary "$(cat /tmp/ceph.json)" "ceph"
@@ -224,9 +224,9 @@ jobs:
             parse_summary "$replicated_summary" "replicated"
           else
             # Save to json files
-            cat > /tmp/replicated.json << 'EOF'
-            ${{ needs.e2e-replicated.outputs.e2e-summary }}
-            EOF
+            cat > /tmp/replicated.json <<'EOF'
+          ${{ needs.e2e-replicated.outputs.e2e-summary }}
+          EOF
             
             if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
               parse_summary "$(cat /tmp/replicated.json)" "replicated"
