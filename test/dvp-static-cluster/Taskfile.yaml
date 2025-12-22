@@ -134,12 +134,12 @@ tasks:
     cmds:
       - yq 'select( (.apiVersion + "/" + .kind) != "deckhouse.io/v1/InitConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/ClusterConfiguration" and (.apiVersion + "/" + .kind) != "deckhouse.io/v1/StaticClusterConfiguration" )' {{ .TMP_DIR }}/config.yaml > {{ .TMP_DIR }}/config-manifests.yaml
 
-  render-all:
-    desc: Generate all manifests
+  infra-undeploy-jumphost:
+    desc: Undeploy Jumphost
     cmds:
-      - task render-infra
-      - task render-cluster-config
-      - task render-cluster-manifests
+      - |
+        kubectl -n {{ .NAMESPACE }} get all -l app=jump-host || true
+        kubectl -n {{ .NAMESPACE }} delete all -l app=jump-host || true
 
   dhctl-bootstrap:
     desc: Bootstrap DKP over DVP
@@ -177,6 +177,7 @@ tasks:
         export end_time=$(date +%s)
         difference=$((end_time - {{.start_time}}))
         date -ud "@$difference" +'%H:%M:%S'
+      - task: infra-undeploy-jumphost
 
   show-connection-info:
     desc: Show connection info
