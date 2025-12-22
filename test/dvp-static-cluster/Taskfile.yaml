@@ -186,10 +186,6 @@ tasks:
         sh: yq eval '.discovered.domain' {{ .DISCOVERED_VALUES_FILE }}
       PASSWORD:
         sh: cat {{ .PASSWORD_FILE }}
-      JUMPHOST_EXT_IP:
-        sh: kubectl -n {{ .NAMESPACE }} exec deployment/jump-host -- dig @resolver4.opendns.com myip.opendns.com +short
-      JUMPHOST_NODEPORT:
-        sh: kubectl -n {{ .NAMESPACE }} get svc jump-host -o json | jq '.spec.ports[] | select(.port==2222) | .nodePort'
       MASTER_NODE_NAME:
         sh: kubectl get node -l node.deckhouse.io/group=master -o jsonpath="{.items[0].metadata.name}"
 
@@ -200,14 +196,7 @@ tasks:
         echo "Host cluster master node: {{ .MASTER_NODE_NAME }}"
         echo "Namespace: {{ .NAMESPACE }}"
         echo "OS User: {{ .DEFAULT_USER }}"
-        echo "Bastion: user@{{ .JUMPHOST_EXT_IP }}:{{ .JUMPHOST_NODEPORT }}"
         echo vms:
         kubectl -n {{ .NAMESPACE }} get vm
         echo "Grafana URL https://grafana.{{ .NAMESPACE }}.{{ .DOMAIN }}"
         echo "Default user/password admin@deckhouse.io/{{ .PASSWORD}}"
-
-  install:
-    cmds:
-      - task: infra-deploy
-      - task: dhctl-bootstrap
-      - task: show-connection-info
