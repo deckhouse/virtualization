@@ -38,9 +38,7 @@ func TestImageChecker(t *testing.T) {
 }
 
 var _ = Describe("ImageChecker", func() {
-	var (
-		scheme *runtime.Scheme
-	)
+	var scheme *runtime.Scheme
 
 	BeforeEach(func() {
 		scheme = runtime.NewScheme()

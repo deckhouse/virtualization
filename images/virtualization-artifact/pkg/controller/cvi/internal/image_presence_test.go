@@ -51,7 +51,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), cvi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImagePending))
 			Expect(imageChecker.CheckImageExistsCalls()).To(BeEmpty())
 		})
@@ -69,7 +69,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), cvi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 			Expect(imageChecker.CheckImageExistsCalls()).To(BeEmpty())
 		})
@@ -94,7 +94,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), cvi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageLost))
 
 			readyCondition := findCondition(cvi.Status.Conditions, cvicondition.ReadyType.String())
@@ -120,7 +120,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 			result, err := handler.Handle(context.Background(), cvi)
 
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 		})
 
@@ -142,7 +142,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("connection refused"))
-			Expect(result.Requeue).To(BeFalse())
+			Expect(result.RequeueAfter).To(BeZero())
 			Expect(cvi.Status.Phase).To(Equal(v1alpha2.ImageReady))
 		})
 	})
