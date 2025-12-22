@@ -138,8 +138,8 @@ tasks:
     desc: Undeploy Jumphost
     cmds:
       - |
-        kubectl -n {{ .NAMESPACE }} get all -l app=jump-host || true
-        kubectl -n {{ .NAMESPACE }} delete all -l app=jump-host || true
+        kubectl -n {{ .NAMESPACE }} get all -l infra=jump-host || true
+        kubectl -n {{ .NAMESPACE }} delete all -l infra=jump-host || true
 
   dhctl-bootstrap:
     desc: Bootstrap DKP over DVP
