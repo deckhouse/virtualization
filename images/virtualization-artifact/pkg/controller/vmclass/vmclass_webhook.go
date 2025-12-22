@@ -48,6 +48,7 @@ func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.Ev
 			validators.NewSizingPoliciesValidator(client),
 			validators.NewPolicyChangesValidator(recorder),
 			validators.NewSingleDefaultClassValidator(client, vmClassService),
+			validators.NewDefaultCoreFractionValidator(),
 		},
 		log: log.With("webhook", "validation"),
 	}

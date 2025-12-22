@@ -19,12 +19,15 @@ package network
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 	kc "github.com/deckhouse/virtualization/test/e2e/internal/kubectl"
 )
 
@@ -53,28 +56,31 @@ func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamesp
 	}
 
 	// Check each Cilium agent pod
+	var errs []error
 	for _, pod := range pods {
+		nodeIP := nodeInternalIP
 		if pod.Spec.NodeName == nodeName {
-			// For pods on the same node as the VM
-			found, err := searchIPFromCiliumIPCache(kubectl, pod, vmIP, innaddrAny)
-			if err != nil {
-				return err
-			}
+			nodeIP = innaddrAny
+		}
 
-			if !found {
-				return fmt.Errorf("failed: not found cilium agent %s for VM's node %s", pod.Name, nodeName)
-			}
-		} else {
-			// For pods on different nodes
-			found, err := searchIPFromCiliumIPCache(kubectl, pod, vmIP, nodeInternalIP)
-			if err != nil {
-				return err
-			}
+		ipCache, err := getCiliumIPCache(kubectl, pod)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to get Cilium Agent's IPCache `%s` on the node `%s`: %w", pod.Name, nodeName, err))
+			continue
+		}
 
-			if !found {
-				return fmt.Errorf("failed: not found cilium agent %s for node %s", pod.Name, pod.Spec.NodeName)
+		err = validateIPInCiliumIPCache(vmIP, nodeIP, ipCache)
+		if err != nil {
+			errs = append(errs, err)
+			err = dumpIPCache(ipCache, nodeName, pod.Name)
+			if err != nil {
+				errs = append(errs, err)
 			}
 		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("the Cilium agent check has failed: %w", errors.Join(errs...))
 	}
 
 	return nil
@@ -140,22 +146,36 @@ func getCiliumAgentPods(kubectl kc.Kubectl) ([]corev1.Pod, error) {
 	return podList.Items, nil
 }
 
-func searchIPFromCiliumIPCache(kubectl kc.Kubectl, pod corev1.Pod, vmIP, nodeIP string) (bool, error) {
+func getCiliumIPCache(kubectl kc.Kubectl, pod corev1.Pod) (string, error) {
 	cmd := fmt.Sprintf("-n %s exec %s -c cilium-agent -- cilium map get cilium_ipcache", pod.Namespace, pod.Name)
 	result := kubectl.RawCommand(cmd, kc.MediumTimeout)
 	if result.Error() != nil {
-		return false, fmt.Errorf("failed to execute command: %w", result.Error())
+		return "", fmt.Errorf("failed to execute command `%s`: %w", cmd, result.Error())
 	}
 
-	output := result.StdOut()
-	lines := strings.Split(output, "\n")
-	found := false
-	for _, line := range lines {
+	return result.StdOut(), nil
+}
+
+func validateIPInCiliumIPCache(vmIP, nodeIP, ipCache string) error {
+	lines := strings.SplitSeq(ipCache, "\n")
+	for line := range lines {
 		if strings.Contains(line, vmIP) && strings.Contains(line, nodeIP) {
-			found = true
-			break
+			return nil
 		}
 	}
 
-	return found, nil
+	return fmt.Errorf("VM's IP `%s` not found in the Cilium agent's ipcache; NodeIP: `%s`", vmIP, nodeIP)
+}
+
+func dumpIPCache(ipCache, nodeName, podName string) error {
+	ft := framework.GetFormattedTestCaseFullText()
+	tmpDir := framework.GetTMPDir()
+
+	resFileName := fmt.Sprintf("%s/e2e_failed__%s__%s__%s__cilium_ipcache.yaml", tmpDir, ft, nodeName, podName)
+	err := os.WriteFile(resFileName, []byte(ipCache), 0o644)
+	if err != nil {
+		return fmt.Errorf("saving Cilium Agent's IPCache to file '%s' failed: %w", resFileName, err)
+	}
+
+	return nil
 }

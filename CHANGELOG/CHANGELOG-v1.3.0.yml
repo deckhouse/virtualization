@@ -1,0 +1,53 @@
+ci:
+  fixes:
+    - summary: fix check release on channels
+      pull_request: https://github.com/deckhouse/virtualization/pull/1807
+cli:
+  features:
+    - summary: Add ansible-inventory command for generating dynamic ansible inventory from virtual machines
+      pull_request: https://github.com/deckhouse/virtualization/pull/1764
+images:
+  fixes:
+    - summary: Added the ability to use system nodes to create project and cluster images.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1747
+kubevirt:
+  fixes:
+    - summary: use container_kvm_t SELinux type for KubeVirt pods for security compliance
+      pull_request: https://github.com/deckhouse/virtualization/pull/1665
+observability:
+  fixes:
+    - summary: Fixed the display of virtual machine charts in clusters running in HA mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1801
+vd:
+  fixes:
+    - summary: Fixed an issue with restoring labels and annotations on a disk created from a snapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1776
+    - summary: Restore annotations correctly.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1758
+    - summary: Accelerated disk attachment in `WaitForFirstConsumer` mode for virtual machines.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1516
+vm:
+  features:
+    - summary: >-
+        Check whether 100% is present in the available coreFraction values if the default is not
+        specified.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1817
+  fixes:
+    - summary: Fix cyclic reboot of VM in CE version.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1774
+vmclass:
+  features:
+    - summary: >-
+        Added the `.spec.sizingPolicies.defaultCoreFraction` field to the `VirtualMachineClass`
+        resource, allowing you to set the default `coreFraction` for virtual machines that use this
+        class.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1783
+vmop:
+  features:
+    - summary: Add type for d8_virtualization_virtualmachineoperation_status_phase VMOP metric.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1803
+vmsnapshot:
+  fixes:
+    - summary: Process secret already exists error.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1762
+

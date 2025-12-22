@@ -185,7 +185,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		It("waits for the first consumer", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc, vdSnapshot, vs).Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
 
@@ -200,7 +200,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		It("is in provisioning", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc, vdSnapshot, vs).Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
 

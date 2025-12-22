@@ -59,7 +59,7 @@ Successful
 
 ## Сборщик мусора
 
-Когда все операции по удалению образов завершены, необходимо запустить `garbage collect`:
+Когда все операции по удалению образов завершены и нет виртуальных дисков в фазе `provisioning`, необходимо запустить `garbage collect`:
 ```bash
 k exec -it -n d8-virtualization dvcr-84c4bffc46-tkgvq -c dvcr -- dvcr-cleaner gc run
 ? Confirm? [y/N] y█
