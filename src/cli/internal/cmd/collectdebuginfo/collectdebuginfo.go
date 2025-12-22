@@ -101,9 +101,13 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 
 	// Initialize archive writers
 	b.gzipWriter = gzip.NewWriter(b.stdout)
-	defer b.gzipWriter.Close()
+	defer func() {
+		_ = b.gzipWriter.Close()
+	}()
 	b.tarWriter = tar.NewWriter(b.gzipWriter)
-	defer b.tarWriter.Close()
+	defer func() {
+		_ = b.tarWriter.Close()
+	}()
 
 	if err := b.collectResources(cmd.Context(), client, namespace, name); err != nil {
 		return err

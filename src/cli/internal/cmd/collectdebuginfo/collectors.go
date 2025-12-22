@@ -100,8 +100,7 @@ func (b *DebugBundle) collectVMResources(ctx context.Context, client kubeclient.
 			vmiName, found, _ := unstructured.NestedString(item.Object, "spec", "vmiName")
 			if found && vmiName == vmName {
 				name, _, _ := unstructured.NestedString(item.Object, "metadata", "name")
-				extraInfo := fmt.Sprintf(" (for VMI: %s)", vmiName)
-				if err := b.outputResourceWithExtraInfo("InternalVirtualizationVirtualMachineInstanceMigration", name, namespace, item, extraInfo); err != nil {
+				if err := b.outputResource("InternalVirtualizationVirtualMachineInstanceMigration", name, namespace, item); err != nil {
 					return fmt.Errorf("failed to output InternalVirtualizationVirtualMachineInstanceMigration: %w", err)
 				}
 			}
@@ -447,10 +446,6 @@ func (b *DebugBundle) getInternalResourceList(ctx context.Context, resource, nam
 }
 
 func (b *DebugBundle) outputResource(kind, name, namespace string, obj runtime.Object) error {
-	return b.outputResourceWithExtraInfo(kind, name, namespace, obj, "")
-}
-
-func (b *DebugBundle) outputResourceWithExtraInfo(kind, name, namespace string, obj runtime.Object, extraInfo string) error {
 	// Ensure Kind is set from input if missing
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	if gvk.Kind == "" {
@@ -498,7 +493,7 @@ func (b *DebugBundle) writeToArchive(fileName string, content []byte) error {
 	header := &tar.Header{
 		Name: fileName,
 		Size: int64(len(content)),
-		Mode: 0644,
+		Mode: 0o644,
 	}
 	if err := b.tarWriter.WriteHeader(header); err != nil {
 		return fmt.Errorf("failed to write tar header for %s: %w", fileName, err)
