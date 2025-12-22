@@ -3,7 +3,7 @@ description: Install deckhouse-cli
 runs:
   using: "composite"
   steps:
-    - name: Setup d8
+    - name: Install deckhouse-cli via curl
       shell: bash
       run: |
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/tools/install.sh)"
