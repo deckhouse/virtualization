@@ -31,14 +31,18 @@ import (
 )
 
 type ImagePresenceHandler struct {
-	client       client.Client
-	dvcrSettings *dvcr.Settings
+	imageChecker dvcr.ImageChecker
 }
 
 func NewImagePresenceHandler(client client.Client, dvcrSettings *dvcr.Settings) *ImagePresenceHandler {
 	return &ImagePresenceHandler{
-		client:       client,
-		dvcrSettings: dvcrSettings,
+		imageChecker: dvcr.NewImageChecker(client, dvcrSettings),
+	}
+}
+
+func NewImagePresenceHandlerWithChecker(imageChecker dvcr.ImageChecker) *ImagePresenceHandler {
+	return &ImagePresenceHandler{
+		imageChecker: imageChecker,
 	}
 }
 
@@ -60,7 +64,7 @@ func (h *ImagePresenceHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualI
 		return reconcile.Result{}, nil
 	}
 
-	exists, err := dvcr.NewImageChecker(h.client, h.dvcrSettings).CheckImageExists(ctx, registryURL)
+	exists, err := h.imageChecker.CheckImageExists(ctx, registryURL)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to check image existence in DVCR: %w", err)
 	}
