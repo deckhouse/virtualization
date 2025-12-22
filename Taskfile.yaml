@@ -26,7 +26,7 @@ includes:
     dir: ./src/cli
 
 vars:
-  deckhouse_lib_helm_ver: 1.55.1
+  deckhouse_lib_helm_ver: 1.65.2
   TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes}.go"
