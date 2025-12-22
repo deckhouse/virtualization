@@ -469,8 +469,8 @@ jobs:
               
               if [[ "${sds_replicated_volume_status}" = "Active" ]]; then
                 echo "[SUCCESS] Namespaces sds-replicated-volume are Active"
-                kubectl -n d8-sds-replicated-volume get pods
-                break
+                kubectl get ns d8-sds-replicated-volume
+                return 0
               fi
               
               echo "[INFO] Waiting 10s for sds-replicated-volume to be ready (attempt ${i}/${count})"
@@ -499,11 +499,17 @@ jobs:
 
           sds_pods_ready() {
             local count=60
+            local linstor_node
+            local csi_node
+            local webhooks
+            local workers=$(kubectl get nodes -o name | grep -c worker)
+            workers=$((workers))
+
             for i in $(seq 1 $count); do
               echo "[INFO] Check sds-replicated pods, linstor-node csi-node webhooks"
-              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "linstor-node.*Running")
-              csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "csi-node.*Running")
-              webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "webhooks.*Running")
+              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "linstor-node.*Running" 2>/dev/null)
+              csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "csi-node.*Running" 2>/dev/null)
+              webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "webhooks.*Running" 2>/dev/null)
 
               linstor_node=$((linstor_node))
               csi_node=$((csi_node))
@@ -512,7 +518,7 @@ jobs:
               echo "[INFO] Check if sds-replicated pods are ready"
               if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} && ${webhooks} -ge 1 ]]; then
                 echo "[SUCCESS] sds-replicated-volume is ready"
-                break
+                return 0
               fi
 
               echo "[INFO] Waiting 10s for sds-replicated-volume to be ready (attempt ${i}/${count})"
@@ -524,6 +530,7 @@ jobs:
                 echo " "
               fi
             done
+
             echo "[ERROR] sds-replicated-volume is not ready after ${count} attempts"
             echo "[DEBUG] Get pods"
             echo "::group::📦 sds-replicated-volume pods"
@@ -556,7 +563,7 @@ jobs:
               blockdevices=$(kubectl get blockdevice -o name | wc -l || echo 0)
               if [ $blockdevices -ge $workers ]; then
                 bdexists=true
-                break
+                return 0
               fi
 
               echo "[INFO] Wait 10 sec until blockdevices is greater or equal to $workers (attempt ${i}/${count})"
@@ -567,6 +574,7 @@ jobs:
 
               sleep 10
             done
+
             echo "[ERROR] Blockdevices is not 3"
             echo "[DEBUG] Show blockdevices"
             kubectl get blockdevice
@@ -613,20 +621,21 @@ jobs:
 
           d8_queue() {
             local count=90
+            local queue_count
 
             for i in $(seq 1 $count) ; do
               queue_count=$(d8_queue_list)
               if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
                 echo "[SUCCESS] Queue is clear"
-                break
+                return 0
               else
                 echo "[INFO] Show queue list"
                 d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
               fi
 
               echo "[INFO] Wait until queues are empty ${i}/${count}"
-              kubectl get ns | grep sds || echo "Namespaces sds not found"
-              echo "   "
+              kubectl get ns | grep ceph || echo "Namespaces ceph not found"
+              echo " "
               sleep 10
             done
           }
@@ -656,13 +665,16 @@ jobs:
 
           ceph_operator_ready() {
             local count=60
+            local ceph_operator_status
+            local csi_ceph_status
+
             for i in $(seq 1 $count); do
               ceph_operator_status=$(kubectl get ns d8-operator-ceph -o jsonpath='{.status.phase}' || echo "False")
               csi_ceph_status=$(kubectl get module csi-ceph -o jsonpath='{.status.phase}' || echo "False")
               
               if [[ "${ceph_operator_status}" = "Active" && "${csi_ceph_status}" = "Ready" ]]; then
                 echo "[SUCCESS] Namespaces operator-ceph and csi are Active"
-                break
+                return 0
               fi
               
               echo "[INFO] Waiting 10s for ceph operator and csi namespaces to be ready (attempt ${i}/${count})"
@@ -678,17 +690,22 @@ jobs:
               fi
               sleep 10
             done
+
             debug_output
             exit 1
           }
 
           ceph_ready() {
             local count=60
+            local ceph_mgr
+            local ceph_mon
+            local ceph_osd
+
             for i in $(seq 1 $count); do
               echo "[INFO] Check ceph pods, mon mgr osd"
-              ceph_mgr=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mgr.*Running")
-              ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mon.*Running")
-              ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-osd.*Running")
+              ceph_mgr=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mgr.*Running" 2>/dev/null)
+              ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mon.*Running" 2>/dev/null)
+              ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-osd.*Running" 2>/dev/null)
 
               ceph_mgr=$((ceph_mgr))
               ceph_mon=$((ceph_mon))
@@ -697,7 +714,7 @@ jobs:
               echo "[INFO] check if ceph pods are ready"
               if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
                 echo "[SUCCESS] Ceph cluster is ready"
-                break
+                return 0
               fi
 
               echo "[WARNING] Not all pods are ready, ceph_mgr=${ceph_mgr}, ceph_mon=${ceph_mon}, ceph_osd=${ceph_osd}"
@@ -713,9 +730,10 @@ jobs:
                 echo "[DEBUG] Show queue"
                 d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
               fi
-              echo "[INFO] Wait until all necessary pods are ready ${i}/${$count}"
+              echo "[INFO] Wait until all necessary pods are ready ${i}/${count}"
               sleep 10
             done
+            
             debug_output
             exit 1
           }
@@ -846,7 +864,7 @@ jobs:
               queue_count=$(d8_queue_list)
               if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
                 echo "[SUCCESS] Queues are empty"
-                break
+                return 0
               else
                 echo "[INFO] Show queue list"
                 d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
@@ -873,7 +891,7 @@ jobs:
                 echo "[SUCCESS] Virtualization module is ready"
                 kubectl get modules virtualization
                 kubectl -n d8-virtualization get pods
-                break
+                return 0
               fi
               
               echo "[INFO] Waiting 10s for Virtualization module to be ready (attempt $i/$count)"
