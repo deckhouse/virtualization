@@ -78,11 +78,13 @@ d8_queue() {
     if [ $(d8_queue_list) == "0" ]; then
       log_success "Queue is clear"
       break
-    else
-      log_info "Show queue first 25 lines"
-      d8 p queue list | head -n25 || echo "Failed to retrieve queue"
     fi
     log_info "Wait until queues are empty ${i}/${count}"
+    if (( i % 5 == 0 )); then
+        log_info "Show queue first 25 lines"
+        d8 p queue list | head -n25 || echo "Failed to retrieve queue"
+        echo " "
+    fi
     sleep 10
   done
 }
