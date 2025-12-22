@@ -7,4 +7,4 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04.2-live-server-amd64.iso
+      url: https://e2e-test-images.e2e.virtlab.flant.com/ubuntu-24.04.2-live-server-amd64.iso

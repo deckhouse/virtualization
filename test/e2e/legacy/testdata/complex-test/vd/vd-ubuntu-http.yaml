@@ -7,7 +7,7 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img
+      url: https://e2e-test-images.e2e.virtlab.flant.com/noble-server-cloudimg-amd64.img
   persistentVolumeClaim:
     storageClassName: "{{ .STORAGE_CLASS_NAME }}"
     size: 3600Mi
