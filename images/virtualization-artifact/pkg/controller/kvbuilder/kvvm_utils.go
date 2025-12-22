@@ -257,8 +257,14 @@ func ApplyVirtualMachineSpec(
 
 		switch {
 		case device.PVCName != "":
+			pvcName := device.PVCName
+			if kind == v1alpha2.DiskDevice {
+				if vd := vdByName[name]; vd != nil && vd.Status.Target.PersistentVolumeClaim != "" {
+					pvcName = vd.Status.Target.PersistentVolumeClaim
+				}
+			}
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
-				PersistentVolumeClaim: pointer.GetPointer(device.PVCName),
+				PersistentVolumeClaim: pointer.GetPointer(pvcName),
 				IsHotplugged:          true,
 				Serial:                GenerateSerialFromObject(obj),
 			}); err != nil {

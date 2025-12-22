@@ -3,12 +3,8 @@ description: Install deckhouse-cli
 runs:
   using: "composite"
   steps:
-    - name: Install deckhouse-cli
-      uses: werf/trdl/actions/setup-app@v0.12.2
-      with:
-        repo: d8
-        url: https://deckhouse.ru/downloads/deckhouse-cli-trdl/
-        root-version: 1
-        root-sha512: 343bd5f0d8811254e5f0b6fe292372a7b7eda08d276ff255229200f84e58a8151ab2729df3515cb11372dc3899c70df172a4e54c8a596a73d67ae790466a0491
-        group: 0
-        channel: stable
+    - name: Install deckhouse-cli via curl
+      shell: bash
+      run: |
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/tools/install.sh)"
+        echo "/opt/deckhouse/bin" >> $GITHUB_PATH
