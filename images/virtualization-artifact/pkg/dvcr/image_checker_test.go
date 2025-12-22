@@ -18,6 +18,10 @@ package dvcr
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -143,6 +147,65 @@ var _ = Describe("ImageChecker", func() {
 
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("ca.crt not found in secret"))
+			Expect(exists).To(BeFalse())
+		})
+
+		It("should return true when image exists", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.URL.Path == "/v2/":
+					w.WriteHeader(http.StatusOK)
+				case strings.HasPrefix(r.URL.Path, "/v2/") && strings.Contains(r.URL.Path, "/manifests/"):
+					w.Header().Set("Docker-Content-Digest", "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+					w.Header().Set("Content-Type", "application/vnd.oci.image.manifest.v1+json")
+					w.Header().Set("Content-Length", "123")
+					w.WriteHeader(http.StatusOK)
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+
+			client := fake.NewClientBuilder().WithScheme(scheme).Build()
+			settings := &Settings{
+				InsecureTLS: "true",
+			}
+			checker := NewImageChecker(client, settings)
+
+			registryHost := strings.TrimPrefix(server.URL, "http://")
+			imageURL := fmt.Sprintf("%s/vi/test:abc123", registryHost)
+
+			exists, err := checker.CheckImageExists(context.Background(), imageURL)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(exists).To(BeTrue())
+		})
+
+		It("should return false when image does not exist", func() {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch {
+				case r.URL.Path == "/v2/":
+					w.WriteHeader(http.StatusOK)
+				case strings.HasPrefix(r.URL.Path, "/v2/") && strings.Contains(r.URL.Path, "/manifests/"):
+					w.WriteHeader(http.StatusNotFound)
+				default:
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+			defer server.Close()
+
+			client := fake.NewClientBuilder().WithScheme(scheme).Build()
+			settings := &Settings{
+				InsecureTLS: "true",
+			}
+			checker := NewImageChecker(client, settings)
+
+			registryHost := strings.TrimPrefix(server.URL, "http://")
+			imageURL := fmt.Sprintf("%s/vi/test:notfound", registryHost)
+
+			exists, err := checker.CheckImageExists(context.Background(), imageURL)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(exists).To(BeFalse())
 		})
 	})
