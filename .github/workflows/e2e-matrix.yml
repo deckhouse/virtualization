@@ -39,7 +39,7 @@ jobs:
       nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
       branch: main
       virtualization_tag: main
-      deckhouse_tag: pr17193
+      deckhouse_tag: main
       pod_subnet_cidr: 10.88.0.0/16
       service_subnet_cidr: 10.92.0.0/16
       default_user: cloud
@@ -59,7 +59,7 @@ jobs:
       nested_storageclass_name: nested-thin-r1
       branch: main
       virtualization_tag: main
-      deckhouse_tag: pr17193
+      deckhouse_tag: main
       pod_subnet_cidr: 10.89.0.0/16
       service_subnet_cidr: 10.93.0.0/16
       default_user: cloud

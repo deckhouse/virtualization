@@ -511,9 +511,9 @@ jobs:
               csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "csi-node.*Running" 2>/dev/null)
               webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "webhooks.*Running" 2>/dev/null)
 
-              linstor_node=$((linstor_node))
-              csi_node=$((csi_node))
-              webhooks=$((webhooks))
+              # linstor_node=$((linstor_node))
+              # csi_node=$((csi_node))
+              # webhooks=$((webhooks))
               
               echo "[INFO] Check if sds-replicated pods are ready"
               if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} && ${webhooks} -ge 1 ]]; then
@@ -707,9 +707,9 @@ jobs:
               ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mon.*Running" 2>/dev/null)
               ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-osd.*Running" 2>/dev/null)
 
-              ceph_mgr=$((ceph_mgr))
-              ceph_mon=$((ceph_mon))
-              ceph_osd=$((ceph_osd))
+              # ceph_mgr=$((ceph_mgr))
+              # ceph_mon=$((ceph_mon))
+              # ceph_osd=$((ceph_osd))
               
               echo "[INFO] check if ceph pods are ready"
               if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
