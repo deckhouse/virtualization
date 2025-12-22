@@ -97,6 +97,7 @@ func (p *Pod) makeSpec() (*corev1.Pod, error) {
 			Labels: map[string]string{
 				annotations.AppLabel:             annotations.DVCRLabelValue,
 				annotations.UploaderServiceLabel: p.PodSettings.ServiceName,
+				annotations.QuotaExcludeLabel:    annotations.QuotaExcludeValue,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				p.PodSettings.OwnerReference,
