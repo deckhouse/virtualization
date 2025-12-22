@@ -78,6 +78,12 @@ on:
       e2e-summary:
         description: "E2E test results"
         value: ${{ jobs.e2e-test.outputs.report-summary }}
+      bootstrap-failed:
+        description: "Bootstrap cluster failed"
+        value: ${{ jobs.bootstrap.outputs.bootstrap-failed }}
+      workflow-run-id:
+        description: "Workflow run ID"
+        value: ${{ github.run_id }}
 
 env:
   BRANCH: ${{ inputs.branch }}
@@ -102,6 +108,7 @@ jobs:
       kubeconfig-content: ${{ steps.generate-kubeconfig.outputs.config }}
       storage-type: ${{ steps.vars.outputs.storage_type }}
       nested-storageclass-name: ${{ steps.vars.outputs.nested_storageclass_name }}
+      bootstrap-failed: ${{ steps.dhctl-bootstrap.outcome == 'failure' }}
     steps:
       - uses: actions/checkout@v4
         # with:
