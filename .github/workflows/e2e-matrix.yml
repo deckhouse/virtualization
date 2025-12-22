@@ -97,6 +97,29 @@ jobs:
             esac
           }
 
+          # Generate bootstrap failure summary
+          generate_bootstrap_failure_summary() {
+            local storage_type=$1
+            local workflow_run_id=$2
+            local csi=$(get_csi_name "$storage_type")
+            local date=$(date +"%Y-%m-%d")
+            local time=$(date +"%H:%M:%S")
+            local branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+            local link="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${workflow_run_id}"
+            
+            # Create JSON summary for bootstrap failure
+            local summary_json=$(jq -n \
+              --arg csi "$csi" \
+              --arg date "$date" \
+              --arg time "$time" \
+              --arg branch "$branch" \
+              --arg status ":x: BOOTSTRAP CLUSTER FAILED" \
+              --arg link "$link" \
+              '{CSI: $csi, Date: $date, StartTime: $time, Branch: $branch, Status: $status, Passed: 0, Failed: 0, Pending: 0, Skipped: 0, Link: $link}')
+            
+            echo "$summary_json"
+          }
+
           # Parse summary JSON and add to table
           parse_summary() {
             local summary_json=$1
@@ -170,21 +193,44 @@ jobs:
           DATE=$(date +"%Y-%m-%d")
           COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n\n"
 
-          # Save to json files
-          cat > /tmp/ceph.json << 'EOF'
-          ${{ needs.e2e-ceph.outputs.e2e-summary }}
-          EOF
-
-          cat > /tmp/replicated.json << 'EOF'
-          ${{ needs.e2e-replicated.outputs.e2e-summary }}
-          EOF
-
-          if [ -s /tmp/ceph.json ] && [ "$(cat /tmp/ceph.json)" != '""' ] && [ "$(cat /tmp/ceph.json)" != '{}' ]; then
-            parse_summary "$(cat /tmp/ceph.json)" "ceph"
+          # Check bootstrap status and generate summaries
+          ceph_bootstrap_failed="${{ needs.e2e-ceph.outputs.bootstrap-failed }}"
+          replicated_bootstrap_failed="${{ needs.e2e-replicated.outputs.bootstrap-failed }}"
+          ceph_run_id="${{ needs.e2e-ceph.outputs.workflow-run-id }}"
+          replicated_run_id="${{ needs.e2e-replicated.outputs.workflow-run-id }}"
+          
+          # Handle ceph storage type
+          if [ "$ceph_bootstrap_failed" == "true" ]; then
+            echo "[INFO] Bootstrap failed for ceph, generating failure summary"
+            ceph_summary=$(generate_bootstrap_failure_summary "ceph" "$ceph_run_id")
+            echo "$ceph_summary" > /tmp/ceph.json
+            parse_summary "$ceph_summary" "ceph"
+          else
+            # Save to json files
+            cat > /tmp/ceph.json << 'EOF'
+            ${{ needs.e2e-ceph.outputs.e2e-summary }}
+            EOF
+            
+            if [ -s /tmp/ceph.json ] && [ "$(cat /tmp/ceph.json)" != '""' ] && [ "$(cat /tmp/ceph.json)" != '{}' ]; then
+              parse_summary "$(cat /tmp/ceph.json)" "ceph"
+            fi
           fi
 
-          if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
-            parse_summary "$(cat /tmp/replicated.json)" "replicated"
+          # Handle replicated storage type
+          if [ "$replicated_bootstrap_failed" == "true" ]; then
+            echo "[INFO] Bootstrap failed for replicated, generating failure summary"
+            replicated_summary=$(generate_bootstrap_failure_summary "replicated" "$replicated_run_id")
+            echo "$replicated_summary" > /tmp/replicated.json
+            parse_summary "$replicated_summary" "replicated"
+          else
+            # Save to json files
+            cat > /tmp/replicated.json << 'EOF'
+            ${{ needs.e2e-replicated.outputs.e2e-summary }}
+            EOF
+            
+            if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
+              parse_summary "$(cat /tmp/replicated.json)" "replicated"
+            fi
           fi
 
           COMBINED_SUMMARY+="${markdown_table}\n"
