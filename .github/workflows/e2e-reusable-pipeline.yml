@@ -476,7 +476,7 @@ jobs:
                 return 0
               fi
               
-              echo "[INFO] Waiting 10s for sds-replicated-volume to be ready (attempt ${i}/${count})"
+              echo "[INFO] Waiting 10s for sds-replicated-volume namespace to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
                 echo "[INFO] Show namespaces sds-replicated-volume"
                 kubectl get ns | grep sds-replicated-volume || echo "Namespaces sds-replicated-volume are not ready"
@@ -501,15 +501,15 @@ jobs:
           }
 
           sds_pods_ready() {
-            local count=60
+            local count=100
             local linstor_node
             local csi_node
             local webhooks
             local workers=$(kubectl get nodes -o name | grep -c worker)
             workers=$((workers))
 
+            echo "[INFO] Wait while linstor-node csi-node webhooks pods are ready"
             for i in $(seq 1 $count); do
-              echo "[INFO] Check sds-replicated pods, linstor-node csi-node webhooks"
               linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "linstor-node.*Running" | tr -d '\n' || echo 0)
               csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "csi-node.*Running" | tr -d '\n' || echo 0)
               webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "webhooks.*Running" | tr -d '\n' || echo 0)
@@ -519,8 +519,9 @@ jobs:
                 echo "[SUCCESS] sds-replicated-volume is ready"
                 return 0
               fi
-
-              echo "[INFO] Waiting 10s for sds-replicated-volume to be ready (attempt ${i}/${count})"
+              
+              echo "[WARNING] Not all pods are ready, linstor_node=${linstor_node}, csi_node=${csi_node}, webhooks=${webhooks}"
+              echo "[INFO] Waiting 10s for pods to be ready (attempt ${i}/${count})"
               if (( i % 5 == 0 )); then
                 echo "[DEBUG] Get pods"
                 kubectl -n d8-sds-replicated-volume get pods || true
@@ -556,12 +557,11 @@ jobs:
               exit 1
             fi
             
-            bdexists=false
-            
             for i in $(seq 1 $count); do
               blockdevices=$(kubectl get blockdevice -o name | wc -l || echo 0)
               if [ $blockdevices -ge $workers ]; then
-                bdexists=true
+                echo "[SUCCESS] Blockdevices is greater or equal to $workers"
+                kubectl get blockdevice
                 return 0
               fi
 
@@ -699,7 +699,7 @@ jobs:
           }
 
           ceph_ready() {
-            local count=60
+            local count=90
             local ceph_mgr
             local ceph_mon
             local ceph_osd
