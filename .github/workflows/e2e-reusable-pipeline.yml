@@ -491,9 +491,9 @@ jobs:
             local count=60
             for i in $(1 seq $count); do
               echo "[INFO] Check sds-replicated pods, linstor-node csi-node webhooks"
-              linstor_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep -c "linstor-node.*Running")
-              csi_node=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep -c "csi-node.*Running")
-              webhooks=$(kubectl -n d8-sds-replicated-volume get po 2>/dev/null | grep -c "webhooks.*Running")
+              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "linstor-node.*Running")
+              csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "csi-node.*Running")
+              webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "webhooks.*Running")
 
               linstor_node=$((linstor_node))
               csi_node=$((csi_node))
@@ -554,7 +554,7 @@ jobs:
                 echo "[DEBUG] Show queue (first 25 lines)"
                 d8 s queue list | head -n25 || echo "No queues"
               fi
-              
+
               sleep 10
             done
             echo "[ERROR] Blockdevices is not 3"
@@ -676,9 +676,9 @@ jobs:
             local count=60
             for i in $(1 seq $count); do
               echo "[INFO] Check ceph pods, mon mgr osd"
-              ceph_mgr=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep -c "ceph-mgr.*Running")
-              ceph_mon=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep -c "ceph-mon.*Running")
-              ceph_osd=$(kubectl -n d8-operator-ceph get po 2>/dev/null | grep -c "ceph-osd.*Running")
+              ceph_mgr=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mgr.*Running")
+              ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mon.*Running")
+              ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-osd.*Running")
 
               ceph_mgr=$((ceph_mgr))
               ceph_mon=$((ceph_mon))
@@ -692,7 +692,7 @@ jobs:
 
               echo "[WARNING] Not all pods are ready, ceph_mgr=${ceph_mgr}, ceph_mon=${ceph_mon}, ceph_osd=${ceph_osd}"
               echo "[INFO] Waiting 10s for ceph operator to be ready"
-              kubectl -n d8-operator-ceph get po || echo "Failed to retrieve pods"
+              kubectl -n d8-operator-ceph get pods || echo "Failed to retrieve pods"
               if (( i % 5 == 0 )); then
                 echo "[DEBUG] Show ceph namespace"
                 kubectl get ns | grep ceph || echo "Failed to retrieve ceph ns"
@@ -736,7 +736,7 @@ jobs:
           kubectl apply -f 04-cluster.yaml
 
           echo "[INFO] Get pod in d8-operator-ceph"
-          kubectl -n d8-operator-ceph get po
+          kubectl -n d8-operator-ceph get pods
 
           echo "[INFO] Wait for ceph operator"
           ceph_ready
@@ -887,7 +887,7 @@ jobs:
             kubectl -n d8-virtualization get pods || true
             echo "[DEBUG] Show dvcr pod yaml"
             echo "::group::📦 dvcr pod yaml"
-            kubectl -n d8-virtualization get pod -l app=dvcr -o yaml || true
+            kubectl -n d8-virtualization get pods -l app=dvcr -o yaml || true
             echo "::endgroup::"
             echo "[DEBUG] Show dvcr pod describe"
             echo "::group::📦 dvcr pod describe"
