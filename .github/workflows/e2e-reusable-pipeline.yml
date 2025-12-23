@@ -405,7 +405,6 @@ jobs:
       - name: Upload kubeconfig config
         uses: actions/upload-artifact@v4
         id: artifact-upload-kubeconfig
-        if: always()
         with:
           name: generated-files-kubeconfig-${{ inputs.storage_type }}
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
@@ -510,9 +509,9 @@ jobs:
 
             echo "[INFO] Wait while linstor-node csi-node webhooks pods are ready"
             for i in $(seq 1 $count); do
-              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep "linstor-node.*Running" | wc -l)
-              csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep "csi-node.*Running" | wc -l)
-              webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep "webhooks.*Running" | wc -l)
+              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods | grep "linstor-node.*Running" | wc -l || echo 0)
+              csi_node=$(kubectl -n d8-sds-replicated-volume get pods | grep "csi-node.*Running" | wc -l || echo 0)
+              webhooks=$(kubectl -n d8-sds-replicated-volume get pods | grep "webhooks.*Running" | wc -l || echo 0)
 
               echo "[INFO] Check if sds-replicated pods are ready"
               if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} && ${webhooks} -ge 1 ]]; then
@@ -529,6 +528,7 @@ jobs:
                 d8 s queue list | head -n 25 || echo "Failed to retrieve list queue"
                 echo " "
               fi
+              sleep 10
             done
 
             echo "[ERROR] sds-replicated-volume is not ready after ${count} attempts"
@@ -706,9 +706,9 @@ jobs:
 
             for i in $(seq 1 $count); do
               echo "[INFO] Check ceph pods, mon mgr osd"
-              ceph_mgr=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep "ceph-mgr.*Running" | wc -l)
-              ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep "ceph-mon.*Running" | wc -l)
-              ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep "ceph-osd.*Running" | wc -l)
+              ceph_mgr=$(kubectl -n d8-operator-ceph get pods | grep "ceph-mgr.*Running" | wc -l || echo 0)
+              ceph_mon=$(kubectl -n d8-operator-ceph get pods | grep "ceph-mon.*Running" | wc -l || echo 0)
+              ceph_osd=$(kubectl -n d8-operator-ceph get pods | grep "ceph-osd.*Running" | wc -l || echo 0)
               
               echo "[INFO] check if ceph pods are ready"
               if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
@@ -915,14 +915,27 @@ jobs:
             kubectl get ns d8-virtualization || true
             echo "[DEBUG] Show pods in namespace d8-virtualization"
             kubectl -n d8-virtualization get pods || true
-            echo "[DEBUG] Show dvcr pod yaml"
-            echo "::group::📦 dvcr pod yaml"
-            kubectl -n d8-virtualization get pods -l app=dvcr -o yaml || true
-            echo "::endgroup::"
-            echo "[DEBUG] Show dvcr pod describe"
+            echo "[DEBUG] Show dvcr info"
             echo "::group::📦 dvcr pod describe"
             kubectl -n d8-virtualization describe pod -l app=dvcr || true
             echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr pod yaml"
+            kubectl -n d8-virtualization get pods -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr deployment yaml"
+            kubectl -n d8-virtualization get deployment -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr deployment describe"
+            kubectl -n d8-virtualization describe deployment -l app=dvcr || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr service yaml"
+            kubectl -n d8-virtualization get service -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
             echo "[DEBUG] Show pvc in namespace d8-virtualization"
             kubectl get pvc -n d8-virtualization || true
             echo "[DEBUG] Show storageclasses"
