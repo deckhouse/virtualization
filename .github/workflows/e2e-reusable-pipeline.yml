@@ -841,7 +841,7 @@ jobs:
             name: virtualization
           spec:
             imageTag: ${{ env.VIRTUALIZATION_TAG }}
-            scanInterval: 10m
+            scanInterval: 10h
           EOF
 
           echo "[INFO] Show module config virtualization info"

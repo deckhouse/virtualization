@@ -23,4 +23,4 @@ metadata:
   name: csi-ceph
 spec:
   imageTag: main
-  scanInterval: 10m
+  scanInterval: 10h
