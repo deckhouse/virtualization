@@ -70,6 +70,7 @@ jobs:
           go mod download
 
       - name: Set URL
+        working-directory: ./test/e2e/
         run: |
           echo "Set URL"
           task set-url:ci
