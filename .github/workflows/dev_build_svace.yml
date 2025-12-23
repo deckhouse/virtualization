@@ -54,7 +54,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == 'schedule' ]]; then
             # get last semver branch with remotes/origin/release-X.Y format
-            CHECKOUT_TAG=$(git branch --all | grep -E 'remotes\/origin\/release-[0-9]+\.[0-9]+-cse$' | sort -V | tail -n 1)
+            CHECKOUT_TAG=$(git branch --all | grep -E 'origin\/release-[0-9]+\.[0-9]+-cse$' | sort -V | tail -n 1)
           else
             CHECKOUT_TAG=${{ github.event.pull_request.head.sha || github.sha }}
           fi
