@@ -2786,12 +2786,10 @@ A consistent snapshot guarantees a consistent and complete state of the virtual 
 - The virtual machine is turned off.
 - [`qemu-guest-agent`](#guest-os-agent) is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
 
+An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.  
+If the snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, but `qemu-guest-agent` is running, an attempt will be made to freeze the file system to ensure that the snapshot is consistent.
+
 QEMU Guest Agent supports hook scripts that allow you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency. For more information on configuring hooks scripts, see the [Guest OS agent](#guest-os-agent) section.
-
-An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
-
-- The VM is running, and `qemu-guest-agent` is not installed or not running in the guest OS.
-- The snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
 
 {{< alert level="warning" >}}
 When restoring from such a snapshot, file system integrity issues may occur, as the data state may be inconsistent.
