@@ -48,7 +48,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: d8:virtualization:dvcr
+  name: d8:{{ .Chart.Name }}:dvcr
 subjects:
   - kind: ServiceAccount
     name: dvcr

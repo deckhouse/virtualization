@@ -505,14 +505,14 @@ jobs:
             local linstor_node
             local csi_node
             local webhooks
-            local workers=$(kubectl get nodes -o name | grep -c worker)
+            local workers=$(kubectl get nodes -o name | grep worker | wc -l)
             workers=$((workers))
 
             echo "[INFO] Wait while linstor-node csi-node webhooks pods are ready"
             for i in $(seq 1 $count); do
-              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "linstor-node.*Running" | tr -d '\n' || echo 0)
-              csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "csi-node.*Running" | tr -d '\n' || echo 0)
-              webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep -c "webhooks.*Running" | tr -d '\n' || echo 0)
+              linstor_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep "linstor-node.*Running" | wc -l)
+              csi_node=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep "csi-node.*Running" | wc -l)
+              webhooks=$(kubectl -n d8-sds-replicated-volume get pods 2>/dev/null | grep "webhooks.*Running" | wc -l)
 
               echo "[INFO] Check if sds-replicated pods are ready"
               if [[ ${linstor_node} -ge ${workers} && ${csi_node} -ge ${workers} && ${webhooks} -ge 1 ]]; then
@@ -549,7 +549,7 @@ jobs:
 
           blockdevices_ready() {
             local count=60
-            workers=$(kubectl get nodes -o name | grep -c worker)
+            workers=$(kubectl get nodes -o name | grep worker | wc -l)
             workers=$((workers))
             
             if [[ $workers -eq 0 ]]; then
@@ -706,9 +706,9 @@ jobs:
 
             for i in $(seq 1 $count); do
               echo "[INFO] Check ceph pods, mon mgr osd"
-              ceph_mgr=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mgr.*Running" | tr -d '\n' || echo 0)
-              ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-mon.*Running" | tr -d '\n' || echo 0)
-              ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep -c "ceph-osd.*Running" | tr -d '\n' || echo 0)
+              ceph_mgr=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep "ceph-mgr.*Running" | wc -l)
+              ceph_mon=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep "ceph-mon.*Running" | wc -l)
+              ceph_osd=$(kubectl -n d8-operator-ceph get pods 2>/dev/null | grep "ceph-osd.*Running" | wc -l)
               
               echo "[INFO] check if ceph pods are ready"
               if [[ $ceph_mgr -ge 2 && $ceph_mon -ge 3 && $ceph_osd -ge 3 ]]; then
