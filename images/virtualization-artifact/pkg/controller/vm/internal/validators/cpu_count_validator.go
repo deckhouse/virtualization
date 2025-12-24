@@ -36,9 +36,6 @@ func (v *CPUCountValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Virtu
 }
 
 func (v *CPUCountValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
-		return nil, nil
-	}
 	return v.Validate(newVM)
 }
 

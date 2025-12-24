@@ -45,9 +45,6 @@ func (v *BlockDeviceLimiterValidator) ValidateCreate(ctx context.Context, vm *v1
 }
 
 func (v *BlockDeviceLimiterValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
-		return nil, nil
-	}
 	return v.validate(ctx, newVM)
 }
 

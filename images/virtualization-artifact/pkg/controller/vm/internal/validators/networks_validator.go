@@ -52,10 +52,6 @@ func (v *NetworksValidator) ValidateCreate(_ context.Context, vm *v1alpha2.Virtu
 }
 
 func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
-		return nil, nil
-	}
-
 	newNetworksSpec := newVM.Spec.Networks
 	if len(newNetworksSpec) == 0 {
 		return nil, nil

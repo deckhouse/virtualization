@@ -58,10 +58,6 @@ func (v *MetaValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMa
 }
 
 func (v *MetaValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
-		return nil, nil
-	}
-
 	for key := range newVM.Annotations {
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the annotation is prohibited", core.GroupName)

@@ -48,9 +48,6 @@ func (v *SizingPolicyValidator) ValidateCreate(ctx context.Context, vm *v1alpha2
 }
 
 func (v *SizingPolicyValidator) ValidateUpdate(ctx context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if newVM == nil || !newVM.GetDeletionTimestamp().IsZero() {
-		return nil, nil
-	}
 	return v.validate(ctx, newVM)
 }
 
