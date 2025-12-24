@@ -1040,6 +1040,8 @@ jobs:
             export SKIP_IMMEDIATE_SC_CHECK="yes"
           fi
           
+          cp -a legacy/testdata /tmp/testdata
+
           FOCUS="VirtualMachineConfiguration" \
           go tool ginkgo \
             --focus "$FOCUS" \
@@ -1093,7 +1095,6 @@ jobs:
       - name: Upload summary test results
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
-        if: always()
         with:
           name: ${{ steps.e2e-report.outputs.report_file_name }}
           path: |
