@@ -40,8 +40,6 @@ jobs:
       branch: main
       virtualization_tag: main
       deckhouse_tag: main
-      pod_subnet_cidr: 10.88.0.0/16
-      service_subnet_cidr: 10.92.0.0/16
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3h"
@@ -60,8 +58,6 @@ jobs:
       branch: main
       virtualization_tag: main
       deckhouse_tag: main
-      pod_subnet_cidr: 10.89.0.0/16
-      service_subnet_cidr: 10.93.0.0/16
       default_user: cloud
       go_version: "1.24.6"
       e2e_timeout: "3h"
@@ -78,6 +74,8 @@ jobs:
       - e2e-ceph
       - e2e-replicated
     if: ${{ always()}}
+    env:
+      STORAGE_TYPES: '["ceph", "replicated"]'
     steps:
       - name: Send results to channel
         run: |
@@ -193,45 +191,71 @@ jobs:
           DATE=$(date +"%Y-%m-%d")
           COMBINED_SUMMARY="## :dvp: **DVP | End-to-End tests | $DATE**\n\n"
 
-          # Check bootstrap status and generate summaries
-          ceph_bootstrap_failed="${{ needs.e2e-ceph.outputs.bootstrap-failed }}"
-          replicated_bootstrap_failed="${{ needs.e2e-replicated.outputs.bootstrap-failed }}"
-          ceph_run_id="${{ needs.e2e-ceph.outputs.workflow-run-id }}"
-          replicated_run_id="${{ needs.e2e-replicated.outputs.workflow-run-id }}"
+          readarray -t storage_types < <(echo "$STORAGE_TYPES" | jq -r '.[]')
 
-          # Handle ceph storage type
-          if [ "$ceph_bootstrap_failed" == "true" ]; then
-            echo "[INFO] Bootstrap failed for ceph, generating failure summary"
-            ceph_summary=$(generate_bootstrap_failure_summary "ceph" "$ceph_run_id")
-            echo "$ceph_summary" > /tmp/ceph.json
-            parse_summary "$ceph_summary" "ceph"
-          else
-            # Save to json files
-            cat > /tmp/ceph.json <<'EOF'
-          ${{ needs.e2e-ceph.outputs.e2e-summary }}
-          EOF
-            
-            if [ -s /tmp/ceph.json ] && [ "$(cat /tmp/ceph.json)" != '""' ] && [ "$(cat /tmp/ceph.json)" != '{}' ]; then
-              parse_summary "$(cat /tmp/ceph.json)" "ceph"
-            fi
-          fi
+          for storage in "${storage_types[@]}"; do
+            job_name="e2e-$storage"
 
-          # Handle replicated storage type
-          if [ "$replicated_bootstrap_failed" == "true" ]; then
-            echo "[INFO] Bootstrap failed for replicated, generating failure summary"
-            replicated_summary=$(generate_bootstrap_failure_summary "replicated" "$replicated_run_id")
-            echo "$replicated_summary" > /tmp/replicated.json
-            parse_summary "$replicated_summary" "replicated"
-          else
-            # Save to json files
-            cat > /tmp/replicated.json <<'EOF'
-          ${{ needs.e2e-replicated.outputs.e2e-summary }}
-          EOF
-            
-            if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
-              parse_summary "$(cat /tmp/replicated.json)" "replicated"
+            bootstrap_key="bootstrap_failed_${storage}"
+            summary_key="summary_${storage}"
+            run_id_key="run_id_${storage}"
+
+            if [ "${!bootstrap_key}" == "true" ]; then
+              echo "[INFO] Bootstrap failed for $storage"
+              failed_summary=$(generate_bootstrap_failure_summary "$storage" "${!run_id_key}")
+              parse_summary "$failed_summary" "$storage"
+            else
+              json_content="${!summary_key}"
+              if [ -n "$json_content" ] && [ "$json_content" != '""' ] && [ "$json_content" != '{}' ]; then
+                parse_summary "$json_content" "$storage"
+              else
+                echo "[WARN] No valid summary for $storage"
+                csi=$(get_csi_name "$storage")
+                markdown_table+="| $csi | :warning: NO REPORT | 0 | 0 | 0 | 0 | — | — | — |\n"
+              fi
             fi
-          fi
+          done
+
+          # # Check bootstrap status and generate summaries
+          # ceph_bootstrap_failed="${{ needs.e2e-ceph.outputs.bootstrap-failed }}"
+          # replicated_bootstrap_failed="${{ needs.e2e-replicated.outputs.bootstrap-failed }}"
+          # ceph_run_id="${{ needs.e2e-ceph.outputs.workflow-run-id }}"
+          # replicated_run_id="${{ needs.e2e-replicated.outputs.workflow-run-id }}"
+
+          # # Handle ceph storage type
+          # if [ "$ceph_bootstrap_failed" == "true" ]; then
+          #   echo "[INFO] Bootstrap failed for ceph, generating failure summary"
+          #   ceph_summary=$(generate_bootstrap_failure_summary "ceph" "$ceph_run_id")
+          #   echo "$ceph_summary" > /tmp/ceph.json
+          #   parse_summary "$ceph_summary" "ceph"
+          # else
+          #   # Save to json files
+          #   cat > /tmp/ceph.json <<'EOF'
+          # ${{ needs.e2e-ceph.outputs.e2e-summary }}
+          # EOF
+            
+          #   if [ -s /tmp/ceph.json ] && [ "$(cat /tmp/ceph.json)" != '""' ] && [ "$(cat /tmp/ceph.json)" != '{}' ]; then
+          #     parse_summary "$(cat /tmp/ceph.json)" "ceph"
+          #   fi
+
+          # fi
+
+          # # Handle replicated storage type
+          # if [ "$replicated_bootstrap_failed" == "true" ]; then
+          #   echo "[INFO] Bootstrap failed for replicated, generating failure summary"
+          #   replicated_summary=$(generate_bootstrap_failure_summary "replicated" "$replicated_run_id")
+          #   echo "$replicated_summary" > /tmp/replicated.json
+          #   parse_summary "$replicated_summary" "replicated"
+          # else
+          #   # Save to json files
+          #   cat > /tmp/replicated.json <<'EOF'
+          # ${{ needs.e2e-replicated.outputs.e2e-summary }}
+          # EOF
+            
+          #   if [ -s /tmp/replicated.json ] && [ "$(cat /tmp/replicated.json)" != '""' ] && [ "$(cat /tmp/replicated.json)" != '{}' ]; then
+          #     parse_summary "$(cat /tmp/replicated.json)" "replicated"
+          #   fi
+          # fi
 
           COMBINED_SUMMARY+="${markdown_table}\n"
 
@@ -243,3 +267,11 @@ jobs:
           fi
         env:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
+
+          bootstrap_failed_ceph: ${{ needs.e2e-ceph.outputs.bootstrap-failed }}
+          summary_ceph: ${{ needs.e2e-ceph.outputs.e2e-summary }}
+          run_id_ceph: ${{ needs.e2e-ceph.outputs.workflow-run-id }}
+
+          bootstrap_failed_replicated: ${{ needs.e2e-replicated.outputs.bootstrap-failed }}
+          summary_replicated: ${{ needs.e2e-replicated.outputs.e2e-summary }}
+          run_id_replicated: ${{ needs.e2e-replicated.outputs.workflow-run-id }}

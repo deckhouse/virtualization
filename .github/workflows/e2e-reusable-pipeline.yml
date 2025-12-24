@@ -75,7 +75,7 @@ on:
       BOOTSTRAP_DEV_PROXY:
         required: true
     outputs:
-      e2e-summary:
+      e2e-report:
         description: "E2E test results"
         value: ${{ jobs.e2e-test.outputs.report-summary }}
       bootstrap-failed:
@@ -504,7 +504,7 @@ jobs:
             local linstor_node
             local csi_node
             local webhooks
-            local workers=$(kubectl get nodes -o name | grep worker | wc -l)
+            local workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
             workers=$((workers))
 
             echo "[INFO] Wait while linstor-node csi-node webhooks pods are ready"
@@ -611,9 +611,13 @@ jobs:
           chmod +x rsc-gen.sh
           ./rsc-gen.sh
 
-          echo "[INFO] Enshure that nested storageclasses are created"
-          kubectl get storageclass | grep nested || echo "[WARNING] No nested storageclasses"
-          echo "[SUCCESS] Done"
+          echo "[INFO] Show existing storageclasses"
+          if ! kubectl get storageclass | grep -q nested; then
+            echo "[WARNING] No nested storageclasses"
+          else
+            kubectl get storageclass | grep nested
+            echo "[SUCCESS] Done"
+          fi
       - name: Configure ceph storage
         if: ${{ inputs.storage_type == 'ceph' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
@@ -631,14 +635,22 @@ jobs:
               if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
                 echo "[SUCCESS] Queue is clear"
                 return 0
-              else
-                echo "[INFO] Show queue list"
-                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
               fi
 
               echo "[INFO] Wait until queues are empty ${i}/${count}"
-              kubectl get ns | grep ceph || echo "Namespaces ceph not found"
-              echo " "
+              if (( i % 5 == 0 )); then
+                echo "[INFO] Show queue list"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
+                echo " "
+              fi
+
+              if (( i % 10 == 0 )); then
+                echo "[INFO] deckhouse logs"
+                echo "::group::📝 deckhouse logs"
+                d8 s logs | tail -n 100
+                echo "::endgroup::"
+                echo " "
+              fi
               sleep 10
             done
           }
@@ -819,10 +831,6 @@ jobs:
           spec:
             enabled: true
             settings:
-              # https:
-              #   certManager:
-              #     clusterIssuerName: selfsigned
-              #   mode: CertManager
               dvcr:
                 storage:
                   persistentVolumeClaim:
@@ -856,22 +864,27 @@ jobs:
 
           d8_queue() {
             local count=90
+            local queue_count
 
             for i in $(seq 1 $count) ; do
               queue_count=$(d8_queue_list)
               if [ -n "$queue_count" ] && [ "$queue_count" = "0" ]; then
-                echo "[SUCCESS] Queues are empty"
+                echo "[SUCCESS] Queue is clear"
                 return 0
-              else
-                echo "[INFO] Show queue list"
-                d8 s queue list | head -n25 || echo "Failed to retrieve list queue"
               fi
 
               echo "[INFO] Wait until queues are empty ${i}/${count}"
-              
               if (( i % 5 == 0 )); then
+                echo "[INFO] Show queue list"
+                d8 s queue list | head -n25 || echo "[WARNING] Failed to retrieve list queue"
                 echo " "
+              fi
+              
+              if (( i % 10 == 0 )); then
+                echo "[INFO] deckhouse logs"
+                echo "::group::📝 deckhouse logs"
                 d8 s logs | tail -n 100
+                echo "::endgroup::"
                 echo " "
               fi
               sleep 10
@@ -957,7 +970,7 @@ jobs:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
     outputs:
-      report-summary: ${{ steps.e2e-summary.outputs.summary }}
+      report-summary: ${{ steps.e2e-report.outputs.summary }}
     needs:
       - bootstrap
       - configure-storage
@@ -1010,30 +1023,82 @@ jobs:
           kubectl get vmclass/generic -o json | jq 'del(.status) | del(.metadata) | .metadata = {"name":"generic-for-e2e","annotations":{"virtualmachineclass.virtualization.deckhouse.io/is-default-class":"true"}} ' | kubectl create -f -
 
       - name: Run E2E
-        id: e2e-summary
+        id: e2e-report
         env:
           TIMEOUT: ${{ inputs.e2e_timeout }}
           CSI: ${{ inputs.storage_type }}
+          STORAGE_CLASS_NAME: ${{ inputs.nested_storageclass_name }}
         working-directory: ./test/e2e/
         run: |
+          GINKGO_RESULT=$(mktemp)
+          DATE=$(date +"%Y-%m-%d")
+          START_TIME=$(date +"%H:%M:%S")
+          summary_file_name_junit="e2e_summary_${CSI}_${DATE}.xml"
+          summary_file_name_json="e2e_summary_${CSI}_${DATE}.json"
+
           if [[ "${{ inputs.storage_type }}" == "replicated" ]]; then
             export SKIP_IMMEDIATE_SC_CHECK="yes"
           fi
-          STORAGE_CLASS_NAME=${{ inputs.nested_storageclass_name }} FOCUS="VirtualMachineConfiguration" task run:ci -v LABELS="Slow"
+          
+          FOCUS="VirtualMachineConfiguration" \
+          go tool ginkgo \
+            --focus "$FOCUS" \
+            -v --race --timeout=$TIMEOUT \
+            --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
 
+          RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
+          if [[ $RESULT == FAIL!* ]]; then
+              RESULT_STATUS=":x: FAIL!"
+          elif [[ $RESULT == SUCCESS!* ]]; then
+              RESULT_STATUS=":white_check_mark: SUCCESS!"
+          else
+              RESULT_STATUS=":question: UNKNOWN"
+          fi
+
+          PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
+          FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
+          PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
+          SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
+
+          SUMMARY=$(jq -n \
+              --arg csi "$CSI" \
+              --arg date "$DATE" \
+              --arg startTime "$START_TIME" \
+              --arg branch "$GITHUB_REF_NAME" \
+              --arg status "$RESULT_STATUS" \
+              --argjson passed "$PASSED" \
+              --argjson failed "$FAILED" \
+              --argjson pending "$PENDING" \
+              --argjson skipped "$SKIPPED" \
+              --arg link "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            '{
+              CSI: $csi,
+              Date: $date,
+              StartTime: $startTime,
+              Branch: $branch,
+              Status: $status,
+              Passed: $passed,
+              Failed: $failed,
+              Pending: $pending,
+              Skipped: $skipped,
+              Link: $link
+            }'
+          )
+
+          echo "$SUMMARY"
           echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
-          summary_file_name="e2e_summary_${{ inputs.storage_type }}_$DATE.json"
-          echo "report_file_name=${summary_file_name}" >> $GITHUB_OUTPUT
-
-          echo $SUMMARY > "${summary_file_name}"
+          echo "report_file_name=${summary_file_name_json}" >> $GITHUB_OUTPUT
+          echo $SUMMARY > "${summary_file_name_json}"
 
       - name: Upload summary test results
         uses: actions/upload-artifact@v4
-        id: e2e-summary-artifact
+        id: e2e-report-artifact
         if: always()
         with:
-          name: ${{ steps.e2e-summary.outputs.report_file_name }}
-          path: test/e2e/e2e_summary_${{ inputs.storage_type }}.json
+          name: ${{ steps.e2e-report.outputs.report_file_name }}
+          path: |
+            test/e2e/${{ steps.e2e-report.outputs.report_file_name }}
+            test/e2e/*.xml
           if-no-files-found: ignore
 
   undeploy-cluster:
