@@ -1042,19 +1042,22 @@ jobs:
           
           cp -a legacy/testdata /tmp/testdata
 
+          set +e
           FOCUS="VirtualMachineConfiguration" \
           go tool ginkgo \
-            --focus "$FOCUS" \
+            --focus "VirtualMachineConfiguration" \
             -v --race --timeout=$TIMEOUT \
             --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          GINKGO_EXIT_CODE=$?
+          set -e
 
           RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
           if [[ $RESULT == FAIL!* ]]; then
-              RESULT_STATUS=":x: FAIL!"
+            RESULT_STATUS=":x: FAIL!"
           elif [[ $RESULT == SUCCESS!* ]]; then
-              RESULT_STATUS=":white_check_mark: SUCCESS!"
+            RESULT_STATUS=":white_check_mark: SUCCESS!"
           else
-              RESULT_STATUS=":question: UNKNOWN"
+            RESULT_STATUS=":question: UNKNOWN"
           fi
 
           PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
@@ -1088,7 +1091,7 @@ jobs:
           )
 
           echo "$SUMMARY"
-          echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+          echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
           echo "report_file_name=${summary_file_name_json}" >> $GITHUB_OUTPUT
           echo $SUMMARY > "${summary_file_name_json}"
 
