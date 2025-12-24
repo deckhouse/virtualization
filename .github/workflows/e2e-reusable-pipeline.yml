@@ -901,6 +901,7 @@ jobs:
                 echo "[SUCCESS] Virtualization module is ready"
                 kubectl get modules virtualization
                 kubectl -n d8-virtualization get pods
+                kubectl get vmclass
                 return 0
               fi
               
@@ -966,6 +967,11 @@ jobs:
           d8_queue
 
           virtualization_ready
+
+          echo "[INFO] Checking Virtualization module deployments"
+          kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 300s
+          echo "[INFO] Checking virt-handler pods"
+          kubectl -n d8-virtualization wait --for=condition=Ready pods -l kubevirt.internal.virtualization.deckhouse.io=virt-handler
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
@@ -1094,6 +1100,9 @@ jobs:
           echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
           echo "report_file_name=${summary_file_name_json}" >> $GITHUB_OUTPUT
           echo $SUMMARY > "${summary_file_name_json}"
+
+          echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
+          exit $GINKGO_EXIT_CODE
 
       - name: Upload summary test results
         uses: actions/upload-artifact@v4
