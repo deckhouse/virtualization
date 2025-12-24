@@ -1101,9 +1101,11 @@ jobs:
         with:
           name: ${{ steps.e2e-report.outputs.report_file_name }}
           path: |
-            test/e2e/${{ steps.e2e-report.outputs.report_file_name }}
-            test/e2e/*.xml
+            test/e2e/e2e_summary_*.json
+            test/e2e/e2e_summary_*.xml
+            test/e2e/*junit*.xml
           if-no-files-found: ignore
+          retention-days: 1
 
   undeploy-cluster:
     name: Undeploy cluster (${{ inputs.storage_type }})
