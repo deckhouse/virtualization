@@ -282,9 +282,9 @@ spec:
                           type: boolean
                         type: array
                       defaultCoreFraction:
-                        description: |-
-                          Default core fraction value for the VirtualMachineClass.
-                          This value will be used when creating a VM without an explicitly specified coreFraction.
+                        description:
+                          A default `CoreFraction` value for a `VirtualMachine`
+                          if it is not provided.
                         maximum: 100
                         minimum: 1
                         type: integer
@@ -340,6 +340,8 @@ spec:
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         type: object
+                    required:
+                      - cores
                     type: object
                   type: array
                 tolerations:
@@ -783,7 +785,9 @@ spec:
                           type: boolean
                         type: array
                       defaultCoreFraction:
-                        description: Default core fraction value for the VirtualMachineClass.
+                        description:
+                          A default `CoreFraction` value for a `VirtualMachine`
+                          if it is not provided.
                         type: string
                       memory:
                         description: Memory sizing policy.
@@ -837,6 +841,8 @@ spec:
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
                         type: object
+                    required:
+                      - cores
                     type: object
                   type: array
                 tolerations:
