@@ -800,7 +800,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
       - name: Check kubeconfig
         run: |
           echo "[INFO] Configure kube config"
@@ -878,7 +877,7 @@ jobs:
               sleep 10
             done
           }
-          
+
           virtualization_ready() {
             local count=90
             local virtualization_status
@@ -952,7 +951,7 @@ jobs:
           echo " "
           echo "[INFO] Waiting for Virtualization module to be ready"
           d8_queue
-          
+
           virtualization_ready
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
@@ -987,7 +986,6 @@ jobs:
         uses: ./.github/actions/install-d8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
       - name: Install kubectl CLI
         uses: azure/setup-kubectl@v4
@@ -1026,7 +1024,7 @@ jobs:
           echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
           summary_file_name="e2e_summary_${{ inputs.storage_type }}_$DATE.json"
           echo "report_file_name=${summary_file_name}" >> $GITHUB_OUTPUT
-          
+
           echo $SUMMARY > "${summary_file_name}"
 
       - name: Upload summary test results
@@ -1060,7 +1058,6 @@ jobs:
         uses: ./.github/actions/install-d8
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
 
       - name: Install Task
         uses: arduino/setup-task@v2

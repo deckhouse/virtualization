@@ -198,7 +198,7 @@ jobs:
           replicated_bootstrap_failed="${{ needs.e2e-replicated.outputs.bootstrap-failed }}"
           ceph_run_id="${{ needs.e2e-ceph.outputs.workflow-run-id }}"
           replicated_run_id="${{ needs.e2e-replicated.outputs.workflow-run-id }}"
-          
+
           # Handle ceph storage type
           if [ "$ceph_bootstrap_failed" == "true" ]; then
             echo "[INFO] Bootstrap failed for ceph, generating failure summary"
