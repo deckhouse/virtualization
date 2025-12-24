@@ -158,6 +158,13 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if migrationRequested {
+		if kvvmInCluster.Status.VolumeUpdateState != nil &&
+			kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState != nil &&
+			len(kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0 {
+			log.Info("Previous volume migration cleanup not complete, waiting for KubeVirt to clear migratedVolumes.")
+			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+		}
+
 		// We should wait delayDuration seconds. This delay allows user to change storage class on other volumes
 		if len(storageClassChangedDisks) > 0 {
 			delay, exists := s.delay[vm.UID]
