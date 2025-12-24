@@ -28,6 +28,7 @@ import (
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
@@ -52,6 +53,7 @@ func NewCommand() *cobra.Command {
 type DebugBundle struct {
 	debug         bool
 	dynamicClient dynamic.Interface
+	restConfig    *rest.Config
 	stdout        io.Writer
 	stderr        io.Writer
 	tarWriter     *tar.Writer
@@ -84,6 +86,7 @@ func (b *DebugBundle) Run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get REST config: %w", err)
 	}
+	b.restConfig = config
 	b.dynamicClient, err = dynamic.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("failed to create dynamic client: %w", err)

@@ -18,6 +18,7 @@ package collectdebuginfo
 
 import (
 	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -30,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/remotecommand"
 	"sigs.k8s.io/yaml"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -270,6 +273,10 @@ func (b *DebugBundle) collectPods(ctx context.Context, client kubeclient.Client,
 		}
 		b.collectEvents(ctx, client, namespace, "Pod", pod.Name)
 		b.collectSinglePodLogs(ctx, client, namespace, pod.Name)
+		// Collect vlctl domain XML for running virt-launcher pods
+		if pod.Status.Phase == corev1.PodRunning && b.isVirtLauncherPod(&pod) {
+			b.collectVlctlDomainXML(ctx, client, &pod)
+		}
 	}
 
 	// Collect pods that have ownerReference to VM pods (e.g., hotplug volume pods)
@@ -411,6 +418,91 @@ func (b *DebugBundle) readLogsWithTimeout(ctx context.Context, stream io.ReadClo
 		return nil, ctx.Err()
 	case res := <-resultChan:
 		return res.data, res.err
+	}
+}
+
+// isVirtLauncherPod checks if a pod is a virt-launcher pod
+func (b *DebugBundle) isVirtLauncherPod(pod *corev1.Pod) bool {
+	for _, label := range []string{
+		"kubevirt.internal.virtualization.deckhouse.io",
+		"vm.kubevirt.internal.virtualization.deckhouse.io/name",
+	} {
+		if _, ok := pod.Labels[label]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// collectVlctlDomainXML collects the output of `vlctl domain -o xml` command from a running pod
+func (b *DebugBundle) collectVlctlDomainXML(ctx context.Context, client kubeclient.Client, pod *corev1.Pod) {
+	// Find the compute container
+	containerName := "compute"
+	containerFound := false
+	for _, container := range pod.Spec.Containers {
+		if container.Name == containerName {
+			containerFound = true
+			break
+		}
+	}
+	if !containerFound {
+		// If compute container not found, try first container
+		if len(pod.Spec.Containers) == 0 {
+			return
+		}
+		containerName = pod.Spec.Containers[0].Name
+	}
+
+	// Prepare command
+	command := []string{"vlctl", "domain", "-o", "xml"}
+
+	// Create exec request
+	req := client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod.Name).
+		Namespace(pod.Namespace).
+		SubResource("exec").
+		Param("container", containerName)
+
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: containerName,
+		Command:   command,
+		Stdin:     false,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	// Create executor
+	executor, err := remotecommand.NewSPDYExecutor(b.restConfig, "POST", req.URL())
+	if err != nil {
+		_, _ = fmt.Fprintf(b.stderr, "Warning: failed to create executor for pod %s: %v\n", pod.Name, err)
+		return
+	}
+
+	// Capture output
+	var stdoutBuf, stderrBuf bytes.Buffer
+	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
+		Tty:    false,
+	})
+
+	if err != nil {
+		// Log error but don't fail the whole collection
+		_, _ = fmt.Fprintf(b.stderr, "Warning: failed to execute vlctl domain -o xml in pod %s: %v (stderr: %s)\n", pod.Name, err, stderrBuf.String())
+		return
+	}
+
+	// Write output to archive if we got any
+	output := stdoutBuf.Bytes()
+	if len(output) > 0 {
+		fileName := fmt.Sprintf("vlctl-domain-xml-%s.xml", strings.ToLower(pod.Name))
+		if err := b.writeToArchive(fileName, output); err != nil {
+			_, _ = fmt.Fprintf(b.stderr, "Warning: failed to write vlctl domain XML file %s: %v\n", fileName, err)
+		} else {
+			b.fileCount++
+		}
 	}
 }
 
