@@ -59,6 +59,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  {{- include "werf.annotations.disabling_state_tracking_and_ignoring_resource_errors" . | nindent 2 }}
   {{- include "helm_lib_module_labels" (list . (dict "app" "dvcr")) | nindent 2 }}
   name: dvcr
   namespace: d8-{{ .Chart.Name }}
