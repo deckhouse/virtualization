@@ -84,6 +84,12 @@ on:
       workflow-run-id:
         description: "Workflow run ID"
         value: ${{ github.run_id }}
+      storage-replicated-setup:
+        description: "Storage replicated setup failed"
+        value: ${{ jobs.configure-storage.outputs.storage-replicated-setup }}
+      storage-ceph-setup:
+        description: "Storage ceph setup failed"  
+        value: ${{ jobs.configure-storage.outputs.storage-ceph-setup }}
 
 env:
   BRANCH: ${{ inputs.branch }}
@@ -416,6 +422,9 @@ jobs:
     name: Configure storage (${{ inputs.storage_type }})
     runs-on: ubuntu-latest
     needs: bootstrap
+    outputs:
+      storage-replicated-setup: ${{ steps.storage-replicated-setup.outcome == 'failure' }}
+      storage-ceph-setup: ${{ steps.storage-ceph-setup.outcome == 'failure' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -459,7 +468,13 @@ jobs:
             fi
           done
 
+          if $i -eq 3; then
+            echo "[ERROR] Failed to retrieve nodes."
+            exit 1
+          fi
+
       - name: Configure replicated storage
+        id: storage-replicated-setup
         if: ${{ inputs.storage_type == 'replicated' }}
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/sds-replicated
         run: |
@@ -620,6 +635,7 @@ jobs:
           fi
       - name: Configure ceph storage
         if: ${{ inputs.storage_type == 'ceph' }}
+        id: storage-ceph-setup
         working-directory: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/storage/ceph
         run: |
           d8_queue_list() {

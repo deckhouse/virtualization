@@ -96,9 +96,10 @@ jobs:
           }
 
           # Generate bootstrap failure summary
-          generate_bootstrap_failure_summary() {
+          generate_stage_failure_summary() {
             local storage_type=$1
             local workflow_run_id=$2
+            local stage=$3
             local csi=$(get_csi_name "$storage_type")
             local date=$(date +"%Y-%m-%d")
             local time=$(date +"%H:%M:%S")
@@ -106,12 +107,18 @@ jobs:
             local link="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${workflow_run_id}"
             
             # Create JSON summary for bootstrap failure
+            if [ "$stage" == "cluster_bootstrap" ]; then
+              local status=":x: BOOTSTRAP CLUSTER FAILED"
+            elif [ "$stage" == "storage_setup" ]; then
+              local status=":x: STORAGE SETUP FAILED"
+            fi
+
             local summary_json=$(jq -n \
               --arg csi "$csi" \
               --arg date "$date" \
               --arg time "$time" \
               --arg branch "$branch" \
-              --arg status ":x: BOOTSTRAP CLUSTER FAILED" \
+              --arg status "$status" \
               --arg link "$link" \
               '{CSI: $csi, Date: $date, StartTime: $time, Branch: $branch, Status: $status, Passed: 0, Failed: 0, Pending: 0, Skipped: 0, Link: $link}')
             
@@ -131,6 +138,7 @@ jobs:
             # Try to parse as JSON (handle both JSON string and already parsed JSON)
             if ! echo "$summary_json" | jq empty 2>/dev/null; then
               echo "Warning: Invalid JSON for $storage_type: $summary_json"
+              echo "[DEBUG] json: $summary_json"
               return
             fi
 
@@ -203,10 +211,15 @@ jobs:
             bootstrap_key="bootstrap_failed_${storage}"
             summary_key="summary_${storage}"
             run_id_key="run_id_${storage}"
+            storage_setup_key="storage_setup_failed_${storage}"
 
             if [ "${bootstrap_key}" == "true" ]; then
               echo "[INFO] Bootstrap failed for $storage"
-              failed_summary=$(generate_bootstrap_failure_summary "$storage" "${run_id_key}")
+              failed_summary=$(generate_stage_failure_summary "$storage" "${run_id_key}" "cluster_bootstrap")
+              parse_summary "$failed_summary" "$storage"
+            elif [ "${storage_setup_key}" == "true" ]; then
+              echo "[INFO] Storage setup failed for $storage"
+              failed_summary=$(generate_stage_failure_summary "$storage" "${run_id_key}" "storage_setup")
               parse_summary "$failed_summary" "$storage"
             else
               echo "[INFO] Get summary for $storage"
@@ -238,7 +251,10 @@ jobs:
           bootstrap_failed_ceph: ${{ needs.e2e-ceph.outputs.bootstrap-failed }}
           summary_ceph: ${{ needs.e2e-ceph.outputs.e2e-summary }}
           run_id_ceph: ${{ needs.e2e-ceph.outputs.workflow-run-id }}
+          storage_setup_failed_ceph: ${{ needs.e2e-ceph.outputs.storage-ceph-setup }}
 
           bootstrap_failed_replicated: ${{ needs.e2e-replicated.outputs.bootstrap-failed }}
           summary_replicated: ${{ needs.e2e-replicated.outputs.e2e-summary }}
           run_id_replicated: ${{ needs.e2e-replicated.outputs.workflow-run-id }}
+          storage_setup_failed_replicated: ${{ needs.e2e-replicated.outputs.storage-replicated-setup }}
+
