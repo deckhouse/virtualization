@@ -42,7 +42,7 @@ spec:
           "system:serviceaccount:d8-virtualization:cdi-apiserver",
           "system:serviceaccount:d8-virtualization:cdi-cronjob",
           "system:serviceaccount:d8-virtualization:cdi-operator",
-          "system:serviceaccount:d8-virtualization:cdi-sa",
+          "system:serviceaccount:d8-virtualization:d8-cdi-sa",
           "system:serviceaccount:d8-virtualization:cdi-uploadproxy",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-apiserver",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-controller",
