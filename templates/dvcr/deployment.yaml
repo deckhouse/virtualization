@@ -80,7 +80,7 @@ spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "dvcr")) | nindent 6 }}
       containers:
         - name: dvcr
-          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "dvcr") }}
           imagePullPolicy: IfNotPresent
           command:
