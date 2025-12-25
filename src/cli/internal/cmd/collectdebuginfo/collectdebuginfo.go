@@ -45,13 +45,11 @@ func NewCommand() *cobra.Command {
 		RunE:    bundle.Run,
 	}
 
-	cmd.Flags().BoolVar(&bundle.debug, "debug", false, "Enable debug output for permission errors")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type DebugBundle struct {
-	debug         bool
 	dynamicClient dynamic.Interface
 	restConfig    *rest.Config
 	stdout        io.Writer
@@ -137,9 +135,7 @@ func (b *DebugBundle) collectResources(ctx context.Context, client kubeclient.Cl
 
 func (b *DebugBundle) handleError(resourceType, resourceName string, err error) bool {
 	if errors.IsForbidden(err) || errors.IsUnauthorized(err) {
-		if b.debug {
-			_, _ = fmt.Fprintf(b.stderr, "Warning: Skipping %s/%s: permission denied\n", resourceType, resourceName)
-		}
+		_, _ = fmt.Fprintf(b.stderr, "Warning: Skipping %s/%s: permission denied\n", resourceType, resourceName)
 		return true
 	}
 	return false

@@ -8,7 +8,7 @@ Manages virtual machine-related operations in your Kubernetes cluster.
 | Command            | Description                                                            |
 |--------------------|------------------------------------------------------------------------|
 | ansible-inventory  | Generate ansible inventory from virtual machines                       |
-| collect-debug-info | Collect debug information for VM: configuration, events, and logs     |
+| collect-debug-info | Collect debug information for VM: configuration, events, and logs      |
 | console            | Connect to a console of a virtual machine.                             |
 | port-forward       | Forward local ports to a virtual machine.                              |
 | scp                | SCP files from/to a virtual machine.                                   |
@@ -106,14 +106,8 @@ d8 v evict myvm -n mynamespace
 #### collect-debug-info
 
 ```shell
-# Collect debug info for VirtualMachine 'myvm'
-d8 v collect-debug-info myvm
-d8 v collect-debug-info myvm.mynamespace
-d8 v collect-debug-info myvm -n mynamespace
-
-# Include pod logs in output
-d8 v collect-debug-info --with-logs myvm
-
-# Enable debug output for permission errors
-d8 v collect-debug-info --debug myvm
+# Collect debug info for VirtualMachine 'myvm' (output compressed archive to stdout)
+d8 v collect-debug-info myvm > debug-info.tar.gz
+d8 v collect-debug-info myvm.mynamespace > debug-info.tar.gz
+d8 v collect-debug-info myvm -n mynamespace > debug-info.tar.gz
 ```
