@@ -487,7 +487,6 @@ func (b *DebugBundle) collectVlctlDomainXML(ctx context.Context, client kubeclie
 		Stderr: &stderrBuf,
 		Tty:    false,
 	})
-
 	if err != nil {
 		// Log error but don't fail the whole collection
 		_, _ = fmt.Fprintf(b.stderr, "Warning: failed to execute vlctl domain -o xml in pod %s: %v (stderr: %s)\n", pod.Name, err, stderrBuf.String())
