@@ -161,7 +161,11 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		if kvvmInCluster.Status.VolumeUpdateState != nil &&
 			kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState != nil &&
 			len(kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0 {
-			log.Info("Previous volume migration cleanup not complete, waiting for KubeVirt to clear migratedVolumes.")
+			if s.isMigratedVolumesStale(kvvmInCluster, kvvmiInCluster) {
+				log.Info("Previous migration complete but migratedVolumes not cleared, resetting updateVolumesStrategy.")
+				return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+			}
+			log.Info("Volume migration in progress, waiting for completion.")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 		}
 
@@ -553,4 +557,30 @@ func (s MigrationVolumesService) getVMOPCandidate(ctx context.Context, vmState s
 	}
 
 	return nil, nil
+}
+
+func (s MigrationVolumesService) isMigratedVolumesStale(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
+	if kvvm.Status.VolumeUpdateState == nil ||
+		kvvm.Status.VolumeUpdateState.VolumeMigrationState == nil ||
+		kvvmi == nil {
+		return false
+	}
+
+	kvvmiVolumes := make(map[string]string)
+	for _, v := range kvvmi.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil {
+			kvvmiVolumes[v.Name] = v.PersistentVolumeClaim.ClaimName
+		}
+	}
+
+	for _, mv := range kvvm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes {
+		if mv.DestinationPVCInfo == nil {
+			continue
+		}
+		kvvmiPVC, exists := kvvmiVolumes[mv.VolumeName]
+		if !exists || kvvmiPVC != mv.DestinationPVCInfo.ClaimName {
+			return false
+		}
+	}
+	return true
 }
