@@ -1133,6 +1133,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download E2E test results if available
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
+          path: test/e2e/
+
       - name: Determine failed stage and prepare report
         id: determine-stage
         run: |
@@ -1177,48 +1184,59 @@ jobs:
               }'
           }
           
-          # Determine which stage failed and prepare report
+          # Try to find and load E2E test report
+          E2E_REPORT_FILE=""
           REPORT_JSON=""
+          
+          # Search for report file in test/e2e directory
+          E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
+          
+          if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
+            echo "[INFO] Found E2E report file: $E2E_REPORT_FILE"
+            REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
+            echo "[INFO] Loaded report from file"
+            echo "$REPORT_JSON" | jq .
+          fi
+          
+          # Determine which stage failed and prepare report
           FAILED_STAGE=""
           FAILED_JOB_NAME=""
           
           if [ "${{ needs.bootstrap.result }}" != "success" ]; then
             FAILED_STAGE="bootstrap"
             FAILED_JOB_NAME="Bootstrap cluster (${{ inputs.storage_type }})"
-            REPORT_JSON=$(create_failure_summary "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED" "$FAILED_JOB_NAME")
+            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+              REPORT_JSON=$(create_failure_summary "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED" "$FAILED_JOB_NAME")
+            fi
           elif [ "${{ needs.configure-storage.result }}" != "success" ]; then
             FAILED_STAGE="storage-setup"
             FAILED_JOB_NAME="Configure storage (${{ inputs.storage_type }})"
-            REPORT_JSON=$(create_failure_summary "storage-setup" ":x: STORAGE SETUP FAILED" "$FAILED_JOB_NAME")
+            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+              REPORT_JSON=$(create_failure_summary "storage-setup" ":x: STORAGE SETUP FAILED" "$FAILED_JOB_NAME")
+            fi
           elif [ "${{ needs.configure-virtualization.result }}" != "success" ]; then
             FAILED_STAGE="virtualization-setup"
             FAILED_JOB_NAME="Configure Virtualization (${{ inputs.storage_type }})"
-            REPORT_JSON=$(create_failure_summary "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED" "$FAILED_JOB_NAME")
+            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+              REPORT_JSON=$(create_failure_summary "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED" "$FAILED_JOB_NAME")
+            fi
           elif [ "${{ needs.e2e-test.result }}" != "success" ]; then
             FAILED_STAGE="e2e-test"
             FAILED_JOB_NAME="E2E test (${{ inputs.storage_type }})"
-            # Try to get report from downloaded artifact or local file
-            E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
-            if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
-              # Load existing report and update status if needed
-              REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
-              # Check if status indicates failure
+            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+              REPORT_JSON=$(create_failure_summary "e2e-test" ":x: E2E TEST FAILED" "$FAILED_JOB_NAME")
+            else
+              # Report exists, but check if status needs to be updated
               CURRENT_STATUS=$(echo "$REPORT_JSON" | jq -r '.Status // ""')
-              if [[ "$CURRENT_STATUS" != *"FAILED"* ]] && [[ "$CURRENT_STATUS" != *"SUCCESS"* ]]; then
-                # Update status to failure
+              if [[ "$CURRENT_STATUS" != *"FAIL"* ]] && [[ "$CURRENT_STATUS" != *"SUCCESS"* ]]; then
+                # Update status to failure if not already set
                 REPORT_JSON=$(echo "$REPORT_JSON" | jq -c '.Status = ":x: E2E TEST FAILED"')
               fi
-            else
-              REPORT_JSON=$(create_failure_summary "e2e-test" ":x: E2E TEST FAILED" "$FAILED_JOB_NAME")
             fi
           else
             FAILED_STAGE="success"
             FAILED_JOB_NAME="E2E test (${{ inputs.storage_type }})"
-            # Try to load report from e2e-test job
-            E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
-            if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
-              REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
-            else
+            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
               REPORT_JSON=$(create_failure_summary "success" ":white_check_mark: SUCCESS!" "$FAILED_JOB_NAME")
             fi
           fi
@@ -1248,13 +1266,6 @@ jobs:
           echo "[INFO] Failed stage: $FAILED_STAGE"
           echo "[INFO] Failed job: $FAILED_JOB_NAME"
           cat "$REPORT_FILE" | jq .
-
-      - name: Download E2E test results if available
-        uses: actions/download-artifact@v5
-        continue-on-error: true
-        with:
-          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
-          path: test/e2e/
 
       - name: Upload E2E report artifact
         id: upload-artifact

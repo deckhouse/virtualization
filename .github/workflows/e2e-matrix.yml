@@ -82,11 +82,27 @@ jobs:
       - name: Download E2E report artifacts
         uses: actions/download-artifact@v5
         continue-on-error: true
-        id: download-artifacts
+        id: download-artifacts-pattern
         with:
           pattern: "e2e-report-*"
           path: downloaded-artifacts/
           merge-multiple: false
+
+      - name: Download E2E report artifacts (by name - ceph)
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        id: download-artifacts-ceph
+        with:
+          name: ${{ needs.e2e-ceph.outputs.artifact-name }}
+          path: downloaded-artifacts/ceph/
+
+      - name: Download E2E report artifacts (by name - replicated)
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        id: download-artifacts-replicated
+        with:
+          name: ${{ needs.e2e-replicated.outputs.artifact-name }}
+          path: downloaded-artifacts/replicated/
 
       - name: Send results to channel
         run: |
@@ -110,18 +126,54 @@ jobs:
           load_report_from_artifact() {
             local storage_type=$1
             local base_path="downloaded-artifacts/"
+            local specific_path="${base_path}${storage_type}/"
             
-            # Find report file - search in all subdirectories matching the storage type pattern
-            # Artifacts are downloaded with names like "e2e-report-{storage_type}-{run_id}"
-            # and placed in subdirectories with the same name
-            local report_file=$(find "$base_path" -type f -name "e2e_report_${storage_type}.json" 2>/dev/null | head -1)
+            echo "[DEBUG] Searching for report for storage type: $storage_type"
+            echo "[DEBUG] Base path: $base_path"
+            echo "[DEBUG] Specific path: $specific_path"
+            
+            # List all downloaded artifacts for debugging
+            if [ -d "$base_path" ]; then
+              echo "[DEBUG] Contents of downloaded-artifacts:"
+              find "$base_path" -type f -name "*.json" 2>/dev/null | head -10 || echo "No JSON files found"
+              echo "[DEBUG] Directories in downloaded-artifacts:"
+              find "$base_path" -type d -maxdepth 2 2>/dev/null || echo "No directories found"
+            else
+              echo "[DEBUG] Base path does not exist"
+            fi
+            
+            # First, try to find in specific storage type directory
+            local report_file=""
+            if [ -d "$specific_path" ]; then
+              echo "[DEBUG] Searching in specific path: $specific_path"
+              report_file=$(find "$specific_path" -name "e2e_report_*.json" -type f 2>/dev/null | head -1)
+              if [ -n "$report_file" ] && [ -f "$report_file" ]; then
+                echo "[INFO] Found report file in specific path: $report_file"
+                cat "$report_file"
+                return 0
+              fi
+            fi
+            
+            # Second, search in all subdirectories matching the storage type pattern
+            # Artifacts downloaded by pattern are placed in subdirectories with artifact name
+            report_file=$(find "$base_path" -type f -name "e2e_report_${storage_type}.json" 2>/dev/null | head -1)
             
             # Alternative: search by artifact directory name pattern
             if [ -z "$report_file" ] || [ ! -f "$report_file" ]; then
+              echo "[DEBUG] First search failed, trying alternative search"
               local artifact_dir=$(find "$base_path" -type d -name "e2e-report-${storage_type}-*" 2>/dev/null | head -1)
+              echo "[DEBUG] Found artifact dir: $artifact_dir"
               if [ -n "$artifact_dir" ]; then
                 report_file=$(find "$artifact_dir" -name "e2e_report_*.json" -type f 2>/dev/null | head -1)
+                echo "[DEBUG] Found report file in artifact dir: $report_file"
               fi
+            fi
+            
+            # Last resort: search for any e2e_report file
+            if [ -z "$report_file" ] || [ ! -f "$report_file" ]; then
+              echo "[DEBUG] Alternative search failed, trying broad search"
+              report_file=$(find "$base_path" -name "e2e_report_*.json" -type f 2>/dev/null | head -1)
+              echo "[DEBUG] Found report file (broad search): $report_file"
             fi
             
             if [ -n "$report_file" ] && [ -f "$report_file" ]; then
@@ -130,7 +182,7 @@ jobs:
               return 0
             else
               echo "[WARN] Report file not found for storage type: $storage_type"
-              echo "[DEBUG] Searched in: $base_path"
+              echo "[DEBUG] Final search path: $base_path"
               return 1
             fi
           }
