@@ -2,7 +2,7 @@
 {{- $ctx := index . 0 }}
 {{- $settings := index . 1 }}
 - name: {{ $settings.containerName | default "kube-rbac-proxy" }}
-  {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" $ctx | nindent 2 }}
+  {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all_pss_restricted" $ctx | nindent 2 }}
   {{- if eq $settings.runAsUserNobody true }}
     runAsNonRoot: true
     runAsUser: 65534
