@@ -163,6 +163,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			len(kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0 {
 			if s.isMigratedVolumesStale(kvvmInCluster, kvvmiInCluster) {
 				log.Info("Previous migration complete but migratedVolumes not cleared, resetting updateVolumesStrategy.")
+				builtKVVM.Spec.UpdateVolumesStrategy = nil
 				return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
 			}
 			log.Info("Volume migration in progress, waiting for completion.")
