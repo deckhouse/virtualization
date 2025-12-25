@@ -121,12 +121,6 @@ func (v *StorageClassValidator) validateTargetStorageClassForVolumeMigration(ctx
 		return fmt.Errorf("storage class cannot be changed unless the VirtualDisk is mounted to a running virtual machine")
 	}
 
-	for _, bd := range vm.Status.BlockDeviceRefs {
-		if bd.Hotplugged {
-			return fmt.Errorf("for now, changing the storage class is not allowed if the virtual machine has hot-plugged block devices")
-		}
-	}
-
 	currentStorageClassName := newVD.Status.StorageClassName
 	currentStorageClass, err := v.scService.GetStorageClass(ctx, currentStorageClassName)
 	if err != nil {
