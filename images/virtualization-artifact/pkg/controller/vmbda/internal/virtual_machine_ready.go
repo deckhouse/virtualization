@@ -72,7 +72,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 	}
 
 	switch vm.Status.Phase {
-	case v1alpha2.MachineRunning:
+	case v1alpha2.MachineRunning, v1alpha2.MachineMigrating:
 		// OK.
 	case v1alpha2.MachineStopping, v1alpha2.MachineStopped, v1alpha2.MachineStarting:
 		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
