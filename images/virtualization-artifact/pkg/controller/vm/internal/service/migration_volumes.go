@@ -163,8 +163,7 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 			len(kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0 {
 			if s.isMigratedVolumesStale(kvvmInCluster, kvvmiInCluster) {
 				log.Info("Previous migration complete but migratedVolumes not cleared, resetting updateVolumesStrategy.")
-				builtKVVM.Spec.UpdateVolumesStrategy = nil
-				return reconcile.Result{}, s.patchVolumes(ctx, builtKVVM)
+				return reconcile.Result{}, s.patchUpdateVolumesStrategy(ctx, kvvmInCluster, nil)
 			}
 			log.Info("Volume migration in progress, waiting for completion.")
 			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
@@ -260,6 +259,19 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 
 	err = s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
 	return err
+}
+
+func (s MigrationVolumesService) patchUpdateVolumesStrategy(ctx context.Context, kvvm *virtv1.VirtualMachine, strategy *virtv1.UpdateVolumesStrategy) error {
+	patchBytes, err := patch.NewJSONPatch(
+		patch.WithReplace("/spec/updateVolumesStrategy", strategy),
+	).Bytes()
+	if err != nil {
+		return err
+	}
+
+	logger.FromContext(ctx).Info("Patching updateVolumesStrategy", slog.String("patch", string(patchBytes)))
+
+	return s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
 }
 
 func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState state.VirtualMachineState) (bool, error) {
