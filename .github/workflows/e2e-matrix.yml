@@ -77,6 +77,17 @@ jobs:
     env:
       STORAGE_TYPES: '["ceph", "replicated"]'
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Download E2E report artifacts
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        id: download-artifacts
+        with:
+          pattern: "e2e-report-*"
+          path: downloaded-artifacts/
+          merge-multiple: false
+
       - name: Send results to channel
         run: |
           # Map storage types to CSI names
@@ -95,35 +106,76 @@ jobs:
             esac
           }
 
-          # Generate bootstrap failure summary
-          generate_stage_failure_summary() {
+          # Function to load and parse report from artifact
+          load_report_from_artifact() {
             local storage_type=$1
-            local workflow_run_id=$2
-            local stage=$3
+            local base_path="downloaded-artifacts/"
+            
+            # Find report file - search in all subdirectories matching the storage type pattern
+            # Artifacts are downloaded with names like "e2e-report-{storage_type}-{run_id}"
+            # and placed in subdirectories with the same name
+            local report_file=$(find "$base_path" -type f -name "e2e_report_${storage_type}.json" 2>/dev/null | head -1)
+            
+            # Alternative: search by artifact directory name pattern
+            if [ -z "$report_file" ] || [ ! -f "$report_file" ]; then
+              local artifact_dir=$(find "$base_path" -type d -name "e2e-report-${storage_type}-*" 2>/dev/null | head -1)
+              if [ -n "$artifact_dir" ]; then
+                report_file=$(find "$artifact_dir" -name "e2e_report_*.json" -type f 2>/dev/null | head -1)
+              fi
+            fi
+            
+            if [ -n "$report_file" ] && [ -f "$report_file" ]; then
+              echo "[INFO] Found report file: $report_file"
+              cat "$report_file"
+              return 0
+            else
+              echo "[WARN] Report file not found for storage type: $storage_type"
+              echo "[DEBUG] Searched in: $base_path"
+              return 1
+            fi
+          }
+
+          # Function to create failure summary JSON (fallback)
+          create_failure_summary() {
+            local storage_type=$1
+            local stage=$2
+            local run_id=$3
             local csi=$(get_csi_name "$storage_type")
             local date=$(date +"%Y-%m-%d")
             local time=$(date +"%H:%M:%S")
             local branch="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
-            local link="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${workflow_run_id}"
+            local link="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${run_id:-${GITHUB_RUN_ID}}"
             
-            # Create JSON summary for bootstrap failure
-            if [ "$stage" == "cluster_bootstrap" ]; then
-              local status=":x: BOOTSTRAP CLUSTER FAILED"
-            elif [ "$stage" == "storage_setup" ]; then
-              local status=":x: STORAGE SETUP FAILED"
-            fi
-
-            local summary_json=$(jq -n \
+            # Map stage to status message
+            local status_msg
+            case "$stage" in
+              "bootstrap")
+                status_msg=":x: BOOTSTRAP CLUSTER FAILED"
+                ;;
+              "storage-setup")
+                status_msg=":x: STORAGE SETUP FAILED"
+                ;;
+              "virtualization-setup")
+                status_msg=":x: VIRTUALIZATION SETUP FAILED"
+                ;;
+              "e2e-test")
+                status_msg=":x: E2E TEST FAILED"
+                ;;
+              *)
+                status_msg=":question: UNKNOWN"
+                ;;
+            esac
+            
+            jq -n \
               --arg csi "$csi" \
               --arg date "$date" \
               --arg time "$time" \
               --arg branch "$branch" \
-              --arg status "$status" \
+              --arg status "$status_msg" \
               --arg link "$link" \
-              '{CSI: $csi, Date: $date, StartTime: $time, Branch: $branch, Status: $status, Passed: 0, Failed: 0, Pending: 0, Skipped: 0, Link: $link}')
-            
-            echo "$summary_json"
+              '{CSI: $csi, Date: $date, StartTime: $time, Branch: $branch, Status: $status, Passed: 0, Failed: 0, Pending: 0, Skipped: 0, Link: $link}'
           }
+
 
           # Parse summary JSON and add to table
           parse_summary() {
@@ -206,32 +258,51 @@ jobs:
 
           echo "[INFO] Generate summary for each storage type"
           for storage in "${storage_types[@]}"; do
-            job_name="e2e-$storage"
-
-            bootstrap_key="bootstrap_failed_${storage}"
-            summary_key="summary_${storage}"
-            run_id_key="run_id_${storage}"
-            storage_setup_key="storage_setup_failed_${storage}"
-
-            if [ "${bootstrap_key}" == "true" ]; then
-              echo "[INFO] Bootstrap failed for $storage"
-              failed_summary=$(generate_stage_failure_summary "$storage" "${run_id_key}" "cluster_bootstrap")
-              parse_summary "$failed_summary" "$storage"
-            elif [ "${storage_setup_key}" == "true" ]; then
-              echo "[INFO] Storage setup failed for $storage"
-              failed_summary=$(generate_stage_failure_summary "$storage" "${run_id_key}" "storage_setup")
-              parse_summary "$failed_summary" "$storage"
-            else
-              echo "[INFO] Get summary for $storage"
-              json_content="${summary_key}"
-              if [ -n "$json_content" ] && [ "$json_content" != '""' ] && [ "$json_content" != '{}' ]; then
-                echo "[INFO] Parse summary for $storage"
-                parse_summary "$json_content" "$storage"
+            echo "[INFO] Processing $storage"
+            
+            # Try to load report from artifact
+            structured_report=$(load_report_from_artifact "$storage" 2>/dev/null || true)
+            
+            if [ -n "$structured_report" ] && echo "$structured_report" | jq empty 2>/dev/null; then
+              # Extract report data from structured file
+              report_json=$(echo "$structured_report" | jq -c '.report // empty')
+              failed_stage=$(echo "$structured_report" | jq -r '.failed_stage // empty')
+              workflow_run_id=$(echo "$structured_report" | jq -r '.workflow_run_id // empty')
+              
+              echo "[INFO] Loaded report for $storage (failed_stage: ${failed_stage}, run_id: ${workflow_run_id})"
+              
+              # Validate and parse report
+              if [ -n "$report_json" ] && [ "$report_json" != "" ] && [ "$report_json" != "null" ]; then
+                if echo "$report_json" | jq empty 2>/dev/null; then
+                  echo "[INFO] Found valid report for $storage"
+                  parse_summary "$report_json" "$storage"
+                else
+                  echo "[WARN] Invalid report JSON for $storage, using failed stage info"
+                  # Fallback to failed stage
+                  if [ -n "$failed_stage" ] && [ "$failed_stage" != "" ] && [ "$failed_stage" != "success" ]; then
+                    failed_summary=$(create_failure_summary "$storage" "$failed_stage" "$workflow_run_id")
+                    parse_summary "$failed_summary" "$storage"
+                  else
+                    csi=$(get_csi_name "$storage")
+                    markdown_table+="| $csi | :warning: INVALID REPORT | 0 | 0 | 0 | 0 | — | — | — |\n"
+                  fi
+                fi
               else
-                echo "[WARN] No valid summary for $storage"
-                csi=$(get_csi_name "$storage")
-                markdown_table+="| $csi | :warning: NO REPORT | 0 | 0 | 0 | 0 | — | — | — |\n"
+                # No report in structured file, use failed stage
+                if [ -n "$failed_stage" ] && [ "$failed_stage" != "" ] && [ "$failed_stage" != "success" ]; then
+                  echo "[INFO] Stage '$failed_stage' failed for $storage"
+                  failed_summary=$(create_failure_summary "$storage" "$failed_stage" "$workflow_run_id")
+                  parse_summary "$failed_summary" "$storage"
+                else
+                  csi=$(get_csi_name "$storage")
+                  markdown_table+="| $csi | :warning: NO REPORT | 0 | 0 | 0 | 0 | — | — | — |\n"
+                fi
               fi
+            else
+              # Artifact not found or invalid, show warning
+              echo "[WARN] Could not load report artifact for $storage"
+              csi=$(get_csi_name "$storage")
+              markdown_table+="| $csi | :warning: ARTIFACT NOT FOUND | 0 | 0 | 0 | 0 | — | — | — |\n"
             fi
           done
 
@@ -247,14 +318,4 @@ jobs:
           fi
         env:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
-
-          bootstrap_failed_ceph: ${{ needs.e2e-ceph.outputs.bootstrap-failed }}
-          summary_ceph: ${{ needs.e2e-ceph.outputs.e2e-summary }}
-          run_id_ceph: ${{ needs.e2e-ceph.outputs.workflow-run-id }}
-          storage_setup_failed_ceph: ${{ needs.e2e-ceph.outputs.storage-ceph-setup }}
-
-          bootstrap_failed_replicated: ${{ needs.e2e-replicated.outputs.bootstrap-failed }}
-          summary_replicated: ${{ needs.e2e-replicated.outputs.e2e-summary }}
-          run_id_replicated: ${{ needs.e2e-replicated.outputs.workflow-run-id }}
-          storage_setup_failed_replicated: ${{ needs.e2e-replicated.outputs.storage-replicated-setup }}
 

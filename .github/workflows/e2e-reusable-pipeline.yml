@@ -75,21 +75,9 @@ on:
       BOOTSTRAP_DEV_PROXY:
         required: true
     outputs:
-      e2e-report:
-        description: "E2E test results"
-        value: ${{ jobs.e2e-test.outputs.report-summary }}
-      bootstrap-failed:
-        description: "Bootstrap cluster failed"
-        value: ${{ jobs.bootstrap.outputs.bootstrap-failed }}
-      workflow-run-id:
-        description: "Workflow run ID"
-        value: ${{ github.run_id }}
-      storage-replicated-setup:
-        description: "Storage replicated setup failed"
-        value: ${{ jobs.configure-storage.outputs.storage-replicated-setup }}
-      storage-ceph-setup:
-        description: "Storage ceph setup failed"  
-        value: ${{ jobs.configure-storage.outputs.storage-ceph-setup }}
+      artifact-name:
+        description: "Name of the uploaded artifact with E2E report"
+        value: ${{ jobs.e2e-test.outputs.artifact-name }}
 
 env:
   BRANCH: ${{ inputs.branch }}
@@ -992,7 +980,7 @@ jobs:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
     outputs:
-      report-summary: ${{ steps.e2e-report.outputs.summary }}
+      artifact-name: ${{ steps.set-artifact-name.outputs.artifact-name }}
     needs:
       - bootstrap
       - configure-storage
@@ -1120,11 +1108,126 @@ jobs:
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
           exit $GINKGO_EXIT_CODE
 
-      - name: Upload summary test results
+      - name: Determine failed stage and prepare report
+        id: determine-stage
+        if: always()
+        run: |
+          # Get branch name
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" == "refs/heads/" ]; then
+            BRANCH_NAME="${{ github.ref_name }}"
+          fi
+          
+          # Function to create failure summary JSON
+          create_failure_summary() {
+            local stage=$1
+            local status_msg=$2
+            local csi="${{ inputs.storage_type }}"
+            local date=$(date +"%Y-%m-%d")
+            local start_time=$(date +"%H:%M:%S")
+            local branch="$BRANCH_NAME"
+            local link="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            
+            jq -n \
+              --arg csi "$csi" \
+              --arg date "$date" \
+              --arg startTime "$start_time" \
+              --arg branch "$branch" \
+              --arg status "$status_msg" \
+              --arg link "$link" \
+              '{
+                CSI: $csi,
+                Date: $date,
+                StartTime: $startTime,
+                Branch: $branch,
+                Status: $status,
+                Passed: 0,
+                Failed: 0,
+                Pending: 0,
+                Skipped: 0,
+                Link: $link
+              }'
+          }
+          
+          # Determine which stage failed and prepare report
+          REPORT_JSON=""
+          FAILED_STAGE=""
+          
+          if [ "${{ needs.bootstrap.result }}" != "success" ]; then
+            FAILED_STAGE="bootstrap"
+            REPORT_JSON=$(create_failure_summary "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED")
+          elif [ "${{ needs.configure-storage.result }}" != "success" ]; then
+            FAILED_STAGE="storage-setup"
+            REPORT_JSON=$(create_failure_summary "storage-setup" ":x: STORAGE SETUP FAILED")
+          elif [ "${{ needs.configure-virtualization.result }}" != "success" ]; then
+            FAILED_STAGE="virtualization-setup"
+            REPORT_JSON=$(create_failure_summary "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED")
+          elif [ "${{ steps.e2e-report.outcome }}" != "success" ]; then
+            FAILED_STAGE="e2e-test"
+            # Use report from e2e-report step if available
+            E2E_REPORT="${{ steps.e2e-report.outputs.summary }}"
+            if [ -n "$E2E_REPORT" ] && [ "$E2E_REPORT" != "" ]; then
+              REPORT_JSON="$E2E_REPORT"
+            else
+              REPORT_JSON=$(create_failure_summary "e2e-test" ":x: E2E TEST FAILED")
+            fi
+          else
+            FAILED_STAGE="success"
+            # Use report from e2e-report step
+            E2E_REPORT="${{ steps.e2e-report.outputs.summary }}"
+            if [ -n "$E2E_REPORT" ] && [ "$E2E_REPORT" != "" ]; then
+              REPORT_JSON="$E2E_REPORT"
+            else
+              REPORT_JSON=$(create_failure_summary "success" ":white_check_mark: SUCCESS!")
+            fi
+          fi
+          
+          # Create structured report file with metadata
+          REPORT_FILE="e2e_report_${{ inputs.storage_type }}.json"
+          # Parse REPORT_JSON to ensure it's valid JSON before using it
+          REPORT_JSON_PARSED=$(echo "$REPORT_JSON" | jq -c .)
+          jq -n \
+            --argjson report "$REPORT_JSON_PARSED" \
+            --arg storage_type "${{ inputs.storage_type }}" \
+            --arg failed_stage "$FAILED_STAGE" \
+            --arg workflow_run_id "${{ github.run_id }}" \
+            --arg workflow_run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              storage_type: $storage_type,
+              failed_stage: $failed_stage,
+              workflow_run_id: $workflow_run_id,
+              workflow_run_url: $workflow_run_url,
+              report: $report
+            }' > "$REPORT_FILE"
+          
+          echo "report_file=$REPORT_FILE" >> $GITHUB_OUTPUT
+          echo "[INFO] Created report file: $REPORT_FILE"
+          cat "$REPORT_FILE" | jq .
+
+      - name: Upload E2E report artifact
+        id: upload-artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}
+          path: ${{ steps.determine-stage.outputs.report_file }}
+          retention-days: 1
+        continue-on-error: true
+
+      - name: Set artifact name output
+        id: set-artifact-name
+        if: always()
+        run: |
+          ARTIFACT_NAME="e2e-report-${{ inputs.storage_type }}-${{ github.run_id }}"
+          echo "artifact-name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+          echo "[INFO] Artifact name: $ARTIFACT_NAME"
+
+      - name: Upload summary test results (junit/xml)
         uses: actions/upload-artifact@v4
         id: e2e-report-artifact
+        if: always()
         with:
-          name: ${{ steps.e2e-report.outputs.report_file_name }}
+          name: e2e-test-results-${{ inputs.storage_type }}-${{ github.run_id }}
           path: |
             test/e2e/e2e_summary_*.json
             test/e2e/e2e_summary_*.xml
