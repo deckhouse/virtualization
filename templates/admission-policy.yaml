@@ -39,11 +39,11 @@ spec:
         request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
         request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
         request.userInfo.username in [
-          "system:serviceaccount:d8-virtualization:d8-cdi-apiserver",
-          "system:serviceaccount:d8-virtualization:d8-cdi-cronjob",
+          "system:serviceaccount:d8-virtualization:cdi-apiserver",
+          "system:serviceaccount:d8-virtualization:cdi-cronjob",
           "system:serviceaccount:d8-virtualization:cdi-operator",
           "system:serviceaccount:d8-virtualization:d8-cdi-sa",
-          "system:serviceaccount:d8-virtualization:d8-cdi-uploadproxy",
+          "system:serviceaccount:d8-virtualization:cdi-uploadproxy",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-apiserver",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-controller",
           "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-exportproxy",
