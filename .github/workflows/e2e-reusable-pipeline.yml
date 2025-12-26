@@ -1076,10 +1076,16 @@ jobs:
 
           set +e
           FOCUS="VirtualMachineConfiguration" \
-          go tool ginkgo \
-            --focus "VirtualMachineConfiguration" \
-            -v --race --timeout=$TIMEOUT \
-            --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          if [ -n $FOCUS ]; then
+            go tool ginkgo \
+              --focus="$FOCUS" \
+              -v --race --timeout=$TIMEOUT \
+              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          else
+            go tool ginkgo \
+              -v --race --timeout=$TIMEOUT \
+              --junit-report=$summary_file_name_junit | tee $GINKGO_RESULT
+          fi
           GINKGO_EXIT_CODE=$?
           set -e
 

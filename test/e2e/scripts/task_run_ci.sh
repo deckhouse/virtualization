@@ -21,21 +21,16 @@ echo "DATE=$DATE" >> $GITHUB_ENV
 START_TIME=$(date +"%H:%M:%S")
 echo "START_TIME=$START_TIME" >> $GITHUB_ENV
 
-if [[ -n $FOCUS ]];then 
-    go tool ginkgo --focus "$FOCUS" -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
-else
-    go tool ginkgo -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
-fi
-
-# EXIT_CODE="${PIPESTATUS[0]}"
+go tool ginkgo -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
+EXIT_CODE="${PIPESTATUS[0]}"
 RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
-if [[ $RESULT == FAIL!* ]]; then
+if [[ $RESULT == FAIL!* || $EXIT_CODE -ne "0" ]]; then
     RESULT_STATUS=":x: FAIL!"
 elif [[ $RESULT == SUCCESS!* ]]; then
     RESULT_STATUS=":white_check_mark: SUCCESS!"
 else
     RESULT_STATUS=":question: UNKNOWN"
-    # EXIT_CODE=1
+    EXIT_CODE=1
 fi
 
 PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
@@ -70,4 +65,4 @@ SUMMARY=$(jq -n \
 
 echo "$SUMMARY"
 echo "SUMMARY=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_ENV
-# exit $EXIT_CODE
+exit $EXIT_CODE
