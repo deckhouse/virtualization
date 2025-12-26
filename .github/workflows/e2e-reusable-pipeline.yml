@@ -965,22 +965,25 @@ jobs:
 
           virt_handler_ready() {
             local count=60
-            local virt_handler_status
+            local virt_handler_ready
             local workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
             workers=$((workers)) 
 
             for i in $(seq 1 $count); do
-              virt_handler_status=$(kubectl -n d8-virtualization get pods | grep " virt-handler.*Running" | wc -l || true)
+              virt_handler_ready=$(kubectl -n d8-virtualization get pods | grep "virt-handler.*Running" | wc -l || true)
 
-              if [[ $virt_handler_status -ge $workers ]]; then
+              if [[ $virt_handler_ready -ge $workers ]]; then
                 echo "[SUCCESS] virt-handlers pods are ready"
                 return 0
               fi
 
+              echo "[INFO] virt-handler pods $virt_handler_ready/$workers "
+              echo "[INFO] Wait virt-handler pods are ready (attempt $i/$count)"
               if (( i % 5 == 0 )); then
-                echo "[DEBUG] Get pods"
+                echo "[DEBUG] Get pods in namespace d8-virtualization"
+                echo "::group::📦 virt-handler pods"
                 kubectl -n d8-virtualization get pods || echo "No pods virt-handler found"
-                echo " "
+                echo "::endgroup::"
               fi
               sleep 10
             done
