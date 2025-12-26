@@ -20,17 +20,23 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/containerd/nri/pkg/api"
 	resourceapi "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
 	"k8s.io/utils/ptr"
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
 	cdispec "tags.cncf.io/container-device-interface/specs-go"
+
+	vdraapi "github.com/deckhouse/virtualization-dra/api"
+	"github.com/deckhouse/virtualization-dra/internal/common"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
 	"github.com/deckhouse/virtualization-dra/pkg/set"
@@ -103,7 +109,7 @@ func (s *AllocationStore) sync() error {
 
 	allocatableDevices := make([]resourceapi.Device, discoverPluggedUSBDevices.Len())
 	for i, usbDevice := range discoverPluggedUSBDevices.Slice() {
-		allocatableDevices[i] = *convertToAPIDevice(usbDevice)
+		allocatableDevices[i] = *convertToAPIDevice(usbDevice, s.nodeName)
 	}
 
 	allocatableDevicesByName := make(map[string]resourceapi.Device, len(allocatableDevices))
@@ -183,7 +189,12 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 			return nil, fmt.Errorf("device %v is already allocated", result.Device)
 		}
 
-		edits, err := s.makeContainerEdits(claimUID, &usbDevice)
+		containerEditsOptions, err := newContainerEditsOptions(&usbDevice, claim)
+		if err != nil {
+			return nil, err
+		}
+
+		edits, err := s.makeContainerEdits(claimUID, containerEditsOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -213,75 +224,114 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 	return devices, nil
 }
 
-// TODO: refactor me
-func (s *AllocationStore) makeContainerEdits(claimUID string, device *resourceapi.Device) (*cdiapi.ContainerEdits, error) {
-	var (
-		devicePath string
-		deviceNum  string
-		bus        string
-		major      int64
-		minor      int64
-	)
-
-	if attr, ok := device.Attributes["devicePath"]; ok {
-		if val := attr.StringValue; val != nil {
-			devicePath = *val
-		} else {
-			return nil, fmt.Errorf("devicePath attribute is not exist")
-		}
+func newContainerEditsOptions(device *resourceapi.Device, claim *resourceapi.ResourceClaim) (containerEditsOptions, error) {
+	opts := containerEditsOptions{
+		Name: device.Name,
 	}
 
-	if attr, ok := device.Attributes["deviceNumber"]; ok {
-		if val := attr.StringValue; val != nil {
-			deviceNum = *val
-		} else {
-			return nil, fmt.Errorf("deviceNum attribute is not exist")
+	if featuregates.Default().USBGatewayEnabled() && isUSBGateway(claim) {
+		var data *runtime.RawExtension
+		for _, deviceStatus := range claim.Status.Devices {
+			if deviceStatus.Device == device.Name {
+				data = deviceStatus.Data
+				break
+			}
 		}
-	}
+		if data == nil {
+			return opts, fmt.Errorf("device status data is not found")
+		}
 
-	if attr, ok := device.Attributes["bus"]; ok {
-		if val := attr.StringValue; val != nil {
-			bus = *val
-		} else {
-			return nil, fmt.Errorf("bus attribute is not exist")
+		usbGatewayStatus, ok := data.Object.(*vdraapi.USBGatewayStatus)
+		if !ok {
+			return opts, fmt.Errorf("device status data is not a USBGatewayStatus")
+		}
+		if usbGatewayStatus == nil {
+			return opts, fmt.Errorf("device status data Object is nil")
+		}
+
+		opts.Bus = strconv.Itoa(usbGatewayStatus.BusNum)
+		opts.DeviceNum = strconv.Itoa(usbGatewayStatus.DeviceNum)
+		opts.DevicePath = usbGatewayStatus.DevicePath
+
+	} else {
+		if attr, ok := device.Attributes["devicePath"]; ok {
+			if val := attr.StringValue; val != nil {
+				opts.DevicePath = *val
+			} else {
+				return opts, fmt.Errorf("devicePath attribute is not exist")
+			}
+		}
+
+		if attr, ok := device.Attributes["deviceNumber"]; ok {
+			if val := attr.StringValue; val != nil {
+				opts.DeviceNum = *val
+			} else {
+				return opts, fmt.Errorf("deviceNum attribute is not exist")
+			}
+		}
+
+		if attr, ok := device.Attributes["bus"]; ok {
+			if val := attr.StringValue; val != nil {
+				opts.Bus = *val
+			} else {
+				return opts, fmt.Errorf("bus attribute is not exist")
+			}
 		}
 	}
 
 	if attr, ok := device.Attributes["major"]; ok {
 		if val := attr.IntValue; val != nil {
-			major = *val
+			opts.Major = *val
 		} else {
-			return nil, fmt.Errorf("major attribute is not exist")
+			return opts, fmt.Errorf("major attribute is not exist")
 		}
 	}
 
 	if attr, ok := device.Attributes["minor"]; ok {
 		if val := attr.IntValue; val != nil {
-			minor = *val
+			opts.Minor = *val
 		} else {
-			return nil, fmt.Errorf("minor attribute is not exist")
+			return opts, fmt.Errorf("minor attribute is not exist")
 		}
 	}
 
+	return opts, nil
+}
+
+func isUSBGateway(claim *resourceapi.ResourceClaim) bool {
+	return claim.Annotations[common.USBGatewayAnnotation] == "true"
+}
+
+type containerEditsOptions struct {
+	Name       string
+	DevicePath string
+	DeviceNum  string
+	Bus        string
+	Major      int64
+	Minor      int64
+}
+
+// TODO: refactor me
+func (s *AllocationStore) makeContainerEdits(claimUID string, opts containerEditsOptions) (*cdiapi.ContainerEdits, error) {
 	claimUIDUpper := strings.ToUpper(claimUID)
-	deviceNameUpper := strings.ToUpper(device.Name)
+	deviceNameUpper := strings.ToUpper(opts.Name)
 
 	edits := &cdiapi.ContainerEdits{
 		ContainerEdits: &cdispec.ContainerEdits{
 			Env: []string{
 				fmt.Sprintf("DRA_USB_CLAIM_UID_%s=%s", claimUIDUpper, claimUID),
-				fmt.Sprintf("DRA_USB_DEVICE_NAME_%s=%s", deviceNameUpper, device.Name),
-				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE_NAME=%s", claimUIDUpper, device.Name),
-				fmt.Sprintf("DRA_USB_%s_DEVICE_PATH=%s", deviceNameUpper, devicePath),
-				fmt.Sprintf("DRA_USB_%s_BUS_DEVICENUMBER=%s:%s", deviceNameUpper, bus, deviceNum),
+				fmt.Sprintf("DRA_USB_DEVICE_NAME_%s=%s", deviceNameUpper, opts.Name),
+				fmt.Sprintf("DRA_USB_CLAIM_UID_%s_DEVICE_NAME=%s", claimUIDUpper, opts.Name),
+				fmt.Sprintf("DRA_USB_%s_DEVICE_PATH=%s", deviceNameUpper, opts.DevicePath),
+				fmt.Sprintf("DRA_USB_%s_BUS_DEVICENUMBER=%s:%s", deviceNameUpper, opts.Bus, opts.DeviceNum),
 			},
 			DeviceNodes: []*cdispec.DeviceNode{
 				{
-					Path:        devicePath,
-					HostPath:    devicePath,
+					Path:        opts.DevicePath,
+					HostPath:    opts.DevicePath,
 					Type:        "c",
-					Major:       major,
-					Minor:       minor,
+					Major:       opts.Major,
+					Minor:       opts.Minor,
 					Permissions: "mrw",
 					UID:         ptr.To(uint32(107)), // qemu user. TODO: make this configurable
 					GID:         ptr.To(uint32(107)), // qemu group. TODO: make this configurable

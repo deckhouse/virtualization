@@ -30,9 +30,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
+
+	"github.com/deckhouse/virtualization-dra/internal/common"
 )
 
-const DriverName = "virtualization-dra"
+const DriverName = common.VirtualizationDraPluginName
 
 func NewDriver(nodeName string, kubeClient kubernetes.Interface, allocator Allocator, log *slog.Logger) *Driver {
 	return &Driver{
@@ -169,8 +171,6 @@ func (d *Driver) startPublisher(ctx context.Context) {
 				return
 			case devices := <-ch:
 				d.log.Info("Publishing devices", slog.Any("devices", devices))
-				if len(devices) > 0 {
-				}
 				resources := d.makeResources(devices)
 				err := d.helper.PublishResources(ctx, resources)
 				if err != nil {
