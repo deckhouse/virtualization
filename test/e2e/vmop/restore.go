@@ -79,15 +79,15 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 		DeferCleanup(f.After)
 		f.Before()
 
-		if !util.IsSdnModuleEnabled(f) {
-			Skip("SDN module is not enabled")
+		if util.IsSdnModuleEnabled(f) {
+			Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
 		}
 
 		Expect(util.IsClusterNetworkExists(f)).To(BeTrue(), fmt.Sprintf("The cluster network does not exist. Please apply the cluster network first using the command: %s", util.ClusterNetworkCreateCommand))
 
 		t := newRestoreTest(f)
 		if !t.IsStorageClassAvailableForTest(t.VM) {
-			Skip("Storage class is not available for test")
+			Skip("Snapshots are not working on SDS-replicated volumes with replicas. Remove this skip once snapshot support is fixed.")
 		}
 
 		By("Environment preparation", func() {
@@ -115,7 +115,9 @@ var _ = Describe("VirtualMachineOperationRestore", label.Slow(), func() {
 			util.UnmountBlockDevice(f, t.VM, mountPoint)
 			t.BlockDeviceHash = util.GetBlockDeviceHash(f, t.VM, v1alpha2.DiskDevice, t.VDBlankWithNoFstabEntry.Name)
 
-			t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
+			if util.IsSdnModuleEnabled(t.Framework) {
+				t.CheckAdditionalNetworkInterface(t.VM, additionalNetworkIP)
+			}
 
 			err = f.CreateWithDeferredDeletion(context.Background(), t.VMSnapshot)
 			Expect(err).NotTo(HaveOccurred())
@@ -356,14 +358,19 @@ runcmd:
 		vmbuilder.WithRestartApprovalMode(restartApprovalMode),
 		vmbuilder.WithRunPolicy(runPolicy),
 		vmbuilder.WithProvisioningUserData(cloudInit),
-		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeMain,
-		}),
-		vmbuilder.WithNetwork(v1alpha2.NetworksSpec{
-			Type: v1alpha2.NetworksTypeClusterNetwork,
-			Name: util.ClusterNetworkName,
-		}),
 	)
+
+	if util.IsSdnModuleEnabled(t.Framework) {
+		t.VM.Spec.Networks = []v1alpha2.NetworksSpec{
+			{
+				Type: v1alpha2.NetworksTypeMain,
+			},
+			{
+				Type: v1alpha2.NetworksTypeClusterNetwork,
+				Name: util.ClusterNetworkName,
+			},
+		}
+	}
 
 	t.VMBDA = vmbdabuilder.New(
 		vmbdabuilder.WithName("vmbda"),
@@ -496,7 +503,9 @@ func (t *restoreModeTest) CheckVMAfterRestore(
 		Fail("Invalid restore mode")
 	}
 
-	t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
+	if util.IsSdnModuleEnabled(t.Framework) {
+		t.CheckAdditionalNetworkInterface(vm, additionalNetworkIP)
+	}
 }
 
 func (t *restoreModeTest) CheckResourceReadyForRestore(vmopRestore *v1alpha2.VirtualMachineOperation, kind, name string) {
