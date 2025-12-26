@@ -265,9 +265,9 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 		return false, fmt.Errorf("kvvm or kvvmi is nil")
 	}
 
-	storageMigratable, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsStorageLiveMigratable, kvvmiInCluster.Status.Conditions)
-	if storageMigratable.Status != corev1.ConditionTrue {
-		log.Info("VirtualMachine storage is not migratable, volumes are not synced yet.")
+	migratable, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmiInCluster.Status.Conditions)
+	if migratable.Status != corev1.ConditionTrue {
+		log.Info("VirtualMachine is not migratable, volumes are not synced yet.")
 		return false, nil
 	}
 
