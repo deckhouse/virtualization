@@ -102,7 +102,6 @@ jobs:
       kubeconfig-content: ${{ steps.generate-kubeconfig.outputs.config }}
       storage-type: ${{ steps.vars.outputs.storage_type }}
       nested-storageclass-name: ${{ steps.vars.outputs.nested_storageclass_name }}
-      bootstrap-failed: ${{ steps.dhctl-bootstrap.outcome == 'failure' }}
     steps:
       - uses: actions/checkout@v4
         # with:
@@ -374,7 +373,6 @@ jobs:
 
       - name: Upload generated files
         uses: actions/upload-artifact@v4
-        id: artifact-upload
         if: always()
         with:
           name: generated-files-${{ inputs.storage_type }}
@@ -387,7 +385,6 @@ jobs:
 
       - name: Upload ssh config
         uses: actions/upload-artifact@v4
-        id: artifact-upload-ssh
         if: always()
         with:
           name: generated-files-ssh-${{ inputs.storage_type }}
@@ -398,7 +395,6 @@ jobs:
 
       - name: Upload kubeconfig config
         uses: actions/upload-artifact@v4
-        id: artifact-upload-kubeconfig
         with:
           name: generated-files-kubeconfig-${{ inputs.storage_type }}
           path: ${{ env.SETUP_CLUSTER_TYPE_PATH }}/kube-config
@@ -410,9 +406,6 @@ jobs:
     name: Configure storage (${{ inputs.storage_type }})
     runs-on: ubuntu-latest
     needs: bootstrap
-    outputs:
-      storage-replicated-setup: ${{ steps.storage-replicated-setup.outcome == 'failure' }}
-      storage-ceph-setup: ${{ steps.storage-ceph-setup.outcome == 'failure' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -456,7 +449,7 @@ jobs:
             fi
           done
 
-          if $i -eq 3; then
+          if [ $i -eq 3 ]; then
             echo "[ERROR] Failed to retrieve nodes."
             exit 1
           fi
@@ -1047,7 +1040,7 @@ jobs:
           if [[ "${{ inputs.storage_type }}" == "replicated" ]]; then
             export SKIP_IMMEDIATE_SC_CHECK="yes"
           fi
-          
+
           cp -a legacy/testdata /tmp/testdata
 
           set +e
@@ -1100,7 +1093,6 @@ jobs:
 
           echo "$SUMMARY"
           echo "summary=$(echo "$SUMMARY" | jq -c .)" >> $GITHUB_OUTPUT
-          echo "report_file_name=${summary_file_name_json}" >> $GITHUB_OUTPUT
           echo $SUMMARY > "${summary_file_name_json}"
 
           echo "[INFO] Exit code: $GINKGO_EXIT_CODE"
@@ -1148,7 +1140,7 @@ jobs:
           if [ -z "$BRANCH_NAME" ] || [ "$BRANCH_NAME" == "refs/heads/" ]; then
             BRANCH_NAME="${{ github.ref_name }}"
           fi
-          
+
           # Function to create failure summary JSON with proper job URL
           create_failure_summary() {
             local stage=$1
@@ -1183,64 +1175,68 @@ jobs:
                 Link: $link
               }'
           }
-          
+
           # Try to find and load E2E test report
           E2E_REPORT_FILE=""
           REPORT_JSON=""
-          
+
           # Search for report file in test/e2e directory
           E2E_REPORT_FILE=$(find test/e2e -name "e2e_summary_${{ inputs.storage_type }}_*.json" -type f 2>/dev/null | head -1)
-          
+
           if [ -n "$E2E_REPORT_FILE" ] && [ -f "$E2E_REPORT_FILE" ]; then
             echo "[INFO] Found E2E report file: $E2E_REPORT_FILE"
             REPORT_JSON=$(cat "$E2E_REPORT_FILE" | jq -c .)
             echo "[INFO] Loaded report from file"
             echo "$REPORT_JSON" | jq .
           fi
-          
+
+          # Function to process a stage
+          process_stage() {
+            local result_value="$1"
+            local stage_name="$2"
+            local status_msg="$3"
+            local job_name="$4"
+            local is_e2e_test="${5:-false}"
+            
+            if [ "$result_value" != "success" ]; then
+              FAILED_STAGE="$stage_name"
+              FAILED_JOB_NAME="$job_name (${{ inputs.storage_type }})"
+              
+              if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
+                REPORT_JSON=$(create_failure_summary "$stage_name" "$status_msg" "$FAILED_JOB_NAME")
+              elif [ "$is_e2e_test" == "true" ]; then
+                # Special handling for e2e-test: update status if needed
+                CURRENT_STATUS=$(echo "$REPORT_JSON" | jq -r '.Status // ""')
+                if [[ "$CURRENT_STATUS" != *"FAIL"* ]] && [[ "$CURRENT_STATUS" != *"SUCCESS"* ]]; then
+                  REPORT_JSON=$(echo "$REPORT_JSON" | jq -c '.Status = ":x: E2E TEST FAILED"')
+                fi
+              fi
+              return 0  # Stage failed
+            fi
+            return 1  # Stage succeeded
+          }
+
           # Determine which stage failed and prepare report
           FAILED_STAGE=""
           FAILED_JOB_NAME=""
-          
-          if [ "${{ needs.bootstrap.result }}" != "success" ]; then
-            FAILED_STAGE="bootstrap"
-            FAILED_JOB_NAME="Bootstrap cluster (${{ inputs.storage_type }})"
-            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
-              REPORT_JSON=$(create_failure_summary "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED" "$FAILED_JOB_NAME")
-            fi
-          elif [ "${{ needs.configure-storage.result }}" != "success" ]; then
-            FAILED_STAGE="storage-setup"
-            FAILED_JOB_NAME="Configure storage (${{ inputs.storage_type }})"
-            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
-              REPORT_JSON=$(create_failure_summary "storage-setup" ":x: STORAGE SETUP FAILED" "$FAILED_JOB_NAME")
-            fi
-          elif [ "${{ needs.configure-virtualization.result }}" != "success" ]; then
-            FAILED_STAGE="virtualization-setup"
-            FAILED_JOB_NAME="Configure Virtualization (${{ inputs.storage_type }})"
-            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
-              REPORT_JSON=$(create_failure_summary "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED" "$FAILED_JOB_NAME")
-            fi
-          elif [ "${{ needs.e2e-test.result }}" != "success" ]; then
-            FAILED_STAGE="e2e-test"
-            FAILED_JOB_NAME="E2E test (${{ inputs.storage_type }})"
-            if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
-              REPORT_JSON=$(create_failure_summary "e2e-test" ":x: E2E TEST FAILED" "$FAILED_JOB_NAME")
-            else
-              # Report exists, but check if status needs to be updated
-              CURRENT_STATUS=$(echo "$REPORT_JSON" | jq -r '.Status // ""')
-              if [[ "$CURRENT_STATUS" != *"FAIL"* ]] && [[ "$CURRENT_STATUS" != *"SUCCESS"* ]]; then
-                # Update status to failure if not already set
-                REPORT_JSON=$(echo "$REPORT_JSON" | jq -c '.Status = ":x: E2E TEST FAILED"')
-              fi
-            fi
+
+          if process_stage "${{ needs.bootstrap.result }}" "bootstrap" ":x: BOOTSTRAP CLUSTER FAILED" "Bootstrap cluster"; then
+            : # Stage failed, handled in function
+          elif process_stage "${{ needs.configure-storage.result }}" "storage-setup" ":x: STORAGE SETUP FAILED" "Configure storage"; then
+            : # Stage failed, handled in function
+          elif process_stage "${{ needs.configure-virtualization.result }}" "virtualization-setup" ":x: VIRTUALIZATION SETUP FAILED" "Configure Virtualization"; then
+            : # Stage failed, handled in function
+          elif process_stage "${{ needs.e2e-test.result }}" "e2e-test" ":x: E2E TEST FAILED" "E2E test" "true"; then
+            : # Stage failed, handled in function
           else
+            # All stages succeeded
             FAILED_STAGE="success"
             FAILED_JOB_NAME="E2E test (${{ inputs.storage_type }})"
             if [ -z "$REPORT_JSON" ] || [ "$REPORT_JSON" == "" ]; then
               REPORT_JSON=$(create_failure_summary "success" ":white_check_mark: SUCCESS!" "$FAILED_JOB_NAME")
             fi
           fi
-          
+
           # Create structured report file with metadata
           REPORT_FILE="e2e_report_${{ inputs.storage_type }}.json"
           # Parse REPORT_JSON to ensure it's valid JSON before using it
@@ -1260,7 +1256,7 @@ jobs:
               workflow_run_url: $workflow_run_url,
               report: $report
             }' > "$REPORT_FILE"
-          
+
           echo "report_file=$REPORT_FILE" >> $GITHUB_OUTPUT
           echo "[INFO] Created report file: $REPORT_FILE"
           echo "[INFO] Failed stage: $FAILED_STAGE"

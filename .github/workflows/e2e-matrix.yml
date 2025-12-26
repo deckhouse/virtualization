@@ -88,37 +88,6 @@ jobs:
           path: downloaded-artifacts/
           merge-multiple: false
 
-      - name: Download E2E report artifacts (by name - ceph)
-        uses: actions/download-artifact@v5
-        continue-on-error: true
-        id: download-artifacts-ceph
-        with:
-          name: ${{ needs.e2e-ceph.outputs.artifact-name }}
-          path: downloaded-artifacts/ceph/
-
-      - name: Download E2E report artifacts (by name - replicated)
-        uses: actions/download-artifact@v5
-        continue-on-error: true
-        id: download-artifacts-replicated
-        with:
-          name: ${{ needs.e2e-replicated.outputs.artifact-name }}
-          path: downloaded-artifacts/replicated/
-
-      - name: Verify artifact downloads
-        run: |
-          echo "[INFO] Verifying artifact downloads..."
-          echo "[INFO] Artifact name from e2e-ceph: ${{ needs.e2e-ceph.outputs.artifact-name }}"
-          echo "[INFO] Artifact name from e2e-replicated: ${{ needs.e2e-replicated.outputs.artifact-name }}"
-          echo "[INFO] Pattern download result: ${{ steps.download-artifacts-pattern.outcome }}"
-          echo "[INFO] Ceph download result: ${{ steps.download-artifacts-ceph.outcome }}"
-          echo "[INFO] Replicated download result: ${{ steps.download-artifacts-replicated.outcome }}"
-          if [ -d "downloaded-artifacts" ]; then
-            echo "[INFO] Downloaded artifacts structure:"
-            find downloaded-artifacts -type f -o -type d | head -20
-          else
-            echo "[WARN] downloaded-artifacts directory does not exist"
-          fi
-
       - name: Send results to channel
         run: |
           # Map storage types to CSI names
@@ -139,42 +108,25 @@ jobs:
 
           # Function to load and parse report from artifact
           # Outputs: file content to stdout, debug messages to stderr
+          # Works with pattern-based artifact download (e2e-report-*)
+          # Artifacts are organized as: downloaded-artifacts/e2e-report-<storage_type>-<run_id>/e2e_report_<storage_type>.json
           load_report_from_artifact() {
             local storage_type=$1
             local base_path="downloaded-artifacts/"
-            local specific_path="${base_path}${storage_type}/"
             
             echo "[INFO] Searching for report for storage type: $storage_type" >&2
             echo "[DEBUG] Base path: $base_path" >&2
-            echo "[DEBUG] Specific path: $specific_path" >&2
             
-            # List all downloaded artifacts for debugging
-            if [ -d "$base_path" ]; then
-              echo "[DEBUG] Contents of downloaded-artifacts:" >&2
-              find "$base_path" -type f -name "*.json" 2>/dev/null | head -20 >&2 || echo "No JSON files found" >&2
-              echo "[DEBUG] Directories in downloaded-artifacts:" >&2
-              find "$base_path" -type d -maxdepth 3 2>/dev/null >&2 || echo "No directories found" >&2
-            else
+            if [ ! -d "$base_path" ]; then
               echo "[WARN] Base path does not exist: $base_path" >&2
               return 1
             fi
             
             local report_file=""
             
-            # First, try to find in specific storage type directory (when downloaded by name)
-            if [ -d "$specific_path" ]; then
-              echo "[DEBUG] Searching in specific path: $specific_path" >&2
-              report_file=$(find "$specific_path" -name "e2e_report_*.json" -type f 2>/dev/null | head -1)
-              if [ -n "$report_file" ] && [ -f "$report_file" ]; then
-                echo "[INFO] Found report file in specific path: $report_file" >&2
-                cat "$report_file"
-                return 0
-              fi
-            fi
-            
-            # Second, search in artifact directories (when downloaded by pattern)
+            # First, search in artifact directories matching pattern: e2e-report-<storage_type>-*
             # Pattern downloads create subdirectories named after the artifact
-            # e.g., downloaded-artifacts/e2e-report-replicated-<run_id>/e2e_report_replicated.json
+            # e.g., downloaded-artifacts/e2e-report-ceph-<run_id>/e2e_report_ceph.json
             echo "[DEBUG] Searching in artifact directories matching pattern: e2e-report-${storage_type}-*" >&2
             local artifact_dir=$(find "$base_path" -type d -name "e2e-report-${storage_type}-*" 2>/dev/null | head -1)
             if [ -n "$artifact_dir" ]; then
@@ -187,7 +139,7 @@ jobs:
               fi
             fi
             
-            # Third, search for file by name pattern anywhere in base_path
+            # Fallback: search for file by name pattern anywhere in base_path
             echo "[DEBUG] Searching for file: e2e_report_${storage_type}.json" >&2
             report_file=$(find "$base_path" -type f -name "e2e_report_${storage_type}.json" 2>/dev/null | head -1)
             if [ -n "$report_file" ] && [ -f "$report_file" ]; then
@@ -196,17 +148,7 @@ jobs:
               return 0
             fi
             
-            # Last resort: search for any e2e_report file matching storage type
-            echo "[DEBUG] Last resort: searching for any e2e_report_*.json containing ${storage_type}" >&2
-            report_file=$(find "$base_path" -type f -name "*e2e_report*${storage_type}*.json" 2>/dev/null | head -1)
-            if [ -n "$report_file" ] && [ -f "$report_file" ]; then
-              echo "[INFO] Found report file (last resort): $report_file" >&2
-              cat "$report_file"
-              return 0
-            fi
-            
             echo "[WARN] Could not load report artifact for $storage_type" >&2
-            echo "[DEBUG] Final search path: $base_path" >&2
             return 1
           }
 
@@ -293,16 +235,6 @@ jobs:
             [ -z "$pending" ] && pending=0
             [ -z "$skipped" ] && skipped=0
             [ -z "$status" ] && status=":question: UNKNOWN"
-
-            # Validate date
-            if [ -n "$date" ] && [ "$date" != "" ]; then
-              current_date=$(date +"%Y-%m-%d")
-              if date -d "$current_date" +%s >/dev/null 2>&1 && date -d "$date" +%s >/dev/null 2>&1; then
-                if [ "$(date -d "$current_date" +%s)" -gt "$(date -d "$date" +%s)" ]; then
-                  status=":x: WRONG REPORT DATE!"
-                fi
-              fi
-            fi
 
             # Format link - use CSI name as fallback if link is empty
             if [ -z "$link" ] || [ "$link" == "" ]; then
@@ -408,4 +340,3 @@ jobs:
           fi
         env:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_TEST_CHANNEL }}
-
