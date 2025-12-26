@@ -151,16 +151,6 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 	}
 
 	if migrationRequested {
-		if kvvmInCluster.Status.VolumeUpdateState != nil &&
-			kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState != nil &&
-			len(kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0 {
-			if !s.isMigratedVolumesStale(kvvmInCluster, kvvmiInCluster) {
-				log.Info("Volume migration in progress, waiting for completion.")
-				return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
-			}
-			log.Info("Previous migration complete but migratedVolumes not cleared, proceeding with new migration.")
-		}
-
 		// We should wait delayDuration seconds. This delay allows user to change storage class on other volumes
 		if len(storageClassChangedDisks) > 0 {
 			delay, exists := s.delay[vm.UID]
@@ -549,30 +539,4 @@ func (s MigrationVolumesService) getVMOPCandidate(ctx context.Context, vmState s
 	}
 
 	return nil, nil
-}
-
-func (s MigrationVolumesService) isMigratedVolumesStale(kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) bool {
-	if kvvm.Status.VolumeUpdateState == nil ||
-		kvvm.Status.VolumeUpdateState.VolumeMigrationState == nil ||
-		kvvmi == nil {
-		return false
-	}
-
-	kvvmiVolumes := make(map[string]string)
-	for _, v := range kvvmi.Spec.Volumes {
-		if v.PersistentVolumeClaim != nil {
-			kvvmiVolumes[v.Name] = v.PersistentVolumeClaim.ClaimName
-		}
-	}
-
-	for _, mv := range kvvm.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes {
-		if mv.DestinationPVCInfo == nil {
-			continue
-		}
-		kvvmiPVC, exists := kvvmiVolumes[mv.VolumeName]
-		if !exists || kvvmiPVC != mv.DestinationPVCInfo.ClaimName {
-			return false
-		}
-	}
-	return true
 }
