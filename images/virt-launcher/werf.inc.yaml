@@ -284,6 +284,7 @@ shell:
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
     LIBS+=" /usr/lib64/libisoburn.s* /usr/lib64/libacl.s*"
+    LIBS+=" /usr/lib64/libusbredir*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS

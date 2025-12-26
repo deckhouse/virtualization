@@ -65,6 +65,7 @@ import (
 	storagev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
 	storagev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	storagemigrationv1alpha1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -880,6 +881,9 @@ var _ VirtClient = &VirtClientMock{}
 //			PolicyV1beta1Func: func() policyv1beta1.PolicyV1beta1Interface {
 //				panic("mock out the PolicyV1beta1 method")
 //			},
+//			RESTClientFunc: func() rest.Interface {
+//				panic("mock out the RESTClient method")
+//			},
 //			RbacV1Func: func() rbacv1.RbacV1Interface {
 //				panic("mock out the RbacV1 method")
 //			},
@@ -919,6 +923,9 @@ var _ VirtClient = &VirtClientMock{}
 //			StoragemigrationV1alpha1Func: func() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface {
 //				panic("mock out the StoragemigrationV1alpha1 method")
 //			},
+//			VirtualDiskSnapshotsFunc: func(namespace string) corev1alpha2.VirtualDiskSnapshotInterface {
+//				panic("mock out the VirtualDiskSnapshots method")
+//			},
 //			VirtualDisksFunc: func(namespace string) corev1alpha2.VirtualDiskInterface {
 //				panic("mock out the VirtualDisks method")
 //			},
@@ -945,6 +952,15 @@ var _ VirtClient = &VirtClientMock{}
 //			},
 //			VirtualMachineOperationsFunc: func(namespace string) corev1alpha2.VirtualMachineOperationInterface {
 //				panic("mock out the VirtualMachineOperations method")
+//			},
+//			VirtualMachineRestoresFunc: func(namespace string) corev1alpha2.VirtualMachineRestoreInterface {
+//				panic("mock out the VirtualMachineRestores method")
+//			},
+//			VirtualMachineSnapshotOperationsFunc: func(namespace string) corev1alpha2.VirtualMachineSnapshotOperationInterface {
+//				panic("mock out the VirtualMachineSnapshotOperations method")
+//			},
+//			VirtualMachineSnapshotsFunc: func(namespace string) corev1alpha2.VirtualMachineSnapshotInterface {
+//				panic("mock out the VirtualMachineSnapshots method")
 //			},
 //			VirtualMachinesFunc: func(namespace string) corev1alpha2.VirtualMachineInterface {
 //				panic("mock out the VirtualMachines method")
@@ -1088,6 +1104,9 @@ type VirtClientMock struct {
 	// PolicyV1beta1Func mocks the PolicyV1beta1 method.
 	PolicyV1beta1Func func() policyv1beta1.PolicyV1beta1Interface
 
+	// RESTClientFunc mocks the RESTClient method.
+	RESTClientFunc func() rest.Interface
+
 	// RbacV1Func mocks the RbacV1 method.
 	RbacV1Func func() rbacv1.RbacV1Interface
 
@@ -1127,6 +1146,9 @@ type VirtClientMock struct {
 	// StoragemigrationV1alpha1Func mocks the StoragemigrationV1alpha1 method.
 	StoragemigrationV1alpha1Func func() storagemigrationv1alpha1.StoragemigrationV1alpha1Interface
 
+	// VirtualDiskSnapshotsFunc mocks the VirtualDiskSnapshots method.
+	VirtualDiskSnapshotsFunc func(namespace string) corev1alpha2.VirtualDiskSnapshotInterface
+
 	// VirtualDisksFunc mocks the VirtualDisks method.
 	VirtualDisksFunc func(namespace string) corev1alpha2.VirtualDiskInterface
 
@@ -1153,6 +1175,15 @@ type VirtClientMock struct {
 
 	// VirtualMachineOperationsFunc mocks the VirtualMachineOperations method.
 	VirtualMachineOperationsFunc func(namespace string) corev1alpha2.VirtualMachineOperationInterface
+
+	// VirtualMachineRestoresFunc mocks the VirtualMachineRestores method.
+	VirtualMachineRestoresFunc func(namespace string) corev1alpha2.VirtualMachineRestoreInterface
+
+	// VirtualMachineSnapshotOperationsFunc mocks the VirtualMachineSnapshotOperations method.
+	VirtualMachineSnapshotOperationsFunc func(namespace string) corev1alpha2.VirtualMachineSnapshotOperationInterface
+
+	// VirtualMachineSnapshotsFunc mocks the VirtualMachineSnapshots method.
+	VirtualMachineSnapshotsFunc func(namespace string) corev1alpha2.VirtualMachineSnapshotInterface
 
 	// VirtualMachinesFunc mocks the VirtualMachines method.
 	VirtualMachinesFunc func(namespace string) corev1alpha2.VirtualMachineInterface
@@ -1291,6 +1322,9 @@ type VirtClientMock struct {
 		// PolicyV1beta1 holds details about calls to the PolicyV1beta1 method.
 		PolicyV1beta1 []struct {
 		}
+		// RESTClient holds details about calls to the RESTClient method.
+		RESTClient []struct {
+		}
 		// RbacV1 holds details about calls to the RbacV1 method.
 		RbacV1 []struct {
 		}
@@ -1330,6 +1364,11 @@ type VirtClientMock struct {
 		// StoragemigrationV1alpha1 holds details about calls to the StoragemigrationV1alpha1 method.
 		StoragemigrationV1alpha1 []struct {
 		}
+		// VirtualDiskSnapshots holds details about calls to the VirtualDiskSnapshots method.
+		VirtualDiskSnapshots []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
 		// VirtualDisks holds details about calls to the VirtualDisks method.
 		VirtualDisks []struct {
 			// Namespace is the namespace argument value.
@@ -1366,6 +1405,21 @@ type VirtClientMock struct {
 		}
 		// VirtualMachineOperations holds details about calls to the VirtualMachineOperations method.
 		VirtualMachineOperations []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineRestores holds details about calls to the VirtualMachineRestores method.
+		VirtualMachineRestores []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineSnapshotOperations holds details about calls to the VirtualMachineSnapshotOperations method.
+		VirtualMachineSnapshotOperations []struct {
+			// Namespace is the namespace argument value.
+			Namespace string
+		}
+		// VirtualMachineSnapshots holds details about calls to the VirtualMachineSnapshots method.
+		VirtualMachineSnapshots []struct {
 			// Namespace is the namespace argument value.
 			Namespace string
 		}
@@ -1419,6 +1473,7 @@ type VirtClientMock struct {
 	lockNodeV1beta1                          sync.RWMutex
 	lockPolicyV1                             sync.RWMutex
 	lockPolicyV1beta1                        sync.RWMutex
+	lockRESTClient                           sync.RWMutex
 	lockRbacV1                               sync.RWMutex
 	lockRbacV1alpha1                         sync.RWMutex
 	lockRbacV1beta1                          sync.RWMutex
@@ -1432,6 +1487,7 @@ type VirtClientMock struct {
 	lockStorageV1alpha1                      sync.RWMutex
 	lockStorageV1beta1                       sync.RWMutex
 	lockStoragemigrationV1alpha1             sync.RWMutex
+	lockVirtualDiskSnapshots                 sync.RWMutex
 	lockVirtualDisks                         sync.RWMutex
 	lockVirtualImages                        sync.RWMutex
 	lockVirtualMachineBlockDeviceAttachments sync.RWMutex
@@ -1441,6 +1497,9 @@ type VirtClientMock struct {
 	lockVirtualMachineMACAddressLeases       sync.RWMutex
 	lockVirtualMachineMACAddresses           sync.RWMutex
 	lockVirtualMachineOperations             sync.RWMutex
+	lockVirtualMachineRestores               sync.RWMutex
+	lockVirtualMachineSnapshotOperations     sync.RWMutex
+	lockVirtualMachineSnapshots              sync.RWMutex
 	lockVirtualMachines                      sync.RWMutex
 }
 
@@ -2632,6 +2691,33 @@ func (mock *VirtClientMock) PolicyV1beta1Calls() []struct {
 	return calls
 }
 
+// RESTClient calls RESTClientFunc.
+func (mock *VirtClientMock) RESTClient() rest.Interface {
+	if mock.RESTClientFunc == nil {
+		panic("VirtClientMock.RESTClientFunc: method is nil but VirtClient.RESTClient was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockRESTClient.Lock()
+	mock.calls.RESTClient = append(mock.calls.RESTClient, callInfo)
+	mock.lockRESTClient.Unlock()
+	return mock.RESTClientFunc()
+}
+
+// RESTClientCalls gets all the calls that were made to RESTClient.
+// Check the length with:
+//
+//	len(mockedVirtClient.RESTClientCalls())
+func (mock *VirtClientMock) RESTClientCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockRESTClient.RLock()
+	calls = mock.calls.RESTClient
+	mock.lockRESTClient.RUnlock()
+	return calls
+}
+
 // RbacV1 calls RbacV1Func.
 func (mock *VirtClientMock) RbacV1() rbacv1.RbacV1Interface {
 	if mock.RbacV1Func == nil {
@@ -2983,6 +3069,38 @@ func (mock *VirtClientMock) StoragemigrationV1alpha1Calls() []struct {
 	return calls
 }
 
+// VirtualDiskSnapshots calls VirtualDiskSnapshotsFunc.
+func (mock *VirtClientMock) VirtualDiskSnapshots(namespace string) corev1alpha2.VirtualDiskSnapshotInterface {
+	if mock.VirtualDiskSnapshotsFunc == nil {
+		panic("VirtClientMock.VirtualDiskSnapshotsFunc: method is nil but VirtClient.VirtualDiskSnapshots was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualDiskSnapshots.Lock()
+	mock.calls.VirtualDiskSnapshots = append(mock.calls.VirtualDiskSnapshots, callInfo)
+	mock.lockVirtualDiskSnapshots.Unlock()
+	return mock.VirtualDiskSnapshotsFunc(namespace)
+}
+
+// VirtualDiskSnapshotsCalls gets all the calls that were made to VirtualDiskSnapshots.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualDiskSnapshotsCalls())
+func (mock *VirtClientMock) VirtualDiskSnapshotsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualDiskSnapshots.RLock()
+	calls = mock.calls.VirtualDiskSnapshots
+	mock.lockVirtualDiskSnapshots.RUnlock()
+	return calls
+}
+
 // VirtualDisks calls VirtualDisksFunc.
 func (mock *VirtClientMock) VirtualDisks(namespace string) corev1alpha2.VirtualDiskInterface {
 	if mock.VirtualDisksFunc == nil {
@@ -3253,6 +3371,102 @@ func (mock *VirtClientMock) VirtualMachineOperationsCalls() []struct {
 	mock.lockVirtualMachineOperations.RLock()
 	calls = mock.calls.VirtualMachineOperations
 	mock.lockVirtualMachineOperations.RUnlock()
+	return calls
+}
+
+// VirtualMachineRestores calls VirtualMachineRestoresFunc.
+func (mock *VirtClientMock) VirtualMachineRestores(namespace string) corev1alpha2.VirtualMachineRestoreInterface {
+	if mock.VirtualMachineRestoresFunc == nil {
+		panic("VirtClientMock.VirtualMachineRestoresFunc: method is nil but VirtClient.VirtualMachineRestores was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineRestores.Lock()
+	mock.calls.VirtualMachineRestores = append(mock.calls.VirtualMachineRestores, callInfo)
+	mock.lockVirtualMachineRestores.Unlock()
+	return mock.VirtualMachineRestoresFunc(namespace)
+}
+
+// VirtualMachineRestoresCalls gets all the calls that were made to VirtualMachineRestores.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineRestoresCalls())
+func (mock *VirtClientMock) VirtualMachineRestoresCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineRestores.RLock()
+	calls = mock.calls.VirtualMachineRestores
+	mock.lockVirtualMachineRestores.RUnlock()
+	return calls
+}
+
+// VirtualMachineSnapshotOperations calls VirtualMachineSnapshotOperationsFunc.
+func (mock *VirtClientMock) VirtualMachineSnapshotOperations(namespace string) corev1alpha2.VirtualMachineSnapshotOperationInterface {
+	if mock.VirtualMachineSnapshotOperationsFunc == nil {
+		panic("VirtClientMock.VirtualMachineSnapshotOperationsFunc: method is nil but VirtClient.VirtualMachineSnapshotOperations was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineSnapshotOperations.Lock()
+	mock.calls.VirtualMachineSnapshotOperations = append(mock.calls.VirtualMachineSnapshotOperations, callInfo)
+	mock.lockVirtualMachineSnapshotOperations.Unlock()
+	return mock.VirtualMachineSnapshotOperationsFunc(namespace)
+}
+
+// VirtualMachineSnapshotOperationsCalls gets all the calls that were made to VirtualMachineSnapshotOperations.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineSnapshotOperationsCalls())
+func (mock *VirtClientMock) VirtualMachineSnapshotOperationsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineSnapshotOperations.RLock()
+	calls = mock.calls.VirtualMachineSnapshotOperations
+	mock.lockVirtualMachineSnapshotOperations.RUnlock()
+	return calls
+}
+
+// VirtualMachineSnapshots calls VirtualMachineSnapshotsFunc.
+func (mock *VirtClientMock) VirtualMachineSnapshots(namespace string) corev1alpha2.VirtualMachineSnapshotInterface {
+	if mock.VirtualMachineSnapshotsFunc == nil {
+		panic("VirtClientMock.VirtualMachineSnapshotsFunc: method is nil but VirtClient.VirtualMachineSnapshots was just called")
+	}
+	callInfo := struct {
+		Namespace string
+	}{
+		Namespace: namespace,
+	}
+	mock.lockVirtualMachineSnapshots.Lock()
+	mock.calls.VirtualMachineSnapshots = append(mock.calls.VirtualMachineSnapshots, callInfo)
+	mock.lockVirtualMachineSnapshots.Unlock()
+	return mock.VirtualMachineSnapshotsFunc(namespace)
+}
+
+// VirtualMachineSnapshotsCalls gets all the calls that were made to VirtualMachineSnapshots.
+// Check the length with:
+//
+//	len(mockedVirtClient.VirtualMachineSnapshotsCalls())
+func (mock *VirtClientMock) VirtualMachineSnapshotsCalls() []struct {
+	Namespace string
+} {
+	var calls []struct {
+		Namespace string
+	}
+	mock.lockVirtualMachineSnapshots.RLock()
+	calls = mock.calls.VirtualMachineSnapshots
+	mock.lockVirtualMachineSnapshots.RUnlock()
 	return calls
 }
 
