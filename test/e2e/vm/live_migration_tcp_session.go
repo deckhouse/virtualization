@@ -101,8 +101,11 @@ var _ = Describe("VirtualMachineLiveMigrationTCPSession", func() {
 		})
 
 		By("Run the iPerf client", func() {
+			Expect(isAlpineSSHDStarted(f, iperfClient.Name, iperfClient.Namespace)).To(BeTrue(), "the SSHD service status should be `started`")
+
 			iperfServer, err := f.Clients.VirtClient().VirtualMachines(f.Namespace().Name).Get(context.Background(), iperfServer.Name, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
+
 			cmd := fmt.Sprintf("nohup iperf3 --client %s --time 0 --json > ~/%s 2>&1 < /dev/null &", iperfServer.Status.IPAddress, reportName)
 			_, err = f.SSHCommand(iperfClient.Name, iperfClient.Namespace, cmd)
 			Expect(err).NotTo(HaveOccurred(), "failed to run iperf3 client")
@@ -278,4 +281,25 @@ func newVirtualMachine(name, namespace string, disk *v1alpha2.VirtualDisk) *v1al
 			UserData: object.DefaultCloudInit,
 		}),
 	)
+}
+
+func isAlpineSSHDStarted(f *framework.Framework, vmName, vmNamespace string) bool {
+	GinkgoHelper()
+
+	var isStarted bool
+
+	cmd := "rc-service sshd status --nocolor"
+	Eventually(func() error {
+		stdout, err := f.SSHCommand(vmName, vmNamespace, cmd)
+		if err != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %w", cmd, err)
+		}
+		if strings.Contains(stdout, "status: started") {
+			isStarted = true
+			return nil
+		}
+		return fmt.Errorf("the result does not contain the required status(it must contain the `started` status): %s", stdout)
+	}).WithTimeout(framework.MiddleTimeout).WithPolling(framework.PollingInterval).ShouldNot(HaveOccurred())
+
+	return isStarted
 }
