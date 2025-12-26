@@ -1326,7 +1326,6 @@ jobs:
       - configure-storage
       - configure-virtualization
       - e2e-test
-    # if: always()
     if: cancelled() || success()
     steps:
       - uses: actions/checkout@v4
