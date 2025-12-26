@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -34,13 +33,7 @@ type ImagePresenceHandler struct {
 	imageChecker dvcr.ImageChecker
 }
 
-func NewImagePresenceHandler(client client.Client, dvcrSettings *dvcr.Settings) *ImagePresenceHandler {
-	return &ImagePresenceHandler{
-		imageChecker: dvcr.NewImageChecker(client, dvcrSettings),
-	}
-}
-
-func NewImagePresenceHandlerWithChecker(imageChecker dvcr.ImageChecker) *ImagePresenceHandler {
+func NewImagePresenceHandler(imageChecker dvcr.ImageChecker) *ImagePresenceHandler {
 	return &ImagePresenceHandler{
 		imageChecker: imageChecker,
 	}

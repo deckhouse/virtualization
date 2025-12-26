@@ -37,7 +37,7 @@ var _ = Describe("ImagePresenceHandler", func() {
 
 	BeforeEach(func() {
 		imageChecker = &dvcr.ImageCheckerMock{}
-		handler = NewImagePresenceHandlerWithChecker(imageChecker)
+		handler = NewImagePresenceHandler(imageChecker)
 	})
 
 	Context("Handle", func() {

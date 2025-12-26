@@ -18,11 +18,14 @@ package vi
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -30,6 +33,8 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
@@ -81,8 +86,6 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		dvcr.ImageMonitorSchedule,
-		log,
 		postponehandler.New[*v1alpha2.VirtualImage](dvcrService, recorder),
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
@@ -106,6 +109,31 @@ func NewController(
 	err = reconciler.SetupController(ctx, mgr, viController)
 	if err != nil {
 		return nil, err
+	}
+
+	if dvcr.ImageMonitorSchedule != "" {
+		lister := gc.NewObjectLister(func(ctx context.Context, now time.Time) ([]client.Object, error) {
+			viList := &v1alpha2.VirtualImageList{}
+			fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldVIByPhaseAndStorage, indexer.ReadyDVCRImage)
+			if err := mgr.GetClient().List(ctx, viList, &client.ListOptions{FieldSelector: fieldSelector}); err != nil {
+				return nil, err
+			}
+
+			objs := make([]client.Object, 0, len(viList.Items))
+			for i := range viList.Items {
+				objs = append(objs, &viList.Items[i])
+			}
+			return objs, nil
+		})
+
+		cronSource, err := gc.NewCronSource(dvcr.ImageMonitorSchedule, lister, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create cron source for image monitoring: %w", err)
+		}
+
+		if err := viController.Watch(cronSource); err != nil {
+			return nil, fmt.Errorf("failed to setup periodic image check: %w", err)
+		}
 	}
 
 	if err = builder.WebhookManagedBy(mgr).

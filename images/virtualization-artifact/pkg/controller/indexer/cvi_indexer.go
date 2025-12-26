@@ -47,7 +47,7 @@ func IndexCVIByVDSnapshot() (obj client.Object, field string, extractValue clien
 	}
 }
 
-func IndexCVIByPhase() (obj client.Object, field string, extractValue client.IndexerFunc) {
+func IndexCVIByReadyPhase() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &v1alpha2.ClusterVirtualImage{}, IndexFieldCVIByPhase, func(object client.Object) []string {
 		cvi, ok := object.(*v1alpha2.ClusterVirtualImage)
 		if !ok || cvi == nil {

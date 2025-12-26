@@ -59,7 +59,7 @@ func IndexVIByStorageClass() (obj client.Object, field string, extractValue clie
 	}
 }
 
-func IndexVIByPhaseAndStorage() (obj client.Object, field string, extractValue client.IndexerFunc) {
+func IndexVIByReadyPhaseAndRegistryStorage() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &v1alpha2.VirtualImage{}, IndexFieldVIByPhaseAndStorage, func(object client.Object) []string {
 		vi, ok := object.(*v1alpha2.VirtualImage)
 		if !ok || vi == nil {
