@@ -154,12 +154,11 @@ func (s MigrationVolumesService) SyncVolumes(ctx context.Context, vmState state.
 		if kvvmInCluster.Status.VolumeUpdateState != nil &&
 			kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState != nil &&
 			len(kvvmInCluster.Status.VolumeUpdateState.VolumeMigrationState.MigratedVolumes) > 0 {
-			if s.isMigratedVolumesStale(kvvmInCluster, kvvmiInCluster) {
-				log.Info("Previous migration complete but migratedVolumes not cleared, resetting updateVolumesStrategy.")
-				return reconcile.Result{}, s.patchUpdateVolumesStrategy(ctx, kvvmInCluster, nil)
+			if !s.isMigratedVolumesStale(kvvmInCluster, kvvmiInCluster) {
+				log.Info("Volume migration in progress, waiting for completion.")
+				return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 			}
-			log.Info("Volume migration in progress, waiting for completion.")
-			return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+			log.Info("Previous migration complete but migratedVolumes not cleared, proceeding with new migration.")
 		}
 
 		// We should wait delayDuration seconds. This delay allows user to change storage class on other volumes
@@ -254,19 +253,6 @@ func (s MigrationVolumesService) patchVolumes(ctx context.Context, kvvm *virtv1.
 	return err
 }
 
-func (s MigrationVolumesService) patchUpdateVolumesStrategy(ctx context.Context, kvvm *virtv1.VirtualMachine, strategy *virtv1.UpdateVolumesStrategy) error {
-	patchBytes, err := patch.NewJSONPatch(
-		patch.WithReplace("/spec/updateVolumesStrategy", strategy),
-	).Bytes()
-	if err != nil {
-		return err
-	}
-
-	logger.FromContext(ctx).Info("Patching updateVolumesStrategy", slog.String("patch", string(patchBytes)))
-
-	return s.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
-}
-
 func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState state.VirtualMachineState) (bool, error) {
 	log := logger.FromContext(ctx).With("func", "VolumesSynced")
 
@@ -279,9 +265,9 @@ func (s MigrationVolumesService) VolumesSynced(ctx context.Context, vmState stat
 		return false, fmt.Errorf("kvvm or kvvmi is nil")
 	}
 
-	migratable, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsMigratable, kvvmiInCluster.Status.Conditions)
-	if migratable.Status != corev1.ConditionTrue {
-		log.Info("VirtualMachine is not migratable, volumes are not synced yet.")
+	storageMigratable, _ := conditions.GetKVVMICondition(virtv1.VirtualMachineInstanceIsStorageLiveMigratable, kvvmiInCluster.Status.Conditions)
+	if storageMigratable.Status != corev1.ConditionTrue {
+		log.Info("VirtualMachine storage is not migratable, volumes are not synced yet.")
 		return false, nil
 	}
 
