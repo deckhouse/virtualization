@@ -1119,7 +1119,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "(\n  rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])\n  - on(namespace, name) group_left()\n  sum by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval]))\n)\n/ sum by (namespace, name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) * 100",
+          "expr": "(\n  rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])\n  - on(namespace, name) group_left()\n  sum by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval]))\n)\n/ on(namespace, name) group_left() sum by (namespace, name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) * 100",
           "hide": false,
           "instant": false,
           "legendFormat": "Hypervisor overhead",
