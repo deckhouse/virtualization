@@ -1077,7 +1077,7 @@ jobs:
               --arg csi "$CSI" \
               --arg date "$DATE" \
               --arg startTime "$START_TIME" \
-              --arg branch "$GITHUB_REF_NAME" \
+              --arg branch "${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" \
               --arg status "$RESULT_STATUS" \
               --argjson passed "$PASSED" \
               --argjson failed "$FAILED" \
