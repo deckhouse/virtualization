@@ -1,0 +1,34 @@
+api:
+  fixes:
+    - summary: Add validation of empty field values in the CRD.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1813
+ci:
+  fixes:
+    - summary: fix change URLs in CI
+      pull_request: https://github.com/deckhouse/virtualization/pull/1849
+module:
+  features:
+    - summary: add collect-debug-info
+      pull_request: https://github.com/deckhouse/virtualization/pull/1791
+vd:
+  features:
+    - summary: enable storage class migration for hotplugged disks
+      pull_request: https://github.com/deckhouse/virtualization/pull/1785
+vm:
+  features:
+    - summary: Support network configuration without a 'Main' network type in spec.networks
+      pull_request: https://github.com/deckhouse/virtualization/pull/1818
+  fixes:
+    - summary: Skip validation for VMs in the terminating status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1842
+    - summary: React to creating and modifying provisioning secrets.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1825
+    - summary: React to creating and modifying provisioning secrets.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1820
+vmop:
+  features:
+    - summary: Add ability to create VMOP Clone with VM in Running state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1816
+    - summary: enable migration for VMs with hotplugged local disks
+      pull_request: https://github.com/deckhouse/virtualization/pull/1779
+
