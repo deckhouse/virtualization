@@ -36,6 +36,8 @@ const (
 	DVCRCertsSecretNSVar = "DVCR_CERTS_SECRET_NAMESPACE"
 	// DVCRInsecureTLSVar is an env variable holds the flag whether DVCR is insecure.
 	DVCRInsecureTLSVar = "DVCR_INSECURE_TLS"
+	// DVCRImageMonitorScheduleVar is an env variable holds the cron schedule for DVCR image monitoring.
+	DVCRImageMonitorScheduleVar = "DVCR_IMAGE_MONITOR_SCHEDULE"
 	// DVCRGCScheduleVar is an env variable holds the cron schedule to run DVCR garbage collection.
 	DVCRGCScheduleVar = "DVCR_GC_SCHEDULE"
 
@@ -57,6 +59,7 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		CertsSecretNamespace: os.Getenv(DVCRCertsSecretNSVar),
 		RegistryURL:          os.Getenv(DVCRRegistryURLVar),
 		InsecureTLS:          os.Getenv(DVCRInsecureTLSVar),
+		ImageMonitorSchedule: os.Getenv(DVCRImageMonitorScheduleVar),
 		GCSchedule:           os.Getenv(DVCRGCScheduleVar),
 		UploaderIngressSettings: dvcr.UploaderIngressSettings{
 			Host:               os.Getenv(UploaderIngressHostVar),

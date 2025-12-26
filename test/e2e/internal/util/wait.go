@@ -48,9 +48,10 @@ type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)
 // if disks were created for a test case and you need to wait until they reach the `Ready` phase.
 // In this case, since the disk remains in the Ready phase once it gets there, it’s preferable to use Eventually.
 func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts metav1.ListOptions) (R, error) {
+	var zero R
 	wi, err := w.Watch(ctx, opts)
 	if err != nil {
-		return nil, err
+		return zero, err
 	}
 
 	defer wi.Stop()
@@ -58,12 +59,12 @@ func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts
 	for event := range wi.ResultChan() {
 		r, ok := event.Object.(R)
 		if !ok {
-			return nil, errors.New("conversion error")
+			return zero, errors.New("conversion error")
 		}
 
 		ok, err = h(event.Type, r)
 		if err != nil {
-			return nil, err
+			return zero, err
 		}
 
 		if ok {
@@ -71,5 +72,5 @@ func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts
 		}
 	}
 
-	return nil, fmt.Errorf("the condition for matching was not successfully met: %w", ctx.Err())
+	return zero, fmt.Errorf("the condition for matching was not successfully met: %w", ctx.Err())
 }

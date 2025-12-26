@@ -58,3 +58,18 @@ func IndexVIByStorageClass() (obj client.Object, field string, extractValue clie
 		}
 	}
 }
+
+func IndexVIByReadyPhaseAndRegistryStorage() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &v1alpha2.VirtualImage{}, IndexFieldVIByPhaseAndStorage, func(object client.Object) []string {
+		vi, ok := object.(*v1alpha2.VirtualImage)
+		if !ok || vi == nil {
+			return nil
+		}
+
+		if vi.Status.Phase == v1alpha2.ImageReady && vi.Spec.Storage == v1alpha2.StorageContainerRegistry {
+			return []string{ReadyDVCRImage}
+		}
+
+		return nil
+	}
+}

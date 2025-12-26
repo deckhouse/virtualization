@@ -63,6 +63,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *v1alpha2.VirtualImage)
 		return reconcile.Result{}, nil
 	}
 
+	if vi.Status.Phase == v1alpha2.ImageLost || vi.Status.Phase == v1alpha2.ImagePVCLost {
+		return reconcile.Result{}, nil
+	}
+
 	if vi.Status.Phase == "" {
 		vi.Status.Phase = v1alpha2.ImagePending
 	}

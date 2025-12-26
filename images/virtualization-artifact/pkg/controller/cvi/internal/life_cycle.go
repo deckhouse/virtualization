@@ -59,6 +59,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *v1alpha2.ClusterVirtu
 		return reconcile.Result{}, nil
 	}
 
+	if cvi.Status.Phase == v1alpha2.ImageLost {
+		return reconcile.Result{}, nil
+	}
+
 	if cvi.Status.Phase == "" {
 		cvi.Status.Phase = v1alpha2.ImagePending
 	}
