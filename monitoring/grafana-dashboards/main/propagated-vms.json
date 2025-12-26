@@ -820,7 +820,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by (namespace) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+          "expr": "sum by (namespace) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
           "format": "time_series",
           "hide": false,
           "instant": true,
@@ -1429,7 +1429,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
           "format": "table",
           "hide": false,
           "instant": true,
@@ -1475,7 +1475,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "avg by (namespace, name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+          "expr": "rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval])\n- on(name) group_left()\nsum by(name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval]))\n\n",
           "format": "table",
           "hide": true,
           "instant": true,
@@ -2026,7 +2026,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (name) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "expr": "sum by (name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
               "hide": false,
               "instant": false,
               "legendFormat": "OS Usage / {{ name }} ",
@@ -2039,7 +2039,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000\n",
+              "expr": "rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval])\n- on(name) group_left()\nsum by(name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\"}[$__rate_interval]))\n\n",
               "hide": false,
               "instant": false,
               "legendFormat": "Hypervisor overhead",
@@ -2078,7 +2078,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_steal_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_steal_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
               "hide": false,
               "instant": false,
               "legendFormat": "Steal cores",
@@ -2104,7 +2104,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total{namespace=~\"$namespace\"}[$__rate_interval])) / 1000",
+              "expr": "sum (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=~\"$namespace\"}[$__rate_interval]))",
               "hide": false,
               "instant": false,
               "legendFormat": "Total",
@@ -3674,7 +3674,7 @@
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "expr": "sum by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_block_device_read_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    /\n    clamp_min(rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]), 0.0001)\n) * 1000",
+              "expr": "sum by (namespace, name) (\n    rate(d8_virtualization_virtualmachine_block_device_read_times_seconds_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval])\n    /\n    clamp_min(rate(d8_virtualization_virtualmachine_block_device_iops_read_total{namespace=~\"$namespace\", type!=\"cloudinit\"}[$__rate_interval]), 0.0001)\n)",
               "instant": false,
               "legendFormat": "{{ name }}",
               "range": true,
