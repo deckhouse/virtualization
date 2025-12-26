@@ -69,31 +69,50 @@ func (v *NetworksValidator) ValidateUpdate(_ context.Context, oldVM, newVM *v1al
 }
 
 func (v *NetworksValidator) validateNetworksSpec(networksSpec []v1alpha2.NetworksSpec) (admission.Warnings, error) {
-	if networksSpec[0].Type != v1alpha2.NetworksTypeMain {
-		return nil, fmt.Errorf("first network in the list must be of type '%s'", v1alpha2.NetworksTypeMain)
-	}
-	if networksSpec[0].Name != "" {
-		return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
-	}
-
 	namesSet := make(map[string]struct{})
-
 	for i, network := range networksSpec {
-		if network.Type == v1alpha2.NetworksTypeMain {
-			if i > 0 {
-				return nil, fmt.Errorf("only one network of type '%s' is allowed", v1alpha2.NetworksTypeMain)
-			}
-			continue
-		}
-		if network.Name == "" {
-			return nil, fmt.Errorf("network at index %d with type '%s' must have a non-empty name", i, network.Type)
+		typ := network.Type
+		name := network.Name
+
+		if typ == v1alpha2.NetworksTypeMain && i > 0 {
+			return nil, fmt.Errorf("first network in the list must be of type '%s'", v1alpha2.NetworksTypeMain)
 		}
 
-		if _, exists := namesSet[network.Name]; exists {
-			return nil, fmt.Errorf("network name '%s' is duplicated", network.Name)
+		if err := v.validateNetworkName(typ, name); err != nil {
+			return nil, err
 		}
-		namesSet[network.Name] = struct{}{}
+
+		if err := v.validateNetworkUniqueness(typ, name, namesSet); err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
+}
+
+func (v *NetworksValidator) validateNetworkName(networkType, networkName string) error {
+	if networkType == v1alpha2.NetworksTypeMain {
+		if networkName != "" {
+			return fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
+		}
+		return nil
+	}
+
+	if networkName == "" {
+		return fmt.Errorf("network with type '%s' must have a non-empty name", networkType)
+	}
+
+	return nil
+}
+
+func (v *NetworksValidator) validateNetworkUniqueness(networkType, networkName string, namesSet map[string]struct{}) error {
+	key := fmt.Sprintf("%s/%s", networkType, networkName)
+	if _, exists := namesSet[key]; exists {
+		if networkName != "" {
+			return fmt.Errorf("network %s:%s is duplicated", networkType, networkName)
+		}
+		return fmt.Errorf("network %s is duplicated", networkType)
+	}
+	namesSet[key] = struct{}{}
+	return nil
 }

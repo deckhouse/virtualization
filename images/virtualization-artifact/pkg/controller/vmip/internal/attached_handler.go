@@ -102,28 +102,40 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmip *v
 		}
 	}
 
-	if attachedVM != nil {
-		return attachedVM, nil
-	}
+	if attachedVM == nil {
+		// If there's no match for the spec either, then try to find the vm by ownerRef.
+		var vmName string
+		for _, ownerRef := range vmip.OwnerReferences {
+			if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
+				vmName = ownerRef.Name
+				break
+			}
+		}
 
-	// If there's no match for the spec either, then try to find the vm by ownerRef.
-	var vmName string
-	for _, ownerRef := range vmip.OwnerReferences {
-		if ownerRef.Kind == v1alpha2.VirtualMachineKind && string(ownerRef.UID) == vmip.Labels[annotations.LabelVirtualMachineUID] {
-			vmName = ownerRef.Name
-			break
+		if vmName == "" {
+			return nil, nil
+		}
+
+		vmKey := types.NamespacedName{Name: vmName, Namespace: vmip.Namespace}
+		attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
+		if err != nil {
+			return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
 		}
 	}
 
-	if vmName == "" {
-		return nil, nil
+	if attachedVM != nil {
+		for _, ns := range attachedVM.Status.Networks {
+			if ns.Type == v1alpha2.NetworksTypeMain {
+				return attachedVM, nil
+			}
+		}
+
+		for _, ns := range attachedVM.Spec.Networks {
+			if ns.Type == v1alpha2.NetworksTypeMain {
+				return attachedVM, nil
+			}
+		}
 	}
 
-	vmKey := types.NamespacedName{Name: vmName, Namespace: vmip.Namespace}
-	attachedVM, err = object.FetchObject(ctx, vmKey, h.client, &v1alpha2.VirtualMachine{})
-	if err != nil {
-		return nil, fmt.Errorf("fetch vm %s: %w", vmKey, err)
-	}
-
-	return attachedVM, nil
+	return nil, nil
 }

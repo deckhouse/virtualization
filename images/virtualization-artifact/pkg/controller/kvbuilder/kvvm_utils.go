@@ -288,8 +288,11 @@ func ApplyVirtualMachineSpec(
 	})
 	kvvm.AddFinalizer(v1alpha2.FinalizerKVVMProtection)
 
-	// Set ip address cni request annotation.
-	kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
+	if ipAddress != "" {
+		// Set ip address cni request annotation.
+		kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
+	}
+
 	// Set live migration annotation.
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
 	// Set label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
@@ -352,8 +355,6 @@ func ApplyMigrationVolumes(kvvm *KVVM, vm *v1alpha2.VirtualMachine, vdsByName ma
 
 func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	kvvm.ClearNetworkInterfaces()
-	kvvm.SetNetworkInterface(network.NameDefaultInterface, "")
-
 	for _, n := range networkSpec {
 		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC)
 	}

@@ -72,7 +72,7 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}()
 
-	if len(vm.Spec.Networks) > 1 {
+	if !hasOnlyDefaultNetwork(vm) {
 		if !h.featureGate.Enabled(featuregates.SDN) {
 			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisable).Message("For additional network interfaces, please enable SDN module")
 			return reconcile.Result{}, nil
@@ -98,6 +98,11 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 	return h.UpdateNetworkStatus(ctx, s, vm)
 }
 
+func hasOnlyDefaultNetwork(vm *v1alpha2.VirtualMachine) bool {
+	nets := vm.Spec.Networks
+	return len(nets) == 0 || (len(nets) == 1 && nets[0].Type == v1alpha2.NetworksTypeMain)
+}
+
 func (h *NetworkInterfaceHandler) Name() string {
 	return nameNetworkHandler
 }
@@ -108,6 +113,16 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		if vm.Status.Phase != v1alpha2.MachinePending && vm.Status.Phase != v1alpha2.MachineStopped {
 			return reconcile.Result{}, nil
 		}
+	}
+
+	if hasOnlyDefaultNetwork(vm) {
+		vm.Status.Networks = []v1alpha2.NetworksStatus{
+			{
+				Type: v1alpha2.NetworksTypeMain,
+				Name: network.NameDefaultInterface,
+			},
+		}
+		return reconcile.Result{}, nil
 	}
 
 	kvvm, err := s.KVVM(ctx)
@@ -134,14 +149,16 @@ func (h *NetworkInterfaceHandler) UpdateNetworkStatus(ctx context.Context, s sta
 		}
 	}
 
-	networksStatus := []v1alpha2.NetworksStatus{
-		{
-			Type: v1alpha2.NetworksTypeMain,
-			Name: "default",
-		},
-	}
-
+	var networksStatus []v1alpha2.NetworksStatus
 	for _, interfaceSpec := range network.CreateNetworkSpec(vm, vmmacs) {
+		if interfaceSpec.Type == v1alpha2.NetworksTypeMain {
+			networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
+				Type: v1alpha2.NetworksTypeMain,
+				Name: network.NameDefaultInterface,
+			})
+			continue
+		}
+
 		networksStatus = append(networksStatus, v1alpha2.NetworksStatus{
 			Type:                         interfaceSpec.Type,
 			Name:                         interfaceSpec.Name,
