@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: {{ include "infra.vmclass-name" . }}
+spec:
+  cpu:
+    type: Discovery
