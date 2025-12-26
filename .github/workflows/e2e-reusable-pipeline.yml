@@ -859,6 +859,49 @@ jobs:
             d8 s queue list | grep -Po '([0-9]+)(?= active)' || echo "Failed to retrieve list queue"
           }
 
+          debug_output() {
+            echo "[ERROR] Virtualization module deploy failed"
+            echo "[DEBUG] Show describe virtualization module"
+            echo "::group::📦 describe virtualization module"
+            kubectl describe modules virtualization || true
+            echo "::endgroup::"
+            echo "[DEBUG] Show namespace d8-virtualization"
+            kubectl get ns d8-virtualization || true
+            echo "[DEBUG] Show pods in namespace d8-virtualization"
+            kubectl -n d8-virtualization get pods || true
+            echo "[DEBUG] Show dvcr info"
+            echo "::group::📦 dvcr pod describe"
+            kubectl -n d8-virtualization describe pod -l app=dvcr || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr pod yaml"
+            kubectl -n d8-virtualization get pods -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr deployment yaml"
+            kubectl -n d8-virtualization get deployment -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr deployment describe"
+            kubectl -n d8-virtualization describe deployment -l app=dvcr || true
+            echo "::endgroup::"
+            echo " "
+            echo "::group::📦 dvcr service yaml"
+            kubectl -n d8-virtualization get service -l app=dvcr -o yaml || true
+            echo "::endgroup::"
+            echo " "
+            echo "[DEBUG] Show pvc in namespace d8-virtualization"
+            kubectl get pvc -n d8-virtualization || true
+            echo "[DEBUG] Show storageclasses"
+            kubectl get storageclasses || true
+            echo "[DEBUG] Show queue (first 25 lines)"
+            d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
+            echo "[DEBUG] Show deckhouse logs"
+            echo "::group::📝 deckhouse logs"
+            d8 s logs | tail -n 100
+            echo "::endgroup::"
+          }
+
           d8_queue() {
             local count=90
             local queue_count
@@ -916,46 +959,33 @@ jobs:
               sleep 10
             done
             
-            echo "[ERROR] Virtualization module deploy failed"
-            echo "[DEBUG] Show describe virtualization module"
-            echo "::group::📦 describe virtualization module"
-            kubectl describe modules virtualization || true
-            echo "::endgroup::"
-            echo "[DEBUG] Show namespace d8-virtualization"
-            kubectl get ns d8-virtualization || true
-            echo "[DEBUG] Show pods in namespace d8-virtualization"
-            kubectl -n d8-virtualization get pods || true
-            echo "[DEBUG] Show dvcr info"
-            echo "::group::📦 dvcr pod describe"
-            kubectl -n d8-virtualization describe pod -l app=dvcr || true
-            echo "::endgroup::"
-            echo " "
-            echo "::group::📦 dvcr pod yaml"
-            kubectl -n d8-virtualization get pods -l app=dvcr -o yaml || true
-            echo "::endgroup::"
-            echo " "
-            echo "::group::📦 dvcr deployment yaml"
-            kubectl -n d8-virtualization get deployment -l app=dvcr -o yaml || true
-            echo "::endgroup::"
-            echo " "
-            echo "::group::📦 dvcr deployment describe"
-            kubectl -n d8-virtualization describe deployment -l app=dvcr || true
-            echo "::endgroup::"
-            echo " "
-            echo "::group::📦 dvcr service yaml"
-            kubectl -n d8-virtualization get service -l app=dvcr -o yaml || true
-            echo "::endgroup::"
-            echo " "
-            echo "[DEBUG] Show pvc in namespace d8-virtualization"
-            kubectl get pvc -n d8-virtualization || true
-            echo "[DEBUG] Show storageclasses"
-            kubectl get storageclasses || true
-            echo "[DEBUG] Show queue (first 25 lines)"
-            d8 s queue list | head -n 25 || echo "[WARNING] Failed to retrieve list queue"
-            echo "[DEBUG] Show deckhouse logs"
-            echo "::group::📝 deckhouse logs"
-            d8 s logs | tail -n 100
-            echo "::endgroup::"
+            debug_output
+            exit 1
+          }
+
+          virt_handler_ready() {
+            local count=60
+            local virt_handler_status
+            local workers=$(kubectl get nodes -o name | grep worker | wc -l || true)
+            workers=$((workers)) 
+
+            for i in $(seq 1 $count); do
+              virt_handler_status=$(kubectl -n d8-virtualization get pods | grep " virt-handler.*Running" | wc -l || true)
+
+              if [[ $virt_handler_status -ge $workers ]]; then
+                echo "[SUCCESS] virt-handlers pods are ready"
+                return 0
+              fi
+
+              if (( i % 5 == 0 )); then
+                echo "[DEBUG] Get pods"
+                kubectl -n d8-virtualization get pods || echo "No pods virt-handler found"
+                echo " "
+              fi
+              sleep 10
+            done
+
+            debug_output
             exit 1
           }
 
@@ -967,8 +997,9 @@ jobs:
 
           echo "[INFO] Checking Virtualization module deployments"
           kubectl -n d8-virtualization wait --for=condition=Available deploy --all --timeout 300s
-          echo "[INFO] Checking virt-handler pods (timeout 300s)"
-          kubectl -n d8-virtualization wait --for=condition=Ready pods -l kubevirt.internal.virtualization.deckhouse.io=virt-handler --timeout 300s
+          echo "[INFO] Checking virt-handler pods "
+          virt_handler_ready
+
   e2e-test:
     name: E2E test (${{ inputs.storage_type }})
     runs-on: ubuntu-22.04
