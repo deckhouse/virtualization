@@ -1119,7 +1119,7 @@
             "uid": "${ds_prometheus}"
           },
           "editorMode": "code",
-          "expr": "(\n  rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])\n  - on(namespace, name) group_left()\n  sum by (namespace, name) (rate(d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval]))\n)\n/ on(namespace, name) group_left() sum by (namespace, name) (rate(d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval])) * 100",
+          "expr": "(\n    sum by (namespace,name) (\n        rate(\n            d8_virtualization_virtualmachine_hypervisor_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval]\n        )\n    )\n    - \n    sum by (namespace,name) (\n        rate(\n            d8_virtualization_virtualmachine_cpu_usage_seconds_total{namespace=\"$namespace\", name=\"$name\"}[$__rate_interval]\n        )\n    )\n)\n/\n(\n    avg by (namespace,name) (\n        sum by (namespace,name,pod) (\n            d8_virtualization_virtualmachine_cpu_cores{namespace=\"$namespace\", name=\"$name\"}\n        ) / 100\n    )\n)",
           "hide": false,
           "instant": false,
           "legendFormat": "Hypervisor overhead",
@@ -1619,8 +1619,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1756,8 +1755,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   }
                 ]
               },
@@ -1854,8 +1852,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -4812,6 +4809,6 @@
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
   "uid": "bdw6dw2izvpxcb",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
