@@ -19,7 +19,7 @@ spec:
     kind: Deployment
     name: dvcr
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
     {{- include "kube_rbac_proxy.vpa_container_policy" . | nindent 4 }}

@@ -22,7 +22,7 @@ spec:
     kind: Deployment
     name: virtualization-api
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
       - containerName: virtualization-api
