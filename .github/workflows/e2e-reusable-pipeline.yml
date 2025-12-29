@@ -1078,7 +1078,7 @@ jobs:
           cp -a legacy/testdata /tmp/testdata
 
           set +e
-          FOCUS="VirtualMachineConfiguration" \
+          FOCUS="VirtualMachineConfiguration"
           if [ -n $FOCUS ]; then
             go tool ginkgo \
               --focus="$FOCUS" \
