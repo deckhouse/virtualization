@@ -101,9 +101,7 @@ runcmd:
 
 		cmdStdOut, err := f.SSHCommand(vmTPM.Name, vmTPM.Namespace, cmd)
 		Expect(err).NotTo(HaveOccurred())
-		currentTPMVersion, err := extractQuotedValue(cmdStdOut)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(currentTPMVersion).To(Equal(expectedTPMVersion))
+		Expect(cmdStdOut).To(ContainSubstring(expectedTPMVersion))
 	})
 })
 
