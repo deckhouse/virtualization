@@ -9,7 +9,6 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
-fromCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
