@@ -104,19 +104,3 @@ runcmd:
 		Expect(cmdStdOut).To(ContainSubstring(expectedTPMVersion))
 	})
 })
-
-func extractQuotedValue(input string) (string, error) {
-	pattern := `"(.*?)"`
-
-	re, err := regexp.Compile(pattern)
-	if err != nil {
-		return "", err
-	}
-
-	match := re.FindStringSubmatch(input)
-	if len(match) > 1 {
-		return match[1], nil
-	}
-
-	return "", fmt.Errorf("no match found")
-}
