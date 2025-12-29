@@ -36,6 +36,7 @@ altPackages:
 - libgnutls-openssl-devel
 - libfuse-devel
 - perl-podlators
+- tree
 packages:
 - libgmp libtpms openssl libjson-glib
 - libtasn1
@@ -78,6 +79,8 @@ shell:
 
     cd /src
 
+    export CFLAGS="-march=x86-64-v2"
+
     ./autogen.sh \
       --disable-tests \
       --with-openssl \
@@ -98,3 +101,5 @@ shell:
     rm -rf $OUTDIR/usr/include
     rm -rf $OUTDIR/usr/share
     rm -rf $OUTDIR/usr/libexec/installed-tests
+
+    tree -hp $OUTDIR

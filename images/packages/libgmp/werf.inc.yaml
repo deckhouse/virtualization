@@ -57,9 +57,18 @@ shell:
 
     cd /src
 
+    export CFLAGS="-march=x86-64-v2"
+    export CPPFLAGS="-march=x86-64-v2"
+    export CXXFLAGS="-march=x86-64-v2"
+
+    # Notes:
+    # - Use x86_64 cpu to produce the most portable binary but not the most performant one.
+    # - Disable fat binary.
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
+      --disable-fat \
+      --build x86_64-linux-gnu \
       --enable-cxx
 
     make -j$(nproc)

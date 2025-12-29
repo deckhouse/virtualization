@@ -51,6 +51,7 @@ altPackages:
 - liboqs-devel
 - iproute2-devel
 - wget
+- tree
 packages:
 - libbrotli libidn2 libgcrypt libgmp
 - nettle zlib zstd p11-kit
@@ -94,10 +95,14 @@ shell:
 
     cd /src
 
-    # Fake distcheck-hook that checks bootstrap is called without --skip-po
-    mkdir -p po/.reference
+    # GCC flags to produce more portable binaries.
+    export CFLAGS="-march=x86-64-v2"
+    export CXXFLAGS="-march=x86-64-v2"
 
-    ./bootstrap --skip-po
+    # Skip po downloads: bootstrap checks .reference directory to decide if it should download po files.
+    mkdir -p po/.reference
+    # Skip git clone: gnulib is already downloaded in the src-artifact image.
+    ./bootstrap --skip-po --no-git --gnulib-srcdir=/src/gnulib
 
     ./configure \
       --prefix=/usr \
@@ -123,3 +128,5 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install-strip
+
+    tree -hp $OUTDIR
