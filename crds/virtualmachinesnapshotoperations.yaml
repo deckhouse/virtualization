@@ -119,15 +119,18 @@ spec:
                             properties:
                               kind:
                                 description: Kind of a resource to rename.
+                                minLength: 1
                                 type: string
                               name:
                                 description: Current name of a resource to rename.
+                                minLength: 1
                                 type: string
                             required:
                               - name
                             type: object
                           to:
                             description: New resource name.
+                            minLength: 1
                             type: string
                         required:
                           - from
@@ -162,6 +165,7 @@ spec:
                   description:
                     Name of the virtual machine snapshot the operation is
                     performed for.
+                  minLength: 1
                   type: string
               required:
                 - type

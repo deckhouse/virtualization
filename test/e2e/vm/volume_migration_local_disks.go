@@ -461,7 +461,7 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 		})
 	})
 
-	It("should be failed with RWO VMBDA", func() {
+	It("should succeed with hotplugged RWO disk", func() {
 		ns := f.Namespace().Name
 
 		vm, vds := localMigrationRootAndAdditionalBuild()
@@ -498,14 +498,25 @@ var _ = Describe("LocalVirtualDiskMigration", decoratorsForVolumeMigrations(), f
 		const vmopName = "local-disks-migration-with-rwo-vmbda"
 
 		By("Starting migrations for virtual machines")
-		vmop := vmopbuilder.New([]vmopbuilder.Option{
-			vmopbuilder.WithName(vmopName),
-			vmopbuilder.WithNamespace(vm.Namespace),
-			vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
-			vmopbuilder.WithVirtualMachine(vm.Name),
-		}...)
-		err = f.CreateWithDeferredDeletion(context.Background(), vmop)
-		Expect(err).To(MatchError(ContainSubstring("migration of the rwo virtual disk is not allowed if the virtual machine has hot-plugged block devices")))
+		util.MigrateVirtualMachine(f, vm, vmopbuilder.WithName(vmopName))
+
+		Eventually(func() error {
+			vmop, err := f.VirtClient().VirtualMachineOperations(ns).Get(context.Background(), vmopName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			if vmop.Status.Phase != v1alpha2.VMOPPhaseCompleted {
+				completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+				return fmt.Errorf("migration is not completed: phase: %s, reason: %s, message: %s", vmop.Status.Phase, completed.Reason, completed.Message)
+			}
+			return nil
+		}).WithTimeout(framework.MaxTimeout).WithPolling(time.Second).Should(Succeed())
+
+		vm, err = f.VirtClient().VirtualMachines(ns).Get(context.Background(), vm.GetName(), metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.MigrationState).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.EndTimestamp).ShouldNot(BeNil())
+		Expect(vm.Status.MigrationState.Result).To(Equal(v1alpha2.MigrationResultSucceeded))
 	})
 })
 

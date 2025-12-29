@@ -82,14 +82,22 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to get VirtualMachineMACAddresses: %s", err))
 		return reconcile.Result{}, err
 	}
 
-	// 'Main' network is always present but not require a MAC address.
-	expectedMACAddresses := len(vm.Spec.Networks) - 1
+	expectedMACAddresses := 0
+	for _, network := range vm.Spec.Networks {
+		// 'Main' network not require a MAC address.
+		if network.Type == v1alpha2.NetworksTypeMain {
+			continue
+		}
+		expectedMACAddresses++
+	}
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to get KVVM: %s", err))
 		return reconcile.Result{}, err
 	}
 	if len(vmmacs) < expectedMACAddresses {
@@ -100,6 +108,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 					err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
 					createdCount++
 					if err != nil {
+						cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to create VirtualMachineMACAddress: %s", err))
 						return reconcile.Result{}, err
 					}
 				}
@@ -110,6 +119,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			for i := 0; i < macsToCreate; i++ {
 				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
 				if err != nil {
+					cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Failed to create VirtualMachineMACAddress: %s", err))
 					return reconcile.Result{}, err
 				}
 			}
@@ -176,7 +186,7 @@ func countNetworksWithMACRequest(networkSpec []v1alpha2.NetworksSpec, vmmacs []*
 
 	count := 0
 	for _, ns := range networkSpec {
-		if ns.Type != v1alpha2.NetworksTypeMain {
+		if ns.Type == v1alpha2.NetworksTypeMain {
 			continue
 		}
 

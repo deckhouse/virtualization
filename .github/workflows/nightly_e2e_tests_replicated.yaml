@@ -69,6 +69,12 @@ jobs:
           echo "Download dependencies"
           go mod download
 
+      - name: Set URL
+        working-directory: ./test/e2e/
+        run: |
+          echo "Set URL"
+          task set-url:ci
+
       - name: Run E2E
         id: e2e-tests
         working-directory: ./test/e2e/

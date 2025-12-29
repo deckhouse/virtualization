@@ -623,7 +623,7 @@ VolumeBindingMode property:
 AccessMode:
 
 - `ReadWriteMany (RWX)`: Multiple disk access. Live migration of virtual machines with such disks is possible.
-- `ReadWriteOnce (RWO)`: The disk can be accessed by only a single virtual machine instance. Live migration of virtual machines that use such disks is supported only in commercial editions. Live migration is available only if all disks are attached statically via `.spec.blockDeviceRefs`. Disks attached dynamically via VirtualMachineBlockDeviceAttachments must be reattached statically by specifying them in `.spec.blockDeviceRefs`.
+- `ReadWriteOnce (RWO)`: The disk can be accessed by only a single virtual machine instance. Live migration of virtual machines that use such disks is supported only in commercial editions.
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -933,8 +933,6 @@ Limitations of disk migration between storage:
 
 - Migration is only available for virtual machines in the `Running` state.
 - Migration is only supported between disks of the same type: `Block` ↔ `Block`, `FileSystem` ↔ `FileSystem`; conversion between different types is not possible.
-- Migration is only supported for disks attached statically via the `.spec.blockDeviceRefs` parameter in the virtual machine specification.
-- If a disk was attached via the VirtualMachineBlockDeviceAttachments resource, it must be temporarily reattached directly for migration by specifying the disk name in `.spec.blockDeviceRefs`.
 {{< /alert >}}
 
 Example of migrating a disk to the `new-storage-class-name` StorageClass:
@@ -2786,12 +2784,10 @@ A consistent snapshot guarantees a consistent and complete state of the virtual 
 - The virtual machine is turned off.
 - [`qemu-guest-agent`](#guest-os-agent) is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
 
+An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created if the VM is running and `qemu-guest-agent` is not installed or not running in the guest OS.  
+If the snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, but `qemu-guest-agent` is running, an attempt will be made to freeze the file system to ensure that the snapshot is consistent.
+
 QEMU Guest Agent supports hook scripts that allow you to prepare applications for snapshot creation without stopping services, ensuring application-level consistency. For more information on configuring hooks scripts, see the [Guest OS agent](#guest-os-agent) section.
-
-An inconsistent snapshot may not reflect a consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
-
-- The VM is running, and `qemu-guest-agent` is not installed or not running in the guest OS.
-- The snapshot manifest explicitly specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
 
 {{< alert level="warning" >}}
 When restoring from such a snapshot, file system integrity issues may occur, as the data state may be inconsistent.
