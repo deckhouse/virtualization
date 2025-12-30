@@ -18,11 +18,14 @@ package cvi
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
@@ -31,6 +34,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/dvcr-garbage-collection/postponehandler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -79,6 +84,7 @@ func NewController(
 		postponehandler.New[*v1alpha2.ClusterVirtualImage](dvcrService, recorder),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
+		internal.NewImagePresenceHandler(dvcr.NewImageChecker(mgr.GetClient(), dvcrSettings)),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
@@ -97,6 +103,31 @@ func NewController(
 	err = reconciler.SetupController(ctx, mgr, cviController)
 	if err != nil {
 		return nil, err
+	}
+
+	if dvcrSettings.ImageMonitorSchedule != "" {
+		lister := gc.NewObjectLister(func(ctx context.Context, now time.Time) ([]client.Object, error) {
+			cviList := &v1alpha2.ClusterVirtualImageList{}
+			fieldSelector := fields.OneTermEqualSelector(indexer.IndexFieldCVIByPhase, indexer.ReadyDVCRImage)
+			if err := mgr.GetClient().List(ctx, cviList, &client.ListOptions{FieldSelector: fieldSelector}); err != nil {
+				return nil, err
+			}
+
+			objs := make([]client.Object, 0, len(cviList.Items))
+			for i := range cviList.Items {
+				objs = append(objs, &cviList.Items[i])
+			}
+			return objs, nil
+		})
+
+		cronSource, err := gc.NewCronSource(dvcrSettings.ImageMonitorSchedule, lister, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create cron source for image monitoring: %w", err)
+		}
+
+		if err := cviController.Watch(cronSource); err != nil {
+			return nil, fmt.Errorf("failed to setup periodic image check: %w", err)
+		}
 	}
 
 	if err = builder.WebhookManagedBy(mgr).
