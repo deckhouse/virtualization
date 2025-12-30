@@ -2,8 +2,7 @@
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc
-- git make libtool libmd-devel
+- libmd-devel
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -61,6 +60,8 @@ shell:
     OUTDIR=/out
 
     cd /src
+    # workaround, when werf importing folder from src image, some empty dirs are losing
+    mkdir -p .git/refs/heads .git/refs/tags .git/objects/info
     ./autogen
     ./configure \
       --prefix=/usr \
