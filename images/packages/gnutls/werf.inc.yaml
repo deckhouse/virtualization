@@ -91,6 +91,8 @@ shell:
     OUTDIR=/out
 
     cd /src
+    # workaround, when werf importing folder from src image, some empty dirs are losing
+    mkdir -p .git/refs/heads .git/refs/tags .git/objects/info
 
     # Fake distcheck-hook that checks bootstrap is called without --skip-po
     mkdir -p po/.reference
