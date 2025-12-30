@@ -63,7 +63,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get -qq install -y libxml2-devel \
-      git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
+      glibc-pthread glibc-devel glibc-devel-static
   {{- include "alt packages clean" . | nindent 2 }}
   installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
