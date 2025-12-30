@@ -12,7 +12,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
 	github.com/tidwall/gjson v1.18.0
-	golang.org/x/crypto v0.38.0
+	golang.org/x/crypto v0.45.0
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
