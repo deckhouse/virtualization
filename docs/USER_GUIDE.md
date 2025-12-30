@@ -226,7 +226,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
 The `VirtualImage` resource is designed for uploading virtual machine images and subsequently using them to create virtual machine disks.
 
 {{< alert level="warning">}}
-Please note that `VirtualImage` is a project resource, which means it is only available within the project or namespace where it was created. To use images at the cluster level, a separate resource is provided — [`ClusterVirtualImage`](./ADMIN_GUIDE.md#images).
+Please note that `VirtualImage` is a project resource, which means it is only available within the project or namespace where it was created. To use images at the cluster level, a separate resource is provided — [`ClusterVirtualImage`](./admin_guide.html#images).
 {{< /alert >}}
 
 When connected to a virtual machine, the image is accessed in read-only mode.
