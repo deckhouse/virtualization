@@ -31,6 +31,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
@@ -64,6 +65,7 @@ shell:
     apt-get -qq install -y libxml2-devel \
       git binutils make gcc glibc-pthread glibc-devel glibc-devel-static golang
   {{- include "alt packages clean" . | nindent 2 }}
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
     # Install packages
