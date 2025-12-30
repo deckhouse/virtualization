@@ -1,9 +1,6 @@
 ---
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
-altPackages:
-- gcc
-- git make binutils
 packages:
 - libnbd
 - libxml2
@@ -30,12 +27,6 @@ secrets:
 import:
 {{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get -qq install -y \
-      {{ $builderDeps.altPackages | join " " }}
-  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     # Install packages

@@ -25,10 +25,8 @@ shell:
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git
 - pkg-config
 - libtool
-- gcc
 - gcc-c++
 packages:
 - libmnl
