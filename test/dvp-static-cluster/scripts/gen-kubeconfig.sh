@@ -111,7 +111,7 @@ kubectl apply -f -<<EOF
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: $SA_NAME
+  name: ${SA_NAME}
   namespace: d8-service-accounts
 ---
 apiVersion: v1
@@ -120,7 +120,7 @@ metadata:
   name: ${SA_TOKEN}
   namespace: d8-service-accounts
   annotations:
-    kubernetes.io/service-account.name: $SA_NAME
+    kubernetes.io/service-account.name: ${SA_NAME}
 type: kubernetes.io/service-account-token
 ---
 apiVersion: deckhouse.io/v1
@@ -139,25 +139,25 @@ log_success "SA, Secrets and ClusterAuthorizationRule applied"
 
 kubeconfig_cert_cluster_section() {
   log_info "Set cluster config"
-  kubectl config set-cluster $CLUSTER_NAME \
+  kubectl config set-cluster ${CLUSTER_NAME} \
     --insecure-skip-tls-verify=true \
     --server=https://$(kubectl -n d8-user-authn get ing kubernetes-api -ojson | jq '.spec.rules[].host' -r) \
-    --kubeconfig=$FILE_NAME
+    --kubeconfig=${FILE_NAME}
 }
 
 kubeconfig_set_credentials() {
   log_info "Set credentials"
-  kubectl config set-credentials $USER_NAME \
+  kubectl config set-credentials ${USER_NAME} \
     --token=$(kubectl -n d8-service-accounts get secret ${SA_TOKEN} -o json |jq -r '.data["token"]' | base64 -d) \
-    --kubeconfig=$FILE_NAME
+    --kubeconfig=${FILE_NAME}
 }
 
 kubeconfig_set_context() {
   log_info "Set context"
-  kubectl config set-context $CONTEXT_NAME \
-    --cluster=$CLUSTER_NAME \
-    --user=$USER_NAME \
-    --kubeconfig=$FILE_NAME
+  kubectl config set-context ${CONTEXT_NAME} \
+    --cluster=${CLUSTER_NAME} \
+    --user=${USER_NAME} \
+    --kubeconfig=${FILE_NAME}
 }
 
 log_info "Create kubeconfig"
@@ -166,10 +166,10 @@ kubeconfig_cert_cluster_section
 kubeconfig_set_credentials
 kubeconfig_set_context
 
-log_success "kubeconfig created and stored in $FILE_NAME"
+log_success "kubeconfig created and stored in ${FILE_NAME}"
 
-log_info "kubeconfig created and stored in $FILE_NAME"
-sudo chmod 444 $FILE_NAME
-ls -la $FILE_NAME
+log_info "kubeconfig created and stored in ${FILE_NAME}"
+sudo chmod 444 ${FILE_NAME}
+ls -la ${FILE_NAME}
 
 log_success "Done"
