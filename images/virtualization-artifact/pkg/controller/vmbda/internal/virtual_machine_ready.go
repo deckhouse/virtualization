@@ -25,16 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
 type VirtualMachineReadyHandler struct {
-	attachment *service.AttachmentService
+	attachment AttachmentService
 }
 
-func NewVirtualMachineReadyHandler(attachment *service.AttachmentService) *VirtualMachineReadyHandler {
+func NewVirtualMachineReadyHandler(attachment AttachmentService) *VirtualMachineReadyHandler {
 	return &VirtualMachineReadyHandler{
 		attachment: attachment,
 	}
@@ -72,7 +71,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmbda *v1alpha2.
 	}
 
 	switch vm.Status.Phase {
-	case v1alpha2.MachineRunning:
+	case v1alpha2.MachineRunning, v1alpha2.MachineMigrating:
 		// OK.
 	case v1alpha2.MachineStopping, v1alpha2.MachineStopped, v1alpha2.MachineStarting:
 		vmbda.Status.Phase = v1alpha2.BlockDeviceAttachmentPhasePending
