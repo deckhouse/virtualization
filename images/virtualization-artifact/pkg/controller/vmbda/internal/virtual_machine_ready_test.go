@@ -55,7 +55,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		}
 	})
 
-	It("should set condition reason to unknown if deletion timestamp is not nil", func() {
+	It("should set VirtualMachineReady condition reason to unknown if deletion timestamp is not nil", func() {
 		vmbda.DeletionTimestamp = ptr.To(metav1.Time{Time: time.Now()})
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
@@ -66,7 +66,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Expect(vmReadyCondition.Reason).To(Equal(conditions.ReasonUnknown.String()))
 	})
 
-	It("should set condition to false if vm not found", func() {
+	It("should set VirtualMachineReady condition to false if virtual machine not found", func() {
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).NotTo(HaveOccurred())
@@ -77,7 +77,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Expect(vmReadyCondition.Reason).To(Equal(vmbdacondition.VirtualMachineNotReady.String()))
 	})
 
-	DescribeTable("should set condition by vm phase if kvvm and kvvmi exists", func(phase v1alpha2.MachinePhase, expectedStatus metav1.ConditionStatus, expectedReason string) {
+	DescribeTable("should set VirtualMachineReady condition based on vm phase if kvvm and kvvmi exist", func(phase v1alpha2.MachinePhase, expectedStatus metav1.ConditionStatus, expectedReason string) {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return &v1alpha2.VirtualMachine{
 				Status: v1alpha2.VirtualMachineStatus{
@@ -112,7 +112,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Entry("Pending", v1alpha2.MachinePending, metav1.ConditionFalse, vmbdacondition.VirtualMachineNotReady.String()),
 	)
 
-	It("should return false if kvvm is not found", func() {
+	It("should set VirtualMachineReady condition to false if kvvm is not found", func() {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return &v1alpha2.VirtualMachine{
 				Status: v1alpha2.VirtualMachineStatus{
@@ -134,7 +134,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Expect(vmReadyCondition.Reason).To(Equal(vmbdacondition.VirtualMachineNotReady.String()))
 	})
 
-	It("should return false if kvvmi is not found", func() {
+	It("should set VirtualMachineReady condition to false if kvvmi is not found", func() {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return &v1alpha2.VirtualMachine{
 				Status: v1alpha2.VirtualMachineStatus{
@@ -159,7 +159,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Expect(vmReadyCondition.Reason).To(Equal(vmbdacondition.VirtualMachineNotReady.String()))
 	})
 
-	It("should return error if get virtual machine failed", func() {
+	It("should return error if getting virtual machine fails", func() {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return nil, errors.New("test error")
 		}
@@ -169,7 +169,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should return error if get kvvm failed", func() {
+	It("should return error if getting kvvm fails", func() {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return &v1alpha2.VirtualMachine{
 				Status: v1alpha2.VirtualMachineStatus{
@@ -186,7 +186,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should return error if get kvvmi failed", func() {
+	It("should return error if getting kvvmi fails", func() {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return &v1alpha2.VirtualMachine{
 				Status: v1alpha2.VirtualMachineStatus{
