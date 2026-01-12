@@ -55,16 +55,6 @@ func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
-func UntilCloudInitCompleted(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
-	GinkgoHelper()
-
-	Eventually(func(g Gomega) {
-		result, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo cloud-init status")
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(result).To(ContainSubstring("status: done"))
-	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
-}
-
 func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
 	GinkgoHelper()
 
@@ -72,7 +62,7 @@ func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout 
 		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'")
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(result).To(ContainSubstring("test"))
-	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
@@ -139,20 +129,14 @@ func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachin
 	GinkgoHelper()
 
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && sudo init 0\" > /dev/null 2>&1 &")
-	Expect(err).To(SatisfyAny(
-		Not(HaveOccurred()),
-		MatchError(MatchError(ContainSubstring("unexpected EOF"))),
-	))
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func RebootVirtualMachineBySSH(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
 	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && sudo reboot\" > /dev/null 2>&1 &")
-	Expect(err).To(SatisfyAny(
-		Not(HaveOccurred()),
-		MatchError(MatchError(ContainSubstring("unexpected EOF"))),
-	))
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
