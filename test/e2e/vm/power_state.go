@@ -48,11 +48,11 @@ var _ = Describe("PowerState", func() {
 		case v1alpha2.AlwaysOnPolicy:
 			namespaceSuffix = "always-on"
 		case v1alpha2.AlwaysOnUnlessStoppedManually:
-			namespaceSuffix = "unless-stopped-manually"
+			namespaceSuffix = "stopped-manually"
 		case v1alpha2.ManualPolicy:
 			namespaceSuffix = "manual"
 		}
-		f := framework.NewFramework(fmt.Sprintf("power-state-%s", namespaceName))
+		f := framework.NewFramework(fmt.Sprintf("power-state-%s", namespaceSuffix))
 		DeferCleanup(f.After)
 		f.Before()
 
