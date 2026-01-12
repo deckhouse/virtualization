@@ -43,15 +43,14 @@ import (
 
 var _ = Describe("PowerState", func() {
 	DescribeTable("manages power state of a virtual machine", func(runPolicy v1alpha2.RunPolicy) {
-		var namespaceName string
+		var namespaceSuffix string
 		switch runPolicy {
 		case v1alpha2.AlwaysOnPolicy:
-			namespaceName = "power-aon"
+			namespaceSuffix = "always-on"
 		case v1alpha2.AlwaysOnUnlessStoppedManually:
-			namespaceName = "power-aon-usm"
+			namespaceSuffix = "unless-stopped-manually"
 		case v1alpha2.ManualPolicy:
-			namespaceName = "power-manual"
-
+			namespaceSuffix = "manual"
 		}
 		f := framework.NewFramework(fmt.Sprintf("power-state-%s", namespaceName))
 		DeferCleanup(f.After)
