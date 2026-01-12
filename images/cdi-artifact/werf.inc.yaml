@@ -1,9 +1,7 @@
 ---
 {{- $gitRepoName := "3p-containerized-data-importer" }}
 {{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
-{{/*{{- $version := get $.Core $gitRepoName }}*/}}
-{{- $branch := "chore/cse/cse-mitigation-cve-20251226" }}
-{{- $version := "1.60.3" }}
+{{- $version := get $.Core $gitRepoName }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -31,12 +29,10 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 shell:
-  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
     echo "Git clone {{ $gitRepoName }} repository..."
-    git clone --depth=1 --branch {{ $branch }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
-    # git clone --depth=1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
+    git clone --depth=1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
 
     rm -rf /src/containerized-data-importer/.git
 
