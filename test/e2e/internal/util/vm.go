@@ -35,6 +35,8 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
+const vmopE2ePrefix = "vmop-e2e-"
+
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
@@ -101,7 +103,7 @@ func StartVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, op
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
-		vmopbuilder.WithGenerateName("vmop-start-"),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%sstart-", vmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeStart),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -137,7 +139,7 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 	GinkgoHelper()
 
 	vmop := vmopbuilder.New(
-		vmopbuilder.WithGenerateName("vmop-e2e-reboot-"),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%sreboot-", vmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -154,12 +156,22 @@ func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.Virt
 	var pod corev1.Pod
 	err := framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
 		Namespace: vm.Namespace,
-		Name:      vm.Status.VirtualMachinePods[0].Name,
+		Name:      getActivePodName(vm),
 	}, &pod)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = framework.GetClients().GenericClient().Delete(context.Background(), &pod)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func getActivePodName(vm *v1alpha2.VirtualMachine) string {
+	for _, pod := range vm.Status.VirtualMachinePods {
+		if pod.Active {
+			return pod.Name
+		}
+	}
+	Fail(fmt.Sprintf("no active pod found for virtual machine %s", vm.Name))
+	return ""
 }
 
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {

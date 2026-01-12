@@ -92,12 +92,10 @@ var _ = Describe("PowerState", func() {
 		})
 
 		By("Start VM", func() {
-			if t.VM.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
-				return // No need to start VM if it's AlwaysOn policy
+			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
+				util.StartVirtualMachine(f, t.VM)
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 			}
-
-			util.StartVirtualMachine(f, t.VM)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 		})
 
 		By("Shutdown VM by SSH", func() {
@@ -117,12 +115,10 @@ var _ = Describe("PowerState", func() {
 		})
 
 		By("Start VM", func() {
-			if t.VM.Spec.RunPolicy == v1alpha2.AlwaysOnPolicy {
-				return // No need to start VM if it's AlwaysOn policy
+			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
+				util.StartVirtualMachine(f, t.VM)
+				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 			}
-
-			util.StartVirtualMachine(f, t.VM)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
 		})
 
 		By("Reboot VM by VMOP", func() {
@@ -175,6 +171,8 @@ var _ = Describe("PowerState", func() {
 		})
 
 		By("Check VM can reach external network", func() {
+			err := network.CheckCiliumAgents(context.Background(), f.Clients.Kubectl(), t.VM.Name, f.Namespace().Name)
+			Expect(err).NotTo(HaveOccurred(), "Cilium agents check should succeed for VM %s", t.VM.Name)
 			network.CheckExternalConnectivity(f, t.VM.Name, network.ExternalHost, network.HTTPStatusOk)
 		})
 	},
