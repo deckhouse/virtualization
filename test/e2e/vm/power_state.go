@@ -84,6 +84,7 @@ var _ = Describe("PowerState", func() {
 				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseFailed), framework.ShortTimeout, t.VMOPStop)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
 				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.MiddleTimeout, t.VMOPStop)
 				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
@@ -94,6 +95,7 @@ var _ = Describe("PowerState", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 			}
 		})
@@ -109,6 +111,9 @@ var _ = Describe("PowerState", func() {
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
 				util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
+				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
 				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.MiddleTimeout, t.VM)
 			}
@@ -118,6 +123,7 @@ var _ = Describe("PowerState", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 			}
 		})

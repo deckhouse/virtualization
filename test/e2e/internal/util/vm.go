@@ -128,7 +128,7 @@ func StartVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, op
 func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && sudo init 0\" > /dev/null 2>&1 &")
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && sudo poweroff\" > /dev/null 2>&1 &")
 	Expect(err).NotTo(HaveOccurred())
 }
 
