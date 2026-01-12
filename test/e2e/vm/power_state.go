@@ -72,7 +72,7 @@ var _ = Describe("PowerState", func() {
 
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.LongTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.MiddleTimeout, t.VMBDA)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+			util.UntilCloudInitCompleted(f, t.VM, framework.ShortTimeout)
 		})
 
 		By("Shutdown VM by VMOP", func() {
@@ -93,7 +93,8 @@ var _ = Describe("PowerState", func() {
 		By("Start VM", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 			}
 		})
 
@@ -116,7 +117,8 @@ var _ = Describe("PowerState", func() {
 		By("Start VM", func() {
 			if t.VM.Spec.RunPolicy != v1alpha2.AlwaysOnPolicy {
 				util.StartVirtualMachine(f, t.VM)
-				util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.MiddleTimeout)
+				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.MiddleTimeout, t.VM)
+				util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 			}
 		})
 
@@ -132,8 +134,9 @@ var _ = Describe("PowerState", func() {
 
 			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.MiddleTimeout, t.VMOPRestart)
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.ShortTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
 		By("Reboot VM by SSH", func() {
@@ -146,8 +149,9 @@ var _ = Describe("PowerState", func() {
 			util.RebootVirtualMachineBySSH(f, t.VM)
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
 		By("Reboot VM by Pod Deletion", func() {
@@ -165,8 +169,9 @@ var _ = Describe("PowerState", func() {
 			}
 
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
-			util.UntilVMAgentReady(crclient.ObjectKeyFromObject(t.VM), framework.ShortTimeout)
+			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
+			util.UntilSSHReady(f, t.VM, framework.ShortTimeout)
 		})
 
 		By("Check VM can reach external network", func() {

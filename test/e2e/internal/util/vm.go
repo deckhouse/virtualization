@@ -55,6 +55,26 @@ func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
+func UntilCloudInitCompleted(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		result, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo cloud-init status")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(result).To(ContainSubstring("status: done"))
+	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(result).To(ContainSubstring("test"))
+	}).WithTimeout(framework.ShortTimeout).WithPolling(time.Second).Should(Succeed())
+}
+
 func UntilVMMigrationSucceeded(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
 
