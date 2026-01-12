@@ -43,13 +43,13 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 	BeforeEach(func() {
 		vmbda = vmbdaBuilder.NewEmpty("vmbda", "default")
 		attachmentServiceMock = AttachmentServiceMock{
-			GetVirtualMachineFunc: func(ctx context.Context, name, namespace string) (*v1alpha2.VirtualMachine, error) {
+			GetVirtualMachineFunc: func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 				return nil, nil
 			},
-			GetKVVMIFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+			GetKVVMIFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 				return nil, nil
 			},
-			GetKVVMFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
+			GetKVVMFunc: func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 				return nil, nil
 			},
 		}
@@ -67,7 +67,6 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 	})
 
 	It("should set condition to false if vm not found", func() {
-		vmbda.Spec.VirtualMachineName = "not-exists"
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).NotTo(HaveOccurred())
@@ -92,6 +91,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		attachmentServiceMock.GetKVVMIFunc = func(ctx context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 			return &virtv1.VirtualMachineInstance{}, nil
 		}
+
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).NotTo(HaveOccurred())
@@ -123,6 +123,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		attachmentServiceMock.GetKVVMFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 			return nil, nil
 		}
+
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).NotTo(HaveOccurred())
@@ -147,6 +148,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		attachmentServiceMock.GetKVVMIFunc = func(ctx context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 			return nil, nil
 		}
+
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).NotTo(HaveOccurred())
@@ -161,6 +163,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		attachmentServiceMock.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*v1alpha2.VirtualMachine, error) {
 			return nil, errors.New("test error")
 		}
+
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).To(HaveOccurred())
@@ -177,6 +180,7 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		attachmentServiceMock.GetKVVMFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 			return nil, errors.New("test error")
 		}
+
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).To(HaveOccurred())
@@ -193,9 +197,10 @@ var _ = Describe("VirtualMachineReadyHandler Handle", func() {
 		attachmentServiceMock.GetKVVMFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachine, error) {
 			return &virtv1.VirtualMachine{}, nil
 		}
-		attachmentServiceMock.GetKVVMIFunc = func(ctx context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
+		attachmentServiceMock.GetKVVMIFunc = func(_ context.Context, _ *v1alpha2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
 			return nil, errors.New("test error")
 		}
+
 		result, err := NewVirtualMachineReadyHandler(&attachmentServiceMock).Handle(context.Background(), vmbda)
 		Expect(result).To(Equal(reconcile.Result{}))
 		Expect(err).To(HaveOccurred())
