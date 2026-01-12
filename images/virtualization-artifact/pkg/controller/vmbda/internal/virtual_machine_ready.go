@@ -25,16 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
 type VirtualMachineReadyHandler struct {
-	attachment *service.AttachmentService
+	attachment AttachmentService
 }
 
-func NewVirtualMachineReadyHandler(attachment *service.AttachmentService) *VirtualMachineReadyHandler {
+func NewVirtualMachineReadyHandler(attachment AttachmentService) *VirtualMachineReadyHandler {
 	return &VirtualMachineReadyHandler{
 		attachment: attachment,
 	}
