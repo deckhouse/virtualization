@@ -66,3 +66,14 @@ nodeSelector:
 true
 {{- end }}
 {{- end }}
+
+{{- define "vpa.policyUpdateMode" -}}
+{{-   $kubeVersion := .Values.global.discovery.kubernetesVersion -}}
+{{-   $updateMode := "" -}}
+{{-   if semverCompare ">=1.33.0" $kubeVersion -}}
+{{-     $updateMode = "InPlaceOrRecreate" -}}
+{{-   else -}}
+{{-     $updateMode = "Recreate" -}}
+{{-   end }}
+{{- $updateMode }}
+{{- end }}

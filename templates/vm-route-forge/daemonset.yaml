@@ -22,7 +22,7 @@ spec:
     kind: DaemonSet
     name: vm-route-forge
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
     - containerName: vm-route-forge

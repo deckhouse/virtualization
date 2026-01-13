@@ -12,7 +12,7 @@ spec:
     kind: Deployment
     name: virt-api
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: {{ include "vpa.policyUpdateMode" . }}
   resourcePolicy:
     containerPolicies:
     {{- include "kube_api_rewriter.vpa_container_policy" . | nindent 4 }}
