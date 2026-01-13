@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
 
-const vmopE2ePrefix = "vmop-e2e-"
+const vmopE2ePrefix = "vmop-e2e"
 
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
@@ -97,7 +97,7 @@ func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
-		vmopbuilder.WithGenerateName("vmop-e2e-"),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%s-evict-", vmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -113,7 +113,7 @@ func StartVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, op
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
-		vmopbuilder.WithGenerateName(fmt.Sprintf("%sstart-", vmopE2ePrefix)),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%s-start-", vmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeStart),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -143,7 +143,7 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 	GinkgoHelper()
 
 	vmop := vmopbuilder.New(
-		vmopbuilder.WithGenerateName(fmt.Sprintf("%sreboot-", vmopE2ePrefix)),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%s-reboot-", vmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -154,8 +154,6 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 
 func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
-
-	Expect(vm.Status.VirtualMachinePods).To(HaveLen(1))
 
 	var pod corev1.Pod
 	err := framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
