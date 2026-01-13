@@ -18,6 +18,7 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -39,12 +40,23 @@ func NewInitCommand() *cobra.Command {
 type initOptions struct{}
 
 func (o *initOptions) Run(_ *cobra.Command, _ []string) error {
-	modules := []string{
-		"kernel/drivers/usb/usbip/usbip-core.ko",
-		"kernel/drivers/usb/usbip/vhci-hcd.ko",
+	kernelRelease, err := modprobe.KernelRelease()
+	if err != nil {
+		return fmt.Errorf("failed to get kernel release: %w", err)
 	}
 
-	if err := modprobe.LoadModules(modules); err != nil {
+	modules := []string{
+		filepath.Join("/lib/modules", kernelRelease, "kernel/drivers/usb/usbip/usbip-core.ko"),
+		filepath.Join("/lib/modules", kernelRelease, "kernel/drivers/usb/usbip/vhci-hcd.ko"),
+	}
+
+	if modprobe.KernelSupportsZst(kernelRelease) {
+		for i := range modules {
+			modules[i] += ".zst"
+		}
+	}
+
+	if err := modprobe.LoadModules(modules...); err != nil {
 		return fmt.Errorf("failed to load modules: %w", err)
 	}
 

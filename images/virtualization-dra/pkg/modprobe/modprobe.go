@@ -21,41 +21,16 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/sys/unix"
 )
 
-func LoadModules(modules []string) error {
-	var uts unix.Utsname
-	if err := unix.Uname(&uts); err != nil {
-		return fmt.Errorf("uname: %w", err)
-	}
-
-	kernel := unix.ByteSliceToString(uts.Release[:])
-	base := filepath.Join("/lib/modules", kernel)
-
-	for _, m := range modules {
-
-		var path string
-		if strings.HasSuffix(m, ".zst") {
-			path = filepath.Join(base, m)
-		} else {
-			pathZst := filepath.Join(base, m+".zst")
-			pathKo := filepath.Join(base, m)
-
-			if _, err := os.Stat(pathZst); err == nil {
-				path = pathZst
-			} else if _, err := os.Stat(pathKo); err == nil {
-				path = pathKo
-			} else {
-				return fmt.Errorf("module file not found: %s or %s", pathKo, pathZst)
-			}
-		}
-
-		if err := loadModule(path); err != nil {
-			return fmt.Errorf("load module %s: %w", path, err)
+func LoadModules(modules ...string) error {
+	for _, module := range modules {
+		if err := loadModule(module); err != nil {
+			return fmt.Errorf("load module %s: %w", module, err)
 		}
 	}
 
@@ -80,4 +55,35 @@ func loadModule(path string) error {
 	slog.Info("Module loaded", slog.String("path", path))
 
 	return nil
+}
+
+func KernelRelease() (string, error) {
+	var uts unix.Utsname
+	if err := unix.Uname(&uts); err != nil {
+		return "", fmt.Errorf("uname: %w", err)
+	}
+	return unix.ByteSliceToString(uts.Release[:]), nil
+
+}
+
+func KernelSupportsZst(release string) bool {
+	parts := strings.Split(release, ".")
+	if len(parts) < 2 {
+		return false
+	}
+
+	major, err1 := strconv.Atoi(parts[0])
+	minor, err2 := strconv.Atoi(parts[1])
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	// ZST is supported since 5.16
+	if major > 5 {
+		return true
+	}
+	if major == 5 && minor >= 16 {
+		return true
+	}
+	return false
 }
