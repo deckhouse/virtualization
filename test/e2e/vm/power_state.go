@@ -76,16 +76,22 @@ var _ = Describe("PowerState", func() {
 		})
 
 		By("Shutdown VM by VMOP", func() {
-			err := f.CreateWithDeferredDeletion(context.Background(), t.VMOPStop)
+			vmopStop := vmopbuilder.New(
+				vmopbuilder.WithGenerateName(fmt.Sprintf("%s-stop-", util.VmopE2ePrefix)),
+				vmopbuilder.WithNamespace(t.VM.Namespace),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeStop),
+				vmopbuilder.WithVirtualMachine(t.VM.Name),
+			)
+			err := f.CreateWithDeferredDeletion(context.Background(), vmopStop)
 			Expect(err).NotTo(HaveOccurred())
 
 			switch t.VM.Spec.RunPolicy {
 			case v1alpha2.AlwaysOnPolicy:
-				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseFailed), framework.ShortTimeout, t.VMOPStop)
+				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseFailed), framework.ShortTimeout, vmopStop)
 				util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 				util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
 			case v1alpha2.AlwaysOnUnlessStoppedManually, v1alpha2.ManualPolicy:
-				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPStop)
+				util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopStop)
 				util.UntilObjectPhase(string(v1alpha2.MachineStopped), framework.ShortTimeout, t.VM)
 			}
 		})
@@ -134,10 +140,16 @@ var _ = Describe("PowerState", func() {
 			runningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, t.VM.Status.Conditions)
 			runningLastTransitionTime := runningCondition.LastTransitionTime.Time
 
-			err = f.CreateWithDeferredDeletion(context.Background(), t.VMOPRestart)
+			vmopRestart := vmopbuilder.New(
+				vmopbuilder.WithGenerateName(fmt.Sprintf("%s-restart-", util.VmopE2ePrefix)),
+				vmopbuilder.WithNamespace(t.VM.Namespace),
+				vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
+				vmopbuilder.WithVirtualMachine(t.VM.Name),
+			)
+			err = f.CreateWithDeferredDeletion(context.Background(), vmopRestart)
 			Expect(err).NotTo(HaveOccurred())
 
-			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, t.VMOPRestart)
+			util.UntilObjectPhase(string(v1alpha2.VMOPPhaseCompleted), framework.LongTimeout, vmopRestart)
 			util.UntilVirtualMachineRebooted(crclient.ObjectKeyFromObject(t.VM), runningLastTransitionTime, framework.MiddleTimeout)
 			util.UntilObjectPhase(string(v1alpha2.MachineRunning), framework.ShortTimeout, t.VM)
 			util.UntilObjectPhase(string(v1alpha2.BlockDeviceAttachmentPhaseAttached), framework.ShortTimeout, t.VMBDA)
@@ -203,15 +215,12 @@ var _ = Describe("PowerState", func() {
 type powerStateTest struct {
 	Framework *framework.Framework
 
-	CVI         *v1alpha2.ClusterVirtualImage
-	VI          *v1alpha2.VirtualImage
-	VM          *v1alpha2.VirtualMachine
-	VDRoot      *v1alpha2.VirtualDisk
-	VDBlank     *v1alpha2.VirtualDisk
-	VMBDA       *v1alpha2.VirtualMachineBlockDeviceAttachment
-	VMOPStop    *v1alpha2.VirtualMachineOperation
-	VMOPStart   *v1alpha2.VirtualMachineOperation
-	VMOPRestart *v1alpha2.VirtualMachineOperation
+	CVI     *v1alpha2.ClusterVirtualImage
+	VI      *v1alpha2.VirtualImage
+	VM      *v1alpha2.VirtualMachine
+	VDRoot  *v1alpha2.VirtualDisk
+	VDBlank *v1alpha2.VirtualDisk
+	VMBDA   *v1alpha2.VirtualMachineBlockDeviceAttachment
 }
 
 func newPowerStateTest(f *framework.Framework) *powerStateTest {
@@ -278,26 +287,5 @@ func (t *powerStateTest) GenerateResources(runPolicy v1alpha2.RunPolicy) {
 		vmbdabuilder.WithNamespace(t.VDBlank.Namespace),
 		vmbdabuilder.WithVirtualMachineName(t.VM.Name),
 		vmbdabuilder.WithBlockDeviceRef(v1alpha2.VMBDAObjectRefKindVirtualDisk, t.VDBlank.Name),
-	)
-
-	t.VMOPStop = vmopbuilder.New(
-		vmopbuilder.WithGenerateName("vmop-stop-"),
-		vmopbuilder.WithNamespace(t.VM.Namespace),
-		vmopbuilder.WithType(v1alpha2.VMOPTypeStop),
-		vmopbuilder.WithVirtualMachine(t.VM.Name),
-	)
-
-	t.VMOPStart = vmopbuilder.New(
-		vmopbuilder.WithGenerateName("vmop-start-"),
-		vmopbuilder.WithNamespace(t.VM.Namespace),
-		vmopbuilder.WithType(v1alpha2.VMOPTypeStart),
-		vmopbuilder.WithVirtualMachine(t.VM.Name),
-	)
-
-	t.VMOPRestart = vmopbuilder.New(
-		vmopbuilder.WithGenerateName("vmop-restart-"),
-		vmopbuilder.WithNamespace(t.VM.Namespace),
-		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
-		vmopbuilder.WithVirtualMachine(t.VM.Name),
 	)
 }
