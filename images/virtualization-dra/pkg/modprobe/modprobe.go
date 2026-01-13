@@ -22,6 +22,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/unix"
 )
@@ -36,7 +37,23 @@ func LoadModules(modules []string) error {
 	base := filepath.Join("/lib/modules", kernel)
 
 	for _, m := range modules {
-		path := filepath.Join(base, m)
+
+		var path string
+		if strings.HasSuffix(m, ".zst") {
+			path = filepath.Join(base, m)
+		} else {
+			pathZst := filepath.Join(base, m+".zst")
+			pathKo := filepath.Join(base, m)
+
+			if _, err := os.Stat(pathZst); err == nil {
+				path = pathZst
+			} else if _, err := os.Stat(pathKo); err == nil {
+				path = pathKo
+			} else {
+				return fmt.Errorf("module file not found: %s or %s", pathKo, pathZst)
+			}
+		}
+
 		if err := loadModule(path); err != nil {
 			return fmt.Errorf("load module %s: %w", path, err)
 		}
