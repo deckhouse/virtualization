@@ -89,7 +89,7 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 					MatchExpressions: []corev1.NodeSelectorRequirement{
 						{
 							Key:      common.USBGatewayLabel,
-							Operator: corev1.NodeSelectorOpExists,
+							Operator: corev1.NodeSelectorOpIn,
 							Values:   []string{"true"},
 						},
 					},
