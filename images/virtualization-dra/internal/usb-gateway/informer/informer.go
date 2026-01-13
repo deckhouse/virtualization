@@ -44,9 +44,10 @@ func NewFactory(clientSet *kubernetes.Clientset, resync *time.Duration) *Factory
 	}
 
 	return &Factory{
-		clientSet:     clientSet,
-		defaultResync: defaultResync,
-		informers:     make(map[string]cache.SharedIndexInformer),
+		clientSet:        clientSet,
+		defaultResync:    defaultResync,
+		informers:        make(map[string]cache.SharedIndexInformer),
+		startedInformers: make(map[string]struct{}),
 	}
 }
 
