@@ -19,12 +19,13 @@ package util
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
@@ -33,6 +34,8 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/test/e2e/internal/framework"
 )
+
+const VmopE2ePrefix = "vmop-e2e"
 
 func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 	GinkgoHelper()
@@ -49,6 +52,16 @@ func UntilVMAgentReady(key client.ObjectKey, timeout time.Duration) {
 		}
 
 		return fmt.Errorf("vm %s is not ready", key.Name)
+	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
+}
+
+func UntilSSHReady(f *framework.Framework, vm *v1alpha2.VirtualMachine, timeout time.Duration) {
+	GinkgoHelper()
+
+	Eventually(func(g Gomega) {
+		result, err := f.SSHCommand(vm.Name, vm.Namespace, "echo 'test'")
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(result).To(ContainSubstring("test"))
 	}).WithTimeout(timeout).WithPolling(time.Second).Should(Succeed())
 }
 
@@ -84,7 +97,7 @@ func MigrateVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, 
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
-		vmopbuilder.WithGenerateName("vmop-e2e-"),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%s-evict-", VmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -100,7 +113,7 @@ func StartVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, op
 	GinkgoHelper()
 
 	opts := []vmopbuilder.Option{
-		vmopbuilder.WithGenerateName("vmop-e2e-"),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%s-start-", VmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeStart),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -112,18 +125,17 @@ func StartVirtualMachine(f *framework.Framework, vm *v1alpha2.VirtualMachine, op
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) error {
-	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo init 0")
-	if err != nil && strings.Contains(err.Error(), "unexpected EOF") {
-		return nil
-	}
-	return err
+func StopVirtualMachineFromOS(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && sudo poweroff\" > /dev/null 2>&1 &")
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func RebootVirtualMachineBySSH(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	_, err := f.SSHCommand(vm.Name, vm.Namespace, "sudo reboot")
+	_, err := f.SSHCommand(vm.Name, vm.Namespace, "nohup sh -c \"sleep 5 && sudo reboot\" > /dev/null 2>&1 &")
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -131,7 +143,7 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 	GinkgoHelper()
 
 	vmop := vmopbuilder.New(
-		vmopbuilder.WithGenerateName("vmop-e2e-reboot-"),
+		vmopbuilder.WithGenerateName(fmt.Sprintf("%s-reboot-", VmopE2ePrefix)),
 		vmopbuilder.WithNamespace(vm.Namespace),
 		vmopbuilder.WithType(v1alpha2.VMOPTypeRestart),
 		vmopbuilder.WithVirtualMachine(vm.Name),
@@ -140,7 +152,37 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 	Expect(err).NotTo(HaveOccurred())
 }
 
+func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
+	GinkgoHelper()
+
+	activePodName, err := getActivePodName(vm)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(activePodName).NotTo(BeEmpty())
+
+	var pod corev1.Pod
+	err = framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
+		Namespace: vm.Namespace,
+		Name:      activePodName,
+	}, &pod)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = framework.GetClients().GenericClient().Delete(context.Background(), &pod)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func getActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
+	for _, pod := range vm.Status.VirtualMachinePods {
+		if pod.Active {
+			return pod.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("no active pod found for virtual machine %s", vm.Name)
+}
+
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
+	GinkgoHelper()
+
 	Eventually(func() error {
 		vm := &v1alpha2.VirtualMachine{}
 		err := framework.GetClients().GenericClient().Get(context.Background(), key, vm)
