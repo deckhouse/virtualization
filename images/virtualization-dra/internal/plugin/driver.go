@@ -187,13 +187,16 @@ func (d *Driver) makeResources(devices []resourceapi.Device) resourceslice.Drive
 	slice := resourceslice.Slice{
 		Devices: devices,
 	}
+	poolName := d.nodeName
+
 	if featuregates.Default().USBGatewayEnabled() {
 		slice.PerDeviceNodeSelection = ptr.To(true)
+		poolName = "global"
 	}
 
 	return resourceslice.DriverResources{
 		Pools: map[string]resourceslice.Pool{
-			d.nodeName: {
+			poolName: {
 				Slices: []resourceslice.Slice{slice},
 			},
 		},
