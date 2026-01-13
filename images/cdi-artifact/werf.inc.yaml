@@ -60,7 +60,6 @@ shell:
   - |
     apt-get -qq install -y libxml2-devel
   {{- include "alt packages clean" . | nindent 2 }}
-  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
     # Install packages
