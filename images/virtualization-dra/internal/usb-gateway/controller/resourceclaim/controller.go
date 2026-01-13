@@ -520,7 +520,7 @@ func (c *Controller) getVirtualizationDraResourceSlices() ([]resourcev1beta1.Res
 	}
 	var slices []resourcev1beta1.ResourceSlice
 	for _, obj := range slicesObj {
-		slice, ok := obj.(resourcev1beta1.ResourceSlice)
+		slice, ok := obj.(*resourcev1beta1.ResourceSlice)
 		if !ok {
 			return nil, fmt.Errorf("unexpected type of resource slice: %T", obj)
 		}
