@@ -63,6 +63,8 @@ spec:
           {{- include "helm_lib_module_container_security_context_privileged_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationDraPlugin") }}
           imagePullPolicy: "IfNotPresent"
+          args:
+            - --feature-gates=USBGateway=true
           env:
             - name: NODE_NAME
               valueFrom:
