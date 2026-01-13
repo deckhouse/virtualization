@@ -17,7 +17,9 @@ limitations under the License.
 package modprobe
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -51,8 +53,14 @@ func loadModule(path string) error {
 	defer f.Close()
 
 	if err = unix.FinitModule(int(f.Fd()), "", 0); err != nil {
+		if errors.Is(err, unix.EEXIST) {
+			slog.Info("Module already loaded", slog.String("path", path))
+			return nil
+		}
 		return fmt.Errorf("finit_module %s: %w", path, err)
 	}
+
+	slog.Info("Module loaded", slog.String("path", path))
 
 	return nil
 }
