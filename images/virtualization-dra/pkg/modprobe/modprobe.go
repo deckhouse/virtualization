@@ -19,11 +19,14 @@ package modprobe
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/klauspost/compress/zstd"
 	"golang.org/x/sys/unix"
 )
 
@@ -38,6 +41,15 @@ func LoadModules(modules ...string) error {
 }
 
 func loadModule(path string) error {
+	if strings.HasSuffix(path, ".zst") {
+		uncompressedPath, err := uncompressModuleToTmp(path)
+		if err != nil {
+			return fmt.Errorf("uncompress module %s: %w", path, err)
+		}
+		defer os.Remove(uncompressedPath)
+		path = uncompressedPath
+	}
+
 	f, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", path, err)
@@ -55,6 +67,33 @@ func loadModule(path string) error {
 	slog.Info("Module loaded", slog.String("path", path))
 
 	return nil
+}
+
+func uncompressModuleToTmp(path string) (string, error) {
+	pattern := filepath.Base(path) + "-*"
+	uncompress, err := os.CreateTemp("", pattern)
+	if err != nil {
+		return "", err
+	}
+	defer uncompress.Close()
+
+	in, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer in.Close()
+
+	decoder, err := zstd.NewReader(in)
+	if err != nil {
+		return "", err
+	}
+	defer decoder.Close()
+
+	if _, err := io.Copy(uncompress, decoder); err != nil {
+		return "", err
+	}
+
+	return uncompress.Name(), nil
 }
 
 func KernelRelease() (string, error) {
