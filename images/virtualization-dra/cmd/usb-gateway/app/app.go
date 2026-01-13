@@ -29,7 +29,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/cli/flag"
 
-	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/controller/resourceclaim"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/informer"
 	"github.com/deckhouse/virtualization-dra/internal/usb-gateway/prepare"
@@ -70,8 +69,7 @@ func NewUSBGatewayCommand() *cobra.Command {
 
 func newUsbOptions() *usbOptions {
 	return &usbOptions{
-		Logging:      &logger.Options{},
-		featureGates: featuregates.AddFlags,
+		Logging: &logger.Options{},
 	}
 }
 
@@ -82,7 +80,6 @@ type usbOptions struct {
 	USBIPPort       int
 	USBResyncPeriod time.Duration
 	Logging         *logger.Options
-	featureGates    featuregates.AddFlagsFunc
 }
 
 func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
@@ -94,8 +91,6 @@ func (o *usbOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", 5*time.Minute, "USB resync period")
 
 	o.Logging.AddFlags(fs.FlagSet("logging"))
-
-	o.featureGates(fs.FlagSet("feature-gates"))
 
 	return fs
 }

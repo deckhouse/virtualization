@@ -29,6 +29,7 @@ import (
 	"k8s.io/component-base/cli/flag"
 
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/internal/plugin"
 	"github.com/deckhouse/virtualization-dra/internal/usb"
 	"github.com/deckhouse/virtualization-dra/pkg/logger"
@@ -79,6 +80,7 @@ func newDraOptions() *draOptions {
 		HealthzPort:                  51515,
 		USBResyncPeriod:              usb.DefaultResyncPeriod,
 		Logging:                      &logger.Options{},
+		featureGates:                 featuregates.AddFlags,
 	}
 
 	if healthzPort := os.Getenv("HEALTHZ_PORT"); healthzPort != "" {
@@ -101,7 +103,8 @@ type draOptions struct {
 	HealthzPort                  int
 	USBResyncPeriod              time.Duration
 
-	Logging *logger.Options
+	Logging      *logger.Options
+	featureGates featuregates.AddFlagsFunc
 }
 
 func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
@@ -116,6 +119,8 @@ func (o *draOptions) NamedFlags() (fs flag.NamedFlagSets) {
 	mfs.DurationVar(&o.USBResyncPeriod, "usb-resync-period", o.USBResyncPeriod, "USB resync period")
 
 	o.Logging.AddFlags(fs.FlagSet("logging"))
+
+	o.featureGates(fs.FlagSet("feature-gates"))
 
 	return fs
 }
