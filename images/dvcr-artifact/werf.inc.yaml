@@ -1,9 +1,6 @@
 ---
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
-altPackages:
-- gcc
-- git golang make binutils
 packages:
 - libnbd
 - libxml2
@@ -14,7 +11,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
 git:
 - add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
@@ -30,12 +27,6 @@ secrets:
 import:
 {{- include "importPackageImages" (list . $builderDeps.packages "install") -}}
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get -qq install -y \
-      {{ $builderDeps.altPackages | join " " }}
-  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     # Install packages
