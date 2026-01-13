@@ -165,6 +165,8 @@ func PropagateVMMetadata(vm *v1alpha2.VirtualMachine, kvvm *virtv1.VirtualMachin
 		vm.GetLabels(),
 		map[string]string{
 			annotations.InhibitNodeShutdownLabel: "",
+			annotations.QuotaDiscountCPU:         vm.Status.Resources.CPU.RuntimeOverhead.String(),
+			annotations.QuotaDiscountMemory:      vm.Status.Resources.Memory.RuntimeOverhead.String(),
 		},
 	)
 	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, propagateLabels)
