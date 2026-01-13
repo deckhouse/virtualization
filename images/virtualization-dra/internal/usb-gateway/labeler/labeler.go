@@ -58,7 +58,7 @@ func (l *genericLabeler) Label(ctx context.Context, name, namespace string, newL
 		return err
 	}
 
-	patch := []byte(fmt.Sprintf("[{'op': 'replace', 'path': '/metadata/labels', 'value': %s}]", value))
+	patch := []byte(fmt.Sprintf(`[{"op": "replace", "path": "/metadata/labels", "value": %s}]`, string(value)))
 
 	_, err = l.client.Resource(l.gvr).Namespace(namespace).Patch(ctx, name, types.JSONPatchType, patch, metav1.PatchOptions{})
 	return err
