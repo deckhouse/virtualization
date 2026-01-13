@@ -82,6 +82,7 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 	}
 
 	if featuregates.Default().USBGatewayEnabled() {
+		// TODO: need pr to deckhouse for enable DRAPartitionableDevices feature gate on ApiServer
 		device.NodeSelector = &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
 				{

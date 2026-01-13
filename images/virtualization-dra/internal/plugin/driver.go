@@ -30,8 +30,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
+	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-dra/internal/common"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
 const DriverName = common.VirtualizationDraPluginName
@@ -182,14 +184,17 @@ func (d *Driver) startPublisher(ctx context.Context) {
 }
 
 func (d *Driver) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
+	slice := resourceslice.Slice{
+		Devices: devices,
+	}
+	if featuregates.Default().USBGatewayEnabled() {
+		slice.PerDeviceNodeSelection = ptr.To(true)
+	}
+
 	return resourceslice.DriverResources{
 		Pools: map[string]resourceslice.Pool{
 			d.nodeName: {
-				Slices: []resourceslice.Slice{
-					{
-						Devices: devices,
-					},
-				},
+				Slices: []resourceslice.Slice{slice},
 			},
 		},
 	}
