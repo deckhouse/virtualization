@@ -58,8 +58,7 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get -qq install -y libxml2-devel \
-      glibc-pthread glibc-devel glibc-devel-static
+    apt-get -qq install -y libxml2-devel
   {{- include "alt packages clean" . | nindent 2 }}
   installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
@@ -140,7 +139,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.24" "builder/golang-alt-svace-1.24" }}
 git:
   - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /

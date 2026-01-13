@@ -2,7 +2,6 @@
 {{- $nameDeps := print $.ImageName "-dependencies" -}}
 {{- define "$nameDeps" -}}
 altPackages:
-- glibc-pthread glibc-devel glibc-devel-static
 - libxml2-devel
 packages:
 - libnbd
