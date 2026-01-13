@@ -155,10 +155,14 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
+	activePod, err := getActivePodName(vm)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(activePod).NotTo(BeEmpty())
+
 	var pod corev1.Pod
-	err := framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
+	err = framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
 		Namespace: vm.Namespace,
-		Name:      getActivePodName(vm),
+		Name:      activePod,
 	}, &pod)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -166,14 +170,14 @@ func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.Virt
 	Expect(err).NotTo(HaveOccurred())
 }
 
-func getActivePodName(vm *v1alpha2.VirtualMachine) string {
+func getActivePodName(vm *v1alpha2.VirtualMachine) (string, error) {
 	for _, pod := range vm.Status.VirtualMachinePods {
 		if pod.Active {
-			return pod.Name
+			return pod.Name, nil
 		}
 	}
-	Fail(fmt.Sprintf("no active pod found for virtual machine %s", vm.Name))
-	return ""
+
+	return "", fmt.Errorf("no active pod found for virtual machine %s", vm.Name)
 }
 
 func UntilVirtualMachineRebooted(key client.ObjectKey, previousRunningTime time.Time, timeout time.Duration) {
