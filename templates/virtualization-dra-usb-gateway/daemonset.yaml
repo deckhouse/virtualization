@@ -71,7 +71,7 @@ spec:
                 - ALL
               add:
                 - SYS_MODULE
-          mounts:
+          volumeMounts:
             - name: lib-modules
               mountPath: /lib/modules
       containers:
