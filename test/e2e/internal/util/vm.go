@@ -155,14 +155,14 @@ func RebootVirtualMachineByVMOP(f *framework.Framework, vm *v1alpha2.VirtualMach
 func RebootVirtualMachineByPodDeletion(f *framework.Framework, vm *v1alpha2.VirtualMachine) {
 	GinkgoHelper()
 
-	activePod, err := getActivePodName(vm)
+	activePodName, err := getActivePodName(vm)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(activePod).NotTo(BeEmpty())
+	Expect(activePodName).NotTo(BeEmpty())
 
 	var pod corev1.Pod
 	err = framework.GetClients().GenericClient().Get(context.Background(), types.NamespacedName{
 		Namespace: vm.Namespace,
-		Name:      activePod,
+		Name:      activePodName,
 	}, &pod)
 	Expect(err).NotTo(HaveOccurred())
 
