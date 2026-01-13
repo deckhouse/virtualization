@@ -26,8 +26,6 @@ shell:
 {{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 altPackages:
-- git
-- curl
 - pkg-config
 - libtool
 - libncurses-devel
@@ -36,11 +34,8 @@ altPackages:
 - libvirt-client
 - libvirt-daemon
 - libvirt
-- gcc
 - gcc-c++
-- glibc-devel-static
 - glibc
-- golang
 packages:
 - libmnl
 {{- end -}}
@@ -49,7 +44,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24.9" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg

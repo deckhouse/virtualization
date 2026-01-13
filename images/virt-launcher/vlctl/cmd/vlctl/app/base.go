@@ -25,7 +25,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+
+	"vlctl/pkg/client"
 )
 
 const (
@@ -64,8 +65,8 @@ func (o *BaseOptions) Validate() error {
 	return nil
 }
 
-func (o *BaseOptions) Client() (cmdclient.LauncherClient, error) {
-	return cmdclient.NewClient(o.Socket)
+func (o *BaseOptions) Client() (client.LauncherClient, error) {
+	return client.NewClient(o.Socket)
 }
 
 func (o *BaseOptions) MarshalOutput(v interface{}) ([]byte, error) {

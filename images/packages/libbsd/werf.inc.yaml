@@ -2,8 +2,7 @@
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc
-- git make libtool libmd-devel
+- libmd-devel
 {{- end -}}
 
 {{- $builderDependencies := include "$name" . | fromYaml }}
@@ -61,6 +60,7 @@ shell:
     OUTDIR=/out
 
     cd /src
+
     ./autogen
     ./configure \
       --prefix=/usr \
