@@ -153,8 +153,6 @@ shell:
     export PYTHON="/usr/bin/python3"
 
     cd /{{ $gitRepoName }}-{{ $version }}
-    # workaround, when werf importing folder from src image, some empty dirs are losing
-    mkdir -p .git/refs/heads .git/refs/tags .git/objects/info
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "

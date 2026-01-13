@@ -60,8 +60,7 @@ shell:
     OUTDIR=/out
 
     cd /src
-    # workaround, when werf importing folder from src image, some empty dirs are losing
-    mkdir -p .git/refs/heads .git/refs/tags .git/objects/info
+
     ./autogen
     ./configure \
       --prefix=/usr \
