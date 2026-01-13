@@ -29,11 +29,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
-	"k8s.io/dynamic-resource-allocation/resourceslice"
-	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-dra/internal/common"
-	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 )
 
 const DriverName = common.VirtualizationDraPluginName
@@ -54,6 +51,7 @@ type Driver struct {
 	allocator  Allocator
 	log        *slog.Logger
 
+	publisher    resourcePublisher
 	helper       *kubeletplugin.Helper
 	pluginCtx    context.Context
 	pluginCancel context.CancelCauseFunc
@@ -63,6 +61,8 @@ func (d *Driver) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancelCause(ctx)
 	d.pluginCtx = ctx
 	d.pluginCancel = cancel
+
+	d.publisher = newNonOwnerPublisher(ctx, d.kubeClient, d.HandleError)
 
 	log.Info("Starting dra plugin")
 	helper, err := kubeletplugin.Start(
@@ -92,6 +92,7 @@ func (d *Driver) Wait() {
 }
 
 func (d *Driver) Shutdown() {
+	d.publisher.Stop()
 	if d.helper != nil {
 		d.log.Info("Stopping dra plugin")
 		d.helper.Stop()
@@ -171,34 +172,13 @@ func (d *Driver) startPublisher(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case devices := <-ch:
-				d.log.Info("Publishing devices", slog.Any("devices", devices))
-				resources := d.makeResources(devices)
-				err := d.helper.PublishResources(ctx, resources)
+			case resources := <-ch:
+				d.log.Info("Publishing devices", slog.Any("resources", resources))
+				err := d.publisher.PublishResources(ctx, resources)
 				if err != nil {
 					d.log.Error("Failed to publish devices", slog.Any("err", err))
 				}
 			}
 		}
 	}()
-}
-
-func (d *Driver) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
-	slice := resourceslice.Slice{
-		Devices: devices,
-	}
-	poolName := d.nodeName
-
-	if featuregates.Default().USBGatewayEnabled() {
-		slice.PerDeviceNodeSelection = ptr.To(true)
-		poolName = "global"
-	}
-
-	return resourceslice.DriverResources{
-		Pools: map[string]resourceslice.Pool{
-			poolName: {
-				Slices: []resourceslice.Slice{slice},
-			},
-		},
-	}
 }

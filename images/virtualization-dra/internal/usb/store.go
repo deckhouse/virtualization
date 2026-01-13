@@ -29,6 +29,7 @@ import (
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
 	"k8s.io/utils/ptr"
 	cdiapi "tags.cncf.io/container-device-interface/pkg/cdi"
@@ -57,7 +58,7 @@ func NewAllocationStore(nodeName, devicesPath string, resyncPeriod time.Duration
 		resyncPeriod:              resyncPeriod,
 		cdi:                       cdiManager,
 		log:                       log.With(slog.String("component", "usb-allocation-store")),
-		updateChannel:             make(chan []resourceapi.Device, 2),
+		updateChannel:             make(chan resourceslice.DriverResources, 2),
 		discoverPluggedUSBDevices: NewDeviceSet(),
 		allocatableDevices:        make(map[string]resourceapi.Device),
 		allocatedDevices:          set.New[string](),
@@ -85,7 +86,7 @@ type AllocationStore struct {
 
 	monitor *monitor
 
-	updateChannel chan []resourceapi.Device
+	updateChannel chan resourceslice.DriverResources
 	mu            sync.RWMutex
 
 	discoverPluggedUSBDevices *DeviceSet
@@ -119,7 +120,7 @@ func (s *AllocationStore) sync() error {
 
 	s.allocatableDevices = allocatableDevicesByName
 
-	s.updateChannel <- allocatableDevices
+	s.updateChannel <- s.makeResources(allocatableDevices)
 
 	return nil
 }
@@ -159,7 +160,7 @@ func (s *AllocationStore) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *AllocationStore) UpdateChannel() chan []resourceapi.Device {
+func (s *AllocationStore) UpdateChannel() chan resourceslice.DriverResources {
 	return s.updateChannel
 }
 
@@ -416,4 +417,24 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 	}
 
 	return result, nil
+}
+
+func (s *AllocationStore) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
+	slice := resourceslice.Slice{
+		Devices: devices,
+	}
+	poolName := s.nodeName
+
+	if featuregates.Default().USBGatewayEnabled() {
+		slice.PerDeviceNodeSelection = ptr.To(true)
+		poolName = "usb-gateway"
+	}
+
+	return resourceslice.DriverResources{
+		Pools: map[string]resourceslice.Pool{
+			poolName: {
+				Slices: []resourceslice.Slice{slice},
+			},
+		},
+	}
 }
