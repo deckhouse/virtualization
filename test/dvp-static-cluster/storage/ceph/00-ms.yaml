@@ -1,0 +1,10 @@
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleSource
+metadata:
+  name: deckhouse-prod
+spec:
+  registry:
+    ca: ""
+    dockerCfg: ""
+    repo: registry.deckhouse.io/deckhouse/ee/modules
+    scheme: HTTPS

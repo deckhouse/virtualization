@@ -1,0 +1,31 @@
+---
+apiVersion: deckhouse.io/v1
+kind: ClusterConfiguration
+clusterType: Static
+podSubnetCIDR: {{ .Values.deckhouse.podSubnetCIDR }}
+podSubnetNodeCIDRPrefix: '24'
+serviceSubnetCIDR: {{ .Values.deckhouse.serviceSubnetCIDR }}
+kubernetesVersion: {{ .Values.deckhouse.kubernetesVersion | quote }}
+clusterDomain: "internal.{{ .Values.discovered.clusterDomain }}"
+defaultCRI: ContainerdV2
+{{- if .Values.deckhouse.proxy }}
+proxy:
+  httpProxy: "{{ .Values.deckhouse.proxy.httpProxy }}"
+  httpsProxy: "{{ .Values.deckhouse.proxy.httpsProxy }}"
+  noProxy:
+  {{- range .Values.deckhouse.proxy.noProxy }}
+  - "{{ . }}"
+  {{- end }}
+{{- end }}
+---
+apiVersion: deckhouse.io/v1
+kind: InitConfiguration
+deckhouse:
+  imagesRepo: dev-registry.deckhouse.io/sys/deckhouse-oss
+  registryDockerCfg: {{ .Values.deckhouse.registryDockerCfg }}
+  devBranch: {{ .Values.deckhouse.tag }}
+---
+apiVersion: deckhouse.io/v1
+kind: StaticClusterConfiguration
+internalNetworkCIDRs:
+  - 10.66.0.0/16

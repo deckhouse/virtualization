@@ -1,0 +1,32 @@
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-node-configurator
+spec:
+  version: 1
+  enabled: true
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: sds-replicated-volume
+spec:
+  version: 1
+  enabled: true
+---
+apiVersion: deckhouse.io/v1alpha2
+kind: ModulePullOverride
+metadata:
+  name: sds-node-configurator
+spec:
+  imageTag: main
+  scanInterval: 10h
+---
+apiVersion: deckhouse.io/v1alpha2
+kind: ModulePullOverride
+metadata:
+  name: sds-replicated-volume
+spec:
+  imageTag: main
+  scanInterval: 10h
