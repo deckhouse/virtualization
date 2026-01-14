@@ -435,21 +435,21 @@ jobs:
           chmod 600 ~/.kube/config
 
           echo "[INFO] Show nodes in cluster"
-          kubectl config use-context nested-e2e-nested-sa
+          kubectl config get-contexts
 
           # some times kubectl get nodes returns error, so we need to retry
-          for i in {1..3}; do
+          for i in {1..5}; do
             echo "Attempt $i/3..."
             if (kubectl get nodes); then
               echo "[SUCCESS] Successfully retrieved nodes."
               break
-            else
-              echo "[INFO] Retrying in 5 seconds..."
-              sleep 5
             fi
+            
+            echo "[INFO] Retrying in 10 seconds..."
+            sleep 10
           done
 
-          if [ $i -eq 3 ]; then
+          if [ $i -eq 5 ]; then
             echo "[ERROR] Failed to retrieve nodes."
             exit 1
           fi

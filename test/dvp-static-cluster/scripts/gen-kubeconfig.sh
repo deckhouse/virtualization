@@ -160,11 +160,18 @@ kubeconfig_set_context() {
     --kubeconfig=${FILE_NAME}
 }
 
+kubeconfig_set_current_context() {
+  log_info "Set current context"
+  kubectl config set current-context ${CONTEXT_NAME} \
+    --kubeconfig=${FILE_NAME}
+}
+
 log_info "Create kubeconfig"
 
 kubeconfig_cert_cluster_section
 kubeconfig_set_credentials
 kubeconfig_set_context
+kubeconfig_set_current_context
 
 log_success "kubeconfig created and stored in ${FILE_NAME}"
 
