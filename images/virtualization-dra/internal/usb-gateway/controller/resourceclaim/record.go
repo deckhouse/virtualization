@@ -61,11 +61,14 @@ func newRecordManager(stateDir string, getter usbip.USBInfoGetter) (*recordManag
 	recordFile := filepath.Join(stateDir, "record.json")
 	if _, err = os.Stat(recordFile); err != nil {
 		if os.IsNotExist(err) {
-			f, err := os.Create(recordFile)
+			b, err := json.Marshal(record{})
 			if err != nil {
 				return nil, err
 			}
-			_ = f.Close()
+			err = os.WriteFile(recordFile, b, 0600)
+			if err == nil {
+				return nil, err
+			}
 		} else {
 			return nil, err
 		}
