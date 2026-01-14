@@ -43,6 +43,7 @@ spec:
       {{- end }}
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
+    additionalGuestMemoryOverheadRatio: "1.2"
     developerConfiguration:
       logVerbosity:
         virtLauncher: {{ $logVerbosity }}
