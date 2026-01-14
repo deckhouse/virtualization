@@ -66,7 +66,7 @@ func newRecordManager(stateDir string, getter usbip.USBInfoGetter) (*recordManag
 				return nil, err
 			}
 			err = os.WriteFile(recordFile, b, 0600)
-			if err == nil {
+			if err != nil {
 				return nil, err
 			}
 		} else {
