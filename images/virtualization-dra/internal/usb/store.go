@@ -20,14 +20,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/containerd/nri/pkg/api"
 	resourceapi "k8s.io/api/resource/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	drapbv1 "k8s.io/kubelet/pkg/apis/dra/v1beta1"
@@ -36,10 +34,8 @@ import (
 	cdispec "tags.cncf.io/container-device-interface/specs-go"
 
 	vdraapi "github.com/deckhouse/virtualization-dra/api"
-	"github.com/deckhouse/virtualization-dra/internal/common"
-	"github.com/deckhouse/virtualization-dra/internal/featuregates"
-
 	"github.com/deckhouse/virtualization-dra/internal/cdi"
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
 	"github.com/deckhouse/virtualization-dra/pkg/set"
 )
 
@@ -63,6 +59,7 @@ func NewAllocationStore(nodeName, devicesPath string, resyncPeriod time.Duration
 		allocatableDevices:        make(map[string]resourceapi.Device),
 		allocatedDevices:          set.New[string](),
 		resourceClaimAllocations:  make(map[types.UID][]string),
+		discoverer:                newDiscoverer(),
 	}
 
 	monitor := newUSBMonitor(monitorCallback{
@@ -89,20 +86,26 @@ type AllocationStore struct {
 	updateChannel chan resourceslice.DriverResources
 	mu            sync.RWMutex
 
-	discoverPluggedUSBDevices *DeviceSet
-	allocatableDevices        map[string]resourceapi.Device
-	allocatedDevices          *set.Set[string]
-	resourceClaimAllocations  map[types.UID][]string
+	discoverer discoverer
+
+	discoverPluggedUSBDevices      *DeviceSet
+	discoverUsbIpPluggedUSBDevices *DeviceSet
+	allocatableDevices             map[string]resourceapi.Device
+
+	allocatedDevices         *set.Set[string]
+	resourceClaimAllocations map[types.UID][]string
 }
 
 func (s *AllocationStore) sync() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	discoverPluggedUSBDevices, err := discoverPluggedUSBDevices(s.devicesPath)
+	discoverPluggedUSBDevices, discoverUsbIpPluggedUSBDevices, err := s.discoverer.DiscoveryPluggedUSBDevices(s.devicesPath)
 	if err != nil {
 		return err
 	}
+	s.discoverUsbIpPluggedUSBDevices = discoverUsbIpPluggedUSBDevices
+
 	if discoverPluggedUSBDevices.Equal(s.discoverPluggedUSBDevices) {
 		return nil
 	}
@@ -175,11 +178,10 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 	claimUID := string(claim.UID)
 
 	preparedDevices := make(cdi.PreparedDevices, len(claim.Status.Allocation.Devices.Results))
+	usbGatewayEnabled := featuregates.Default().USBGatewayEnabled()
+
 	for i, result := range claim.Status.Allocation.Devices.Results {
-		usbDevice, exists := s.allocatableDevices[result.Device]
-		if !exists {
-			return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
-		}
+
 		// TODO: unnecessary?
 		//  kubernetes check allocatable devices
 		//  Warning  FailedScheduling  8s    default-scheduler  0/3 nodes are available:
@@ -190,9 +192,45 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 			return nil, fmt.Errorf("device %v is already allocated", result.Device)
 		}
 
-		containerEditsOptions, err := newContainerEditsOptions(&usbDevice, claim)
-		if err != nil {
-			return nil, err
+		isUSBGatewayRequest := s.isUSBGatewayRequest(&result)
+
+		if !usbGatewayEnabled && isUSBGatewayRequest {
+			return nil, fmt.Errorf("claim %s/%s has usb gateway request but usb gateway is disabled", claim.Namespace, claim.Name)
+		}
+
+		var containerEditsOptions containerEditsOptions
+
+		if isUSBGatewayRequest {
+
+			usbGatewayStatus, err := s.getUsbGatewayStatus(claim, result.Device)
+			if err != nil {
+				return nil, err
+			}
+
+			if !usbGatewayStatus.Attached {
+				return nil, fmt.Errorf("claim %s/%s has usb gateway request but usb gateway is not attached", claim.Namespace, claim.Name)
+			}
+
+			usbDevice := s.getUsbGatewayUsbDevice(usbGatewayStatus.BusID)
+			if usbDevice == nil {
+				return nil, fmt.Errorf("usb device %s is not found", usbGatewayStatus.BusID)
+			}
+
+			containerEditsOptions = newContainerEditsOptionsForUSBGateway(result.Device, usbDevice)
+
+		} else {
+
+			usbDevice, exists := s.allocatableDevices[result.Device]
+			if !exists {
+				return nil, fmt.Errorf("requested device is not allocatable: %v", result.Device)
+			}
+
+			opts, err := newContainerEditsOptions(&usbDevice)
+			if err != nil {
+				return nil, err
+			}
+			containerEditsOptions = opts
+
 		}
 
 		edits, err := s.makeContainerEdits(claimUID, containerEditsOptions)
@@ -225,58 +263,61 @@ func (s *AllocationStore) Prepare(_ context.Context, claim *resourceapi.Resource
 	return devices, nil
 }
 
-func newContainerEditsOptions(device *resourceapi.Device, claim *resourceapi.ResourceClaim) (containerEditsOptions, error) {
+func (s *AllocationStore) getUsbGatewayStatus(claim *resourceapi.ResourceClaim, deviceName string) (*vdraapi.USBGatewayStatus, error) {
+	for _, allocDeviceStatus := range claim.Status.Devices {
+		if allocDeviceStatus.Device == deviceName {
+			return vdraapi.FromData(allocDeviceStatus.Data)
+		}
+	}
+	return nil, fmt.Errorf("device %s is not allocated", deviceName)
+}
+
+func (s *AllocationStore) getUsbGatewayUsbDevice(busID string) *Device {
+	for _, device := range s.discoverUsbIpPluggedUSBDevices.Slice() {
+		if device.BusID == busID {
+			return &device
+		}
+	}
+	return nil
+}
+
+func newContainerEditsOptionsForUSBGateway(deviceName string, usbDevice *Device) containerEditsOptions {
+	return containerEditsOptions{
+		Name:       deviceName,
+		DevicePath: usbDevice.DevicePath,
+		DeviceNum:  usbDevice.DeviceNumber.String(),
+		Bus:        usbDevice.Bus.String(),
+		Major:      int64(usbDevice.Major),
+		Minor:      int64(usbDevice.Minor),
+	}
+}
+
+func newContainerEditsOptions(device *resourceapi.Device) (containerEditsOptions, error) {
 	opts := containerEditsOptions{
 		Name: device.Name,
 	}
 
-	if featuregates.Default().USBGatewayEnabled() && isUSBGateway(claim) {
-		var data *runtime.RawExtension
-		for _, deviceStatus := range claim.Status.Devices {
-			if deviceStatus.Device == device.Name {
-				data = deviceStatus.Data
-				break
-			}
+	if attr, ok := device.Attributes["devicePath"]; ok {
+		if val := attr.StringValue; val != nil {
+			opts.DevicePath = *val
+		} else {
+			return opts, fmt.Errorf("devicePath attribute is not exist")
 		}
-		if data == nil {
-			return opts, fmt.Errorf("device status data is not found")
-		}
+	}
 
-		usbGatewayStatus, ok := data.Object.(*vdraapi.USBGatewayStatus)
-		if !ok {
-			return opts, fmt.Errorf("device status data is not a USBGatewayStatus")
+	if attr, ok := device.Attributes["deviceNumber"]; ok {
+		if val := attr.StringValue; val != nil {
+			opts.DeviceNum = *val
+		} else {
+			return opts, fmt.Errorf("deviceNum attribute is not exist")
 		}
-		if usbGatewayStatus == nil {
-			return opts, fmt.Errorf("device status data Object is nil")
-		}
+	}
 
-		opts.Bus = strconv.Itoa(usbGatewayStatus.BusNum)
-		opts.DeviceNum = strconv.Itoa(usbGatewayStatus.DeviceNum)
-		opts.DevicePath = usbGatewayStatus.DevicePath
-
-	} else {
-		if attr, ok := device.Attributes["devicePath"]; ok {
-			if val := attr.StringValue; val != nil {
-				opts.DevicePath = *val
-			} else {
-				return opts, fmt.Errorf("devicePath attribute is not exist")
-			}
-		}
-
-		if attr, ok := device.Attributes["deviceNumber"]; ok {
-			if val := attr.StringValue; val != nil {
-				opts.DeviceNum = *val
-			} else {
-				return opts, fmt.Errorf("deviceNum attribute is not exist")
-			}
-		}
-
-		if attr, ok := device.Attributes["bus"]; ok {
-			if val := attr.StringValue; val != nil {
-				opts.Bus = *val
-			} else {
-				return opts, fmt.Errorf("bus attribute is not exist")
-			}
+	if attr, ok := device.Attributes["bus"]; ok {
+		if val := attr.StringValue; val != nil {
+			opts.Bus = *val
+		} else {
+			return opts, fmt.Errorf("bus attribute is not exist")
 		}
 	}
 
@@ -299,8 +340,10 @@ func newContainerEditsOptions(device *resourceapi.Device, claim *resourceapi.Res
 	return opts, nil
 }
 
-func isUSBGateway(claim *resourceapi.ResourceClaim) bool {
-	return claim.Annotations[common.USBGatewayAnnotation] == "true"
+func (s *AllocationStore) isUSBGatewayRequest(result *resourceapi.DeviceRequestAllocationResult) bool {
+	// virtualization-dra creates slices with pool name by node name
+	// if pool not equal our node name, it is usb gateway request
+	return result.Pool != s.nodeName
 }
 
 type containerEditsOptions struct {
@@ -420,15 +463,10 @@ func parseDraEnvToClaimAllocations(envs []string) (map[types.UID][]string, error
 }
 
 func (s *AllocationStore) makeResources(devices []resourceapi.Device) resourceslice.DriverResources {
-	//time.Sleep(20 * time.Second)
 	slice := resourceslice.Slice{
 		Devices: devices,
 	}
 	poolName := s.nodeName
-
-	if featuregates.Default().USBGatewayEnabled() {
-		//slice.PerDeviceNodeSelection = ptr.To(true)
-	}
 
 	pool := resourceslice.Pool{
 		Slices: []resourceslice.Slice{slice},

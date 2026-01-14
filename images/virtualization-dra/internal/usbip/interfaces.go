@@ -36,9 +36,19 @@ type USBBinder interface {
 }
 
 type USBAttacher interface {
-	Attach(host, busID string, port int) error
+	Attach(host, busID string, port int) (int, error)
 	Detach(port int) error
+	USBInfoGetter
+}
+
+type USBInfoGetter interface {
 	GetUsedPorts() ([]int, error)
+	GetUsedInfo() ([]UsedInfo, error)
+}
+
+type UsedInfo struct {
+	Port, Busnum, Devnum int
+	LocalBusID           string
 }
 
 type serverImpl struct {

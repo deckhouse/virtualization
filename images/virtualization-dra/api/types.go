@@ -30,14 +30,13 @@ const USBGatewayStatusKind = "USBGatewayStatus"
 type USBGatewayStatus struct {
 	metav1.TypeMeta `json:",inline"`
 
-	BusNum     int    `json:"busNum"`
-	DeviceNum  int    `json:"deviceNum"`
-	DevicePath string `json:"devicePath"`
+	BusID string `json:"busID"`
 
-	TargetIP   string `json:"targetIP"`
-	TargetPort int    `json:"targetPort"`
-	Bound      bool   `json:"bound"`
-	Attached   bool   `json:"attached"`
+	RemoteIP   string `json:"remoteIP"`
+	RemotePort int    `json:"remotePort"`
+
+	Bound    bool `json:"bound"`
+	Attached bool `json:"attached"`
 }
 
 func FromData(data *runtime.RawExtension) (*USBGatewayStatus, error) {

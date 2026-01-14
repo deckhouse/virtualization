@@ -54,6 +54,7 @@ type vhciDriver struct {
 type importDevice struct {
 	hub                                 hubSpeed
 	port, status, devID, busnum, devnum int
+	localBusID                          string
 }
 
 type hubSpeed int
@@ -190,6 +191,7 @@ func (d *vhciDriver) parseStatus(statusBytes []byte) error {
 		idev.devID = devID
 		idev.busnum = busnum
 		idev.devnum = devnum
+		idev.localBusID = localBusID
 
 		if hub == "hs" {
 			idev.hub = hubSpeedHigh

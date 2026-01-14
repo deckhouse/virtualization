@@ -35,23 +35,23 @@ func NewUSBAttacher() USBAttacher {
 type usbAttacher struct{}
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_attach.c#L174
-func (a usbAttacher) Attach(host, busID string, port int) error {
+func (a usbAttacher) Attach(host, busID string, port int) (int, error) {
 	conn, err := a.usbipNetTCPConnect(host, fmt.Sprintf("%d", port))
 	if err != nil {
-		return fmt.Errorf("failed to connect to usbipd: %w", err)
+		return -1, fmt.Errorf("failed to connect to usbipd: %w", err)
 	}
 
 	rhport, err := a.queryImportDevice(conn, busID)
 	if err != nil {
-		return fmt.Errorf("failed to query import device: %w", err)
+		return -1, fmt.Errorf("failed to query import device: %w", err)
 	}
 
 	err = a.recordConnection(host, strconv.Itoa(port), busID, rhport)
 	if err != nil {
-		return fmt.Errorf("failed to record connection: %w", err)
+		return -1, fmt.Errorf("failed to record connection: %w", err)
 	}
 
-	return nil
+	return rhport, nil
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_detach.c#L32
@@ -119,6 +119,31 @@ func (a usbAttacher) GetUsedPorts() ([]int, error) {
 	}
 
 	return ports, nil
+}
+
+func (a usbAttacher) GetUsedInfo() ([]UsedInfo, error) {
+	driver, err := newVhciDriver()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vhci driver: %w", err)
+	}
+
+	var usedInfos []UsedInfo
+
+	for i := 0; i < driver.nports; i++ {
+		idev := &driver.idevs[i]
+
+		vstatus := protocol.DeviceStatus(idev.status)
+		if vstatus == protocol.VDeviceStatusUsed {
+			usedInfos = append(usedInfos, UsedInfo{
+				Port:       idev.port,
+				Busnum:     idev.busnum,
+				Devnum:     idev.devnum,
+				LocalBusID: idev.localBusID,
+			})
+		}
+	}
+
+	return usedInfos, nil
 }
 
 // https://github.com/torvalds/linux/blob/b927546677c876e26eba308550207c2ddf812a43/tools/usb/usbip/src/usbip_network.c#L261

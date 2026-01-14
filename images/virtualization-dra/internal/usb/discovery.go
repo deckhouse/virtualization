@@ -17,20 +17,50 @@ limitations under the License.
 package usb
 
 import (
+	"github.com/deckhouse/virtualization-dra/internal/featuregates"
+	"github.com/deckhouse/virtualization-dra/internal/usbip"
 	"github.com/deckhouse/virtualization-dra/pkg/usb"
 )
 
 const PathToUSBDevices = usb.PathToUSBDevices
 
-func discoverPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, error) {
+func newDiscoverer() discoverer {
+	return discoverer{
+		getter: usbip.NewUSBAttacher(),
+	}
+}
+
+type discoverer struct {
+	getter usbip.USBInfoGetter
+}
+
+func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, *DeviceSet, error) {
 	devices, err := usb.DiscoverPluggedUSBDevices(pathToUSBDevices)
 	if err != nil {
-		return nil, err
-	}
-	usbDeviceSet := NewDeviceSet()
-	for _, device := range devices {
-		usbDeviceSet.Add(toDevice(device))
+		return nil, nil, err
 	}
 
-	return usbDeviceSet, nil
+	busIdMaps := make(map[string]struct{})
+	if featuregates.Default().USBGatewayEnabled() {
+		infos, err := d.getter.GetUsedInfo()
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, info := range infos {
+			busIdMaps[info.LocalBusID] = struct{}{}
+		}
+	}
+
+	usbDeviceSet := NewDeviceSet()
+	usbipDeviceSet := NewDeviceSet()
+
+	for _, device := range devices {
+		if _, ok := busIdMaps[device.BusID]; ok {
+			usbipDeviceSet.Add(toDevice(device))
+		} else {
+			usbDeviceSet.Add(toDevice(device))
+		}
+	}
+
+	return usbDeviceSet, usbipDeviceSet, nil
 }

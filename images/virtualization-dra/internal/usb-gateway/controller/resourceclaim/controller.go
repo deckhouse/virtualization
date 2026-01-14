@@ -408,8 +408,8 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 			return err
 		}
 
-		targetIPAlreadySet := usbGatewayStatus != nil && usbGatewayStatus.TargetIP != ""
-		targetIPWrong := usbGatewayStatus != nil && usbGatewayStatus.TargetIP != c.podIP.String()
+		targetIPAlreadySet := usbGatewayStatus != nil && usbGatewayStatus.RemoteIP != ""
+		targetIPWrong := usbGatewayStatus != nil && usbGatewayStatus.RemoteIP != c.podIP.String()
 
 		if targetIPAlreadySet && !targetIPWrong {
 			continue
@@ -440,8 +440,8 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 			}
 		}
 
-		usbGatewayStatus.TargetIP = c.podIP.String()
-		usbGatewayStatus.TargetPort = c.usbipPort
+		usbGatewayStatus.RemoteIP = c.podIP.String()
+		usbGatewayStatus.RemotePort = c.usbipPort
 		usbGatewayStatus.Bound = true
 
 		data, err := vdraapi.ToData(usbGatewayStatus)
@@ -504,12 +504,30 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 			continue
 		}
 
-		err = c.usbIP.Attach(usbGatewayStatus.TargetIP, busID, usbGatewayStatus.TargetPort)
+		rhport, err := c.usbIP.Attach(usbGatewayStatus.RemoteIP, busID, usbGatewayStatus.RemotePort)
 		if err != nil {
 			return fmt.Errorf("failed to attach usb: %w", err)
 		}
 
+		infos, err := c.usbIP.GetUsedInfo()
+		if err != nil {
+			return fmt.Errorf("failed to get used info: %w", err)
+		}
+
+		var usedInfo *usbip.UsedInfo
+		for _, info := range infos {
+			if info.Port == rhport {
+				usedInfo = &info
+				break
+			}
+		}
+		if usedInfo == nil {
+			return fmt.Errorf("failed to find used info for port %d", rhport)
+		}
+
 		usbGatewayStatus.Attached = true
+		usbGatewayStatus.BusID = usedInfo.LocalBusID
+
 		allocDeviceStatus.Data, err = vdraapi.ToData(usbGatewayStatus)
 		if err != nil {
 			return err

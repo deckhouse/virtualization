@@ -55,5 +55,6 @@ func (o *attachOptions) AddFlags(fs *pflag.FlagSet) {
 func (o *attachOptions) Run(_ *cobra.Command, args []string) error {
 	host := args[0]
 	busID := args[1]
-	return usbip.NewUSBAttacher().Attach(host, busID, o.port)
+	_, err := usbip.NewUSBAttacher().Attach(host, busID, o.port)
+	return err
 }
