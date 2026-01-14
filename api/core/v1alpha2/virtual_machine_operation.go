@@ -49,6 +49,7 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Clone' ? has(self.clone) : true",message="Clone requires clone field."
+// +kubebuilder:validation:XValidation:rule="!(has(self.migrate)) || self.type == 'migrate'",message="spec.migrate can only be set when spec.type is 'Migrate'"
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.
@@ -63,6 +64,8 @@ type VirtualMachineOperationSpec struct {
 	Restore *VirtualMachineOperationRestoreSpec `json:"restore,omitempty"`
 	// Clone defines the clone operation.
 	Clone *VirtualMachineOperationCloneSpec `json:"clone,omitempty"`
+	// Migrate defines the Migrate operation.
+	Migrate *VirtualMachineOperationMigrateSpec `json:"migrate,omitempty"`
 }
 
 // VirtualMachineOperationRestoreSpec defines the restore operation.
@@ -82,6 +85,14 @@ type VirtualMachineOperationCloneSpec struct {
 	NameReplacement []NameReplacement `json:"nameReplacement,omitempty"`
 	// Customization defines customization options for cloning.
 	Customization *VirtualMachineOperationCloneCustomization `json:"customization,omitempty"`
+}
+
+// VirtualMachineOperationMigrateSpec defines the restore operation.
+type VirtualMachineOperationMigrateSpec struct {
+	// NodeSelector is a selector which must be true for the virtual machine to fit on a node.
+	// Selector which must match a node's labels for the virtual machine to be scheduled on
+	// that node.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="!has(self.namePrefix) || (size(self.namePrefix) >= 1 && size(self.namePrefix) <= 59)",message="namePrefix length must be between 1 and 59 characters if set"
@@ -162,7 +173,7 @@ const (
 // * `Start`: Start the virtual machine.
 // * `Stop`: Stop the virtual machine.
 // * `Restart`: Restart the virtual machine.
-// * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
+// * `Migrate`: Migrate the virtual machine to another node where it can be started.
 // * `Evict`: Migrate the virtual machine to another node where it can be started.
 // * `Restore`: Restore the virtual machine from a snapshot.
 // * `Clone`: Clone the virtual machine to a new virtual machine.
