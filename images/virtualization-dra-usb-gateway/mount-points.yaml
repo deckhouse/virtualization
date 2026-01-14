@@ -1,4 +1,5 @@
 # A list of pre-created mount points for containerd strict mode.
 
-dirs: []
+dirs:
+  - /var/run/usb-gateway
 

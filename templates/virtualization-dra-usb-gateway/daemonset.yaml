@@ -113,6 +113,8 @@ spec:
               mountPath: /sys
             - name: var-run
               mountPath: /var/run
+            - name: usb-gateway
+              mountPath: /var/run/usb-gateway
       volumes:
         - name: sys
           hostPath:
@@ -123,4 +125,6 @@ spec:
         - name: lib-modules
           hostPath:
             path: /lib/modules
+        - name: usb-gateway
+          emptyDir: {}
 {{- end }}

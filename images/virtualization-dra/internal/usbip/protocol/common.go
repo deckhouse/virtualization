@@ -96,6 +96,25 @@ const (
 	OpStatusError   OpStatus = 0x05
 )
 
+func (o OpStatus) String() string {
+	switch o {
+	case OpStatusOk:
+		return "OK"
+	case OpStatusNA:
+		return "NA"
+	case OpStatusDevBusy:
+		return "DevBusy"
+	case OpStatusDevErr:
+		return "DevErr"
+	case OpStatusNoDev:
+		return "NoDev"
+	case OpStatusError:
+		return "Error"
+	default:
+		return "Unknown"
+	}
+}
+
 type DeviceStatus uint32
 
 const (

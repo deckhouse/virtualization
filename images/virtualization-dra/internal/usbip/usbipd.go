@@ -208,7 +208,7 @@ func (u *USBIPD) handleConnection(conn net.Conn) (bool, error) {
 	}
 
 	if opCommon.Status != protocol.OpStatusOk {
-		return false, fmt.Errorf("request failed: %d", opCommon.Status)
+		return false, fmt.Errorf("request failed: %s", opCommon.Status.String())
 	}
 
 	switch opCommon.Code {
@@ -270,7 +270,7 @@ func (u *USBIPD) handleImportRequest(conn net.Conn) error {
 
 		status = u.exportDevice(conn, bindDevice)
 		if status != protocol.OpStatusOk {
-			log.Error("failed to export device")
+			log.Error("failed to export device", slog.String("status", status.String()))
 		}
 
 	} else {

@@ -194,7 +194,7 @@ func (a usbAttacher) queryImportDevice(conn *net.TCPConn, busID string) (int, er
 	}
 
 	if importReply.Status != protocol.OpStatusOk {
-		return -1, fmt.Errorf("reply failed: %d", importReply.Status)
+		return -1, fmt.Errorf("reply failed: %s", importReply.Status.String())
 	}
 
 	if importReply.USBDevice.GetBusID() != busID {

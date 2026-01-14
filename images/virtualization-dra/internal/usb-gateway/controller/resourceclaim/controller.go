@@ -68,6 +68,7 @@ type Controller struct {
 	queue                workqueue.TypedRateLimitingInterface[string]
 	log                  *slog.Logger
 	hasSynced            cache.InformerSynced
+	recordManager        *recordManager
 }
 
 func NewController(nodeName string, podIP net.IP, usbipPort int, client kubernetes.Interface, resourceClaimInformer, resourceSliceInformer, nodeInformer, podInformer cache.SharedIndexInformer, usbIP usbip.Interface) (*Controller, error) {
@@ -75,6 +76,11 @@ func NewController(nodeName string, podIP net.IP, usbipPort int, client kubernet
 		workqueue.DefaultTypedControllerRateLimiter[string](),
 		workqueue.TypedRateLimitingQueueConfig[string]{Name: controllerName},
 	)
+
+	recordManager, err := newRecordManager(DefaultRecordStateDir, usbIP)
+	if err != nil {
+		return nil, err
+	}
 
 	c := &Controller{
 		nodeName:             nodeName,
@@ -88,9 +94,10 @@ func NewController(nodeName string, podIP net.IP, usbipPort int, client kubernet
 		usbIP:                usbIP,
 		queue:                queue,
 		log:                  slog.With(slog.String("controller", controllerName)),
+		recordManager:        recordManager,
 	}
 
-	_, err := resourceClaimInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err = resourceClaimInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addResourceClaim,
 		UpdateFunc: c.updateResourceClaim,
 		DeleteFunc: c.deleteResourceClaim,
@@ -217,12 +224,13 @@ func (c *Controller) sync(key string) error {
 		return nil
 	}
 
+	onMyNode := c.podOnMyNode(pod)
+
 	myAllocationDevices, otherAllocationDevices, err := c.getAllocationDevices(rc)
 	if err != nil {
 		return err
 	}
 
-	onMyNode := c.podOnMyNode(pod)
 	shouldShare := !onMyNode && len(myAllocationDevices) > 0
 	shouldAttach := onMyNode && len(otherAllocationDevices) > 0
 
@@ -504,29 +512,14 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 			continue
 		}
 
-		rhport, err := c.usbIP.Attach(usbGatewayStatus.RemoteIP, busID, usbGatewayStatus.RemotePort)
+		err = c.recordManager.Refresh()
 		if err != nil {
+			return fmt.Errorf("failed to Refresh record: %w", err)
+		}
+
+		if err = c.attach(busID, usbGatewayStatus); err != nil {
 			return fmt.Errorf("failed to attach usb: %w", err)
 		}
-
-		infos, err := c.usbIP.GetUsedInfo()
-		if err != nil {
-			return fmt.Errorf("failed to get used info: %w", err)
-		}
-
-		var usedInfo *usbip.UsedInfo
-		for _, info := range infos {
-			if info.Port == rhport {
-				usedInfo = &info
-				break
-			}
-		}
-		if usedInfo == nil {
-			return fmt.Errorf("failed to find used info for port %d", rhport)
-		}
-
-		usbGatewayStatus.Attached = true
-		usbGatewayStatus.BusID = usedInfo.LocalBusID
 
 		allocDeviceStatus.Data, err = vdraapi.ToData(usbGatewayStatus)
 		if err != nil {
@@ -542,6 +535,76 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 		}
 	}
 
+	return nil
+}
+
+func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewayStatus) error {
+	entries := c.recordManager.GetEntries()
+	for _, entry := range entries {
+		if entry.BusID == busID {
+			if entry.RemoteBusID != usbGatewayStatus.RemoteIP || entry.RemotePort != usbGatewayStatus.RemotePort {
+				if err := c.detach(entry.Port); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+
+	var attachErr error
+	var rhport int
+
+	defer func() {
+		if attachErr != nil {
+			if err := c.detach(rhport); err != nil {
+				c.log.Error("failed to detach usb", slog.String("error", err.Error()), slog.Int("port", rhport))
+			}
+		}
+	}()
+
+	rhport, attachErr = c.usbIP.Attach(usbGatewayStatus.RemoteIP, busID, usbGatewayStatus.RemotePort)
+	if attachErr != nil {
+		return fmt.Errorf("failed to attach usb: %w", attachErr)
+	}
+
+	infos, err := c.usbIP.GetUsedInfo()
+	if err != nil {
+		return fmt.Errorf("failed to get used info: %w", err)
+	}
+
+	var usedInfo *usbip.UsedInfo
+	for _, info := range infos {
+		if info.Port == rhport {
+			usedInfo = &info
+			break
+		}
+	}
+	if usedInfo == nil {
+		return fmt.Errorf("failed to find used info for port %d", rhport)
+	}
+
+	entry := Entry{
+		Port:        rhport,
+		RemotePort:  usbGatewayStatus.RemotePort,
+		RemoteIP:    usbGatewayStatus.RemoteIP,
+		RemoteBusID: busID,
+		BusID:       usedInfo.LocalBusID,
+	}
+
+	if err = c.recordManager.AddEntry(entry); err != nil {
+		return fmt.Errorf("failed to add entry: %w", err)
+	}
+
+	usbGatewayStatus.Attached = true
+	usbGatewayStatus.BusID = usedInfo.LocalBusID
+
+	return nil
+}
+
+func (c *Controller) detach(port int) error {
+	if err := c.usbIP.Detach(port); err != nil {
+		return fmt.Errorf("failed to detach usb: %w", err)
+	}
 	return nil
 }
 
