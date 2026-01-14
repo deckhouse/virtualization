@@ -26,7 +26,7 @@ type Entry struct {
 }
 
 func (e Entry) Validate() error {
-	if e.Port <= 0 {
+	if e.Port < 0 {
 		return fmt.Errorf("port is required")
 	}
 	if e.RemotePort <= 0 {
@@ -46,13 +46,13 @@ func (e Entry) Validate() error {
 
 type recordManager struct {
 	recordFile string
-	getter     usbip.USBInfoGetter
+	getter     usbip.AttachInfoGetter
 
 	mu     sync.RWMutex
 	record record
 }
 
-func newRecordManager(stateDir string, getter usbip.USBInfoGetter) (*recordManager, error) {
+func newRecordManager(stateDir string, getter usbip.AttachInfoGetter) (*recordManager, error) {
 	err := os.MkdirAll(stateDir, 0700)
 	if err != nil {
 		return nil, err
@@ -90,12 +90,12 @@ func (r *recordManager) Refresh() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	infos, err := r.getter.GetUsedInfo()
+	infos, err := r.getter.GetAttachInfo()
 	if err != nil {
 		return err
 	}
 
-	byBusId := make(map[string]*usbip.UsedInfo, len(infos))
+	byBusId := make(map[string]*usbip.AttachInfo, len(infos))
 	for _, info := range infos {
 		byBusId[info.LocalBusID] = &info
 	}

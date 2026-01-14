@@ -138,29 +138,9 @@ func (b *usbBinder) getUSBDeviceInfo(busID string) (*usbDeviceInfo, error) {
 	return info, nil
 }
 
-//func (b *usbBinder) storeBind(busID string, bind bool) error {
-//	bound, err := b.isBound(busID)
-//	if err != nil {
-//		return err
-//	}
-//	if bound == bind {
-//		return nil
-//	}
-//	path := bindPath(busID)
-//	if bind {
-//		_, err = os.Create(path)
-//		return err
-//	}
-//	return os.Remove(path)
-//}
-
 func (b *usbBinder) isBound(devInfo *usbDeviceInfo) bool {
 	return devInfo.Driver == usbipHostDriverName
 }
-
-//func bindPath(busID string) string {
-//	return filepath.Join(getUSBDevicePath(busID), "usbip_bound")
-//}
 
 func (b *usbBinder) unbindOther(devInfo *usbDeviceInfo) error {
 	if devInfo.IsHub {

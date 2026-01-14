@@ -31,7 +31,7 @@ func newDiscoverer() discoverer {
 }
 
 type discoverer struct {
-	getter usbip.USBInfoGetter
+	getter usbip.AttachInfoGetter
 }
 
 func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (*DeviceSet, *DeviceSet, error) {
@@ -42,7 +42,7 @@ func (d *discoverer) DiscoveryPluggedUSBDevices(pathToUSBDevices string) (*Devic
 
 	busIdMaps := make(map[string]struct{})
 	if featuregates.Default().USBGatewayEnabled() {
-		infos, err := d.getter.GetUsedInfo()
+		infos, err := d.getter.GetAttachInfo()
 		if err != nil {
 			return nil, nil, err
 		}

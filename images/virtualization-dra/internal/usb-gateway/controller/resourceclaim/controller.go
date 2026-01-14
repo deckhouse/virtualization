@@ -551,28 +551,28 @@ func (c *Controller) attach(busID string, usbGatewayStatus *vdraapi.USBGatewaySt
 		}
 	}
 
-	var attachErr error
+	var err error
 	var rhport int
 
 	defer func() {
-		if attachErr != nil {
+		if err != nil && rhport >= 0 {
 			if err := c.detach(rhport); err != nil {
 				c.log.Error("failed to detach usb", slog.String("error", err.Error()), slog.Int("port", rhport))
 			}
 		}
 	}()
 
-	rhport, attachErr = c.usbIP.Attach(usbGatewayStatus.RemoteIP, busID, usbGatewayStatus.RemotePort)
-	if attachErr != nil {
-		return fmt.Errorf("failed to attach usb: %w", attachErr)
+	rhport, err = c.usbIP.Attach(usbGatewayStatus.RemoteIP, busID, usbGatewayStatus.RemotePort)
+	if err != nil {
+		return fmt.Errorf("failed to attach usb: %w", err)
 	}
 
-	infos, err := c.usbIP.GetUsedInfo()
+	infos, err := c.usbIP.GetAttachInfo()
 	if err != nil {
 		return fmt.Errorf("failed to get used info: %w", err)
 	}
 
-	var usedInfo *usbip.UsedInfo
+	var usedInfo *usbip.AttachInfo
 	for _, info := range infos {
 		if info.Port == rhport {
 			usedInfo = &info

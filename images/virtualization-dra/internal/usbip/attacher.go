@@ -101,40 +101,20 @@ func (a usbAttacher) Detach(port int) error {
 	return nil
 }
 
-func (a usbAttacher) GetUsedPorts() ([]int, error) {
+func (a usbAttacher) GetAttachInfo() ([]AttachInfo, error) {
 	driver, err := newVhciDriver()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vhci driver: %w", err)
 	}
 
-	var ports []int
+	var usedInfos []AttachInfo
 
 	for i := 0; i < driver.nports; i++ {
 		idev := &driver.idevs[i]
 
 		vstatus := protocol.DeviceStatus(idev.status)
 		if vstatus == protocol.VDeviceStatusUsed {
-			ports = append(ports, idev.port)
-		}
-	}
-
-	return ports, nil
-}
-
-func (a usbAttacher) GetUsedInfo() ([]UsedInfo, error) {
-	driver, err := newVhciDriver()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get vhci driver: %w", err)
-	}
-
-	var usedInfos []UsedInfo
-
-	for i := 0; i < driver.nports; i++ {
-		idev := &driver.idevs[i]
-
-		vstatus := protocol.DeviceStatus(idev.status)
-		if vstatus == protocol.VDeviceStatusUsed {
-			usedInfos = append(usedInfos, UsedInfo{
+			usedInfos = append(usedInfos, AttachInfo{
 				Port:       idev.port,
 				Busnum:     idev.busnum,
 				Devnum:     idev.devnum,
