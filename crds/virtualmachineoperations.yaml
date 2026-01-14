@@ -161,6 +161,18 @@ spec:
                     * Effect on `Restart` and `Stop`: operation performs immediately.
                     * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
                   type: boolean
+                migrate:
+                  description: Migrate defines the Migrate operation.
+                  properties:
+                    nodeSelector:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        NodeSelector is a selector which must be true for the virtual machine to fit on a node.
+                        Selector which must match a node's labels for the virtual machine to be scheduled on
+                        that node.
+                      type: object
+                  type: object
                 restore:
                   description: Restore defines the restore operation.
                   properties:
@@ -191,7 +203,7 @@ spec:
                     * `Start`: Start the virtual machine.
                     * `Stop`: Stop the virtual machine.
                     * `Restart`: Restart the virtual machine.
-                    * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
+                    * `Migrate`: Migrate the virtual machine to another node where it can be started.
                     * `Evict`: Migrate the virtual machine to another node where it can be started.
                     * `Restore`: Restore the virtual machine from a snapshot.
                     * `Clone`: Clone the virtual machine to a new virtual machine.
@@ -227,6 +239,8 @@ spec:
                   rule: "self.type == 'Restore' ? has(self.restore) : true"
                 - message: Clone requires clone field.
                   rule: "self.type == 'Clone' ? has(self.clone) : true"
+                - message: spec.migrate can only be set when spec.type is 'Migrate'
+                  rule: "!(has(self.migrate)) || self.type == 'migrate'"
             status:
               properties:
                 conditions:
