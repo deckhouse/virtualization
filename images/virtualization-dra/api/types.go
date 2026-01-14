@@ -17,9 +17,13 @@ limitations under the License.
 package api
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+const USBGatewayStatusKind = "USBGatewayStatus"
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -36,13 +40,35 @@ type USBGatewayStatus struct {
 	Attached   bool   `json:"attached"`
 }
 
-func FromData(data *runtime.RawExtension) *USBGatewayStatus {
+func FromData(data *runtime.RawExtension) (*USBGatewayStatus, error) {
 	if data == nil {
-		return nil
+		return nil, nil
 	}
-	status, ok := data.Object.(*USBGatewayStatus)
+
+	obj, err := runtime.Decode(Codecs.UniversalDecoder(SchemeGroupVersion), data.Raw)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode USBGatewayStatus: %w", err)
+	}
+	status, ok := obj.(*USBGatewayStatus)
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("failed to decode USBGatewayStatus: unexpected object type: %T", obj)
 	}
-	return status
+
+	return status, nil
+}
+
+func ToData(status *USBGatewayStatus) (*runtime.RawExtension, error) {
+	if status == nil {
+		return nil, nil
+	}
+
+	raw, err := runtime.Encode(Codecs.LegacyCodec(SchemeGroupVersion), status)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode USBGatewayStatus: %w", err)
+	}
+
+	return &runtime.RawExtension{
+		Raw:    raw,
+		Object: status,
+	}, nil
 }

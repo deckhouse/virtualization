@@ -47,6 +47,7 @@ func (o *initOptions) Run(_ *cobra.Command, _ []string) error {
 
 	modules := []string{
 		filepath.Join("/lib/modules", kernelRelease, "kernel/drivers/usb/usbip/usbip-core.ko"),
+		filepath.Join("/lib/modules", kernelRelease, "kernel/drivers/usb/usbip/usbip-host.ko"),
 		filepath.Join("/lib/modules", kernelRelease, "kernel/drivers/usb/usbip/vhci-hcd.ko"),
 	}
 

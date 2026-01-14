@@ -54,7 +54,8 @@ func (b *usbBinder) Bind(busID string) error {
 		return fmt.Errorf("failed to bind usb device: %w: %w", err, b.modifyMatchBusID(busID, false))
 	}
 
-	return b.storeBind(busID, true)
+	return nil
+	// return b.storeBind(busID, true)
 }
 
 // Unbind unbinds the USB device from the USBIP server.
@@ -65,7 +66,7 @@ func (b *usbBinder) Unbind(busID string) error {
 		return fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)
 	}
 
-	if devInfo.Driver != usbipHostDriverName {
+	if b.isBound(devInfo) {
 		return fmt.Errorf("device %s is not bound to %s driver", devInfo.BusID, usbipHostDriverName)
 	}
 
@@ -83,11 +84,16 @@ func (b *usbBinder) Unbind(busID string) error {
 		return fmt.Errorf("failed to rebind usb device %s: %w", busID, err)
 	}
 
-	return b.storeBind(busID, false)
+	return nil
+	// return b.storeBind(busID, false)
 }
 
 func (b *usbBinder) IsBound(busID string) (bool, error) {
-	return b.isBound(busID)
+	devInfo, err := b.getUSBDeviceInfo(busID)
+	if err != nil {
+		return false, fmt.Errorf("device with bus ID %s does not exist: %w", busID, err)
+	}
+	return b.isBound(devInfo), nil
 }
 
 type usbDeviceInfo struct {
@@ -132,37 +138,29 @@ func (b *usbBinder) getUSBDeviceInfo(busID string) (*usbDeviceInfo, error) {
 	return info, nil
 }
 
-func (b *usbBinder) storeBind(busID string, bind bool) error {
-	bound, err := b.isBound(busID)
-	if err != nil {
-		return err
-	}
-	if bound == bind {
-		return nil
-	}
-	path := bindPath(busID)
-	if bind {
-		_, err = os.Create(path)
-		return err
-	}
-	return os.Remove(path)
+//func (b *usbBinder) storeBind(busID string, bind bool) error {
+//	bound, err := b.isBound(busID)
+//	if err != nil {
+//		return err
+//	}
+//	if bound == bind {
+//		return nil
+//	}
+//	path := bindPath(busID)
+//	if bind {
+//		_, err = os.Create(path)
+//		return err
+//	}
+//	return os.Remove(path)
+//}
+
+func (b *usbBinder) isBound(devInfo *usbDeviceInfo) bool {
+	return devInfo.Driver == usbipHostDriverName
 }
 
-func (b *usbBinder) isBound(busID string) (bool, error) {
-	path := bindPath(busID)
-	_, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
-}
-
-func bindPath(busID string) string {
-	return filepath.Join(getUSBDevicePath(busID), "usbip_bound")
-}
+//func bindPath(busID string) string {
+//	return filepath.Join(getUSBDevicePath(busID), "usbip_bound")
+//}
 
 func (b *usbBinder) unbindOther(devInfo *usbDeviceInfo) error {
 	if devInfo.IsHub {
@@ -174,7 +172,7 @@ func (b *usbBinder) unbindOther(devInfo *usbDeviceInfo) error {
 		return nil
 	}
 
-	if devInfo.Driver == usbipHostDriverName {
+	if b.isBound(devInfo) {
 		return fmt.Errorf("device %s is already bound to %s", devInfo.BusID, usbipHostDriverName)
 	}
 

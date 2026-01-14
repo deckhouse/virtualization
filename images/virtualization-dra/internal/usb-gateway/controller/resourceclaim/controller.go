@@ -28,7 +28,6 @@ import (
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -246,7 +245,11 @@ func (c *Controller) sync(key string) error {
 
 // TODO: handle detach too
 func (c *Controller) handleDelete(rc *resourcev1beta1.ResourceClaim) error {
-	if c.allUnBound(rc) {
+	unbound, err := c.allUnBound(rc)
+	if err != nil {
+		return err
+	}
+	if unbound {
 		return c.removeFinalizer(rc)
 	}
 
@@ -265,7 +268,10 @@ func (c *Controller) handleDelete(rc *resourcev1beta1.ResourceClaim) error {
 	for i := range rc.Status.Devices {
 		allocatedDeviceStatus := &rc.Status.Devices[i]
 
-		usbGatewayStatus := vdraapi.FromData(allocatedDeviceStatus.Data)
+		usbGatewayStatus, err := vdraapi.FromData(allocatedDeviceStatus.Data)
+		if err != nil {
+			return err
+		}
 		if usbGatewayStatus == nil {
 			continue
 		}
@@ -292,7 +298,10 @@ func (c *Controller) handleDelete(rc *resourcev1beta1.ResourceClaim) error {
 		}
 
 		usbGatewayStatus.Bound = false
-		allocatedDeviceStatus.Data.Object = usbGatewayStatus
+		allocatedDeviceStatus.Data, err = vdraapi.ToData(usbGatewayStatus)
+		if err != nil {
+			return err
+		}
 		shouldUpdate = true
 	}
 
@@ -306,18 +315,21 @@ func (c *Controller) handleDelete(rc *resourcev1beta1.ResourceClaim) error {
 	return nil
 }
 
-func (c *Controller) allUnBound(rc *resourcev1beta1.ResourceClaim) bool {
+func (c *Controller) allUnBound(rc *resourcev1beta1.ResourceClaim) (bool, error) {
 	for _, deviceStatus := range rc.Status.Devices {
-		usbGatewayStatus := vdraapi.FromData(deviceStatus.Data)
+		usbGatewayStatus, err := vdraapi.FromData(deviceStatus.Data)
+		if err != nil {
+			return false, err
+		}
 		if usbGatewayStatus == nil {
 			continue
 		}
 		if usbGatewayStatus.Bound {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }
 
 func (c *Controller) addFinalizer(rc *resourcev1beta1.ResourceClaim) error {
@@ -366,18 +378,49 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 
 		index, ok := indexAllocDevice[device.Name]
 		if !ok {
-			continue
+			var (
+				driver string
+				pool   string
+			)
+			if rc.Status.Allocation != nil {
+				for _, result := range rc.Status.Allocation.Devices.Results {
+					if result.Device == device.Name {
+						driver = result.Driver
+						pool = result.Pool
+					}
+				}
+			}
+			if driver == "" || pool == "" {
+				return fmt.Errorf("device %s is not allocated, driver or pool is empty", device.Name)
+			}
+
+			rc.Status.Devices = append(rc.Status.Devices, resourcev1beta1.AllocatedDeviceStatus{
+				Driver: driver,
+				Pool:   pool,
+				Device: device.Name,
+			})
 		}
 
 		allocDeviceStatus := &rc.Status.Devices[index]
 
-		usbGatewayStatus := vdraapi.FromData(allocDeviceStatus.Data)
+		usbGatewayStatus, err := vdraapi.FromData(allocDeviceStatus.Data)
+		if err != nil {
+			return err
+		}
 
 		targetIPAlreadySet := usbGatewayStatus != nil && usbGatewayStatus.TargetIP != ""
-		if targetIPAlreadySet {
+		targetIPWrong := usbGatewayStatus != nil && usbGatewayStatus.TargetIP != c.podIP.String()
+
+		if targetIPAlreadySet && !targetIPWrong {
 			continue
 		}
-		usbGatewayStatus = &vdraapi.USBGatewayStatus{}
+
+		usbGatewayStatus = &vdraapi.USBGatewayStatus{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: vdraapi.SchemeGroupVersion.String(),
+				Kind:       vdraapi.USBGatewayStatusKind,
+			},
+		}
 
 		busID := ""
 		if attr, ok := device.Basic.Attributes["busID"]; ok && attr.StringValue != nil {
@@ -401,10 +444,12 @@ func (c *Controller) handleServer(rc *resourcev1beta1.ResourceClaim, myAllocatio
 		usbGatewayStatus.TargetPort = c.usbipPort
 		usbGatewayStatus.Bound = true
 
-		if allocDeviceStatus.Data == nil {
-			allocDeviceStatus.Data = &runtime.RawExtension{}
+		data, err := vdraapi.ToData(usbGatewayStatus)
+		if err != nil {
+			return err
 		}
-		allocDeviceStatus.Data.Object = usbGatewayStatus
+
+		allocDeviceStatus.Data = data
 		shouldUpdate = true
 	}
 
@@ -439,7 +484,10 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 			continue
 		}
 		allocDeviceStatus := &rc.Status.Devices[index]
-		usbGatewayStatus := vdraapi.FromData(allocDeviceStatus.Data)
+		usbGatewayStatus, err := vdraapi.FromData(allocDeviceStatus.Data)
+		if err != nil {
+			return err
+		}
 		if usbGatewayStatus == nil {
 			continue
 		}
@@ -456,16 +504,16 @@ func (c *Controller) handleClient(rc *resourcev1beta1.ResourceClaim, otherAlloca
 			continue
 		}
 
-		err := c.usbIP.Attach(usbGatewayStatus.TargetIP, busID, usbGatewayStatus.TargetPort)
+		err = c.usbIP.Attach(usbGatewayStatus.TargetIP, busID, usbGatewayStatus.TargetPort)
 		if err != nil {
 			return fmt.Errorf("failed to attach usb: %w", err)
 		}
 
 		usbGatewayStatus.Attached = true
-		if allocDeviceStatus.Data == nil {
-			allocDeviceStatus.Data = &runtime.RawExtension{}
+		allocDeviceStatus.Data, err = vdraapi.ToData(usbGatewayStatus)
+		if err != nil {
+			return err
 		}
-		allocDeviceStatus.Data.Object = usbGatewayStatus
 		shouldUpdate = true
 	}
 
@@ -573,8 +621,12 @@ func (c *Controller) getAllocationDevices(rc *resourcev1beta1.ResourceClaim) ([]
 		}
 		// now, driver virtualization-dra supports only usb, but we can add more devices later
 		// so we need to check if the device is usb
-		if strings.HasPrefix(status.Device, "usb") {
+		if !strings.HasPrefix(status.Device, "usb") {
 			continue
+		}
+
+		if _, exists := allocResultsByPool[status.Pool]; !exists {
+			allocResultsByPool[status.Pool] = make(map[string]resourcev1beta1.DeviceRequestAllocationResult)
 		}
 
 		allocResultsByPool[status.Pool][status.Device] = status

@@ -83,19 +83,7 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 
 	if featuregates.Default().USBGatewayEnabled() {
 		// TODO: need pr to deckhouse for enable DRAPartitionableDevices feature gate on ApiServer
-		device.NodeSelector = &corev1.NodeSelector{
-			NodeSelectorTerms: []corev1.NodeSelectorTerm{
-				{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
-						{
-							Key:      common.USBGatewayLabel,
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{"true"},
-						},
-					},
-				},
-			},
-		}
+		//device.NodeSelector = getNodeSelector()
 		// TODO: add support for multiple allocations
 		// device.AllowMultipleAllocations = ptr.To(true)
 	} else {
@@ -103,4 +91,20 @@ func convertToAPIDevice(usbDevice Device, nodeName string) *resourceapi.Device {
 	}
 
 	return device
+}
+
+func getNodeSelector() *corev1.NodeSelector {
+	return &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      common.USBGatewayLabel,
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"true"},
+					},
+				},
+			},
+		},
+	}
 }
