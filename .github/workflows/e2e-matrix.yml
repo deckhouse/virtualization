@@ -15,20 +15,54 @@
 name: E2E Matrix Tests (bootstrap)
 
 on:
+  workflow_dispatch:
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
     branches:
       - main
-      - feat/ci-e2e-matrix
-  workflow_dispatch:
 
-permissions:
-  contents: read
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  noop:
-    name: Bootstrap
-    runs-on: ubuntu-latest
-    steps:
-      - name: Say hello
-        run: echo "Bootstrap workflow OK"
+  e2e-ceph:
+    name: E2E Pipeline (Ceph)
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: ceph
+      nested_storageclass_name: nested-ceph-pool-r2-csi-rbd
+      branch: main
+      virtualization_tag: main
+      deckhouse_tag: main
+      default_user: cloud
+      go_version: "1.24.6"
+      e2e_timeout: "3h"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+
+  e2e-replicated:
+    name: E2E Pipeline (Replicated)
+    uses: ./.github/workflows/e2e-reusable-pipeline.yml
+    with:
+      storage_type: replicated
+      nested_storageclass_name: nested-thin-r1
+      branch: main
+      virtualization_tag: main
+      deckhouse_tag: main
+      default_user: cloud
+      go_version: "1.24.6"
+      e2e_timeout: "3h"
+    secrets:
+      DEV_REGISTRY_DOCKER_CFG: ${{ secrets.DEV_REGISTRY_DOCKER_CFG }}
+      VIRT_E2E_NIGHTLY_SA_TOKEN: ${{ secrets.VIRT_E2E_NIGHTLY_SA_TOKEN }}
+      PROD_IO_REGISTRY_DOCKER_CFG: ${{ secrets.PROD_IO_REGISTRY_DOCKER_CFG }}
+      BOOTSTRAP_DEV_PROXY: ${{ secrets.BOOTSTRAP_DEV_PROXY }}
+
