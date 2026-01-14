@@ -171,6 +171,11 @@ const (
 	// DVCRLabelValue provides a constant  for DVCR Pod label values.
 	DVCRLabelValue = "dvcr-data-importer"
 
+	// QuotaExcludeValue provides a constant  for exclude quota value.
+	QuotaExcludeValue = "true"
+	// QuotaExcludeLabel provides a constant  for exclude quota label.
+	QuotaExcludeLabel = "resource-quota-overrides.deckhouse.io/ignore"
+
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
 
