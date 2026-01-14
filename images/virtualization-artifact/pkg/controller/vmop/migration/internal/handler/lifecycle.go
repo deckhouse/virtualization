@@ -510,16 +510,30 @@ func isPodPendingUnschedulable(pod *corev1.Pod) bool {
 	return false
 }
 
-func (h LifecycleHandler) getConditionCompletedMessageByReason(ctx context.Context, reason vmopcondition.ReasonCompleted, mig *virtv1.VirtualMachineInstanceMigration) (string, error) {
-	msg := "Wait until operation is completed"
-	if reason == vmopcondition.ReasonMigrationPending || reason == vmopcondition.ReasonMigrationPrepareTarget {
+func (h LifecycleHandler) getConditionCompletedMessageByReason(
+	ctx context.Context, reason vmopcondition.ReasonCompleted,
+	mig *virtv1.VirtualMachineInstanceMigration,
+) (string, error) {
+	defaultMessage := "Wait until operation is completed."
+	switch reason {
+	case vmopcondition.ReasonMigrationPending:
+		return "The VirtualMachineOperation for migrating the virtual machine has been queued. " +
+			"Waiting for the queue to be processed and for this operation to be executed.", nil
+
+	case vmopcondition.ReasonMigrationPrepareTarget:
+		message := defaultMessage
 		pod, err := h.getTargetPod(ctx, mig)
 		if err != nil {
 			return "", err
 		}
+
 		if isPodPendingUnschedulable(pod) {
-			msg += fmt.Sprintf(" (target pod is unschedulable: %s/%s)", pod.Namespace, pod.Name)
+			message = fmt.Sprintf("Waiting for the virtual machine to be scheduled: "+
+				"target pod \"%s/%s\" is unschedulable.", pod.Namespace, pod.Name)
 		}
+		return message, nil
+
+	default:
+		return defaultMessage, nil
 	}
-	return msg + ".", nil
 }
