@@ -47,7 +47,7 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/golang-alt-svace-1.24" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-alt-1.24" "builder/golang-alt-svace-1.24" }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
@@ -63,12 +63,6 @@ import:
   before: install
 {{- include "importPackageImages" (list . $builderDependencies.packages "install") -}}
 shell:
-  beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get -qq install -y \
-      git binutils make gcc golang
-  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     # Install packages
