@@ -36,6 +36,7 @@ altPackages:
 - libgnutls-openssl-devel
 - libfuse-devel
 - perl-podlators
+- tree
 packages:
 - libgmp libtpms openssl libjson-glib
 - libtasn1
@@ -78,6 +79,13 @@ shell:
 
     cd /src
 
+    # Limit optimisations to x86-64 level 2 microarchitecture.
+    # This prevent "invalid opcode" errors on CPUs without level v3 extensions
+    # AVX2, BMI2, etc.: Intel Ivy Bridge and older, AMD Steamroller and older.
+    export CFLAGS="-march=x86-64-v2"
+    export CPPFLAGS="-march=x86-64-v2"
+    export CXXFLAGS="-march=x86-64-v2"
+
     ./autogen.sh \
       --disable-tests \
       --with-openssl \
@@ -98,3 +106,5 @@ shell:
     rm -rf $OUTDIR/usr/include
     rm -rf $OUTDIR/usr/share
     rm -rf $OUTDIR/usr/libexec/installed-tests
+
+    tree -hp $OUTDIR
