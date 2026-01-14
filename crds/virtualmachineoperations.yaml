@@ -240,7 +240,7 @@ spec:
                 - message: Clone requires clone field.
                   rule: "self.type == 'Clone' ? has(self.clone) : true"
                 - message: spec.migrate can only be set when spec.type is 'Migrate'
-                  rule: "!(has(self.migrate)) || self.type == 'migrate'"
+                  rule: "!(has(self.migrate)) || self.type == 'Migrate'"
             status:
               properties:
                 conditions:
